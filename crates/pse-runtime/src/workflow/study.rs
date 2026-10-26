@@ -785,6 +785,7 @@ impl Runtime {
                             }
                         };
                         Ok(NewOccurrence {
+                            projection: if definition.variants.is_none() {Some(super::study_tables::admission_projection(&definition.points[index])?)} else {None},
                             policy: policy.clone(),
                             descriptor: descriptor.clone(),
                             run: StoredRequest {
@@ -885,14 +886,14 @@ impl Runtime {
         loop {
             let page = self
                 .canonical_store()?
-                .study_outcome_page(study, after)
+                .study_definition_page(study, after)
                 .await?;
             if page.is_empty() {
                 break;
             }
             for point in page {
                 after = Some(point.ordinal);
-                let policy = point.policy()?;
+                let policy = point.policy;
                 if policy.seed_need != pse_model::study::SeedNeed::Pending {
                     continue;
                 }
@@ -1101,10 +1102,11 @@ impl Runtime {
                 )
             }
         };
+        let projection=admission.definition.as_ref().map(super::study_tables::admission_projection).transpose()?;
         let admission = document(&admission)?;
         creation_effect(
             cancel,
-            store.complete_study_admission(scope, fence, &admission, seed_need, diagnostic),
+            store.complete_study_admission(scope, fence, &admission, projection.as_deref(), seed_need, diagnostic),
         )
         .await?;
         Ok(true)
@@ -1846,27 +1848,29 @@ impl Runtime {
                 let mut ordinal = 0_u64;
                 let mut offset = 0_u64;
                 let mut usable = 0_u64;
+                let summary_pool=self.preparation_services().pool();
+                let summary_metadata=Arc::new(pse_columnar::MemoryConsumer::new("study:summary-compact-metadata").register(&summary_pool));
+                let summary_allowance=pse_operations::canonical::MetadataResponse::StudyPage.allocation_bytes()
+                    +(pse_schema::catalog::study_workbench::STUDY_SUMMARY_BUFFER_BYTES+pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES)*8
+                    +2*(pse_schema::catalog::study_workbench::STUDY_SUMMARY_BUFFER_ROWS+pse_schema::catalog::study_workbench::STUDY_OUTCOME_PAGE_ROWS)*size_of::<pse_model::generated::runtime::study_outcomes::Row>();
+                summary_metadata.try_grow(summary_allowance).map_err(pse_engine::EngineError::from)?;
                 loop {
-                    let page = store.study_outcome_page(key, after).await?;
-                    if page.is_empty() {
-                        break;
+                    let mut rows=Vec::new();
+                    let mut retained_bytes=0_usize;
+                    // Metadata page boundaries do not force tiny physical files.
+                    // Demand remains immediate; there is no timer or delayed ACK.
+                    while rows.len()<pse_schema::catalog::study_workbench::STUDY_SUMMARY_BUFFER_ROWS && retained_bytes<pse_schema::catalog::study_workbench::STUDY_SUMMARY_BUFFER_BYTES {
+                        let page=pse_operations::canonical::response_ownership_scope(summary_metadata.clone(),store.study_outcome_page(key,after)).await?;
+                        if page.is_empty() { break; }
+                        for point in page {
+                            after=Some(point.ordinal);
+                            retained_bytes+=point.outcome.len()+point.projection.as_ref().map_or(0,|bytes|bytes.len());
+                            let outcome=point.outcome()?;
+                            usable+=u64::from(outcome.scientific.usable);
+                            rows.push(super::study_tables::projected_outcome_row(study_id,point.projection.as_ref().map(|bytes|bytes.as_slice()),&outcome)?);
+                        }
                     }
-                    let mut rows = Vec::with_capacity(page.len());
-                    for point in page {
-                        after = Some(point.ordinal);
-                        let outcome = point.outcome()?;
-                        usable += u64::from(outcome.scientific.usable);
-                        let admitted = optional_definition(
-                            point.descriptor.as_slice(),
-                            point.admission.as_ref(),
-                            point.policy()?,
-                        )?;
-                        rows.push(super::study_tables::outcome_row(
-                            study_id,
-                            admitted.as_ref(),
-                            &outcome,
-                        ));
-                    }
+                    if rows.is_empty() {break;}
                     let batch = super::study_tables::export::<
                         pse_model::generated::runtime::study_outcomes::Row,
                     >(&self.preparation_services(), rows)?;

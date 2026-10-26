@@ -138,19 +138,19 @@ where
 }
 
 #[derive(Debug)]
-struct OutputFilter {
-    output: String,
-    owner: pse_ids::SemanticId,
-    field: String,
-    partition: String,
-    dense: bool,
-    minimum: Option<f64>,
-    maximum: Option<f64>,
-    missing: Option<bool>,
+pub(super) struct OutputFilter {
+    pub(super) output: String,
+    pub(super) owner: pse_ids::SemanticId,
+    pub(super) field: String,
+    pub(super) partition: String,
+    pub(super) dense: bool,
+    pub(super) minimum: Option<f64>,
+    pub(super) maximum: Option<f64>,
+    pub(super) missing: Option<bool>,
     _owner: MemoryReservation,
 }
 #[derive(Debug)]
-enum OutputRows {
+pub(super) enum OutputRows {
     Scalar,
     Dense(pse_model::generated::runtime::canonical_result_block_outputs::Row),
 }
@@ -207,6 +207,9 @@ pub struct CanonicalResultReader {
     snapshot: super::ResultSnapshot,
 }
 impl CanonicalResultReader {
+    pub(super) fn retain_capture(&self, capture: pse_operations::canonical_study_workbench::StudyCapture) -> Result<(), WorkflowError> {
+        self.reader.decode.retain_capture(capture)
+    }
     fn from_reader(reader: ResultReader) -> Result<Self, WorkflowError> {
         let snapshot = reader
             .snapshot
@@ -452,11 +455,11 @@ struct SelectedBatch {
     _owner: MemoryReservation,
 }
 
-struct BoundedExportFile {
-    file: std::fs::File,
-    remaining: u64,
-    written: u64,
-    cancel: CancellationToken,
+pub(super) struct BoundedExportFile {
+    pub(super) file: std::fs::File,
+    pub(super) remaining: u64,
+    pub(super) written: u64,
+    pub(super) cancel: CancellationToken,
 }
 impl Write for BoundedExportFile {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
@@ -1113,126 +1116,7 @@ impl ResultReader {
                     .indexes
                     .remove(&metadata.batch)
                     .ok_or_else(|| contract("selected output block lacks index"))?;
-                let offsets_owner = MemoryConsumer::new("canonical:selected-source-offsets")
-                    .register(&self.services.preparation().pool());
-                let maximum_offsets = match &indexes {
-                    OutputRows::Scalar => checked.batch().num_rows(),
-                    OutputRows::Dense(_) => checked.batch().num_rows(),
-                };
-                offsets_owner
-                    .try_grow(
-                        maximum_offsets
-                            .checked_mul(size_of::<u32>())
-                            .and_then(|bytes| {
-                                let predicate = if matches!(&indexes, OutputRows::Scalar) {
-                                    // Native Boolean/CASE/comparison temporaries span the
-                                    // original complete batch, even for one selected owner.
-                                    checked.batch().num_rows().checked_mul(64)?
-                                } else {
-                                    0
-                                };
-                                bytes.checked_add(predicate)
-                            })
-                            .ok_or_else(|| contract("selected offset allocation extent"))?,
-                    )
-                    .map_err(pse_engine::EngineError::from)?;
-                let indices = match indexes {
-                    OutputRows::Scalar => {
-                        let selection = self
-                            .native_selection
-                            .as_ref()
-                            .ok_or_else(|| contract("original scalar selection plan absent"))?;
-                        let mask = selection
-                            .mask(checked.batch())
-                            .map_err(pse_engine::EngineError::from)?;
-                        let mut indices = Vec::with_capacity(checked.batch().num_rows());
-                        for offset in 0..checked.batch().num_rows() {
-                            use datafusion::arrow::array::Array;
-                            let coordinate = metadata
-                                .start
-                                .checked_add(offset as u64)
-                                .ok_or_else(|| contract("original scalar coordinate extent"))?;
-                            if coordinate >= lower
-                                && coordinate < upper
-                                && mask.is_valid(offset)
-                                && mask.value(offset)
-                            {
-                                indices.push(u32::try_from(offset).map_err(|_| {
-                                    contract("selected row exceeds Arrow take extent")
-                                })?);
-                            }
-                        }
-                        indices
-                    }
-                    OutputRows::Dense(output) => {
-                        let view=pse_relations::generated::runtime::simulation_samples::View::from_checked(&checked).map_err(super::relation)?;
-                        let first = output
-                            .start
-                            .checked_sub(metadata.start)
-                            .and_then(|n| usize::try_from(n).ok())
-                            .ok_or_else(|| {
-                                contract("dense output starts outside original block")
-                            })?;
-                        let last = output
-                            .end
-                            .checked_sub(metadata.start)
-                            .and_then(|n| usize::try_from(n).ok())
-                            .filter(|last| first < *last && *last <= view.len())
-                            .ok_or_else(|| contract("dense output ends outside original block"))?;
-                        for neighbor in [first.checked_sub(1), (last < view.len()).then_some(last)]
-                            .into_iter()
-                            .flatten()
-                        {
-                            let value = view.row(neighbor).map_err(super::relation)?;
-                            if format!("{}:{}:value", self.relation, value.symbol_id)
-                                == filter.output
-                            {
-                                return Err(contract(
-                                    "dense output omitted original adjacent rows",
-                                ));
-                            }
-                        }
-                        let mut indices = Vec::with_capacity(last - first);
-                        let mut min = f64::INFINITY;
-                        let mut max = f64::NEG_INFINITY;
-                        for row in first..last {
-                            let value = view.row(row).map_err(super::relation)?;
-                            if format!("{}:{}:value", self.relation, value.symbol_id)
-                                != filter.output
-                            {
-                                return Err(contract(
-                                    "dense output range differs from original scientific rows",
-                                ));
-                            }
-                            min = min.min(value.time);
-                            max = max.max(value.time);
-                            let coordinate = metadata.start + row as u64;
-                            if coordinate >= self.start
-                                && coordinate < self.end
-                                && filter.minimum.is_none_or(|lower| value.time >= lower)
-                                && filter.maximum.is_none_or(|upper| value.time <= upper)
-                            {
-                                indices.push(u32::try_from(row).map_err(|_| {
-                                    contract("selected trajectory row exceeds Arrow take extent")
-                                })?);
-                            }
-                        }
-                        if output.coordinate_min != Some(min) || output.coordinate_max != Some(max)
-                        {
-                            return Err(contract(
-                                "dense coordinate projection differs from exact recorded time",
-                            ));
-                        }
-                        indices
-                    }
-                };
-                if indices.is_empty() {
-                    continue;
-                }
-                let rows =
-                    super::result_snapshot::SelectedRows::from_offsets(indices, offsets_owner)?;
-                let selected =
-                    rows.apply(&checked, &self.services.preparation().pool(), &self.cancel)?;
+                let Some((selected,rows))=select_original_rows(&self.services,self.relation,filter,self.native_selection.as_deref(),&metadata,indexes,checked,self.start,self.end,&self.cancel)? else {continue;};
                 if let Some(builder) = frozen.as_deref_mut() {
                     builder.push(&metadata, &descriptor, rows)?;
                 }
@@ -1794,7 +1678,33 @@ impl SourceServices {
                 if start > end {
                     return Err(contract("result row range is reversed"));
                 }
-                let spec = self
+                let filter=output_filter(self,relation,owner,field,partition,minimum,maximum,missing)?;
+                // The immutable typed predicate exists before any block/descriptor RPC.
+                let extent = pooled_response_owner(
+                    &self.preparation().pool(),
+                    "canonical:selected-result-selection",
+                    MetadataResponse::Selection,
+                )?;
+                let reader = self
+                    .result_reader_body(
+                        TerminalResultSelection::Exact { run, attempt },
+                        relation,
+                        start,
+                        end,
+                        cancel,
+                        extent,
+                        Some(filter),
+                    )?
+                    .await?;
+                Ok(SelectedResultReader { reader })
+            })
+            .await
+    }
+}
+
+#[allow(clippy::too_many_arguments,reason="one exact output predicate preserves all original coordinates")]
+pub(super) fn output_filter(services:&SourceServices,relation:&str,owner:pse_ids::SemanticId,field:&str,partition:&str,minimum:Option<f64>,maximum:Option<f64>,missing:Option<bool>)->Result<Arc<OutputFilter>,WorkflowError> {
+                let spec = services
                     .preparation()
                     .registry()
                     .relation(relation)
@@ -1824,7 +1734,7 @@ impl SourceServices {
                     .and_then(|bytes| bytes.checked_add(128))
                     .ok_or_else(|| contract("output selection allocation extent"))?;
                 let filter_owner = MemoryConsumer::new("canonical:output-selection")
-                    .register(&self.preparation().pool());
+                    .register(&services.preparation().pool());
                 filter_owner
                     .try_grow(admitted + size_of::<OutputFilter>() + 2 * size_of::<usize>())
                     .map_err(pse_engine::EngineError::from)?;
@@ -1853,27 +1763,134 @@ impl SourceServices {
                     ));
                 }
                 filter._owner.shrink(admitted - retained);
-                // The immutable typed predicate exists before any block/descriptor RPC.
-                let extent = pooled_response_owner(
-                    &self.preparation().pool(),
-                    "canonical:selected-result-selection",
-                    MetadataResponse::Selection,
-                )?;
-                let reader = self
-                    .result_reader_body(
-                        TerminalResultSelection::Exact { run, attempt },
-                        relation,
-                        start,
-                        end,
-                        cancel,
-                        extent,
-                        Some(Arc::new(filter)),
-                    )?
-                    .await?;
-                Ok(SelectedResultReader { reader })
-            })
-            .await
-    }
+    Ok(Arc::new(filter))
+}
+
+pub(super) fn select_original_rows(
+    services:&SourceServices,relation:pse_ids::SemanticId,filter:&OutputFilter,native_selection:Option<&super::result_snapshot::NativeResultSelection>,
+    metadata:&BlockMetadata,indexes:OutputRows,checked:pse_relations::columnar::FieldCheckedBatch,start:u64,end:u64,cancel:&CancellationToken,
+)->Result<Option<(pse_relations::columnar::FieldCheckedBatch,super::result_snapshot::SelectedRows)>,WorkflowError> {
+    let lower=start.max(metadata.start);let upper=end.min(metadata.end);
+    if lower>=upper {return Ok(None);}
+                let offsets_owner = MemoryConsumer::new("canonical:selected-source-offsets")
+                    .register(&services.preparation().pool());
+                let maximum_offsets = match &indexes {
+                    OutputRows::Scalar => checked.batch().num_rows(),
+                    OutputRows::Dense(_) => checked.batch().num_rows(),
+                };
+                offsets_owner
+                    .try_grow(
+                        maximum_offsets
+                            .checked_mul(size_of::<u32>())
+                            .and_then(|bytes| {
+                                let predicate = if matches!(&indexes, OutputRows::Scalar) {
+                                    // Native Boolean/CASE/comparison temporaries span the
+                                    // original complete batch, even for one selected owner.
+                                    checked.batch().num_rows().checked_mul(64)?
+                                } else {
+                                    0
+                                };
+                                bytes.checked_add(predicate)
+                            })
+                            .ok_or_else(|| contract("selected offset allocation extent"))?,
+                    )
+                    .map_err(pse_engine::EngineError::from)?;
+                let indices = match indexes {
+                    OutputRows::Scalar => {
+                        let selection = native_selection
+                            .ok_or_else(|| contract("original scalar selection plan absent"))?;
+                        let mask = selection
+                            .mask(checked.batch())
+                            .map_err(pse_engine::EngineError::from)?;
+                        let mut indices = Vec::with_capacity(checked.batch().num_rows());
+                        for offset in 0..checked.batch().num_rows() {
+                            use datafusion::arrow::array::Array;
+                            let coordinate = metadata
+                                .start
+                                .checked_add(offset as u64)
+                                .ok_or_else(|| contract("original scalar coordinate extent"))?;
+                            if coordinate >= lower
+                                && coordinate < upper
+                                && mask.is_valid(offset)
+                                && mask.value(offset)
+                            {
+                                indices.push(u32::try_from(offset).map_err(|_| {
+                                    contract("selected row exceeds Arrow take extent")
+                                })?);
+                            }
+                        }
+                        indices
+                    }
+                    OutputRows::Dense(output) => {
+                        let view=pse_relations::generated::runtime::simulation_samples::View::from_checked(&checked).map_err(super::relation)?;
+                        let first = output
+                            .start
+                            .checked_sub(metadata.start)
+                            .and_then(|n| usize::try_from(n).ok())
+                            .ok_or_else(|| {
+                                contract("dense output starts outside original block")
+                            })?;
+                        let last = output
+                            .end
+                            .checked_sub(metadata.start)
+                            .and_then(|n| usize::try_from(n).ok())
+                            .filter(|last| first < *last && *last <= view.len())
+                            .ok_or_else(|| contract("dense output ends outside original block"))?;
+                        for neighbor in [first.checked_sub(1), (last < view.len()).then_some(last)]
+                            .into_iter()
+                            .flatten()
+                        {
+                            let value = view.row(neighbor).map_err(super::relation)?;
+                            if format!("{}:{}:value", relation, value.symbol_id)
+                                == filter.output
+                            {
+                                return Err(contract(
+                                    "dense output omitted original adjacent rows",
+                                ));
+                            }
+                        }
+                        let mut indices = Vec::with_capacity(last - first);
+                        let mut min = f64::INFINITY;
+                        let mut max = f64::NEG_INFINITY;
+                        for row in first..last {
+                            let value = view.row(row).map_err(super::relation)?;
+                            if format!("{}:{}:value", relation, value.symbol_id)
+                                != filter.output
+                            {
+                                return Err(contract(
+                                    "dense output range differs from original scientific rows",
+                                ));
+                            }
+                            min = min.min(value.time);
+                            max = max.max(value.time);
+                            let coordinate = metadata.start + row as u64;
+                            if coordinate >= start
+                                && coordinate < end
+                                && filter.minimum.is_none_or(|lower| value.time >= lower)
+                                && filter.maximum.is_none_or(|upper| value.time <= upper)
+                            {
+                                indices.push(u32::try_from(row).map_err(|_| {
+                                    contract("selected trajectory row exceeds Arrow take extent")
+                                })?);
+                            }
+                        }
+                        if output.coordinate_min != Some(min) || output.coordinate_max != Some(max)
+                        {
+                            return Err(contract(
+                                "dense coordinate projection differs from exact recorded time",
+                            ));
+                        }
+                        indices
+                    }
+                };
+                if indices.is_empty() {
+                    return Ok(None);
+                }
+                let rows =
+                    super::result_snapshot::SelectedRows::from_offsets(indices, offsets_owner)?;
+                let selected =
+                    rows.apply(&checked, &services.preparation().pool(), cancel)?;
+    Ok(Some((selected,rows)))
 }
 
 fn write_output_identity(

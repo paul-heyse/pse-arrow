@@ -24,13 +24,13 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 from unittest.mock import MagicMock, patch
 
+from scripts import test_resources
 from scripts import systemd_environment
 from scripts import operation_lifetime
 from scripts import (
     build_environment,
     build_measurements,
     host_admission,
-    producer_deployment,
     pse_env,
     resource_store,
     surreal_server,
@@ -1392,10 +1392,9 @@ class NativeOperationTests(unittest.TestCase):
                     return_value=(high, "registry#highs-sys@1.15.0"),
                 ) as build,
                 patch.object(
-                    producer_deployment,
+                    pipeline.producer_receipts,
                     "verify_native_provider",
                     side_effect=lambda *_: pipeline.highs_files(high) == expected,
-                    create=True,
                 ) as verify,
             ):
                 self.assertEqual(pipeline._highs_candidate(env, inputs), high)  # noqa: SLF001 -- control the provider candidate-before-build boundary directly
@@ -2172,7 +2171,7 @@ class NativeOperationTests(unittest.TestCase):
                     # Real shared-host guard retention is tested in a private ledger
                     # so this disposable scope cannot strand host admission.
                     "n.register_terminal_guard=lambda *_args,**_kwargs:None",
-                    "base=Path(sys.argv[1]); path=r.invocation('python',[]); n.register_composer(path)",
+                    "base=Path(sys.argv[1]); path=r.invocation('python',[]); r.register_composer(path)",
                     "operation_lifetime.write_json(base/'ready.json',{'scope':operation_lifetime.scope_owner(),'operation':str(n.owner_record()),'owner':n._record(n.owner_record()),'invocation':str(path)})",
                     "time.sleep(30)",
                 ]
@@ -3587,7 +3586,7 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                 started = time.monotonic()
                 try:
                     with self.assertRaises(host_admission.AdmissionError):
-                        operation.register_composer(path, deadline=started + 0.04)
+                        test_resources.register_composer(path, deadline=started + 0.04)
                 finally:
                     os.close(descriptor)
                     timer.join(timeout=0.1)
@@ -3636,7 +3635,7 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                     operation.Operation(base) as parent,
                 ):
                     path = resources.invocation("python", [])
-                    register = operation.register_composer
+                    register = test_resources.register_composer
 
                     def transition(
                         selected: Path,
@@ -3656,7 +3655,7 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                         )
                     with (
                         patch.object(
-                            operation, "register_composer", side_effect=transition
+                            test_resources, "register_composer", side_effect=transition
                         ),
                         patch.object(
                             operation,
@@ -3715,7 +3714,7 @@ operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group'
                 operation.Operation(base) as parent,
             ):
                 path = resources.invocation("python", [])
-                operation.register_composer(path)
+                test_resources.register_composer(path)
                 elapsed = [0.0]
 
                 def advance(delay: float) -> None:

@@ -140,10 +140,15 @@ experiment *args:
     exec "{{ py }}" -m scripts.experiments "$@"
 
 [group('env')]
+[doc('Explicitly build the product allocation materializer used before managed deployment effects')]
+deployment-build:
+    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p pse-runtime --bin pse-deployment --no-default-features --locked
+
+[group('env')]
 [doc('Initialize a clean canonical database; ordinary runtime opening never installs schema')]
 canonical-init state:
-    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin xtask --no-default-features --features canonical-tools --locked
-    "{{ py }}" scripts/surreal_server.py initialize --state {{ quote(state) }} --initializer-command "{{ justfile_directory() }}/target/debug/xtask" canonical-init {{ quote(state) }}
+    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p pse-operations --bin pse-canonical-init --no-default-features --locked
+    "{{ py }}" scripts/surreal_server.py initialize --state {{ quote(state) }} --initializer-command "{{ justfile_directory() }}/target/debug/pse-canonical-init" {{ quote(state) }}
 
 [group('local')]
 [doc('Explicitly build the dedicated tooling evidence operator; inspection never builds it implicitly')]
@@ -160,7 +165,7 @@ evidence *args:
 [group('local')]
 [doc('Explicitly build the dedicated project metadata operator')]
 project-build:
-    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin pse-project --no-default-features --features project-tools --locked
+    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p pse-runtime --bin pse-project --no-default-features --features product-operators --locked
 
 [group('local')]
 [doc('Use owned project metadata commands; --state selects the existing canonical deployment')]
@@ -249,7 +254,7 @@ python-runner-unit-test *args:
 [doc('Worker CLI admission budgets against the configured managed process allocation')]
 [positional-arguments]
 worker-cli-unit-test *args:
-    scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p xtask --bin pse-worker --locked --features native-solvers "$@"
+    scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p pse-runtime --bin pse-worker --locked --features product-operators,native-solvers "$@"
 
 [group('local')]
 [doc('Miri controls for the pure qualified scientific reconstruction authority')]
@@ -261,7 +266,7 @@ scientific-replay-miri:
 [script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 pse-worker *args:
-    cargo build --locked -p xtask --bin pse-worker --features native-solvers
+    cargo build --locked -p pse-runtime --bin pse-worker --features product-operators,native-solvers
     "{{ py }}" scripts/surreal_server.py worker --worker-command "$PWD/target/debug/pse-worker" "$@"
 
 [group('local')]
@@ -269,7 +274,8 @@ pse-worker *args:
 [script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 worker-test *args:
-    scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin pse-worker --bin xtask --locked --no-default-features --features native-solvers,canonical-tools
+    scripts/pse-env --native -- "{{ py }}" -m scripts.arrow_validation build -p pse-runtime --bin pse-worker --locked --no-default-features --features product-operators,native-solvers
+    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin xtask --locked --no-default-features --features canonical-tools
     PSE_WORKER_BINARY="$PWD/target/debug/pse-worker" scripts/pse-env --native --store -- "{{ py }}" scripts/select.py --features pse-runtime/native-solvers integration pse-runtime worker "$@"
 
 # ---------------------------------------------------------------- discovery --

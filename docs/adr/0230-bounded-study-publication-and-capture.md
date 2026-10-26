@@ -28,7 +28,7 @@ settlement, inline/sealed placement and scientific permission are preservation c
 ## Scope
 
 Own the new durable installation/capture relation families within existing canonical authority.
-D01–D06 remain the execution scope. Publish changed canonical interpretation once with all current
+D01–D06 remain the execution scope. Publish pse.substrate.v10 once with all current
 writers/readers, retention and backup classifications before activation on new owned disposable
 state. Preserve prior stores and evidence. No compatibility path or numerical algorithm changes.
 

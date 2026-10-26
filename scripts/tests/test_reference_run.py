@@ -20,8 +20,8 @@ class ReferenceRunTests(unittest.TestCase):
     def test_initializer_is_frozen_before_the_shared_build_alias_changes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            source = root / "xtask"
-            source.write_text("#!/bin/sh\nprintf 'canonical-init help\\n'\n")
+            source = root / "pse-canonical-init"
+            source.write_text('#!/bin/sh\nprintf \'%s\\n\' \'{"version":1,"canonical_initialize":true,"phase":"description"}\'\n')
             source.chmod(0o700)
             frozen = reference_run.freeze_initializer(source, root / "invocation.json")
             before = frozen.read_bytes()
@@ -133,22 +133,23 @@ class ReferenceRunTests(unittest.TestCase):
         self.assertEqual(result["cleanup"], "unresolved")
 
     def test_setup_build_failure_never_enters_reference_lifetime(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            worker = Path(temporary) / "worker"
-            worker.touch()
-            with (
-                patch.dict(os.environ, {}, clear=True),
-                patch.object(
-                    reference_run.test_resources,
-                    "invocation",
-                    return_value=Path("/exact/invocation"),
-                ),
-                patch.object(reference_run, "checkpoint"),
-                patch.object(reference_run.subprocess, "call", return_value=9) as run,
-            ):
-                result = reference_run.execute(Path("/selected"), worker, ["work"])
-            self.assertEqual(result["setup"], "build failed")
-            self.assertEqual(run.call_count, 1)
+        for results, expected in (([9], "deployment build failed"), ([0, 9], "build failed")):
+            with self.subTest(results=results), tempfile.TemporaryDirectory() as temporary:
+                worker = Path(temporary) / "worker"
+                worker.touch()
+                with (
+                    patch.dict(os.environ, {}, clear=True),
+                    patch.object(
+                        reference_run.test_resources,
+                        "invocation",
+                        return_value=Path("/exact/invocation"),
+                    ),
+                    patch.object(reference_run, "checkpoint"),
+                    patch.object(reference_run.subprocess, "call", side_effect=results) as run,
+                ):
+                    result = reference_run.execute(Path("/selected"), worker, ["work"])
+                self.assertEqual(result["setup"], expected)
+                self.assertEqual(run.call_count, len(results))
 
     def test_unrelated_live_service_is_not_stopped(self) -> None:
         with (

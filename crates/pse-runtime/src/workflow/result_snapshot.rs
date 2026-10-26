@@ -39,14 +39,36 @@ struct SnapshotInner {
 /// inventories and bounded selected pages supply their own exact descriptors.
 #[derive(Debug)]
 pub(super) struct ProtectedResultDecode {
-    pub(super) services: SourceServices,
     pub(super) read: Arc<ResultRead>,
+    pub(super) read_owner: Arc<MemoryReservation>,
+    capture_custody: std::sync::OnceLock<pse_operations::canonical_study_workbench::StudyCapture>,
+    decode: Arc<ResultBlockDecode>,
+}
+impl std::ops::Deref for ProtectedResultDecode {
+    type Target=ResultBlockDecode;
+    fn deref(&self)->&Self::Target {&self.decode}
+}
+/// One actual byte decoder shared by ordinary terminal reads and exact captures.
+#[derive(Debug)]
+pub(super) struct ResultBlockDecode {
+    pub(super) services: SourceServices,
     relation: pse_ids::SemanticId,
     pub(super) schema: SchemaRef,
     admission: Arc<pse_relations::validate::ValidationContext>,
     cache: tokio::sync::Mutex<Option<CachedFile>>,
-    pub(super) read_owner: Arc<MemoryReservation>,
     _owner: MemoryReservation,
+}
+/// An opaque original read grant or the exact captured occurrence, never an ID alone.
+#[derive(Clone,Debug)]
+pub(super) enum ResultPayloadAuthority {
+    Terminal {
+        read: Arc<ResultRead>,
+        owner: Arc<MemoryReservation>,
+        capture: Option<pse_operations::canonical_study_workbench::StudyCapture>,
+    },
+    Capture {
+        read: Arc<pse_operations::canonical_capture_results::CapturedResultRead>,
+    },
 }
 impl ProtectedResultDecode {
     pub(super) fn new(
@@ -56,29 +78,34 @@ impl ProtectedResultDecode {
         relation: pse_ids::SemanticId,
         schema: SchemaRef,
     ) -> Result<Arc<Self>, WorkflowError> {
-        let required = read
-            .retained_bytes()?
-            .checked_add(MetadataResponse::Protection.allocation_bytes())
-            .ok_or_else(|| contract("result protected metadata extent"))?;
-        if read_owner.size() < required {
-            return Err(contract("result read metadata is not prepaid"));
-        }
+        let required=read.retained_bytes()?.checked_add(MetadataResponse::Protection.allocation_bytes())
+            .ok_or_else(||contract("result protected metadata extent"))?;
+        if read_owner.size()<required {return Err(contract("result read metadata is not prepaid"));}
         read.retain_metadata_owner(read_owner.clone())?;
-        let owner = MemoryConsumer::new("canonical:protected-result-decoder")
-            .register(&services.preparation().pool());
-        owner
-            .try_grow(size_of::<Self>() + 2 * size_of::<usize>())
-            .map_err(pse_engine::EngineError::from)?;
-        Ok(Arc::new(Self {
-            services: services.clone(),
-            read,
-            read_owner,
-            relation,
-            schema,
-            admission: services.preparation().admission_context(),
-            cache: tokio::sync::Mutex::new(None),
-            _owner: owner,
-        }))
+        let decode=ResultBlockDecode::new(services,relation,schema)?;
+        decode._owner.try_grow(size_of::<Self>()+2*size_of::<usize>()).map_err(pse_engine::EngineError::from)?;
+        Ok(Arc::new(Self {read,read_owner,capture_custody:std::sync::OnceLock::new(),decode}))
+    }
+    pub(super) fn retain_capture(&self,capture:pse_operations::canonical_study_workbench::StudyCapture)->Result<(),WorkflowError> {
+        if self.capture_custody.get().is_some_and(|old|old.key()!=capture.key()) {return Err(contract("result capture custody differs"));}
+        let _=self.capture_custody.set(capture);
+        Ok(())
+    }
+    fn authority(&self)->ResultPayloadAuthority {
+        ResultPayloadAuthority::Terminal{read:self.read.clone(),owner:self.read_owner.clone(),capture:self.capture_custody.get().cloned()}
+    }
+    pub(super) async fn read_block(&self,block:&Block,descriptor:&FileBatch,cancel:&CancellationToken)->Result<pse_relations::columnar::FieldCheckedBatch,WorkflowError> {
+        self.decode.read_block(self.authority(),block,descriptor,cancel).await
+    }
+    pub(super) async fn validate_pruned_block(&self,block:&Block,descriptor:&FileBatch,cancel:&CancellationToken)->Result<(),WorkflowError> {
+        self.decode.access_block(self.authority(),block,descriptor,cancel,false).await.map(|_|())
+    }
+}
+impl ResultBlockDecode {
+    pub(super) fn new(services:&SourceServices,relation:pse_ids::SemanticId,schema:SchemaRef)->Result<Arc<Self>,WorkflowError> {
+        let owner=MemoryConsumer::new("canonical:protected-result-decoder").register(&services.preparation().pool());
+        owner.try_grow(size_of::<Self>()+2*size_of::<usize>()).map_err(pse_engine::EngineError::from)?;
+        Ok(Arc::new(Self {services:services.clone(),relation,schema,admission:services.preparation().admission_context(),cache:tokio::sync::Mutex::new(None),_owner:owner}))
     }
 }
 
@@ -280,29 +307,20 @@ impl ResultSnapshot {
     }
 }
 
-impl ProtectedResultDecode {
+impl ResultBlockDecode {
     pub(super) async fn read_block(
         &self,
+        authority: ResultPayloadAuthority,
         block: &Block,
         descriptor: &FileBatch,
         cancel: &CancellationToken,
-    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        self.access_block(block, descriptor, cancel, true)
-            .await?
-            .ok_or_else(|| contract("protected native batch decode absent"))
-    }
-    pub(super) async fn validate_pruned_block(
-        &self,
-        block: &Block,
-        descriptor: &FileBatch,
-        cancel: &CancellationToken,
-    ) -> Result<(), WorkflowError> {
-        self.access_block(block, descriptor, cancel, false)
-            .await
-            .map(|_| ())
+    )->Result<pse_relations::columnar::FieldCheckedBatch,WorkflowError> {
+        self.access_block(authority,block,descriptor,cancel,true).await?
+            .ok_or_else(||contract("protected native batch decode absent"))
     }
     async fn access_block(
         &self,
+        authority: ResultPayloadAuthority,
         block: &Block,
         descriptor: &FileBatch,
         cancel: &CancellationToken,
@@ -369,10 +387,11 @@ impl ProtectedResultDecode {
             let (source, count) = match &locator {
                 pse_operations::canonical_execution::PayloadLocator::Sealed { .. } => {
                     let file = pse_operations::canonical::response_ownership_scope(
-                        Arc::new((self.read.clone(), self.read_owner.clone(), response)),
-                        self.services
-                            .canonical_store()?
-                            .open_result_file(&self.read, descriptor),
+                        Arc::new((authority.clone(), response)),
+                        async { match &authority {
+                            ResultPayloadAuthority::Terminal {read,owner,capture} => {let _custody=(owner,capture); self.services.canonical_store()?.open_result_file(read,descriptor).await.map_err(WorkflowError::from)},
+                            ResultPayloadAuthority::Capture {read} => read.open_result_file(descriptor).await.map_err(WorkflowError::from),
+                        } },
                     )
                     .await?;
                     let count = usize::try_from(file.descriptor().batch_count)
@@ -384,10 +403,11 @@ impl ProtectedResultDecode {
                 }
                 pse_operations::canonical_execution::PayloadLocator::Inline { .. } => {
                     let body = pse_operations::canonical::response_ownership_scope(
-                        Arc::new((self.read.clone(), self.read_owner.clone(), response)),
-                        self.services
-                            .canonical_store()?
-                            .read_inline_payload(&self.read, descriptor),
+                        Arc::new((authority.clone(), response)),
+                        async { match &authority {
+                            ResultPayloadAuthority::Terminal {read,owner,capture} => {let _custody=(owner,capture); self.services.canonical_store()?.read_inline_payload(read,descriptor).await.map_err(WorkflowError::from)},
+                            ResultPayloadAuthority::Capture {read} => read.read_inline_payload(descriptor).await.map_err(WorkflowError::from),
+                        } },
                     )
                     .await?;
                     let count = usize::try_from(body.batch_count)

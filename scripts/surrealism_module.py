@@ -493,7 +493,7 @@ def install(
         _command(
             [
                 str(ROOT / "scripts/pse-env"),
-                "--resource-class",
+                "--recipe-default-class",
                 "compile",
                 "--",
                 str(server["binary"]),

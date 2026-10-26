@@ -28,6 +28,7 @@ DEFINE FUNCTION fn::pse_project_v1::project($expiry:int,$key:string,$generation:
     RETURN $p;
 };
 DEFINE FUNCTION fn::pse_project_v1::root($expiry:int,$revision:string,$owner:string) -> bool {
+    fn::pse_workbench_v1::publication($expiry);
     LET $r=SELECT * FROM ONLY type::record('canonical_revisions',$revision);
     IF $r=NONE { THROW 'PSE_REFUSAL:project_source_unavailable'; };
     fn::pse_execution_v1::source_creator($expiry,$r.problem,$owner);
@@ -38,6 +39,7 @@ DEFINE FUNCTION fn::pse_project_v1::root($expiry:int,$revision:string,$owner:str
 };
 DEFINE FUNCTION fn::pse_project_v1::create($expiry:int,$operation:string,$request:bytes,$project:string,$title:string) -> object {
     LET $old=fn::pse_project_v1::ack($expiry,$operation,$request); IF $old!=NONE { RETURN $old; };
+    fn::pse_workbench_v1::publication($expiry);
     IF $project='' OR string::len($project)>4096 OR string::len($title)>4096 { THROW 'PSE_REFUSAL:project_metadata_bound'; };
     CREATE ONLY type::record('canonical_projects',$project) CONTENT {key:$project,title:$title,deleted:false,generation:0dec};
     LET $ack=CREATE ONLY type::record('canonical_project_operations',$operation) CONTENT {key:$operation,kind:'create',project:$project,request:$request,generation:0dec};
@@ -46,6 +48,7 @@ DEFINE FUNCTION fn::pse_project_v1::create($expiry:int,$operation:string,$reques
 // Called inside EDIT before canonical_problems is changed. All branch writes,
 // including ordinary source APIs, must present the matching project guard.
 DEFINE FUNCTION fn::pse_project_v1::source_guard($expiry:int,$problem:string,$operation:string,$intent:option<object>) -> bool {
+    fn::pse_workbench_v1::publication($expiry);
     IF $intent!=NONE {fn::pse_project_v1::authority($expiry,$intent.issuing_store);};
     LET $owners=SELECT * FROM canonical_project_branches WITH INDEX project_branch_problem WHERE problem=$problem LIMIT 2;
     IF $intent=NONE { IF array::len($owners)!=0 { THROW 'PSE_REFUSAL:project_publication_guard_required'; }; RETURN true; };
@@ -83,6 +86,7 @@ DEFINE FUNCTION fn::pse_project_v1::source_guard($expiry:int,$problem:string,$op
     RETURN true;
 };
 DEFINE FUNCTION fn::pse_project_v1::source_ack($expiry:int,$problem:string,$operation:string,$intent:option<object>) -> bool {
+    fn::pse_workbench_v1::publication($expiry);
     IF $intent=NONE { RETURN true; };
     fn::pse_project_v1::root($expiry,$operation,'project-head:'+$intent.branch);
     fn::pse_research_v1::publication_ack($expiry,$operation,$intent);
@@ -98,6 +102,7 @@ DEFINE FUNCTION fn::pse_project_v1::source_ack($expiry:int,$problem:string,$oper
 };
 DEFINE FUNCTION fn::pse_project_v1::draft($expiry:int,$operation:string,$request:bytes,$row:object,$expected:option<decimal>,$project_generation:decimal,$obligation:option<object>) -> object {
     LET $ack=fn::pse_project_v1::ack($expiry,$operation,$request); IF $ack!=NONE { RETURN $ack; };
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_project_v1::project($expiry,$row.project,$project_generation);
     LET $branch=SELECT * FROM ONLY type::record('canonical_project_branches',$row.branch) FOR UPDATE;
     IF $branch=NONE OR $branch.project!=$row.project { THROW 'PSE_REFUSAL:project_branch_changed'; };
@@ -121,6 +126,7 @@ DEFINE FUNCTION fn::pse_project_v1::draft($expiry:int,$operation:string,$request
 };
 DEFINE FUNCTION fn::pse_project_v1::research($expiry:int,$operation:string,$request:bytes,$row:object,$project_generation:decimal,$obligation:option<object>) -> object {
     LET $ack=fn::pse_project_v1::ack($expiry,$operation,$request); IF $ack!=NONE { RETURN $ack; };
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_project_v1::project($expiry,$row.project,$project_generation);
     fn::pse_project_v1::root($expiry,$row.revision,'project-research:'+$row.key);
     IF ($row.run=NONE)!=($row.attempt=NONE) { THROW 'PSE_REFUSAL:project_research_reference_differs'; };
@@ -146,6 +152,7 @@ DEFINE FUNCTION fn::pse_project_v1::research($expiry:int,$operation:string,$requ
 };
 DEFINE FUNCTION fn::pse_project_v1::navigate($expiry:int,$operation:string,$request:bytes,$project:string,$generation:decimal,$action:object) -> object {
     LET $old=fn::pse_project_v1::ack($expiry,$operation,$request); IF $old!=NONE {RETURN $old;};
+    fn::pse_workbench_v1::publication($expiry);
     LET $p=SELECT * FROM ONLY type::record('canonical_projects',$project) FOR UPDATE;
     IF $p=NONE OR $p.generation!=$generation OR !fn::pse_project_import_v1::available($project) OR ($p.deleted AND $action.kind!='project_visibility') {THROW 'PSE_REFUSAL:project_generation_changed';};
     IF $action.kind='project_title' {UPDATE ONLY type::record('canonical_projects',$project) SET title=$action.name;}

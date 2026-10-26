@@ -433,17 +433,6 @@ def execute(
     )
 
     activate_native()
-    if operation == "evidence_compare":
-        request = host.EvidenceCompare.model_validate(supplied)
-        comparison = diagnostics.compare_evidence(
-            json.dumps(request.request, allow_nan=False),
-            json.dumps(request.snapshots, allow_nan=False),
-            json.dumps(request.observations, allow_nan=False),
-        )
-        return {
-            "outcome": "observed",
-            "document": json.loads(codec.encode_json(comparison)),
-        }
     physical_packages: list[dict[str, bytes]] = []
     packages: list[dict[str, bytes]] = []
     resources = host.Resources()

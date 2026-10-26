@@ -192,7 +192,7 @@ class InvocationDispositionTests(unittest.TestCase):
         with patch.object(test_resources, "reclaim", return_value="removed"):
             self.apply()
         with self.assertRaisesRegex(ValueError, "membership is closed"):
-            native_operation.register_composer(self.path)
+            test_resources.register_composer(self.path)
 
     def test_host_guard_accepts_separate_abandonment_only_after_exact_composer_drain(
         self,
@@ -341,7 +341,7 @@ class ActualInvocationDispositionTests(unittest.TestCase):
                 PSE_RESOURCE_CLASS="light",
                 PSE_MEMORY_MAX="512M",
             )
-            script = "from scripts import test_resources as r, native_operation as n; p=r.invocation('python', [{'name':'fixture::not_run'}]); n.register_composer(p); print(p, flush=True)"
+            script = "from scripts import test_resources as r, native_operation as n; p=r.invocation('python', [{'name':'fixture::not_run'}]); r.register_composer(p); print(p, flush=True)"
             child = subprocess.run(
                 [
                     str(root / "scripts/pse-env"),

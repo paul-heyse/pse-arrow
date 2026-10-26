@@ -1,0 +1,1146 @@
+{
+  "$defs": {
+    "EvidenceComparisonDenominator": {
+      "additionalProperties": false,
+      "description": "Full semantic population counts, computed before detail limits.",
+      "properties": {
+        "declared_context_tests": {
+          "description": "Original test rows declaring a context.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "declared_crate_tests": {
+          "description": "Original test rows declaring a crate.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "failures": {
+          "description": "Original failure rows.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "other_outcomes": {
+          "description": "Other original statuses; these are never treated as passing.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "samples": {
+          "description": "Selected actual measurement samples.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "selected_members": {
+          "description": "Selected original expected members of all categories.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "selected_tests": {
+          "description": "Selected original test rows, including repeats and missing execution.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "successes": {
+          "description": "Original explicit success rows.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unexecuted": {
+          "description": "Original missing, skipped, reused or transferred execution rows.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "selected_tests",
+        "declared_crate_tests",
+        "declared_context_tests",
+        "failures",
+        "successes",
+        "unexecuted",
+        "other_outcomes",
+        "samples",
+        "selected_members"
+      ],
+      "type": "object"
+    },
+    "EvidenceComparisonFact": {
+      "additionalProperties": false,
+      "description": "Original codec fact with its exact source and comparison side.",
+      "properties": {
+        "fact": {
+          "$ref": "#/$defs/EvidenceFact",
+          "description": "Original native fact, including member, sample identity and context declaration."
+        },
+        "generation": {
+          "description": "Original immutable generation.",
+          "type": "string"
+        },
+        "side": {
+          "description": "Baseline or candidate selected population.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "side",
+        "generation",
+        "fact"
+      ],
+      "type": "object"
+    },
+    "EvidenceComparisonMember": {
+      "additionalProperties": false,
+      "description": "Original membership retained separately from compact paired cohorts.",
+      "properties": {
+        "cohort": {
+          "description": "Exact cohort reference in subjects.",
+          "type": "string"
+        },
+        "context_id": {
+          "description": "Original declared context.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "identity": {
+          "$ref": "#/$defs/EvidenceSubjectIdentity",
+          "description": "Original owner identity."
+        },
+        "original": {
+          "$ref": "#/$defs/EvidenceMemberIdentity",
+          "description": "Original generation and member."
+        },
+        "side": {
+          "description": "Baseline or candidate.",
+          "type": "string"
+        },
+        "status": {
+          "description": "Original binary outcome, including unknowns.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "side",
+        "cohort",
+        "original",
+        "identity",
+        "status",
+        "context_id"
+      ],
+      "type": "object"
+    },
+    "EvidenceComparisonPage": {
+      "additionalProperties": false,
+      "description": "A bounded section with a full row denominator and explicit continuation.",
+      "properties": {
+        "complete": {
+          "description": "Whole section is present in this response.",
+          "type": "boolean"
+        },
+        "cut": {
+          "description": "Immutable comparison cut; reuse only with the same request selection.",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Requested page limit.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "next_offset": {
+          "description": "Next offset in this exact cut, if any.",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "offset": {
+          "description": "Requested offset.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rows": {
+          "description": "Bounded original rows.",
+          "items": {
+            "$ref": "#/$defs/EvidenceSubjectComparison"
+          },
+          "type": "array"
+        },
+        "total_rows": {
+          "description": "Full section rows before display limits.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cut",
+        "total_rows",
+        "offset",
+        "limit",
+        "complete",
+        "next_offset",
+        "rows"
+      ],
+      "type": "object"
+    },
+    "EvidenceComparisonPage2": {
+      "additionalProperties": false,
+      "description": "A bounded section with a full row denominator and explicit continuation.",
+      "properties": {
+        "complete": {
+          "description": "Whole section is present in this response.",
+          "type": "boolean"
+        },
+        "cut": {
+          "description": "Immutable comparison cut; reuse only with the same request selection.",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Requested page limit.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "next_offset": {
+          "description": "Next offset in this exact cut, if any.",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "offset": {
+          "description": "Requested offset.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rows": {
+          "description": "Bounded original rows.",
+          "items": {
+            "$ref": "#/$defs/EvidenceComparisonMember"
+          },
+          "type": "array"
+        },
+        "total_rows": {
+          "description": "Full section rows before display limits.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cut",
+        "total_rows",
+        "offset",
+        "limit",
+        "complete",
+        "next_offset",
+        "rows"
+      ],
+      "type": "object"
+    },
+    "EvidenceComparisonPage3": {
+      "additionalProperties": false,
+      "description": "A bounded section with a full row denominator and explicit continuation.",
+      "properties": {
+        "complete": {
+          "description": "Whole section is present in this response.",
+          "type": "boolean"
+        },
+        "cut": {
+          "description": "Immutable comparison cut; reuse only with the same request selection.",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Requested page limit.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "next_offset": {
+          "description": "Next offset in this exact cut, if any.",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "offset": {
+          "description": "Requested offset.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rows": {
+          "description": "Bounded original rows.",
+          "items": {
+            "$ref": "#/$defs/EvidenceComparisonFact"
+          },
+          "type": "array"
+        },
+        "total_rows": {
+          "description": "Full section rows before display limits.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cut",
+        "total_rows",
+        "offset",
+        "limit",
+        "complete",
+        "next_offset",
+        "rows"
+      ],
+      "type": "object"
+    },
+    "EvidenceComparisonPage4": {
+      "additionalProperties": false,
+      "description": "A bounded section with a full row denominator and explicit continuation.",
+      "properties": {
+        "complete": {
+          "description": "Whole section is present in this response.",
+          "type": "boolean"
+        },
+        "cut": {
+          "description": "Immutable comparison cut; reuse only with the same request selection.",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Requested page limit.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "next_offset": {
+          "description": "Next offset in this exact cut, if any.",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "offset": {
+          "description": "Requested offset.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rows": {
+          "description": "Bounded original rows.",
+          "items": {
+            "$ref": "#/$defs/EvidenceMeasurementComparison"
+          },
+          "type": "array"
+        },
+        "total_rows": {
+          "description": "Full section rows before display limits.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cut",
+        "total_rows",
+        "offset",
+        "limit",
+        "complete",
+        "next_offset",
+        "rows"
+      ],
+      "type": "object"
+    },
+    "EvidenceComparisonSource": {
+      "additionalProperties": false,
+      "description": "Coverage and freshness of one selected original source.",
+      "properties": {
+        "authority": {
+          "description": "Original authority.",
+          "type": "string"
+        },
+        "codec": {
+          "description": "Original codec.",
+          "type": "string"
+        },
+        "coverage": {
+          "description": "Original complete/partial coverage.",
+          "type": "string"
+        },
+        "expected_members": {
+          "description": "Original declared selected membership, including non-test facts.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "freshness": {
+          "description": "Freshness against explicit owner observations only.",
+          "type": "string"
+        },
+        "generation": {
+          "description": "Exact source cut.",
+          "type": "string"
+        },
+        "snapshot_digest": {
+          "description": "Original source digest.",
+          "type": "string"
+        },
+        "source_id": {
+          "description": "Original source identity.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation",
+        "authority",
+        "codec",
+        "source_id",
+        "snapshot_digest",
+        "coverage",
+        "expected_members",
+        "freshness"
+      ],
+      "type": "object"
+    },
+    "EvidenceComparisonSummary": {
+      "additionalProperties": false,
+      "description": "Full selected populations. Missing execution and mixed outcomes are independent\naxes and may overlap failure classifications.",
+      "properties": {
+        "ambiguous": {
+          "description": "Duplicate owner identities within a source or unavailable exact identity.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "changed_selection_denominator": {
+          "description": "Full selected test-row counts differ.",
+          "type": "boolean"
+        },
+        "inconclusive": {
+          "description": "Unknown or mixed change evidence without an eligible change verdict.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mixed_outcome_cohorts": {
+          "description": "Cohorts with original failure and success evidence.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "new_failures": {
+          "description": "Candidate failures following an all-success baseline.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "paired": {
+          "description": "Subjects paired by exact identity or supplied mapping.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "persistent_failures": {
+          "description": "Failure evidence in both sides, retaining mixed outcomes.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "resolved_failures": {
+          "description": "Baseline failures followed by an all-success candidate.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "selection_membership_changed_or_unresolved": {
+          "description": "Unmatched or ambiguous cohorts prevent a same-subject selection claim.",
+          "type": "boolean"
+        },
+        "unchanged_successes": {
+          "description": "Compatible pairs with only explicit successes.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unexecuted": {
+          "description": "Pairs lacking execution in either side.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unmatched_baseline": {
+          "description": "Baseline-only cohorts.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unmatched_candidate": {
+          "description": "Candidate-only cohorts.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "paired",
+        "new_failures",
+        "resolved_failures",
+        "persistent_failures",
+        "unexecuted",
+        "inconclusive",
+        "unchanged_successes",
+        "unmatched_baseline",
+        "unmatched_candidate",
+        "ambiguous",
+        "mixed_outcome_cohorts",
+        "changed_selection_denominator",
+        "selection_membership_changed_or_unresolved"
+      ],
+      "type": "object"
+    },
+    "EvidenceFact": {
+      "additionalProperties": false,
+      "description": "One compact authentic owner fact, without raw bytes or a lifetime grant.",
+      "properties": {
+        "binary_id": {
+          "description": "Compact owner-declared binary id; absent means unknown.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "context_id": {
+          "description": "Compact owner-declared context id; absent means unknown.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "context_json": {
+          "description": "Compact owner-declared context json; absent means unknown.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "crate_name": {
+          "description": "Declared owning crate, if available.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "detail_ref": {
+          "description": "Descriptive owner reference, never an automatic path or grant.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "description": "Owner-declared category.",
+          "type": "string"
+        },
+        "link_relation": {
+          "description": "Compact owner-declared link relation; absent means unknown.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "link_target": {
+          "description": "Compact owner-declared link target; absent means unknown.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "member": {
+          "description": "Original stable member identity.",
+          "type": "string"
+        },
+        "population_id": {
+          "description": "Compact owner-declared population id; absent means unknown.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sample_id": {
+          "description": "Compact owner-declared sample id; absent means unknown.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "description": "Original outcome, including unreported/command failures.",
+          "type": "string"
+        },
+        "test_id": {
+          "description": "Exact Rust binary/test identity or Python node ID, if available.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "value_ns": {
+          "description": "Compact owner-declared value ns; absent means unknown.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "member",
+        "kind",
+        "status"
+      ],
+      "type": "object"
+    },
+    "EvidenceMeasurementCohort": {
+      "additionalProperties": false,
+      "description": "Descriptive statistics and membership counts of one original measurement cohort.",
+      "properties": {
+        "censored_populations": {
+          "description": "Original censored or unmeasured population declarations.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "context_id": {
+          "description": "Original declared context identity, if available.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "declared_associations": {
+          "description": "Original association declarations, regardless of their status.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "generation": {
+          "description": "Original immutable generation.",
+          "type": "string"
+        },
+        "max_ns": {
+          "description": "Maximum actual sample value, if any.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "mean_ns": {
+          "description": "Mean actual sample value, if any; no change verdict follows from it.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "min_ns": {
+          "description": "Minimum actual sample value, if any.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "population_id": {
+          "description": "Original owner population identity.",
+          "type": "string"
+        },
+        "sample_count": {
+          "description": "Actual original sample rows.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unavailable_associations": {
+          "description": "Original explicitly unavailable, unsupported or unknown association declarations.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "generation",
+        "context_id",
+        "population_id",
+        "sample_count",
+        "min_ns",
+        "max_ns",
+        "mean_ns",
+        "censored_populations",
+        "declared_associations",
+        "unavailable_associations"
+      ],
+      "type": "object"
+    },
+    "EvidenceMeasurementComparison": {
+      "additionalProperties": false,
+      "description": "Paired or honestly unpaired original measurement cohorts.",
+      "properties": {
+        "association": {
+          "description": "Explicit scope of supported original association.",
+          "type": "string"
+        },
+        "baseline": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceMeasurementCohort"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Baseline descriptor only when exactly one original cohort exists."
+        },
+        "baseline_cohorts": {
+          "description": "Baseline original cohorts before display bounds.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "candidate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceMeasurementCohort"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Candidate descriptor only when exactly one original cohort exists."
+        },
+        "candidate_cohorts": {
+          "description": "Candidate original cohorts before display bounds.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "changed_fields": {
+          "description": "Relevant declared conditions that differ.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "conditions": {
+          "description": "Comparable conditions, incompatible conditions, or unavailable basis.",
+          "type": "string"
+        },
+        "correspondence": {
+          "description": "Exact compatible owner identity or explicitly supplied mapping.",
+          "type": "string"
+        },
+        "revision_build": {
+          "description": "Revision/build interpretation retained with the assessment.",
+          "type": "string"
+        },
+        "unknown_fields": {
+          "description": "Relevant conditions not declared by at least one original owner.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "verdict": {
+          "description": "Descriptive-only verdict; statistical and causal conclusions are not inferred.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "correspondence",
+        "baseline_cohorts",
+        "candidate_cohorts",
+        "baseline",
+        "candidate",
+        "conditions",
+        "changed_fields",
+        "unknown_fields",
+        "association",
+        "verdict",
+        "revision_build"
+      ],
+      "type": "object"
+    },
+    "EvidenceMeasurementSummary": {
+      "additionalProperties": false,
+      "description": "Cross-side measurement compatibility counts, retaining inconclusive cohorts.",
+      "properties": {
+        "comparable": {
+          "description": "Pairs with declared and equal relevant conditions; sample association remains separate.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "incompatible": {
+          "description": "Pairs with at least one different declared condition.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "populations": {
+          "description": "Exact owner/population cohorts examined across both sides.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unavailable": {
+          "description": "Missing/unknown conditions, absent samples, ambiguity or unpaired populations.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unavailable_association_populations": {
+          "description": "Cohorts lacking any declared association or reporting unavailable/unsupported association.\nThis axis is independent of condition compatibility.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "verdict": {
+          "description": "No automatic regression, causality or flakiness verdict is produced.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "populations",
+        "comparable",
+        "incompatible",
+        "unavailable",
+        "unavailable_association_populations",
+        "verdict"
+      ],
+      "type": "object"
+    },
+    "EvidenceMemberIdentity": {
+      "additionalProperties": false,
+      "description": "An original source member, never a guessed spelling or timestamp.",
+      "properties": {
+        "generation": {
+          "description": "Exact source version.",
+          "type": "string"
+        },
+        "member": {
+          "description": "Original owner member.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "generation",
+        "member"
+      ],
+      "type": "object"
+    },
+    "EvidenceOutcomeCounts": {
+      "additionalProperties": false,
+      "description": "Outcome counts retain repeated mixed results without a flakiness verdict.",
+      "properties": {
+        "failures": {
+          "description": "Original failures.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "other": {
+          "description": "All other original statuses.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "successes": {
+          "description": "Explicit successes.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unexecuted": {
+          "description": "Missing execution, skipped, reused or transferred.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "failures",
+        "successes",
+        "unexecuted",
+        "other"
+      ],
+      "type": "object"
+    },
+    "EvidenceSubjectComparison": {
+      "additionalProperties": false,
+      "description": "A paired cohort or an honestly unpaired original population.",
+      "properties": {
+        "baseline": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceSubjectIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Original baseline identity."
+        },
+        "baseline_outcomes": {
+          "$ref": "#/$defs/EvidenceOutcomeCounts",
+          "description": "Full baseline outcome counts."
+        },
+        "candidate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceSubjectIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Original candidate identity."
+        },
+        "candidate_outcomes": {
+          "$ref": "#/$defs/EvidenceOutcomeCounts",
+          "description": "Full candidate outcome counts."
+        },
+        "classification": {
+          "description": "Classification never rewrites either original outcome.",
+          "type": "string"
+        },
+        "cohort": {
+          "description": "Deterministic reference within this exact comparison cut.",
+          "type": "string"
+        },
+        "correspondence": {
+          "description": "Exact-compatible or explicitly supplied correspondence; absent for unpaired rows.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mixed_outcomes": {
+          "description": "Repeated success and failure occurred in at least one side; no statistical inference.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "cohort",
+        "correspondence",
+        "classification",
+        "baseline",
+        "candidate",
+        "baseline_outcomes",
+        "candidate_outcomes",
+        "mixed_outcomes"
+      ],
+      "type": "object"
+    },
+    "EvidenceSubjectIdentity": {
+      "additionalProperties": false,
+      "description": "Owner identity of one cohort. Original binary IDs are never normalized away.",
+      "properties": {
+        "authority": {
+          "description": "Compatible owner authority.",
+          "type": "string"
+        },
+        "binary_id": {
+          "description": "Original binary ID, required for automatic Rust pairing.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "codec": {
+          "description": "Exact codec; codec migrations need an explicit mapping.",
+          "type": "string"
+        },
+        "crate_name": {
+          "description": "Declared owning crate.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "description": "Rust or Python test category.",
+          "type": "string"
+        },
+        "test_id": {
+          "description": "Original owner test identity.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "authority",
+        "codec",
+        "kind",
+        "crate_name",
+        "binary_id",
+        "test_id"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Typed comparison result shared by native, offline and canonical consumers.",
+  "properties": {
+    "associations": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvidenceComparisonPage3"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Requested original measurement association and population declarations only."
+    },
+    "baseline_denominator": {
+      "$ref": "#/$defs/EvidenceComparisonDenominator",
+      "description": "Full baseline denominator, independent of optional details."
+    },
+    "baseline_sources": {
+      "description": "Original selected baseline sources and coverage.",
+      "items": {
+        "$ref": "#/$defs/EvidenceComparisonSource"
+      },
+      "type": "array"
+    },
+    "candidate_denominator": {
+      "$ref": "#/$defs/EvidenceComparisonDenominator",
+      "description": "Full candidate denominator, independent of optional details."
+    },
+    "candidate_sources": {
+      "description": "Original selected candidate sources and coverage.",
+      "items": {
+        "$ref": "#/$defs/EvidenceComparisonSource"
+      },
+      "type": "array"
+    },
+    "contexts": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvidenceComparisonPage3"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Requested original context rows only."
+    },
+    "cut": {
+      "description": "Exact selected cut and mappings, independent of page bounds.",
+      "type": "string"
+    },
+    "interpretation": {
+      "description": "Scope and non-inference limits.",
+      "type": "string"
+    },
+    "measurement_summary": {
+      "$ref": "#/$defs/EvidenceMeasurementSummary",
+      "description": "Full measurement context comparison, without sample hydration."
+    },
+    "measurements": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvidenceComparisonPage4"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Requested measurement cohorts only."
+    },
+    "members": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvidenceComparisonPage2"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Requested original outcome rows only."
+    },
+    "samples": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvidenceComparisonPage3"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Requested original measurement sample rows only."
+    },
+    "subjects": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvidenceComparisonPage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Requested subject detail only."
+    },
+    "summary": {
+      "$ref": "#/$defs/EvidenceComparisonSummary",
+      "description": "Full semantic subject comparison summary."
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "description": "Native comparison codec version.",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "cut",
+    "baseline_sources",
+    "candidate_sources",
+    "baseline_denominator",
+    "candidate_denominator",
+    "summary",
+    "measurement_summary",
+    "interpretation",
+    "subjects",
+    "members",
+    "samples",
+    "measurements",
+    "contexts",
+    "associations"
+  ],
+  "title": "EvidenceComparison",
+  "type": "object"
+}

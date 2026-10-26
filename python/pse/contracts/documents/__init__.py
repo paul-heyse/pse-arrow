@@ -4,7 +4,7 @@
 """Rust-owned boundary documents as frozen msgspec types (ADR-0116 Outcome 7).
 
 Generated from the documents' JSON Schemas in `docs/generated/schema/`; the Rust serde
-types are the authority. Every enumeration is a registry vocabulary.
+types are the authority. Scientific vocabularies retain registry identity; other string enums belong to their document owner.
 """
 
 from __future__ import annotations
@@ -15,6 +15,463 @@ import msgspec
 
 from pse.contracts import enums, identities
 from pse.contracts import values as v
+from enum import StrEnum
+
+class AdviceMetric(StrEnum):
+    NATIVE_EXECUTION_NANOSECONDS = "native_execution_nanoseconds"
+    ORIGINAL_NORMALIZED_RESIDUAL = "original_normalized_residual"
+
+
+class AdviceOutcome(StrEnum):
+    COMPLETE = "complete"
+    BUDGET_EXHAUSTED = "budget_exhausted"
+    POLICY_PREEMPTED = "policy_preempted"
+    CANCELLED = "cancelled"
+    INFRASTRUCTURE_INTERRUPTED = "infrastructure_interrupted"
+    NUMERICAL_FAILURE = "numerical_failure"
+    PARTIAL = "partial"
+
+
+class AnalysisDirection(StrEnum):
+    UPSTREAM = "upstream"
+    DOWNSTREAM = "downstream"
+
+
+class AnalysisQuestion(StrEnum):
+    PREPARATION = "preparation"
+    EVALUATOR_WORK = "evaluator_work"
+    EVALUATION_COST = "evaluation_cost"
+    ROOT_PROGRESS = "root_progress"
+    DYNAMIC_WORK = "dynamic_work"
+    DEPENDENCY_READINESS = "dependency_readiness"
+    FACTOR_RECOVERY = "factor_recovery"
+    WAITING = "waiting"
+    COMPARABILITY = "comparability"
+    PHYSICAL_ATTRIBUTION = "physical_attribution"
+
+
+class AnalysisSelectionScope(StrEnum):
+    DIRECT = "direct"
+    INDEPENDENT = "independent"
+    UNKNOWN = "unknown"
+
+
+class AttemptOriginalConclusion(StrEnum):
+    SATISFIED = "satisfied"
+    REFUSED = "refused"
+    UNAVAILABLE = "unavailable"
+
+
+class CopiedExecutionStatus(StrEnum):
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    ABANDONED = "abandoned"
+
+
+class CopiedObservationPolicy(StrEnum):
+    OFF = "off"
+    CONTRACT = "contract"
+    DIAGNOSTIC = "diagnostic"
+
+
+class DecodeCategory(StrEnum):
+    IO = "io"
+    SYNTAX = "syntax"
+    DATA = "data"
+    EOF = "eof"
+
+
+class DecodePathStatus(StrEnum):
+    TRACKED_PREFIX = "tracked_prefix"
+    UNAVAILABLE = "unavailable"
+
+
+class DecodeStage(StrEnum):
+    HEADER = "header"
+    BODY = "body"
+    TRAILING = "trailing"
+
+
+class DeploymentReadiness(StrEnum):
+    READY = "ready"
+    STARTING = "starting"
+    STOPPING = "stopping"
+    MAINTENANCE = "maintenance"
+    ACTIONABLE_ABSENT = "actionable-absent"
+    UNAVAILABLE = "unavailable"
+    MISMATCH = "mismatch"
+
+
+class DerivativeOrder(StrEnum):
+    VALUE = "value"
+    FIRST = "first"
+    SECOND = "second"
+
+
+class DetailEnd(StrEnum):
+    WINDOW_ELAPSED = "window_elapsed"
+    OWNER_FINISHED = "owner_finished"
+    STOPPED = "stopped"
+    WRITER_FAILED = "writer_failed"
+
+
+class DetailFamilyActivation(StrEnum):
+    UNOBSERVED = "unobserved"
+    APPLICABLE = "applicable"
+    UNSUPPORTED = "unsupported"
+    REFUSED = "refused"
+
+
+class DetailOutcome(StrEnum):
+    ACTIVE = "active"
+    COMPLETE = "complete"
+    SAMPLED = "sampled"
+    INCOMPLETE = "incomplete"
+
+
+class DetailRequirement(StrEnum):
+    SAMPLED = "sampled"
+    COMPLETE = "complete"
+
+
+class EvaluationDemand(StrEnum):
+    OBJECTIVE = "objective"
+    CONSTRAINTS = "constraints"
+    ALL = "all"
+    DIRECTIONAL = "directional"
+    TRANSPOSE_DIRECTIONAL = "transpose_directional"
+    HESSIAN_ACTION = "hessian_action"
+
+
+class FitOptimizer(StrEnum):
+    AUTOMATIC = "automatic"
+    NATIVE_NLP = "native_nlp"
+    RESIDUAL_LM = "residual_lm"
+
+
+class GraphScope(StrEnum):
+    IMMEDIATE_BLOCKERS = "immediate_blockers"
+    RECORDED_SOURCES = "recorded_sources"
+    RETAINED_CONSUMERS = "retained_consumers"
+
+
+class HistoryPurposeBody(StrEnum):
+    AUDIT = "audit"
+    UNSETTLED = "unsettled"
+
+
+class IdasInitialStep(StrEnum):
+    CONFIGURED = "configured"
+    AUTOMATIC = "automatic"
+
+
+class InvocationOutcome(StrEnum):
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class LifecycleKind(StrEnum):
+    SOURCE_HISTORY = "source_history"
+    RUN_RESULTS = "run_results"
+    STUDY_RESULTS = "study_results"
+    RUN_HISTORY = "run_history"
+    STUDY_HISTORY = "study_history"
+    DRAFT_VERSION = "draft_version"
+    EVIDENCE_ARTIFACT = "evidence_artifact"
+
+
+class ManagedDetailReferenceState(StrEnum):
+    PENDING = "pending"
+    REFUSED = "refused"
+    CAPTURED = "captured"
+    MISSING = "missing"
+
+
+class ManagedDetailRefusal(StrEnum):
+    NO_MANAGED_BUDGET = "no_managed_budget"
+    BUDGET_ALREADY_ALLOCATED = "budget_already_allocated"
+    ATTEMPT_BOUND_UNAVAILABLE = "attempt_bound_unavailable"
+    PER_ATTEMPT_BUDGET_INSUFFICIENT = "per_attempt_budget_insufficient"
+    COLLECTOR_REFUSED = "collector_refused"
+
+
+class MetricKind(StrEnum):
+    COUNTER = "counter"
+    GAUGE = "gauge"
+    NATIVE = "native"
+
+
+class MetricUnit(StrEnum):
+    ROWS = "rows"
+    BATCHES = "batches"
+    BYTES = "bytes"
+    NANOSECONDS = "nanoseconds"
+    COUNT = "count"
+    NATIVE = "native"
+
+
+class NativePhase(StrEnum):
+    MAIN = "Main"
+    RESTORATION = "Restoration"
+    UNKNOWN = "Unknown"
+
+
+class ObservationCoordinates(StrEnum):
+    SUBMITTEDORACLE = "SubmittedOracle"
+    PHYSICALTEARS = "PhysicalTears"
+
+
+class PackFormat(StrEnum):
+    FROZEN_EVIDENCE_V3 = "frozen_evidence_v3"
+    ANALYSIS_V2 = "analysis_v2"
+    JSON = "json"
+    JSON_LINES = "json_lines"
+    ARROW_IPC_STREAM = "arrow_ipc_stream"
+    TEXT = "text"
+    MARKDOWN = "markdown"
+    HTML = "html"
+    PERFETTO = "perfetto"
+    PROFILE_BINARY = "profile_binary"
+
+
+class PackMemberRole(StrEnum):
+    FROZEN_EVIDENCE = "frozen_evidence"
+    ANALYSIS = "analysis"
+    CONTEXT = "context"
+    DETAIL = "detail"
+    CAPTURE = "capture"
+    ENGINE = "engine"
+    QUERY = "query"
+    RESULT = "result"
+    REPORT = "report"
+
+
+class PackPublication(StrEnum):
+    INCOMPLETE = "incomplete"
+    SEALED = "sealed"
+
+
+class PackScientificState(StrEnum):
+    UNKNOWN = "unknown"
+    USABLE = "usable"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    UNUSABLE = "unusable"
+
+
+class ProducerRole(StrEnum):
+    NATIVE_CALLBACK = "native_callback"
+    COORDINATE_TRANSPORT = "coordinate_transport"
+    ORIGINAL_ORACLE = "original_oracle"
+    NATIVE_ITERATION = "native_iteration"
+    EVALUATOR = "evaluator"
+    PROVIDER = "provider"
+    WORKFLOW = "workflow"
+    NATIVE_FACTOR = "native_factor"
+
+
+class ProductAvailability(StrEnum):
+    AVAILABLE = "available"
+    UNAVAILABLE = "unavailable"
+    NOT_REQUESTED = "not_requested"
+
+
+class ProductKind(StrEnum):
+    SELECTED_PARTIALS = "selected_partials"
+    JACOBIAN_ACTION = "jacobian_action"
+    TRANSPOSE_JACOBIAN_ACTION = "transpose_jacobian_action"
+    WEIGHTED_HESSIAN = "weighted_hessian"
+    WEIGHTED_HESSIAN_ACTION = "weighted_hessian_action"
+
+
+class ProductionProfileName(StrEnum):
+    SERVICE = "service"
+    FUNCTIONAL = "functional"
+    WIDE = "wide"
+    TIMING = "timing"
+    EXCLUSIVE = "exclusive"
+    REFERENCE = "reference"
+    EXCLUSIVE_OBSERVER = "exclusive-observer"
+
+
+class ProjectImportRecoveryState(StrEnum):
+    PROJECT_COMPLETE = "project_complete"
+    READY_FOR_ARTIFACT = "ready_for_artifact"
+    ORIGINAL_CLEANUP_PENDING = "original_cleanup_pending"
+    ORIGINAL_COLLECTED = "original_collected"
+
+
+class RawMapContextKind(StrEnum):
+    UNAVAILABLE = "unavailable"
+    INAPPLICABLE = "inapplicable"
+    FROZEN = "frozen"
+
+
+class RawMapRole(StrEnum):
+    FIXEDPOINTEVALUATION = "FixedPointEvaluation"
+    ORIGINALASSESSMENT = "OriginalAssessment"
+    UNKNOWN = "Unknown"
+    RESTARTSCREENING = "RestartScreening"
+
+
+class RecordAvailability(StrEnum):
+    NOT_REQUESTED = "not_requested"
+    RUNNING = "running"
+    INTERRUPTED = "interrupted"
+    UNAVAILABLE = "unavailable"
+    NOT_SUPPLIED = "not_supplied"
+    REFUSED = "refused"
+
+
+class ReductionAnchorRole(StrEnum):
+    FAILURE_EXPRESSION = "failure_expression"
+    INITIAL_POINT = "initial_point"
+
+
+class ReductionDisposition(StrEnum):
+    PRESERVED = "preserved"
+    DIFFERENT = "different"
+    REFUSED = "refused"
+    INCOMPLETE = "incomplete"
+    INCONCLUSIVE = "inconclusive"
+
+
+class ReductionOperator(StrEnum):
+    DECLARATION_DELETION = "declaration_deletion"
+    BINARY_SUBEXPRESSION = "binary_subexpression"
+
+
+class ReplayNativeRecordCoverage(StrEnum):
+    STRATEGY_ATTEMPTS = "strategy_attempts"
+    INTEGRATION_REPORT_ONLY = "integration_report_only"
+
+
+class ReplayProducerPremise(StrEnum):
+    BLOCKS = "blocks"
+    CAUSAL = "causal"
+    MULTISTART = "multistart"
+    DERIVED = "derived"
+    SURROGATE = "surrogate"
+    PETSC = "petsc"
+    PATH = "path"
+
+
+class ReproductionStatus(StrEnum):
+    ORIGINAL_FAILURE_REPRODUCED = "original_failure_reproduced"
+    RELATED_DIAGNOSTIC_REPRODUCED = "related_diagnostic_reproduced"
+    NOT_REPRODUCED = "not_reproduced"
+    REPRODUCTION_UNAVAILABLE = "reproduction_unavailable"
+
+
+class ReproductionStatusBody(StrEnum):
+    ORIGINAL_FAILURE_REPRODUCED = "original_failure_reproduced"
+    RELATED_DIAGNOSTIC_REPRODUCED = "related_diagnostic_reproduced"
+    NOT_REPRODUCED = "not_reproduced"
+    REPRODUCTION_UNAVAILABLE = "reproduction_unavailable"
+
+
+class RequiredFact(StrEnum):
+    MODEL = "model"
+    INPUT = "input"
+    EFFECTIVE_SETTINGS = "effective_settings"
+    PHYSICAL_COORDINATES = "physical_coordinates"
+    INVOCATION = "invocation"
+    OPERATION_EVIDENCE = "operation_evidence"
+
+
+class RequirementStatus(StrEnum):
+    AVAILABLE = "available"
+    MISSING = "missing"
+
+
+class ResultCellUnavailable(StrEnum):
+    UNSUPPORTED_STORAGE = "unsupported_storage"
+    VALUE_EXTENT = "value_extent"
+
+
+class ResultFloatClass(StrEnum):
+    FINITE = "finite"
+    NAN = "nan"
+    POSITIVE_INFINITY = "positive_infinity"
+    NEGATIVE_INFINITY = "negative_infinity"
+
+
+class ResultInspectionRefusal(StrEnum):
+    SELECTION = "selection"
+    UNKNOWN_FIELD = "unknown_field"
+    MANIFEST_CHANGED = "manifest_changed"
+    CONTEXT_EXTENT = "context_extent"
+    RESPONSE_EXTENT = "response_extent"
+    CURSOR_CHANGED = "cursor_changed"
+
+
+class ReviewAttemptSelection(StrEnum):
+    CURRENT = "current"
+    RETAINED = "retained"
+
+
+class ReviewHandoffState(StrEnum):
+    ACTIVE = "active"
+    COMPLETE = "complete"
+    INCOMPLETE = "incomplete"
+
+
+class ReviewQuery(StrEnum):
+    TIMELINE = "timeline"
+    NUMERICAL = "numerical"
+    COVERAGE = "coverage"
+
+
+class ReviewQueryStatus(StrEnum):
+    COMPLETED = "completed"
+    UNAVAILABLE = "unavailable"
+    FAILED = "failed"
+    TIMED_OUT = "timed_out"
+    CANCELLED = "cancelled"
+    OUTPUT_LIMIT = "output_limit"
+    MALFORMED = "malformed"
+
+
+class ReviewTableKind(StrEnum):
+    DETAIL = "detail"
+    INVOCATION = "invocation"
+    CAPTURE = "capture"
+    ENGINE = "engine"
+    QUERY = "query"
+
+
+class SourceMapScope(StrEnum):
+    STATIC_ELIGIBLE_ALTERNATIVES = "static_eligible_alternatives"
+
+
+class StopFidelity(StrEnum):
+    EVALUATIONANDITERATIONCHECKPOINTS = "EvaluationAndIterationCheckpoints"
+    EVALUATIONCHECKPOINTS = "EvaluationCheckpoints"
+
+
+class StudyCohortAvailability(StrEnum):
+    PENDING = "pending"
+    CAPTURED_UNAVAILABLE = "captured_unavailable"
+    EMPTY_SELECTION = "empty_selection"
+    INCLUDED = "included"
+
+
+class StudyCohortScanState(StrEnum):
+    PENDING = "pending"
+    SCANNING = "scanning"
+    PARTIAL = "partial"
+    COMPLETE = "complete"
+
+
+class StudyObservationContinuity(StrEnum):
+    CATCH_UP = "catch_up"
+    GAP_CURRENT_RESYNC = "gap_current_resync"
+    LIVE_NUMERICS_UNAVAILABLE = "live_numerics_unavailable"
+    HISTORY_UNAVAILABLE = "history_unavailable"
+
 from pse.contracts.values import _convert_document as _document_default
 
 
@@ -5333,6 +5790,20 @@ class CanonicalQueryMetricsOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
         return (type(self), (v.scalar_key(self.builders), v.scalar_key(self.request_failures), v.scalar_key(self.saturated), v.scalar_key(self.server_duration_nanos), v.optional_key(v.scalar_key)(self.source_started_unix_micros), v.scalar_key(self.statements), v.scalar_key(self.statements_failed), v.scalar_key(self.statements_succeeded), v.scalar_key(self.statements_timed), v.scalar_key(self.statements_untimed),))
 
 
+class CapabilityDefaults(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Host capability request defaults, distinct from managed receiver pools."""
+
+    #: Explicit bounded spill allowance.
+    max_spill_bytes: Annotated[int, msgspec.Meta(ge=1)]
+    #: Interactive accounted pool default.
+    memory_limit_bytes: Annotated[int, msgspec.Meta(ge=1)]
+    #: Interactive scientific CPU permit default.
+    threads: Annotated[int, msgspec.Meta(ge=1)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.max_spill_bytes), v.scalar_key(self.memory_limit_bytes), v.scalar_key(self.threads),))
+
+
 class CaptureBudget(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Capture configuration. These defaults configure optional work, never missing facts."""
 
@@ -5581,6 +6052,54 @@ class CaptureTargetOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.clock_aligned), v.optional_key(v.scalar_key)(self.clock_uncertainty_nanoseconds), v.scalar_key(self.concurrent_operations), v.record_key(self.locator), v.scalar_key(self.process), v.sequence_key(v.scalar_key)(self.thread_ids), v.scalar_key(self.threads_partial),))
+
+
+class CapturedStudyRowForStudyCohortClassification(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A stable capture position distinct from an occurrence's within-study ordinal."""
+
+    #: Global immutable position in this exact capture.
+    position: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original captured facts.
+    value: StudyCohortClassification
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.position), v.record_key(self.value),))
+
+
+class CapturedStudyRowForStudyCohortMember(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A stable capture position distinct from an occurrence's within-study ordinal."""
+
+    #: Global immutable position in this exact capture.
+    position: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original captured facts.
+    value: StudyCohortMember
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.position), v.record_key(self.value),))
+
+
+class CapturedStudyRowForStudyCohortMemberOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A stable capture position distinct from an occurrence's within-study ordinal."""
+
+    #: Global immutable position in this exact capture.
+    position: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original captured facts.
+    value: StudyCohortMemberOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.position), v.record_key(self.value),))
+
+
+class CapturedStudyRowForStudyWorkbenchHeader(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A stable capture position distinct from an occurrence's within-study ordinal."""
+
+    #: Global immutable position in this exact capture.
+    position: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original captured facts.
+    value: StudyWorkbenchHeaderOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.position), v.record_key(self.value),))
 
 
 class CaseOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7207,6 +7726,168 @@ class DependencyUsableResult(msgspec.Struct, frozen=True, forbid_unknown_fields=
         return (type(self), (v.scalar_key(self.predecessor),))
 
 
+class DeploymentObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Narrow service observation transport; no full runtime configuration replica."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Owner-authored explanation of the observation.
+    cause: str
+    #: Selected service generation, when known.
+    instance_id: str | None = None
+    #: Selected observed readiness state.
+    phase: DeploymentReadiness
+    #: Exact service state directory.
+    state: str
+    #: Selected managed unit.
+    unit: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.cause), v.optional_key(v.scalar_key)(self.instance_id), v.scalar_key(self.phase), v.scalar_key(self.state), v.scalar_key(self.unit),))
+
+
+class DeploymentObservationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Narrow service observation transport; no full runtime configuration replica."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Owner-authored explanation of the observation.
+    cause: str
+    #: Selected service generation, when known.
+    instance_id: str | None
+    #: Selected observed readiness state.
+    phase: DeploymentReadiness
+    #: Exact service state directory.
+    state: str
+    #: Selected managed unit.
+    unit: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.cause), v.optional_key(v.scalar_key)(self.instance_id), v.scalar_key(self.phase), v.scalar_key(self.state), v.scalar_key(self.unit),))
+
+
+class DeploymentRequestMaterialize(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="operation", tag="materialize"):
+    """Materialize operator-selected values before any configuration publication."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Optional shared scientific execution policy.
+    execution: NativeExecutionAllocation | None = None
+    #: Hard process cap for each managed worker.
+    native_worker_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Independently capped managed worker slots.
+    native_workers: Annotated[int, msgspec.Meta(ge=0)]
+    #: Separately placed storage process.
+    server_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Complete service and execution envelope.
+    total_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.execution), v.scalar_key(self.native_worker_memory_bytes), v.scalar_key(self.native_workers), v.scalar_key(self.server_memory_bytes), v.scalar_key(self.total_memory_bytes),))
+
+
+class DeploymentRequestOutputMaterialize(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="operation", tag="materialize"):
+    """Materialize operator-selected values before any configuration publication."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Optional shared scientific execution policy.
+    execution: NativeExecutionAllocation | None
+    #: Hard process cap for each managed worker.
+    native_worker_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Independently capped managed worker slots.
+    native_workers: Annotated[int, msgspec.Meta(ge=0)]
+    #: Separately placed storage process.
+    server_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Complete service and execution envelope.
+    total_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.execution), v.scalar_key(self.native_worker_memory_bytes), v.scalar_key(self.native_workers), v.scalar_key(self.server_memory_bytes), v.scalar_key(self.total_memory_bytes),))
+
+
+class DeploymentRequestOutputProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="operation", tag="profile"):
+    """Select an upstream production role from its explicit declaration file."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original production declaration path.
+    declaration: str
+    #: Production role selected by this consumer.
+    profile: ProductionProfileName
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.declaration), v.scalar_key(self.profile),))
+
+
+class DeploymentRequestOutputValidate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="operation", tag="validate"):
+    """Validate an existing materialized allocation without reinterpreting defaults."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original declared allocation.
+    allocation: NativeAllocation
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.allocation),))
+
+
+class DeploymentRequestProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="operation", tag="profile"):
+    """Select an upstream production role from its explicit declaration file."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original production declaration path.
+    declaration: str
+    #: Production role selected by this consumer.
+    profile: ProductionProfileName
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.declaration), v.scalar_key(self.profile),))
+
+
+class DeploymentRequestValidate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="operation", tag="validate"):
+    """Validate an existing materialized allocation without reinterpreting defaults."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original declared allocation.
+    allocation: NativeAllocation
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.allocation),))
+
+
+class DeploymentResponse(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual product materialization, independent of environment/systemd realization."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Validated complete allocation.
+    allocation: NativeAllocation
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.record_key(self.allocation),))
+
+
 class DetailDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable/readable capture prefix, never scientific publication permission."""
 
@@ -8513,749 +9194,6 @@ class EventSourceOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         return (type(self), (v.optional_key(v.scalar_key)(self.coordinates), v.scalar_key(self.family), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.norm), v.optional_key(v.record_key)(self.observed_at), v.optional_key(v.record_key)(self.producer), v.optional_key(v.scalar_key)(self.producer_family_sequence), v.optional_key(v.scalar_key)(self.producer_generation), v.optional_key(v.scalar_key)(self.producer_sequence), v.scalar_key(self.role), v.scalar_key(self.sequence),))
 
 
-class EvidenceComparison(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Typed comparison result shared by native, offline and canonical consumers."""
-
-    _pse_required_version: ClassVar[int] = 1
-
-    #: Native comparison codec version.
-    version: Literal[1] = 1
-    #: Requested original measurement association and population declarations only.
-    associations: EvidenceComparisonPage3 | None = None
-    #: Full baseline denominator, independent of optional details.
-    baseline_denominator: EvidenceComparisonDenominator
-    #: Original selected baseline sources and coverage.
-    baseline_sources: tuple[EvidenceComparisonSource, ...]
-    #: Full candidate denominator, independent of optional details.
-    candidate_denominator: EvidenceComparisonDenominator
-    #: Original selected candidate sources and coverage.
-    candidate_sources: tuple[EvidenceComparisonSource, ...]
-    #: Requested original context rows only.
-    contexts: EvidenceComparisonPage3 | None = None
-    #: Exact selected cut and mappings, independent of page bounds.
-    cut: str
-    #: Scope and non-inference limits.
-    interpretation: str
-    #: Full measurement context comparison, without sample hydration.
-    measurement_summary: EvidenceMeasurementSummary
-    #: Requested measurement cohorts only.
-    measurements: EvidenceComparisonPage4 | None = None
-    #: Requested original outcome rows only.
-    members: EvidenceComparisonPage2 | None = None
-    #: Requested original measurement sample rows only.
-    samples: EvidenceComparisonPage3 | None = None
-    #: Requested subject detail only.
-    subjects: EvidenceComparisonPage | None = None
-    #: Full semantic subject comparison summary.
-    summary: EvidenceComparisonSummary
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.associations), v.record_key(self.baseline_denominator), v.sequence_key(v.record_key)(self.baseline_sources), v.record_key(self.candidate_denominator), v.sequence_key(v.record_key)(self.candidate_sources), v.optional_key(v.record_key)(self.contexts), v.scalar_key(self.cut), v.scalar_key(self.interpretation), v.record_key(self.measurement_summary), v.optional_key(v.record_key)(self.measurements), v.optional_key(v.record_key)(self.members), v.optional_key(v.record_key)(self.samples), v.optional_key(v.record_key)(self.subjects), v.record_key(self.summary),))
-
-
-class EvidenceComparisonDenominator(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Full semantic population counts, computed before detail limits."""
-
-    #: Original test rows declaring a context.
-    declared_context_tests: Annotated[int, msgspec.Meta(ge=0)]
-    #: Original test rows declaring a crate.
-    declared_crate_tests: Annotated[int, msgspec.Meta(ge=0)]
-    #: Original failure rows.
-    failures: Annotated[int, msgspec.Meta(ge=0)]
-    #: Other original statuses; these are never treated as passing.
-    other_outcomes: Annotated[int, msgspec.Meta(ge=0)]
-    #: Selected actual measurement samples.
-    samples: Annotated[int, msgspec.Meta(ge=0)]
-    #: Selected original expected members of all categories.
-    selected_members: Annotated[int, msgspec.Meta(ge=0)]
-    #: Selected original test rows, including repeats and missing execution.
-    selected_tests: Annotated[int, msgspec.Meta(ge=0)]
-    #: Original explicit success rows.
-    successes: Annotated[int, msgspec.Meta(ge=0)]
-    #: Original missing, skipped, reused or transferred execution rows.
-    unexecuted: Annotated[int, msgspec.Meta(ge=0)]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.declared_context_tests), v.scalar_key(self.declared_crate_tests), v.scalar_key(self.failures), v.scalar_key(self.other_outcomes), v.scalar_key(self.samples), v.scalar_key(self.selected_members), v.scalar_key(self.selected_tests), v.scalar_key(self.successes), v.scalar_key(self.unexecuted),))
-
-
-class EvidenceComparisonFact(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Original codec fact with its exact source and comparison side."""
-
-    #: Original native fact, including member, sample identity and context declaration.
-    fact: EvidenceFact
-    #: Original immutable generation.
-    generation: str
-    #: Baseline or candidate selected population.
-    side: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.fact), v.scalar_key(self.generation), v.scalar_key(self.side),))
-
-
-class EvidenceComparisonMember(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Original membership retained separately from compact paired cohorts."""
-
-    #: Exact cohort reference in subjects.
-    cohort: str
-    #: Original declared context.
-    context_id: str | None = None
-    #: Original owner identity.
-    identity: EvidenceSubjectIdentity
-    #: Original generation and member.
-    original: EvidenceMemberIdentity
-    #: Baseline or candidate.
-    side: str
-    #: Original binary outcome, including unknowns.
-    status: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.cohort), v.optional_key(v.scalar_key)(self.context_id), v.record_key(self.identity), v.record_key(self.original), v.scalar_key(self.side), v.scalar_key(self.status),))
-
-
-class EvidenceComparisonMemberOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Original membership retained separately from compact paired cohorts."""
-
-    #: Exact cohort reference in subjects.
-    cohort: str
-    #: Original declared context.
-    context_id: str | None
-    #: Original owner identity.
-    identity: EvidenceSubjectIdentityOutput
-    #: Original generation and member.
-    original: EvidenceMemberIdentity
-    #: Baseline or candidate.
-    side: str
-    #: Original binary outcome, including unknowns.
-    status: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.cohort), v.optional_key(v.scalar_key)(self.context_id), v.record_key(self.identity), v.record_key(self.original), v.scalar_key(self.side), v.scalar_key(self.status),))
-
-
-class EvidenceComparisonOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Typed comparison result shared by native, offline and canonical consumers."""
-
-    _pse_required_version: ClassVar[int] = 1
-
-    #: Native comparison codec version.
-    version: Literal[1] = 1
-    #: Requested original measurement association and population declarations only.
-    associations: EvidenceComparisonPage3Output | None
-    #: Full baseline denominator, independent of optional details.
-    baseline_denominator: EvidenceComparisonDenominator
-    #: Original selected baseline sources and coverage.
-    baseline_sources: tuple[EvidenceComparisonSource, ...]
-    #: Full candidate denominator, independent of optional details.
-    candidate_denominator: EvidenceComparisonDenominator
-    #: Original selected candidate sources and coverage.
-    candidate_sources: tuple[EvidenceComparisonSource, ...]
-    #: Requested original context rows only.
-    contexts: EvidenceComparisonPage3Output | None
-    #: Exact selected cut and mappings, independent of page bounds.
-    cut: str
-    #: Scope and non-inference limits.
-    interpretation: str
-    #: Full measurement context comparison, without sample hydration.
-    measurement_summary: EvidenceMeasurementSummary
-    #: Requested measurement cohorts only.
-    measurements: EvidenceComparisonPage4Output | None
-    #: Requested original outcome rows only.
-    members: EvidenceComparisonPage2Output | None
-    #: Requested original measurement sample rows only.
-    samples: EvidenceComparisonPage3Output | None
-    #: Requested subject detail only.
-    subjects: EvidenceComparisonPageOutput | None
-    #: Full semantic subject comparison summary.
-    summary: EvidenceComparisonSummary
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.associations), v.record_key(self.baseline_denominator), v.sequence_key(v.record_key)(self.baseline_sources), v.record_key(self.candidate_denominator), v.sequence_key(v.record_key)(self.candidate_sources), v.optional_key(v.record_key)(self.contexts), v.scalar_key(self.cut), v.scalar_key(self.interpretation), v.record_key(self.measurement_summary), v.optional_key(v.record_key)(self.measurements), v.optional_key(v.record_key)(self.members), v.optional_key(v.record_key)(self.samples), v.optional_key(v.record_key)(self.subjects), v.record_key(self.summary),))
-
-
-class EvidenceComparisonPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A bounded section with a full row denominator and explicit continuation."""
-
-    #: Whole section is present in this response.
-    complete: bool
-    #: Immutable comparison cut; reuse only with the same request selection.
-    cut: str
-    #: Requested page limit.
-    limit: Annotated[int, msgspec.Meta(ge=0)]
-    #: Next offset in this exact cut, if any.
-    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    #: Requested offset.
-    offset: Annotated[int, msgspec.Meta(ge=0)]
-    #: Bounded original rows.
-    rows: tuple[EvidenceSubjectComparison, ...]
-    #: Full section rows before display limits.
-    total_rows: Annotated[int, msgspec.Meta(ge=0)]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
-
-
-class EvidenceComparisonPage2(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A bounded section with a full row denominator and explicit continuation."""
-
-    #: Whole section is present in this response.
-    complete: bool
-    #: Immutable comparison cut; reuse only with the same request selection.
-    cut: str
-    #: Requested page limit.
-    limit: Annotated[int, msgspec.Meta(ge=0)]
-    #: Next offset in this exact cut, if any.
-    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    #: Requested offset.
-    offset: Annotated[int, msgspec.Meta(ge=0)]
-    #: Bounded original rows.
-    rows: tuple[EvidenceComparisonMember, ...]
-    #: Full section rows before display limits.
-    total_rows: Annotated[int, msgspec.Meta(ge=0)]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
-
-
-class EvidenceComparisonPage2Output(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A bounded section with a full row denominator and explicit continuation."""
-
-    #: Whole section is present in this response.
-    complete: bool
-    #: Immutable comparison cut; reuse only with the same request selection.
-    cut: str
-    #: Requested page limit.
-    limit: Annotated[int, msgspec.Meta(ge=0)]
-    #: Next offset in this exact cut, if any.
-    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None
-    #: Requested offset.
-    offset: Annotated[int, msgspec.Meta(ge=0)]
-    #: Bounded original rows.
-    rows: tuple[EvidenceComparisonMemberOutput, ...]
-    #: Full section rows before display limits.
-    total_rows: Annotated[int, msgspec.Meta(ge=0)]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
-
-
-class EvidenceComparisonPage3(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A bounded section with a full row denominator and explicit continuation."""
-
-    #: Whole section is present in this response.
-    complete: bool
-    #: Immutable comparison cut; reuse only with the same request selection.
-    cut: str
-    #: Requested page limit.
-    limit: Annotated[int, msgspec.Meta(ge=0)]
-    #: Next offset in this exact cut, if any.
-    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    #: Requested offset.
-    offset: Annotated[int, msgspec.Meta(ge=0)]
-    #: Bounded original rows.
-    rows: tuple[EvidenceComparisonFact, ...]
-    #: Full section rows before display limits.
-    total_rows: Annotated[int, msgspec.Meta(ge=0)]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
-
-
-class EvidenceComparisonPage3Output(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A bounded section with a full row denominator and explicit continuation."""
-
-    #: Whole section is present in this response.
-    complete: bool
-    #: Immutable comparison cut; reuse only with the same request selection.
-    cut: str
-    #: Requested page limit.
-    limit: Annotated[int, msgspec.Meta(ge=0)]
-    #: Next offset in this exact cut, if any.
-    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None
-    #: Requested offset.
-    offset: Annotated[int, msgspec.Meta(ge=0)]
-    #: Bounded original rows.
-    rows: tuple[EvidenceComparisonFact, ...]
-    #: Full section rows before display limits.
-    total_rows: Annotated[int, msgspec.Meta(ge=0)]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
-
-
-class EvidenceComparisonPage4(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A bounded section with a full row denominator and explicit continuation."""
-
-    #: Whole section is present in this response.
-    complete: bool
-    #: Immutable comparison cut; reuse only with the same request selection.
-    cut: str
-    #: Requested page limit.
-    limit: Annotated[int, msgspec.Meta(ge=0)]
-    #: Next offset in this exact cut, if any.
-    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    #: Requested offset.
-    offset: Annotated[int, msgspec.Meta(ge=0)]
-    #: Bounded original rows.
-    rows: tuple[EvidenceMeasurementComparison, ...]
-    #: Full section rows before display limits.
-    total_rows: Annotated[int, msgspec.Meta(ge=0)]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
-
-
-class EvidenceComparisonPage4Output(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A bounded section with a full row denominator and explicit continuation."""
-
-    #: Whole section is present in this response.
-    complete: bool
-    #: Immutable comparison cut; reuse only with the same request selection.
-    cut: str
-    #: Requested page limit.
-    limit: Annotated[int, msgspec.Meta(ge=0)]
-    #: Next offset in this exact cut, if any.
-    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None
-    #: Requested offset.
-    offset: Annotated[int, msgspec.Meta(ge=0)]
-    #: Bounded original rows.
-    rows: tuple[EvidenceMeasurementComparisonOutput, ...]
-    #: Full section rows before display limits.
-    total_rows: Annotated[int, msgspec.Meta(ge=0)]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
-
-
-class EvidenceComparisonPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A bounded section with a full row denominator and explicit continuation."""
-
-    #: Whole section is present in this response.
-    complete: bool
-    #: Immutable comparison cut; reuse only with the same request selection.
-    cut: str
-    #: Requested page limit.
-    limit: Annotated[int, msgspec.Meta(ge=0)]
-    #: Next offset in this exact cut, if any.
-    next_offset: Annotated[int, msgspec.Meta(ge=0)] | None
-    #: Requested offset.
-    offset: Annotated[int, msgspec.Meta(ge=0)]
-    #: Bounded original rows.
-    rows: tuple[EvidenceSubjectComparisonOutput, ...]
-    #: Full section rows before display limits.
-    total_rows: Annotated[int, msgspec.Meta(ge=0)]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.complete), v.scalar_key(self.cut), v.scalar_key(self.limit), v.optional_key(v.scalar_key)(self.next_offset), v.scalar_key(self.offset), v.sequence_key(v.record_key)(self.rows), v.scalar_key(self.total_rows),))
-
-
-class EvidenceComparisonRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Finite native request. Both sides and every mapping remain explicit."""
-
-    _pse_required_version: ClassVar[int] = 1
-
-    #: Exact native request interpretation; required before decoding the body.
-    version: Literal[1] = 1
-    #: Baseline source population.
-    baseline: EvidenceComparisonSelection
-    #: Candidate source population.
-    candidate: EvidenceComparisonSelection
-    #: Cut returned by the preceding page; mandatory when any section offset is nonzero.
-    continuation_cut: str | None = None
-    #: Exact caller-supplied mappings; conflicting or unknown endpoints are refused.
-    mappings: tuple[EvidenceSubjectMapping, ...] = msgspec.field(default_factory=tuple)
-    #: Explicit measurement population mappings; unknown or conflicting endpoints are refused.
-    measurement_mappings: tuple[EvidenceMeasurementMapping, ...] = msgspec.field(default_factory=tuple)
-    #: Optional independently bounded detail pages.
-    sections: dict[str, EvidenceSectionSelection] = msgspec.field(default_factory=dict)
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.record_key(self.baseline), v.record_key(self.candidate), v.optional_key(v.scalar_key)(self.continuation_cut), v.sequence_key(v.record_key)(self.mappings), v.sequence_key(v.record_key)(self.measurement_mappings), v.mapping_key(v.scalar_key, v.record_key)(self.sections),))
-
-
-class EvidenceComparisonRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Finite native request. Both sides and every mapping remain explicit."""
-
-    _pse_required_version: ClassVar[int] = 1
-
-    #: Exact native request interpretation; required before decoding the body.
-    version: Literal[1] = 1
-    #: Baseline source population.
-    baseline: EvidenceComparisonSelectionOutput
-    #: Candidate source population.
-    candidate: EvidenceComparisonSelectionOutput
-    #: Cut returned by the preceding page; mandatory when any section offset is nonzero.
-    continuation_cut: str | None = None
-    #: Exact caller-supplied mappings; conflicting or unknown endpoints are refused.
-    mappings: tuple[EvidenceSubjectMapping, ...] = msgspec.field(default_factory=tuple)
-    #: Explicit measurement population mappings; unknown or conflicting endpoints are refused.
-    measurement_mappings: tuple[EvidenceMeasurementMappingOutput, ...] = msgspec.field(default_factory=tuple)
-    #: Optional independently bounded detail pages.
-    sections: dict[str, EvidenceSectionSelectionOutput] = msgspec.field(default_factory=dict)
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.record_key(self.baseline), v.record_key(self.candidate), v.optional_key(v.scalar_key)(self.continuation_cut), v.sequence_key(v.record_key)(self.mappings), v.sequence_key(v.record_key)(self.measurement_mappings), v.mapping_key(v.scalar_key, v.record_key)(self.sections),))
-
-
-class EvidenceComparisonSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """An explicit side of a comparison. Generation IDs identify exact source versions."""
-
-    #: Owner-declared context selection, before all denominators.
-    context_id: str | None = None
-    #: Owner-declared crate selection, before all denominators.
-    crate_name: str | None = None
-    #: Exact generations; repeated IDs and unavailable IDs are refused.
-    generations: tuple[str, ...]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.context_id), v.optional_key(v.scalar_key)(self.crate_name), v.sequence_key(v.scalar_key)(self.generations),))
-
-
-class EvidenceComparisonSelectionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """An explicit side of a comparison. Generation IDs identify exact source versions."""
-
-    #: Owner-declared context selection, before all denominators.
-    context_id: str | None
-    #: Owner-declared crate selection, before all denominators.
-    crate_name: str | None
-    #: Exact generations; repeated IDs and unavailable IDs are refused.
-    generations: tuple[str, ...]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.context_id), v.optional_key(v.scalar_key)(self.crate_name), v.sequence_key(v.scalar_key)(self.generations),))
-
-
-class EvidenceComparisonSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Coverage and freshness of one selected original source."""
-
-    #: Original authority.
-    authority: str
-    #: Original codec.
-    codec: str
-    #: Original complete/partial coverage.
-    coverage: str
-    #: Original declared selected membership, including non-test facts.
-    expected_members: Annotated[int, msgspec.Meta(ge=0)]
-    #: Freshness against explicit owner observations only.
-    freshness: str
-    #: Exact source cut.
-    generation: str
-    #: Original source digest.
-    snapshot_digest: str
-    #: Original source identity.
-    source_id: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.authority), v.scalar_key(self.codec), v.scalar_key(self.coverage), v.scalar_key(self.expected_members), v.scalar_key(self.freshness), v.scalar_key(self.generation), v.scalar_key(self.snapshot_digest), v.scalar_key(self.source_id),))
-
-
-class EvidenceComparisonSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Full selected populations. Missing execution and mixed outcomes are independent
-    axes and may overlap failure classifications.
-    """
-
-    #: Duplicate owner identities within a source or unavailable exact identity.
-    ambiguous: Annotated[int, msgspec.Meta(ge=0)]
-    #: Full selected test-row counts differ.
-    changed_selection_denominator: bool
-    #: Unknown or mixed change evidence without an eligible change verdict.
-    inconclusive: Annotated[int, msgspec.Meta(ge=0)]
-    #: Cohorts with original failure and success evidence.
-    mixed_outcome_cohorts: Annotated[int, msgspec.Meta(ge=0)]
-    #: Candidate failures following an all-success baseline.
-    new_failures: Annotated[int, msgspec.Meta(ge=0)]
-    #: Subjects paired by exact identity or supplied mapping.
-    paired: Annotated[int, msgspec.Meta(ge=0)]
-    #: Failure evidence in both sides, retaining mixed outcomes.
-    persistent_failures: Annotated[int, msgspec.Meta(ge=0)]
-    #: Baseline failures followed by an all-success candidate.
-    resolved_failures: Annotated[int, msgspec.Meta(ge=0)]
-    #: Unmatched or ambiguous cohorts prevent a same-subject selection claim.
-    selection_membership_changed_or_unresolved: bool
-    #: Compatible pairs with only explicit successes.
-    unchanged_successes: Annotated[int, msgspec.Meta(ge=0)]
-    #: Pairs lacking execution in either side.
-    unexecuted: Annotated[int, msgspec.Meta(ge=0)]
-    #: Baseline-only cohorts.
-    unmatched_baseline: Annotated[int, msgspec.Meta(ge=0)]
-    #: Candidate-only cohorts.
-    unmatched_candidate: Annotated[int, msgspec.Meta(ge=0)]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.ambiguous), v.scalar_key(self.changed_selection_denominator), v.scalar_key(self.inconclusive), v.scalar_key(self.mixed_outcome_cohorts), v.scalar_key(self.new_failures), v.scalar_key(self.paired), v.scalar_key(self.persistent_failures), v.scalar_key(self.resolved_failures), v.scalar_key(self.selection_membership_changed_or_unresolved), v.scalar_key(self.unchanged_successes), v.scalar_key(self.unexecuted), v.scalar_key(self.unmatched_baseline), v.scalar_key(self.unmatched_candidate),))
-
-
-class EvidenceFact(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """One compact authentic owner fact, without raw bytes or a lifetime grant."""
-
-    #: Compact owner-declared binary id; absent means unknown.
-    binary_id: str | None = None
-    #: Compact owner-declared context id; absent means unknown.
-    context_id: str | None = None
-    #: Compact owner-declared context json; absent means unknown.
-    context_json: str | None = None
-    #: Declared owning crate, if available.
-    crate_name: str | None = None
-    #: Descriptive owner reference, never an automatic path or grant.
-    detail_ref: str | None = None
-    #: Owner-declared category.
-    kind: str
-    #: Compact owner-declared link relation; absent means unknown.
-    link_relation: str | None = None
-    #: Compact owner-declared link target; absent means unknown.
-    link_target: str | None = None
-    #: Original stable member identity.
-    member: str
-    #: Compact owner-declared population id; absent means unknown.
-    population_id: str | None = None
-    #: Compact owner-declared sample id; absent means unknown.
-    sample_id: str | None = None
-    #: Original outcome, including unreported/command failures.
-    status: str
-    #: Exact Rust binary/test identity or Python node ID, if available.
-    test_id: str | None = None
-    #: Compact owner-declared value ns; absent means unknown.
-    value_ns: float | None = None
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.binary_id), v.optional_key(v.scalar_key)(self.context_id), v.optional_key(v.scalar_key)(self.context_json), v.optional_key(v.scalar_key)(self.crate_name), v.optional_key(v.scalar_key)(self.detail_ref), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.link_relation), v.optional_key(v.scalar_key)(self.link_target), v.scalar_key(self.member), v.optional_key(v.scalar_key)(self.population_id), v.optional_key(v.scalar_key)(self.sample_id), v.scalar_key(self.status), v.optional_key(v.scalar_key)(self.test_id), v.optional_key(v.scalar_key)(self.value_ns),))
-
-
-class EvidenceIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Original evidence-owner identity, not a replacement evidence codec."""
-
-    #: Original version or digest.
-    version: str
-    #: Original issuing authority.
-    authority: str
-    #: Original codec.
-    codec: str
-    #: Original member.
-    member: str
-    #: Original source.
-    source_id: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.authority), v.scalar_key(self.codec), v.scalar_key(self.member), v.scalar_key(self.source_id),))
-
-
-class EvidenceMeasurementCohort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Descriptive statistics and membership counts of one original measurement cohort."""
-
-    #: Original censored or unmeasured population declarations.
-    censored_populations: Annotated[int, msgspec.Meta(ge=0)]
-    #: Original declared context identity, if available.
-    context_id: str | None = None
-    #: Original association declarations, regardless of their status.
-    declared_associations: Annotated[int, msgspec.Meta(ge=0)]
-    #: Original immutable generation.
-    generation: str
-    #: Maximum actual sample value, if any.
-    max_ns: float | None = None
-    #: Mean actual sample value, if any; no change verdict follows from it.
-    mean_ns: float | None = None
-    #: Minimum actual sample value, if any.
-    min_ns: float | None = None
-    #: Original owner population identity.
-    population_id: str
-    #: Actual original sample rows.
-    sample_count: Annotated[int, msgspec.Meta(ge=0)]
-    #: Original explicitly unavailable, unsupported or unknown association declarations.
-    unavailable_associations: Annotated[int, msgspec.Meta(ge=0)]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.censored_populations), v.optional_key(v.scalar_key)(self.context_id), v.scalar_key(self.declared_associations), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.max_ns), v.optional_key(v.scalar_key)(self.mean_ns), v.optional_key(v.scalar_key)(self.min_ns), v.scalar_key(self.population_id), v.scalar_key(self.sample_count), v.scalar_key(self.unavailable_associations),))
-
-
-class EvidenceMeasurementCohortOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Descriptive statistics and membership counts of one original measurement cohort."""
-
-    #: Original censored or unmeasured population declarations.
-    censored_populations: Annotated[int, msgspec.Meta(ge=0)]
-    #: Original declared context identity, if available.
-    context_id: str | None
-    #: Original association declarations, regardless of their status.
-    declared_associations: Annotated[int, msgspec.Meta(ge=0)]
-    #: Original immutable generation.
-    generation: str
-    #: Maximum actual sample value, if any.
-    max_ns: float | None
-    #: Mean actual sample value, if any; no change verdict follows from it.
-    mean_ns: float | None
-    #: Minimum actual sample value, if any.
-    min_ns: float | None
-    #: Original owner population identity.
-    population_id: str
-    #: Actual original sample rows.
-    sample_count: Annotated[int, msgspec.Meta(ge=0)]
-    #: Original explicitly unavailable, unsupported or unknown association declarations.
-    unavailable_associations: Annotated[int, msgspec.Meta(ge=0)]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.censored_populations), v.optional_key(v.scalar_key)(self.context_id), v.scalar_key(self.declared_associations), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.max_ns), v.optional_key(v.scalar_key)(self.mean_ns), v.optional_key(v.scalar_key)(self.min_ns), v.scalar_key(self.population_id), v.scalar_key(self.sample_count), v.scalar_key(self.unavailable_associations),))
-
-
-class EvidenceMeasurementComparison(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Paired or honestly unpaired original measurement cohorts."""
-
-    #: Explicit scope of supported original association.
-    association: str
-    #: Baseline descriptor only when exactly one original cohort exists.
-    baseline: EvidenceMeasurementCohort | None = None
-    #: Baseline original cohorts before display bounds.
-    baseline_cohorts: Annotated[int, msgspec.Meta(ge=0)]
-    #: Candidate descriptor only when exactly one original cohort exists.
-    candidate: EvidenceMeasurementCohort | None = None
-    #: Candidate original cohorts before display bounds.
-    candidate_cohorts: Annotated[int, msgspec.Meta(ge=0)]
-    #: Relevant declared conditions that differ.
-    changed_fields: tuple[str, ...]
-    #: Comparable conditions, incompatible conditions, or unavailable basis.
-    conditions: str
-    #: Exact compatible owner identity or explicitly supplied mapping.
-    correspondence: str
-    #: Revision/build interpretation retained with the assessment.
-    revision_build: str
-    #: Relevant conditions not declared by at least one original owner.
-    unknown_fields: tuple[str, ...]
-    #: Descriptive-only verdict; statistical and causal conclusions are not inferred.
-    verdict: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.association), v.optional_key(v.record_key)(self.baseline), v.scalar_key(self.baseline_cohorts), v.optional_key(v.record_key)(self.candidate), v.scalar_key(self.candidate_cohorts), v.sequence_key(v.scalar_key)(self.changed_fields), v.scalar_key(self.conditions), v.scalar_key(self.correspondence), v.scalar_key(self.revision_build), v.sequence_key(v.scalar_key)(self.unknown_fields), v.scalar_key(self.verdict),))
-
-
-class EvidenceMeasurementComparisonOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Paired or honestly unpaired original measurement cohorts."""
-
-    #: Explicit scope of supported original association.
-    association: str
-    #: Baseline descriptor only when exactly one original cohort exists.
-    baseline: EvidenceMeasurementCohortOutput | None
-    #: Baseline original cohorts before display bounds.
-    baseline_cohorts: Annotated[int, msgspec.Meta(ge=0)]
-    #: Candidate descriptor only when exactly one original cohort exists.
-    candidate: EvidenceMeasurementCohortOutput | None
-    #: Candidate original cohorts before display bounds.
-    candidate_cohorts: Annotated[int, msgspec.Meta(ge=0)]
-    #: Relevant declared conditions that differ.
-    changed_fields: tuple[str, ...]
-    #: Comparable conditions, incompatible conditions, or unavailable basis.
-    conditions: str
-    #: Exact compatible owner identity or explicitly supplied mapping.
-    correspondence: str
-    #: Revision/build interpretation retained with the assessment.
-    revision_build: str
-    #: Relevant conditions not declared by at least one original owner.
-    unknown_fields: tuple[str, ...]
-    #: Descriptive-only verdict; statistical and causal conclusions are not inferred.
-    verdict: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.association), v.optional_key(v.record_key)(self.baseline), v.scalar_key(self.baseline_cohorts), v.optional_key(v.record_key)(self.candidate), v.scalar_key(self.candidate_cohorts), v.sequence_key(v.scalar_key)(self.changed_fields), v.scalar_key(self.conditions), v.scalar_key(self.correspondence), v.scalar_key(self.revision_build), v.sequence_key(v.scalar_key)(self.unknown_fields), v.scalar_key(self.verdict),))
-
-
-class EvidenceMeasurementIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Exact original measurement cohort, without invented invocation membership."""
-
-    #: Original context, including its explicit absence.
-    context_id: str | None = None
-    #: Exact source version.
-    generation: str
-    #: Original declared population identity.
-    population_id: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.context_id), v.scalar_key(self.generation), v.scalar_key(self.population_id),))
-
-
-class EvidenceMeasurementIdentityOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Exact original measurement cohort, without invented invocation membership."""
-
-    #: Original context, including its explicit absence.
-    context_id: str | None
-    #: Exact source version.
-    generation: str
-    #: Original declared population identity.
-    population_id: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.context_id), v.scalar_key(self.generation), v.scalar_key(self.population_id),))
-
-
-class EvidenceMeasurementMapping(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Explicit correspondence between two original measurement populations."""
-
-    #: Exact baseline population.
-    baseline: EvidenceMeasurementIdentity
-    #: Exact candidate population.
-    candidate: EvidenceMeasurementIdentity
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.baseline), v.record_key(self.candidate),))
-
-
-class EvidenceMeasurementMappingOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Explicit correspondence between two original measurement populations."""
-
-    #: Exact baseline population.
-    baseline: EvidenceMeasurementIdentityOutput
-    #: Exact candidate population.
-    candidate: EvidenceMeasurementIdentityOutput
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.baseline), v.record_key(self.candidate),))
-
-
-class EvidenceMeasurementSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Cross-side measurement compatibility counts, retaining inconclusive cohorts."""
-
-    #: Pairs with declared and equal relevant conditions; sample association remains separate.
-    comparable: Annotated[int, msgspec.Meta(ge=0)]
-    #: Pairs with at least one different declared condition.
-    incompatible: Annotated[int, msgspec.Meta(ge=0)]
-    #: Exact owner/population cohorts examined across both sides.
-    populations: Annotated[int, msgspec.Meta(ge=0)]
-    #: Missing/unknown conditions, absent samples, ambiguity or unpaired populations.
-    unavailable: Annotated[int, msgspec.Meta(ge=0)]
-    #: Cohorts lacking any declared association or reporting unavailable/unsupported association.
-    #: This axis is independent of condition compatibility.
-    unavailable_association_populations: Annotated[int, msgspec.Meta(ge=0)]
-    #: No automatic regression, causality or flakiness verdict is produced.
-    verdict: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.comparable), v.scalar_key(self.incompatible), v.scalar_key(self.populations), v.scalar_key(self.unavailable), v.scalar_key(self.unavailable_association_populations), v.scalar_key(self.verdict),))
-
-
-class EvidenceMemberIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """An original source member, never a guessed spelling or timestamp."""
-
-    #: Exact source version.
-    generation: str
-    #: Original owner member.
-    member: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.generation), v.scalar_key(self.member),))
-
-
-class EvidenceOutcomeCounts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Outcome counts retain repeated mixed results without a flakiness verdict."""
-
-    #: Original failures.
-    failures: Annotated[int, msgspec.Meta(ge=0)]
-    #: All other original statuses.
-    other: Annotated[int, msgspec.Meta(ge=0)]
-    #: Explicit successes.
-    successes: Annotated[int, msgspec.Meta(ge=0)]
-    #: Missing execution, skipped, reused or transferred.
-    unexecuted: Annotated[int, msgspec.Meta(ge=0)]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.failures), v.scalar_key(self.other), v.scalar_key(self.successes), v.scalar_key(self.unexecuted),))
-
-
 class EvidenceRef(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Exact observed location supporting an explanatory statement."""
 
@@ -9302,154 +9240,6 @@ class EvidenceRefOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.generation), v.optional_key(v.scalar_key)(self.metric), v.optional_key(v.record_key)(self.observed_at), v.record_key(self.operation), v.scalar_key(self.partial), v.optional_key(v.record_key)(self.producer), v.optional_key(v.scalar_key)(self.record_sequence), v.optional_key(v.record_key)(self.value),))
-
-
-class EvidenceSectionSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """An explicit finite page of one optional section on the immutable source cut."""
-
-    #: Returned detail rows, 1..=10000.
-    limit: Annotated[int, msgspec.Meta(ge=0)]
-    #: Continue with the previous next_offset on this same analysis and question.
-    offset: Annotated[int, msgspec.Meta(ge=0)] = 0
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.limit), v.scalar_key(self.offset),))
-
-
-class EvidenceSectionSelectionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """An explicit finite page of one optional section on the immutable source cut."""
-
-    #: Returned detail rows, 1..=10000.
-    limit: Annotated[int, msgspec.Meta(ge=0)]
-    #: Continue with the previous next_offset on this same analysis and question.
-    offset: Annotated[int, msgspec.Meta(ge=0)] = 0
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.limit), v.scalar_key(self.offset),))
-
-
-class EvidenceSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Frozen owner adapter output. Partial source coverage is not a complete test population."""
-
-    #: Boundary codec version.
-    version: Annotated[int, msgspec.Meta(ge=0)]
-    #: Original authority identity.
-    authority: str
-    #: Original owner codec.
-    codec: str
-    #: Original population completeness: complete or partial.
-    coverage: str
-    #: Exact selected member identities, including unreported members.
-    expected_members: tuple[str, ...]
-    #: Compact facts emitted by original readers.
-    facts: tuple[EvidenceFact, ...]
-    #: SHA256 of original authenticated source snapshot bytes.
-    snapshot_digest: str
-    #: Original invocation/snapshot source identity.
-    source_id: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.authority), v.scalar_key(self.codec), v.scalar_key(self.coverage), v.sequence_key(v.scalar_key)(self.expected_members), v.sequence_key(v.record_key)(self.facts), v.scalar_key(self.snapshot_digest), v.scalar_key(self.source_id),))
-
-
-class EvidenceSubjectComparison(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A paired cohort or an honestly unpaired original population."""
-
-    #: Original baseline identity.
-    baseline: EvidenceSubjectIdentity | None = None
-    #: Full baseline outcome counts.
-    baseline_outcomes: EvidenceOutcomeCounts
-    #: Original candidate identity.
-    candidate: EvidenceSubjectIdentity | None = None
-    #: Full candidate outcome counts.
-    candidate_outcomes: EvidenceOutcomeCounts
-    #: Classification never rewrites either original outcome.
-    classification: str
-    #: Deterministic reference within this exact comparison cut.
-    cohort: str
-    #: Exact-compatible or explicitly supplied correspondence; absent for unpaired rows.
-    correspondence: str | None = None
-    #: Repeated success and failure occurred in at least one side; no statistical inference.
-    mixed_outcomes: bool
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.record_key)(self.baseline), v.record_key(self.baseline_outcomes), v.optional_key(v.record_key)(self.candidate), v.record_key(self.candidate_outcomes), v.scalar_key(self.classification), v.scalar_key(self.cohort), v.optional_key(v.scalar_key)(self.correspondence), v.scalar_key(self.mixed_outcomes),))
-
-
-class EvidenceSubjectComparisonOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """A paired cohort or an honestly unpaired original population."""
-
-    #: Original baseline identity.
-    baseline: EvidenceSubjectIdentityOutput | None
-    #: Full baseline outcome counts.
-    baseline_outcomes: EvidenceOutcomeCounts
-    #: Original candidate identity.
-    candidate: EvidenceSubjectIdentityOutput | None
-    #: Full candidate outcome counts.
-    candidate_outcomes: EvidenceOutcomeCounts
-    #: Classification never rewrites either original outcome.
-    classification: str
-    #: Deterministic reference within this exact comparison cut.
-    cohort: str
-    #: Exact-compatible or explicitly supplied correspondence; absent for unpaired rows.
-    correspondence: str | None
-    #: Repeated success and failure occurred in at least one side; no statistical inference.
-    mixed_outcomes: bool
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.record_key)(self.baseline), v.record_key(self.baseline_outcomes), v.optional_key(v.record_key)(self.candidate), v.record_key(self.candidate_outcomes), v.scalar_key(self.classification), v.scalar_key(self.cohort), v.optional_key(v.scalar_key)(self.correspondence), v.scalar_key(self.mixed_outcomes),))
-
-
-class EvidenceSubjectIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Owner identity of one cohort. Original binary IDs are never normalized away."""
-
-    #: Compatible owner authority.
-    authority: str
-    #: Original binary ID, required for automatic Rust pairing.
-    binary_id: str | None = None
-    #: Exact codec; codec migrations need an explicit mapping.
-    codec: str
-    #: Declared owning crate.
-    crate_name: str | None = None
-    #: Rust or Python test category.
-    kind: str
-    #: Original owner test identity.
-    test_id: str | None = None
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.authority), v.optional_key(v.scalar_key)(self.binary_id), v.scalar_key(self.codec), v.optional_key(v.scalar_key)(self.crate_name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.test_id),))
-
-
-class EvidenceSubjectIdentityOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Owner identity of one cohort. Original binary IDs are never normalized away."""
-
-    #: Compatible owner authority.
-    authority: str
-    #: Original binary ID, required for automatic Rust pairing.
-    binary_id: str | None
-    #: Exact codec; codec migrations need an explicit mapping.
-    codec: str
-    #: Declared owning crate.
-    crate_name: str | None
-    #: Rust or Python test category.
-    kind: str
-    #: Original owner test identity.
-    test_id: str | None
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.authority), v.optional_key(v.scalar_key)(self.binary_id), v.scalar_key(self.codec), v.optional_key(v.scalar_key)(self.crate_name), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.test_id),))
-
-
-class EvidenceSubjectMapping(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Explicit correspondence supplied by the caller, including a renamed subject."""
-
-    #: Original baseline member.
-    baseline: EvidenceMemberIdentity
-    #: Original candidate member.
-    candidate: EvidenceMemberIdentity
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.baseline), v.record_key(self.candidate),))
 
 
 class ExecutorMetricsSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -9746,7 +9536,7 @@ class FitPreparationDocumentForPhysicalSimulationRequest(msgspec.Struct, frozen=
     #: Maximum native fit workspace cells.
     max_cells: Annotated[int, msgspec.Meta(ge=0)] = 1000000
     #: Fitting-owned method selection, resolved before scientific effects.
-    optimizer: FitOptimizer = "automatic"
+    optimizer: FitOptimizer = FitOptimizer.AUTOMATIC
     #: Rank tolerance for fit admission.
     rank_tolerance: float = 1e-8
     #: Native dynamic settings by experiment identity.
@@ -9770,7 +9560,7 @@ class FitPreparationDocumentForPhysicalSimulationRequestOutput(msgspec.Struct, f
     #: Maximum native fit workspace cells.
     max_cells: Annotated[int, msgspec.Meta(ge=0)] = 1000000
     #: Fitting-owned method selection, resolved before scientific effects.
-    optimizer: FitOptimizer = "automatic"
+    optimizer: FitOptimizer = FitOptimizer.AUTOMATIC
     #: Rank tolerance for fit admission.
     rank_tolerance: float = 1e-8
     #: Native dynamic settings by experiment identity.
@@ -11104,7 +10894,7 @@ class IdasSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     #: Newton linear solver.
     linear: IdasLinear = msgspec.field(default_factory=lambda: _document_default({"kind": "klu"}, IdasLinear))
     #: Native first-step policy, independent of the positive IC orientation scale.
-    native_initial_step: IdasInitialStep = "automatic"
+    native_initial_step: IdasInitialStep = IdasInitialStep.AUTOMATIC
     #: Forward-sensitivity corrector.
     sensitivity: enums.SensitivityCorrector = enums.SensitivityCorrector.SIMULTANEOUS
 
@@ -11132,7 +10922,7 @@ class IdasSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: Newton linear solver.
     linear: IdasLinearOutput = msgspec.field(default_factory=lambda: _document_default({"kind": "klu"}, IdasLinearOutput))
     #: Native first-step policy, independent of the positive IC orientation scale.
-    native_initial_step: IdasInitialStep = "automatic"
+    native_initial_step: IdasInitialStep = IdasInitialStep.AUTOMATIC
     #: Forward-sensitivity corrector.
     sensitivity: enums.SensitivityCorrector = enums.SensitivityCorrector.SIMULTANEOUS
 
@@ -12753,264 +12543,6 @@ class KnowledgeControlsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_cells),))
 
 
-class KnowledgeCoverage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Conservative interpretation limits, independent of the delivered hit population."""
-
-    #: Registry declaration definition locations are not fabricated.
-    declaration_locations: str
-    #: Text matches only subjects explicitly attributed by original owners.
-    excerpt_attribution: str
-    #: Producer fingerprints are not a live freshness attestation.
-    producer_freshness: str
-    #: Missing semantic links are not inferred from prose or topics.
-    undeclared_relationships: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.declaration_locations), v.scalar_key(self.excerpt_attribution), v.scalar_key(self.producer_freshness), v.scalar_key(self.undeclared_relationships),))
-
-
-class KnowledgeCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Exact issuing cut, predicate, and page fence."""
-
-    #: Last native member key.
-    after: str
-    #: Selected activated generation.
-    generation: str
-    #: Issuing tooling identity.
-    issuing_store: str
-    #: Exact predicate and extent identity.
-    query_digest: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.after), v.scalar_key(self.generation), v.scalar_key(self.issuing_store), v.scalar_key(self.query_digest),))
-
-
-class KnowledgeEdge(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Typed native subject relation."""
-
-    #: Actual relationship origin.
-    basis: str
-    #: Exact source subject.
-    from_: str = msgspec.field(name="from")
-    #: Original relationship identity.
-    id: str
-    #: Closed relation meaning.
-    relation: enums.KnowledgeRelationKind
-    #: Exact target subject.
-    to: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.basis), v.scalar_key(self.from_), v.scalar_key(self.id), v.scalar_key(self.relation), v.scalar_key(self.to),))
-
-
-class KnowledgeExcerpt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Selected excerpt; shared files do not imply shared subject attribution."""
-
-    #: Explicit evidence origin.
-    basis: str
-    #: Exact excerpt identity.
-    id: str
-    #: Original locator.
-    locator: str
-    #: Exact source carrier.
-    source_id: str
-    #: Subject only where correspondence is explicitly known.
-    subject_id: str | None
-    #: Selected text, at most sixteen KiB.
-    text: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.basis), v.scalar_key(self.id), v.scalar_key(self.locator), v.scalar_key(self.source_id), v.optional_key(v.scalar_key)(self.subject_id), v.scalar_key(self.text),))
-
-
-class KnowledgeExplain(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Nonexecuting versioned plan envelope; optimizer plan contents are opaque version-specific data."""
-
-    _pse_required_version: ClassVar[int] = 1
-
-    #: Native result encoding version.
-    version: Literal[1] = 1
-    #: Original coverage limitations.
-    coverage: KnowledgeCoverage
-    #: False: explaining never runs ANALYZE.
-    experimental_execution: bool
-    #: This read does not reopen original source files.
-    freshness: str
-    #: Exact selected active generation.
-    generation: str
-    #: Original issuing tooling identity.
-    issuing_store: str
-    #: Original query operation.
-    mode: KnowledgeMode
-    #: Optional population selection's informational plan.
-    population_plan_json: str | None
-    #: Exact predicate and extent identity.
-    query_digest: str
-    #: Raw informational optimizer output, not a stable query grammar.
-    raw_plan_json: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.record_key(self.coverage), v.scalar_key(self.experimental_execution), v.scalar_key(self.freshness), v.scalar_key(self.generation), v.scalar_key(self.issuing_store), v.scalar_key(self.mode), v.optional_key(v.scalar_key)(self.population_plan_json), v.scalar_key(self.query_digest), v.scalar_key(self.raw_plan_json),))
-
-
-class KnowledgePage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Finite structural result, with the complete provenance source cut even for zero hits."""
-
-    _pse_required_version: ClassVar[int] = 1
-
-    #: Native result encoding version.
-    version: Literal[1] = 1
-    #: Exact producer and semantic coverage limits.
-    coverage: KnowledgeCoverage
-    #: Exact typed graph results.
-    edges: tuple[KnowledgeEdge, ...]
-    #: Optional matching subject-attributed excerpts.
-    excerpts: tuple[KnowledgeExcerpt, ...]
-    #: Matching excerpt delivery is separately bounded; this flag preserves omissions.
-    excerpts_truncated: bool
-    #: Imported cut only; no automatic source reopening.
-    freshness: str
-    #: Exact activated corpus.
-    generation: str
-    #: Issuing tooling authority.
-    issuing_store: str
-    #: Same-predicate, same-cut continuation.
-    next: KnowledgeCursor | None
-    #: Exact production assertions.
-    productions: tuple[KnowledgeProduction, ...]
-    #: Complete source membership for independent freshness observation.
-    sources: tuple[KnowledgeSource, ...]
-    #: Selected subjects or exact edge/production endpoint closure.
-    subjects: tuple[KnowledgeSubject, ...]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.edges), v.sequence_key(v.record_key)(self.excerpts), v.scalar_key(self.excerpts_truncated), v.scalar_key(self.freshness), v.scalar_key(self.generation), v.scalar_key(self.issuing_store), v.optional_key(v.record_key)(self.next), v.sequence_key(v.record_key)(self.productions), v.sequence_key(v.record_key)(self.sources), v.sequence_key(v.record_key)(self.subjects),))
-
-
-class KnowledgeProduction(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Actual declaration-generator-specific-output correspondence."""
-
-    #: Exact emitted artifact.
-    artifact_id: str
-    #: Actual producer basis.
-    basis: str
-    #: Actual declaration subject.
-    declaration_id: str
-    #: Direction only where declared.
-    direction: enums.KnowledgeDirection | None
-    #: Actual generator subject.
-    generator_id: str
-    #: Original producer record identity.
-    id: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.artifact_id), v.scalar_key(self.basis), v.scalar_key(self.declaration_id), v.optional_key(v.scalar_key)(self.direction), v.scalar_key(self.generator_id), v.scalar_key(self.id),))
-
-
-class KnowledgeQuery(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Exact conjunction of native facets; no relevance substitution or arbitrary SQL."""
-
-    _pse_required_version: ClassVar[int] = 1
-
-    #: Required native document encoding version.
-    version: Literal[1] = 1
-    #: Exact production artifact.
-    artifact_id: str | None = None
-    #: Exact-cut continuation.
-    cursor: KnowledgeCursor | None = None
-    #: Exact production declaration.
-    declaration_id: str | None = None
-    #: Exact document role.
-    document_role: enums.KnowledgeDocumentRole | None = None
-    #: Null selects the independent current pointer.
-    generation: str | None = None
-    #: Exact production generator.
-    generator_id: str | None = None
-    #: Exact concept family.
-    kind: enums.KnowledgeSubjectKind | None = None
-    #: Page extent, one through 64.
-    limit: Annotated[int, msgspec.Meta(ge=0)]
-    #: Subject, graph, or production operation.
-    mode: KnowledgeMode
-    #: Exact native identity.
-    native_id: str | None = None
-    #: Exact native lifecycle.
-    native_state: str | None = None
-    #: Exact native owner.
-    owner: str | None = None
-    #: Exact publication scope, independent of lifecycle.
-    publication_scope: str | None = None
-    #: Optional typed graph relation.
-    relation: enums.KnowledgeRelationKind | None = None
-    #: Subject selection or exact graph root.
-    subject_id: str | None = None
-    #: Optional text predicate within a structurally selected subject population.
-    text: str | None = None
-    #: All specified native topics must match.
-    topics: tuple[str, ...] = msgspec.field(default_factory=tuple)
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.artifact_id), v.optional_key(v.record_key)(self.cursor), v.optional_key(v.scalar_key)(self.declaration_id), v.optional_key(v.scalar_key)(self.document_role), v.optional_key(v.scalar_key)(self.generation), v.optional_key(v.scalar_key)(self.generator_id), v.optional_key(v.scalar_key)(self.kind), v.scalar_key(self.limit), v.scalar_key(self.mode), v.optional_key(v.scalar_key)(self.native_id), v.optional_key(v.scalar_key)(self.native_state), v.optional_key(v.scalar_key)(self.owner), v.optional_key(v.scalar_key)(self.publication_scope), v.optional_key(v.scalar_key)(self.relation), v.optional_key(v.scalar_key)(self.subject_id), v.optional_key(v.scalar_key)(self.text), v.sequence_key(v.scalar_key)(self.topics),))
-
-
-class KnowledgeSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Immutable source-version carrier, never a substitute for a domain concept."""
-
-    #: Explicit evidence origin.
-    basis: str
-    #: Exact selected carrier identity.
-    id: str
-    #: Original carrier category.
-    kind: str
-    #: Original attributable locator, without lifetime or file-access grant.
-    locator: str
-    #: Source observation state, independent of subject lifecycle.
-    status: str
-    #: Compact original description.
-    title: str
-    #: SHA256 of exact selected source bytes.
-    version_digest: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.basis), v.scalar_key(self.id), v.scalar_key(self.kind), v.scalar_key(self.locator), v.scalar_key(self.status), v.scalar_key(self.title), v.scalar_key(self.version_digest),))
-
-
-class KnowledgeSubject(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Closed owner-native subject; publication and native lifecycle remain separate."""
-
-    #: Explicit evidence origin.
-    basis: str
-    #: Actual native document role.
-    document_role: enums.KnowledgeDocumentRole | None
-    #: Original evidence identity for evidence_reference only.
-    evidence: EvidenceIdentity | None
-    #: Stable adapter-qualified subject identity.
-    id: str
-    #: Closed subject family.
-    kind: enums.KnowledgeSubjectKind
-    #: Original compact label.
-    label: str
-    #: Actual owner-native identity.
-    native_id: str
-    #: Native lifecycle/status only where applicable.
-    native_state: str | None
-    #: Exact owner version when supplied.
-    native_version: str | None
-    #: Native semantic owner.
-    owner: str
-    #: Publication scope, independent of proposal/acceptance.
-    publication_scope: str | None
-    #: Complete explicit contributors, at most eight.
-    sources: tuple[SubjectSource, ...]
-    #: Actual interpretation of native state.
-    state_basis: str | None
-    #: Native metadata topics, at most sixteen.
-    topics: tuple[SubjectTopic, ...]
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.basis), v.optional_key(v.scalar_key)(self.document_role), v.optional_key(v.record_key)(self.evidence), v.scalar_key(self.id), v.scalar_key(self.kind), v.scalar_key(self.label), v.scalar_key(self.native_id), v.optional_key(v.scalar_key)(self.native_state), v.optional_key(v.scalar_key)(self.native_version), v.scalar_key(self.owner), v.optional_key(v.scalar_key)(self.publication_scope), v.sequence_key(v.record_key)(self.sources), v.optional_key(v.scalar_key)(self.state_basis), v.sequence_key(v.record_key)(self.topics),))
-
-
 class LaunchCaptureRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Structured launch request. A new command is independently owned from its CPU capture."""
 
@@ -13653,6 +13185,24 @@ class ManagedDetailSelectionOutput(msgspec.Struct, frozen=True, forbid_unknown_f
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.version), v.scalar_key(self.attempt_slots), v.optional_key(v.record_key)(self.group_budget), v.record_key(self.original_selection), v.optional_key(v.record_key)(self.per_attempt_budget), v.optional_key(v.scalar_key)(self.refusal),))
+
+
+class ManagedPrimaryReceiver(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Materialized executable association for the managed study receiver."""
+
+    #: Interpreter selected by the owning supervisor environment.
+    supervisor_executable: str
+    #: Supervisor entry point selected at profile construction.
+    supervisor_script: str
+    #: Supervisor file SHA-256 association, verified at launch.
+    supervisor_sha256: str
+    #: Exact linked worker selected at profile construction.
+    worker_executable: str
+    #: Linked worker file SHA-256 association, verified at launch and readiness.
+    worker_sha256: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.supervisor_executable), v.scalar_key(self.supervisor_script), v.scalar_key(self.supervisor_sha256), v.scalar_key(self.worker_executable), v.scalar_key(self.worker_sha256),))
 
 
 class ManagedStudyDiagnosticsDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -14712,6 +14262,38 @@ class ModelingUnitFactor(msgspec.Struct, frozen=True, forbid_unknown_fields=True
         return (type(self), (v.scalar_key(self.den), v.scalar_key(self.num), v.scalar_key(self.symbol),))
 
 
+class NativeAllocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The application profile's separately capped native-worker slots."""
+
+    #: Optional materialized shared-runtime execution profile.
+    execution: NativeExecutionAllocation | None = None
+    #: Maximum attached storage sessions.
+    grpc_max_attached_sessions: Annotated[int, msgspec.Meta(ge=0)]
+    #: Storage pressure threshold, distinct from the process hard cap.
+    memory_threshold_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Hard process memory cap for each worker.
+    native_worker_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum managed worker processes sharing this store.
+    native_workers: Annotated[int, msgspec.Meta(ge=0)]
+    #: Separately placed canonical storage process.
+    server_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Accounted asynchronous storage queue byte capacity.
+    surrealmx_max_async_queue_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum queued asynchronous storage jobs.
+    surrealmx_max_async_queue_depth: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum transaction age selected by the deployment owner.
+    surrealmx_max_transaction_age_seconds: Annotated[int, msgspec.Meta(ge=0)]
+    #: Storage engine cache allowance materialized by the deployment owner.
+    surrealmx_memory_limit_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Storage snapshot interval selected by the deployment owner.
+    surrealmx_snapshot_interval_seconds: Annotated[int, msgspec.Meta(ge=0)]
+    #: Finite service and execution envelope, separate from each process cap.
+    total_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.execution), v.scalar_key(self.grpc_max_attached_sessions), v.scalar_key(self.memory_threshold_bytes), v.scalar_key(self.native_worker_memory_bytes), v.scalar_key(self.native_workers), v.scalar_key(self.server_memory_bytes), v.scalar_key(self.surrealmx_max_async_queue_bytes), v.scalar_key(self.surrealmx_max_async_queue_depth), v.scalar_key(self.surrealmx_max_transaction_age_seconds), v.scalar_key(self.surrealmx_memory_limit_bytes), v.scalar_key(self.surrealmx_snapshot_interval_seconds), v.scalar_key(self.total_memory_bytes),))
+
+
 class NativeAttemptRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Native-owned compact attempt record; scientific workflow position belongs to its caller.
     No factor, actor, oracle, candidate or complete SolveReport is retained here.
@@ -14944,6 +14526,32 @@ class NativeCountersUno(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.constraint_evaluations), v.optional_key(v.record_key)(self.cpu_seconds), v.optional_key(v.scalar_key)(self.gradient_evaluations), v.optional_key(v.scalar_key)(self.iterations), v.optional_key(v.scalar_key)(self.jacobian_evaluations), v.optional_key(v.scalar_key)(self.objective_evaluations), v.optional_key(v.scalar_key)(self.subproblems),))
+
+
+class NativeExecutionAllocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Finite runtime allocation materialized by the existing deployment supervisor."""
+
+    #: Admission-only clock where no enclosing deadline exists.
+    admission_wait_ms: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum ordinary concurrent case lanes in the primary group.
+    case_lanes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Ordinary optimizer team width.
+    compiler_cores: Annotated[int, msgspec.Meta(ge=0)]
+    #: Shared CPU permits for all case and inner native work.
+    cpu_threads: Annotated[int, msgspec.Meta(ge=0)]
+    #: Total pending, executing and retained session population.
+    math_jobs: Annotated[int, msgspec.Meta(ge=0)]
+    #: Separately placed observer allocation without native assistance.
+    observer_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Shared application pool capacity, distinct from the process cap.
+    pool_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Explicit process headroom policy; not a measured resident-memory bound.
+    process_headroom_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum aggregate numeric capacity of one case worker.
+    worker_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.admission_wait_ms), v.scalar_key(self.case_lanes), v.scalar_key(self.compiler_cores), v.scalar_key(self.cpu_threads), v.scalar_key(self.math_jobs), v.scalar_key(self.observer_memory_bytes), v.scalar_key(self.pool_memory_bytes), v.scalar_key(self.process_headroom_bytes), v.scalar_key(self.worker_bytes),))
 
 
 class NativeObservations(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18373,6 +17981,42 @@ class ProductionDemandOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.allowance), v.record_key(self.branch), v.scalar_key(self.class_), v.scalar_key(self.derivative_order), v.record_key(self.source),))
+
+
+class ProductionProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One production declaration; host admission remains a separate owner."""
+
+    #: Shared scientific runtime policy within that primary.
+    execution: NativeExecutionAllocation | None = None
+    #: Selected production role.
+    name: ProductionProfileName
+    #: Exact managed primary process cap.
+    native_worker_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Separately charged storage process cap.
+    server_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Complete service and execution envelope.
+    total_memory_bytes: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.execution), v.scalar_key(self.name), v.scalar_key(self.native_worker_memory_bytes), v.scalar_key(self.server_memory_bytes), v.scalar_key(self.total_memory_bytes),))
+
+
+class ProductionProfiles(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The separately typed production section of agent-capacity.toml."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Declaration interpretation.
+    version: Literal[1] = 1
+    #: Separately typed default capability request allowances.
+    capabilities: CapabilityDefaults
+    #: Default service role; explicit operator choices retain their own scope.
+    default_profile: ProductionProfileName
+    #: Distinct production roles, preserving their different physical scopes.
+    profiles: tuple[ProductionProfile, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.capabilities), v.scalar_key(self.default_profile), v.sequence_key(v.record_key)(self.profiles),))
 
 
 class ProfileChain(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -21933,6 +21577,50 @@ class RefusalSeedUnavailable(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.predecessor), v.scalar_key(self.reason), v.scalar_key(self.role),))
+
+
+class RegisteredNativeContext(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Registered context document shares the allocation and receiver owners."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Registered-context interpretation.
+    version: Literal[1] = 1
+    #: Exactly associated database.
+    database: str
+    #: Exact managed receiver association, when selected.
+    primary_receiver: ManagedPrimaryReceiver | None = None
+    #: Never-reinterpreted receiver generation.
+    receiver_generation: str
+    #: Immutable receiver state root.
+    receiver_state: str
+    #: One already materialized resource allocation.
+    resources: NativeAllocation
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.database), v.optional_key(v.record_key)(self.primary_receiver), v.scalar_key(self.receiver_generation), v.scalar_key(self.receiver_state), v.record_key(self.resources),))
+
+
+class RegisteredNativeContextOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Registered context document shares the allocation and receiver owners."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Registered-context interpretation.
+    version: Literal[1] = 1
+    #: Exactly associated database.
+    database: str
+    #: Exact managed receiver association, when selected.
+    primary_receiver: ManagedPrimaryReceiver | None = None
+    #: Never-reinterpreted receiver generation.
+    receiver_generation: str
+    #: Immutable receiver state root.
+    receiver_state: str
+    #: One already materialized resource allocation.
+    resources: NativeAllocation
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.database), v.optional_key(v.record_key)(self.primary_receiver), v.scalar_key(self.receiver_generation), v.scalar_key(self.receiver_state), v.record_key(self.resources),))
 
 
 class ReplayBoundOverrideKeep(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="keep"):
@@ -28880,84 +28568,121 @@ class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.already_concluded), v.scalar_key(self.generation), v.scalar_key(self.study_id),))
 
 
-class StudyCohortDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Copied facts about a successful native snapshot. This document grants no payload permission."""
+class StudyCohortClassification(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original member facts and exact selected-predicate availability."""
+
+    #: Knowledge under this analysis's exact predicate.
+    availability: StudyCohortAvailability
+    #: Unmodified captured original facts.
+    member: StudyCohortMemberOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.availability), v.record_key(self.member),))
+
+
+class StudyCohortClassificationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded classification facts and current knowledge, not a full population vector."""
 
     _pse_required_version: ClassVar[int] = 1
     _pse_required_version_field: ClassVar[str] = "document_version"
 
     document_version: Literal[1] = 1
-    #: True only after the single native complete selection succeeded.
-    complete: bool
-    #: Exact original headers.
-    headers: tuple[StudyWorkbenchHeader, ...]
-    #: Exact issuing canonical database.
-    issuing_store: str
-    #: Every selected occurrence, including missing, failed, cancelled and unattempted members.
-    members: tuple[StudyCohortMember, ...]
-    #: Original bounded selection.
-    request: StudyCohortRequestBody
+    #: Original members with explicit availability.
+    members: tuple[CapturedStudyRowForStudyCohortClassification, ...]
+    #: Capture-bound next position.
+    next: StudyCohortCursorBody | None
+    #: Current exact predicate traversal knowledge.
+    progress: StudyCohortScanProgressBody
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.headers), v.scalar_key(self.issuing_store), v.sequence_key(v.record_key)(self.members), v.record_key(self.request),))
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.members), v.optional_key(v.record_key)(self.next), v.record_key(self.progress),))
 
 
-class StudyCohortDocumentBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Copied facts about a successful native snapshot. This document grants no payload permission."""
-
-    #: True only after the single native complete selection succeeded.
-    complete: bool
-    #: Exact original headers.
-    headers: tuple[StudyWorkbenchHeader, ...]
-    #: Exact issuing canonical database.
-    issuing_store: str
-    #: Every selected occurrence, including missing, failed, cancelled and unattempted members.
-    members: tuple[StudyCohortMember, ...]
-    #: Original bounded selection.
-    request: StudyCohortRequestBody
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.headers), v.scalar_key(self.issuing_store), v.sequence_key(v.record_key)(self.members), v.record_key(self.request),))
-
-
-class StudyCohortDocumentBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Copied facts about a successful native snapshot. This document grants no payload permission."""
-
-    #: True only after the single native complete selection succeeded.
-    complete: bool
-    #: Exact original headers.
-    headers: tuple[StudyWorkbenchHeaderOutput, ...]
-    #: Exact issuing canonical database.
-    issuing_store: str
-    #: Every selected occurrence, including missing, failed, cancelled and unattempted members.
-    members: tuple[StudyCohortMemberOutput, ...]
-    #: Original bounded selection.
-    request: StudyCohortRequestBodyOutput
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.headers), v.scalar_key(self.issuing_store), v.sequence_key(v.record_key)(self.members), v.record_key(self.request),))
-
-
-class StudyCohortDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Copied facts about a successful native snapshot. This document grants no payload permission."""
+class StudyCohortCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Capture-bound keyset continuation, never a floating membership selection."""
 
     _pse_required_version: ClassVar[int] = 1
     _pse_required_version_field: ClassVar[str] = "document_version"
 
     document_version: Literal[1] = 1
-    #: True only after the single native complete selection succeeded.
-    complete: bool
-    #: Exact original headers.
-    headers: tuple[StudyWorkbenchHeaderOutput, ...]
-    #: Exact issuing canonical database.
+    #: Last consumed global capture position.
+    after: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact retained cut.
+    capture: str
+    #: Issuing canonical database.
     issuing_store: str
-    #: Every selected occurrence, including missing, failed, cancelled and unattempted members.
-    members: tuple[StudyCohortMemberOutput, ...]
-    #: Original bounded selection.
-    request: StudyCohortRequestBodyOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.complete), v.sequence_key(v.record_key)(self.headers), v.scalar_key(self.issuing_store), v.sequence_key(v.record_key)(self.members), v.record_key(self.request),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.after), v.scalar_key(self.capture), v.scalar_key(self.issuing_store),))
+
+
+class StudyCohortCursorBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Capture-bound keyset continuation, never a floating membership selection."""
+
+    #: Last consumed global capture position.
+    after: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact retained cut.
+    capture: str
+    #: Issuing canonical database.
+    issuing_store: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.after), v.scalar_key(self.capture), v.scalar_key(self.issuing_store),))
+
+
+class StudyCohortExportRecordHeaders(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="headers"):
+    """One original header prefix."""
+
+    body: StudyCohortHeaderPageBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.body),))
+
+
+class StudyCohortExportRecordMembers(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="members"):
+    """One original member prefix, including captured unavailable facts."""
+
+    body: StudyCohortMemberPageBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.body),))
+
+
+class StudyCohortExportRecordReceipt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="receipt"):
+    """Final acknowledgement of complete page traversal."""
+
+    body: StudyCohortReceiptBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.body),))
+
+
+class StudyCohortHeaderPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One bounded immutable header prefix with its actual retained allocation."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original compact scientific context, in stable capture order.
+    headers: tuple[CapturedStudyRowForStudyWorkbenchHeader, ...]
+    #: Exact next position, absent only at the captured count.
+    next: StudyCohortCursorBody | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.headers), v.optional_key(v.record_key)(self.next),))
+
+
+class StudyCohortHeaderPageBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One bounded immutable header prefix with its actual retained allocation."""
+
+    #: Original compact scientific context, in stable capture order.
+    headers: tuple[CapturedStudyRowForStudyWorkbenchHeader, ...]
+    #: Exact next position, absent only at the captured count.
+    next: StudyCohortCursorBody | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.headers), v.optional_key(v.record_key)(self.next),))
 
 
 class StudyCohortMember(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -28969,6 +28694,8 @@ class StudyCohortMember(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     facts: PointFacts
     #: Exact occurrence key.
     key: str
+    #: Exact captured closed manifest; later completion cannot reclassify absence.
+    manifest: str | None = None
     #: Actual native point metadata revision captured in this selection.
     metadata_revision: Annotated[int, msgspec.Meta(ge=0)]
     #: Actual immutable member position.
@@ -28981,7 +28708,7 @@ class StudyCohortMember(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
     study: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.attempt), v.record_key(self.facts), v.scalar_key(self.key), v.scalar_key(self.metadata_revision), v.scalar_key(self.ordinal), v.scalar_key(self.run), v.scalar_key(self.settled), v.scalar_key(self.study),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.attempt), v.record_key(self.facts), v.scalar_key(self.key), v.optional_key(v.scalar_key)(self.manifest), v.scalar_key(self.metadata_revision), v.scalar_key(self.ordinal), v.scalar_key(self.run), v.scalar_key(self.settled), v.scalar_key(self.study),))
 
 
 class StudyCohortMemberOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -28993,6 +28720,8 @@ class StudyCohortMemberOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
     facts: PointFactsOutput
     #: Exact occurrence key.
     key: str
+    #: Exact captured closed manifest; later completion cannot reclassify absence.
+    manifest: str | None
     #: Actual native point metadata revision captured in this selection.
     metadata_revision: Annotated[int, msgspec.Meta(ge=0)]
     #: Actual immutable member position.
@@ -29005,7 +28734,143 @@ class StudyCohortMemberOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
     study: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.attempt), v.record_key(self.facts), v.scalar_key(self.key), v.scalar_key(self.metadata_revision), v.scalar_key(self.ordinal), v.scalar_key(self.run), v.scalar_key(self.settled), v.scalar_key(self.study),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.attempt), v.record_key(self.facts), v.scalar_key(self.key), v.optional_key(v.scalar_key)(self.manifest), v.scalar_key(self.metadata_revision), v.scalar_key(self.ordinal), v.scalar_key(self.run), v.scalar_key(self.settled), v.scalar_key(self.study),))
+
+
+class StudyCohortMemberPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One bounded immutable occurrence prefix, including original unavailable facts."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original occurrences; global positions differ from within-study ordinals.
+    members: tuple[CapturedStudyRowForStudyCohortMemberOutput, ...]
+    #: Exact next position, absent only at the captured count.
+    next: StudyCohortCursorBody | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.members), v.optional_key(v.record_key)(self.next),))
+
+
+class StudyCohortMemberPageBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One bounded immutable occurrence prefix, including original unavailable facts."""
+
+    #: Original occurrences; global positions differ from within-study ordinals.
+    members: tuple[CapturedStudyRowForStudyCohortMember, ...]
+    #: Exact next position, absent only at the captured count.
+    next: StudyCohortCursorBody | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.members), v.optional_key(v.record_key)(self.next),))
+
+
+class StudyCohortMemberPageBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One bounded immutable occurrence prefix, including original unavailable facts."""
+
+    #: Original occurrences; global positions differ from within-study ordinals.
+    members: tuple[CapturedStudyRowForStudyCohortMemberOutput, ...]
+    #: Exact next position, absent only at the captured count.
+    next: StudyCohortCursorBody | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.members), v.optional_key(v.record_key)(self.next),))
+
+
+class StudyCohortPageRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An explicitly bounded page request against a live retained capture."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original capture-bound position, absent for the first page.
+    cursor: StudyCohortCursorBody | None = None
+    #: Header pages admit 1..=64; member/classification pages admit 1..=256.
+    maximum: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.cursor), v.scalar_key(self.maximum),))
+
+
+class StudyCohortPageRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An explicitly bounded page request against a live retained capture."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Original capture-bound position, absent for the first page.
+    cursor: StudyCohortCursorBody | None
+    #: Header pages admit 1..=64; member/classification pages admit 1..=256.
+    maximum: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.cursor), v.scalar_key(self.maximum),))
+
+
+class StudyCohortReceipt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Historical acknowledgement of a complete native cut. Identifiers grant no read permission."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Exact capture identity; a serialized receipt is not its live capability.
+    capture: str
+    #: True only after exact native complete capture settlement.
+    complete: bool
+    #: Exact original header population.
+    header_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact issuing canonical database.
+    issuing_store: str
+    #: Complete occurrence population, including every unavailable member.
+    member_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original immutable selection.
+    request: StudyCohortRequestBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.capture), v.scalar_key(self.complete), v.scalar_key(self.header_count), v.scalar_key(self.issuing_store), v.scalar_key(self.member_count), v.record_key(self.request),))
+
+
+class StudyCohortReceiptBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Historical acknowledgement of a complete native cut. Identifiers grant no read permission."""
+
+    #: Exact capture identity; a serialized receipt is not its live capability.
+    capture: str
+    #: True only after exact native complete capture settlement.
+    complete: bool
+    #: Exact original header population.
+    header_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact issuing canonical database.
+    issuing_store: str
+    #: Complete occurrence population, including every unavailable member.
+    member_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original immutable selection.
+    request: StudyCohortRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.capture), v.scalar_key(self.complete), v.scalar_key(self.header_count), v.scalar_key(self.issuing_store), v.scalar_key(self.member_count), v.record_key(self.request),))
+
+
+class StudyCohortReceiptBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Historical acknowledgement of a complete native cut. Identifiers grant no read permission."""
+
+    #: Exact capture identity; a serialized receipt is not its live capability.
+    capture: str
+    #: True only after exact native complete capture settlement.
+    complete: bool
+    #: Exact original header population.
+    header_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact issuing canonical database.
+    issuing_store: str
+    #: Complete occurrence population, including every unavailable member.
+    member_count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original immutable selection.
+    request: StudyCohortRequestBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.capture), v.scalar_key(self.complete), v.scalar_key(self.header_count), v.scalar_key(self.issuing_store), v.scalar_key(self.member_count), v.record_key(self.request),))
 
 
 class StudyCohortRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -29070,6 +28935,46 @@ class StudyCohortRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_field
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.record_key(self.filter), v.scalar_key(self.maximum_members), v.scalar_key(self.maximum_studies),))
+
+
+class StudyCohortScanProgress(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact selected-predicate knowledge, including concurrent physical scan custody."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    document_version: Literal[1] = 1
+    #: Started physical scans that have not drained; unpolled plans retain custody separately.
+    active_scans: Annotated[int, msgspec.Meta(ge=0)]
+    #: Members with original selected observations.
+    included: Annotated[int, msgspec.Meta(ge=0)]
+    #: Members not yet completely examined; absence is never numerical zero.
+    pending: Annotated[int, msgspec.Meta(ge=0)]
+    #: Completeness of population knowledge, independent of original operation outcomes.
+    state: StudyCohortScanState
+    #: Definitively unavailable or completely examined empty members.
+    unavailable: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.active_scans), v.scalar_key(self.included), v.scalar_key(self.pending), v.scalar_key(self.state), v.scalar_key(self.unavailable),))
+
+
+class StudyCohortScanProgressBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact selected-predicate knowledge, including concurrent physical scan custody."""
+
+    #: Started physical scans that have not drained; unpolled plans retain custody separately.
+    active_scans: Annotated[int, msgspec.Meta(ge=0)]
+    #: Members with original selected observations.
+    included: Annotated[int, msgspec.Meta(ge=0)]
+    #: Members not yet completely examined; absence is never numerical zero.
+    pending: Annotated[int, msgspec.Meta(ge=0)]
+    #: Completeness of population knowledge, independent of original operation outcomes.
+    state: StudyCohortScanState
+    #: Definitively unavailable or completely examined empty members.
+    unavailable: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.active_scans), v.scalar_key(self.included), v.scalar_key(self.pending), v.scalar_key(self.state), v.scalar_key(self.unavailable),))
 
 
 class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -29193,19 +29098,19 @@ class StudyInputsOutputLazy(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 
 
 class StudyKpiRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """One original scientific output, identically selected across the frozen population."""
+    """One identically selected original scientific output across the immutable population."""
 
     _pse_required_version: ClassVar[int] = 1
     _pse_required_version_field: ClassVar[str] = "document_version"
 
     document_version: Literal[1] = 1
-    #: Exclusive original relation row coordinate; no implicit all-trajectories request.
+    #: Exclusive original relation row coordinate.
     end: Annotated[int, msgspec.Meta(ge=0)]
-    #: Existing declared numeric output field.
+    #: Existing declared numeric field.
     field: str
     #: Exact authored scientific output owner.
     owner: v.SemanticId
-    #: Existing exact output partition.
+    #: Exact original output partition.
     partition: str
     #: Existing registered result relation.
     relation: str
@@ -29392,7 +29297,7 @@ class StudyObservationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     #: Bounded selected owner observations.
     sources: tuple[StudyObservedSource, ...]
     #: Canonical compact status with actual point metadata revisions.
-    status: StudyCohortDocumentBody
+    status: StudyObservationStatus
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.record_key(self.cursor), v.sequence_key(v.record_key)(self.sources), v.record_key(self.status),))
@@ -29410,7 +29315,7 @@ class StudyObservationPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fie
     #: Bounded selected owner observations.
     sources: tuple[StudyObservedSourceOutput, ...]
     #: Canonical compact status with actual point metadata revisions.
-    status: StudyCohortDocumentBodyOutput
+    status: StudyObservationStatusOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.record_key(self.cursor), v.sequence_key(v.record_key)(self.sources), v.record_key(self.status),))
@@ -29502,6 +29407,34 @@ class StudyObservationRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fi
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.maximum_events), v.scalar_key(self.maximum_members), v.scalar_key(self.study),))
+
+
+class StudyObservationStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One explicitly bounded observer status page; never a complete analytical document."""
+
+    #: The one explicitly selected study header.
+    header: StudyWorkbenchHeader
+    #: One bounded original member page (observer admission remains at64).
+    members: StudyCohortMemberPageBody
+    #: Exact historical native cut and counts.
+    receipt: StudyCohortReceiptBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.header), v.record_key(self.members), v.record_key(self.receipt),))
+
+
+class StudyObservationStatusOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One explicitly bounded observer status page; never a complete analytical document."""
+
+    #: The one explicitly selected study header.
+    header: StudyWorkbenchHeaderOutput
+    #: One bounded original member page (observer admission remains at64).
+    members: StudyCohortMemberPageBodyOutput
+    #: Exact historical native cut and counts.
+    receipt: StudyCohortReceiptBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.header), v.record_key(self.members), v.record_key(self.receipt),))
 
 
 class StudyObservedSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -30171,30 +30104,6 @@ class StudyWorkbenchRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.cursor), v.record_key(self.filter), v.scalar_key(self.maximum),))
-
-
-class SubjectSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Role-specific immutable contributor."""
-
-    #: Actual native contribution.
-    role: enums.KnowledgeSourceRole
-    #: Exact source in this cut.
-    source_id: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.role), v.scalar_key(self.source_id),))
-
-
-class SubjectTopic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Topic copied from original metadata, with exact attribution."""
-
-    #: Subject metadata contributor.
-    source_id: str
-    #: Native topic, not an invented tag.
-    topic: str
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.source_id), v.scalar_key(self.topic),))
 
 
 class SubmittedStartRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -31429,25 +31338,13 @@ ActionKind = ActionKindWait | ActionKindStart | ActionKindRefuse | ActionKindCan
 
 ActionKindOutput = ActionKindOutputWait | ActionKindOutputStart | ActionKindOutputRefuse | ActionKindOutputCancel | ActionKindOutputReconcile
 
-AdviceMetric = Literal["native_execution_nanoseconds", "original_normalized_residual"]
-
-AdviceOutcome = Literal["complete", "budget_exhausted", "policy_preempted", "cancelled", "infrastructure_interrupted", "numerical_failure", "partial"]
-
 AdviceSupport = AdviceSupportCompleteMatched | AdviceSupportBaselineTie
-
-AnalysisDirection = Literal["upstream", "downstream"]
-
-AnalysisQuestion = Literal["preparation", "evaluator_work", "evaluation_cost", "root_progress", "dynamic_work", "dependency_readiness", "factor_recovery", "waiting", "comparability", "physical_attribution"]
-
-AnalysisSelectionScope = Literal["direct", "independent", "unknown"]
 
 ArithmeticMappingScope = ArithmeticMappingScopeSelectedCompiledProduct | ArithmeticMappingScopeOriginalValueChecksForWeightedProduct | ArithmeticMappingScopeUnavailable
 
 ArrowFieldStep = ArrowFieldStepStructField | ArrowFieldStepListElement
 
 AttemptKey = str
-
-AttemptOriginalConclusion = Literal["satisfied", "refused", "unavailable"]
 
 BackendSettings = IpoptSettingsDocument | PounceSettingsDocument | KinsolSettingsDocument | HighsSettingsDocument | ClarabelSettingsDocument | ScipSettingsDocument | PounceConvexSettingsDocument | UnoSettingsDocument | PetscSettingsDocument
 
@@ -31467,47 +31364,27 @@ CausalUnitRealizationOutput = CausalUnitRealizationOutputExplicitMap | CausalUni
 
 Cone = ConeZero | ConeNonnegative | ConeSecondOrder | ConeExponential | ConePower | ConeGeneralizedPower | ConePsdTriangle
 
-CopiedExecutionStatus = Literal["running", "completed", "failed", "cancelled", "abandoned"]
-
-CopiedObservationPolicy = Literal["off", "contract", "diagnostic"]
-
 CovarianceOrigin = CovarianceOriginQualifiedFit | CovarianceOriginExternal
 
 CovarianceOriginOutput = CovarianceOriginOutputQualifiedFit | CovarianceOriginOutputExternal
 
-DecodeCategory = Literal["io", "syntax", "data", "eof"]
-
 DecodePathSegment = DecodePathSegmentMap | DecodePathSegmentSequence | DecodePathSegmentVariant | DecodePathSegmentUnknown
-
-DecodePathStatus = Literal["tracked_prefix", "unavailable"]
-
-DecodeStage = Literal["header", "body", "trailing"]
 
 Dependency = DependencyOrdering | DependencyUsableResult
 
-DerivativeOrder = Literal["value", "first", "second"]
+DeploymentRequest = DeploymentRequestMaterialize | DeploymentRequestValidate | DeploymentRequestProfile
 
-DetailEnd = Literal["window_elapsed", "owner_finished", "stopped", "writer_failed"]
-
-DetailFamilyActivation = Literal["unobserved", "applicable", "unsupported", "refused"]
-
-DetailOutcome = Literal["active", "complete", "sampled", "incomplete"]
-
-DetailRequirement = Literal["sampled", "complete"]
+DeploymentRequestOutput = DeploymentRequestOutputMaterialize | DeploymentRequestOutputValidate | DeploymentRequestOutputProfile
 
 DimensionVector = Annotated[tuple[Ratio, ...], msgspec.Meta(min_length=8, max_length=8)]
 
 DiscreteInitialization = DiscreteInitializationRefuse | DiscreteInitializationFixAtStart | DiscreteInitializationFixAt
-
-EvaluationDemand = Literal["objective", "constraints", "all", "directional", "transpose_directional", "hessian_action"]
 
 Evaluator = EvaluatorInterpreted | EvaluatorCompiledScalar
 
 FiniteBound = float
 
 FitExecutionDocument = FitExecutionDocumentEvaluation | FitExecutionDocumentNativeNlp | FitExecutionDocumentResidualLm
-
-FitOptimizer = Literal["automatic", "native_nlp", "residual_lm"]
 
 FitProfileDocument = FitProfileDocumentNotRequested | FitProfileDocumentAvailable | FitProfileDocumentWithheld
 
@@ -31519,23 +31396,15 @@ GraphAnchor = GraphAnchorStudyPoint | GraphAnchorRun | GraphAnchorAnalysisNode |
 
 GraphEdgeRole = GraphEdgeRoleOrdering | GraphEdgeRoleUsableResult | GraphEdgeRoleContinuationSeed | GraphEdgeRoleRecordedSource | GraphEdgeRoleAnalysisInput | GraphEdgeRoleAnalysisRelation
 
-GraphScope = Literal["immediate_blockers", "recorded_sources", "retained_consumers"]
-
 HistoryOwner = HistoryOwnerRun | HistoryOwnerStudy
 
 HistoryOwnerBody = HistoryOwnerBodyRun | HistoryOwnerBodyStudy
 
-HistoryPurposeBody = Literal["audit", "unsettled"]
-
 HorizonSignalDocument = HorizonSignalDocumentMeasured | HorizonSignalDocumentEstimated | HorizonSignalDocumentApplied | HorizonSignalDocumentTrajectory
-
-IdasInitialStep = Literal["configured", "automatic"]
 
 IdasLinear = IdasLinearKlu | IdasLinearSpgmr | IdasLinearSpgmrBbd | IdasLinearSpfgmr
 
 IdasLinearOutput = IdasLinearOutputKlu | IdasLinearOutputSpgmr | IdasLinearOutputSpgmrBbd | IdasLinearOutputSpfgmr
-
-InvocationOutcome = Literal["completed", "failed", "cancelled"]
 
 IpoptLinear = IpoptLinearMumps | IpoptLinearSpral | IpoptLinearPardisomkl
 
@@ -31543,31 +31412,15 @@ KinsolEta = KinsolEtaChoice1 | KinsolEtaChoice2 | KinsolEtaConstant
 
 KinsolLinear = KinsolLinearKlu | KinsolLinearDense | KinsolLinearSpgmr | KinsolLinearSpfgmr | KinsolLinearSpbcgs | KinsolLinearSptfqmr
 
-KnowledgeMode = Literal["subjects", "graph", "productions"]
-
-LifecycleKind = Literal["source_history", "run_results", "study_results", "run_history", "study_history", "draft_version", "evidence_artifact"]
-
-ManagedDetailReferenceState = Literal["pending", "refused", "captured", "missing"]
-
-ManagedDetailRefusal = Literal["no_managed_budget", "budget_already_allocated", "attempt_bound_unavailable", "per_attempt_budget_insufficient", "collector_refused"]
-
-MetricKind = Literal["counter", "gauge", "native"]
-
-MetricUnit = Literal["rows", "batches", "bytes", "nanoseconds", "count", "native"]
-
 NativeCounters = NativeCountersIpopt | NativeCountersUno | NativeCountersKinsol
 
 NativeCountersOutput = NativeCountersOutputIpopt | NativeCountersOutputUno | NativeCountersOutputKinsol
-
-NativePhase = Literal["Main", "Restoration", "Unknown"]
 
 NumericObservation = NumericObservationReal | NumericObservationNonfinite
 
 NumericalMethod = NumericalMethodBackend | NumericalMethodResidualLm
 
 Observation = ObservationMissing | ObservationReal | ObservationNonfinite | ObservationPhysical | ObservationInteger | ObservationBoolean | ObservationText | ObservationContracts
-
-ObservationCoordinates = Literal["SubmittedOracle", "PhysicalTears"]
 
 OccurrenceKey = Annotated[int, msgspec.Meta(ge=0)]
 
@@ -31580,14 +31433,6 @@ OperationRequestOutput = OperationRequestOutputDeclaredCase | OperationRequestOu
 OptionValue = bool | int | float | str
 
 PackAvailability = PackAvailabilityPending | PackAvailabilityAvailable | PackAvailabilityUnavailable | PackAvailabilityFailed
-
-PackFormat = Literal["frozen_evidence_v3", "analysis_v2", "json", "json_lines", "arrow_ipc_stream", "text", "markdown", "html", "perfetto", "profile_binary"]
-
-PackMemberRole = Literal["frozen_evidence", "analysis", "context", "detail", "capture", "engine", "query", "result", "report"]
-
-PackPublication = Literal["incomplete", "sealed"]
-
-PackScientificState = Literal["unknown", "usable", "partial", "failed", "unusable"]
 
 PhysicalInspectionDocument = PhysicalInspectionDocumentPage | PhysicalInspectionDocumentUnavailable
 
@@ -31605,12 +31450,6 @@ PreparationStructuralValue = PreparationStructuralValueBoolean | PreparationStru
 
 ProblemKey = str
 
-ProducerRole = Literal["native_callback", "coordinate_transport", "original_oracle", "native_iteration", "evaluator", "provider", "workflow", "native_factor"]
-
-ProductAvailability = Literal["available", "unavailable", "not_requested"]
-
-ProductKind = Literal["selected_partials", "jacobian_action", "transpose_jacobian_action", "weighted_hessian", "weighted_hessian_action"]
-
 ProfileWorkerFailure = ProfileWorkerFailurePanic | ProfileWorkerFailureScheduling | ProfileWorkerFailureEnvironment
 
 ProgressCoverage = ProgressCoverageUnknown | ProgressCoverageSampled
@@ -31627,8 +31466,6 @@ ProjectBranchKey = str
 
 ProjectDraftKey = str
 
-ProjectImportRecoveryState = Literal["project_complete", "ready_for_artifact", "original_cleanup_pending", "original_collected"]
-
 ProjectKey = str
 
 ProjectMergeProposal = ProjectMergeProposalRevision | ProjectMergeProposalDraft
@@ -31643,21 +31480,9 @@ ProjectSourceObject = ProjectSourceObjectDeclaration | ProjectSourceObjectDocume
 
 ProjectSourceObjectOutput = ProjectSourceObjectOutputDeclaration | ProjectSourceObjectOutputDocument | ProjectSourceObjectOutputFit | ProjectSourceObjectOutputPackage
 
-RawMapContextKind = Literal["unavailable", "inapplicable", "frozen"]
-
 RawMapFailure = RawMapFailureTrial | RawMapFailureFatal | RawMapFailureStopped
 
-RawMapRole = Literal["FixedPointEvaluation", "OriginalAssessment", "Unknown", "RestartScreening"]
-
-RecordAvailability = Literal["not_requested", "running", "interrupted", "unavailable", "not_supplied", "refused"]
-
 RecordedWindow = RecordedWindowRecorded | RecordedWindowEndingAt | RecordedWindowInterval
-
-ReductionAnchorRole = Literal["failure_expression", "initial_point"]
-
-ReductionDisposition = Literal["preserved", "different", "refused", "incomplete", "inconclusive"]
-
-ReductionOperator = Literal["declaration_deletion", "binary_subexpression"]
 
 Refusal = RefusalDependencyUnusable | RefusalSeedPermission | RefusalSeedUnavailable | RefusalSeedInternal
 
@@ -31670,10 +31495,6 @@ ReplayConstructor = ReplayConstructorModeling | ReplayConstructorSimulation | Re
 ReplayForwardSelection = ReplayForwardSelectionSemanticParameters | ReplayForwardSelectionPhysicalAxes
 
 ReplayHorizonSignal = ReplayHorizonSignalMeasured | ReplayHorizonSignalEstimated | ReplayHorizonSignalApplied | ReplayHorizonSignalTrajectory
-
-ReplayNativeRecordCoverage = Literal["strategy_attempts", "integration_report_only"]
-
-ReplayProducerPremise = Literal["blocks", "causal", "multistart", "derived", "surrogate", "petsc", "path"]
 
 ReproducerExtractionInput = ReproducerExtractionInputOriginalText | ReproducerExtractionInputFrozenReviewCase
 
@@ -31691,14 +31512,6 @@ ReproducerInputBodyOutput = ReproducerInputBodyOutputOriginalText | ReproducerIn
 
 ReproducerInputOutput = ReproducerInputOutputOriginalText | ReproducerInputOutputFrozenAlgebraic
 
-ReproductionStatus = Literal["original_failure_reproduced", "related_diagnostic_reproduced", "not_reproduced", "reproduction_unavailable"]
-
-ReproductionStatusBody = Literal["original_failure_reproduced", "related_diagnostic_reproduced", "not_reproduced", "reproduction_unavailable"]
-
-RequiredFact = Literal["model", "input", "effective_settings", "physical_coordinates", "invocation", "operation_evidence"]
-
-RequirementStatus = Literal["available", "missing"]
-
 ResearchReadRequest = ResearchReadRequestDatasets | ResearchReadRequestDataset | ResearchReadRequestSelection
 
 ResearchReadResult = ResearchReadResultDatasets | ResearchReadResultDataset | ResearchReadResultSelection
@@ -31709,15 +31522,9 @@ ResearchSelectionKey = str
 
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
 
-ResultCellUnavailable = Literal["unsupported_storage", "value_extent"]
-
-ResultFloatClass = Literal["finite", "nan", "positive_infinity", "negative_infinity"]
-
 ResultInspectionCell = ResultInspectionCellNull | ResultInspectionCellParentNull | ResultInspectionCellMissingElement | ResultInspectionCellBoolean | ResultInspectionCellInteger | ResultInspectionCellUnsigned | ResultInspectionCellFloat32 | ResultInspectionCellFloat64 | ResultInspectionCellText | ResultInspectionCellBinary | ResultInspectionCellUnavailable
 
 ResultInspectionDocument = ResultInspectionDocumentSchema | ResultInspectionDocumentValues | ResultInspectionDocumentMetadata | ResultInspectionDocumentPhysical | ResultInspectionDocumentRefused
-
-ResultInspectionRefusal = Literal["selection", "unknown_field", "manifest_changed", "context_extent", "response_extent", "cursor_changed"]
 
 ResultInspectionStorage = ResultInspectionStorageScalar | ResultInspectionStorageStruct | ResultInspectionStorageList
 
@@ -31726,16 +31533,6 @@ ResultInspectionView = ResultInspectionViewSchema | ResultInspectionViewChildren
 ResultInspectionViewOutput = ResultInspectionViewOutputSchema | ResultInspectionViewOutputChildren | ResultInspectionViewOutputMetadata | ResultInspectionViewOutputPhysical | ResultInspectionViewOutputValues
 
 ResultPhysicalContext = ResultPhysicalContextAvailable | ResultPhysicalContextUnavailable
-
-ReviewAttemptSelection = Literal["current", "retained"]
-
-ReviewHandoffState = Literal["active", "complete", "incomplete"]
-
-ReviewQuery = Literal["timeline", "numerical", "coverage"]
-
-ReviewQueryStatus = Literal["completed", "unavailable", "failed", "timed_out", "cancelled", "output_limit", "malformed"]
-
-ReviewTableKind = Literal["detail", "invocation", "capture", "engine", "query"]
 
 RevisionKey = str
 
@@ -31749,23 +31546,19 @@ SeedTransformationOutput = SeedTransformationOutputNormalization | SeedTransform
 
 SourceContributionTarget = SourceContributionTargetRow | SourceContributionTargetObjective
 
-SourceMapScope = Literal["static_eligible_alternatives"]
-
 StartPolicy = StartPolicyFresh | StartPolicyContinuation | StartPolicyExplicit
 
 StartPolicyOutput = StartPolicyOutputFresh | StartPolicyOutputContinuation | StartPolicyOutputExplicit
 
 StartProvenance = StartProvenanceFresh | StartProvenanceNotNeeded | StartProvenanceContinuation | StartProvenanceExplicit | StartProvenanceFreshFallback
 
-StopFidelity = Literal["EvaluationAndIterationCheckpoints", "EvaluationCheckpoints"]
+StudyCohortExportRecord = StudyCohortExportRecordHeaders | StudyCohortExportRecordMembers | StudyCohortExportRecordReceipt
 
 StudyInputs = StudyInputsExplicit | StudyInputsLazy
 
 StudyInputsOutput = StudyInputsOutputExplicit | StudyInputsOutputLazy
 
 StudyMemberDemand = StudyMemberDemandVariable | StudyMemberDemandConstraint | StudyMemberDemandFitParameter | StudyMemberDemandFitObservation | StudyMemberDemandTrajectory
-
-StudyObservationContinuity = Literal["catch_up", "gap_current_resync", "live_numerics_unavailable", "history_unavailable"]
 
 StudyOutputDemand = StudyOutputDemandFull | StudyOutputDemandCompact
 
@@ -32087,6 +31880,7 @@ __all__ = [
     "CanonicalGraphRequestOutput",
     "CanonicalQueryMetrics",
     "CanonicalQueryMetricsOutput",
+    "CapabilityDefaults",
     "CaptureBudget",
     "CaptureBudgetOutput",
     "CaptureDocument",
@@ -32098,6 +31892,10 @@ __all__ = [
     "CaptureSymbols",
     "CaptureTarget",
     "CaptureTargetOutput",
+    "CapturedStudyRowForStudyCohortClassification",
+    "CapturedStudyRowForStudyCohortMember",
+    "CapturedStudyRowForStudyCohortMemberOutput",
+    "CapturedStudyRowForStudyWorkbenchHeader",
     "CaseOperation",
     "CaseOperationOutput",
     "CausalUnitRealization",
@@ -32192,6 +31990,18 @@ __all__ = [
     "Dependency",
     "DependencyOrdering",
     "DependencyUsableResult",
+    "DeploymentObservation",
+    "DeploymentObservationOutput",
+    "DeploymentReadiness",
+    "DeploymentRequest",
+    "DeploymentRequestMaterialize",
+    "DeploymentRequestOutput",
+    "DeploymentRequestOutputMaterialize",
+    "DeploymentRequestOutputProfile",
+    "DeploymentRequestOutputValidate",
+    "DeploymentRequestProfile",
+    "DeploymentRequestValidate",
+    "DeploymentResponse",
     "DerivativeOrder",
     "DetailDocument",
     "DetailDocumentOutput",
@@ -32269,49 +32079,8 @@ __all__ = [
     "EvaluatorInterpreted",
     "EventSource",
     "EventSourceOutput",
-    "EvidenceComparison",
-    "EvidenceComparisonDenominator",
-    "EvidenceComparisonFact",
-    "EvidenceComparisonMember",
-    "EvidenceComparisonMemberOutput",
-    "EvidenceComparisonOutput",
-    "EvidenceComparisonPage",
-    "EvidenceComparisonPage2",
-    "EvidenceComparisonPage2Output",
-    "EvidenceComparisonPage3",
-    "EvidenceComparisonPage3Output",
-    "EvidenceComparisonPage4",
-    "EvidenceComparisonPage4Output",
-    "EvidenceComparisonPageOutput",
-    "EvidenceComparisonRequest",
-    "EvidenceComparisonRequestOutput",
-    "EvidenceComparisonSelection",
-    "EvidenceComparisonSelectionOutput",
-    "EvidenceComparisonSource",
-    "EvidenceComparisonSummary",
-    "EvidenceFact",
-    "EvidenceIdentity",
-    "EvidenceMeasurementCohort",
-    "EvidenceMeasurementCohortOutput",
-    "EvidenceMeasurementComparison",
-    "EvidenceMeasurementComparisonOutput",
-    "EvidenceMeasurementIdentity",
-    "EvidenceMeasurementIdentityOutput",
-    "EvidenceMeasurementMapping",
-    "EvidenceMeasurementMappingOutput",
-    "EvidenceMeasurementSummary",
-    "EvidenceMemberIdentity",
-    "EvidenceOutcomeCounts",
     "EvidenceRef",
     "EvidenceRefOutput",
-    "EvidenceSectionSelection",
-    "EvidenceSectionSelectionOutput",
-    "EvidenceSnapshot",
-    "EvidenceSubjectComparison",
-    "EvidenceSubjectComparisonOutput",
-    "EvidenceSubjectIdentity",
-    "EvidenceSubjectIdentityOutput",
-    "EvidenceSubjectMapping",
     "ExecutorMetricsSnapshot",
     "ExecutorMetricsSnapshotOutput",
     "ExplanatoryRequirement",
@@ -32514,17 +32283,6 @@ __all__ = [
     "KktTolerances",
     "KnowledgeControls",
     "KnowledgeControlsOutput",
-    "KnowledgeCoverage",
-    "KnowledgeCursor",
-    "KnowledgeEdge",
-    "KnowledgeExcerpt",
-    "KnowledgeExplain",
-    "KnowledgeMode",
-    "KnowledgePage",
-    "KnowledgeProduction",
-    "KnowledgeQuery",
-    "KnowledgeSource",
-    "KnowledgeSubject",
     "LaunchCaptureRequest",
     "LaunchCaptureRequestOutput",
     "LazyStudyDefinition",
@@ -32559,6 +32317,7 @@ __all__ = [
     "ManagedDetailRefusal",
     "ManagedDetailSelection",
     "ManagedDetailSelectionOutput",
+    "ManagedPrimaryReceiver",
     "ManagedStudyDiagnosticsDocument",
     "ManagedStudyDiagnosticsDocumentOutput",
     "MatrixPolicy",
@@ -32615,6 +32374,7 @@ __all__ = [
     "ModelingTypeArenaNodeExponent",
     "ModelingTypeArenaNodeOutput",
     "ModelingUnitFactor",
+    "NativeAllocation",
     "NativeAttemptRecord",
     "NativeAttemptRecordOutput",
     "NativeCoordinate",
@@ -32626,6 +32386,7 @@ __all__ = [
     "NativeCountersOutputKinsol",
     "NativeCountersOutputUno",
     "NativeCountersUno",
+    "NativeExecutionAllocation",
     "NativeObservations",
     "NativeObservationsOutput",
     "NativePhase",
@@ -32851,6 +32612,9 @@ __all__ = [
     "ProductPermissionOutput",
     "ProductionDemand",
     "ProductionDemandOutput",
+    "ProductionProfile",
+    "ProductionProfileName",
+    "ProductionProfiles",
     "ProfileChain",
     "ProfileControls",
     "ProfileControlsOutput",
@@ -33074,6 +32838,8 @@ __all__ = [
     "RefusalSeedInternal",
     "RefusalSeedPermission",
     "RefusalSeedUnavailable",
+    "RegisteredNativeContext",
+    "RegisteredNativeContextOutput",
     "ReplayBoundOverride",
     "ReplayBoundOverrideKeep",
     "ReplayBoundOverrideRemove",
@@ -33465,16 +33231,34 @@ __all__ = [
     "StatementOutput",
     "StopFidelity",
     "StudyCancel",
-    "StudyCohortDocument",
-    "StudyCohortDocumentBody",
-    "StudyCohortDocumentBodyOutput",
-    "StudyCohortDocumentOutput",
+    "StudyCohortAvailability",
+    "StudyCohortClassification",
+    "StudyCohortClassificationPage",
+    "StudyCohortCursor",
+    "StudyCohortCursorBody",
+    "StudyCohortExportRecord",
+    "StudyCohortExportRecordHeaders",
+    "StudyCohortExportRecordMembers",
+    "StudyCohortExportRecordReceipt",
+    "StudyCohortHeaderPage",
+    "StudyCohortHeaderPageBody",
     "StudyCohortMember",
     "StudyCohortMemberOutput",
+    "StudyCohortMemberPage",
+    "StudyCohortMemberPageBody",
+    "StudyCohortMemberPageBodyOutput",
+    "StudyCohortPageRequest",
+    "StudyCohortPageRequestOutput",
+    "StudyCohortReceipt",
+    "StudyCohortReceiptBody",
+    "StudyCohortReceiptBodyOutput",
     "StudyCohortRequest",
     "StudyCohortRequestBody",
     "StudyCohortRequestBodyOutput",
     "StudyCohortRequestOutput",
+    "StudyCohortScanProgress",
+    "StudyCohortScanProgressBody",
+    "StudyCohortScanState",
     "StudyCompilerProfile",
     "StudyDefinition",
     "StudyDefinitionOutput",
@@ -33505,6 +33289,8 @@ __all__ = [
     "StudyObservationPositionOutput",
     "StudyObservationRequest",
     "StudyObservationRequestBody",
+    "StudyObservationStatus",
+    "StudyObservationStatusOutput",
     "StudyObservedSource",
     "StudyObservedSourceOutput",
     "StudyOperation",
@@ -33542,8 +33328,6 @@ __all__ = [
     "StudyWorkbenchPageOutput",
     "StudyWorkbenchRequest",
     "StudyWorkbenchRequestOutput",
-    "SubjectSource",
-    "SubjectTopic",
     "SubmittedStartRecord",
     "SubmittedStartRecordBody",
     "SubmittedStartRecordBodyOutput",
@@ -33629,4 +33413,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:230b8aebef21cbcd027846287d389052c72c9ef36855e77787512292c35922b0"
+SCHEMA_SET_FINGERPRINT = "blake3:cfae0edcb700aa48f634e4cdb324df208c3c295f9e21613743fe0fc59762c267"

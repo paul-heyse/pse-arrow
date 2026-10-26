@@ -38,10 +38,6 @@ mod evidence_tools;
 #[cfg(feature = "thermodynamic-oracles")]
 mod feos_reference;
 mod producer_identity;
-#[cfg(feature = "project-tools")]
-mod project_runtime;
-#[cfg(feature = "canonical-tools")]
-mod project_tools;
 #[cfg(feature = "physical-admission")]
 mod scientific_inputs;
 #[cfg(feature = "surrealql-tools")]
@@ -81,9 +77,6 @@ enum Cmd {
         #[arg(required = true, num_args = 1..)]
         inputs: Vec<PathBuf>,
     },
-    /// Inspect and mutate project metadata through canonical guarded operations.
-    #[cfg(feature = "canonical-tools")]
-    Project(project_tools::ProjectArgs),
     /// Inspect and explicitly manage the separately attested tooling evidence database.
     #[cfg(feature = "evidence-tools")]
     Evidence(evidence_tools::EvidenceArgs),
@@ -321,8 +314,6 @@ fn main() -> Result<()> {
         Cmd::SurrealqlValidate { inputs } => {
             std::process::exit(surrealql_tools::run(&inputs)?);
         }
-        #[cfg(feature = "canonical-tools")]
-        Cmd::Project(args) => project_tools::run(args),
         #[cfg(feature = "evidence-tools")]
         Cmd::Evidence(args) => evidence_tools::run(args),
         #[cfg(feature = "canonical-tools")]

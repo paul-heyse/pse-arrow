@@ -168,7 +168,7 @@ def run(state: Path, inputs: Path, receipt: Path, phase: str) -> None:
     execution = allocation.get("execution")
     if execution is None:
         raise server.SupervisorError(
-            "Scientific recovery requires the original plan28-reference profile"
+            "Scientific recovery requires the original reference profile"
         )
     if allocation != server.reference_resources():
         raise server.SupervisorError("Scientific recovery allocation changed")

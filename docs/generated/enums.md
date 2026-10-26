@@ -330,6 +330,31 @@ Member names are canonical string values; declaration order is presentation only
 | `execution` | `` | false |
 | `study_admission` | `` | false |
 
+## `CanonicalStudyCaptureState`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `pending` | `` | false |
+| `frozen` | `` | false |
+| `abandoned` | `` | false |
+| `releasing` | `` | false |
+| `released` | `` | false |
+
+## `CanonicalStudyInstallationPageState`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `issued` | `` | false |
+| `committed` | `` | false |
+
+## `CanonicalStudyInstallationPhase`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `nodes` | `` | false |
+| `edges` | `` | false |
+| `active` | `` | false |
+
 ## `CanonicalTerminalOutcome`
 
 | Member | IDAES name | Deprecated |
@@ -1029,20 +1054,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `rising` | `` | false |
 | `falling` | `` | false |
 
-## `EvidenceCoverage`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `complete` | `` | false |
-| `partial` | `` | false |
-
-## `EvidenceGenerationState`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `staged` | `` | false |
-| `active` | `` | false |
-
 ## `EvidenceUnavailableReason`
 
 | Member | IDAES name | Deprecated |
@@ -1245,101 +1256,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `newton` | `` | false |
 | `line_search` | `` | false |
 | `fixed_point` | `` | false |
-
-## `KnowledgeBasis`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `declared` | `` | false |
-| `language-resolved` | `` | false |
-| `text` | `` | false |
-| `historical` | `` | false |
-| `native` | `` | false |
-| `agent-interpretation` | `` | false |
-| `user-question` | `` | false |
-
-## `KnowledgeDirection`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `input` | `` | false |
-| `output` | `` | false |
-
-## `KnowledgeDocumentRole`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `contract` | `` | false |
-| `instruction` | `` | false |
-| `decision` | `` | false |
-| `plan` | `` | false |
-| `review` | `` | false |
-| `reference` | `` | false |
-| `evidence` | `` | false |
-| `index` | `` | false |
-
-## `KnowledgeGenerationState`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `staged` | `` | false |
-| `active` | `` | false |
-
-## `KnowledgeRelationKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `owns` | `` | false |
-| `governs` | `` | false |
-| `contains` | `` | false |
-| `depends_on` | `` | false |
-| `status_owned_by` | `` | false |
-| `superseded_by` | `` | false |
-| `supports` | `` | false |
-| `answers` | `` | false |
-| `diagnoses` | `` | false |
-| `references` | `` | false |
-
-## `KnowledgeSourceRole`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `definition` | `` | false |
-| `catalogue_registration` | `` | false |
-| `producer_declaration` | `` | false |
-| `native_scope` | `` | false |
-| `metadata` | `` | false |
-| `owner_evidence` | `` | false |
-| `question_input` | `` | false |
-| `interpretation_input` | `` | false |
-| `interpretation_policy` | `` | false |
-
-## `KnowledgeSourceStatus`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `current` | `` | false |
-| `historical` | `` | false |
-| `proposed` | `` | false |
-| `missing` | `` | false |
-| `stale` | `` | false |
-| `unknown` | `` | false |
-
-## `KnowledgeSubjectKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `document` | `` | false |
-| `contract` | `` | false |
-| `decision` | `` | false |
-| `plan_package` | `` | false |
-| `declaration` | `` | false |
-| `generator` | `` | false |
-| `generated_artifact` | `` | false |
-| `experiment` | `` | false |
-| `diagnostic` | `` | false |
-| `evidence_reference` | `` | false |
-| `research_question` | `` | false |
 
 ## `LiveSimulationEventKind`
 

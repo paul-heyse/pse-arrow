@@ -514,15 +514,11 @@ class FileStore:
     def _publish_invocation(
         self, nonce: str, state: dict, *, deadline: float | None = None
     ) -> None:
-        from scripts import test_requirements  # noqa: PLC0415
-
         deadline = clock(deadline)
         host.remaining(deadline, 1)
         inputs = {
             "version": 1,
-            "policy_version": state.get(
-                "requirement_policy", test_requirements.POLICY_VERSION
-            ),
+            "policy_version": state.get("requirement_policy"),
             "nonce": nonce,
             "declaration": state["declaration"],
             "requirements": state.get("requirements", {}),
@@ -561,7 +557,8 @@ class FileStore:
         host.remaining(deadline, 1)
 
     def create_invocation(
-        self, declaration: Mapping[str, object], *, deadline: float | None = None
+        self, declaration: Mapping[str, object], *, requirement_policy: int | None = None,
+        deadline: float | None = None
     ) -> None:
         deadline = clock(deadline)
         self.ensure(deadline)
@@ -575,6 +572,7 @@ class FileStore:
                 {
                     "version": 3,
                     "declaration": dict(declaration),
+                    "requirement_policy": requirement_policy,
                     "phase": "open",
                     "members": {},
                 },

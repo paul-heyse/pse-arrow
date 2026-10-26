@@ -233,6 +233,7 @@ async fn selected_enforced_relations_refuse_each_missing_endpoint_and_accept_sam
         .unwrap();
     let points = (0..2)
         .map(|key| NewOccurrence {
+            projection: None,
             policy: PointPolicy {
                 key: OccurrenceKey(key),
                 dependencies: vec![],
@@ -416,6 +417,7 @@ async fn reverse_study_dag_installs_all_endpoints_before_enforced_edges() {
     // both pages precede installation of enforced cross-page dependency edges.
     let points = (0..65)
         .map(|key| NewOccurrence {
+            projection: None,
             policy: PointPolicy {
                 key: OccurrenceKey(key),
                 dependencies: if key == 64 {

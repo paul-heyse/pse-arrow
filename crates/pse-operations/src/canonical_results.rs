@@ -36,6 +36,7 @@ pub(crate) struct ResultReadDrain {
     releases: tokio_util::task::TaskTracker,
     error: std::sync::Mutex<Option<Arc<CanonicalError>>>,
     failed_protections: std::sync::Mutex<Vec<Arc<FailedProtection>>>,
+    failed_captures: std::sync::Mutex<Vec<Arc<FailedCapture>>>,
 }
 #[derive(Debug)]
 struct FailedProtection {
@@ -46,6 +47,12 @@ struct FailedProtection {
     retry: tokio::sync::Mutex<()>,
     done: std::sync::atomic::AtomicBool,
     _metadata_owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
+}
+#[derive(Debug)]
+struct FailedCapture {
+    store:CanonicalStore,key:String,owner:String,request:Vec<u8>,error:Arc<CanonicalError>,
+    retry:tokio::sync::Mutex<()>,done:std::sync::atomic::AtomicBool,
+    _metadata_owner:Option<Arc<dyn std::fmt::Debug+Send+Sync>>,
 }
 impl ResultReadDrain {
     #[cfg(all(test, feature = "canonical-tests"))]
@@ -71,6 +78,7 @@ impl ResultReadDrain {
             completed: false,
             recovery: None,
             metadata_owner: None,
+            capture_recovery:None,
             _token: token,
         }
     }
@@ -85,6 +93,10 @@ impl ResultReadDrain {
         release.recovery = Some((store, revision, key));
         release.metadata_owner = metadata_owner;
         release
+    }
+    pub(crate) fn release_capture(self:&Arc<Self>,store:CanonicalStore,key:String,owner:String,request:Vec<u8>,metadata_owner:Option<Arc<dyn std::fmt::Debug+Send+Sync>>)->ResultReleaseTask {
+        let mut release=self.release();
+        release.capture_recovery=Some((store,key,owner,request));release.metadata_owner=metadata_owner;release
     }
     pub(crate) async fn recover(self: &Arc<Self>) -> Result<(), CanonicalError> {
         let failed = self
@@ -114,6 +126,19 @@ impl ResultReadDrain {
             });
             task.await
                 .map_err(|error| invalid(&format!("protection recovery task failed: {error}")))??;
+        }
+        let failed=self.failed_captures.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
+        for entry in failed {
+            let drain=self.clone();
+            let task=tokio::spawn(async move {
+                let _retry=entry.retry.lock().await;
+                if entry.done.load(std::sync::atomic::Ordering::Acquire) {return Ok(());}
+                crate::canonical::transport::optional_response_ownership_scope(entry._metadata_owner.clone(),crate::canonical_study_workbench::release_capture_custody(&entry.store,&entry.key,&entry.owner,&entry.request)).await?;
+                entry.done.store(true,std::sync::atomic::Ordering::Release);
+                drain.failed_captures.lock().unwrap_or_else(std::sync::PoisonError::into_inner).retain(|entry|!entry.done.load(std::sync::atomic::Ordering::Acquire));
+                Ok::<(),CanonicalError>(())
+            });
+            task.await.map_err(|error|invalid(&format!("capture recovery task failed: {error}")))??;
         }
         Ok(())
     }
@@ -171,6 +196,7 @@ impl ResultReadDrain {
                 source: entry.error.clone(),
             });
         }
+        if let Some(entry)=self.failed_captures.lock().unwrap_or_else(std::sync::PoisonError::into_inner).first() {return Err(CanonicalError::ProtectionRelease{source:entry.error.clone()});}
         if let Some(error) = self
             .error
             .lock()
@@ -189,11 +215,14 @@ pub(crate) struct ResultReleaseTask {
     completed: bool,
     recovery: Option<(CanonicalStore, crate::canonical::Revision, String)>,
     metadata_owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
+    capture_recovery:Option<(CanonicalStore,String,String,Vec<u8>)>,
     _token: tokio_util::task::task_tracker::TaskTrackerToken,
 }
 impl ResultReleaseTask {
     fn failure(&mut self, error: CanonicalError) {
-        if let Some((store, revision, key)) = self.recovery.take() {
+        if let Some((store,key,owner,request))=self.capture_recovery.take() {
+            self.drain.failed_captures.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(Arc::new(FailedCapture{store,key,owner,request,error:Arc::new(error),retry:tokio::sync::Mutex::new(()),done:std::sync::atomic::AtomicBool::new(false),_metadata_owner:self.metadata_owner.take()}));
+        } else if let Some((store, revision, key)) = self.recovery.take() {
             self.drain
                 .failed_protections
                 .lock()
@@ -543,9 +572,10 @@ fn validate_result_block_interpretation(
     clippy::too_many_arguments,
     reason = "the decoder verifies every independent admitted selection premise"
 )]
-fn decode_joined_result_page(
+pub(crate) fn decode_joined_result_page(
     mut envelope: Object,
-    read: &ResultRead,
+    attempt: &str,
+    interpretation: &str,
     set: &ResultSetDescriptor,
     output: &str,
     partition: &str,
@@ -592,15 +622,15 @@ fn decode_joined_result_page(
     for (block, batch) in blocks.iter().zip(&batches) {
         validate_result_block(block, batch)?;
         if previous.is_some_and(|ordinal| block.ordinal <= ordinal)
-            || block.key != result_batch_key(&read.attempt.key, &set.key, block.ordinal)
+            || block.key != result_batch_key(attempt, &set.key, block.ordinal)
             || block.result_set != set.key
             || block.ordinal >= set.batch_count
             || block.output != output
             || block.partition != partition
             || block.end <= start
             || block.start >= end
-            || block.interpretation != read.run.interpretation
-            || batch.attempt != read.attempt.key
+            || block.interpretation != interpretation
+            || batch.attempt != attempt
         {
             return Err(invalid(
                 "joined result page outside exact admitted selection",
@@ -614,6 +644,92 @@ fn decode_joined_result_page(
         next,
         exhausted,
     })
+}
+
+#[allow(clippy::too_many_arguments,reason="every original dense selection premise remains explicit")]
+pub(crate) fn decode_output_result_page(mut object:Object,attempt:&str,interpretation:&str,set:&ResultSetDescriptor,output:&str,partition:&str,start:u64,end:u64,after:Option<u64>)->Result<ResultOutputPage,CanonicalError> {
+        let rows = |value: Value| match value {
+            Value::Array(rows) => rows
+                .into_iter()
+                .map(|v| match v {
+                    Value::Object(row) => Ok(row),
+                    _ => Err(invalid("output index row shape")),
+                })
+                .collect::<Result<Vec<_>, _>>(),
+            _ => Err(invalid("output index array shape")),
+        };
+        let indexes = rows(canonical_codec::required(&mut object, "indexes")?)?;
+        let blocks = rows(canonical_codec::required(&mut object, "blocks")?)?
+            .into_iter()
+            .map(wire::decode_canonical_result_blocks)
+            .collect::<Result<Vec<_>, _>>()?;
+        let batches = rows(canonical_codec::required(&mut object, "batches")?)?.into_iter()
+            .map(wire::decode_canonical_result_batches).collect::<Result<Vec<_>,_>>()?;
+        let next = match canonical_codec::required(&mut object, "next")? {
+            Value::None | Value::Null => None,
+            value => Some(canonical_codec::decode_uint(value)?),
+        };
+        let exhausted = canonical_codec::decode_boolean(canonical_codec::required(&mut object, "exhausted")?)?;
+        if !object.is_empty() || indexes.len()>PAGE || blocks.len()>PAGE || batches.len()!=blocks.len()
+            || (!exhausted && indexes.is_empty()) {
+            return Err(invalid("joined output page extent or coverage differs"));
+        }
+        let mut identities=std::collections::BTreeSet::new();
+        for (block,batch) in blocks.iter().zip(&batches) {
+            validate_result_block(block,batch)?;
+            if block.result_set!=set.key || block.ordinal>=set.batch_count
+                || batch.attempt!=attempt || !identities.insert(block.key.clone()) {
+                return Err(invalid("output index block outside exact manifest"));
+            }
+        }
+        let mut page = ResultOutputPage { outputs: Vec::new(), blocks, batches, next, exhausted };
+        let mut previous = after;
+        for index in indexes {
+            let item = wire::decode_canonical_result_block_outputs(index)?;
+            let (key, batch, recorded_output, recorded_partition, lower, upper) = (
+                item.result_set.clone(), item.batch.clone(), item.output.clone(),
+                item.partition.clone(), item.start, item.end,
+            );
+            if item.interpretation != interpretation {
+                return Err(invalid("output index interpretation"));
+            }
+            page.outputs.push(item);
+            if key != set.key
+                || recorded_output != output
+                || recorded_partition != partition
+                || previous.is_some_and(|row| lower <= row)
+                || upper <= start
+                || lower >= end
+                || lower >= upper
+                || !page
+                    .blocks
+                    .iter()
+                    .any(|block| block.batch == batch && block.start <= lower && upper <= block.end)
+            {
+                return Err(invalid("output index outside exact recorded coverage"));
+            }
+            previous = Some(lower);
+        }
+        if page.next!=page.outputs.last().map(|item|item.start)
+            || page.blocks.iter().any(|block| !page.outputs.iter().any(|item|item.batch==block.key)) {
+            return Err(invalid("joined output page continuation or extra block differs"));
+        }
+        Ok(page)
+}
+
+pub(crate) fn validate_inline_body(batch:&ResultBatch,body:pse_model::generated::runtime::canonical_inline_payloads::Row)->Result<pse_model::generated::runtime::canonical_inline_payloads::Row,CanonicalError> {
+    use crate::canonical_execution::{PayloadLocator,result_payload_locator,result_payload_digest};
+    let PayloadLocator::Inline {key,index}=result_payload_locator(batch)? else {return Err(invalid("inline payload requires inline locator"));};
+            if body.key != key || body.attempt != batch.attempt || body.digest != batch.digest
+                || body.payload_bytes != batch.payload_bytes || body.body.len() as u64 != body.payload_bytes
+                || body.body.len() > pse_schema::catalog::substrate::RESULT_INLINE_BYTES
+                || body.schema != batch.schema || body.encoding != batch.encoding || body.interpretation != wire::INTERPRETATION
+                || result_payload_digest(body.body.as_slice()) != body.digest
+                || (body.encoding == crate::canonical_files::ARROW_IPC_FILE && (body.batch_count == 0 || index >= body.batch_count))
+                || (body.encoding != crate::canonical_files::ARROW_IPC_FILE && (body.batch_count != 0 || index != 0)) {
+                return Err(invalid("inline payload differs from immutable admitted encoding"));
+            }
+            Ok(body)
 }
 
 impl CanonicalStore {
@@ -692,76 +808,8 @@ impl CanonicalStore {
             )
             .await?;
         let index = response.num_statements().saturating_sub(2);
-        let mut object = response
-            .take::<Option<Object>>(index)?
-            .ok_or_else(|| invalid("output index response absent"))?;
-        let rows = |value: Value| match value {
-            Value::Array(rows) => rows
-                .into_iter()
-                .map(|v| match v {
-                    Value::Object(row) => Ok(row),
-                    _ => Err(invalid("output index row shape")),
-                })
-                .collect::<Result<Vec<_>, _>>(),
-            _ => Err(invalid("output index array shape")),
-        };
-        let indexes = rows(canonical_codec::required(&mut object, "indexes")?)?;
-        let blocks = rows(canonical_codec::required(&mut object, "blocks")?)?
-            .into_iter()
-            .map(wire::decode_canonical_result_blocks)
-            .collect::<Result<Vec<_>, _>>()?;
-        let batches = rows(canonical_codec::required(&mut object, "batches")?)?.into_iter()
-            .map(wire::decode_canonical_result_batches).collect::<Result<Vec<_>,_>>()?;
-        let next = match canonical_codec::required(&mut object, "next")? {
-            Value::None | Value::Null => None,
-            value => Some(canonical_codec::decode_uint(value)?),
-        };
-        let exhausted = canonical_codec::decode_boolean(canonical_codec::required(&mut object, "exhausted")?)?;
-        if !object.is_empty() || indexes.len()>PAGE || blocks.len()>PAGE || batches.len()!=blocks.len()
-            || (!exhausted && indexes.is_empty()) {
-            return Err(invalid("joined output page extent or coverage differs"));
-        }
-        let mut identities=std::collections::BTreeSet::new();
-        for (block,batch) in blocks.iter().zip(&batches) {
-            validate_result_block(block,batch)?;
-            if block.result_set!=set.key || block.ordinal>=set.batch_count
-                || batch.attempt!=read.attempt.key || !identities.insert(block.key.clone()) {
-                return Err(invalid("output index block outside exact manifest"));
-            }
-        }
-        let mut page = ResultOutputPage { outputs: Vec::new(), blocks, batches, next, exhausted };
-        let mut previous = after;
-        for index in indexes {
-            let item = wire::decode_canonical_result_block_outputs(index)?;
-            let (key, batch, recorded_output, recorded_partition, lower, upper) = (
-                item.result_set.clone(), item.batch.clone(), item.output.clone(),
-                item.partition.clone(), item.start, item.end,
-            );
-            if item.interpretation != read.run.interpretation {
-                return Err(invalid("output index interpretation"));
-            }
-            page.outputs.push(item);
-            if key != set.key
-                || recorded_output != output
-                || recorded_partition != partition
-                || previous.is_some_and(|row| lower <= row)
-                || upper <= start
-                || lower >= end
-                || lower >= upper
-                || !page
-                    .blocks
-                    .iter()
-                    .any(|block| block.batch == batch && block.start <= lower && upper <= block.end)
-            {
-                return Err(invalid("output index outside exact recorded coverage"));
-            }
-            previous = Some(lower);
-        }
-        if page.next!=page.outputs.last().map(|item|item.start)
-            || page.blocks.iter().any(|block| !page.outputs.iter().any(|item|item.batch==block.key)) {
-            return Err(invalid("joined output page continuation or extra block differs"));
-        }
-        Ok(page)
+        let object=response.take::<Option<Object>>(index)?.ok_or_else(||invalid("output index response absent"))?;
+        decode_output_result_page(object,&read.attempt.key,&read.run.interpretation,set,output,partition,start,end,after)
             }).await
         }).await
     }
@@ -1030,7 +1078,7 @@ impl CanonicalStore {
                 )).await?;
                 let index = response.num_statements().saturating_sub(2);
                 let envelope = response.take::<Option<Object>>(index)?.ok_or_else(|| invalid("joined result page absent"))?;
-                decode_joined_result_page(envelope, read, set, output, partition, start, end, after)
+                decode_joined_result_page(envelope, &read.attempt.key, &read.run.interpretation, set, output, partition, start, end, after)
             }).await
         }).await
     }
@@ -1160,10 +1208,10 @@ impl CanonicalStore {
         batch: &ResultBatch,
     ) -> Result<pse_model::generated::runtime::canonical_inline_payloads::Row, CanonicalError> {
         use crate::canonical_execution::{
-            PayloadLocator, result_payload_digest, result_payload_locator, validate_result_batch,
+            PayloadLocator, result_payload_locator, validate_result_batch,
         };
         validate_result_batch(batch)?;
-        let PayloadLocator::Inline { key, index } = result_payload_locator(batch)? else {
+        let PayloadLocator::Inline { key, index: _ } = result_payload_locator(batch)? else {
             return Err(invalid("inline payload requires inline locator"));
         };
         if !self.db.same_driver(&owner.store.db) {
@@ -1180,16 +1228,7 @@ impl CanonicalStore {
                 .bind(("inline",key.clone())).bind(("expected",expected.clone())))).await?;
             let statement = response.num_statements().saturating_sub(2);
             let body = response.take::<Option<Object>>(statement)?.map(wire::decode_canonical_inline_payloads).transpose()?.ok_or_else(|| invalid("admitted inline body unavailable"))?;
-            if body.key != key || body.attempt != batch.attempt || body.digest != batch.digest
-                || body.payload_bytes != batch.payload_bytes || body.body.len() as u64 != body.payload_bytes
-                || body.body.len() > pse_schema::catalog::substrate::RESULT_INLINE_BYTES
-                || body.schema != batch.schema || body.encoding != batch.encoding || body.interpretation != wire::INTERPRETATION
-                || result_payload_digest(body.body.as_slice()) != body.digest
-                || (body.encoding == crate::canonical_files::ARROW_IPC_FILE && (body.batch_count == 0 || index >= body.batch_count))
-                || (body.encoding != crate::canonical_files::ARROW_IPC_FILE && (body.batch_count != 0 || index != 0)) {
-                return Err(invalid("inline payload differs from immutable admitted encoding"));
-            }
-            Ok(body)
+            validate_inline_body(batch,body)
         })).await
     }
     async fn hydrate_result_batch(
@@ -1735,7 +1774,8 @@ mod canonical_results_server_unit {
         let decode = |envelope| {
             decode_joined_result_page(
                 envelope,
-                &read,
+                &read.attempt.key,
+                &read.run.interpretation,
                 read.set(&set).unwrap(),
                 "temperature",
                 "time",

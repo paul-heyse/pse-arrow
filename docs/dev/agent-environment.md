@@ -440,8 +440,9 @@ built linked worker when creating state:
 
 ```bash
 export PSE_SURREAL_STATE=/absolute/path/to/private/reference-state
-scripts/pse-env --native -- .venv/bin/python -m scripts.arrow_validation build -p xtask --bin pse-worker --locked --features native-solvers
-just surreal setup --execution-profile plan28-reference \
+just deployment-build
+scripts/pse-env --native -- .venv/bin/python -m scripts.arrow_validation build -p pse-runtime --bin pse-worker --locked --features product-operators,native-solvers
+just surreal setup --execution-profile reference \
   --worker-executable "$PWD/target/debug/pse-worker"
 scripts/pse-env --resource-class reference -- bash -euo pipefail -s <<'SH'
 cleanup() {
@@ -462,7 +463,7 @@ establish that allocation. The trap stops the owned service without deleting its
 A compatible rebuilt worker is frozen into a new context receiver generation;
 existing receivers retain their admitted bytes and storage remains running.
 Existing legacy state requires quiescing and draining its workers, stopping the
-server, then `just surreal reconfigure --execution-profile plan28-reference
+server, then `just surreal reconfigure --execution-profile reference
 --worker-executable "$PWD/target/debug/pse-worker"` before restarting. The
 [local substrate guide](surreal-substrate.md) owns state selection and lifecycle;
 ordinary canonical consumers do not require the managed study profile.
@@ -834,8 +835,11 @@ remaining obligations retain their [52g](../plans/52g-agent-and-operator-workflo
 
 ### Project and evidence commands
 
-`just project-build` and `just evidence-build` explicitly build dedicated operator
-executables. Ordinary code generation can rebuild `xtask` without replacing these
+`just deployment-build` builds the product allocation materializer before managed service
+setup/readmission; ordinary compiler admission remains usable before that artifact exists.
+`just project-build` builds the ordinary runtime project operator, while `just evidence-build`
+builds the private development operator. `just canonical-init` uses the product
+`pse-canonical-init` binary and its versioned description/initialization acknowledgment. Ordinary code generation can rebuild `xtask` without replacing these
 artifacts. `just project --help` and `just evidence --help` forward literal arguments;
 neither command installs or compiles a missing executable. The
 [substrate guide](surreal-substrate.md#project-and-derived-evidence-operations)

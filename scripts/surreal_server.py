@@ -35,7 +35,6 @@ import urllib.error
 import urllib.request
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -45,7 +44,7 @@ if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # CLI and immutable direct-script launches share one lifecycle/clock authority
-# with reciprocal imports by host_admission; a second module would see this
+# shared by service admission composition; a second module would see this
 # process's live reservation as a competing owner.
 if __name__ == "__main__":
     sys.modules["scripts.surreal_server"] = sys.modules[__name__]
@@ -53,6 +52,7 @@ if __name__ == "__main__":
 from scripts import operation_lifetime
 from scripts import (
     host_admission,
+    execution_profiles,
     native_operation,
     pse_env,
     surreal_source,
@@ -60,7 +60,13 @@ from scripts import (
     telemetry_service,
     process_observation,
     service_borrowers,
+    receiver_closure,
+    receiver_environment,
+    backup_image,
+    recovery_operation,
 )
+from scripts.generated import deployment
+from scripts.generated.deployment import DeploymentReadiness as Readiness
 
 if TYPE_CHECKING:
     import io
@@ -83,14 +89,20 @@ _LIFECYCLE = threading.local()
 WORKER_CAPABILITIES = ("solver", "klu", "isolation", "uno", "petsc")
 
 
-class Readiness(Enum):
-    READY = "ready"
-    STARTING = "starting"
-    STOPPING = "stopping"
-    MAINTENANCE = "maintenance"
-    ACTIONABLE_ABSENT = "actionable-absent"
-    UNAVAILABLE = "unavailable"
-    MISMATCH = "mismatch"
+GENERATION_CONFIGURATION = (
+    ".config/agent-capacity.toml",
+    ".config/build.toml",
+    ".config/sccache.toml",
+    ".cargo/config.toml",
+    "packages/reference/conformance.toml",
+    "docker/solvers/Dockerfile",
+    "Cargo.toml",
+    "rust-toolchain.toml",
+    ".python-version",
+    "crates/pse-operations/src/generated/surreal-policy.json",
+    "crates/pse-study-module/surrealism.toml",
+    "crates/pse-study-module/surrealism-qualification-long-hold.toml",
+)
 
 
 class SupervisorError(RuntimeError):
@@ -115,6 +127,14 @@ class ServiceObservation:
 
     def diagnostic(self) -> str:
         return f"Service readiness is {self.phase.value}: {self.cause}; selected={self.state}, instance_id={self.instance_id}, unit={self.unit}; reservation={self.reservation}; observed={dict(self.manager)}"
+
+    def document(self) -> dict[str, object]:
+        import msgspec  # noqa: PLC0415 -- private typed observation transport
+
+        return object_mapping(msgspec.to_builtins(deployment.DeploymentObservation(
+            phase=self.phase, state=str(self.state), unit=self.unit, cause=self.cause,
+            instance_id=self.instance_id if isinstance(self.instance_id, str) else None,
+        )))
 
     def __bool__(self) -> bool:
         raise TypeError("Consume ServiceObservation.phase explicitly")
@@ -548,9 +568,17 @@ def measurement_context(env: Mapping[str, str] | None = None) -> dict[str, objec
 
 
 def read_json(path: Path, *, deadline: float | None = None) -> dict[str, object]:
+    def unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, value in pairs:
+            if key in result:
+                raise SupervisorError("Owned metadata has a duplicate field")
+            result[key] = value
+        return result
+
     if deadline is not None:
-        return object_mapping(json.loads(private_record_bytes(path, deadline)))
-    value = json.loads(path.read_text())
+        return object_mapping(json.loads(private_record_bytes(path, deadline), object_pairs_hook=unique_object))
+    value = json.loads(path.read_text(), object_pairs_hook=unique_object)
     if not isinstance(value, dict):
         raise SupervisorError(f"Expected an object in {path.name}")
     return value
@@ -672,75 +700,78 @@ def publish_generation(
 ) -> dict[str, str]:
     """Freeze the complete owned Python/configuration closure before launch."""
     root = SCRIPT.parents[1]
+    try:
+        owned = receiver_closure.source_files(root, ["scripts/surreal_server.py"])
+    except receiver_closure.ClosureError as error:
+        raise SupervisorError(str(error)) from error
     sources = [
-        *sorted((root / "scripts").glob("*.py")),
+        *(root / name for name in owned),
         root / "scripts/sccache",
         *sorted((root / "scripts/surrealdb-source").glob("*.patch")),
     ]
-    for relative in (
-        ".config/agent-capacity.toml",
-        ".config/build.toml",
-        ".config/sccache.toml",
-        ".cargo/config.toml",
-        "packages/reference/conformance.toml",
-        "docker/solvers/Dockerfile",
-        "Cargo.toml",
-        "rust-toolchain.toml",
-        ".python-version",
-        "crates/pse-operations/src/generated/surreal-policy.json",
-        "crates/pse-study-module/surrealism.toml",
-        "crates/pse-study-module/surrealism-qualification-long-hold.toml",
-    ):
+    for relative in GENERATION_CONFIGURATION:
         sources.append(root / relative)
+    prepared_inputs = receiver_environment.capture(WORKER_CAPABILITIES, systemd_environment()) if worker is not None else None
     entries = {str(path.relative_to(root)): file_digest(path) for path in sources}
+    if prepared_inputs is not None:
+        entries["native-environment.json"] = hashlib.sha256(prepared_inputs).hexdigest()
+    operator = execution_profiles.operator()
+    if not operator.is_file() or not os.access(operator, os.X_OK):
+        raise SupervisorError("Build pse-deployment before publishing a receiver")
+    entries["bin/pse-deployment"] = file_digest(operator)
     if worker is not None:
         entries["bin/pse-worker"] = file_digest(worker)
     if producer is not None:
         entries["producer/worker.json"] = file_digest(producer)
-    identity = hashlib.sha256(
-        json.dumps(entries, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
     generations = state / ".generations"
     generations.mkdir(mode=0o700, exist_ok=True)
-    destination = generations / identity
-    if not destination.exists():
-        pending = generations / ("pending-" + uuid.uuid4().hex)
-        pending.mkdir(mode=0o700)
-        for source in sources:
-            target = pending / source.relative_to(root)
+    # Probe exactly the candidate bytes; importing the development checkout does
+    # not establish that the retained generation can import independently.
+    pending = generations / ("pending-" + uuid.uuid4().hex)
+    pending.mkdir(mode=0o700)
+    for source in sources:
+        target = pending / source.relative_to(root)
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
+        target.chmod(0o700 if source == root / "scripts/sccache" else 0o600)
+    if prepared_inputs is not None:
+        with (pending / "native-environment.json").open("xb") as output:
+            output.write(prepared_inputs)
+            output.flush()
+            os.fsync(output.fileno())
+        (pending / "native-environment.json").chmod(0o600)
+    for name, source in (("bin/pse-deployment", operator), ("bin/pse-worker", worker),
+                         ("producer/worker.json", producer)):
+        if source is not None:
+            target = pending / name
             target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             shutil.copyfile(source, target)
-            target.chmod(0o700 if source == root / "scripts/sccache" else 0o600)
-        if worker is not None:
-            target = pending / "bin/pse-worker"
-            target.parent.mkdir(mode=0o700, exist_ok=True)
-            shutil.copyfile(worker, target)
-            target.chmod(0o700)
-        if producer is not None:
-            target = pending / "producer/worker.json"
-            target.parent.mkdir(mode=0o700, exist_ok=True)
-            shutil.copyfile(producer, target)
-            target.chmod(0o600)
-        if any(
-            file_digest(pending / name) != expected
-            for name, expected in entries.items()
-        ):
-            raise SupervisorError(
-                "Source changed while publishing immutable generation; pending bytes preserved"
-            )
-        write_json(
-            pending / "generation.json",
-            {"version": 1, "identity": identity, "files": entries},
-        )
+            target.chmod(0o700 if name.startswith("bin/") else 0o600)
+    if any(file_digest(pending / name) != expected for name, expected in entries.items()):
+        raise SupervisorError("Source changed while publishing immutable generation; pending bytes preserved")
+    interpreter = Path(sys.executable).absolute()
+    try:
+        providers = receiver_closure.probe(pending, owned, interpreter)
+    except receiver_closure.ClosureError as error:
+        raise SupervisorError(str(error)) from error
+    if prepared_inputs is not None:
+        providers.update(receiver_environment.compiler_files(object_mapping(json.loads(prepared_inputs)["values"])))
+    declaration = {"files": entries, "runtime": providers, "interpreter": str(interpreter)}
+    identity = hashlib.sha256(json.dumps(declaration, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    destination = generations / identity
+    write_json(pending / "generation.json", {"version": 2, "identity": identity, **declaration})
+    if not destination.exists():
         # Concurrent complete generations have identical content; preserve pending.
         try:
             pending.rename(destination)
         except OSError as error:
             if error.errno not in {errno.EEXIST, errno.ENOTEMPTY}:
                 raise
+    else:
+        shutil.rmtree(pending)
     verify_generation(destination)
     return {
-        "supervisor_executable": str(Path(sys.executable).resolve()),
+        "supervisor_executable": str(interpreter),
         "supervisor_script": str(destination / "scripts/surreal_server.py"),
         "supervisor_sha256": entries["scripts/surreal_server.py"],
         **(
@@ -910,7 +941,7 @@ def open_context_admission(state: Path) -> None:
     for context in managed_contexts(state):
         with state_lock(context):
             config = config_for(context)
-            if config.get("derived_rebuild_pending") or config.get(
+            if config.get("backup_pending") is not None or config.get("derived_rebuild_pending") or config.get(
                 "surrealkit_rollout_pending"
             ):
                 raise SupervisorError("Incomplete owned maintenance remains closed")
@@ -1066,6 +1097,8 @@ def _readmit_supervisor(
     verifier: Path | None = None,
 ) -> dict[str, object]:
     config = config_for(state)
+    if config.get("backup_pending") is not None:
+        raise SupervisorError("Backup pending owner requires explicit resume before readmission")
     if (
         active(state)
         or config.get("accepting_writes")
@@ -1249,6 +1282,8 @@ def settle_legacy_telemetry_launch(
 class GenerationVerification:
     files: dict[str, str]
     observation: tuple[tuple[object, ...], ...]
+    runtime: dict[str, str] = field(default_factory=dict)
+    version: int = 1
 
 
 @dataclass
@@ -1262,7 +1297,7 @@ class PrimaryVerification:
 
 
 def generation_observation(
-    directory: Path, names: Mapping[str, str]
+    directory: Path, names: Mapping[str, str], runtime: Mapping[str, str] | None = None
 ) -> tuple[tuple[object, ...], ...]:
     observed: list[tuple[object, ...]] = []
     for path in (directory, *directory.parents):
@@ -1325,6 +1360,11 @@ def generation_observation(
         deadline = getattr(_STARTUP, "deadline", None)
         if deadline is not None:
             remaining(deadline)
+    for name in runtime or {}:
+        information = Path(name).stat()
+        observed.append((name, information.st_dev, information.st_ino, information.st_mode,
+                         information.st_uid, information.st_size, information.st_mtime_ns,
+                         information.st_ctime_ns))
     return tuple(observed)
 
 
@@ -1333,7 +1373,7 @@ def verify_generation(directory: Path) -> GenerationVerification:
     retained = owner.generations.get(directory) if owner is not None else None
     if (
         retained is not None
-        and generation_observation(directory, retained.files) == retained.observation
+        and generation_observation(directory, retained.files, retained.runtime) == retained.observation
     ):
         return retained
     if owner is not None:
@@ -1345,14 +1385,22 @@ def verify_generation(directory: Path) -> GenerationVerification:
         raise SupervisorError("Immutable generation must not traverse symlinks")
     receipt = read_json(manifest)
     if (
-        receipt.get("version") != 1
+        receipt.get("version") not in {1, 2}
         or receipt.get("identity") != directory.name
         or not isinstance(receipt.get("files"), dict)
     ):
         raise SupervisorError("Missing immutable generation identity")
     files = receipt["files"]
+    runtime = receipt.get("runtime", {}) if receipt["version"] == 2 else {}
+    if not isinstance(runtime, dict) or not all(
+        isinstance(name, str) and Path(name).is_absolute() and isinstance(expected, str)
+        for name, expected in runtime.items()
+    ):
+        raise SupervisorError("Immutable interpreter/provider declaration changed")
+    declaration = ({"files": files, "runtime": runtime, "interpreter": receipt.get("interpreter")}
+                   if receipt["version"] == 2 else files)
     identity = hashlib.sha256(
-        json.dumps(files, sort_keys=True, separators=(",", ":")).encode()
+        json.dumps(declaration, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
     if identity != directory.name:
         raise SupervisorError("Immutable generation declaration changed")
@@ -1361,7 +1409,7 @@ def verify_generation(directory: Path) -> GenerationVerification:
         for name, expected in files.items()
     ):
         raise SupervisorError("Immutable generation declaration changed")
-    before = generation_observation(directory, files)
+    before = generation_observation(directory, files, runtime)
     for name, expected in files.items():
         path = directory / name
         if not path.is_relative_to(directory) or ".." in Path(name).parts:
@@ -1374,7 +1422,7 @@ def verify_generation(directory: Path) -> GenerationVerification:
             raise SupervisorError("Immutable generation must not traverse symlinks")
         if file_digest(path) != expected:
             raise SupervisorError("Immutable supervisor/receiver closure changed")
-        executable = name in {"scripts/sccache", "bin/pse-worker"}
+        executable = name in {"scripts/sccache", "bin/pse-worker", "bin/pse-deployment"}
         information = path.stat()
         if information.st_uid != os.getuid() or stat.S_IMODE(information.st_mode) != (
             0o700 if executable else 0o600
@@ -1382,30 +1430,43 @@ def verify_generation(directory: Path) -> GenerationVerification:
             raise SupervisorError(
                 "Immutable executable closure lost its admitted execution mode or private ownership"
             )
-    after = generation_observation(directory, files)
+    for name, expected in runtime.items():
+        if file_digest(Path(name)) != expected:
+            raise SupervisorError("Immutable interpreter/provider inputs changed")
+    after = generation_observation(directory, files, runtime)
     if before != after:
         raise SupervisorError("Immutable generation changed during verification")
-    verified = GenerationVerification(dict(files), after)
+    verified = GenerationVerification(dict(files), after, dict(runtime), receipt["version"])
     if owner is not None:
         owner.generations[directory] = verified
     return verified
 
 
-def execution_resources(name: str) -> dict[str, object]:
-    if name == "plan28-reference" or name == "reference":
-        return reference_resources()
+def activatable_generation(directory: Path) -> GenerationVerification:
+    verified = verify_generation(directory)
+    if verified.version != 2:
+        raise SupervisorError("Retained generation requires explicit offline readmission before startup")
+    return verified
 
-    declared = host_admission.settings(name)
-    execution = host_admission.execution(name)
-    server = (
-        host_admission.settings("timing" if name == "timing" else "functional")[
-            "store_gib"
-        ]
-        * GIB
-    )
-    worker = declared["receiver_gib"] * GIB
-    total = server + declared["slot_gib"] * GIB
-    return resources(total, server, 1, worker, execution)
+
+def execution_resources(name: str) -> dict[str, object]:
+    selected = name
+    try:
+        return execution_profiles.profile(selected)
+    except execution_profiles.DeploymentError as error:
+        raise SupervisorError(str(error)) from error
+
+
+def context_document(value: Mapping[str, object]) -> dict[str, object]:
+    from scripts.generated import deployment  # noqa: PLC0415 -- actual registered context owner
+    import msgspec  # noqa: PLC0415 -- private typed boundary
+
+    if "version" not in value:
+        raise SupervisorError("Registered context omitted its persisted version")
+    try:
+        return object_mapping(msgspec.to_builtins(msgspec.convert(value, type=deployment.RegisteredNativeContext, strict=True)))
+    except msgspec.ValidationError as error:
+        raise SupervisorError("Registered context differs from its owned deployment schema") from error
 
 
 def register_context(
@@ -1516,14 +1577,14 @@ def register_context(
         write_json(receiver_state / "config.json", selected)
         write_json(
             target,
-            {
+            context_document({
                 "version": 1,
                 "database": database,
                 "resources": allocation,
                 "primary_receiver": receiver,
                 "receiver_state": str(receiver_state),
                 "receiver_generation": identity,
-            },
+            }),
         )
     return read_json(target)
 
@@ -1534,7 +1595,7 @@ def receiver_context(state: Path, database: str | None) -> Path:
     path = state / ".contexts" / f"{database}.json"
     if not path.exists():
         return state
-    context = read_json(path)
+    context = context_document(read_json(path))
     selected = Path(str(context["receiver_state"]))
     if (
         selected.is_symlink()
@@ -1739,7 +1800,7 @@ def admitted_runtime_server(
         or SCRIPT.parent.name != "scripts"
         or directory.parent != service / ".generations"
         or supervisor.get("supervisor_executable")
-        != str(Path(sys.executable).resolve())
+        not in {str(Path(sys.executable).absolute()), str(Path(sys.executable).resolve())}
     ):
         raise SupervisorError(
             "Running supervisor is not its bound immutable service generation"
@@ -1802,17 +1863,12 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
     budget = config.get("resources")
     if not isinstance(budget, dict):
         raise SupervisorError("Missing resource allocation")
-    execution = budget.get("execution")
-    if execution is not None:
-        validate_execution(execution)
-    expected = resources(
-        integer(budget["total_memory_bytes"]),
-        integer(budget["server_memory_bytes"]),
-        integer(budget["native_workers"]),
-        integer(budget["native_worker_memory_bytes"]),
-        execution,
-    )
     if retiring:
+        expected = resources(
+            integer(budget["total_memory_bytes"]), integer(budget["server_memory_bytes"]),
+            integer(budget["native_workers"]), integer(budget["native_worker_memory_bytes"]),
+            budget.get("execution"),
+        )
         expected = {
             key: value
             for key, value in expected.items()
@@ -1825,10 +1881,13 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
             ),
             rocksdb_write_buffers=2,
         )
-    if budget != expected:
-        raise SupervisorError(
-            "Resource overrides do not match the allocated server budget"
-        )
+        if budget != expected:
+            raise SupervisorError("Retiring resource overrides differ from their original allocation")
+    else:
+        try:
+            execution_profiles.validate_configuration(config, deadline=deadline)
+        except execution_profiles.DeploymentError as error:
+            raise SupervisorError(str(error)) from error
     port = integer(config["port"])
     scheme = "ws" if retiring else "grpc"
     if not 1 <= port <= 65535 or config["endpoint"] != f"{scheme}://127.0.0.1:{port}":
@@ -1861,104 +1920,14 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
 def resources(
     total: int, server: int, workers: int, worker: int, execution: object = None
 ) -> dict[str, object]:
-    if (
-        server < 512 * MIB
-        or not server < total < 2**63
-        or not 1 <= workers <= 32
-        or worker < 64 * MIB
-    ):
-        raise SupervisorError(
-            "Require server >=512MiB, 1..32 workers and positive finite budgets"
-        )
-    observer = 0
-    if execution is not None:
-        validate_execution(execution)
-        if not isinstance(execution, dict):
-            raise SupervisorError("Invalid execution configuration")
-        observer = integer(execution["observer_memory_bytes"])
-        if workers != 1 or worker != integer(execution["pool_memory_bytes"]) + integer(
-            execution["process_headroom_bytes"]
-        ):
-            raise SupervisorError(
-                "Execution requires one exact primary process allocation"
-            )
-    if execution is not None and server + worker + observer > total:
-        raise SupervisorError(
-            "Reference execution requires its exact shared memory envelope"
-        )
-    if server + workers * worker + observer > total:
-        raise SupervisorError(
-            "Server and managed native workers exceed the shared memory budget"
-        )
-    allocation: dict[str, object] = {
-        "total_memory_bytes": total,
-        "server_memory_bytes": server,
-        "native_workers": workers,
-        "native_worker_memory_bytes": worker,
-        "surrealmx_memory_limit_bytes": server // 2,
-        "surrealmx_max_transaction_age_seconds": 90,
-        "surrealmx_snapshot_interval_seconds": 60,
-        "surrealmx_max_async_queue_depth": 32,
-        "grpc_max_attached_sessions": 256,
-        "surrealmx_max_async_queue_bytes": min(64 * MIB, server // 16),
-        "memory_threshold_bytes": server * 3 // 4,
-    }
-    if execution is not None:
-        allocation["execution"] = execution
-    return allocation
-
-
-def validate_execution(execution: object) -> None:
-
-    allowed = [
-        reference_execution(),
-        *(
-            host_admission.execution(name)
-            for name in (
-                "functional",
-                "wide",
-                "timing",
-                "exclusive",
-                "exclusive-observer",
-            )
-        ),
-    ]
-    if not isinstance(execution, dict) or execution not in allowed:
-        raise SupervisorError(
-            "Execution profile differs from its selected finite declaration"
-        )
-
-
-def reference_execution() -> dict[str, int]:
-    """Materialize scientific capacities from their declaration; headroom is policy."""
-    path = SCRIPT.parents[1] / "packages/reference/conformance.toml"
-    settings = tomllib.loads(path.read_text())["settings"]
-    execution = {
-        "pool_memory_bytes": integer(settings["memory_limit_bytes"]),
-        "worker_bytes": integer(settings["math_worker_bytes"]),
-        "cpu_threads": integer(settings["threads"]),
-        "case_lanes": integer(settings["threads"]),
-        "math_jobs": integer(settings["math_jobs"]),
-        "compiler_cores": integer(
-            settings["preparation"]["compiler"]["optimization"]["cores"]
-        ),
-        "admission_wait_ms": 30_000,
-        "process_headroom_bytes": 12 * GIB,
-        "observer_memory_bytes": 4 * GIB,
-    }
-    if any(value <= 0 for value in execution.values()) or execution["case_lanes"] != 16:
-        raise SupervisorError(
-            "Selected reference execution requires finite sixteen-lane settings"
-        )
-    return execution
+    try:
+        return execution_profiles.materialize(total, server, workers, worker, execution)
+    except execution_profiles.DeploymentError as error:
+        raise SupervisorError(str(error)) from error
 
 
 def reference_resources() -> dict[str, object]:
-    execution = reference_execution()
-    worker = execution["pool_memory_bytes"] + execution["process_headroom_bytes"]
-    server = 16 * GIB
-    total = server + worker + execution["observer_memory_bytes"]
-    return resources(total, server, 1, worker, execution)
+    return execution_resources("reference")
 
 
 def primary_receiver(executable: Path | None) -> dict[str, str]:
@@ -1967,7 +1936,7 @@ def primary_receiver(executable: Path | None) -> dict[str, str]:
             "Selecting reference execution requires --worker-executable"
         )
     worker = executable.resolve(strict=True)
-    interpreter = Path(sys.executable).resolve(strict=True)
+    interpreter = Path(sys.executable).absolute()
     if not worker.is_file() or not os.access(worker, os.X_OK):
         raise SupervisorError("Primary receiver must name a built executable")
     return {
@@ -2058,18 +2027,12 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
                 )
         return public_status(args.state.absolute(), config)
     # Download first so network failure leaves no half-initialized application state.
+    default = execution_profiles.default_allocation()
     allocation = resources(
-        (49152 if args.memory_mib is None else args.memory_mib) * MIB,
-        host_admission.settings("functional")["store_gib"] * GIB
-        if args.server_memory_mib is None
-        else args.server_memory_mib * MIB,
-        1 if args.native_workers is None else args.native_workers,
-        (
-            32768
-            if args.native_worker_memory_mib is None
-            else args.native_worker_memory_mib
-        )
-        * MIB,
+        integer(default["total_memory_bytes"]) if args.memory_mib is None else args.memory_mib * MIB,
+        integer(default["server_memory_bytes"]) if args.server_memory_mib is None else args.server_memory_mib * MIB,
+        integer(default["native_workers"]) if args.native_workers is None else args.native_workers,
+        integer(default["native_worker_memory_bytes"]) if args.native_worker_memory_mib is None else args.native_worker_memory_mib * MIB,
     )
     receiver = None
     if args.execution_profile:
@@ -2178,6 +2141,8 @@ def reconfigure(
     state: Path, config: dict[str, object], args: argparse.Namespace
 ) -> None:
     """Replace only the allocation after proving the owned lifecycle is offline."""
+    if config.get("backup_pending") is not None:
+        raise SupervisorError("Backup pending owner requires explicit resume before reconfiguration")
     if any(
         value is not None
         for value in (
@@ -2459,6 +2424,8 @@ def primary_environment(
 ) -> tuple[dict[str, str], tuple[str, ...]]:
     """Carry role-specific inputs to the actual service; the worker validates them."""
     environment = worker_environment(state, 0, allocation, handoff)
+    inputs = receiver_environment.read(Path(receiver["supervisor_script"]).parents[1] / "native-environment.json")
+    environment.update(inputs.values)
     selected = environment.get("PSE_WORKER_BINARY")
     if selected is not None:
         try:
@@ -2483,7 +2450,7 @@ def primary_environment(
     receipt, _ = selected_worker_receipt(environment)
     if receipt is not None:
         environment["PSE_PRODUCER_RECEIPT"] = receipt
-    capabilities = ("solver", "klu", "isolation", "uno", "petsc")
+    capabilities = WORKER_CAPABILITIES
     names = tuple(
         dict.fromkeys(
             (
@@ -2505,6 +2472,7 @@ def primary_environment(
                 "LIBCLANG_PATH",
                 native_operation.OFF_MARKER,
                 *native_operation.OVERRIDABLE,
+                *receiver_environment.variable_names(capabilities),
                 *(
                     name
                     for capability in capabilities
@@ -3436,7 +3404,7 @@ def reference_state(selected: Path) -> Path:
                 "--port",
                 "18241",
                 "--execution-profile",
-                "plan28-reference",
+                "reference",
                 "--worker-executable",
                 worker,
                 "--interpretation",
@@ -3904,16 +3872,13 @@ def primary_association(config: dict[str, object]) -> dict[str, str]:
         raise SupervisorError(
             "Selected execution requires a configured primary receiver"
         )
-    expected = {
-        "supervisor_executable",
-        "supervisor_script",
-        "worker_executable",
-        "supervisor_sha256",
-        "worker_sha256",
-    }
-    if set(receiver) != expected:
-        raise SupervisorError("Primary receiver association has unsupported fields")
-    result = {key: str(value) for key, value in receiver.items()}
+    from scripts.generated import deployment  # noqa: PLC0415 -- executable association owner
+    import msgspec  # noqa: PLC0415 -- private typed boundary
+
+    try:
+        result = object_mapping(msgspec.to_builtins(msgspec.convert(receiver, type=deployment.ManagedPrimaryReceiver, strict=True)))
+    except msgspec.ValidationError as error:
+        raise SupervisorError("Primary receiver association has unsupported fields") from error
     if any(
         not Path(result[key]).is_absolute()
         for key in ("supervisor_executable", "supervisor_script", "worker_executable")
@@ -3932,7 +3897,7 @@ def recorded_primary(config: dict[str, object]) -> dict[str, str]:
 def checked_primary(config: dict[str, object]) -> dict[str, str]:
     receiver = primary_association(config)
     directory = Path(receiver["supervisor_script"]).parents[1]
-    verified = verify_generation(directory)
+    verified = activatable_generation(directory)
     script = Path(receiver["supervisor_script"])
     worker = Path(receiver["worker_executable"])
     if (
@@ -4614,9 +4579,11 @@ def _ensure_primary(
                 allocation,
                 [
                     receiver["supervisor_executable"],
-                    str(SCRIPT.with_name("native_operation.py")),
+                    str(Path(receiver["supervisor_script"]).with_name("native_operation.py")),
                     "--capabilities",
-                    "solver,klu,isolation,uno,petsc",
+                    ",".join(WORKER_CAPABILITIES),
+                    "--prepared-environment",
+                    str(Path(receiver["supervisor_script"]).parents[1] / "native-environment.json"),
                     "--",
                     receiver["worker_executable"],
                     "--maximum-in-flight",
@@ -4816,11 +4783,7 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
         "listener_owned": listener_owned,
         "authenticated_grpc_ready": observed.protocol_ready,
         "lifecycle": {
-            "phase": observed.phase.value,
-            "cause": observed.cause,
-            "state": str(observed.state),
-            "instance_id": observed.instance_id,
-            "unit": observed.unit,
+            **observed.document(),
             "reservation": observed.reservation,
             "manager": dict(observed.manager),
         },
@@ -4828,6 +4791,7 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
         "telemetry_service_instance_id": telemetry_identity,
         "supervisor_generation": config.get("service_supervisor"),
         "parked": bool(config.get("parked")),
+        "backup_pending": config.get("backup_pending"),
         "tooling_fixture": config.get("tooling_fixture") is True,
         "unit": unit_name(state),
         "endpoint": f"127.0.0.1:{port}",
@@ -5454,7 +5418,7 @@ def interrupted_initializer_drain_config(
         or script.parent.name != "scripts"
         or script.parent.parent.parent != state / ".generations"
         or supervisor.get("supervisor_executable")
-        != str(Path(sys.executable).resolve())
+        not in {str(Path(sys.executable).absolute()), str(Path(sys.executable).resolve())}
     ):
         raise SupervisorError(
             "Interrupted initializer drain source escaped its immutable state"
@@ -5589,7 +5553,7 @@ def materialize_service(
         raise SupervisorError(
             "Profile has no immutable service supervisor; explicitly readmit it"
         )
-    verify_generation(Path(str(supervisor["supervisor_script"])).parents[1])
+    activatable_generation(Path(str(supervisor["supervisor_script"])).parents[1])
     directory = (
         Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))
         / "systemd/user"
@@ -5842,6 +5806,8 @@ def start(
     validation: bool = False,
     deadline: float | None = None,
 ) -> None:
+    if config.get("backup_pending") is not None:
+        raise SupervisorError("Backup pending owner keeps startup closed until explicit resume completes")
     deadline = time.monotonic() + 40 if deadline is None else deadline
     previous = getattr(_STARTUP, "deadline", None)
     deadline = deadline if previous is None else min(previous, deadline)
@@ -5990,6 +5956,12 @@ def _start(
     validation: bool,
     deadline: float,
 ) -> None:
+    if config.get("backup_pending") is not None:
+        raise SupervisorError("Backup pending owner keeps startup closed until explicit resume completes")
+    supervisor = config.get("service_supervisor")
+    if not isinstance(supervisor, dict):
+        raise SupervisorError("Profile has no immutable service supervisor; explicitly readmit it")
+    activatable_generation(Path(str(supervisor["supervisor_script"])).parents[1])
     owner = service_directory(state)
     if owner != state:
         return start(owner, config_for(owner), validation=validation, deadline=deadline)
@@ -6976,17 +6948,7 @@ def payload_verifier(path: Path) -> dict[str, object]:
     return {"binary": str(path), "sha256": file_digest(path)}
 
 
-def native_payload_operation(
-    state: Path,
-    config: Mapping[str, object],
-    operation: str,
-    inventory: list[dict[str, object]] | None = None,
-    *,
-    destination: Path | None = None,
-    placement: Mapping[str, object] | None = None,
-    target: Mapping[str, object] | None = None,
-) -> list[dict[str, object]]:
-    """Transport bounded metadata to the product's complete physical operation."""
+def admitted_payload_verifier(config: Mapping[str, object]) -> dict[str, object]:
     verifier = object_mapping(config.get("payload_verifier", {}))
     binary = verifier.get("binary")
     if binary is None:
@@ -7005,7 +6967,22 @@ def native_payload_operation(
         raise SupervisorError(
             "Native payload helper differs from its selected artifact"
         )
-    if not verifier and isinstance(config, dict):
+    return actual
+
+def native_payload_operation(
+    state: Path,
+    config: Mapping[str, object],
+    operation: str,
+    inventory: list[dict[str, object]] | None = None,
+    *,
+    destination: Path | None = None,
+    placement: Mapping[str, object] | None = None,
+    target: Mapping[str, object] | None = None,
+) -> list[dict[str, object]]:
+    """Transport bounded metadata to the product's complete physical operation."""
+    actual = admitted_payload_verifier(config)
+    binary = str(actual["binary"])
+    if isinstance(config, dict) and not config.get("payload_verifier"):
         config["payload_verifier"] = actual
     command = [binary, "--operation", operation, "--root", str(state)]
     if destination is not None:
@@ -7027,27 +7004,38 @@ def native_payload_operation(
     with (
         tempfile.TemporaryFile(mode="w+b") as request,
         tempfile.TemporaryFile(mode="w+b") as response,
+        tempfile.TemporaryFile(mode="w+b") as errors,
     ):
+        inventory_digest = hashlib.sha256()
         for entry in inventory or []:
-            line = (json.dumps(entry, separators=(",", ":")) + "\n").encode()
+            line = (json.dumps(entry, sort_keys=True, separators=(",", ":")) + "\n").encode()
             if len(line) > 64 * 1024:
                 raise SupervisorError(
                     "Native payload entry exceeds its bounded envelope"
                 )
             request.write(line)
+            inventory_digest.update(line)
         request.seek(0)
-        result = subprocess.run(
-            command,
-            stdin=request,
-            stdout=response,
-            stderr=subprocess.PIPE,
-            check=False,
-            timeout=120,
-        )
-        if result.returncode:
-            detail = result.stderr.decode(errors="replace").strip()[:4096]
+        checkpoint = recovery_operation.checkpoint_path(command, inventory_digest.hexdigest(), str(actual["sha256"]))
+        if operation == "backup" and isinstance(config, dict) and config.get("backup_pending") is not None:
+            pending = object_mapping(config["backup_pending"])
+            if pending.get("payload_checkpoint") not in {None, str(checkpoint)}:
+                raise SupervisorError("Backup native checkpoint differs from its original pending owner")
+            pending["payload_checkpoint"] = str(checkpoint)
+            config["backup_pending"] = pending
+            write_json(state / "config.json", config)
+        try:
+            result = recovery_operation.run(command, request, response, errors, checkpoint,
+                                            deadline=getattr(_STARTUP, "deadline", None))
+        except (recovery_operation.RecoveryError, host_admission.AdmissionError) as error:
+            raise SupervisorError(f"{error}; maintenance remains incomplete; checkpoint={checkpoint}") from error
+        if payload_verifier(Path(binary)) != actual:
+            raise SupervisorError("Native payload helper changed during its operation; maintenance remains incomplete")
+        if result:
+            errors.seek(0)
+            detail = errors.read(4096).decode(errors="replace").strip()
             raise SupervisorError(
-                f"Native canonical payload operation refused; maintenance remains incomplete: {detail}"
+                f"Native canonical payload operation refused; maintenance remains incomplete; checkpoint={checkpoint}: {detail}"
             )
         response.seek(0)
         values: list[dict[str, object]] = []
@@ -7620,81 +7608,149 @@ def backup(
         return _backup(state, config, destination)
 
 
+def backup_configuration_identity(config: Mapping[str, object]) -> str:
+    return hashlib.sha256(json.dumps({key: value for key, value in config.items() if key != "backup_pending"},
+                                    sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def backup_sources(state: Path) -> tuple[Path, ...]:
+    return (state / "database", state / "config.json", state / "credentials.json",
+            *sorted(owned_generations(state)),
+            *((state / ".contexts",) if (state / ".contexts").exists() else ()))
+
+
+def backup_pending(config: Mapping[str, object]) -> dict[str, object]:
+    from scripts.generated import deployment  # noqa: PLC0415 -- actual lifecycle owner document
+    import msgspec  # noqa: PLC0415 -- private typed boundary
+
+    pending = object_mapping(config["backup_pending"])
+    if "version" not in pending:
+        raise SupervisorError("Backup pending owner omitted its persisted version")
+    try:
+        return object_mapping(msgspec.to_builtins(msgspec.convert(pending, type=deployment.BackupOperation, strict=True)))
+    except msgspec.ValidationError as error:
+        raise SupervisorError("Backup pending owner is malformed; admission remains closed") from error
+
+
+def backup_operation_directory(state: Path, pending: Mapping[str, object]) -> Path:
+    nonce = pending.get("nonce")
+    if not isinstance(nonce, str) or not re.fullmatch(r"[a-f0-9]{32}", nonce):
+        raise SupervisorError("Backup pending operation identity is invalid")
+    return checked_directory(state / ".backup-operations" / nonce)
+
+
+def backup_destination(pending: Mapping[str, object], selected: Path) -> Path:
+    destination = checked_directory(selected)
+    information = destination.stat()
+    if (str(destination) != pending.get("destination")
+            or information.st_dev != pending.get("destination_device")
+            or information.st_ino != pending.get("destination_inode")):
+        raise SupervisorError("Backup destination differs from its original pending owner")
+    return destination
+
+
 def _backup(
     state: Path, config: dict[str, object], destination: Path
 ) -> dict[str, object]:
-    if config.get("derived_rebuild_pending") or config.get(
-        "surrealkit_rollout_pending"
-    ):
-        raise SupervisorError(
-            "Incomplete derived rebuild cannot be backed up as current state"
-        )
-    if destination.absolute() == state or state in destination.absolute().parents:
-        raise SupervisorError(
-            "Backup destination must be outside the live state directory"
-        )
+    if config.get("derived_rebuild_pending") or config.get("surrealkit_rollout_pending"):
+        raise SupervisorError("Incomplete derived rebuild cannot be backed up as current state")
+    destination = lexical_absolute(destination)
+    if destination == state or state in destination.parents or destination in state.parents:
+        raise SupervisorError("Backup destination must be outside the live state directory")
     require_private_service_context(state, "Backup")
-    payload_inventory = freeze_payloads(state, config)
-    verify_payload_inventory(state, config, payload_inventory)
-    application_inventory = capture_application_inventory(state, config)
-    stop(state, config)
-    if not (state / "database").is_dir():
-        raise SupervisorError("No initialized database to back up")
-    destination = checked_directory(destination, empty=True)
-    for name in ("database", "config.json", "credentials.json"):
-        source = state / name
-        if source.is_dir():
-            shutil.copytree(source, destination / name, symlinks=False)
-        else:
-            shutil.copy2(source, destination / name)
-    copy_payload_inventory(state, destination, payload_inventory)
-    generations = owned_generations(state)
-    for context in managed_contexts(state):
-        if context != state:
-            target = destination / context.relative_to(state)
-            target.mkdir(mode=0o700, parents=True)
-            shutil.copy2(context / "config.json", target / "config.json")
-    for generation in sorted(generations):
-        shutil.copytree(generation, destination / ".generations" / generation.name)
-    if (state / ".contexts").exists():
-        shutil.copytree(state / ".contexts", destination / ".contexts")
-    files = {
-        str(path.relative_to(destination)): file_digest(path)
-        for path in sorted(destination.rglob("*"))
-        if path.is_file() and path.relative_to(destination).parts[0] != "payloads"
-    }
-    for entry in payload_inventory:
-        for name, binding in object_mapping(entry["files"]).items():
-            digest = object_mapping(binding).get("sha256")
-            if (
-                not isinstance(digest, str)
-                or re.fullmatch(r"[a-f0-9]{64}", digest) is None
-            ):
-                raise SupervisorError(
-                    "Native payload inventory SHA256 binding is invalid"
-                )
-            files[name] = digest
-    write_json(
-        destination / "backup.json",
-        {
-            "owner": OWNER,
-            "backup_version": 4,
-            "state_root": str(state),
-            "interpretation": config["interpretation"],
-            "files": files,
-            "payload_inventory": payload_inventory,
-            "application_inventory": application_inventory,
-        },
-    )
-    return {
-        "backup": str(destination),
-        "interpretation": config["interpretation"],
-        "server_stopped": True,
-    }
+    try:
+        if config.get("backup_pending") is None:
+            # Reserve an actually empty private destination before source effects.
+            destination = checked_directory(destination, empty=True)
+            payload_inventory = freeze_payloads(state, config)
+            # Native inventory already checked these held immutable bytes. The
+            # post-stop native copy independently rechecks the original snapshot.
+            application_inventory = capture_application_inventory(state, config)
+            stop(state, config)
+            config.update(config_for(state))
+            private_offline_state(state, config, backup_resume=True)
+            config["payload_verifier"] = admitted_payload_verifier(config)
+            write_json(state / "config.json", config)
+            metadata = backup_image.files(state, backup_sources(state))
+            files = dict(metadata)
+            for entry in payload_inventory:
+                for name, binding in object_mapping(entry["files"]).items():
+                    digest = object_mapping(binding).get("sha256")
+                    if not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest):
+                        raise SupervisorError("Native payload inventory SHA256 binding is invalid")
+                    files[name] = digest
+            draft = {"owner": OWNER, "backup_version": 4, "state_root": str(state),
+                     "interpretation": config["interpretation"], "files": files,
+                     "payload_inventory": payload_inventory, "application_inventory": application_inventory}
+            nonce = uuid.uuid4().hex
+            directory = checked_directory(state / ".backup-operations" / nonce, empty=True)
+            backup_image.copy(state / "config.json", directory / "config.json", metadata["config.json"])
+            write_json(directory / "backup.json", draft)
+            information = destination.stat()
+            config["backup_pending"] = {
+                "version": 1, "nonce": nonce, "destination": str(destination),
+                "destination_device": information.st_dev, "destination_inode": information.st_ino,
+                "source_instance_id": str(config["instance_id"]),
+                "source_configuration_sha256": backup_configuration_identity(config),
+                "manifest_sha256": backup_image.digest(directory / "backup.json"),
+                "payload_checkpoint": None, "phase": "metadata",
+            }
+            write_json(state / "config.json", config)
+        return resume_backup(state, config, destination)
+    except backup_image.ImageError as error:
+        raise SupervisorError(f"{error}; backup remains incomplete and source admission closed") from error
 
 
-def private_offline_state(state: Path, config: dict[str, object]) -> None:
+def resume_backup(state: Path, config: dict[str, object], destination: Path) -> dict[str, object]:
+    pending = backup_pending(config)
+    private_offline_state(state, config, backup_resume=True)
+    if (str(config.get("instance_id")) != pending["source_instance_id"]
+            or backup_configuration_identity(config) != pending["source_configuration_sha256"]
+            or config.get("payload_frozen") is not True):
+        raise SupervisorError("Backup source configuration differs from its original frozen owner")
+    destination = backup_destination(pending, destination)
+    directory = backup_operation_directory(state, pending)
+    if backup_image.digest(directory / "backup.json") != pending["manifest_sha256"]:
+        raise SupervisorError("Backup original manifest snapshot changed")
+    draft = read_json(directory / "backup.json")
+    files = object_mapping(draft["files"])
+    metadata = {name: str(digest) for name, digest in files.items() if Path(name).parts[0] != "payloads"}
+    observed = backup_image.files(state, backup_sources(state))
+    observed["config.json"] = backup_image.digest(directory / "config.json")
+    if observed != metadata:
+        raise SupervisorError("Stopped backup source image differs from its original snapshot")
+    backup_image.check_destination(destination, files, str(pending["manifest_sha256"]))
+    for name, digest in sorted(metadata.items()):
+        backup_destination(pending, destination)
+        source = directory / "config.json" if name == "config.json" else state / name
+        backup_image.copy(source, destination / name, digest)
+    pending["phase"] = "payload"
+    config["backup_pending"] = pending
+    write_json(state / "config.json", config)
+    # Re-reading the original retained inventory preserves exact native request
+    # bytes, including after a process crash or a completed-prefix copy.
+    copy_payload_inventory(state, destination, object_inventory(draft["payload_inventory"]))
+    config.update(config_for(state))
+    pending = backup_pending(config)
+    backup_destination(pending, destination)
+    backup_image.check_destination(destination, files, str(pending["manifest_sha256"]))
+    backup_image.copy(directory / "backup.json", destination / "backup.json", str(pending["manifest_sha256"]))
+    pending["phase"] = "published"
+    config["backup_pending"] = pending
+    write_json(state / "config.json", config)
+    # A completed backup does not thaw files or start either service role.
+    config.pop("backup_pending")
+    write_json(state / "config.json", config)
+    for name in ("config.json", "backup.json"):
+        (directory / name).unlink()
+    directory.rmdir()
+    return {"backup": str(destination), "interpretation": config["interpretation"], "server_stopped": True}
+
+
+def private_offline_state(state: Path, config: dict[str, object], *, backup_resume: bool = False) -> None:
     """Only the stopped service's sole database may be replaced by its owner."""
+    if config.get("backup_pending") is not None and not backup_resume:
+        raise SupervisorError("Explicit original backup resume is required before another offline mutation")
     require_private_service_context(state, "Derived cutover")
     if config["accepting_writes"] or config["admission"] not in {
         "quiesced",
@@ -10856,14 +10912,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--native-worker-memory-mib", type=int)
     result.add_argument(
         "--execution-profile",
-        choices=[
-            "plan28-reference",
-            "functional",
-            "wide",
-            "timing",
-            "exclusive",
-            "exclusive-observer",
-        ],
+        choices=[profile.name.value for profile in execution_profiles.declarations().profiles
+                 if profile.execution is not None],
     )
     result.add_argument("--worker-executable", type=Path)
     result.add_argument(
@@ -10981,11 +11031,7 @@ def _dispatch(args: argparse.Namespace) -> int:
             ),
         )
     elif args.command == "observer":
-        profile = (
-            "reference"
-            if args.execution_profile == "plan28-reference"
-            else args.execution_profile
-        )
+        profile = args.execution_profile
         return observer(
             args.state.absolute(), args.observer_command or [], profile=profile
         )

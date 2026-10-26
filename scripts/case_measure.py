@@ -183,7 +183,7 @@ def process_command(binary: str, mode: str, workload: dict) -> list[str]:
         "--state",
         str(state),
         "--execution-profile",
-        "plan28-reference",
+        "reference",
         "--observer-command",
         binary,
         mode,

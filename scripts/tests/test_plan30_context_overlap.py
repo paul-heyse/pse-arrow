@@ -19,10 +19,10 @@ from pse.tests import conftest as fixture_plugin
 if TYPE_CHECKING:
     from pse.tests.canonical_fixture import CanonicalFixture
 
+from scripts import producer_receipts
 from scripts import operation_lifetime
 from scripts import (
     native_operation,
-    producer_deployment,
     surreal_server,
     test_resources,
 )
@@ -85,7 +85,7 @@ def test_rust_python_fixture_context_overlap(
     native_path = sys.modules["pse._native"].__file__
     if native_path is None:
         raise TypeError("Native extension has no artifact path")
-    imported_native = producer_deployment.file_observation(Path(native_path))
+    imported_native = producer_receipts.file_observation(Path(native_path))
     operation_lifetime.write_json(
         directory / "python-native-imported.json", imported_native
     )

@@ -1310,6 +1310,96 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `generation` | `UInt64` | false | `payload` | — | — |
 | `terminal` | `Boolean` | false | `payload` | — | — |
 
+## `canonical_study_admission_outcomes`
+
+Compact immutable admitted case/binding identity or explicit absence/refusal, without scientific descriptors; lazy admission publishes it with its outcome.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `projection` | `Binary` | false | `payload` | — | — |
+
+## `canonical_study_capture_gate`
+
+Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `incarnation` | `Utf8` | false | `payload` | — | — |
+| `capture` | `Utf8` | true | `payload` | — | — |
+| `owner` | `Utf8` | true | `payload` | — | — |
+| `request` | `Binary` | true | `payload` | — | — |
+| `issued_expires_at` | `UInt64` | false | `payload` | — | — |
+
+## `canonical_study_capture_headers`
+
+Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `capture` | `Utf8` | false | `payload` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `body` | `Binary` | false | `payload` | — | — |
+
+## `canonical_study_capture_members`
+
+Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `capture` | `Utf8` | false | `payload` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `body` | `Binary` | false | `payload` | — | — |
+| `study` | `Utf8` | false | `payload` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `attempt` | `Utf8` | true | `payload` | — | — |
+| `manifest` | `Utf8` | true | `payload` | — | — |
+
+## `canonical_study_capture_protections`
+
+Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `capture` | `Utf8` | false | `payload` | — | — |
+| `study` | `Utf8` | false | `payload` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `attempt` | `Utf8` | false | `payload` | — | — |
+| `manifest` | `Utf8` | false | `payload` | — | — |
+| `problem` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_study_captures`
+
+Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `owner` | `Utf8` | false | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+| `incarnation` | `Utf8` | false | `payload` | — | — |
+| `issued_expires_at` | `UInt64` | false | `payload` | — | — |
+| `state` | `enum:CanonicalStudyCaptureState` | false | `payload` | — | — |
+| `header_count` | `UInt64` | false | `payload` | — | — |
+| `member_count` | `UInt64` | false | `payload` | — | — |
+
 ## `canonical_study_dependencies`
 
 Native occurrence dependency edge; ordering, scientific usability and selected seed roles retain distinct meanings.
@@ -1336,6 +1426,40 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `study` | `Utf8` | false | `payload` | — | — |
 | `solution` | `Utf8` | false | `payload` | — | — |
 | `artifact` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_study_installation_pages`
+
+Immutable exact committed node/edge page acknowledgement under its original issued clock; interrupted installations remain resumable without recreating rows.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `study` | `Utf8` | false | `payload` | — | — |
+| `digest` | `Utf8` | false | `payload` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
+| `phase` | `enum:CanonicalStudyInstallationPhase` | false | `payload` | — | — |
+| `cursor` | `UInt64` | false | `payload` | — | — |
+| `next_cursor` | `UInt64` | false | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+| `issued_expires_at` | `UInt64` | false | `payload` | — | — |
+| `state` | `enum:CanonicalStudyInstallationPageState` | false | `payload` | — | — |
+
+## `canonical_study_installations`
+
+Exact immutable population identity and installed frontier, including interrupted installation; retained for replay and backup.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `digest` | `Utf8` | false | `payload` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
+| `phase` | `enum:CanonicalStudyInstallationPhase` | false | `payload` | — | — |
+| `node_cursor` | `UInt64` | false | `payload` | — | — |
+| `edge_cursor` | `UInt64` | false | `payload` | — | — |
 
 ## `canonical_study_points`
 
@@ -1629,64 +1753,6 @@ Version: 1. Snapshot class: `derived`. Primary key: `finding_id`.
 | `next_steps` | `List` | false | `payload` | — | — |
 | `next_steps.item` | `Utf8` | false | `payload` | — | — |
 
-## `evidence_facts`
-
-Compact owner-adapted fact. Original status and membership remain explicit; detail references are descriptive and grant neither file custody nor protection.
-
-Version: 1. Snapshot class: `derived`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `generation` | `Utf8` | false | `payload` | — | — |
-| `member` | `Utf8` | false | `payload` | — | — |
-| `kind` | `Utf8` | false | `payload` | — | — |
-| `status` | `Utf8` | false | `payload` | — | — |
-| `crate_name` | `Utf8` | true | `payload` | — | — |
-| `test_id` | `Utf8` | true | `payload` | — | — |
-| `detail_ref` | `Utf8` | true | `payload` | — | — |
-| `binary_id` | `Utf8` | true | `payload` | — | — |
-| `context_id` | `Utf8` | true | `payload` | — | — |
-| `context_json` | `Utf8` | true | `payload` | — | — |
-| `link_relation` | `Utf8` | true | `payload` | — | — |
-| `link_target` | `Utf8` | true | `payload` | — | — |
-| `population_id` | `Utf8` | true | `payload` | — | — |
-| `sample_id` | `Utf8` | true | `payload` | — | — |
-| `value_ns` | `Float64` | true | `payload` | — | — |
-
-## `evidence_generations`
-
-An immutable authentic-source snapshot identity and reconciled compact projection. Staged imports remain distinct from complete activated generations; partial source coverage is explicit.
-
-Version: 1. Snapshot class: `derived`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `authority` | `Utf8` | false | `payload` | — | — |
-| `codec` | `Utf8` | false | `payload` | — | — |
-| `source_id` | `Utf8` | false | `payload` | — | — |
-| `snapshot_digest` | `Utf8` | false | `payload` | — | — |
-| `content_digest` | `Utf8` | false | `payload` | — | — |
-| `coverage` | `enum:EvidenceCoverage` | false | `payload` | — | — |
-| `expected_members` | `UInt64` | false | `payload` | — | — |
-| `state` | `enum:EvidenceGenerationState` | false | `payload` | — | — |
-
-## `evidence_interpretations`
-
-Tooling-only compatibility and issuing identity. Active generation grants no raw artifact lifetime or scientific authority.
-
-Version: 1. Snapshot class: `derived`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `interpretation` | `Utf8` | false | `payload` | — | — |
-| `schema_digest` | `Utf8` | false | `payload` | — | — |
-| `issuing_store` | `Utf8` | false | `payload` | — | — |
-| `service_instance_id` | `Utf8` | false | `payload` | — | — |
-| `active_generation` | `Utf8` | true | `payload` | — | — |
-
 ## `execution_statistics`
 
 Actual native planning, load and post-commit acceleration observations.
@@ -1844,159 +1910,6 @@ Version: 1. Snapshot class: `derived`. Primary key: `stage`.
 | `values.item` | `Struct ScientificCoordinateValue` | false | `payload` | — | — |
 | `values.item.coordinate_id` | `semantic_id` | false | `payload` | — | — |
 | `values.item.value` | `quantity_value` | false | `payload` | — | — |
-
-## `knowledge_excerpts`
-
-Selected excerpt with explicit optional subject attribution; sharing a source file never makes other sections match.
-
-Version: 2. Snapshot class: `derived`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `generation` | `Utf8` | false | `payload` | — | — |
-| `excerpt_id` | `Utf8` | false | `payload` | — | — |
-| `source_key` | `Utf8` | false | `payload` | `runtime.knowledge_sources.key` | — |
-| `subject_key` | `Utf8` | true | `payload` | `runtime.knowledge_subjects.key` | — |
-| `text` | `Utf8` | false | `payload` | — | — |
-| `locator` | `Utf8` | false | `payload` | — | — |
-| `basis` | `enum:KnowledgeBasis` | false | `payload` | — | — |
-
-## `knowledge_generations`
-
-Complete exact v2 corpus membership across every normalized family. Replay reconciles active and staged generations alike.
-
-Version: 2. Snapshot class: `derived`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `content_digest` | `Utf8` | false | `payload` | — | — |
-| `source_count` | `UInt64` | false | `payload` | — | — |
-| `subject_count` | `UInt64` | false | `payload` | — | — |
-| `contributor_count` | `UInt64` | false | `payload` | — | — |
-| `topic_count` | `UInt64` | false | `payload` | — | — |
-| `excerpt_count` | `UInt64` | false | `payload` | — | — |
-| `edge_count` | `UInt64` | false | `payload` | — | — |
-| `production_count` | `UInt64` | false | `payload` | — | — |
-| `state` | `enum:KnowledgeGenerationState` | false | `payload` | — | — |
-
-## `knowledge_productions`
-
-Exact declaration-generator-specific-output assertion. Pairwise generator adjacency cannot invent output cross-products.
-
-Version: 1. Snapshot class: `derived`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `generation` | `Utf8` | false | `payload` | — | — |
-| `production_id` | `Utf8` | false | `payload` | — | — |
-| `declaration_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
-| `generator_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
-| `artifact_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
-| `direction` | `enum:KnowledgeDirection` | true | `payload` | — | — |
-| `basis` | `enum:KnowledgeBasis` | false | `payload` | — | — |
-
-## `knowledge_sources`
-
-Immutable exact-version provenance carrier, not a substitute for owner-native concepts.
-
-Version: 1. Snapshot class: `derived`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `generation` | `Utf8` | false | `payload` | — | — |
-| `source_id` | `Utf8` | false | `payload` | — | — |
-| `kind` | `Utf8` | false | `payload` | — | — |
-| `locator` | `Utf8` | false | `payload` | — | — |
-| `version_digest` | `Utf8` | false | `payload` | — | — |
-| `basis` | `enum:KnowledgeBasis` | false | `payload` | — | — |
-| `title` | `Utf8` | false | `payload` | — | — |
-| `status` | `enum:KnowledgeSourceStatus` | false | `payload` | — | — |
-
-## `knowledge_state`
-
-Independent corpus activation pointer; no evidence pointer is changed.
-
-Version: 1. Snapshot class: `derived`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `active_generation` | `Utf8` | true | `payload` | — | — |
-
-## `knowledge_subject_edges`
-
-Enforced typed owner-native subject relations. Exact applicability is independent of prose or topical similarity.
-
-Version: 1. Snapshot class: `derived`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `generation` | `Utf8` | false | `payload` | — | — |
-| `edge_id` | `Utf8` | false | `payload` | — | — |
-| `source_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
-| `target_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
-| `relation` | `enum:KnowledgeRelationKind` | false | `payload` | — | — |
-| `basis` | `enum:KnowledgeBasis` | false | `payload` | — | — |
-
-## `knowledge_subject_sources`
-
-Role-specific source contributors, including exact metadata interpretation policies.
-
-Version: 1. Snapshot class: `derived`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `generation` | `Utf8` | false | `payload` | — | — |
-| `subject_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
-| `source_key` | `Utf8` | false | `payload` | `runtime.knowledge_sources.key` | — |
-| `role` | `enum:KnowledgeSourceRole` | false | `payload` | — | — |
-
-## `knowledge_subject_topics`
-
-Topics supplied by native metadata only, with exact original metadata source attribution.
-
-Version: 1. Snapshot class: `derived`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `generation` | `Utf8` | false | `payload` | — | — |
-| `subject_key` | `Utf8` | false | `payload` | `runtime.knowledge_subjects.key` | — |
-| `source_key` | `Utf8` | false | `payload` | `runtime.knowledge_sources.key` | — |
-| `topic` | `Utf8` | false | `payload` | — | — |
-
-## `knowledge_subjects`
-
-Closed owner-native concepts. Native lifecycle, document role, publication scope and evidence origin retain their independent meanings.
-
-Version: 1. Snapshot class: `derived`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `generation` | `Utf8` | false | `payload` | — | — |
-| `subject_id` | `Utf8` | false | `payload` | — | — |
-| `kind` | `enum:KnowledgeSubjectKind` | false | `payload` | — | — |
-| `owner` | `Utf8` | false | `payload` | — | — |
-| `native_id` | `Utf8` | false | `payload` | — | — |
-| `label` | `Utf8` | false | `payload` | — | — |
-| `basis` | `enum:KnowledgeBasis` | false | `payload` | — | — |
-| `native_state` | `Utf8` | true | `payload` | — | — |
-| `state_basis` | `Utf8` | true | `payload` | — | — |
-| `publication_scope` | `Utf8` | true | `payload` | — | — |
-| `document_role` | `enum:KnowledgeDocumentRole` | true | `payload` | — | — |
-| `native_version` | `Utf8` | true | `payload` | — | — |
-| `evidence_authority` | `Utf8` | true | `payload` | — | — |
-| `evidence_codec` | `Utf8` | true | `payload` | — | — |
-| `evidence_source` | `Utf8` | true | `payload` | — | — |
-| `evidence_version` | `Utf8` | true | `payload` | — | — |
-| `evidence_member` | `Utf8` | true | `payload` | — | — |
 
 ## `live_simulation_samples`
 

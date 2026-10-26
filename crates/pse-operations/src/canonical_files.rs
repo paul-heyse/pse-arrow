@@ -781,12 +781,27 @@ fn open_regular(path: &Path) -> Result<File, CanonicalError> {
     Ok(file)
 }
 fn validate_file(file: &mut File, descriptor: &FileDescriptor) -> Result<(), CanonicalError> {
+    validate_file_observed(file, descriptor, &mut |_| Ok(()))
+}
+fn validate_file_observed(file: &mut File, descriptor: &FileDescriptor,
+    progress: &mut dyn FnMut(usize) -> std::io::Result<()>) -> Result<(), CanonicalError> {
     if file.metadata().map_err(configuration)?.len() != descriptor.bytes {
         return Err(configuration("sealed file length differs"));
     }
+    struct Observed<'a> {
+        file: &'a mut File,
+        progress: &'a mut dyn FnMut(usize) -> std::io::Result<()>,
+    }
+    impl Read for Observed<'_> {
+        fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+            let length = self.file.read(bytes)?;
+            (self.progress)(length)?;
+            Ok(length)
+        }
+    }
     let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
     hash.str("pse.execution.result-payload.v1");
-    hash.part_reader(descriptor.bytes, file, &|| Ok(()))
+    hash.part_reader(descriptor.bytes, &mut Observed { file: &mut *file, progress }, &|| Ok(()))
         .map_err(configuration)?;
     if hash.finish_hash().to_hex() != descriptor.digest {
         return Err(configuration("sealed file integrity differs"));

@@ -30,7 +30,6 @@ from pse._build import (
     _diagnostic_analyze,
     _diagnostic_capture,
     _diagnostic_capture_arrow,
-    _diagnostic_compare_evidence,
     _diagnostic_compare_invocations,
     _diagnostic_detail_arrow,
     _diagnostic_detail_records,
@@ -85,7 +84,6 @@ from pse.contracts.documents import (
     DiagnosticListRequest,
     DiagnosticProcessPageOutput,
     DiagnosticRuntimeSettings,
-    EvidenceComparisonOutput,
     FrozenEvidenceSet,
     FrozenEvidenceSetOutput,
     FrozenInspectionDocumentOutput,
@@ -1317,13 +1315,3 @@ def _review_command(args: argparse.Namespace) -> int:
 if __name__ == "__main__":
     raise SystemExit(main())
 
-
-def compare_evidence(
-    request_json: str, snapshots_json: str, observations_json: str = "[]"
-) -> EvidenceComparisonOutput:
-    """Compare explicit owner snapshots using the original native request codec.
-
-    Source selection, correspondence, denominators and completeness are Rust owned.
-    This call opens no source reference and connects to no service.
-    """
-    return _diagnostic_compare_evidence(request_json, snapshots_json, observations_json)

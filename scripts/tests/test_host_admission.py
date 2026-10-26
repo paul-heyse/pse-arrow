@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
+from scripts import test_resources
 from scripts import operation_lifetime
 from scripts import host_admission as host
 from scripts import surreal_server, operation_lifetime
@@ -2081,30 +2082,32 @@ class HostAdmissionTests(unittest.TestCase):
         self.assertEqual(run.call_args.kwargs["maximum"], 5)
 
     def test_profile_widening_preserves_reference_and_role_sums(self) -> None:
+        from scripts import execution_profiles
+
         self.assertEqual(host.select("functional", "64G").name, "wide")
         self.assertEqual(host.select("functional", "128G").name, "exclusive")
         reference = host.select("reference")
+        admitted = execution_profiles.profile("reference")
         self.assertEqual(reference.memory, 140 * host.GIB)
         self.assertEqual(host.aggregate(reference), 160 * host.GIB)
-        with self.assertRaisesRegex(host.AdmissionError, "unchanged"):
+        self.assertEqual(reference.memory, admitted["native_worker_memory_bytes"])
+        self.assertEqual(host.aggregate(reference), admitted["total_memory_bytes"])
+        with self.assertRaisesRegex(host.AdmissionError, "declared"):
             host.select("reference", "64G")
-        for name in ("functional", "wide", "timing", "exclusive"):
-            profile = host.select(name)
-            declared = host.settings(name)
-            execution = host.execution(name)
-            self.assertEqual(
-                profile.memory,
-                (
-                    declared["receiver_gib"]
-                    + declared["observer_gib"]
-                    + declared["control_gib"]
-                )
-                * host.GIB,
-            )
-            self.assertLessEqual(
-                execution["pool_memory_bytes"] + execution["process_headroom_bytes"],
-                declared["receiver_gib"] * host.GIB,
-            )
+        for name in ("functional", "wide", "timing", "exclusive", "exclusive-observer"):
+            resources = surreal_server.execution_resources(name)
+            selected = execution_profiles.profile(name)
+            self.assertEqual(resources, selected)
+            self.assertLessEqual(resources["server_memory_bytes"] + resources["native_worker_memory_bytes"]
+                                 + resources["execution"]["observer_memory_bytes"], resources["total_memory_bytes"])
+            if name != "exclusive-observer":
+                profile = host.select(name)
+                self.assertEqual(profile.memory, resources["native_worker_memory_bytes"]
+                                 + resources["execution"]["observer_memory_bytes"]
+                                 + host.settings(name)["control_gib"] * host.GIB)
+                execution = host.execution(name)
+                self.assertEqual(execution["pool_memory_bytes"] + execution["process_headroom_bytes"],
+                                 resources["native_worker_memory_bytes"])
         for value in ("off", "infinity", "0", "999T"):
             with self.assertRaises(host.AdmissionError):
                 host.select("functional", value)
@@ -2442,7 +2445,7 @@ class HostAdmissionTests(unittest.TestCase):
             operation.Operation(base) as parent,
         ):
             path = resources.invocation("python", [])
-            registration = operation.register_composer(path)
+            registration = test_resources.register_composer(path)
             with host.allocation_metadata(self.directory) as ledger:
                 guard = dict(
                     ledger["owners"][owner.nonce]["terminal_guards"][path.stem]

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
+from scripts import producer_receipts
 from scripts import producer_deployment as deployment
 from scripts.tests.test_arrow_validation import Cargo, graph, package, unit
 
@@ -142,7 +143,7 @@ class ProducerDeploymentTests(unittest.TestCase):
                 )
                 return subprocess.CompletedProcess(command, 0)
             if Path(command[0]).name == "maturin":
-                selected = deployment.read_object(
+                selected = producer_receipts.read_object(
                     Path(env[deployment.producer_cargo.CAPTURE])
                 )
                 options = selected["capture_options"]
@@ -166,7 +167,7 @@ class ProducerDeploymentTests(unittest.TestCase):
             if "verify-deployment-artifact" in command:
                 self.assertTrue(text)
                 self.assertTrue(capture_output)
-                observation = deployment.file_observation(
+                observation = producer_receipts.file_observation(
                     Path(command[command.index("--artifact") + 1])
                 )
                 return subprocess.CompletedProcess(
@@ -216,7 +217,7 @@ class ProducerDeploymentTests(unittest.TestCase):
                 "receipt_version": 2,
                 "native_abi": "reviewed-fixture-abi",
                 "deployment": {
-                    "artifact": deployment.file_observation(self.artifacts[name])
+                    "artifact": producer_receipts.file_observation(self.artifacts[name])
                 },
             }
             evidence: dict[str, object] = {
@@ -297,14 +298,14 @@ class ProducerDeploymentTests(unittest.TestCase):
         self.assertIn("producer-preparation-begin", all_commands[2])
         self.assertTrue((self.output / "preparation/COMPLETE").is_file())
         self.assertEqual(len(commands), 2)  # Python is selected by Maturin's child.
-        options = deployment.read_object(self.output / "python-installer-cargo.json")[
+        options = producer_receipts.read_object(self.output / "python-installer-cargo.json")[
             "capture_options"
         ]
         self.assertIsInstance(options, list)
         commands.append(["just", "producer-identity", *options])
         self.assertEqual(
             [command[command.index("--package") + 1] for command in commands],
-            ["pse-runtime", "xtask", "pse-py"],
+            ["pse-runtime", "pse-runtime", "pse-py"],
         )
         for command, role in zip(commands, deployment.ROLES, strict=True):
             name, _, _, _, target_args = role
@@ -319,6 +320,8 @@ class ProducerDeploymentTests(unittest.TestCase):
                 command[command.index("--features") + 1],
                 "native-solvers,force-validate"
                 if name == "python"
+                else "native-solvers,product-operators,pse-relations/force-validate"
+                if name == "worker"
                 else "native-solvers,pse-relations/force-validate",
             )
             self.assertNotIn("--refresh-executors", command)
@@ -651,7 +654,7 @@ class ProducerDeploymentTests(unittest.TestCase):
             if name == "python":
                 path = self.output / "worker.json"
                 worker = json.loads(path.read_text())
-                worker["package"] = "pse-runtime"
+                worker["package"] = "xtask"
                 path.write_text(json.dumps(worker))
 
         with (
@@ -678,7 +681,7 @@ class ProducerDeploymentTests(unittest.TestCase):
             deployment.subprocess, "run", side_effect=self.actual_capture()
         ):
             deployment.capture(self.root, self.output, self.environment)
-        receipt = deployment.read_object(self.output / "worker.json")
+        receipt = producer_receipts.read_object(self.output / "worker.json")
         self.artifacts["worker"].write_bytes(b"replacement at same path")
         with self.assertRaisesRegex(ValueError, "artifact changed"):
             self.verified_receipts()
@@ -686,7 +689,7 @@ class ProducerDeploymentTests(unittest.TestCase):
         for version in (1, 2.0, True, None):
             receipt["receipt_version"] = version
             with self.assertRaisesRegex(ValueError, "interpretation"):
-                deployment.receipt_artifact(receipt, "worker")
+                producer_receipts.receipt_artifact(receipt, "worker")
 
     def test_role_artifacts_are_independent_and_outer_is_fresh_context(self) -> None:
         with patch.object(
@@ -711,7 +714,7 @@ class ProducerDeploymentTests(unittest.TestCase):
         for role, *_ in deployment.ROLES:
             (self.output / f"{role}-build-evidence.json").unlink()
         self.assertEqual(set(self.verified_receipts()), {"runtime", "worker", "python"})
-        receipt = deployment.read_object(self.output / "worker.json")
+        receipt = producer_receipts.read_object(self.output / "worker.json")
         receipt["identity"] = "f" * 64
         (self.output / "worker.json").write_text(json.dumps(receipt))
         with self.assertRaisesRegex(
@@ -753,7 +756,7 @@ class ProducerDeploymentTests(unittest.TestCase):
                     ),
                 ),
                 patch.object(
-                    deployment,
+                    producer_receipts,
                     "receipt_artifact",
                     side_effect=AssertionError(
                         "current artifact checked before protected context"
@@ -948,8 +951,8 @@ class ProducerDeploymentTests(unittest.TestCase):
             "identity": "a" * 64,
             "selected_root": "python-fixture-root",
             "deployment": {
-                "artifact": deployment.file_observation(original),
-                "built_artifact": deployment.file_observation(original),
+                "artifact": producer_receipts.file_observation(original),
+                "built_artifact": producer_receipts.file_observation(original),
             },
         }
         path = self.output / "python.json"
@@ -971,7 +974,7 @@ class ProducerDeploymentTests(unittest.TestCase):
         actual_run = subprocess.run
         history_evidence = {
             "success": True,
-            **deployment.read_object(self.output / "python-build-evidence.json"),
+            **producer_receipts.read_object(self.output / "python-build-evidence.json"),
         }
         (self.output / "python-build-evidence.json").unlink()
 
@@ -1042,34 +1045,34 @@ class ProducerDeploymentTests(unittest.TestCase):
             patch.object(deployment, "verify_artifact"),
         ):
             self.actual_bind(self.root, self.output, self.environment)
-            rebound = deployment.read_object(path)
+            rebound = producer_receipts.read_object(path)
             association = rebound["deployment"]
             if not isinstance(association, dict):
                 raise TypeError("Binding must retain an artifact association")
             self.assertEqual(rebound["identity"], receipt["identity"])
             self.assertEqual(
                 association["artifact"],
-                deployment.file_observation(installed),
+                producer_receipts.file_observation(installed),
             )
             self.assertEqual(
                 association["built_artifact"],
-                deployment.file_observation(original),
+                producer_receipts.file_observation(original),
             )
-            installation = deployment.read_object(
+            installation = producer_receipts.read_object(
                 self.output / "python-installation.json"
             )
             self.assertEqual(
-                installation["raw_artifact"], deployment.file_observation(original)
+                installation["raw_artifact"], producer_receipts.file_observation(original)
             )
             self.assertEqual(
                 installation["installed_artifact"],
-                deployment.file_observation(installed),
+                producer_receipts.file_observation(installed),
             )
             transformation = installation["transformation"]
             self.assertIsInstance(transformation, dict)
             self.assertEqual(
                 transformation["replayed_sha256"],
-                deployment.file_observation(installed)["sha256"],
+                producer_receipts.file_observation(installed)["sha256"],
             )
             path.write_text(json.dumps(receipt))
             subprocess.run(

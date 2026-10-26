@@ -13,6 +13,7 @@ use std::{
     time::Duration,
 };
 use surrealdb::types::Object;
+pub(crate) use crate::transport::{original_deadline, within_clock, operation_scope};
 use surrealdb::{Surreal, engine::remote::grpc::Client, opt::RequestContext};
 
 #[cfg(all(test, feature = "canonical-tests"))]
@@ -23,7 +24,6 @@ mod lifetime_tests;
 mod tests;
 
 tokio::task_local! {
-    static OPERATION_DEADLINE: tokio::time::Instant;
     static RESPONSE_OWNER: Arc<dyn std::fmt::Debug + Send + Sync>;
     static METADATA_RESPONSE: super::MetadataResponse;
 }
@@ -117,45 +117,6 @@ pub(crate) fn monotonic_nanoseconds() -> Result<u64, super::CanonicalError> {
             "fixture same-host deadlines require the Linux monotonic clock".into(),
         ))
     }
-}
-
-pub(crate) fn current_deadline() -> Option<tokio::time::Instant> {
-    OPERATION_DEADLINE.try_with(|deadline| *deadline).ok()
-}
-
-pub(crate) fn original_deadline(budget: Duration) -> tokio::time::Instant {
-    let offered = tokio::time::Instant::now() + budget;
-    OPERATION_DEADLINE
-        .try_with(|deadline| (*deadline).min(offered))
-        .unwrap_or(offered)
-}
-
-pub(crate) async fn within_clock<F, T>(
-    deadline: tokio::time::Instant,
-    future: F,
-) -> Result<T, super::CanonicalError>
-where
-    F: Future<Output = Result<T, super::CanonicalError>>,
-{
-    let deadline = OPERATION_DEADLINE
-        .try_with(|enclosing| (*enclosing).min(deadline))
-        .unwrap_or(deadline);
-    tokio::time::timeout_at(deadline, OPERATION_DEADLINE.scope(deadline, future))
-        .await
-        .map_err(|_| super::CanonicalError::Timeout)?
-}
-
-/// Carry a caller's original clock through nested requests without dropping its
-/// enclosing effect owner. Individual requests still enforce their own bounds.
-pub(crate) async fn operation_scope<F: Future>(
-    deadline: std::time::Instant,
-    future: F,
-) -> F::Output {
-    let deadline = tokio::time::Instant::from_std(deadline);
-    let deadline = OPERATION_DEADLINE
-        .try_with(|enclosing| (*enclosing).min(deadline))
-        .unwrap_or(deadline);
-    OPERATION_DEADLINE.scope(deadline, future).await
 }
 
 #[derive(Clone)]

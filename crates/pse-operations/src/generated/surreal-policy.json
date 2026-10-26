@@ -1,6 +1,6 @@
 {
   "generated_by": "pse-schema",
-  "interpretation": "pse.substrate.v9",
+  "interpretation": "pse.substrate.v10",
   "result_block_bytes": 33554432,
   "result_file_target_bytes": 16777216,
   "result_index_bytes": 131072,
@@ -65,8 +65,16 @@
     "canonical_staged_edits",
     "canonical_stages",
     "canonical_studies",
+    "canonical_study_admission_outcomes",
+    "canonical_study_capture_gate",
+    "canonical_study_capture_headers",
+    "canonical_study_capture_members",
+    "canonical_study_capture_protections",
+    "canonical_study_captures",
     "canonical_study_dependencies",
     "canonical_study_inputs",
+    "canonical_study_installation_pages",
+    "canonical_study_installations",
     "canonical_study_points",
     "canonical_study_retirements",
     "canonical_version_manifests",
@@ -358,11 +366,43 @@
       "retention": "Durable",
       "backup": "Required"
     },
+    "canonical_study_admission_outcomes": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_study_capture_gate": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_study_capture_headers": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_study_capture_members": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_study_capture_protections": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_study_captures": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
     "canonical_study_dependencies": {
       "retention": "Durable",
       "backup": "Required"
     },
     "canonical_study_inputs": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_study_installation_pages": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_study_installations": {
       "retention": "Durable",
       "backup": "Required"
     },
@@ -393,42 +433,6 @@
     "canonical_versions": {
       "retention": "Durable",
       "backup": "Required"
-    },
-    "knowledge_excerpts": {
-      "retention": "Derived",
-      "backup": "Recovered"
-    },
-    "knowledge_generations": {
-      "retention": "Derived",
-      "backup": "Recovered"
-    },
-    "knowledge_productions": {
-      "retention": "Derived",
-      "backup": "Recovered"
-    },
-    "knowledge_sources": {
-      "retention": "Derived",
-      "backup": "Recovered"
-    },
-    "knowledge_state": {
-      "retention": "Derived",
-      "backup": "Recovered"
-    },
-    "knowledge_subject_edges": {
-      "retention": "Derived",
-      "backup": "Recovered"
-    },
-    "knowledge_subject_sources": {
-      "retention": "Derived",
-      "backup": "Recovered"
-    },
-    "knowledge_subject_topics": {
-      "retention": "Derived",
-      "backup": "Recovered"
-    },
-    "knowledge_subjects": {
-      "retention": "Derived",
-      "backup": "Recovered"
     }
   }
 }

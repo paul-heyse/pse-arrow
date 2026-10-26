@@ -12,12 +12,12 @@ import sys
 import time
 from pathlib import Path
 
+from scripts import producer_receipts
 from scripts import operation_lifetime
 from scripts import (
     host_admission,
     native_operation,
     native_tests,
-    producer_deployment,
     run_inspection,
     test_resources,
     test_run,
@@ -88,7 +88,7 @@ def main() -> int:
     )
     if arguments.action == "prepare":
         directory.mkdir(mode=0o700, parents=True, exist_ok=False)
-        python_native = producer_deployment.file_observation(
+        python_native = producer_receipts.file_observation(
             native_tests.python_native_binary(os.environ)
         )
         operation_lifetime.write_json(directory / "python-native.json", python_native)
@@ -128,7 +128,7 @@ def main() -> int:
         )
     expected_python_native = json.loads((directory / "python-native.json").read_text())
     if arguments.action in {"run", "python-child"}:
-        current_python_native = producer_deployment.file_observation(
+        current_python_native = producer_receipts.file_observation(
             native_tests.python_native_binary(os.environ)
         )
         if current_python_native != expected_python_native:

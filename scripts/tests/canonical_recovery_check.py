@@ -91,7 +91,7 @@ def profile_arguments(profile_state: Path | None) -> list[str]:
         receiver = reference_recovery_receiver(selected)
         return [
             "--execution-profile",
-            "plan28-reference",
+            "reference",
             "--worker-executable",
             receiver["worker_executable"],
             *version,
@@ -442,7 +442,7 @@ def journey(
         selected is None or selected.get("resources") != server.reference_resources()
     ):
         raise server.SupervisorError(
-            "Scientific recovery requires an explicit original plan28-reference profile"
+            "Scientific recovery requires an explicit original reference profile"
         )
     root = (
         Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state")))

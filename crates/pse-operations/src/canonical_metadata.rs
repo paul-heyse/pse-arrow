@@ -26,6 +26,8 @@ pub enum MetadataResponse {
     JoinedBlockPage,
     /// A 64-row scalar/dense output page, including encoded registry keys.
     OutputPage,
+    /// A compact byte-bound study outcome or immutable cohort page, without descriptors.
+    StudyPage,
     /// Native diagnostic plans and structured schema/module metadata; no payload bytes.
     DiagnosticPlan,
 }
@@ -45,6 +47,16 @@ impl MetadataResponse {
                 blob_length: wire::RESULT_INLINE_BYTES,
             };
         }
+        if matches!(self,Self::StudyPage) {
+            let bound=pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES;
+            let rows=pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS;
+            return surrealdb::opt::ResponseLimits {
+                wire_bytes:bound+rows*32*128,
+                nodes:512+rows*32*2,depth:16,container_items:rows,
+                string_bytes:bound,string_length:wire::METADATA_ID_BYTES,
+                blob_bytes:bound,blob_length:128*1024,
+            };
+        }
         if matches!(self, Self::DiagnosticPlan) {
             return surrealdb::opt::ResponseLimits {
                 wire_bytes: 1 << 20,
@@ -62,13 +74,13 @@ impl MetadataResponse {
             Self::Page => crate::canonical_results::PAGE,
             Self::JoinedBlockPage => 2 * crate::canonical_results::PAGE,
             Self::OutputPage => 3 * crate::canonical_results::PAGE,
-            Self::DiagnosticPlan => 0,
+            Self::DiagnosticPlan | Self::StudyPage => 0,
         };
         let nodes = 512 + rows * 32 * 2;
         let strings =
             (rows * 32 * wire::METADATA_ID_BYTES + 512 * 64).min(wire::RESULT_MESSAGE_BYTES);
         let blobs = match self {
-            Self::Protection | Self::Page | Self::DiagnosticPlan | Self::InlinePayload => 0,
+            Self::Protection | Self::Page | Self::DiagnosticPlan | Self::InlinePayload | Self::StudyPage => 0,
             Self::JoinedBlockPage => {
                 crate::canonical_results::PAGE
                     * (pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES

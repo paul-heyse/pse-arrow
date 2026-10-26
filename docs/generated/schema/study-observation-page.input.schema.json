@@ -20,6 +20,27 @@
       ],
       "type": "string"
     },
+    "CapturedStudyRowForStudyCohortMember": {
+      "additionalProperties": false,
+      "description": "A stable capture position distinct from an occurrence's within-study ordinal.",
+      "properties": {
+        "position": {
+          "description": "Global immutable position in this exact capture.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "value": {
+          "$ref": "#/$defs/StudyCohortMember",
+          "description": "Original captured facts."
+        }
+      },
+      "required": [
+        "position",
+        "value"
+      ],
+      "type": "object"
+    },
     "ClosedDuration": {
       "additionalProperties": false,
       "properties": {
@@ -1225,43 +1246,29 @@
       ],
       "type": "object"
     },
-    "StudyCohortDocumentBody": {
+    "StudyCohortCursorBody": {
       "additionalProperties": false,
-      "description": "Copied facts about a successful native snapshot. This document grants no payload permission.",
+      "description": "Capture-bound keyset continuation, never a floating membership selection.",
       "properties": {
-        "complete": {
-          "description": "True only after the single native complete selection succeeded.",
-          "type": "boolean"
+        "after": {
+          "description": "Last consumed global capture position.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
         },
-        "headers": {
-          "description": "Exact original headers.",
-          "items": {
-            "$ref": "#/$defs/StudyWorkbenchHeader"
-          },
-          "type": "array"
-        },
-        "issuing_store": {
-          "description": "Exact issuing canonical database.",
+        "capture": {
+          "description": "Exact retained cut.",
           "type": "string"
         },
-        "members": {
-          "description": "Every selected occurrence, including missing, failed, cancelled and unattempted members.",
-          "items": {
-            "$ref": "#/$defs/StudyCohortMember"
-          },
-          "type": "array"
-        },
-        "request": {
-          "$ref": "#/$defs/StudyCohortRequestBody",
-          "description": "Original bounded selection."
+        "issuing_store": {
+          "description": "Issuing canonical database.",
+          "type": "string"
         }
       },
       "required": [
         "issuing_store",
-        "request",
-        "headers",
-        "members",
-        "complete"
+        "capture",
+        "after"
       ],
       "type": "object"
     },
@@ -1283,6 +1290,13 @@
         "key": {
           "description": "Exact occurrence key.",
           "type": "string"
+        },
+        "manifest": {
+          "description": "Exact captured closed manifest; later completion cannot reclassify absence.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "metadata_revision": {
           "description": "Actual native point metadata revision captured in this selection.",
@@ -1317,6 +1331,77 @@
         "metadata_revision",
         "settled",
         "facts"
+      ],
+      "type": "object"
+    },
+    "StudyCohortMemberPageBody": {
+      "additionalProperties": false,
+      "description": "One bounded immutable occurrence prefix, including original unavailable facts.",
+      "properties": {
+        "members": {
+          "description": "Original occurrences; global positions differ from within-study ordinals.",
+          "items": {
+            "$ref": "#/$defs/CapturedStudyRowForStudyCohortMember"
+          },
+          "type": "array"
+        },
+        "next": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StudyCohortCursorBody"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Exact next position, absent only at the captured count."
+        }
+      },
+      "required": [
+        "members"
+      ],
+      "type": "object"
+    },
+    "StudyCohortReceiptBody": {
+      "additionalProperties": false,
+      "description": "Historical acknowledgement of a complete native cut. Identifiers grant no read permission.",
+      "properties": {
+        "capture": {
+          "description": "Exact capture identity; a serialized receipt is not its live capability.",
+          "type": "string"
+        },
+        "complete": {
+          "description": "True only after exact native complete capture settlement.",
+          "type": "boolean"
+        },
+        "header_count": {
+          "description": "Exact original header population.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "issuing_store": {
+          "description": "Exact issuing canonical database.",
+          "type": "string"
+        },
+        "member_count": {
+          "description": "Complete occurrence population, including every unavailable member.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "request": {
+          "$ref": "#/$defs/StudyCohortRequestBody",
+          "description": "Original immutable selection."
+        }
+      },
+      "required": [
+        "issuing_store",
+        "capture",
+        "request",
+        "header_count",
+        "member_count",
+        "complete"
       ],
       "type": "object"
     },
@@ -1557,6 +1642,30 @@
         "study",
         "maximum_members",
         "maximum_events"
+      ],
+      "type": "object"
+    },
+    "StudyObservationStatus": {
+      "additionalProperties": false,
+      "description": "One explicitly bounded observer status page; never a complete analytical document.",
+      "properties": {
+        "header": {
+          "$ref": "#/$defs/StudyWorkbenchHeader",
+          "description": "The one explicitly selected study header."
+        },
+        "members": {
+          "$ref": "#/$defs/StudyCohortMemberPageBody",
+          "description": "One bounded original member page (observer admission remains at64)."
+        },
+        "receipt": {
+          "$ref": "#/$defs/StudyCohortReceiptBody",
+          "description": "Exact historical native cut and counts."
+        }
+      },
+      "required": [
+        "receipt",
+        "header",
+        "members"
       ],
       "type": "object"
     },
@@ -1836,7 +1945,7 @@
       "type": "array"
     },
     "status": {
-      "$ref": "#/$defs/StudyCohortDocumentBody",
+      "$ref": "#/$defs/StudyObservationStatus",
       "description": "Canonical compact status with actual point metadata revisions."
     }
   },

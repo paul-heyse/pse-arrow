@@ -11,7 +11,7 @@ use quote::{format_ident, quote};
 use std::{fmt::Write as _, path::PathBuf};
 
 /// Lower one explicitly selected database family with the shared exact native codecs.
-pub(super) fn relations<'a>(
+pub fn relations<'a>(
     registry: &Registry,
     relations: impl Iterator<Item = &'a pse_schema::model::RelationSpec>,
     indexes: &[pse_schema::catalog::substrate::NativeIndex],

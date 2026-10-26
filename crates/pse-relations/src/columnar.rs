@@ -13,8 +13,8 @@ mod storage;
 #[cfg(test)]
 mod take_tests;
 pub use collection::Collection;
-pub(crate) use collection::encode_rows;
-pub(crate) use row::allocation_add;
+pub use collection::encode_rows;
+pub use row::allocation_add;
 pub use row::{RelationRow, RelationView, RowBuilder};
 
 use std::sync::Arc;
@@ -27,7 +27,7 @@ use pse_ids::SemanticId;
 use crate::RelationError;
 
 pub use codec::{ArrowValue, array_from_values};
-pub(crate) use codec::{append_string, read_string};
+pub use codec::{append_string, read_string};
 
 /// A stable reference to a column in a generated relation declaration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1552,7 +1552,13 @@ impl FieldCheckedBatch {
         })
     }
 
-    pub(crate) fn for_generated(
+    /// Borrow already checked storage for a separately generated row/view contract.
+    /// Relation identity and every reachable compiled expectation are checked; the
+    /// existing validation capability and allocation/lifetime owners remain intact.
+    /// This does not construct or admit an unchecked batch.
+    /// # Errors
+    /// Relation identity or reachable compiled contracts differ.
+    pub fn for_generated(
         &self,
         relation_id: SemanticId,
         expected: &'static [pse_schema::resolved_contract::ExpectedContract],
@@ -1579,14 +1585,17 @@ fn exact_fields(
 }
 
 /// Downcasts a column after its owning view checked the declared Arrow layout.
-pub(crate) fn array<T: Array + 'static>(array: &dyn Array) -> Result<&T, RelationError> {
+pub fn array<T: Array + 'static>(array: &dyn Array) -> Result<&T, RelationError> {
     array
         .as_any()
         .downcast_ref::<T>()
         .ok_or_else(|| mismatch(std::any::type_name::<T>()))
 }
 
-pub(crate) fn builder<T: ArrayBuilder + 'static>(
+/// Downcast one generated column builder without changing its admission state.
+/// # Errors
+/// The actual builder has a different Arrow representation.
+pub fn builder<T: ArrayBuilder + 'static>(
     builder: &mut dyn ArrayBuilder,
 ) -> Result<&mut T, RelationError> {
     builder
@@ -1595,14 +1604,18 @@ pub(crate) fn builder<T: ArrayBuilder + 'static>(
         .ok_or_else(|| mismatch(std::any::type_name::<T>()))
 }
 
-pub(crate) fn mismatch(expected: &str) -> RelationError {
+/// Describe an exact generated Arrow layout mismatch.
+pub fn mismatch(expected: &str) -> RelationError {
     RelationError::Contract {
         relation: "generated Arrow codec".to_owned(),
         reason: format!("actual layout does not match {expected}"),
     }
 }
 
-pub(crate) fn visible(array: &dyn Array, index: usize) -> Result<(), RelationError> {
+/// Require one in-bounds, non-null scalar slot before borrowed decoding.
+/// # Errors
+/// The selected slot is absent or null.
+pub fn visible(array: &dyn Array, index: usize) -> Result<(), RelationError> {
     if index >= array.len() || array.is_null(index) {
         return Err(mismatch("a visible row within the array"));
     }

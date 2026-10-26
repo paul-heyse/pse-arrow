@@ -104,6 +104,28 @@ DEFINE FUNCTION fn::pse_history_v1::record_operation($rpc_expiry:int,$key:string
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
 
+// Shared attribution is resolved once for a native bulk append transaction.
+DEFINE FUNCTION fn::pse_history_v1::record_append_operations($rpc_expiry:int,$run:string,$attempt:string,$items:array<object>) -> bool {
+    IF array::len($items)=0 { RETURN true; };
+    fn::pse_history_v1::run($rpc_expiry,$run);
+    LET $parents=SELECT study,point FROM canonical_history_locators WHERE run=$run LIMIT 3;
+    IF array::len($parents)>2 { THROW 'PSE_REFUSAL:operation_association_bound_exceeded'; };
+    LET $finalization=IF $attempt=NONE {NONE} ELSE {(SELECT finalization_study FROM ONLY type::record('canonical_attempts',$attempt)).finalization_study};
+    LET $study=NONE; LET $point=NONE;
+    LET $selected_study=$finalization;
+    LET $applicable=IF $point!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=$point)} ELSE IF $selected_study!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=NONE)} ELSE {
+        LET $points=$parents.filter(|$parent|$parent.point!=NONE);
+        IF array::len($points)!=0 {$points} ELSE {$parents}
+    };
+    IF array::len($applicable)>1 OR (($study!=NONE OR $point!=NONE OR $finalization!=NONE) AND array::len($applicable)!=1) { THROW 'PSE_REFUSAL:operation_exact_study_point_attribution_differs'; };
+    LET $parent=IF array::len($applicable)=0 {NONE} ELSE {$applicable[0]};
+    LET $issuing=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
+    LET $rows=$items.map(|$item| {id:type::record('canonical_execution_operations',$item.operation),key:$item.operation,run:$run,attempt:$attempt,kind:'append',request:$item.request,result:$item.request,issuing_store:$issuing,study:$parent.study,point:$parent.point,minimal:false,disposition:'settled'});
+    INSERT INTO canonical_execution_operations $rows RETURN NONE;
+    fn::pse_history_v1::identity($rpc_expiry,'attempt',$attempt,$run);
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
+};
+
 DEFINE FUNCTION fn::pse_history_v1::identity($rpc_expiry:int,$category:string,$identity:string,$run:string) -> bool {
     fn::pse_history_v1::run($rpc_expiry,$run);
     LET $key=$category+':'+$identity;
@@ -231,6 +253,13 @@ DEFINE FUNCTION fn::pse_history_v1::drop_obligation($rpc_expiry:int,$key:string,
 };
 
 DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
+    LET $captures=IF $kind='run' {
+        SELECT key FROM canonical_study_capture_protections WHERE run=$owner LIMIT 1
+    } ELSE {
+        SELECT key FROM canonical_study_capture_protections WHERE study=$owner LIMIT 1
+    };
+    IF array::len($captures)!=0 { THROW 'PSE_REFUSAL:history_has_protected_captures'; };
     LET $key=fn::pse_history_v1::owner_key($kind,$owner);
     fn::pse_execution_v1::touch($rpc_expiry,'history:'+$key);
     LET $old=SELECT * FROM ONLY type::record('canonical_history_retirements',$key) FOR UPDATE;
@@ -267,6 +296,13 @@ DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:
 };
 
 DEFINE FUNCTION fn::pse_history_v1::collect($rpc_expiry:int,$kind:string,$owner:string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
+    LET $captures=IF $kind='run' {
+        SELECT key FROM canonical_study_capture_protections WHERE run=$owner LIMIT 1
+    } ELSE {
+        SELECT key FROM canonical_study_capture_protections WHERE study=$owner LIMIT 1
+    };
+    IF array::len($captures)!=0 { THROW 'PSE_REFUSAL:history_has_protected_captures'; };
     LET $key=fn::pse_history_v1::owner_key($kind,$owner);
     fn::pse_execution_v1::touch($rpc_expiry,'history:'+$key);
     LET $fence=SELECT * FROM ONLY type::record('canonical_history_retirements',$key) FOR UPDATE;

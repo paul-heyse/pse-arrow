@@ -10,6 +10,7 @@ DEFINE FUNCTION fn::pse_project_import_v1::available($project:string) -> bool {
     RETURN array::len($pending)=0;
 };
 DEFINE FUNCTION fn::pse_project_import_v1::bind($expiry:int,$key:string,$request:bytes,$artifact:object,$bytes:bytes,$provenance:bytes) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_execution_v1::deadline($expiry);
     LET $row=SELECT * FROM ONLY type::record('canonical_project_imports',$key) FOR UPDATE;
     IF $row=NONE OR $row.request!=$request {THROW 'PSE_REFUSAL:project_import_intent_differs';};
@@ -18,6 +19,7 @@ DEFINE FUNCTION fn::pse_project_import_v1::bind($expiry:int,$key:string,$request
     RETURN UPDATE ONLY type::record('canonical_project_imports',$key) SET artifact=$bytes;
 };
 DEFINE FUNCTION fn::pse_project_import_v1::retire_artifact($expiry:int,$key:string,$request:bytes,$original:object,$bytes:bytes,$previous:option<bytes>,$next:bytes) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_execution_v1::deadline($expiry);
     LET $row=SELECT * FROM ONLY type::record('canonical_project_imports',$key) FOR UPDATE;
     IF $row=NONE OR $row.request!=$request {THROW 'PSE_REFUSAL:project_import_intent_differs';};
@@ -30,6 +32,7 @@ DEFINE FUNCTION fn::pse_project_import_v1::retire_artifact($expiry:int,$key:stri
     RETURN UPDATE ONLY type::record('canonical_project_imports',$key) SET artifact=NONE,retired_artifacts=$next;
 };
 DEFINE FUNCTION fn::pse_project_import_v1::finish($expiry:int,$key:string,$request:bytes,$artifact:object,$bytes:bytes,$obligation:object) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_execution_v1::deadline($expiry);
     LET $row=SELECT * FROM ONLY type::record('canonical_project_imports',$key) FOR UPDATE;
     IF $row=NONE OR $row.request!=$request OR $row.artifact=NONE OR $row.artifact!=$bytes {THROW 'PSE_REFUSAL:project_import_intent_differs';};

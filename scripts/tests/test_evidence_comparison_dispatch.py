@@ -98,5 +98,66 @@ class EvidenceComparisonDispatchTests(unittest.TestCase):
         )
 
 
+class PrivateEvidenceWorkerTests(unittest.TestCase):
+    def test_private_comparison_uses_existing_cli_without_scientific_extension(self) -> None:
+        import sys
+        from types import SimpleNamespace
+        from scripts.capabilities import evidence_worker
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            tool = root / "target/debug/pse-evidence"
+            tool.parent.mkdir(parents=True)
+            tool.write_text(
+                f"#!{sys.executable}\n"
+                "import json,sys\n"
+                "from pathlib import Path\n"
+                "args=sys.argv[1:]\n"
+                "assert args[:2]==['evidence','compare-offline']\n"
+                "request=json.loads(Path(args[args.index('--request')+1]).read_text())\n"
+                "sources=[json.loads(Path(args[i+1]).read_text()) for i,v in enumerate(args) if v=='--input']\n"
+                "print(json.dumps({'cut':'private-cut','request':request,'sources':sources}))\n"
+            )
+            tool.chmod(0o700)
+            with (
+                patch.object(evidence_worker, "SchemaSet", return_value=SimpleNamespace(fingerprint="private-interface", document=lambda *_args: {})),
+                patch.object(evidence_store, "prepare", side_effect=AssertionError("service setup forbidden")),
+                patch.object(evidence_store, "run_native", side_effect=AssertionError("indexed read forbidden")),
+            ):
+                value = evidence_worker.execute(
+                    {"schema_set_fingerprint":"private-interface", "request":{"version":1},
+                     "snapshots":[{"counter":(1 << 63) + 3}], "observations":[]}, root=root,
+                )
+            self.assertEqual(value["outcome"], "observed")
+            document = value["document"]
+            assert isinstance(document, dict)
+            sources = document["sources"]
+            assert isinstance(sources, list)
+            first = sources[0]
+            assert isinstance(first, dict)
+            self.assertEqual(first["counter"], (1 << 63) + 3)
+            self.assertNotIn("pse", sys.modules)
+
+    def test_private_interface_mismatch_refuses_before_cli_or_source_effects(self) -> None:
+        from types import SimpleNamespace
+        from scripts.capabilities import evidence_worker
+
+        with (
+            patch.object(evidence_worker, "SchemaSet", return_value=SimpleNamespace(fingerprint="new-interface")),
+            patch.object(evidence_store, "run_offline") as execute,
+        ):
+            value = evidence_worker.execute({"schema_set_fingerprint":"old-interface"})
+        self.assertEqual(value["code"], "pse.evidence.schema_set_mismatch")
+        execute.assert_not_called()
+
+    def test_private_binding_requires_only_its_independent_executable(self) -> None:
+        from scripts.capabilities.native_contracts import BINDINGS
+
+        binding = next(item for item in BINDINGS if item.operation == "evidence_compare")
+        self.assertEqual(binding.worker.worker, "evidence")
+        self.assertEqual([item.kind for item in binding.requirements], ["executable"])
+        self.assertEqual(binding.worker.declaration.environment, ())
+
+
 if __name__ == "__main__":
     unittest.main()

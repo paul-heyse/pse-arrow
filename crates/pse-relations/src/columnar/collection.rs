@@ -17,7 +17,7 @@ type ErasedBuilder = Box<dyn Any + Send>;
 type Finish = fn(ErasedBuilder) -> Result<FieldCheckedBatch, RelationError>;
 
 /// Shared typed phase encoder. The generated dispatcher supplies only the row type.
-pub(crate) fn encode_rows<R: RelationRow + Clone + pse_model::HeapUsage>(
+pub fn encode_rows<R: RelationRow + Clone + pse_model::HeapUsage>(
     rows: &[R],
     registry: &Registry,
     context: &crate::validate::ValidationContext,

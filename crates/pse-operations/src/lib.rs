@@ -5,6 +5,10 @@
 //! The registry owns native schemas; guarded operations own admission and immutable replay.
 
 pub mod canonical;
+/// Shared deployment identity and strict owner projections.
+pub mod deployment;
+/// Clock, response and lifetime composition for independently owned native clients.
+pub mod transport;
 pub mod canonical_analyses;
 pub mod canonical_artifacts;
 #[cfg(all(test, feature = "canonical-tests"))]
@@ -20,19 +24,14 @@ pub mod canonical_project_imports;
 pub mod canonical_projects;
 pub mod canonical_research;
 pub mod canonical_result_retention;
+pub mod canonical_capture_results;
 pub mod canonical_results;
 pub mod canonical_retention;
 pub mod canonical_selection;
 pub mod canonical_staging;
 pub mod canonical_studies;
 pub mod canonical_study_workbench;
-pub mod evidence;
-/// Supplied-only selected evidence questions using the native columnar engine.
-#[cfg(feature = "evidence-query")]
-pub mod evidence_query;
 mod ids;
-/// Disposable typed development-knowledge corpora on the existing tooling connection.
-pub mod knowledge;
 /// Registry-generated native schema and codec contracts.
 #[rustfmt::skip]
 pub mod generated;

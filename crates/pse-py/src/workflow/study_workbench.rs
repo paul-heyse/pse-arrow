@@ -78,8 +78,20 @@ pub(crate) struct NativeFrozenStudyCohort {
 #[pymethods]
 impl NativeFrozenStudyCohort {
     #[getter]
-    fn document(&self) -> documents::DocumentValue<native::StudyCohortDocument> {
-        documents::DocumentValue(self.inner.document().clone())
+    fn receipt(&self) -> documents::DocumentValue<native::StudyCohortReceipt> {
+        documents::DocumentValue(self.inner.receipt().clone())
+    }
+    fn header_page(&self,py:Python<'_>,request:&[u8])->PyResult<documents::DocumentValue<native::StudyCohortHeaderPage>> {
+        let request=documents::decode_document(py,"study cohort header page",request,1024*1024)?;
+        let cancel=pse_columnar::CancellationToken::new();
+        blocking(py,&self.owner,async {cancel.until_cancelled(self.inner.header_page(request)).await.map_err(pse_engine::EngineError::from)?},||cancel.cancel())
+            .map(documents::DocumentValue)
+    }
+    fn member_page(&self,py:Python<'_>,request:&[u8])->PyResult<documents::DocumentValue<native::StudyCohortMemberPage>> {
+        let request=documents::decode_document(py,"study cohort member page",request,1024*1024)?;
+        let cancel=pse_columnar::CancellationToken::new();
+        blocking(py,&self.owner,async {cancel.until_cancelled(self.inner.member_page(request)).await.map_err(pse_engine::EngineError::from)?},||cancel.cancel())
+            .map(documents::DocumentValue)
     }
     #[pyo3(signature=(member,relation,*,start,end))]
     fn result(
@@ -112,27 +124,36 @@ impl NativeFrozenStudyCohort {
             self.inner.aggregate(&request, cancel.clone()),
             || cancel.cancel(),
         )?;
-        Ok(NativeStudyKpiAnalysis { inner })
+        Ok(NativeStudyKpiAnalysis { inner, owner:self.owner.clone() })
     }
 }
 #[pyclass(frozen, module = "pse._native")]
 #[derive(Debug)]
 pub(crate) struct NativeStudyKpiAnalysis {
+    owner:Arc<runtime::Runtime>,
     inner: native::StudyKpiAnalysis,
 }
 #[pymethods]
 impl NativeStudyKpiAnalysis {
     #[getter]
-    fn cohort(&self) -> documents::DocumentValue<native::StudyCohortDocument> {
+    fn cohort(&self) -> documents::DocumentValue<native::StudyCohortReceipt> {
         documents::DocumentValue(self.inner.cohort.clone())
     }
     #[getter]
-    fn included(&self) -> Vec<usize> {
-        self.inner.included.clone()
+    fn included(&self) -> u64 {
+        self.inner.included
     }
     #[getter]
-    fn unavailable(&self) -> Vec<usize> {
-        self.inner.unavailable.clone()
+    fn unavailable(&self) -> u64 {
+        self.inner.unavailable
+    }
+    #[getter]
+    fn progress(&self)->documents::DocumentValue<native::StudyCohortScanProgress> {documents::DocumentValue(self.inner.progress())}
+    fn classification_page(&self,py:Python<'_>,request:&[u8])->PyResult<documents::DocumentValue<native::StudyCohortClassificationPage>> {
+        let request=documents::decode_document(py,"study cohort classification page",request,1024*1024)?;
+        let cancel=pse_columnar::CancellationToken::new();
+        blocking(py,&self.owner,async {cancel.until_cancelled(self.inner.classification_page(request)).await.map_err(pse_engine::EngineError::from)?},||cancel.cancel())
+            .map(documents::DocumentValue)
     }
     fn batches(&self) -> Vec<physical_input::PhysicalOutput> {
         self.inner

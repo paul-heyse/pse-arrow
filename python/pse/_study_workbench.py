@@ -25,7 +25,12 @@ if TYPE_CHECKING:
 
     from pse._runs import RunHandle
     from pse.contracts.documents import (
-        StudyCohortDocumentOutput,
+        StudyCohortReceiptOutput,
+        StudyCohortPageRequest,
+        StudyCohortHeaderPageOutput,
+        StudyCohortMemberPageOutput,
+        StudyCohortClassificationPageOutput,
+        StudyCohortScanProgressOutput,
         StudyCohortRequest,
         StudyKpiRequest,
         StudyObservationCursor,
@@ -44,16 +49,23 @@ class StudyKpiAnalysis:
     _handle: _NativeStudyKpiAnalysis
 
     @property
-    def cohort(self) -> StudyCohortDocumentOutput:
+    def cohort(self) -> StudyCohortReceiptOutput:
         return self._handle.cohort
 
     @property
-    def included(self) -> tuple[int, ...]:
-        return tuple(self._handle.included)
+    def included(self) -> int:
+        return self._handle.included
 
     @property
-    def unavailable(self) -> tuple[int, ...]:
-        return tuple(self._handle.unavailable)
+    def unavailable(self) -> int:
+        return self._handle.unavailable
+
+    @property
+    def progress(self) -> StudyCohortScanProgressOutput:
+        return self._handle.progress
+
+    def classification_page(self, request: StudyCohortPageRequest) -> StudyCohortClassificationPageOutput:
+        return self._handle.classification_page(codec.encode_json(request))
 
     def batches(self) -> tuple[pa.RecordBatch, ...]:
         """Return selected aggregates with original quantity and unit columns."""
@@ -67,8 +79,14 @@ class FrozenStudyCohort:
     _handle: _NativeFrozenStudyCohort
 
     @property
-    def document(self) -> StudyCohortDocumentOutput:
-        return self._handle.document
+    def receipt(self) -> StudyCohortReceiptOutput:
+        return self._handle.receipt
+
+    def header_page(self, request: StudyCohortPageRequest) -> StudyCohortHeaderPageOutput:
+        return self._handle.header_page(codec.encode_json(request))
+
+    def member_page(self, request: StudyCohortPageRequest) -> StudyCohortMemberPageOutput:
+        return self._handle.member_page(codec.encode_json(request))
 
     def result(
         self, member: int, relation: str, *, start: int, end: int
@@ -104,7 +122,7 @@ class StudyObserver:
         while True:
             page = self.poll()
             yield page
-            if page.status.headers[0].terminal and all(
+            if page.status.header.terminal and all(
                 source.position.history_complete
                 or source.continuity == "history_unavailable"
                 for source in page.sources

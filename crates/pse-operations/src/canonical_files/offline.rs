@@ -4,7 +4,7 @@
 //! Complete offline file effects. The supervisor owns authenticated application
 //! freeze; this owner retains the actual lock and descriptors across byte work.
 
-use super::{FileDescriptor, configuration, validate_file};
+use super::{FileDescriptor, configuration, validate_file_observed};
 use crate::canonical::CanonicalError;
 use pse_model::generated::enums::CanonicalFileState;
 use serde::{Deserialize, Serialize};
@@ -21,11 +21,16 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
+#[path = "offline_control.rs"]
+mod control;
+pub use control::{RecoveryBinding, RecoveryCheckpoint, RecoveryControl, RecoveryPhase};
+
 /// Maximum encoded entry, excluding any scientific bytes.
 pub const ENTRY_BYTES: usize = 64 * 1024;
 
 /// Physical placement, independent of scientific result interpretation.
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Placement {
     /// Never-reused private file-tier incarnation.
     pub payload_incarnation: String,
@@ -117,6 +122,7 @@ fn private(metadata: &Metadata, links: u64) -> Result<(), CanonicalError> {
     Ok(())
 }
 
+#[derive(Debug)]
 struct StableFile {
     file: File,
     path: PathBuf,
@@ -152,14 +158,23 @@ impl StableFile {
         }
         Ok(())
     }
-    fn fingerprint(&mut self) -> Result<Fingerprint, CanonicalError> {
-        let fingerprint = fingerprint_file(&mut self.file)?;
+    fn fingerprint(&mut self, control: &mut RecoveryControl) -> Result<Fingerprint, CanonicalError> {
+        let fingerprint = fingerprint_file(&mut self.file, control)?;
         self.unchanged()?;
         Ok(fingerprint)
     }
 }
 
-fn fingerprint_file(file: &mut File) -> Result<Fingerprint, CanonicalError> {
+fn validate_descriptor(file: &mut File, descriptor: &FileDescriptor, control: &mut RecoveryControl)
+    -> Result<(), CanonicalError>
+{
+    control.phase(RecoveryPhase::ValidateDescriptor)?;
+    validate_file_observed(file, descriptor, &mut |length| {
+        control.bytes(length).map_err(|error| std::io::Error::other(error.to_string()))
+    })
+}
+
+fn fingerprint_file(file: &mut File, control: &mut RecoveryControl) -> Result<Fingerprint, CanonicalError> {
     let before = file.metadata().map_err(configuration)?;
     file.seek(SeekFrom::Start(0)).map_err(configuration)?;
     let mut digest = Sha256::new();
@@ -170,6 +185,7 @@ fn fingerprint_file(file: &mut File) -> Result<Fingerprint, CanonicalError> {
             break;
         }
         digest.update(&block[..length]);
+        control.bytes(length)?;
     }
     if identity(&before) != identity(&file.metadata().map_err(configuration)?) {
         return Err(configuration(
@@ -430,6 +446,30 @@ pub enum Operation {
     Restore,
 }
 
+impl Operation {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Inventory => "inventory", Self::Backup => "backup", Self::VerifyLive => "verify-live",
+            Self::Verify => "verify", Self::Restore => "restore",
+        }
+    }
+}
+
+/// One selected physical operation; all effects share this original context.
+#[derive(Debug)]
+pub struct Request<'a> {
+    /// Selected native operation.
+    pub operation: Operation,
+    /// Absolute original source root.
+    pub state: &'a Path,
+    /// Original placement, including empty catalogs.
+    pub placement: Option<&'a Placement>,
+    /// Explicit target root for copying.
+    pub destination: Option<&'a Path>,
+    /// Fresh restore placement, when selected.
+    pub target: Option<&'a Placement>,
+}
+
 fn sync_parent(path: &Path) -> Result<(), CanonicalError> {
     let parent = path
         .parent()
@@ -477,6 +517,7 @@ fn copy(
     expected: &Fingerprint,
     descriptor: Option<&FileDescriptor>,
     resume: bool,
+    control: &mut RecoveryControl,
 ) -> Result<(), CanonicalError> {
     no_symlinks(target)?;
     let parent = target
@@ -494,7 +535,7 @@ fn copy(
             return Err(configuration("payload backup destination already exists"));
         }
         let mut existing = StableFile::open(target, false, 1)?;
-        if existing.fingerprint()? != *expected {
+        if existing.fingerprint(control)? != *expected {
             return Err(configuration("resumed payload differs from its archive"));
         }
         if existing.before.dev() == source.before.dev()
@@ -503,7 +544,7 @@ fn copy(
             return Err(configuration("restore source aliases destination"));
         }
         if let Some(descriptor) = descriptor {
-            validate_file(&mut existing.file, descriptor)?;
+            validate_descriptor(&mut existing.file, descriptor, control)?;
         }
         existing.file.sync_all().map_err(configuration)?;
         directory.file.sync_all().map_err(configuration)?;
@@ -525,19 +566,27 @@ fn copy(
         .file
         .seek(SeekFrom::Start(0))
         .map_err(configuration)?;
-    std::io::copy(&mut source.file, &mut output).map_err(configuration)?;
+    control.phase(RecoveryPhase::Copy)?;
+    let mut block = [0u8; 1024 * 1024];
+    loop {
+        let length = source.file.read(&mut block).map_err(configuration)?;
+        if length == 0 { break; }
+        output.write_all(&block[..length]).map_err(configuration)?;
+        control.bytes(length)?;
+    }
     output.sync_all().map_err(configuration)?;
-    if fingerprint_file(&mut output)? != *expected {
+    control.phase(RecoveryPhase::VerifyCopy)?;
+    if fingerprint_file(&mut output, control)? != *expected {
         return Err(configuration(
             "copied payload differs from frozen inventory",
         ));
     }
-    if source.fingerprint()? != *expected {
-        return Err(configuration("source changed during offline payload copy"));
-    }
+    // The original digest was established under this held descriptor. An
+    // unchanged inode/extent/ctime protects reuse of that evidence; destination
+    // verification and published readback cover independent failure purposes.
+    source.unchanged()?;
     if let Some(descriptor) = descriptor {
-        validate_file(&mut output, descriptor)?;
-        validate_file(&mut source.file, descriptor)?;
+        validate_descriptor(&mut output, descriptor, control)?;
     }
     source.unchanged()?;
     directory.unchanged()?;
@@ -579,13 +628,14 @@ fn copy(
         path: target.into(),
         before,
     };
-    if copied.fingerprint()? != *expected {
+    control.phase(RecoveryPhase::VerifyPublished)?;
+    if copied.fingerprint(control)? != *expected {
         return Err(configuration(
             "published copy differs from frozen inventory",
         ));
     }
     if let Some(descriptor) = descriptor {
-        validate_file(&mut copied.file, descriptor)?;
+        validate_descriptor(&mut copied.file, descriptor, control)?;
     }
     source.unchanged()?;
     copied.unchanged()
@@ -612,14 +662,13 @@ pub fn read_entry(reader: &mut impl BufRead) -> Result<Option<Vec<u8>>, Canonica
 /// Perform a bounded stream of complete instance operations, retaining every
 /// instance's guard through reconciliation, byte work and final validation.
 pub fn run(
-    operation: Operation,
-    state: &Path,
-    placement: Option<&Placement>,
-    destination: Option<&Path>,
-    target: Option<&Placement>,
-    input: &mut impl BufRead,
+    request: Request<'_>,
+    input: &mut (impl BufRead + Seek),
     output: &mut impl Write,
+    control: &mut RecoveryControl,
 ) -> Result<(), CanonicalError> {
+    let Request { operation, state, placement, destination, target } = request;
+    control.bind(operation.name(), state, placement, destination, target, input)?;
     absolute(state)?;
     if let Some(destination) = destination {
         absolute(destination)?;
@@ -639,6 +688,9 @@ pub fn run(
     let mut expected = BTreeSet::new();
     let mut target_expected = BTreeSet::new();
     let mut target_roots = BTreeSet::new();
+    if operation == Operation::Backup && let Some(destination) = destination {
+        target_roots.insert(destination.join("payloads"));
+    }
     let mut roots = BTreeSet::new();
     if let Some(placement) = placement {
         roots.insert(placement.root(state)?);
@@ -650,6 +702,7 @@ pub fn run(
     }
     let mut instances = BTreeSet::new();
     while let Some(line) = read_entry(input)? {
+        control.phase(RecoveryPhase::Instance)?;
         let mut entry: InventoryEntry = serde_json::from_slice(&line).map_err(configuration)?;
         let paths = entry.paths(state)?;
         let root = entry.placement().root(state)?;
@@ -712,9 +765,10 @@ pub fn run(
             if index == 0
                 && let Some(descriptor) = &descriptor
             {
-                validate_file(&mut file.file, descriptor)?;
+                validate_descriptor(&mut file.file, descriptor, control)?;
             }
-            let fingerprint = file.fingerprint()?;
+            control.phase(RecoveryPhase::Fingerprint)?;
+            let fingerprint = file.fingerprint(control)?;
             if operation != Operation::Inventory && original.get(&name) != Some(&fingerprint) {
                 return Err(configuration(
                     "payload differs from its exact frozen inventory",
@@ -737,8 +791,9 @@ pub fn run(
                 } else {
                     destination.join(&name)
                 };
-                if operation == Operation::Restore {
-                    target_expected.insert(target_path.clone());
+                target_expected.insert(target_path.clone());
+                if operation == Operation::Backup {
+                    target_roots.insert(destination.join("payloads"));
                 }
                 copy(
                     &mut file,
@@ -749,13 +804,9 @@ pub fn run(
                     } else {
                         None
                     },
-                    operation == Operation::Restore,
+                    operation == Operation::Restore || control.resumed(),
+                    control,
                 )?;
-            }
-            if index == 0
-                && let Some(descriptor) = &descriptor
-            {
-                validate_file(&mut file.file, descriptor)?;
             }
             file.unchanged()?;
             found.insert(name, fingerprint);
@@ -784,22 +835,25 @@ pub fn run(
             .write_all(&encoded)
             .and_then(|()| output.write_all(b"\n"))
             .map_err(configuration)?;
+        control.acknowledged()?;
     }
+    control.phase(RecoveryPhase::ValidateTree)?;
     // Inspect complete placement trees, including unknown locks and symlinks. No
     // tree entry is trusted merely because a prior catalog record was accepted.
     if !live {
         roots.insert(state.join("payloads"));
     }
     for root in roots {
-        check_tree(&root, &expected)?;
+        check_tree(&root, &expected, control)?;
     }
     for root in target_roots {
-        check_tree(&root, &target_expected)?;
+        check_tree(&root, &target_expected, control)?;
     }
-    output.flush().map_err(configuration)
+    output.flush().map_err(configuration)?;
+    control.phase(RecoveryPhase::Complete)
 }
 
-fn check_tree(root: &Path, expected: &BTreeSet<PathBuf>) -> Result<(), CanonicalError> {
+fn check_tree(root: &Path, expected: &BTreeSet<PathBuf>, control: &mut RecoveryControl) -> Result<(), CanonicalError> {
     no_symlinks(root)?;
     if !root.try_exists().map_err(configuration)? {
         return Ok(());
@@ -814,8 +868,9 @@ fn check_tree(root: &Path, expected: &BTreeSet<PathBuf>) -> Result<(), Canonical
         let entry = entry.map_err(configuration)?;
         let path = entry.path();
         let metadata = std::fs::symlink_metadata(&path).map_err(configuration)?;
+        control.path()?;
         if metadata.is_dir() {
-            check_tree(&path, expected)?;
+            check_tree(&path, expected, control)?;
         } else if !metadata.is_file() || !expected.contains(&path) {
             return Err(configuration(
                 "unknown payload bytes or synchronization lock refuse complete inventory",
@@ -898,9 +953,11 @@ pub fn owner_dead(owner: &Map<String, Value>) -> Result<bool, CanonicalError> {
 pub fn retired(
     state: &Path,
     placement: &Placement,
-    input: &mut impl BufRead,
+    input: &mut (impl BufRead + Seek),
     remove: bool,
+    control: &mut RecoveryControl,
 ) -> Result<(), CanonicalError> {
+    control.bind(if remove { "retired-remove" } else { "retired-check" }, state, Some(placement), None, None, input)?;
     let root = placement.root(state)?;
     let mut keys = BTreeSet::new();
     let mut expected = BTreeSet::new();
@@ -967,7 +1024,7 @@ pub fn retired(
                 .get(&path)
                 .ok_or_else(|| configuration("retired payload lacks original byte inventory"))?;
             let mut file = StableFile::open(&path, false, 1)?;
-            if file.fingerprint()? != *expected_binding {
+            if file.fingerprint(control)? != *expected_binding {
                 return Err(configuration(
                     "retired payload differs from exact inventoried bytes",
                 ));
@@ -978,9 +1035,9 @@ pub fn retired(
             expected.insert(lock.0.path.clone());
         }
     }
-    check_tree(&root, &expected)?;
+    check_tree(&root, &expected, control)?;
     if !remove || !root.try_exists().map_err(configuration)? {
-        return Ok(());
+        return control.phase(RecoveryPhase::Complete);
     }
     for key in keys {
         let lock = ExistingLock::acquire(&root, &key)?;
@@ -996,7 +1053,7 @@ pub fn retired(
                 return Err(configuration("retired file lost exact inventory or lock"));
             }
             let mut file = StableFile::open(&path, false, 1)?;
-            if Some(&file.fingerprint()?) != bindings.get(&path) {
+            if Some(&file.fingerprint(control)?) != bindings.get(&path) {
                 return Err(configuration("retired payload changed before removal"));
             }
             file.unchanged()?;
@@ -1009,7 +1066,8 @@ pub fn retired(
             sync_parent(&lock.0.path)?;
         }
     }
-    remove_empty_directories(&root)
+    remove_empty_directories(&root)?;
+    control.phase(RecoveryPhase::Complete)
 }
 fn remove_empty_directories(root: &Path) -> Result<(), CanonicalError> {
     for entry in std::fs::read_dir(root).map_err(configuration)? {
@@ -1092,15 +1150,109 @@ mod tests {
         let mut input = Cursor::new(serde_json::to_vec(entry).map_err(configuration)?);
         let mut output = Vec::new();
         run(
-            operation,
-            state,
-            Some(placement),
-            destination,
-            target,
+            Request { operation, state, placement: Some(placement), destination, target },
             &mut input,
             &mut output,
+            &mut RecoveryControl::new(None),
         )?;
         serde_json::from_slice(&output).map_err(configuration)
+    }
+
+    #[test]
+    fn offline_checkpoint_resumes_exact_request_and_rechecks_every_byte() -> Result<(), CanonicalError> {
+        let (source, placement, entry) = fixture()?;
+        let inventory = execute(Operation::Inventory, source.path(), &placement, &entry, None, None)?;
+        let destination = tempfile::tempdir().map_err(configuration)?;
+        let observations = tempfile::tempdir().map_err(configuration)?;
+        // Native progress is private owner state, not an ordinary temp directory.
+        std::fs::set_permissions(observations.path(), std::os::unix::fs::PermissionsExt::from_mode(0o700))
+            .map_err(configuration)?;
+        let checkpoint = observations.path().join("progress.json");
+        let encoded = serde_json::to_vec(&inventory).map_err(configuration)?;
+        let resume = |encoded: &[u8]| {
+            run(Request { operation: Operation::Backup, state: source.path(), placement: Some(&placement),
+                destination: Some(destination.path()), target: None }, &mut Cursor::new(encoded),
+                &mut Vec::new(), &mut RecoveryControl::new(Some(checkpoint.clone())))
+        };
+        COPY_AFTER_PUBLICATION.with(|observation| {
+            *observation.borrow_mut() = Some(Box::new(|_, _| Err(configuration("interrupted after publication"))));
+        });
+        assert!(resume(&encoded).is_err_and(|error| error.to_string().contains("interrupted after publication")));
+        let original = entry.paths(source.path())?[0].clone();
+        let target = destination.path().join(original.strip_prefix(source.path()).map_err(configuration)?);
+        let inode = target.metadata().map_err(configuration)?.ino();
+        // Semantically equivalent input is still a different original inventory.
+        let mut changed = encoded.clone();
+        changed.push(b'\n');
+        assert!(resume(&changed).is_err());
+        resume(&encoded)?;
+        assert_eq!(target.metadata().map_err(configuration)?.ino(), inode);
+        let progress: RecoveryCheckpoint = serde_json::from_reader(File::open(&checkpoint).map_err(configuration)?)
+            .map_err(configuration)?;
+        assert_eq!(progress.phase, RecoveryPhase::Complete);
+        assert_eq!(progress.completed_entries, 1);
+        assert!(progress.sequence > 4);
+        assert!(progress.processed_bytes >= 2 * target.metadata().map_err(configuration)?.len());
+        std::fs::write(&target, b"corrupt").map_err(configuration)?;
+        assert!(resume(&encoded).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn offline_checkpoint_refuses_aliases_permissions_and_competing_owner() -> Result<(), CanonicalError> {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+        let (source, placement, entry) = fixture()?;
+        let observations = tempfile::tempdir().map_err(configuration)?;
+        // Native progress is private owner state, not an ordinary temp directory.
+        std::fs::set_permissions(observations.path(), PermissionsExt::from_mode(0o700))
+            .map_err(configuration)?;
+        let checkpoint = observations.path().join("progress.json");
+        let encoded = serde_json::to_vec(&entry).map_err(configuration)?;
+        let bind = |control: &mut RecoveryControl| {
+            control.bind("inventory", source.path(), Some(&placement), None, None, &mut Cursor::new(&encoded))
+        };
+        let mut first = RecoveryControl::new(Some(checkpoint.clone()));
+        bind(&mut first)?;
+        assert!(bind(&mut RecoveryControl::new(Some(checkpoint.clone()))).is_err());
+        drop(first);
+        std::fs::set_permissions(&checkpoint, std::fs::Permissions::from_mode(0o644)).map_err(configuration)?;
+        assert!(bind(&mut RecoveryControl::new(Some(checkpoint.clone()))).is_err());
+        std::fs::set_permissions(&checkpoint, std::fs::Permissions::from_mode(0o600)).map_err(configuration)?;
+        let alias = observations.path().join("alias.json");
+        symlink(&checkpoint, &alias).map_err(configuration)?;
+        assert!(bind(&mut RecoveryControl::new(Some(alias))).is_err());
+        let alias = observations.path().join("hardlink.json");
+        std::fs::hard_link(&checkpoint, &alias).map_err(configuration)?;
+        assert!(bind(&mut RecoveryControl::new(Some(alias))).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn offline_progress_counts_distinct_integrity_passes_and_unknown_destination_refuses() -> Result<(), CanonicalError> {
+        let (source, placement, entry) = fixture()?;
+        let inventory = execute(Operation::Inventory, source.path(), &placement, &entry, None, None)?;
+        let destination = tempfile::tempdir().map_err(configuration)?;
+        let observations = tempfile::tempdir().map_err(configuration)?;
+        // Native progress is private owner state, not an ordinary temp directory.
+        std::fs::set_permissions(observations.path(), std::os::unix::fs::PermissionsExt::from_mode(0o700))
+            .map_err(configuration)?;
+        let checkpoint = observations.path().join("progress.json");
+        let encoded = serde_json::to_vec(&inventory).map_err(configuration)?;
+        run(Request { operation: Operation::Backup, state: source.path(), placement: Some(&placement),
+            destination: Some(destination.path()), target: None }, &mut Cursor::new(&encoded),
+            &mut Vec::new(), &mut RecoveryControl::new(Some(checkpoint.clone())))?;
+        let progress: RecoveryCheckpoint = serde_json::from_reader(File::open(&checkpoint).map_err(configuration)?)
+            .map_err(configuration)?;
+        let bytes: u64 = inventory.files.values().map(|fingerprint| fingerprint.bytes).sum();
+        assert_eq!(progress.processed_bytes, 7 * bytes);
+        assert_eq!(progress.phase, RecoveryPhase::Complete);
+        let unknown = placement.root(destination.path())?.join("unknown");
+        std::fs::write(&unknown, b"unknown").map_err(configuration)?;
+        assert!(run(Request { operation: Operation::Backup, state: source.path(), placement: Some(&placement),
+            destination: Some(destination.path()), target: None }, &mut Cursor::new(&encoded),
+            &mut Vec::new(), &mut RecoveryControl::new(Some(checkpoint))).is_err());
+        assert!(unknown.exists());
+        Ok(())
     }
 
     #[test]
@@ -1504,15 +1656,15 @@ mod tests {
         let unknown = root.join("unknown");
         std::fs::write(&unknown, b"preserved").map_err(configuration)?;
         let encoded = serde_json::to_vec(&inventory).map_err(configuration)?;
-        assert!(retired(source.path(), &placement, &mut Cursor::new(&encoded), true).is_err());
+        assert!(retired(source.path(), &placement, &mut Cursor::new(&encoded), true, &mut RecoveryControl::new(None)).is_err());
         assert!(entry.paths(source.path())?[0].exists());
         std::fs::remove_file(unknown).map_err(configuration)?;
         let lock = ExistingLock::acquire(&root, entry.text("key")?)?
             .ok_or_else(|| configuration("lock absent"))?;
-        assert!(retired(source.path(), &placement, &mut Cursor::new(&encoded), true).is_err());
+        assert!(retired(source.path(), &placement, &mut Cursor::new(&encoded), true, &mut RecoveryControl::new(None)).is_err());
         assert!(entry.paths(source.path())?[0].exists());
         drop(lock);
-        retired(source.path(), &placement, &mut Cursor::new(encoded), true)?;
+        retired(source.path(), &placement, &mut Cursor::new(encoded), true, &mut RecoveryControl::new(None))?;
         assert!(!root.exists());
         Ok(())
     }

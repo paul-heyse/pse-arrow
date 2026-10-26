@@ -62,18 +62,27 @@ def run(
         raise ValueError("select a new inquiry output directory")
     from msgspec.structs import replace  # noqa: PLC0415 -- selected inquiry only.
 
-    from pse import codec, diagnostics  # noqa: PLC0415 -- selected native consumer.
-    from pse.contracts.documents import EvidenceComparisonRequest  # noqa: PLC0415
+    import msgspec  # noqa: PLC0415 -- private generated contract consumer.
+    from scripts.capabilities import evidence_worker  # noqa: PLC0415
+    from scripts.capabilities.native_schema import SchemaSet  # noqa: PLC0415
+    from scripts.generated.evidence_comparison_request_input import EvidenceComparisonRequest  # noqa: PLC0415
+    from scripts.generated.evidence_comparison_output import EvidenceComparison  # noqa: PLC0415
 
-    request = codec.decode_json(request_raw, EvidenceComparisonRequest)
-    detailed = diagnostics.compare_evidence(request_raw.decode(), snapshots.decode())
-    detailed_raw = codec.encode_json(detailed)
+    request = msgspec.json.decode(request_raw, type=EvidenceComparisonRequest)
+    fingerprint = SchemaSet(evidence_worker.ROOT, family="evidence").fingerprint
+    def compare(supplied: bytes) -> EvidenceComparison:
+        result = evidence_worker.execute({"schema_set_fingerprint":fingerprint,
+            "request":json.loads(supplied),"snapshots":json.loads(snapshots),"observations":[]})
+        if result.get("outcome") != "observed":
+            raise RuntimeError("original private evidence CLI refused the inquiry")
+        return msgspec.json.decode(msgspec.json.encode(result["document"]), type=EvidenceComparison)
+
+    detailed = compare(request_raw)
+    detailed_raw = msgspec.json.encode(detailed)
     _expected(json.loads(detailed_raw), expected)
     compact_request = replace(request, sections={}, continuation_cut=None)
-    compact = diagnostics.compare_evidence(
-        codec.encode_json(compact_request).decode(), snapshots.decode()
-    )
-    compact_raw = codec.encode_json(compact)
+    compact = compare(msgspec.json.encode(compact_request))
+    compact_raw = msgspec.json.encode(compact)
     _expected(json.loads(compact_raw), expected)
     if (
         detailed.cut != compact.cut

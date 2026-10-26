@@ -1,0 +1,569 @@
+{
+  "$defs": {
+    "EvidenceIdentity": {
+      "additionalProperties": false,
+      "description": "Original evidence-owner identity, not a replacement evidence codec.",
+      "properties": {
+        "authority": {
+          "description": "Original issuing authority.",
+          "type": "string"
+        },
+        "codec": {
+          "description": "Original codec.",
+          "type": "string"
+        },
+        "member": {
+          "description": "Original member.",
+          "type": "string"
+        },
+        "source_id": {
+          "description": "Original source.",
+          "type": "string"
+        },
+        "version": {
+          "description": "Original version or digest.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority",
+        "codec",
+        "source_id",
+        "version",
+        "member"
+      ],
+      "type": "object"
+    },
+    "KnowledgeCoverage": {
+      "additionalProperties": false,
+      "description": "Conservative interpretation limits, independent of the delivered hit population.",
+      "properties": {
+        "declaration_locations": {
+          "description": "Registry declaration definition locations are not fabricated.",
+          "type": "string"
+        },
+        "excerpt_attribution": {
+          "description": "Text matches only subjects explicitly attributed by original owners.",
+          "type": "string"
+        },
+        "producer_freshness": {
+          "description": "Producer fingerprints are not a live freshness attestation.",
+          "type": "string"
+        },
+        "undeclared_relationships": {
+          "description": "Missing semantic links are not inferred from prose or topics.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "producer_freshness",
+        "declaration_locations",
+        "undeclared_relationships",
+        "excerpt_attribution"
+      ],
+      "type": "object"
+    },
+    "KnowledgeCursor": {
+      "additionalProperties": false,
+      "description": "Exact issuing cut, predicate, and page fence.",
+      "properties": {
+        "after": {
+          "description": "Last native member key.",
+          "type": "string"
+        },
+        "generation": {
+          "description": "Selected activated generation.",
+          "type": "string"
+        },
+        "issuing_store": {
+          "description": "Issuing tooling identity.",
+          "type": "string"
+        },
+        "query_digest": {
+          "description": "Exact predicate and extent identity.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "issuing_store",
+        "generation",
+        "query_digest",
+        "after"
+      ],
+      "type": "object"
+    },
+    "KnowledgeDirection": {
+      "enum": [
+        "input",
+        "output"
+      ],
+      "type": "string"
+    },
+    "KnowledgeDocumentRole": {
+      "enum": [
+        "contract",
+        "instruction",
+        "decision",
+        "plan",
+        "review",
+        "reference",
+        "evidence",
+        "index"
+      ],
+      "type": "string"
+    },
+    "KnowledgeEdge": {
+      "additionalProperties": false,
+      "description": "Typed native subject relation.",
+      "properties": {
+        "basis": {
+          "description": "Actual relationship origin.",
+          "type": "string"
+        },
+        "from": {
+          "description": "Exact source subject.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Original relationship identity.",
+          "type": "string"
+        },
+        "relation": {
+          "$ref": "#/$defs/KnowledgeRelationKind",
+          "description": "Closed relation meaning."
+        },
+        "to": {
+          "description": "Exact target subject.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "from",
+        "to",
+        "relation",
+        "basis"
+      ],
+      "type": "object"
+    },
+    "KnowledgeExcerpt": {
+      "additionalProperties": false,
+      "description": "Selected excerpt; shared files do not imply shared subject attribution.",
+      "properties": {
+        "basis": {
+          "description": "Explicit evidence origin.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Exact excerpt identity.",
+          "type": "string"
+        },
+        "locator": {
+          "description": "Original locator.",
+          "type": "string"
+        },
+        "source_id": {
+          "description": "Exact source carrier.",
+          "type": "string"
+        },
+        "subject_id": {
+          "description": "Subject only where correspondence is explicitly known.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text": {
+          "description": "Selected text, at most sixteen KiB.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source_id",
+        "subject_id",
+        "text",
+        "locator",
+        "basis"
+      ],
+      "type": "object"
+    },
+    "KnowledgeProduction": {
+      "additionalProperties": false,
+      "description": "Actual declaration-generator-specific-output correspondence.",
+      "properties": {
+        "artifact_id": {
+          "description": "Exact emitted artifact.",
+          "type": "string"
+        },
+        "basis": {
+          "description": "Actual producer basis.",
+          "type": "string"
+        },
+        "declaration_id": {
+          "description": "Actual declaration subject.",
+          "type": "string"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/KnowledgeDirection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Direction only where declared."
+        },
+        "generator_id": {
+          "description": "Actual generator subject.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Original producer record identity.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "declaration_id",
+        "generator_id",
+        "artifact_id",
+        "direction",
+        "basis"
+      ],
+      "type": "object"
+    },
+    "KnowledgeRelationKind": {
+      "enum": [
+        "owns",
+        "governs",
+        "contains",
+        "depends_on",
+        "status_owned_by",
+        "superseded_by",
+        "supports",
+        "answers",
+        "diagnoses",
+        "references"
+      ],
+      "type": "string"
+    },
+    "KnowledgeSource": {
+      "additionalProperties": false,
+      "description": "Immutable source-version carrier, never a substitute for a domain concept.",
+      "properties": {
+        "basis": {
+          "description": "Explicit evidence origin.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Exact selected carrier identity.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Original carrier category.",
+          "type": "string"
+        },
+        "locator": {
+          "description": "Original attributable locator, without lifetime or file-access grant.",
+          "type": "string"
+        },
+        "status": {
+          "description": "Source observation state, independent of subject lifecycle.",
+          "type": "string"
+        },
+        "title": {
+          "description": "Compact original description.",
+          "type": "string"
+        },
+        "version_digest": {
+          "description": "SHA256 of exact selected source bytes.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "locator",
+        "version_digest",
+        "basis",
+        "title",
+        "status"
+      ],
+      "type": "object"
+    },
+    "KnowledgeSourceRole": {
+      "enum": [
+        "definition",
+        "catalogue_registration",
+        "producer_declaration",
+        "native_scope",
+        "metadata",
+        "owner_evidence",
+        "question_input",
+        "interpretation_input",
+        "interpretation_policy"
+      ],
+      "type": "string"
+    },
+    "KnowledgeSubject": {
+      "additionalProperties": false,
+      "description": "Closed owner-native subject; publication and native lifecycle remain separate.",
+      "properties": {
+        "basis": {
+          "description": "Explicit evidence origin.",
+          "type": "string"
+        },
+        "document_role": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/KnowledgeDocumentRole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Actual native document role."
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Original evidence identity for evidence_reference only."
+        },
+        "id": {
+          "description": "Stable adapter-qualified subject identity.",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/KnowledgeSubjectKind",
+          "description": "Closed subject family."
+        },
+        "label": {
+          "description": "Original compact label.",
+          "type": "string"
+        },
+        "native_id": {
+          "description": "Actual owner-native identity.",
+          "type": "string"
+        },
+        "native_state": {
+          "description": "Native lifecycle/status only where applicable.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "native_version": {
+          "description": "Exact owner version when supplied.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "owner": {
+          "description": "Native semantic owner.",
+          "type": "string"
+        },
+        "publication_scope": {
+          "description": "Publication scope, independent of proposal/acceptance.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sources": {
+          "description": "Complete explicit contributors, at most eight.",
+          "items": {
+            "$ref": "#/$defs/SubjectSource"
+          },
+          "type": "array"
+        },
+        "state_basis": {
+          "description": "Actual interpretation of native state.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "topics": {
+          "description": "Native metadata topics, at most sixteen.",
+          "items": {
+            "$ref": "#/$defs/SubjectTopic"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "owner",
+        "native_id",
+        "label",
+        "basis",
+        "native_state",
+        "state_basis",
+        "publication_scope",
+        "document_role",
+        "native_version",
+        "evidence",
+        "sources",
+        "topics"
+      ],
+      "type": "object"
+    },
+    "KnowledgeSubjectKind": {
+      "enum": [
+        "document",
+        "contract",
+        "decision",
+        "plan_package",
+        "declaration",
+        "generator",
+        "generated_artifact",
+        "experiment",
+        "diagnostic",
+        "evidence_reference",
+        "research_question"
+      ],
+      "type": "string"
+    },
+    "SubjectSource": {
+      "additionalProperties": false,
+      "description": "Role-specific immutable contributor.",
+      "properties": {
+        "role": {
+          "$ref": "#/$defs/KnowledgeSourceRole",
+          "description": "Actual native contribution."
+        },
+        "source_id": {
+          "description": "Exact source in this cut.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "role"
+      ],
+      "type": "object"
+    },
+    "SubjectTopic": {
+      "additionalProperties": false,
+      "description": "Topic copied from original metadata, with exact attribution.",
+      "properties": {
+        "source_id": {
+          "description": "Subject metadata contributor.",
+          "type": "string"
+        },
+        "topic": {
+          "description": "Native topic, not an invented tag.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic",
+        "source_id"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Finite structural result, with the complete provenance source cut even for zero hits.",
+  "properties": {
+    "coverage": {
+      "$ref": "#/$defs/KnowledgeCoverage",
+      "description": "Exact producer and semantic coverage limits."
+    },
+    "edges": {
+      "description": "Exact typed graph results.",
+      "items": {
+        "$ref": "#/$defs/KnowledgeEdge"
+      },
+      "type": "array"
+    },
+    "excerpts": {
+      "description": "Optional matching subject-attributed excerpts.",
+      "items": {
+        "$ref": "#/$defs/KnowledgeExcerpt"
+      },
+      "type": "array"
+    },
+    "excerpts_truncated": {
+      "description": "Matching excerpt delivery is separately bounded; this flag preserves omissions.",
+      "type": "boolean"
+    },
+    "freshness": {
+      "description": "Imported cut only; no automatic source reopening.",
+      "type": "string"
+    },
+    "generation": {
+      "description": "Exact activated corpus.",
+      "type": "string"
+    },
+    "issuing_store": {
+      "description": "Issuing tooling authority.",
+      "type": "string"
+    },
+    "next": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/KnowledgeCursor"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Same-predicate, same-cut continuation."
+    },
+    "productions": {
+      "description": "Exact production assertions.",
+      "items": {
+        "$ref": "#/$defs/KnowledgeProduction"
+      },
+      "type": "array"
+    },
+    "sources": {
+      "description": "Complete source membership for independent freshness observation.",
+      "items": {
+        "$ref": "#/$defs/KnowledgeSource"
+      },
+      "type": "array"
+    },
+    "subjects": {
+      "description": "Selected subjects or exact edge/production endpoint closure.",
+      "items": {
+        "$ref": "#/$defs/KnowledgeSubject"
+      },
+      "type": "array"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "description": "Native result encoding version.",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "issuing_store",
+    "generation",
+    "freshness",
+    "coverage",
+    "sources",
+    "subjects",
+    "excerpts",
+    "edges",
+    "productions",
+    "excerpts_truncated",
+    "next"
+  ],
+  "title": "KnowledgePage",
+  "type": "object"
+}

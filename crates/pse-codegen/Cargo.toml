@@ -37,6 +37,9 @@ quote.workspace = true
 proc-macro2.workspace = true
 prettyplease.workspace = true
 
+[dev-dependencies]
+schemars.workspace = true
+
 [features]
 force-validate = [
   "arrow-array/force_validate",

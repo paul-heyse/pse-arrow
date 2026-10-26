@@ -11,13 +11,14 @@
 //! - every schema in canonical form (sorted keys, two-space indentation), so a schema
 //!   difference between two versions of a document is its compatibility record;
 //! - one Python module of frozen msgspec `Struct` types, emitted here rather than by an
-//!   external generator so that every enumeration is the registry's generated `StrEnum`
-//!   (one Python type per vocabulary) and no annotation is `Any` or a bare container.
+//!   external generator, preserving registry vocabularies and responsibility-owned local
+//!   string enumerations without `Any` or bare containers.
 //!
 //! The mapping is closed: a schema construct outside it is a generation error, never an
 //! untyped fallback. Objects become structs that refuse unknown fields; a choice tagged by
 //! a constant property becomes msgspec tagged structs and their union; string
-//! enumerations must be registry vocabularies; numeric and pattern constraints become
+//! registry enumeration references retain their exact members; owner-local string choices
+//! become local `StrEnum` types; numeric and pattern constraints become
 //! `msgspec.Meta`; defaults are the schema's.
 //!
 //! The authoring JSON Schema is published beside the documents by its own emitter
@@ -393,7 +394,7 @@ fn error(reason: impl Into<String>) -> SchemaError {
 ///
 /// # Errors
 /// [`SchemaError::Codegen`] for a schema construct outside the closed mapping, a string
-/// enumeration that is not a registry vocabulary, or two different types of one name.
+/// enumeration outside the closed string mapping, or two different types of one name.
 pub fn generate(reg: &Registry, documents: &[Document]) -> Result<GeneratedTree, SchemaError> {
     let mut tree = GeneratedTree::empty(roots());
     for document in documents {
@@ -553,6 +554,51 @@ fn constraints(schema: &Value) -> Vec<String> {
     meta
 }
 
+/// Refuse ambiguous, empty or non-string choices rather than widening their wire contract.
+fn string_choices<'a>(schema: &Value, values: &'a Value) -> Result<Vec<&'a str>, SchemaError> {
+    let values = values.as_array().filter(|values| !values.is_empty())
+        .ok_or_else(|| error("a string enumeration must have members"))?;
+    if types(schema) != (vec!["string"], false) {
+        return Err(error("only nonnullable string enumeration definitions are supported"));
+    }
+    let mut seen = BTreeSet::new();
+    values.iter().map(|value| {
+        let member = value.as_str().ok_or_else(|| error("non-string enumeration member"))?;
+        if !seen.insert(member) { return Err(error("duplicate enumeration member")); }
+        Ok(member)
+    }).collect()
+}
+
+/// Schemars preserves variant documentation with a union of string constants.
+/// A named finite vocabulary keeps the same enum API in either schema spelling.
+fn named_string_choices(schema: &Value) -> Result<Option<Vec<&str>>, SchemaError> {
+    if let Some(members) = schema.get("enum") {
+        return string_choices(schema, members).map(Some);
+    }
+    let Some(alternatives) = schema.get("oneOf").or_else(|| schema.get("anyOf"))
+        .and_then(Value::as_array).filter(|choices| !choices.is_empty()) else {
+        return Ok(None);
+    };
+    if !alternatives.iter().all(|choice| choice.get("const").is_some_and(Value::is_string)) {
+        return Ok(None);
+    }
+    for node in std::iter::once(schema).chain(alternatives.iter()) {
+        let (kinds, nullable) = types(node);
+        if nullable || (!kinds.is_empty() && kinds != ["string"]) {
+            return Err(error("string vocabulary has a conflicting schema type"));
+        }
+    }
+    let mut members = Vec::new();
+    let mut seen = BTreeSet::new();
+    for choice in alternatives {
+        let member = choice.get("const").and_then(Value::as_str)
+            .ok_or_else(|| error("string vocabulary member absent"))?;
+        if !seen.insert(member) { return Err(error("duplicate enumeration member")); }
+        members.push(member);
+    }
+    Ok(Some(members))
+}
+
 fn annotated(base: &str, meta: &[String]) -> String {
     if meta.is_empty() {
         base.to_owned()
@@ -593,6 +639,8 @@ struct Emitter<'a> {
     definitions: BTreeMap<String, Value>,
     /// Scalar and map aliases, emitted first.
     aliases: BTreeMap<String, String>,
+    /// Owner-local string enums, emitted before record defaults consume them.
+    local_enums: BTreeMap<String, String>,
     /// Struct classes.
     classes: BTreeMap<String, String>,
     /// Unions of tagged structs, emitted after the classes.
@@ -617,6 +665,7 @@ impl<'a> Emitter<'a> {
                 .collect(),
             definitions: BTreeMap::new(),
             aliases: BTreeMap::new(),
+            local_enums: BTreeMap::new(),
             classes: BTreeMap::new(),
             unions: BTreeMap::new(),
             defined: BTreeSet::new(),
@@ -699,10 +748,18 @@ impl<'a> Emitter<'a> {
             .get(name)
             .cloned()
             .ok_or_else(|| error(format!("unknown definition {name}")))?;
-        if schema.get("enum").is_some() {
-            return Err(error(format!(
-                "{name} is an enumeration crossing the boundary that is not a registry vocabulary"
-            )));
+        if let Some(members) = named_string_choices(&schema)? {
+            let mut identifiers = BTreeSet::new();
+            let mut source = format!("class {}(StrEnum):\n", python_type_name(name));
+            for member in members {
+                let identifier = super::python::member_name(member);
+                if !identifiers.insert(identifier.clone()) {
+                    return Err(error(format!("{name} has colliding Python enumeration members")));
+                }
+                let _ = writeln!(source, "    {identifier} = {}", py_str(member));
+            }
+            self.local_enums.insert(name.to_owned(), source);
+            return Ok(());
         }
         let alternatives = schema
             .get("oneOf")
@@ -1184,6 +1241,9 @@ impl<'a> Emitter<'a> {
                 Some(vocabulary) if self.vocabularies.contains_key(vocabulary) => {
                     format!("enums.{vocabulary}.{}", super::python::member_name(member))
                 }
+                Some(name) if self.local_enums.contains_key(name) => {
+                    format!("{}.{}", python_type_name(name), super::python::member_name(member))
+                }
                 _ => py_str(member),
             },
             Value::Array(items) if items.is_empty() => {
@@ -1220,10 +1280,9 @@ impl<'a> Emitter<'a> {
         if let Some(constant) = schema.get("const") {
             return Ok(format!("Literal[{}]", py_literal(constant)));
         }
-        if schema.get("enum").is_some() {
-            return Err(error(format!(
-                "an inline enumeration {schema}; declare a registry vocabulary"
-            )));
+        if let Some(members) = schema.get("enum") {
+            let members = string_choices(schema, members)?;
+            return Ok(format!("Literal[{}]", members.into_iter().map(py_str).collect::<Vec<_>>().join(", ")));
         }
         if let Some(alternatives) = schema
             .get("anyOf")
@@ -1447,11 +1506,17 @@ fn python_module(
         source.push_str("\"\"\"Private Rust-owned bootstrap wire records; never expose values.\"\"\"\n\nfrom __future__ import annotations\n\nfrom typing import Annotated, Literal\n\nimport msgspec\n");
     } else {
         source.push_str(
-        "\"\"\"Rust-owned boundary documents as frozen msgspec types (ADR-0116 Outcome 7).\n\nGenerated from the documents' JSON Schemas in `docs/generated/schema/`; the Rust serde\ntypes are the authority. Every enumeration is a registry vocabulary.\n\"\"\"\n\n",
+        "\"\"\"Rust-owned boundary documents as frozen msgspec types (ADR-0116 Outcome 7).\n\nGenerated from the documents' JSON Schemas in `docs/generated/schema/`; the Rust serde\ntypes are the authority. Scientific vocabularies retain registry identity; other string enums belong to their document owner.\n\"\"\"\n\n",
     );
         source.push_str(
         "from __future__ import annotations\n\nfrom typing import Annotated, Literal\n\nimport msgspec\n\nfrom pse.contracts import enums, identities\nfrom pse.contracts import values as v\n",
     );
+    }
+    if !emitter.local_enums.is_empty() {
+        source.push_str("from enum import StrEnum\n");
+        for definition in emitter.local_enums.values() {
+            let _ = write!(source, "\n{definition}\n");
+        }
     }
     if emitter
         .classes
@@ -1513,6 +1578,7 @@ fn python_module(
     let names = emitter
         .aliases
         .keys()
+        .chain(emitter.local_enums.keys())
         .chain(emitter.classes.keys())
         .chain(emitter.unions.keys())
         .collect::<BTreeSet<_>>();
@@ -1610,6 +1676,79 @@ pub fn generate_private(
     Ok(tree)
 }
 
+/// Render related private roots in one module, sharing their actual nested definitions.
+/// # Errors
+/// An unsafe family name or unsupported schema/scientific-package dependency.
+pub fn generate_private_family(reg: &Registry, family: &str, documents: &[Document]) -> Result<GeneratedTree, SchemaError> {
+    if family.is_empty() || !family.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-') {
+        return Err(error("private contract family requires a local module name"));
+    }
+    let mut tree = GeneratedTree::empty(vec![PathBuf::from(PRIVATE_PYTHON_ROOT)]);
+    tree.files.insert(format!("{PRIVATE_PYTHON_ROOT}/{}.py", family.replace('-', "_")).into(),
+        python_module(reg, documents, true)?.into_bytes());
+    for document in documents {
+        if document.name.is_empty() || !document.name.bytes().all(|byte|
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_' || byte == b'-') {
+            return Err(error("private schema requires a local document name"));
+        }
+        let path = format!("{PRIVATE_PYTHON_ROOT}/{}_schema/{}.schema.json",
+            family.replace('-', "_"), document.name).into();
+        if tree.files.insert(path, canonical(&document.schema)?.into_bytes()).is_some() {
+            return Err(error("private family repeats a document schema name"));
+        }
+    }
+    Ok(tree)
+}
+
+/// Publish a responsibility-owned document family using the existing strict schema emitter.
+/// Private Python records depend only on msgspec and their local closed vocabularies.
+/// # Errors
+/// Unsupported boundary schemas or canonical identity framing failure.
+pub fn generate_private_catalogue(catalogue: &[CatalogueDocument]) -> Result<GeneratedTree, SchemaError> {
+    const ROOT: &str = "scripts/generated/evidence_schema";
+    let registry = crate::RegistryBuilder::new().build()?;
+    let mut tree = GeneratedTree::empty(vec![PathBuf::from(PRIVATE_PYTHON_ROOT)]);
+    let mut rows = Vec::new();
+    let mut identities = Vec::new();
+    for entry in catalogue {
+        let direction = if entry.output { "output" } else { "input" };
+        let name = format!("{}_{direction}", entry.slug.replace('-', "_"));
+        let document = Document { name: entry.slug.clone(), schema: entry.schema.clone() };
+        let mut bytes = serde_json::to_vec_pretty(&entry.schema).map_err(|cause| error(cause.to_string()))?;
+        bytes.push(b'\n');
+        let schema_path = format!("{ROOT}/{}.{direction}.schema.json", entry.slug);
+        let python_path = format!("{PRIVATE_PYTHON_ROOT}/{name}.py");
+        tree.files.insert(python_path.into(), python_module(&registry, &[document], true)?.into_bytes());
+        rows.push(serde_json::json!({"slug":entry.slug,"direction":direction,"exported_name":entry.name,
+            "schema_path":schema_path,"schema_sha256":hex::encode(Sha256::digest(&bytes)),
+            "version":entry.version,"wire":entry.wire,"registration_source":entry.registration_source}));
+        identities.push(serde_json::json!({"name":entry.name,"slug":entry.slug,"direction":direction,
+            "version":entry.version,"wire":entry.wire,"schema":entry.schema}));
+        tree.files.insert(schema_path.into(), bytes);
+    }
+    let fingerprint = pse_ids::document::of(pse_ids::Frame::BoundarySchemaSetV1, &identities)
+        .map_err(|cause| error(cause.to_string()))?;
+    for entry in catalogue {
+        let direction = if entry.output { "output" } else { "input" };
+        for output_path in [format!("{ROOT}/{}.{direction}.schema.json", entry.slug),
+            format!("{ROOT}/catalogue.json"),
+            format!("{PRIVATE_PYTHON_ROOT}/{}_{direction}.py", entry.slug.replace('-', "_"))] {
+            tree.relationships.push(super::provenance::SourceRelationship {
+                declaration_key: entry.name.clone(), declaration_kind: "private_catalogue".into(),
+                contract_sections: Vec::new(), source_path: Some(entry.registration_source.clone()),
+                source_symbol: Some(entry.rust_type.clone()), source_role: "catalogue_registration".into(),
+                source_identity: Some(fingerprint.to_prefixed()),
+                generator_path: "crates/pse-codegen/src/codegen/documents.rs".into(),
+                generator_symbol: "generate_private_catalogue".into(), output_path,
+                direction: Some(direction.into()), basis: "declared".into(),
+            });
+        }
+    }
+    let manifest = serde_json::json!({"version":1,"schema_set_fingerprint":fingerprint.to_prefixed(),"documents":rows,"authoring":null});
+    tree.files.insert(format!("{ROOT}/catalogue.json").into(), serde_json::to_vec_pretty(&manifest).map_err(|cause| error(cause.to_string()))?);
+    Ok(tree)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1619,6 +1758,52 @@ mod tests {
             name: "probe".into(),
             schema,
         }
+    }
+
+    #[test]
+    fn documented_rust_enum_derives_keep_local_enum_members_and_defaults() {
+        #[derive(Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+        #[serde(rename_all = "kebab-case")]
+        enum Phase {
+            /// Describes an operation without performing it.
+            #[default]
+            Description,
+            /// Acknowledges its completed effect.
+            Initialized,
+        }
+        #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+        #[serde(deny_unknown_fields)]
+        struct Report { #[serde(default)] phase: Phase }
+        let registry = crate::RegistryBuilder::new().build().unwrap();
+        let document = Document { name: "report".into(), schema: schemars::schema_for!(Report).to_value() };
+        let tree = generate_private_family(&registry, "initialization", &[document.clone()]).unwrap();
+        let source = std::str::from_utf8(&tree.files[&PathBuf::from("scripts/generated/initialization.py")]).unwrap();
+        assert!(source.contains("class Phase(StrEnum):"), "{source}");
+        assert!(source.contains("DESCRIPTION = \"description\""));
+        assert!(source.contains("INITIALIZED = \"initialized\""));
+        assert!(source.contains("phase: Phase = Phase.DESCRIPTION"));
+        assert!(!source.contains("Phase = Literal"));
+        let published = &tree.files[&PathBuf::from("scripts/generated/initialization_schema/report.schema.json")];
+        let mut published = serde_json::from_slice::<Value>(published).unwrap();
+        assert_eq!(published.as_object_mut().unwrap().remove("$comment"),
+            Some(Value::String("@generated by pse-schema; do not edit".into())));
+        assert_eq!(published, document.schema);
+    }
+
+    #[test]
+    fn private_family_shares_the_same_nested_owner_vocabulary_across_roots() {
+        let registry = crate::RegistryBuilder::new().build().unwrap();
+        let root = |name: &str| Document { name: name.to_lowercase(), schema: serde_json::json!({
+            "title": name, "type": "object", "additionalProperties": false,
+            "properties": {"mode": {"$ref": "#/$defs/Profile"}}, "required": ["mode"],
+            "$defs": {"Profile": {"type":"string", "enum":["ordinary","reference"]}}
+        }) };
+        let tree = generate_private_family(&registry, "deployment-probe", &[root("Request"), root("Response")]).unwrap();
+        let source = std::str::from_utf8(&tree.files[&PathBuf::from("scripts/generated/deployment_probe.py")]).unwrap();
+        assert_eq!(source.matches("class Profile(StrEnum)").count(), 1);
+        assert!(source.contains("class Request("));
+        assert!(source.contains("class Response("));
+        assert!(!source.contains("from pse"));
     }
 
     #[test]
@@ -1961,7 +2146,9 @@ mod tests {
         for expected in [
             "from typing import Annotated, ClassVar, Literal",
             "Budget = Annotated[float, msgspec.Meta(gt=0.0)]",
-            "Direction = Literal[\"upstream\", \"downstream\"]",
+            "class Direction(StrEnum):",
+            "UPSTREAM = \"upstream\"",
+            "DOWNSTREAM = \"downstream\"",
             "class ChoicePlain(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field=\"kind\", tag=\"plain\"):",
             "    size: Annotated[int, msgspec.Meta(ge=1)]",
             "Choice = ChoicePlain | ChoiceSized",
@@ -2059,7 +2246,7 @@ mod tests {
     }
 
     #[test]
-    fn non_registry_enumerations_and_open_objects_are_refused() {
+    fn owner_local_enumerations_are_lowered_and_open_objects_are_refused() {
         let registry = crate::registry().unwrap();
         let enumeration = serde_json::json!({
             "title": "Probe", "type": "object", "additionalProperties": false,
@@ -2067,7 +2254,10 @@ mod tests {
             "properties": {"mode": {"$ref": "#/$defs/Mode"}},
             "$defs": {"Mode": {"type": "string", "enum": ["a", "b"]}},
         });
-        assert!(python(registry, &[document(enumeration)]).is_err());
+        let source = python(registry, &[document(enumeration)]).unwrap();
+        assert!(source.contains("class Mode(StrEnum):\n    A = \"a\"\n    B = \"b\""));
+        assert!(source.contains("mode: Mode"));
+        assert!(!source.contains("enums.Mode"));
         let open = serde_json::json!({
             "title": "Probe", "type": "object", "required": [],
             "properties": {"x": {"type": "number", "default": 1.0}},
@@ -2080,6 +2270,30 @@ mod tests {
             "$defs": {"HessianMode": {"type": "string", "enum": ["exact"]}},
         });
         assert!(python(registry, &[document(wrong)]).is_err());
+    }
+
+    #[test]
+    fn local_choices_preserve_defaults_private_independence_and_refuse_collisions() {
+        let registry = crate::registry().unwrap();
+        let schema = serde_json::json!({
+            "title": "Deployment", "type": "object", "additionalProperties": false,
+            "properties": {
+                "mode": {"$ref": "#/$defs/ReceiverMode", "default": "active"},
+                "phase": {"type": "string", "enum": ["closed", "ready"]}
+            },
+            "required": ["phase"],
+            "$defs": {"ReceiverMode": {"type": "string", "enum": ["active", "offline"]}}
+        });
+        let source = python_module(registry, &[document(schema.clone())], true).unwrap();
+        assert!(source.contains("mode: ReceiverMode = ReceiverMode.ACTIVE"));
+        assert!(source.contains("phase: Literal[\"closed\", \"ready\"]"));
+        assert!(!source.contains("from pse."));
+        let mut collision = schema.clone();
+        collision["$defs"]["ReceiverMode"]["enum"] = serde_json::json!(["a-b", "a_b"]);
+        assert!(python_module(registry, &[document(collision)], true).is_err());
+        let mut numbers = schema;
+        numbers["$defs"]["ReceiverMode"] = serde_json::json!({"type":"integer", "enum":[1, 2]});
+        assert!(python_module(registry, &[document(numbers)], true).is_err());
     }
 
     #[test]

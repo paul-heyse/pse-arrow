@@ -43,6 +43,7 @@ pub struct StudyDefinitionPoint {
     /// Capability required by the original policy facts.
     pub admitted_seed_need: Option<pse_model::study::SeedNeed>,
 }
+const STUDY_OUTCOME_SQL:&str="LET $points=SELECT key,ordinal,occurrence,outcome,settled FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT __OUTCOME_ROWS__; LET $page=$points.fold({rows:[],bytes:0,stopped:false},|$acc,$point| {LET $bytes=$acc.bytes+bytes::len($point.outcome ?? <bytes>[])+2048; IF $acc.stopped OR ($bytes>__STUDY_BYTES__ AND array::len($acc.rows)!=0) {RETURN object::extend($acc,{stopped:true});}; RETURN {rows:array::append($acc.rows,$point),bytes:$bytes,stopped:false};}); RETURN $page.rows.map(|$point| object::extend(object::remove($point,'key'),{projection:(SELECT projection FROM ONLY type::record('canonical_study_admission_outcomes',$point.key)).projection}));";
 const STUDY_DEFINITION_SQL: &str = "SELECT ordinal,occurrence,policy,descriptor,admission,facts,revision FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT 4;";
 fn decode_definition_point(mut row: Object) -> Result<StudyDefinitionPoint, CanonicalError> {
     let ordinal = codec::decode_uint(codec::required(&mut row, "ordinal")?)?;
@@ -294,6 +295,8 @@ pub struct NewOccurrence {
     pub policy: PointPolicy,
     /// Existing scientific owner encodes the operation and binding, excluding policy.
     pub descriptor: Vec<u8>,
+    /// Compact admitted case/binding identity; pending lazy variants publish at settlement.
+    pub projection: Option<Vec<u8>>,
     /// Exact scientific request and provenance recorded before claim.
     pub run: RunRequest,
 }
@@ -305,56 +308,32 @@ pub struct StudyOutcomePoint {
     pub ordinal: u64,
     /// Authored occurrence identity.
     pub occurrence: u64,
-    /// Immutable operation and binding definition.
-    pub descriptor: pse_model::Bytes,
-    /// Immutable selected admission, absent for unattempted variants.
-    pub admission: Option<pse_model::Bytes>,
-    /// Immutable policy needed to validate the definition.
-    pub policy: pse_model::Bytes,
+    /// Compact admitted case/binding identity, or explicit unavailability.
+    pub projection: Option<pse_model::Bytes>,
     /// Settled scientific outcome, without reconstructing a native report.
     pub outcome: pse_model::Bytes,
 }
 impl StudyOutcomePoint {
-    /// Decode policy under the exact authored occurrence identity.
-    pub fn policy(&self) -> Result<PointPolicy, CanonicalError> {
-        decode_point_policy(&self.policy, self.occurrence)
-    }
     /// Decode the retained original outcome and verify its occurrence association.
     pub fn outcome(&self) -> Result<PointOutcome, CanonicalError> {
         let outcome: PointOutcome = decode(self.outcome.as_slice())?;
         if u64::from(outcome.key.0) != self.occurrence {
-            return Err(CanonicalError::Configuration(
-                "summary outcome occurrence differs".into(),
-            ));
+            return Err(CanonicalError::Configuration("summary outcome occurrence differs".into()));
         }
         Ok(outcome)
     }
 }
-
 fn decode_outcome_point(mut row: Object) -> Result<StudyOutcomePoint, CanonicalError> {
     use codec::{decode_boolean, decode_bytes, decode_uint, required};
-    if !decode_boolean(required(&mut row, "settled")?)? {
-        return Err(CanonicalError::Configuration(
-            "summary occurrence is not settled".into(),
-        ));
-    }
-    let point = StudyOutcomePoint {
-        ordinal: decode_uint(required(&mut row, "ordinal")?)?,
-        occurrence: decode_uint(required(&mut row, "occurrence")?)?,
-        descriptor: decode_bytes(required(&mut row, "descriptor")?)?,
-        admission: match row.remove("admission") {
-            None | Some(Value::None) => None,
-            Some(value) => Some(decode_bytes(value)?),
-        },
-        policy: decode_bytes(required(&mut row, "policy")?)?,
-        outcome: decode_bytes(required(&mut row, "outcome")?)?,
+    if !decode_boolean(required(&mut row,"settled")?)? { return Err(CanonicalError::Configuration("summary occurrence is not settled".into())); }
+    let point=StudyOutcomePoint {
+        ordinal:decode_uint(required(&mut row,"ordinal")?)?, occurrence:decode_uint(required(&mut row,"occurrence")?)?,
+        projection:row.remove("projection").filter(|v| !matches!(v,Value::None|Value::Null)).map(decode_bytes).transpose()?,
+        outcome:decode_bytes(required(&mut row,"outcome")?)?,
     };
-    if !row.is_empty() {
-        return Err(codec::CodecError::UnknownFields.into());
-    }
-    bounded(point.descriptor.as_slice(), 512 * 1024)?;
-    bounded(point.policy.as_slice(), 16 * 1024)?;
-    bounded(point.outcome.as_slice(), 128 * 1024)?;
+    if !row.is_empty() {return Err(codec::CodecError::UnknownFields.into());}
+    if let Some(projection)=&point.projection { bounded(projection.as_slice(),1024)?; }
+    bounded(point.outcome.as_slice(),128*1024)?;
     Ok(point)
 }
 
@@ -808,6 +787,21 @@ fn occurrence_dependencies(
     Ok(result)
 }
 
+fn population_digest(study: &str, run: &RunRequest, metadata: &[u8], points: &[NewOccurrence]) -> Result<String, CanonicalError> {
+    let mut population=pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+    population.str("pse.study.installation.v1").str(study).part(metadata);
+    let (parent, _)=crate::canonical_execution::run_request_receipt(run)?;
+    population.part(&encode(&wire::encode_canonical_runs(&parent)?)?);
+    for point in points {
+        bounded(&point.descriptor,512*1024)?;
+        if let Some(projection)=&point.projection {bounded(projection,1024)?;}
+        population.part(&encode(&point.policy)?).part(&point.descriptor).part(&encode(&point.projection)?);
+        let (receipt,_)=crate::canonical_execution::run_request_receipt(&point.run)?;
+        population.part(&encode(&wire::encode_canonical_runs(&receipt)?)?);
+    }
+    Ok(population.finish_hash().to_hex())
+}
+
 impl CanonicalStore {
     /// Install one deduplicated exact independent seed selection before study activation.
     pub async fn retain_study_input(
@@ -875,9 +869,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
-                within_clock(
-                    original_deadline(crate::canonical::ACTIVATION_REQUEST_TIMEOUT),
-                    async {
+                async {
                         let (physical_revision, physical_identity, context) =
                             crate::canonical_study_workbench::index_metadata(metadata)?;
                         let row = Study {
@@ -942,32 +934,38 @@ impl CanonicalStore {
                         if cancelled() {
                             return self.stop_study_creation(&row, run, points).await;
                         }
+                        let digest = population_digest(key, run, metadata, points)?;
                         self.begin_run(run).await?;
                         if cancelled() {
                             return self.stop_study_creation(&row, run, points).await;
                         }
                         let object = wire::encode_canonical_studies(&row)?;
                         self.ensure_writes()?;
-                        self.protected_query(
+                        let mut created = self.protected_query(
                             &row.problem,
                             crate::canonical::QueryEffect::Mutation,
                             "canonical_studies::create_study",
                             || {
                                 Ok(self
                             .db
-                            .query("RETURN fn::pse_study_v1::create($pse_rpc_expires_at, $row);")
-                            .bind(("row", object.clone())))
+                            .query("RETURN fn::pse_study_v1::create($pse_rpc_expires_at, $row,$digest);")
+                            .bind(("row", object.clone())).bind(("digest",digest.clone())))
                             },
                         )
                         .await?;
+                        let installed = wire::decode_canonical_studies(created.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?;
+                        check_created_study(&row, &installed)?;
+                        if installed.active { return self.finish_study_activation(&row,Ok(installed),cancelled).await; }
                         if cancelled() {
                             return self.stop_study_creation(&row, run, points).await;
                         }
                         // Bulk native insertion amortizes round trips while each transaction remains
                         // bounded by both occurrence count and encoded descriptor/edge extent.
                         let mut batch = Vec::new();
+                        let mut runs = Vec::new();
                         let mut extent = 0_usize;
-                        for (ordinal, point) in points.iter().enumerate() {
+                        let mut node_cursor = installed.next_ordinal;
+                        for (ordinal, point) in points.iter().enumerate().skip(installed.next_ordinal as usize) {
                             if cancelled() {
                                 return self.stop_study_creation(&row, run, points).await;
                             }
@@ -1008,7 +1006,7 @@ impl CanonicalStore {
                                 attempt: None,
                                 start: None,
                             };
-                            if point.policy.seed_need == pse_model::study::SeedNeed::Pending {
+                            let request = if point.policy.seed_need == pse_model::study::SeedNeed::Pending {
                                 let mut admission_run = point.run.clone();
                                 admission_run.key = RunKey::study_admission(&StudyPointKey::from(key.as_str()));
                                 admission_run.purpose = pse_model::generated::enums::CanonicalRunPurpose::StudyAdmission;
@@ -1020,40 +1018,49 @@ impl CanonicalStore {
                                     &point.descriptor,
                                     &point.policy,
                                 ))?;
-                                self.begin_run(&admission_run).await?;
+                                admission_run
                             } else {
-                                self.begin_run(&point.run).await?;
-                            }
+                                point.run.clone()
+                            };
+                            let (run_receipt, sources) = crate::canonical_execution::run_request_receipt(&request)?;
+                            let mut run_object = Object::new();
+                            run_object.insert("point", Value::String(key.clone()));
+                            run_object.insert("projection", if point.policy.seed_need==pse_model::study::SeedNeed::Pending {Value::None} else {Value::Bytes(Bytes::from(point.projection.clone().unwrap_or_else(||b"[null,null]".to_vec())))});
+                            run_object.insert("row", Value::Object(wire::encode_canonical_runs(&run_receipt)?));
+                            run_object.insert("sources", Value::Array(sources.into_iter().map(Value::Object).collect()));
                             if cancelled() {
                                 return self.stop_study_creation(&row, run, points).await;
                             }
                             let point_extent = native.descriptor.len()
                                 + native.policy.len()
                                 + native.facts.len()
-                                + 4096;
+                                + request.request.len() + request.source_selection.len() + request.attestation.len() + 8192;
                             if !batch.is_empty()
                                 && (batch.len() == 64 || extent + point_extent > 2 * 1024 * 1024)
                             {
                                 if cancelled() {
                                     return self.stop_study_creation(&row, run, points).await;
                                 }
-                                self.append_study_batch(&row.key, &batch).await?;
+                                self.install_study_page(&row.key, &digest, "nodes", node_cursor, &batch, &runs, &[]).await?;
+                                node_cursor += batch.len() as u64;
                                 #[cfg(test)]
                                 creation_observed(CreationBoundary::BatchAppended);
                                 if cancelled() {
                                     return self.stop_study_creation(&row, run, points).await;
                                 }
                                 batch.clear();
+                                runs.clear();
                                 extent = 0;
                             }
                             extent += point_extent;
                             batch.push(wire::encode_canonical_study_points(&native)?);
+                            runs.push(run_object);
                         }
                         if !batch.is_empty() {
                             if cancelled() {
                                 return self.stop_study_creation(&row, run, points).await;
                             }
-                            self.append_study_batch(&row.key, &batch).await?;
+                            self.install_study_page(&row.key, &digest, "nodes", node_cursor, &batch, &runs, &[]).await?;
                             #[cfg(test)]
                             creation_observed(CreationBoundary::BatchAppended);
                         }
@@ -1063,14 +1070,19 @@ impl CanonicalStore {
                         // authoring pages. Install enforced edges in bounded pages; exact
                         // edge identities settle replay without advancing the count twice.
                         let mut edges = Vec::new();
+                        let mut edge_cursor = installed.installed_dependencies;
+                        let mut edge_ordinal = 0_u64;
                         for point in points {
                             for edge in occurrence_dependencies(&row.key, point)? {
+                                edge_ordinal += 1;
+                                if edge_ordinal <= installed.installed_dependencies { continue; }
                                 if cancelled() {
                                     return self.stop_study_creation(&row, run, points).await;
                                 }
                                 edges.push(edge);
                                 if edges.len() == 64 {
-                                    self.append_study_dependencies(&row.key, &edges).await?;
+                                    self.install_study_page(&row.key, &digest, "edges", edge_cursor, &[], &[], &edges).await?;
+                                    edge_cursor += edges.len() as u64;
                                     #[cfg(test)]
                                     creation_observed(CreationBoundary::DependencyBatchInstalled);
                                     edges.clear();
@@ -1078,7 +1090,7 @@ impl CanonicalStore {
                             }
                         }
                         if !edges.is_empty() {
-                            self.append_study_dependencies(&row.key, &edges).await?;
+                            self.install_study_page(&row.key, &digest, "edges", edge_cursor, &[], &[], &edges).await?;
                         }
                         #[cfg(test)]
                         creation_observed(CreationBoundary::BeforeActivation);
@@ -1090,9 +1102,7 @@ impl CanonicalStore {
                         let response = self.send_study_activation(&row.key).await;
                         self.finish_study_activation(&row, response, cancelled)
                             .await
-                    },
-                )
-                .await
+                    }.await
             })
             .await
     }
@@ -1108,55 +1118,20 @@ impl CanonicalStore {
                 return Ok(None);
             };
             check_created_study(expected, &study)?;
-            if !study.active {
-                return Ok(None);
-            }
             if points.is_empty() || points.len() > 100_000 {
                 return Err(CanonicalError::PayloadLimit);
             }
-            if study.next_ordinal != study.point_count {
+            if study.active && study.next_ordinal != study.point_count {
                 return Err(CanonicalError::IncompleteResponse);
             }
-            // Prove every immutable member with bounded point/run reads before
-            // revoking this active study; checking a retry never publishes a run.
-            self.check_execution_run_identity(run).await?;
-            for (ordinal, point) in points.iter().enumerate() {
-                bounded(&point.descriptor, 512 * 1024)?;
-                let policy = encode(&point.policy)?;
-                bounded(&policy, 16 * 1024)?;
-                let key = point_key(&expected.key, point.policy.key);
-                let saved = self
-                    .canonical_study_point(&key)
-                    .await?
-                    .ok_or(CanonicalError::OperationReused)?;
-                if saved.key != key
-                    || saved.study != expected.key
-                    || saved.ordinal != ordinal as u64
-                    || saved.occurrence != u64::from(point.policy.key.0)
-                    || saved.descriptor.as_slice() != point.descriptor
-                    || saved.policy.as_slice() != policy
-                    || saved.run != point.run.key.as_str()
-                {
-                    return Err(CanonicalError::OperationReused);
-                }
-                if point.policy.seed_need == pse_model::study::SeedNeed::Pending {
-                    let mut admission_run = point.run.clone();
-                    admission_run.key = RunKey::study_admission(&StudyPointKey::from(key.as_str()));
-                    admission_run.purpose =
-                        pse_model::generated::enums::CanonicalRunPurpose::StudyAdmission;
-                    admission_run.admission_study = Some(expected.key.clone().into());
-                    admission_run.admission_point = Some(key.clone().into());
-                    admission_run.request = encode(&(
-                        1_u8,
-                        "study-scientific-admission",
-                        &point.descriptor,
-                        &point.policy,
-                    ))?;
-                    self.check_execution_run_identity(&admission_run).await?;
-                } else {
-                    self.check_execution_run_identity(&point.run).await?;
-                }
-            }
+            // The complete immutable population digest was committed before the first
+            // page; cancellation verifies the whole requested identity without
+            // walking installed descriptors or recreating their run identities.
+            let digest=population_digest(&expected.key,run,expected.metadata.as_slice(),points)?;
+            let mut response=protected_query("canonical_studies::cancelled_installation_identity",|| Ok(self.db.query("SELECT digest FROM ONLY type::record('canonical_study_installations',$study);").bind(("study",expected.key.clone())))).await?;
+            let mut installation=response.take::<Option<Object>>(0)?.ok_or(CanonicalError::OperationReused)?;
+            if codec::decode_string(codec::required(&mut installation,"digest")?)? != digest { return Err(CanonicalError::OperationReused); }
+            if !study.active { return Ok(None); }
             self.cancel_study(&expected.key).await.map(Some)
         })
         .await
@@ -1272,31 +1247,34 @@ impl CanonicalStore {
         .await
     }
 
-    async fn append_study_batch(
-        &self,
-        study: &str,
-        points: &[Object],
+    async fn install_study_page(
+        &self, study: &str, digest: &str, phase: &str, cursor: u64,
+        points: &[Object], runs: &[Object], edges: &[Object],
     ) -> Result<(), CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            self.protected_study_query(study, "canonical_studies::append_study_batch", || {
-                Ok(self
-                    .db
-                    .query("RETURN fn::pse_study_v1::append($pse_rpc_expires_at, $study,$points);")
-                    .bind(("study", study.to_owned()))
-                    .bind(("points", points.to_vec())))
-            })
-            .await?;
+            let mut framing=pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+            framing.str("pse.study.installation.page.v1").str(study).str(digest).str(phase).u64(cursor);
+            for group in [points,runs,edges] {
+                framing.u64(group.len() as u64);
+                for row in group {framing.part(&encode(row)?);}
+            }
+            let request=framing.finish_hash().to_hex().into_bytes();
+            let page_key=format!("{study}:{phase}:{cursor}");
+            let count=if phase=="nodes" {points.len()} else {edges.len()};
+            let issued=self.protected_study_query(study,"canonical_studies::issue_study_page",|| Ok(self.db.query("RETURN fn::pse_study_v1::issue_page($pse_rpc_expires_at,$study,$digest,$phase,$cursor,$request,$count);")
+                .bind(("study",study.to_owned())).bind(("digest",digest.to_owned())).bind(("phase",phase.to_owned())).bind(("cursor",codec::encode_uint(cursor)?)).bind(("request",Bytes::from(request.clone()))).bind(("count",count)))).await.and_then(|mut response| response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse));
+            crate::canonical::settlement::settle_exact("study-installation-issue",&page_key,&request,issued,async {
+                let mut response=protected_query("canonical_studies::issued_page_readback",|| Ok(self.db.query("SELECT * FROM ONLY type::record('canonical_study_installation_pages',$key);").bind(("key",page_key.clone())))).await?;
+                Ok(response.take::<Option<Object>>(0)?)
+            },|receipt| receipt.get("request")==Some(&Value::Bytes(Bytes::from(request.clone()))) && receipt.get("next_cursor")==codec::encode_uint(cursor+count as u64).ok().as_ref(),CanonicalError::source_transaction_refused).await?;
+            let write=self.protected_study_query(study,"canonical_studies::install_study_page",|| Ok(self.db.query("RETURN fn::pse_study_v1::install_page($pse_rpc_expires_at,$study,$digest,$phase,$cursor,$request,$points,$runs,$edges);")
+                .bind(("study",study.to_owned())).bind(("digest",digest.to_owned())).bind(("phase",phase.to_owned())).bind(("cursor",codec::encode_uint(cursor)?)).bind(("request",Bytes::from(request.clone()))).bind(("points",points.to_vec())).bind(("runs",runs.to_vec())).bind(("edges",edges.to_vec())))).await.and_then(|mut response| response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse));
+            crate::canonical::settlement::settle_exact("study-installation-page",&page_key,&request,write,async {
+                let mut response=protected_query("canonical_studies::installation_page_readback",|| Ok(self.db.query("SELECT * FROM ONLY type::record('canonical_study_installation_pages',$key);").bind(("key",page_key.clone())))).await?;
+                Ok(response.take::<Option<Object>>(0)?.filter(|row|row.get("state")==Some(&Value::String("committed".into()))))
+            },|receipt| receipt.get("request")==Some(&Value::Bytes(Bytes::from(request.clone()))) && receipt.get("next_cursor")==codec::encode_uint(cursor+count as u64).ok().as_ref() && receipt.get("state")==Some(&Value::String("committed".into())),CanonicalError::source_transaction_refused).await?;
             Ok(())
-        })
-        .await
-    }
-    async fn append_study_dependencies(
-        &self,
-        study: &str,
-        edges: &[Object],
-    ) -> Result<(), CanonicalError> {
-        self.protected_study_query(study, "canonical_studies::append_study_dependencies", || Ok(self.db.query("RETURN fn::pse_study_v1::append_dependencies($pse_rpc_expires_at,$study,$edges);").bind(("study",study.to_owned())).bind(("edges",edges.to_vec())))).await?;
-        Ok(())
+        }).await
     }
 
     /// Read a study header without its occurrence graph.
@@ -1724,7 +1702,7 @@ impl CanonicalStore {
         }).await
             }).await
     }
-    /// Original outcome and definition arrive together, without one later read per point.
+    /// Compact immutable admission and settled outcomes; detail descriptors are never fetched.
     pub async fn study_outcome_page(
         &self,
         study: &str,
@@ -1733,9 +1711,8 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            // Four maximum-size definitions/outcomes fit below the existing message
-            // bound. Do not use the 64-row metadata-page limit for these byte payloads.
-            let mut response = protected_query("canonical_studies::study_outcome_page", || Ok(self.db.query(crate::canonical_history::study_query("SELECT ordinal,occurrence,descriptor,admission,policy,outcome,settled FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT 4;","study"))
+            let sql=STUDY_OUTCOME_SQL.replace("__OUTCOME_ROWS__",&pse_schema::catalog::study_workbench::STUDY_OUTCOME_PAGE_ROWS.to_string()).replace("__STUDY_BYTES__",&pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES.to_string());
+            let mut response = protected_query("canonical_studies::study_outcome_page", || Ok(self.db.metadata_query(crate::canonical::MetadataResponse::StudyPage,crate::canonical_history::study_query(&sql,"study"))
                 .bind(("study", study.to_owned()))
                 .bind(("after", after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
             response.take::<Vec<Object>>(0)?.into_iter().map(decode_outcome_point).collect()
@@ -1850,12 +1827,14 @@ impl CanonicalStore {
         scope: &StudyScope,
         fence: &AttemptFence,
         admission: &[u8],
+        projection: Option<&[u8]>,
         seed_need: Option<pse_model::study::SeedNeed>,
         diagnostic: Option<pse_model::diagnostic::BoundaryDiagnostic>,
     ) -> Result<StudyPoint, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async { within_clock(original_deadline(REQUEST_TIMEOUT), async {
         bounded(admission, 512 * 1024)?;
+        if let Some(projection)=projection { bounded(projection,1024)?; }
         if Some(fence.run()) != scope.point.admission_run.as_deref()
             || seed_need == Some(pse_model::study::SeedNeed::Pending)
             || seed_need.is_some() == diagnostic.is_some() {
@@ -1873,16 +1852,16 @@ impl CanonicalStore {
         let facts = encode(&facts)?;
         let outcome = outcome.as_ref().map(encode).transpose()?;
         let operation = format!("study-admission-complete:{}", scope.point.key);
-        let request = encode(&(1_u8, &scope.point.key, admission, seed_need, &outcome))?;
+        let request = encode(&(1_u8, &scope.point.key, admission, projection, seed_need, &outcome))?;
         let expected = scope_expected(scope)?;
         let response = self.protected_execution_query(fence.run(), "canonical_studies::complete_study_admission", || Ok(
-            self.db.query("RETURN fn::pse_study_v1::admission_complete($pse_rpc_expires_at,$study,$generation,$point,$expected,$run,$attempt,$authority,$operation,$request,$admission,$facts,$outcome);")
+            self.db.query("RETURN fn::pse_study_v1::admission_complete($pse_rpc_expires_at,$study,$generation,$point,$expected,$run,$attempt,$authority,$operation,$request,$admission,$projection,$facts,$outcome);")
             .bind(("study", scope.study.clone())).bind(("generation", codec::encode_uint(scope.generation)?))
             .bind(("point", scope.point.key.clone())).bind(("expected", expected.clone()))
             .bind(("run", fence.run().to_owned())).bind(("attempt", fence.attempt().to_owned()))
             .bind(("authority", codec::encode_uint(fence.generation())?)).bind(("operation", operation.clone()))
             .bind(("request", Bytes::from(request.clone()))).bind(("admission", Bytes::from(admission.to_vec())))
-            .bind(("facts", Bytes::from(facts.clone()))).bind(("outcome", outcome.clone().map(Bytes::from)))
+            .bind(("projection",Some(Bytes::from(projection.unwrap_or(b"[null,null]").to_vec())))).bind(("facts", Bytes::from(facts.clone()))).bind(("outcome", outcome.clone().map(Bytes::from)))
         )).await;
         match response {
             Ok(mut response) => Ok(wire::decode_canonical_study_points(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?),
@@ -2646,8 +2625,7 @@ mod outcome_projection_tests {
             for (key, value) in [
                 ("ordinal", codec::encode_uint(3).unwrap()),
                 ("occurrence", codec::encode_uint(7).unwrap()),
-                ("descriptor", Value::Bytes(Bytes::from(vec![1, 2, 3]))),
-                ("policy", Value::Bytes(Bytes::from(vec![]))),
+                ("projection", Value::None),
                 ("outcome", outcome),
                 ("settled", Value::Bool(settled)),
             ] {
@@ -2678,6 +2656,7 @@ mod outcome_projection_tests {
 )]
 mod canonical_studies_server_unit {
     include!("canonical_study_module_tests.rs");
+    include!("canonical_capture_tests.rs");
     use super::*;
     use crate::canonical::CanonicalOptions;
     use crate::canonical_execution::TerminalClass;
@@ -2728,24 +2707,24 @@ mod canonical_studies_server_unit {
             ..Default::default()
         };
         let headers = store
-            .select_study_workbench(&filter, None, 1, None)
+            .select_study_workbench(&filter, None, 1)
             .await
             .unwrap();
         assert_eq!(headers.headers.len(), 1);
-        assert!(headers.members.is_empty());
         let frozen = store
-            .select_study_workbench(&filter, None, 1, Some(3))
+            .capture_study_workbench("workbench-native-cut",&filter,1,3)
             .await
             .unwrap();
-        assert!(!frozen.has_more);
-        assert_eq!(frozen.members.len(), 3);
-        assert_eq!(frozen.members[0].facts.lifecycle, StudyPointState::Failed);
-        assert!(frozen.members[0].attempt.is_some());
-        assert!(frozen.members[1].attempt.is_none());
-        assert_eq!(frozen.members[1].facts.lifecycle, StudyPointState::Pending);
+        assert_eq!(frozen.member_count,3);
+        let members=frozen.capture.member_page(None,3).await.unwrap();
+        assert_eq!(members.rows.len(),3);
+        assert_eq!(members.rows[0].value.facts.lifecycle, StudyPointState::Failed);
+        assert!(members.rows[0].value.attempt.is_some());
+        assert!(members.rows[1].value.attempt.is_none());
+        assert_eq!(members.rows[1].value.facts.lifecycle, StudyPointState::Pending);
         assert!(
             store
-                .select_study_workbench(&filter, None, 1, Some(2))
+                .capture_study_workbench("workbench-native-narrow",&filter,1,2)
                 .await
                 .is_err()
         );
@@ -2754,10 +2733,13 @@ mod canonical_studies_server_unit {
             ..Default::default()
         };
         let empty = store
-            .select_study_workbench(&empty, None, 1, Some(1))
+            .capture_study_workbench("workbench-native-empty",&empty,1,1)
             .await
             .unwrap();
-        assert!(empty.headers.is_empty() && empty.members.is_empty() && !empty.has_more);
+        assert_eq!((empty.header_count,empty.member_count),(0,0));
+        drop(frozen);
+        drop(empty);
+        store.result_read_drain.drain().await.unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }
 
@@ -3233,6 +3215,7 @@ mod canonical_studies_server_unit {
                     &scope,
                     &first,
                     b"selected",
+                    None,
                     Some(SeedNeed::Required),
                     None
                 )
@@ -3240,7 +3223,7 @@ mod canonical_studies_server_unit {
                 .is_err()
         );
         let admitted = store
-            .complete_study_admission(&scope, &second, b"selected", Some(SeedNeed::Required), None)
+            .complete_study_admission(&scope, &second, b"selected", None, Some(SeedNeed::Required), None)
             .await
             .unwrap();
         assert_eq!(point_facts(&admitted).unwrap().attempt_count, 0);
@@ -3251,6 +3234,7 @@ mod canonical_studies_server_unit {
                     &scope,
                     &second,
                     b"changed",
+                    None,
                     Some(SeedNeed::Required),
                     None
                 )
@@ -3263,6 +3247,7 @@ mod canonical_studies_server_unit {
                     &scope,
                     &second,
                     b"selected",
+                    None,
                     Some(SeedNeed::Required),
                     None
                 )
@@ -3437,6 +3422,7 @@ mod canonical_studies_server_unit {
         dependencies: Vec<Dependency>,
     ) -> NewOccurrence {
         NewOccurrence {
+            projection: None,
             policy: PointPolicy {
                 key: OccurrenceKey(key),
                 dependencies,

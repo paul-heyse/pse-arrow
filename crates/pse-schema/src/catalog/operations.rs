@@ -7,6 +7,13 @@ use crate::RegistryBuilder;
 use crate::model::{EnumDecl, EnumMember, EnumProjection, EnumProjectionMember};
 
 pub(super) fn declare(builder: &mut RegistryBuilder) {
+    for (name,members,transitions) in [
+        ("CanonicalStudyCaptureState", &["pending","frozen","abandoned","releasing","released"][..], &[("pending","frozen"),("pending","abandoned"),("abandoned","releasing"),("frozen","releasing"),("releasing","released")][..]),
+        ("CanonicalStudyInstallationPhase", &["nodes","edges","active"][..], &[("nodes","edges"),("nodes","active"),("edges","active")][..]),
+        ("CanonicalStudyInstallationPageState", &["issued","committed"][..], &[("issued","committed")][..]),
+    ] {
+        builder.declare_enum(EnumDecl::platform(name,members.iter().map(|name|EnumMember::new(name,name)).collect()).with_transitions(transitions));
+    }
     enumeration(builder, "CanonicalPayloadPlacement", ["inline", "sealed"]);
     enumeration(builder, "ConformanceExecution", ["native", "pure"]);
     enumeration(builder, "ConformancePresolve", ["auto", "off"]);

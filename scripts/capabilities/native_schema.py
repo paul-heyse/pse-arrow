@@ -8,7 +8,7 @@ import copy
 import hashlib
 import os
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -47,10 +47,13 @@ def source_identity(information: os.stat_result) -> SourceIdentity:
 class SchemaSet:
     """One immutable loaded interface revision from the compiled catalogue producer."""
 
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, *, family: Literal["product", "evidence"] = "product") -> None:
+        if family not in {"product", "evidence"}:
+            raise ValueError("unknown responsibility-owned schema family")
         self.root = root
+        self.schema_root = "docs/generated/schema" if family == "product" else "scripts/generated/evidence_schema"
         self.manifest = JSON_OBJECT.validate_json(
-            (root / "docs/generated/schema/catalogue.json").read_bytes(), strict=True
+            (root / self.schema_root / "catalogue.json").read_bytes(), strict=True
         )
         if self.manifest.get("version") != 1:
             raise ValueError("unsupported native schema catalogue version")
@@ -71,9 +74,10 @@ class SchemaSet:
             )
             for row in self._documents.values()
         }
-        self._authoring_row = object_value(self.manifest["authoring"])
-        authoring = self._path(text_value(self._authoring_row["schema_path"]))
-        self._sources[authoring] = source_identity(authoring.stat())
+        self._authoring_row = object_value(self.manifest["authoring"]) if self.manifest.get("authoring") is not None else None
+        if self._authoring_row is not None:
+            authoring = self._path(text_value(self._authoring_row["schema_path"]))
+            self._sources[authoring] = source_identity(authoring.stat())
         self._schemas: dict[tuple[str, str], dict[str, JsonValue]] = {}
         self._authoring: dict[str, JsonValue] | None = None
         self._authoring_identity: dict[str, JsonValue] | None = None
@@ -82,7 +86,7 @@ class SchemaSet:
         path = self.root / relative
         if (
             path.is_symlink()
-            or path.resolve().parent != (self.root / "docs/generated/schema").resolve()
+            or path.resolve().parent != (self.root / self.schema_root).resolve()
         ):
             raise ValueError("native schema path escapes its generated owner")
         return path
@@ -150,6 +154,8 @@ class SchemaSet:
         """Read exact schema detail, retaining the original root for local refs."""
         root_arguments: dict[str, JsonValue] = {"slug": slug}
         if slug == "authoring":
+            if self._authoring_row is None:
+                raise ValueError("This private document family has no scientific authoring guidance")
             if direction is not None:
                 raise ValueError(
                     "authoring guidance has no native input/output direction"

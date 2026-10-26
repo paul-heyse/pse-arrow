@@ -14,7 +14,7 @@ use arrow_schema::DataType;
 pub const SOURCE_PACKAGE_EDITS: usize = 8_192;
 
 /// Exact schema/codec/structural-operation interpretation.
-pub const INTERPRETATION: &str = "pse.substrate.v9";
+pub const INTERPRETATION: &str = "pse.substrate.v10";
 
 /// Self-contained scientific IPC admission, independent of derived indexes.
 pub const RESULT_BLOCK_BYTES: usize = 32 * 1024 * 1024;
@@ -1071,6 +1071,54 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("terminal", flag()),
             ],
             "Immutable study selection and bounded staged occurrence membership; activation follows complete admission.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
+        ),
+        (
+            "canonical_study_capture_gate",
+            vec![column("key", text()).canonical_record_key(), column("incarnation", text()).canonical_mutable(), column("capture", text()).canonical_mutable().optional(), column("owner", text()).canonical_mutable().optional(), column("request", bytes()).canonical_mutable().optional(), column("issued_expires_at", uint()).canonical_mutable()],
+            "Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
+        ),
+        (
+            "canonical_study_captures",
+            vec![column("key", text()).canonical_record_key(), column("owner", text()).canonical_readonly(), column("request", bytes()).canonical_readonly(), column("incarnation", text()).canonical_readonly(), column("issued_expires_at", uint()).canonical_readonly(), column("state", FieldContract::enumeration("CanonicalStudyCaptureState")).with_canonical_initial("pending").with_canonical_transition_exception("$before=NONE AND $value='released' AND $this.incarnation='unissued' AND $this.issued_expires_at=0dec"), column("header_count", uint()).with_canonical_seal("$before.state!='pending'").with_canonical_seal_refusal(super::canonical_refusals::RefusalCode::StudyCaptureIdentityReused.wire()), column("member_count", uint()).with_canonical_seal("$before.state!='pending'").with_canonical_seal_refusal(super::canonical_refusals::RefusalCode::StudyCaptureIdentityReused.wire())],
+            "Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
+        ),
+        (
+            "canonical_study_capture_headers",
+            vec![column("key", text()).canonical_record_key(), column("capture", text()).canonical_readonly(), column("ordinal", uint()).canonical_readonly(), column("body", bytes()).canonical_readonly()],
+            "Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
+        ),
+        (
+            "canonical_study_capture_members",
+            vec![column("key", text()).canonical_record_key(), column("capture", text()).canonical_readonly(), column("ordinal", uint()).canonical_readonly(), column("body", bytes()).canonical_readonly(), column("study", text()).canonical_readonly(), column("run", text()).canonical_readonly(), column("attempt", text()).canonical_readonly().optional(), column("manifest", text()).canonical_readonly().optional()],
+            "Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
+        ),
+        (
+            "canonical_study_capture_protections",
+            vec![column("key", text()).canonical_record_key(), column("capture", text()).canonical_readonly(), column("study", text()).canonical_readonly(), column("run", text()).canonical_readonly(), column("attempt", text()).canonical_readonly(), column("manifest", text()).canonical_readonly(), column("problem", text()).canonical_readonly(), column("revision", text()).canonical_readonly()],
+            "Immutable compact capture ownership and exact facts; pending, interrupted and abandoned state remains backed up and protective until authenticated fenced recovery or actual scan drain.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
+        ),
+        (
+            "canonical_study_admission_outcomes",
+            vec![column("key", text()).canonical_record_key().canonical_readonly(), column("projection", bytes()).canonical_readonly()],
+            "Compact immutable admitted case/binding identity or explicit absence/refusal, without scientific descriptors; lazy admission publishes it with its outcome.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
+        ),
+        (
+            "canonical_study_installations",
+            vec![column("key", text()).canonical_record_key().canonical_readonly(), column("digest", text()).canonical_readonly(), column("generation", uint()).canonical_readonly(), column("phase", FieldContract::enumeration("CanonicalStudyInstallationPhase")).with_canonical_initial("nodes"), column("node_cursor", uint()).with_canonical_assertion("$value>=0dec AND math::floor($value)=$value AND ($before=NONE OR $value>=$before)"), column("edge_cursor", uint()).with_canonical_assertion("$value>=0dec AND math::floor($value)=$value AND ($before=NONE OR $value>=$before)")],
+            "Exact immutable population identity and installed frontier, including interrupted installation; retained for replay and backup.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
+        ),
+        (
+            "canonical_study_installation_pages",
+            vec![column("key", text()).canonical_record_key().canonical_readonly(), column("study", text()).canonical_readonly().canonical_readonly(), column("digest", text()).canonical_readonly(), column("generation", uint()).canonical_readonly(), column("phase", FieldContract::enumeration("CanonicalStudyInstallationPhase")).canonical_readonly().with_canonical_assertion("$value IN ['nodes','edges']"), column("cursor", uint()).canonical_readonly(), column("next_cursor", uint()).canonical_readonly(), column("request", bytes()).canonical_readonly().canonical_readonly(), column("issued_expires_at", uint()).canonical_readonly().canonical_readonly(), column("state", FieldContract::enumeration("CanonicalStudyInstallationPageState")).with_canonical_initial("issued")],
+            "Immutable exact committed node/edge page acknowledgement under its original issued clock; interrupted installations remain resumable without recreating rows.",
             crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (

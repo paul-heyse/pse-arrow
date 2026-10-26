@@ -186,7 +186,7 @@ class HighsProviderCandidateTests(unittest.TestCase):
                     pipeline, "_build_highs_archive", return_value=(directory, package)
                 ) as build,
                 patch.object(
-                    pipeline.producer_deployment,
+                    pipeline.producer_receipts,
                     "verify_native_provider",
                     side_effect=verify,
                 ) as admission,
@@ -239,7 +239,7 @@ class HighsProviderCandidateTests(unittest.TestCase):
                         return_value=(base / "native-out", "highs-sys@1.15.0"),
                     ) as build,
                     patch.object(
-                        pipeline.producer_deployment,
+                        pipeline.producer_receipts,
                         "verify_native_provider",
                         return_value=True,
                     ) as admission,

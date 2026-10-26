@@ -157,10 +157,10 @@ repair truthful records. Archive diffs are useful evidence, not a new per-comman
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| E01 | planned; RC02/RC03 required | 56e | Normal product closure excludes development-only families/queries; all catalogue consumers use their owner |
-| E02 | planned; C04 recovery-helper root delivered, wider RC04 pending | 56e | One deployment protocol/validator and working product targets/frozen receiver closure replace mirrors |
-| E03 | planned; RC05 required | 56e | Production profile drives conformance and all allocation readers without repeated finite rules |
-| E04 | planned | 56e | Leaf observations and borrower interface remove cyclic owner knowledge while preserving distinct policies |
+| E01 | implemented; targeted controls passed, assembled qualification pending | 56e | Normal product closure excludes development-only families/queries; all catalogue consumers use their owner |
+| E02 | product protocol/targets/frozen launch implemented; assembled journeys pending | 56e | One deployment protocol/validator and working product targets/frozen receiver closure replace mirrors |
+| E03 | production declaration/consumers implemented; targeted role controls passed, wider journeys pending | 56e | Production profile drives conformance and all allocation readers without repeated finite rules |
+| E04 | service/observation slice implemented; E03 profile edge remains | 56e | Leaf observations and borrower interface remove cyclic owner knowledge while preserving distinct policies |
 | E05 | implemented; exact source reconstruction tested | 56e | Truthful supplier origin/delta/workaround record reconstructs actual bytes without a mandated format |
 
 E01 and F01 share one generator/output-family decision, with root ownership of the declaration
@@ -210,3 +210,87 @@ revision `1ac2b1dba7cd177621a4cf5d507caebeb2414395`; resulting tree
 `120161c0f4138d7036961888ca60186dda195218` (65 changed paths). The pinned DiskANN archive
 digest and existing patch also verified. These controls establish source reconstruction, not
 numerical, producer-context or product requalification. No native implementation changed.
+
+## E04 service and observation checkpoint — 2026-10-26
+
+Commit `d7d0169af` separates authenticated process observations, operation lifetime, metadata and
+systemd readback into leaf owners. Existing resource authority supplies service-facing borrower
+obligations. Admission consumes explicit service policy; supervision no longer imports test/report
+custody, and the native-operation/environment reverse edge is removed. Missing service policy
+retains service-affiliated rows conservatively. Cross-checkout custody and actual descendant drain
+remain distinct from launcher liveness. E03 still owns the `reference_execution` reverse edge;
+setup-specific native-cache/build projections were not declared universally acyclic.
+
+**Tested:** targeted `scripts/pse-env -- .venv/bin/python -m unittest` selections passed 95
+host/conversion/borrower/custody/zombie controls, 87 observation/telemetry/environment/manager/drain
+controls, 122 adjacent consumer controls and 71 non-real native-operation controls, against the
+zero failure target. All twelve real native lifecycle controls passed across split runs; one
+production-observer local-name collision failed first and its exact corrected rerun passed. The
+managed-study fixture script (`scripts/pse-env -- .venv/bin/python
+python/pse/tests/test_managed_study_fixture.py`) passed thirteen tests. Original supervisor
+286-test run had ten errors across nine functions; the corrected exact nine-function rerun passed.
+An earlier broad native attempt was interrupted with exit 130. These are scoped controls, not a
+clean monolithic supervisor/native result or product qualification. Detailed logs remain at
+`/tmp/e04-observations.log`, `/tmp/e04-consumers.log`, `/tmp/e04-native-unit.log`,
+`/tmp/e04-native-real.log`, `/tmp/e04-native-remaining.log`,
+`/tmp/e04-supervisor-rerun.log` and `/tmp/e04-managed-fixture.log`.
+
+E02/E03 now consume the owned leaf/import boundary and retain complete frozen-closure, shared
+validation, profile propagation and end-to-end receiver obligations.
+
+
+## E01–E03 product ownership checkpoint — 2026-10-26
+
+**Implemented:** runtime relations and their generated outputs exclude the separately owned private
+evidence/knowledge catalogue and query backend. Product allocation materialization/validation,
+worker execution and project commands use product targets in existing crates; the replaced xtask
+worker/project targets, modules and dispatch have been deleted. Ordinary canonical initialization
+uses the lower product initializer's versioned description/initialization protocol. The private
+bootstrap family projects twelve actual Rust roots, including local enums and the native recovery
+checkpoint; no full runtime configuration schema is redeclared in Python.
+
+The production section of `.config/agent-capacity.toml` owns the unchanged six execution roles,
+the distinct default 48/16/32 GiB service role, and the historical capability defaults. Host
+admission, conformance-facing requests and supervisor consumers select that owner through the one
+Rust allocation validator. Host command placement remains usable before the product validator is
+built. The host-to-supervisor reference-policy reverse import and Python finite relational rules
+are removed. Module build placement now uses a recipe default, preserving explicit caller choices
+and the workstation's selected ordinary unbounded mode.
+
+Frozen receiver publication derives its owned Python import closure, retains generated models,
+configuration and the selected helper, and probes copied sources in an isolated interpreter. The
+v2 manifest binds interpreter/provider inputs; v1 generations remain available for observation and
+drain but require explicit readmission for current startup. Pure producer artifact observations
+have a leaf owner, so the receiver closure no longer imports test/report or producer capture
+orchestration. Source-side setup/readmission requires selected prepared inputs before publication.
+A compiled Rust-owned runtime-input descriptor retains selected nonsecret values and original
+managed-provider receipt hashes. Frozen primary launch selects its helper beside the admitted
+supervisor script and uses the runtime-only branch: the existing cache owner verifies and pins
+actual managed generations without compiler discovery, Cargo or provider preparation. Secrets are
+inherited at invocation and thread budgets remain with the admitted allocation. Missing or changed
+preparation refuses protectively; no development producer verifier was relocated. The conservative
+AST closure still includes setup definitions; the runtime path does not execute them.
+
+**Tested:** focused supervised Python controls passed 63 producer/provider/resource/closure/progress
+cases and 15 migrated composer/custody cases. The current publication/image/progress/recipe
+selection passed 29 cases; the actual product profile, ordinary backup-resume and reference
+initializer selection passed 17. A new recipe initially lacked catalogue classification; the
+classification was repaired and its affected controls passed. The first reference selection
+exposed the new preceding operator-build failure result; the test now exercises both operator and
+initializer build refusal. The combined Rust product-owner selection passed 48 of 51 initially;
+three new checkpoint fixtures correctly failed private-directory admission, were corrected to
+explicit 0700 fixtures, and their exact rerun passed all three. The composite therefore covers all
+51 selected controls, while retaining the original failures. All counts use the zero failure
+target; these are focused controls, not assembled/native/scientific qualification. Current scoped
+logs include `/tmp/e02d05-product-protocol-tests.log`, `/tmp/e02d05-publication-tests.log` and
+`/tmp/pse-56de-product-ownership-units.log` with its exact checkpoint rerun.
+
+The prepared-input/isolated-closure/product-protocol selection additionally passed 28 supervised
+Python controls against the zero failure target, including actual managed-generation corruption
+refusal and guards against entering preparation. This exercises the component seam, not a complete
+native worker launch.
+
+Next acceptance is the actual prepared frozen receiver launch without provisioning, remaining
+host/supervisor propagation and lifecycle controls, and the coordinator's selected native canonical
+and product journeys. Existing producer reviews/receipts remain historical; source relocation and
+these targeted checks do not requalify an assembled producer deployment or close E01–E03.

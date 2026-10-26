@@ -29,6 +29,7 @@ fuzz-inspection = [
   "dep:pse-diagnostics",
 ]
 force-validate = [
+  "arrow-array?/force_validate",
   "pse-admission?/force-validate",
   "pse-codegen/force-validate",
   "pse-columnar/force-validate",
@@ -42,10 +43,9 @@ force-validate = [
 native-solvers = ["package-fixtures", "pse-runtime/native-solvers"]
 default = []
 native-abi = ["dep:bindgen"]
-full-codegen = ["package-fixtures", "native-abi"]
-evidence-tools = ["dep:pse-operations", "pse-operations/evidence-query"]
+full-codegen = ["package-fixtures", "native-abi", "evidence-tools"]
+evidence-tools = ["dep:pse-operations", "dep:pse-engine", "dep:pse-model", "dep:pse-relations", "dep:pse-diagnostics", "dep:datafusion", "dep:surrealdb", "dep:uuid", "dep:hex", "dep:thiserror", "dep:strum", "dep:arrow-array", "dep:arrow-buffer"]
 surrealql-tools = ["dep:surrealdb-syn"]
-project-tools = ["canonical-tools", "physical-admission", "product-schemas"]
 canonical-tools = [
   "dep:pse-diagnostics",
   "dep:pse-model",
@@ -76,7 +76,9 @@ physical-admission = [
   "dep:pse-rules",
 ]
 product-schemas = [
+  "evidence-tools",
   "dep:pse-admission",
+  "dep:pse-authoring",
   "dep:pse-engine",
   "dep:pse-diagnostics",
   "dep:pse-backend-native",
@@ -87,6 +89,14 @@ product-schemas = [
 package-fixtures = ["physical-admission", "product-schemas"]
 
 [dependencies]
+surrealdb = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
+thiserror = { workspace = true, optional = true }
+strum = { workspace = true, optional = true }
+arrow-array = { workspace = true, optional = true }
+arrow-buffer = { workspace = true, optional = true }
+arrow-schema.workspace = true
 tracing.workspace = true
 surrealdb-syn = { workspace = true, optional = true }
 libfuzzer-sys = { workspace = true, optional = true }
@@ -135,9 +145,11 @@ pyo3-introspection.workspace = true
 syn.workspace = true
 # Print generated Rust through the library without a rustfmt subprocess.
 quote.workspace = true
+prettyplease.workspace = true
 miette.workspace = true
 
 [dev-dependencies]
+futures-util.workspace = true
 pse-quantity = { workspace = true, features = ["fixtures"] }
 
 [[bin]]
@@ -149,16 +161,6 @@ required-features = ["canonical-tools"]
 name = "pse-evidence"
 path = "src/bin/pse-evidence.rs"
 required-features = ["evidence-tools"]
-
-[[bin]]
-name = "pse-project"
-path = "src/bin/pse-project.rs"
-required-features = ["project-tools"]
-
-[[bin]]
-name = "pse-worker"
-path = "src/bin/pse-worker.rs"
-required-features = ["package-fixtures"]
 
 [[bin]]
 name = "pse-native-lane"

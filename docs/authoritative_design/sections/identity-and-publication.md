@@ -832,7 +832,7 @@ bytes and is not an exported database lease or another publication catalog.
 > Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),
 > selected Plan56d target; implementation and qualification remain with its owning packages.
 
-The Plan56d installation/capture change coordinates one next canonical interpretation across
+The Plan56d installation/capture change selects `pse.substrate.v10` across
 all writers/readers, retention and backup classification before fresh owned-state activation.
 Prior selected stores and qualification evidence remain preserved; no compatibility reader or
 backfill is introduced. Protocol changes do not alter scientific Completion/replay body versions
@@ -1336,7 +1336,8 @@ inode and parent; unsupported filesystems refuse. Archive restore does not requi
 that belong only to a live placement. Python owns freeze, service/manager/cgroup authentication,
 maintenance and exact target recovery. Uncertain ownership remains protective.
 
-Fresh regeneration preserves recorded telemetry while publishing a closed v9 target. Explicit
+Fresh regeneration preserves recorded telemetry while publishing a closed current target. The
+selected Plan56d target is v10; prior v9 qualification retains its original scope in §24.2. Explicit
 readmission may install current supervisor/receiver/helper artifacts on a stopped, drained
 quiesced or validation-required target, preserving allocation, identity and pending initializer.
 Initialization/validation and application readmission remain separate operations.

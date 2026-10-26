@@ -22,6 +22,7 @@ DEFINE FUNCTION fn::pse_research_v1::context($expiry:int,$row:object) -> bool {
     RETURN true;
 };
 DEFINE FUNCTION fn::pse_research_v1::dataset($expiry:int,$row:object,$generation:decimal) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     LET $old=SELECT * FROM ONLY type::record('canonical_research_datasets',$row.key);
     IF $old!=NONE { IF $old.request!=$row.request {THROW 'PSE_REFUSAL:project_operation_identity_changed';}; RETURN $old; };
     fn::pse_project_v1::project($expiry,$row.project,$generation);
@@ -35,6 +36,7 @@ DEFINE FUNCTION fn::pse_research_v1::dataset($expiry:int,$row:object,$generation
     RETURN CREATE ONLY type::record('canonical_research_datasets',$row.key) CONTENT $row;
 };
 DEFINE FUNCTION fn::pse_research_v1::selection($expiry:int,$row:object,$generation:decimal) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     LET $old=SELECT * FROM ONLY type::record('canonical_research_selections',$row.key);
     IF $old!=NONE {IF $old.request!=$row.request {THROW 'PSE_REFUSAL:project_operation_identity_changed';}; RETURN $old;};
     fn::pse_project_v1::project($expiry,$row.project,$generation);
@@ -46,6 +48,7 @@ DEFINE FUNCTION fn::pse_research_v1::selection($expiry:int,$row:object,$generati
 };
 
 DEFINE FUNCTION fn::pse_research_v1::publication_guard($expiry:int,$operation:string,$intent:object) -> bool {
+    fn::pse_workbench_v1::publication($expiry);
     IF $intent.research=NONE {RETURN true;};
     LET $e=$intent.research;
     LET $selection=SELECT * FROM ONLY type::record('canonical_research_selections',$e.selection);
@@ -60,6 +63,7 @@ DEFINE FUNCTION fn::pse_research_v1::publication_guard($expiry:int,$operation:st
     RETURN true;
 };
 DEFINE FUNCTION fn::pse_research_v1::publication_ack($expiry:int,$operation:string,$intent:object) -> bool {
+    fn::pse_workbench_v1::publication($expiry);
     IF $intent.research=NONE {RETURN true;};
     LET $e=$intent.research;
     LET $selection=SELECT * FROM ONLY type::record('canonical_research_selections',$e.selection);
@@ -70,6 +74,7 @@ DEFINE FUNCTION fn::pse_research_v1::publication_ack($expiry:int,$operation:stri
 };
 
 DEFINE FUNCTION fn::pse_research_v1::run_input($expiry:int,$row:object) -> bool {
+    fn::pse_workbench_v1::publication($expiry);
     IF $row.research_selection=NONE {IF $row.research_dataset!=NONE {THROW 'PSE_REFUSAL:research_context_differs';}; RETURN true;};
     LET $selection=SELECT * FROM ONLY type::record('canonical_research_selections',$row.research_selection);
     IF $selection=NONE OR $selection.dataset!=$row.research_dataset {THROW 'PSE_REFUSAL:research_context_differs';};

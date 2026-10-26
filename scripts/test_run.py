@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts import test_resources
 from scripts import operation_lifetime
 from scripts import service_borrowers
 from scripts import arrow_validation, validation, validation_receipts
@@ -285,7 +286,7 @@ def execute_selected(
             signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM}
         )
         try:
-            registration = native_operation.register_composer(path)
+            registration = test_resources.register_composer(path)
         finally:
             signal.pthread_sigmask(signal.SIG_SETMASK, launch_mask)
         if launch is not None:

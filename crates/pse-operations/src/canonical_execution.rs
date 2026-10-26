@@ -781,7 +781,7 @@ mod canonical_execution_server_unit {
         remove(&store, &database).await;
     }
 
-    #[cfg(feature = "evidence-query")]
+    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn canonical_inline_admitted_ipc_members_share_one_actual_body_and_no_files() {
         use pse_relations::generated::runtime::fit_parameters;
@@ -1430,6 +1430,7 @@ mod canonical_execution_server_unit {
         };
         let points = (0..2)
             .map(|index| NewOccurrence {
+                projection: None,
                 policy: PointPolicy {
                     key: OccurrenceKey(index),
                     dependencies: vec![],
@@ -3089,6 +3090,7 @@ mod canonical_execution_server_unit {
         let study = "phase-expired-admission-study";
         let occurrence = pse_model::study::OccurrenceKey(0);
         let point = crate::canonical_studies::NewOccurrence {
+            projection: None,
             policy: pse_model::study::PointPolicy {
                 key: occurrence,
                 dependencies: vec![],
@@ -4806,7 +4808,7 @@ fn projected_research_input(
 
 // One owning encoding for immutable run meaning, shared by publication and
 // effect-free retry checks. Mutable attempt/cancellation state is excluded.
-fn run_request_receipt(
+pub(crate) fn run_request_receipt(
     request: &RunRequest,
 ) -> Result<(CanonicalRun, Vec<Object>), CanonicalError> {
     identity(&request.key)?;
@@ -5022,29 +5024,6 @@ impl CanonicalStore {
             ).await
         }).await
             }).await
-    }
-    /// Check the complete immutable run receipt without publication or retention effects.
-    pub(crate) async fn check_execution_run_identity(
-        &self,
-        request: &RunRequest,
-    ) -> Result<(), CanonicalError> {
-        let activity = self.admit_activity()?;
-        activity
-            .scope(async {
-                within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    let (expected, _) = run_request_receipt(request)?;
-                    let saved = self
-                        .canonical_run(&expected.key)
-                        .await?
-                        .ok_or(CanonicalError::OperationReused)?;
-                    if !same_run_receipt(&expected, &saved) {
-                        return Err(CanonicalError::OperationReused);
-                    }
-                    Ok(())
-                })
-                .await
-            })
-            .await
     }
     /// Bounded semantic ordering over one problem's recorded execution sequence.
     pub async fn execution_run_page(

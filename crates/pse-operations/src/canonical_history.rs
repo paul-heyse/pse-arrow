@@ -439,6 +439,7 @@ mod canonical_history_tests {
     }
     fn occurrence(parent: &RunRequest, key: &str) -> crate::canonical_studies::NewOccurrence {
         crate::canonical_studies::NewOccurrence {
+            projection: None,
             policy: pse_model::study::PointPolicy {
                 key: pse_model::study::OccurrenceKey(0),
                 dependencies: vec![],

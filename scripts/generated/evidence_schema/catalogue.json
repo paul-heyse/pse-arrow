@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "schema_set_fingerprint": "blake3:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0",
+  "documents": [
+    {
+      "slug": "evidence-comparison",
+      "direction": "input",
+      "exported_name": "EvidenceComparison",
+      "schema_path": "scripts/generated/evidence_schema/evidence-comparison.input.schema.json",
+      "schema_sha256": "2e211bc511eb2a94025b7cf4491510bae88988dfb824b064a902429408c097e9",
+      "version": 1,
+      "wire": "Native",
+      "registration_source": "xtask/src/codegen/private_documents.rs"
+    },
+    {
+      "slug": "evidence-comparison",
+      "direction": "output",
+      "exported_name": "EvidenceComparison",
+      "schema_path": "scripts/generated/evidence_schema/evidence-comparison.output.schema.json",
+      "schema_sha256": "bad50e718562fa5d9376c3323d8ac3e91296f39b9065aa6a04ae1e839bc01282",
+      "version": 1,
+      "wire": "Native",
+      "registration_source": "xtask/src/codegen/private_documents.rs"
+    },
+    {
+      "slug": "evidence-comparison-request",
+      "direction": "input",
+      "exported_name": "EvidenceComparisonRequest",
+      "schema_path": "scripts/generated/evidence_schema/evidence-comparison-request.input.schema.json",
+      "schema_sha256": "3ac2cfa2b6377ab2fd4c399af285d60a3c300d129770e470c4874f87d26ab50c",
+      "version": 1,
+      "wire": "Native",
+      "registration_source": "xtask/src/codegen/private_documents.rs"
+    },
+    {
+      "slug": "evidence-comparison-request",
+      "direction": "output",
+      "exported_name": "EvidenceComparisonRequest",
+      "schema_path": "scripts/generated/evidence_schema/evidence-comparison-request.output.schema.json",
+      "schema_sha256": "5c07defad84d247c94a6d3d0e355d0a1302cfc0e33d1457809095f644bfb5167",
+      "version": 1,
+      "wire": "Native",
+      "registration_source": "xtask/src/codegen/private_documents.rs"
+    },
+    {
+      "slug": "evidence-snapshot",
+      "direction": "input",
+      "exported_name": "EvidenceSnapshot",
+      "schema_path": "scripts/generated/evidence_schema/evidence-snapshot.input.schema.json",
+      "schema_sha256": "b79048150e52edda8c0710ce27443c9f6f8ccab8fa95f6d35a89d38be83b4f7a",
+      "version": null,
+      "wire": "Native",
+      "registration_source": "xtask/src/codegen/private_documents.rs"
+    },
+    {
+      "slug": "evidence-snapshot",
+      "direction": "output",
+      "exported_name": "EvidenceSnapshot",
+      "schema_path": "scripts/generated/evidence_schema/evidence-snapshot.output.schema.json",
+      "schema_sha256": "b79048150e52edda8c0710ce27443c9f6f8ccab8fa95f6d35a89d38be83b4f7a",
+      "version": null,
+      "wire": "Native",
+      "registration_source": "xtask/src/codegen/private_documents.rs"
+    },
+    {
+      "slug": "knowledge-explain",
+      "direction": "output",
+      "exported_name": "KnowledgeExplain",
+      "schema_path": "scripts/generated/evidence_schema/knowledge-explain.output.schema.json",
+      "schema_sha256": "332463e9d1913b4a7293875e893c91af5f0b16b935f980fbfd8d3ed1d97aa245",
+      "version": 1,
+      "wire": "Native",
+      "registration_source": "xtask/src/codegen/private_documents.rs"
+    },
+    {
+      "slug": "knowledge-page",
+      "direction": "output",
+      "exported_name": "KnowledgePage",
+      "schema_path": "scripts/generated/evidence_schema/knowledge-page.output.schema.json",
+      "schema_sha256": "bc814360b3d25527323f4efb5824b2b9200ee8a7b7e2352777465343eab06528",
+      "version": 1,
+      "wire": "Native",
+      "registration_source": "xtask/src/codegen/private_documents.rs"
+    },
+    {
+      "slug": "knowledge-query",
+      "direction": "input",
+      "exported_name": "KnowledgeQuery",
+      "schema_path": "scripts/generated/evidence_schema/knowledge-query.input.schema.json",
+      "schema_sha256": "38fcd76d053c89a9153cd3b7afb5c1c581a0e16434197f634b4986721fd31a77",
+      "version": 1,
+      "wire": "Native",
+      "registration_source": "xtask/src/codegen/private_documents.rs"
+    }
+  ],
+  "authoring": null
+}

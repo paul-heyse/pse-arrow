@@ -6,7 +6,8 @@ use crate::{
     canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, protected_query},
     canonical_codec as codec,
 };
-use surrealdb::types::{Object, Value};
+use surrealdb::types::{Bytes, Object, Value};
+use std::sync::Arc;
 
 /// Indexed predicates over actual original scientific and engineering owners.
 #[derive(
@@ -80,6 +81,8 @@ pub struct StudyCohortMember {
     pub run: String,
     /// Exact currently assigned attempt; retries remain separate sources.
     pub attempt: Option<String>,
+    /// Exact captured closed manifest; later completion cannot reclassify absence.
+    pub manifest: Option<String>,
     /// Actual native point metadata revision captured in this selection.
     pub metadata_revision: u64,
     /// Whether the policy has settled this occurrence.
@@ -87,15 +90,185 @@ pub struct StudyCohortMember {
     /// Original lifecycle, scientific availability, attempt count and effect facts.
     pub facts: pse_model::study::PointFacts,
 }
-/// One successful native snapshot, bounded before transport and decoding.
+/// One bounded live browsing page; it never grants frozen completeness.
 #[derive(Clone, Debug)]
 pub struct NativeStudySelection {
     /// Compact matched headers, in stable key order.
     pub headers: Vec<StudyWorkbenchHeader>,
-    /// Exact points when a complete cohort was requested.
-    pub members: Vec<StudyCohortMember>,
-    /// More headers exist after this live browsing page.
+    /// More live headers exist after this page.
     pub has_more: bool,
+}
+/// Compact acknowledgement of an exact immutable native capture.
+#[derive(Clone, Debug)]
+pub struct NativeStudyCapture {
+    /// Exact captured header count.
+    pub header_count: u64,
+    /// Exact captured occurrence count, including unavailable members.
+    pub member_count: u64,
+    /// One shared actual owner through page and scan drain.
+    pub capture: StudyCapture,
+}
+/// A stable capture position distinct from an occurrence's within-study ordinal.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[schemars(rename = "CapturedStudyRowFor{T}")]
+pub struct CapturedStudyRow<T> {
+    /// Global immutable position in this exact capture.
+    pub position: u64,
+    /// Original captured facts.
+    pub value: T,
+}
+/// One bounded decoded prefix. The caller owns its response/retained allocation.
+#[derive(Clone, Debug)]
+pub struct NativeStudyPage<T> {
+    /// Contiguous original positions after the requested cursor.
+    pub rows: Vec<CapturedStudyRow<T>>,
+}
+
+/// Nonserializable exact capture capability. Clones and scans share one actual
+/// process owner; dropping the last one enqueues authenticated bounded cleanup.
+#[derive(Clone,Debug)]
+pub struct StudyCapture(Arc<CaptureOwner>);
+#[derive(Debug)]
+struct CaptureOwner {
+    store: CanonicalStore,
+    key: String,
+    owner: String,
+    request: Vec<u8>,
+    executor: tokio::runtime::Handle,
+    release_needed:std::sync::atomic::AtomicBool,
+    metadata: std::sync::Mutex<Option<Arc<dyn std::fmt::Debug+Send+Sync>>>,
+}
+struct CaptureCustody {request:Vec<u8>,owner:std::sync::Weak<CaptureOwner>}
+type CaptureOwners=std::collections::BTreeMap<(String,String,String),CaptureCustody>;
+static CAPTURE_OWNERS: std::sync::LazyLock<std::sync::Mutex<CaptureOwners>>=std::sync::LazyLock::new(||std::sync::Mutex::new(std::collections::BTreeMap::new()));
+fn capture_owner(store:&CanonicalStore,key:&str,owner:&str,request:&[u8])->Result<StudyCapture,CanonicalError> {
+    let mut owners=CAPTURE_OWNERS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let identity=(store.issuing_store()?.to_owned(),key.to_owned(),owner.to_owned());
+    if let Some(existing)=owners.get(&identity) {
+        if existing.request!=request {return Err(CanonicalError::OperationReused);}
+        let existing=existing.owner.upgrade().ok_or_else(||CanonicalError::CaptureDraining{capture:key.into()})?;
+        return Ok(StudyCapture(existing));
+    }
+    store.result_read_drain.retain()?;
+    let capture=Arc::new(CaptureOwner{store:store.clone(),key:key.into(),owner:owner.into(),request:request.to_vec(),executor:tokio::runtime::Handle::current(),release_needed:std::sync::atomic::AtomicBool::new(true),metadata:std::sync::Mutex::new(None)});
+    owners.insert(identity,CaptureCustody{request:request.to_vec(),owner:Arc::downgrade(&capture)});
+    Ok(StudyCapture(capture))
+}
+impl StudyCapture {
+    /// Immutable exact capture identity; this identifier alone grants no read permission.
+    pub fn key(&self)->&str {&self.0.key}
+    /// Fixed exact request/key custody, independent of member/page row allocations.
+    pub fn custody_bytes(&self)->Result<usize,CanonicalError> {
+        self.0.store.handle_heap_bytes().and_then(|bytes|bytes.checked_add(size_of::<CaptureOwner>()+size_of::<((String,String,String),CaptureCustody)>()+8*size_of::<usize>()+self.0.key.capacity()*2+self.0.owner.capacity()*2+self.0.request.capacity()*2+self.0.store.issuing_store().ok()?.len())).ok_or(CanonicalError::PayloadLimit)
+    }
+    /// Attach one fixed custody/release grant. Page/document grants remain with
+    /// their actual consumers; replay cannot accumulate them in this owner.
+    pub fn retain_metadata_owner(&self, owner: Arc<dyn std::fmt::Debug+Send+Sync>) {
+        self.0.metadata.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get_or_insert(owner);
+    }
+    /// Native read builders in this crate consume this unforgeable exact witness.
+    pub(crate) fn authority(&self)->(&CanonicalStore,&str,&str,&[u8]) {
+        (&self.0.store,&self.0.key,&self.0.owner,&self.0.request)
+    }
+}
+impl StudyCapture {
+    async fn page<T>(&self, kind: &str, after: Option<u64>, maximum: usize, decode: fn(Object)->Result<T,CanonicalError>) -> Result<NativeStudyPage<T>,CanonicalError> {
+        let limit=if kind=="headers" {64} else {pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS};
+        if maximum==0 || maximum>limit {return Err(CanonicalError::PayloadLimit);}
+        let (store,key,owner,request)=self.authority();
+        store.files.require_current()?;
+        let activity=store.admit_activity()?;
+        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
+            let mut response=protected_query("canonical_study_workbench::capture_page",|| Ok(store.db.metadata_query(crate::canonical::MetadataResponse::StudyPage,"RETURN fn::pse_workbench_v1::capture_page($pse_rpc_expires_at,$capture,$owner,$request,$kind,$after);")
+                .bind(("capture",key.to_owned())).bind(("owner",owner.to_owned())).bind(("request",Bytes::from(request.to_vec())))
+                .bind(("kind",kind.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
+            let page=response.take::<Vec<Object>>(0)?;
+            if page.len()>limit {return Err(CanonicalError::PayloadLimit);}
+            let mut previous=after;
+            let mut rows=Vec::new();
+            for mut row in page.into_iter().take(maximum) {
+                let position=codec::decode_uint(codec::required(&mut row,"ordinal")?)?;
+                if position!=previous.map_or(Some(0),|value|value.checked_add(1)).ok_or(CanonicalError::PayloadLimit)? {return Err(CanonicalError::IncompleteResponse);}
+                let Value::Object(body)=codec::required(&mut row,"body")? else {return Err(CanonicalError::IncompleteResponse);};
+                rows.push(CapturedStudyRow{position,value:decode(body)?});
+                previous=Some(position);
+            }
+            Ok(NativeStudyPage{rows})
+        })).await
+    }
+    /// Read one bounded immutable header page under this actual capture owner.
+    pub async fn header_page(&self, after: Option<u64>, maximum: usize)->Result<NativeStudyPage<StudyWorkbenchHeader>,CanonicalError> {
+        self.page("headers",after,maximum,header).await
+    }
+    /// Read one bounded immutable member page, preserving captured absence forever.
+    pub async fn member_page(&self, after: Option<u64>, maximum: usize)->Result<NativeStudyPage<StudyCohortMember>,CanonicalError> {
+        self.page("members",after,maximum,member).await
+    }
+}
+impl Drop for CaptureOwner {
+    fn drop(&mut self) {
+        if !self.release_needed.load(std::sync::atomic::Ordering::Acquire) {
+            if let Ok(issuing)=self.store.issuing_store() {CAPTURE_OWNERS.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&(issuing.to_owned(),self.key.clone(),self.owner.clone()));}
+            self.store.result_read_drain.release().complete(Ok(()));
+            return;
+        }
+        let store=self.store.clone();
+        #[cfg(any(test,feature="test-support"))]
+        let store={let mut store=store;store.fixture_lifetime=None;store};
+        let key=self.key.clone(); let owner=self.owner.clone(); let request=self.request.clone();
+        let metadata=self.metadata.get_mut().unwrap_or_else(std::sync::PoisonError::into_inner).take();
+        let release=store.result_read_drain.release_capture(store.clone(),key.clone(),owner.clone(),request.clone(),metadata.clone());
+        self.executor.spawn(async move {
+            let result=crate::canonical::transport::optional_response_ownership_scope(metadata,release_capture_custody(&store,&key,&owner,&request)).await;
+            if let Err(error)=&result { crate::canonical::operation_failed("canonical_study_workbench::capture_release",error); }
+            drop(store);
+            release.complete(result);
+        });
+    }
+}
+
+/// Retry only this capture's bounded native cleanup; immutable custody is never
+/// reacquired. The local tombstone remains until native release is acknowledged.
+pub(crate) async fn release_capture_custody(store:&CanonicalStore,key:&str,owner:&str,request:&[u8])->Result<(),CanonicalError> {
+    release_capture_as(store,key,owner,request,owner).await
+}
+async fn release_capture_as(store:&CanonicalStore,key:&str,owner:&str,request:&[u8],custodian:&str)->Result<(),CanonicalError> {
+    #[cfg(all(test,feature="canonical-tests"))]
+    let pause={CAPTURE_RELEASE_PAUSES.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get(key).cloned()};
+    #[cfg(all(test,feature="canonical-tests"))]
+    if let Some(pause)=pause {
+        pause.entered.notify_one();
+        pause.resume.notified().await;
+    }
+    loop {
+        let mut response=protected_query("canonical_study_workbench::capture_release",|| Ok(store.db.query("RETURN fn::pse_workbench_v1::release_capture($pse_rpc_expires_at,$key,$owner,$request,$custodian);")
+            .bind(("key",key.to_owned())).bind(("owner",owner.to_owned())).bind(("request",Bytes::from(request.to_vec()))).bind(("custodian",custodian.to_owned())))).await?;
+        #[cfg(all(test,feature="canonical-tests"))]
+        if CAPTURE_RELEASE_REPLY_LOSS.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(key) {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+        if codec::decode_boolean(response.take::<Value>(0)?)? {
+            CAPTURE_OWNERS.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(&(store.issuing_store()?.to_owned(),key.to_owned(),owner.to_owned()));
+            return Ok(());
+        }
+    }
+}
+#[cfg(all(test,feature="canonical-tests"))]
+#[derive(Debug,Default)]
+pub(crate) struct CaptureReleasePause {pub(crate) entered:tokio::sync::Notify,pub(crate) resume:tokio::sync::Notify}
+#[cfg(all(test,feature="canonical-tests"))]
+static CAPTURE_RELEASE_PAUSES:std::sync::LazyLock<std::sync::Mutex<std::collections::BTreeMap<String,Arc<CaptureReleasePause>>>>=std::sync::LazyLock::new(||std::sync::Mutex::new(std::collections::BTreeMap::new()));
+#[cfg(all(test,feature="canonical-tests"))]
+pub(crate) fn pause_capture_release(key:&str)->Arc<CaptureReleasePause>{
+    let pause=Arc::new(CaptureReleasePause::default());
+    CAPTURE_RELEASE_PAUSES.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(key.into(),pause.clone());pause
+}
+#[cfg(all(test,feature="canonical-tests"))]
+static CAPTURE_RELEASE_REPLY_LOSS:std::sync::LazyLock<std::sync::Mutex<std::collections::BTreeSet<String>>>=std::sync::LazyLock::new(||std::sync::Mutex::new(std::collections::BTreeSet::new()));
+#[cfg(all(test,feature="canonical-tests"))]
+pub(crate) fn lose_capture_release_reply(key:&str) {
+    CAPTURE_RELEASE_REPLY_LOSS.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(key.into());
 }
 
 type CompactStudyAttribution = (Option<String>, Option<String>, Option<String>);
@@ -191,6 +364,7 @@ fn member(mut row: Object) -> Result<StudyCohortMember, CanonicalError> {
         ordinal: uint(required(&mut row, "ordinal")?)?,
         run: text(required(&mut row, "run")?)?,
         attempt: optional(&mut row, "attempt")?,
+        manifest: optional(&mut row, "manifest")?,
         metadata_revision,
         settled: flag(required(&mut row, "settled")?)?,
         facts,
@@ -229,10 +403,9 @@ pub fn workbench_sql(filter: &StudyWorkbenchFilter, frozen: bool) -> String {
             predicates.push(predicate.into());
         }
     }
+    let finish=if frozen {"RETURN fn::pse_workbench_v1::commit_capture($pse_rpc_expires_at,$capture,$owner,$request,$rows,$maximum,$members);"} else {"RETURN fn::pse_workbench_v1::browse($pse_rpc_expires_at,$rows,$maximum);"};
     let sql = format!(
-        "LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM canonical_studies WHERE {} ORDER BY key LIMIT $extent; RETURN fn::pse_workbench_v1::capture($pse_rpc_expires_at,$rows,$maximum,{},$members);",
-        predicates.join(" AND "),
-        if frozen { "true" } else { "false" }
+        "LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM canonical_studies WHERE {} ORDER BY key LIMIT $extent; {finish}",predicates.join(" AND ")
     );
     format!("BEGIN; {prelude}{sql} COMMIT;")
 }
@@ -248,16 +421,14 @@ impl CanonicalStore {
             response.take::<Option<Object>>(0)?.map(|mut row|codec::decode_uint(codec::required(&mut row,"current_generation")?).map_err(Into::into)).transpose()
         })).await
     }
-    /// Select one live browsing page or one complete frozen population in one short SSI read.
-    /// Frozen requests refuse header or point overflow; pages cannot certify completeness.
+    /// Select one bounded live browsing page; it never certifies frozen completeness.
     pub async fn select_study_workbench(
         &self,
         filter: &StudyWorkbenchFilter,
         after: Option<&str>,
         maximum: usize,
-        maximum_members: Option<usize>,
     ) -> Result<NativeStudySelection, CanonicalError> {
-        if !(1..=64).contains(&maximum) || maximum_members.is_some_and(|n| n == 0 || n > 128) {
+        if !(1..=64).contains(&maximum) {
             return Err(CanonicalError::PayloadLimit);
         }
         for value in [
@@ -278,7 +449,7 @@ impl CanonicalStore {
                 return Err(CanonicalError::PayloadLimit);
             }
         }
-        let sql = workbench_sql(filter, maximum_members.is_some());
+        let sql = workbench_sql(filter, false);
         let activity = self.admit_activity()?;
         activity
             .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -305,7 +476,7 @@ impl CanonicalStore {
                         .bind(("after", after.unwrap_or("").to_owned()))
                         .bind(("maximum", maximum))
                         .bind(("extent", maximum + 1))
-                        .bind(("members", maximum_members.unwrap_or(0))))
+                        .bind(("members", 0)))
                 })
                 .await?;
                 let index = response
@@ -328,25 +499,78 @@ impl CanonicalStore {
                         _ => Err(CanonicalError::IncompleteResponse),
                     })
                     .collect::<Result<_, _>>()?;
-                let rows = match codec::required(&mut row, "members")? {
-                    Value::Array(rows) => rows,
-                    _ => return Err(CanonicalError::IncompleteResponse),
-                };
-                let members = rows
-                    .into_iter()
-                    .map(|v| match v {
-                        Value::Object(v) => member(v),
-                        _ => Err(CanonicalError::IncompleteResponse),
-                    })
-                    .collect::<Result<_, _>>()?;
-                Ok(NativeStudySelection {
-                    headers,
-                    members,
-                    has_more,
-                })
+                Ok(NativeStudySelection { headers, has_more })
             }))
             .await
     }
+    /// Explicitly resume abandoned/failed cleanup. A live local scan refuses;
+    /// another actual process must first prove and register the original owner's
+    /// drain with the existing file-owner recovery operation. Disconnection alone
+    /// never supplies that proof or drops a captured protection.
+    pub async fn recover_study_capture(&self,key:&str)->Result<(),CanonicalError> {
+        if key.is_empty() || key.len()>4096 {return Err(CanonicalError::PayloadLimit);}
+        let activity=self.admit_activity()?;
+        activity.scope(async {
+            let custodian=self.registered_file_owner().await?;
+            let mut response=protected_query("canonical_study_workbench::capture_recovery_identity",|| Ok(self.db.query("SELECT owner,request FROM ONLY type::record('canonical_study_captures',$capture);").bind(("capture",key.to_owned())))).await?;
+            let mut row=response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
+            let owner=codec::decode_string(codec::required(&mut row,"owner")?)?;
+            let request=codec::decode_bytes(codec::required(&mut row,"request")?)?;
+            let identity=(self.issuing_store()?.to_owned(),key.to_owned(),owner.clone());
+            {
+                let mut owners=CAPTURE_OWNERS.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                if owners.get(&identity).is_some_and(|entry|entry.owner.strong_count()!=0) {return Err(CanonicalError::CaptureInUse{capture:key.into()});}
+                owners.entry(identity).or_insert_with(||CaptureCustody{request:request.as_slice().to_vec(),owner:std::sync::Weak::new()});
+            }
+            release_capture_as(self,key,&owner,request.as_slice(),&custodian).await
+        }).await
+    }
+
+    /// Capture an exact immutable request once, retaining the original gate grant.
+    /// This lower-level operation permits the selected 10,000-member qualification;
+    /// the public workbench admission remains at 128 until that qualification passes.
+    pub async fn capture_study_workbench(&self,key:&str,filter:&StudyWorkbenchFilter,maximum:usize,members:usize)->Result<NativeStudyCapture,CanonicalError> {
+        if key.is_empty() || key.len()>4096 || !(1..=64).contains(&maximum) || !(1..=10000).contains(&members) {return Err(CanonicalError::PayloadLimit);}
+        for value in [&filter.study,&filter.project,&filter.branch,&filter.source,&filter.physical_revision,&filter.context,&filter.research_reference].into_iter().flatten() {
+            if value.is_empty() || value.len()>4096 {return Err(CanonicalError::PayloadLimit);}
+        }
+        let activity=self.admit_activity()?;
+        activity.scope(async {
+            self.ensure_writes()?;
+            let owner=self.registered_file_owner().await?;
+            let request=serde_json::to_vec(&(1_u8,filter,maximum,members)).map_err(|e|CanonicalError::Configuration(e.to_string()))?;
+            let capture=capture_owner(self,key,&owner,&request)?;
+            let receipt=within_clock(original_deadline(REQUEST_TIMEOUT),async {
+                let opened=protected_query("canonical_study_workbench::capture_open",|| Ok(self.db.query("RETURN fn::pse_workbench_v1::open_capture($pse_rpc_expires_at,$capture,$owner,$request);").bind(("capture",key.to_owned())).bind(("owner",owner.clone())).bind(("request",Bytes::from(request.clone()))))).await.and_then(|mut response|response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse));
+                let opened=crate::canonical::settlement::settle_exact("study-cohort-gate",key,&request,opened,async {
+                    let mut response=protected_query("canonical_study_workbench::gate_readback",|| Ok(self.db.query("SELECT * FROM ONLY type::record('canonical_study_captures',$capture);").bind(("capture",key.to_owned())))).await?;
+                    Ok(response.take::<Option<Object>>(0)?)
+                },|row| row.get("request")==Some(&Value::Bytes(Bytes::from(request.clone()))) && row.get("owner")==Some(&Value::String(owner.clone())),CanonicalError::source_transaction_refused).await.map_err(|error| {
+                    if matches!(error,CanonicalError::OperationReused) {capture.0.release_needed.store(false,std::sync::atomic::Ordering::Release);}
+                    error
+                })?;
+                if opened.get("state")==Some(&Value::String("frozen".into())) {return Ok(opened);}
+                if opened.get("state")!=Some(&Value::String("pending".into())) {return Err(CanonicalError::CaptureClosed{capture:key.into()});}
+                let sql=workbench_sql(filter,true);
+                let write=protected_query("canonical_study_workbench::capture_commit",|| Ok(self.db.query(sql.clone())
+                    .bind(("capture",key.to_owned())).bind(("owner",owner.clone())).bind(("request",Bytes::from(request.clone())))
+                    .bind(("study",filter.study.clone())).bind(("project",filter.project.clone())).bind(("branch",filter.branch.clone())).bind(("source",filter.source.clone())).bind(("physical_revision",filter.physical_revision.clone())).bind(("context",filter.context.clone())).bind(("research_reference",filter.research_reference.clone()))
+                    .bind(("outcome",filter.outcome.map(serde_json::to_value).transpose().map_err(|e| CanonicalError::Configuration(e.to_string()))?.and_then(|v|v.as_str().map(str::to_owned))))
+                    .bind(("after",String::new())).bind(("maximum",maximum)).bind(("extent",maximum+1)).bind(("members",members)))).await.and_then(|mut response| {let index=response.num_statements().checked_sub(2).ok_or(CanonicalError::IncompleteResponse)?;response.take::<Option<Object>>(index)?.ok_or(CanonicalError::IncompleteResponse)});
+                crate::canonical::settlement::settle_exact("study-cohort-capture",key,&request,write,async {
+                    let mut response=protected_query("canonical_study_workbench::capture_readback",|| Ok(self.db.query("SELECT * FROM ONLY type::record('canonical_study_captures',$capture);").bind(("capture",key.to_owned())))).await?;
+                    let row=response.take::<Option<Object>>(0)?;
+                    Ok(row.filter(|row|row.get("state")==Some(&Value::String("frozen".into()))))
+                },|row| row.get("request")==Some(&Value::Bytes(Bytes::from(request.clone()))) && row.get("owner")==Some(&Value::String(owner.clone())) && row.get("state")==Some(&Value::String("frozen".into())),CanonicalError::source_transaction_refused).await
+            }).await?;
+            let mut receipt=receipt;
+            let header_count=codec::decode_uint(codec::required(&mut receipt,"header_count")?)?;
+            let member_count=codec::decode_uint(codec::required(&mut receipt,"member_count")?)?;
+            if header_count>maximum as u64 || member_count>members as u64 {return Err(CanonicalError::IncompleteResponse);}
+            Ok(NativeStudyCapture{header_count,member_count,capture})
+        }).await
+    }
+
 }
 #[cfg(test)]
 mod tests {

@@ -72,6 +72,11 @@ DEFINE FUNCTION fn::pse_lifecycle_v1::explain($expiry:int,$selection:object) -> 
     LET $savepoints=IF $draft!=NONE {SELECT key FROM canonical_project_savepoints WHERE version=$s.key ORDER BY key LIMIT 65} ELSE {[]};
     LET $other_versions=IF $draft.artifact!=NONE {SELECT key FROM canonical_project_draft_versions WHERE artifact=$draft.artifact AND key!=$s.key AND retired=false ORDER BY key LIMIT 65} ELSE {[]};
     LET $artifact_reads=IF $draft.artifact!=NONE {SELECT key FROM canonical_artifact_reads WHERE artifact=$draft.artifact AND type::record('canonical_protections',key).released=false AND (type::record('canonical_protections',key).expires_at>time::micros() OR fn::pse_files_v1::ticket_open($expiry,key)) ORDER BY key LIMIT 65} ELSE {[]};
+    LET $captures=SELECT key FROM canonical_study_capture_protections
+        WHERE (revision=$s.revision AND $s.kind='source_history')
+            OR (run=$s.key AND $s.kind IN ['run_results','run_history'])
+            OR ($s.kind IN ['study_results','study_history'] AND study=$s.key)
+        ORDER BY key LIMIT 65;
     LET $blockers=[
         IF $s.kind='source_history' {$roots.map(|$r| {kind:'retained_source_owner',identity:$r.key})} ELSE {[]},
         $pins.map(|$r| {kind:'active_source_protection',identity:$r.key}),
@@ -79,6 +84,7 @@ DEFINE FUNCTION fn::pse_lifecycle_v1::explain($expiry:int,$selection:object) -> 
         $imports.map(|$r| {kind:'incomplete_project_import',identity:$r.key}),
         IF $s.kind IN ['source_history','run_results','run_history'] {$project_refs.map(|$r| {kind:'project_research_reference',identity:$r.key})} ELSE {[]},
         $borrowers.map(|$r| {kind:'active_result_borrower',identity:$r.key}),
+        $captures.map(|$r| {kind:'active_result_borrower',identity:$r.key}),
         $attempts.map(|$r| {kind:'unsettled_attempt',identity:$r.key}),
         $studies.map(|$r| {kind:'retained_study',identity:$r.key}),
         $members.map(|$r| {kind:'retained_study_point',identity:$r.key}),
@@ -99,6 +105,7 @@ DEFINE FUNCTION fn::pse_lifecycle_v1::explain($expiry:int,$selection:object) -> 
     RETURN {selection:$s,blockers:$blockers,blockers_complete:false,logical_bytes:$logical,detail_released:$draft.retired ?? $retired.complete ?? false};
 };
 DEFINE FUNCTION fn::pse_project_v1::retire_draft_version($expiry:int,$s:object) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_lifecycle_v1::check($expiry,$s);
     LET $v=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$s.key) FOR UPDATE;
     LET $p=SELECT * FROM ONLY type::record('canonical_projects',$v.project) FOR UPDATE;
@@ -123,6 +130,7 @@ DEFINE FUNCTION fn::pse_project_v1::retire_draft_version($expiry:int,$s:object) 
     fn::pse_execution_v1::deadline($expiry); RETURN {complete:true};
 };
 DEFINE FUNCTION fn::pse_lifecycle_v1::release($expiry:int,$s:object) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_lifecycle_v1::check($expiry,$s);
     // Explanation is advisory. The original owner checks live guards in this
     // same effect transaction; no prior explanation is a deletion capability.

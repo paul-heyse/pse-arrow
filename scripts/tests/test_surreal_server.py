@@ -1479,6 +1479,24 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.addCleanup(self.scratch.cleanup)
         self.root = Path(self.scratch.name)
         self.state = self.root / "state"
+        helper = self.root / "native-payload-helper"
+        helper.write_text("#!/bin/sh\nexit 0\n")
+        helper.chmod(0o700)
+        selected_helper = patch.object(
+            server, "admitted_payload_verifier",
+            side_effect=lambda config: server.object_mapping(config.get("payload_verifier") or {
+                "binary": str(helper), "sha256": server.file_digest(helper),
+            }),
+        )
+        selected_helper.start()
+        self.addCleanup(selected_helper.stop)
+        # Source-only launch controls supply an already prepared native boundary;
+        # actual generation verification/preparation is covered independently.
+        prepared_inputs = patch.object(server.receiver_environment, "capture", side_effect=lambda capabilities, _environment: json.dumps({
+            "version": 1, "capabilities": list(capabilities), "values": {}, "provider_receipts": {},
+        }).encode())
+        prepared_inputs.start()
+        self.addCleanup(prepared_inputs.stop)
         module_install = patch.object(
             server.surrealism_module,
             "install",
@@ -3759,7 +3777,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 "nonce": "actual-launch",
                 "pid": os.getpid(),
                 "canonical_database": "another-study",
-                **server.reference_execution(),
+                **server.execution_profiles.execution("reference"),
             },
         )
         observation = {
@@ -3915,7 +3933,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 "nonce": nonce,
                 "pid": child.pid,
                 "canonical_database": config["database"],
-                **server.reference_execution(),
+                **server.execution_profiles.execution("reference"),
             },
         )
         group = next(
@@ -4454,7 +4472,7 @@ class SurrealSupervisorTests(unittest.TestCase):
 
     def test_readiness_marker_without_kernel_association_is_not_readiness(self) -> None:
         config = self.reference_fixture()
-        execution = server.reference_execution()
+        execution = server.execution_profiles.execution("reference")
         server.write_json(
             self.state / "primary-launch.json", {"nonce": "actual-launch"}
         )
@@ -7660,16 +7678,15 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         before = set(self.state.rglob("*"))
 
         def native(
-            arguments: list[str], **_options: object
-        ) -> subprocess.CompletedProcess[bytes]:
+            arguments: list[str], request: object, output: object, _errors: object,
+            _checkpoint: Path, **_options: object
+        ) -> int:
             self.assertEqual(arguments[1:3], ["--operation", "verify"])
-            request = _options["stdin"]
-            output = _options["stdout"]
             assert isinstance(request, io.BufferedIOBase)
             assert isinstance(output, io.BufferedIOBase)
             for line in request:
                 output.write(line)
-            return subprocess.CompletedProcess(arguments, 0, b"", b"")
+            return 0
 
         with (
             patch.object(
@@ -7678,7 +7695,8 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 side_effect=_native_payload_operation,
             ),
             patch.object(server, "payload_verifier", return_value=verifier),
-            patch.object(server.subprocess, "run", side_effect=native),
+            patch.object(server.recovery_operation, "run", side_effect=native),
+            patch.object(server.recovery_operation, "checkpoint_path", return_value=self.root / "progress.json"),
         ):
             server.verify_payload_inventory(
                 self.state, config, inventory, read_only_source=True

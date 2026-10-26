@@ -283,15 +283,15 @@ def fixtures(case: str, output: Path) -> dict[str, object]:
             "gate": "codegen-contracts",
             "action_count": 1,
             "direct_generated_edits": False,
-            "producer": "crates/pse-operations/src/evidence_query/comparison.rs",
+            "producer": "xtask/src/development/evidence_query/comparison.rs",
             "producer_sha256": hashlib.sha256(
                 (
-                    ROOT / "crates/pse-operations/src/evidence_query/comparison.rs"
+                    ROOT / "xtask/src/development/evidence_query/comparison.rs"
                 ).read_bytes()
             ).hexdigest(),
-            "declaration_id": "declaration:runtime_catalogue:EvidenceComparison",
-            "generator_id": "generator:crates/pse-codegen/src/codegen/documents.rs#generate_catalogue",
-            "generated_schema": "docs/generated/schema/evidence-comparison.output.schema.json",
+            "declaration_id": "declaration:private_catalogue:EvidenceComparison",
+            "generator_id": "generator:crates/pse-codegen/src/codegen/documents.rs#generate_private_catalogue",
+            "generated_schema": "scripts/generated/evidence_schema/evidence-comparison.output.schema.json",
         },
     }
 
@@ -354,7 +354,7 @@ Final JSON: {{"case":"generated-recovery","actions_invoked":0,"guide_read":true,
         + f"""Case generated: F01 authored Rust producer changes are already implemented. Synchronize their generated contract outputs through the owner.
 Describe/select contracts_generate and assessment_read. You are authorized ONLY one contracts_generate invocation with arguments {arguments}.
 Read the complete original generated-path guide pse://guidance/generated and query workspace_concepts_query for
-{{"request":{{"concept":"generated-output","identity":"docs/generated/schema/evidence-comparison.output.schema.json","limit":1}}}} to inspect producer ownership.
+{{"request":{{"concept":"generated-output","identity":"scripts/generated/evidence_schema/evidence-comparison.output.schema.json","limit":1}}}} to inspect producer ownership.
 Do not hand-edit any generated file, edit source, run a separate check, or launch a broader assessment. After the generator returns, read
 its original assessment using assessment_read with the action's exact output directory and tail=0.
 Final JSON: {{"case":"generated","generator_invoked":true,"direct_generated_edits":false,"product_qualified":false,"assessment_output":{json.dumps(object_value(selected_arguments["request"])["output"])}}}.
@@ -579,7 +579,7 @@ def assess(
             == {
                 "request": {
                     "concept": "generated-output",
-                    "identity": "docs/generated/schema/evidence-comparison.output.schema.json",
+                    "identity": "scripts/generated/evidence_schema/evidence-comparison.output.schema.json",
                     "limit": 1,
                 }
             }
@@ -593,7 +593,7 @@ def assess(
             and object_value(original.array_value(producer_answer["items"])[0])[
                 "native_id"
             ]
-            == "docs/generated/schema/evidence-comparison.output.schema.json",
+            == "scripts/generated/evidence_schema/evidence-comparison.output.schema.json",
             "original generated artifact identity differs",
         )
         oracle = object_value(control["oracle"])

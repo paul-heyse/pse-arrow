@@ -8,6 +8,7 @@ import pytest
 import pse
 from pse.contracts.documents import (
     StudyCohortRequest,
+    StudyCohortPageRequest,
     StudyObservationRequest,
     StudyWorkbenchFilter,
     StudyWorkbenchRequest,
@@ -66,9 +67,9 @@ def test_study_workbench_public_snapshot_and_passive_reconnect(
             maximum_members=2,
         )
     )
-    assert frozen.document.complete
-    assert len(frozen.document.members) == 2
-    assert [member.ordinal for member in frozen.document.members] == [0, 1]
+    assert frozen.receipt.complete
+    assert frozen.receipt.member_count == 2
+    assert [row.value.ordinal for row in frozen.member_page(StudyCohortPageRequest(maximum=2,cursor=None)).members] == [0, 1]
     request = StudyObservationRequest(
         study=handle.study_id.to_hex(),
         maximum_members=2,
@@ -77,14 +78,14 @@ def test_study_workbench_public_snapshot_and_passive_reconnect(
     with runtime.observe_study(request) as observer:
         first = observer.poll()
         cursor = observer.cursor
-        assert first.status.headers[0].study == browsing.headers[0].study
+        assert first.status.header.study == browsing.headers[0].study
     # Closing an observer cannot issue scientific cancellation, even if workers
     # happened to finish these two small constant operations before this read.
     assert not handle.status().cancelled
     with runtime.observe_study(request, cursor=cursor) as reconnected:
         current = reconnected.poll()
-        assert not current.status.headers[0].cancelled
-        assert len(current.status.members) == 2
+        assert not current.status.header.cancelled
+        assert len(current.status.members.members) == 2
     foreign = msgspec.structs.replace(
         cursor, issuing_store=cursor.issuing_store + "-foreign"
     )
@@ -105,6 +106,6 @@ def test_study_workbench_public_snapshot_and_passive_reconnect(
             )
         )
     # A frozen population remains exactly the captured population after later polls.
-    assert len(frozen.document.members) == 2
+    assert frozen.receipt.member_count == 2
     assert not handle.status().cancelled
     handle.cancel()

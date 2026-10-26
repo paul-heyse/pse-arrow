@@ -336,7 +336,7 @@ class Plan30LifecycleTests(unittest.TestCase):
     ) -> None:
         for declared, selected in (
             ("functional", "functional"),
-            ("plan28-reference", "reference"),
+            ("reference", "reference"),
         ):
             with (
                 self.subTest(profile=declared),

@@ -11,10 +11,8 @@ from __future__ import annotations
 
 import argparse
 import fcntl
-import hashlib
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -23,7 +21,7 @@ from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, TypeAlias
 
-from scripts import producer_cargo, python_extension
+from scripts import producer_cargo, producer_receipts, python_extension
 from scripts.producer_cargo import EFFECTIVE_ENVIRONMENT as DECLARED_ENVIRONMENT
 
 if TYPE_CHECKING:
@@ -35,7 +33,7 @@ ProducerRole: TypeAlias = tuple[str, str, str, str, tuple[str, ...]]
 
 ROLES: tuple[ProducerRole, ...] = (
     ("runtime", "pse-runtime", "pse_runtime", "lib", ("--lib",)),
-    ("worker", "xtask", "pse-worker", "bin", ("--bin", "pse-worker")),
+    ("worker", "pse-runtime", "pse-worker", "bin", ("--bin", "pse-worker")),
     (
         "python",
         "pse-py",
@@ -46,11 +44,6 @@ ROLES: tuple[ProducerRole, ...] = (
 )
 
 
-def read_object(path: Path) -> dict[str, object]:
-    value = json.loads(path.read_text())
-    if not isinstance(value, dict):
-        raise TypeError(f"Expected JSON object: {path}")
-    return value
 
 
 def input_path(root: Path, name: str, environment: Mapping[str, str]) -> Path:
@@ -92,7 +85,7 @@ def reviewed_inputs(
         declaration = input_path(
             root, f"PSE_{role.upper()}_PRODUCER_DECLARATIONS", environment
         )
-        context = read_object(declaration)
+        context = producer_receipts.read_object(declaration)
         if (
             context.get("capture_actual_build") is not True
             or context.get("native_inputs_complete") is not True
@@ -106,83 +99,14 @@ def reviewed_inputs(
     return result
 
 
-def hash_value(value: object) -> bool:
-    return (
-        isinstance(value, str)
-        and re.fullmatch(r"(?:blake3:)?[0-9a-f]{64}", value) is not None
-    )
 
 
-def file_observation(path: Path) -> dict[str, object]:
-    path = path.absolute()
-    with path.open("rb") as stream:
-        digest = hashlib.file_digest(stream, "sha256").hexdigest()
-    return {
-        "path": str(path),
-        "sha256": digest,
-        "canonical": str(path.resolve(strict=True)),
-        "mode": path.stat().st_mode,
-    }
 
 
-def current_receipt(receipt: dict[str, object]) -> bool:
-    version = receipt.get("receipt_version")
-    return isinstance(version, int) and not isinstance(version, bool) and version == 2
 
 
-def receipt_artifact(receipt: dict[str, object], role: str) -> dict[str, object]:
-    if not current_receipt(receipt):
-        raise ValueError(f"{role} has unsupported deployment receipt interpretation")
-    association = receipt.get("deployment")
-    if not isinstance(association, dict) or not isinstance(
-        association.get("artifact"), dict
-    ):
-        raise TypeError(f"{role} lacks actual artifact association")
-    artifact = association["artifact"]
-    if not isinstance(artifact.get("path"), str) or artifact != file_observation(
-        Path(artifact["path"])
-    ):
-        raise ValueError(f"{role} actual artifact changed or is incomplete")
-    return artifact
 
 
-def verify_native_provider(
-    receipt_path: Path, package_id: str, out_dir: Path, environment: Mapping[str, str]
-) -> bool:
-    """Pure verification through the single Rust capture/framing owner; no Cargo."""
-    try:
-        value = read_object(receipt_path)
-        if (
-            not current_receipt(value)
-            or value.get("persistent_reuse_eligible") is not True
-            or value.get("reasons") != []
-        ):
-            return False
-        association = value.get("deployment")
-        if not isinstance(association, dict) or not isinstance(
-            association.get("workspace_root"), str
-        ):
-            return False
-        tool = Path(association["workspace_root"]) / "target/debug/xtask"
-        result = subprocess.run(
-            [
-                str(tool),
-                "verify-native-provider",
-                "--receipt",
-                str(receipt_path),
-                "--package-id",
-                package_id,
-                "--out-dir",
-                str(out_dir),
-            ],
-            env=dict(environment),
-            capture_output=True,
-            check=False,
-        )
-    except (OSError, ValueError, TypeError):
-        return False
-    else:
-        return result.returncode == 0
 
 
 def verify_artifact(
@@ -208,7 +132,7 @@ def verify_artifact(
             f"Actual artifact/consumed-input association refused: {result.stderr}"
         )
     value = json.loads(result.stdout)
-    if not isinstance(value, dict) or value != file_observation(artifact):
+    if not isinstance(value, dict) or value != producer_receipts.file_observation(artifact):
         raise ValueError("Independent artifact observation differs from actual file")
     return value
 
@@ -221,7 +145,7 @@ def load_history(
     receipt: Mapping[str, object],
 ) -> dict[str, object]:
     """Read only the sealed core product; historical context grants no freshness."""
-    if not current_receipt(dict(receipt)):
+    if not producer_receipts.current_receipt(dict(receipt)):
         raise ValueError(f"{role} has unsupported deployment receipt interpretation")
     result = subprocess.run(
         [
@@ -245,7 +169,7 @@ def load_history(
         or type(history.get("version")) is not int
         or history["version"] != 1
         or history.get("historical_only") is not True
-        or not hash_value(receipt.get("identity"))
+        or not producer_receipts.hash_value(receipt.get("identity"))
         or not isinstance(receipt.get("selected_root"), str)
         or not receipt["selected_root"]
         or history.get("producer_identity") != receipt["identity"]
@@ -280,12 +204,12 @@ def bind_python_artifact(
     if imported.parent != (root / "python/pse").resolve():
         raise ValueError("Actual imported extension belongs to another checkout")
     path = output / "python.json"
-    receipt = read_object(path)
+    receipt = producer_receipts.read_object(path)
     evidence = load_history(root, output, "python", environment, receipt)
-    built = receipt_artifact(receipt, "python")
+    built = producer_receipts.receipt_artifact(receipt, "python")
     original = Path(str(built["path"]))
     verify_artifact(root, path, original, environment)
-    installed = file_observation(imported)
+    installed = producer_receipts.file_observation(imported)
     transformation: dict[str, object] = {"kind": "identical-bytes"}
     if installed["sha256"] != built["sha256"]:
         messages = [
@@ -347,7 +271,7 @@ def bind_python_artifact(
                 ],
                 check=True,
             )
-            replayed = file_observation(replay)["sha256"]
+            replayed = producer_receipts.file_observation(replay)["sha256"]
             if replayed != installed["sha256"]:
                 raise ValueError(
                     "Imported extension differs beyond the admitted RPATH-only transformation"
@@ -380,9 +304,9 @@ def validate_receipt(
     root: Path, output: Path, role: ProducerRole, environment: Mapping[str, str]
 ) -> dict[str, object]:
     name, package, target, kind, _ = role
-    receipt = read_object(output / f"{name}.json")
+    receipt = producer_receipts.read_object(output / f"{name}.json")
     evidence = load_history(root, output, name, environment, receipt)
-    receipt_artifact(receipt, name)
+    producer_receipts.receipt_artifact(receipt, name)
     if receipt.get("frame") != "pse.producer.v1" or receipt.get("package") != package:
         raise ValueError(f"{name} receipt has the wrong frame or package")
     if (
@@ -392,7 +316,7 @@ def validate_receipt(
         raise ValueError(f"{name} producer is ineligible or retains unresolved reasons")
     if not isinstance(receipt.get("native_abi"), str) or not receipt["native_abi"]:
         raise ValueError(f"{name} lacks reviewed native ABI contract")
-    if not hash_value(receipt.get("identity")):
+    if not producer_receipts.hash_value(receipt.get("identity")):
         raise ValueError(f"{name} receipt lacks a valid producer identity")
     units = receipt.get("units")
     selected = receipt.get("selected_root")
@@ -441,7 +365,7 @@ def validate_receipt(
         or actual.get("features") != unit.get("features")
     ):
         raise ValueError(f"{name} receipt root differs from actual selected build root")
-    return receipt_artifact(receipt, name)
+    return producer_receipts.receipt_artifact(receipt, name)
 
 
 def validate_receipts(
@@ -453,7 +377,7 @@ def validate_receipts(
     }
     shared: dict[str, dict[str, set[str]]] = {}
     for role in ROLES:
-        receipt = read_object(output / f"{role[0]}.json")
+        receipt = producer_receipts.read_object(output / f"{role[0]}.json")
         units = receipt.get("units")
         if not isinstance(units, list):
             raise TypeError("Malformed production unit list")
@@ -520,7 +444,7 @@ def require_installer_capture(output: Path) -> None:
     path = output / "python-installer-cargo.status.json"
     if not path.is_file():
         raise ValueError("Maturin did not consume the selected Cargo observer")
-    status = read_object(path)
+    status = producer_receipts.read_object(path)
     if status.get("returncode") != 0 or status.get("sealed") is not True:
         raise ValueError("Maturin actual Cargo child lacks completed capture")
 
@@ -591,6 +515,7 @@ def begin_preparation(
                 "production_target": target,
                 "features": [
                     "native-solvers",
+                    *(["product-operators"] if role == "worker" else []),
                     "force-validate"
                     if role == "python"
                     else "pse-relations/force-validate",
@@ -600,7 +525,7 @@ def begin_preparation(
                 "declared_inputs": [],
                 "native_inputs": [str(path) for path in files],
                 "declared_environment": {},
-                "declarations": read_object(declaration),
+                "declarations": producer_receipts.read_object(declaration),
             }
         )
     selection = directory / "selection.json"
@@ -695,6 +620,8 @@ def capture(
             features = (
                 "native-solvers,force-validate"
                 if name == "python"
+                else "native-solvers,product-operators,pse-relations/force-validate"
+                if name == "worker"
                 else "native-solvers,pse-relations/force-validate"
             )
             command = [

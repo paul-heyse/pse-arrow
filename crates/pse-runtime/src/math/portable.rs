@@ -90,7 +90,7 @@ impl ExpectedProducerTarget {
     };
     /// The supervised native worker executable.
     pub const WORKER: Self = Self {
-        package: "xtask",
+        package: "pse-runtime",
         target: "pse-worker",
         kind: "bin",
     };
@@ -239,7 +239,8 @@ impl QualifiedProducer {
         {
             return Ok(None);
         }
-        if matches!(expected_target.package, "xtask" | "pse-py")
+        if matches!((expected_target.package, expected_target.target, expected_target.kind),
+                    ("pse-runtime", "pse-worker", "bin") | ("pse-py", "_native", "cdylib"))
             && (root.profile.get("name").and_then(serde_json::Value::as_str) != Some("producer")
                 || !root
                     .features
@@ -373,7 +374,7 @@ fn local_role(
     target: ExpectedProducerTarget,
 ) -> Result<pse_buildinfo::LocalRuntimeRole, PortableError> {
     match (target.package, target.target, target.kind) {
-        ("xtask", "pse-worker", "bin") => Ok(pse_buildinfo::LocalRuntimeRole::Worker),
+        ("pse-runtime", "pse-worker", "bin") => Ok(pse_buildinfo::LocalRuntimeRole::Worker),
         ("pse-py", "_native", "cdylib") => Ok(pse_buildinfo::LocalRuntimeRole::Python),
         _ => Err(PortableError::Qualification(
             "unsupported local reconstruction role".into(),
@@ -2494,13 +2495,13 @@ mod portable_frame_tests {
             "persistent_reuse_eligible": true, "reasons": [],
             "selected_lock_records":[],"consumed_inputs":{},"declared_environment":{},
             "deployment": {"artifact": {"sha256": artifact},"producer_identity":"pending-fixture-key","selected_root":"root"},
-            "native_abi": "actual reviewed native ABI", "package": "xtask", "selected_root": "root",
+            "native_abi": "actual reviewed native ABI", "package": "pse-runtime", "selected_root": "root",
             "units": [{"key":"root", "target_name":"pse-worker", "target_kind":["bin"], "crate_types":["bin"],"package_id":"selected-fixture","edition":"2024","platform":null,"dependencies":{}, "mode":"build", "profile":{"name":"producer"}, "features":["native-solvers"]}]
         });
         let units: Vec<pse_buildinfo::identity::ProductionUnit> =
             serde_json::from_value(value["units"].clone()).unwrap();
         value["identity"] = pse_buildinfo::identity::scientific_producer_identity(
-            "xtask",
+            "pse-runtime",
             &units,
             &[],
             &std::collections::BTreeMap::new(),

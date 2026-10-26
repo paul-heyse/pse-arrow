@@ -22,13 +22,10 @@ workspace = true
 [features]
 force-validate = [
   "pse-codegen/force-validate",
-  "pse-engine?/force-validate",
-  "pse-columnar?/force-validate",
   "pse-schema/force-validate",
   "pse-relations/force-validate",
 ]
 default = []
-evidence-query = ["dep:pse-engine", "dep:datafusion", "dep:pse-columnar"]
 # Fixture lifetime, isolated databases and deterministic hooks for downstream tests.
 test-support = []
 # Participation in remote mechanism tests; does not select downstream instrumentation.
@@ -39,9 +36,6 @@ canonical-maintenance = ["dep:surrealdb-syn", "dep:surrealdb-sql"]
 [dependencies]
 clap.workspace = true
 hex.workspace = true
-pse-engine = { workspace = true, optional = true }
-datafusion = { workspace = true, optional = true }
-pse-columnar = { workspace = true, optional = true }
 libc.workspace = true
 rustix.workspace = true
 tokio-util.workspace = true
@@ -60,6 +54,7 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 toml.workspace = true
+tempfile.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 tokio.workspace = true
@@ -68,8 +63,9 @@ surrealdb-syn = { workspace = true, optional = true }
 surrealdb-sql = { workspace = true, optional = true }
 
 [dev-dependencies]
+pse-engine.workspace = true
+datafusion.workspace = true
 surrealdb = { workspace = true, features = ["grpc-lifecycle-test-support"] }
-tempfile.workspace = true
 base64.workspace = true
 surrealdb-protocol.workspace = true
 pse-columnar.workspace = true
@@ -87,3 +83,8 @@ url.workspace = true
 [[bin]]
 name = "pse-canonical-recovery"
 path = "src/bin/pse-canonical-recovery.rs"
+
+
+[[bin]]
+name = "pse-canonical-init"
+path = "src/bin/pse-canonical-init.rs"

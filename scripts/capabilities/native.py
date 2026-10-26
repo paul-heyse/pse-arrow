@@ -106,7 +106,7 @@ def run_child(
         "--",
         str(root / ".venv/bin/python"),
         "-m",
-        WORKERS["native"].module,
+        binding.worker.declaration.module,
     ]
     with (
         tempfile.TemporaryDirectory(prefix="pse-native-admission-") as directory,
@@ -114,7 +114,7 @@ def run_child(
         tempfile.TemporaryFile() as errors,
     ):
         admitted = execution_basis.publish(
-            Path(directory), root, "native", operation, request
+            Path(directory), root, binding.worker.worker, operation, request
         )
         try:
             completed = subprocess.run(
@@ -223,10 +223,12 @@ class NativeTool(Tool):
 
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
-    schemas = SchemaSet(root)
+    product_schemas = SchemaSet(root)
+    evidence_schemas = SchemaSet(root, family="evidence")
     specs: list[Capability] = []
     tools: dict[str, Tool] = {}
     for binding in BINDINGS:
+        schemas = evidence_schemas if binding.operation == "evidence_compare" else product_schemas
         host_schema = binding.request.model_json_schema()
         parameters = schemas.envelope(
             host_schema, binding.documents, tuple(host_schema.get("required", ()))
@@ -257,6 +259,8 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             worker_calls=(binding.worker,),
             requirements=binding.requirements,
             prerequisites=(
+                ("Existing explicitly built pse-evidence executable; no scientific extension or service is used.",)
+                if binding.operation == "evidence_compare" else
                 (
                     "Existing compatible native Python extension; this selected action may prepare native import providers through the existing environment owner.",
                 )

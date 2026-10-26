@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Passive bounded study telemetry: exact per-attempt streams, never a study execution owner.
 use super::{
-    ProgressCheckpointDocument, ProgressEventDocument, Runtime, StudyCohortDocument,
+    ProgressCheckpointDocument, ProgressEventDocument, Runtime, StudyCohortReceipt, StudyCohortMemberPage, StudyWorkbenchHeader, StudyCohortPageRequest,
     StudyCohortRequest, StudyWorkbenchFilter, WorkflowError, contract,
 };
 use pse_columnar::CancellationToken;
@@ -107,12 +107,33 @@ pub struct StudyObservedSource {
     /// Original canonical refusal when retained terminal history is unavailable.
     pub history_refusal: Option<String>,
 }
+/// One explicitly bounded observer status page; never a complete analytical document.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StudyObservationStatus {
+    /// Exact historical native cut and counts.
+    pub receipt: StudyCohortReceipt,
+    /// The one explicitly selected study header.
+    pub header: StudyWorkbenchHeader,
+    /// One bounded original member page (observer admission remains at64).
+    pub members: StudyCohortMemberPage,
+    #[serde(skip)]
+    #[schemars(skip)]
+    _custody: Option<Arc<dyn std::fmt::Debug+Send+Sync>>,
+}
+async fn status_page(cohort:super::FrozenStudyCohort)->Result<StudyObservationStatus,WorkflowError> {
+    let headers=cohort.header_page(StudyCohortPageRequest{maximum:1,cursor:None}).await?;
+    let members=cohort.member_page(StudyCohortPageRequest{maximum:64,cursor:None}).await?;
+    if cohort.receipt().header_count!=1||headers.next.is_some()||members.next.is_some() {return Err(contract("selected observation bounded population incomplete"));}
+    let header=headers.headers.into_iter().next().ok_or_else(||contract("selected observation study absent"))?.value;
+    Ok(StudyObservationStatus{receipt:cohort.receipt().clone(),header,members,_custody:Some(Arc::new((headers._owner,cohort)))})
+}
 /// One bounded read-only poll and its exact reconnect position.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyObservationPage {
     /// Canonical compact status with actual point metadata revisions.
-    pub status: StudyCohortDocument,
+    pub status: StudyObservationStatus,
     /// Bounded selected owner observations.
     pub sources: Vec<StudyObservedSource>,
     /// Exact next reconnect position.
@@ -127,12 +148,8 @@ pub struct StudyObserver {
     cancel: CancellationToken,
     closed: bool,
 }
-fn context(document: &StudyCohortDocument) -> Result<StudyObservationContext, WorkflowError> {
-    let h = document
-        .headers
-        .first()
-        .filter(|_| document.headers.len() == 1)
-        .ok_or_else(|| contract("selected observation study absent"))?;
+fn context(document: &StudyObservationStatus) -> Result<StudyObservationContext, WorkflowError> {
+    let h=&document.header;
     Ok(StudyObservationContext {
         run: h.run.clone(),
         source: h.source.clone(),
@@ -163,7 +180,8 @@ impl Runtime {
                 maximum_members: request.maximum_members,
             })
             .await?;
-        let selected = context(status.document())?;
+        let status=status_page(status).await?;
+        let selected = context(&status)?;
         let issuer = self.canonical_store()?.issuing_store()?.to_owned();
         let cursor = match cursor {
             Some(cursor) => {
@@ -183,11 +201,7 @@ impl Runtime {
                     if !keys.insert((&source.run, &source.attempt))
                         || source.offset > 512
                         || source.run != selected.run
-                            && !status
-                                .document()
-                                .members
-                                .iter()
-                                .any(|p| p.run == source.run)
+                            && !status.members.members.iter().any(|p|p.value.run==source.run)
                     {
                         return Err(contract(
                             "observer cursor includes foreign or malformed source",
@@ -297,16 +311,13 @@ impl StudyObserver {
                 maximum_members: self.cursor.request.maximum_members,
             })
             .await?;
-        if context(status.document())? != self.cursor.context {
+        let status=status_page(status).await?;
+        if context(&status)? != self.cursor.context {
             return Err(contract("observer selected context changed"));
         }
         let mut runs = vec![(self.cursor.context.run.clone(), None)];
         runs.extend(
-            status
-                .document()
-                .members
-                .iter()
-                .map(|p| (p.run.clone(), Some(p.metadata_revision))),
+            status.members.members.iter().map(|p|(p.value.run.clone(),Some(p.value.metadata_revision))),
         );
         let mut attempts = Vec::new();
         for (run, revision) in runs {
@@ -473,7 +484,7 @@ impl StudyObserver {
             });
         }
         Ok(StudyObservationPage {
-            status: status.document().clone(),
+            status,
             sources: output,
             cursor: self.cursor.clone(),
         })

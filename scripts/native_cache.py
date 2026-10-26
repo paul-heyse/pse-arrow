@@ -161,6 +161,15 @@ SOLVER_FILES = (
 )
 
 
+def pipeline_files(kind: str) -> tuple[str, ...]:
+    """Consumed Uno/PETSc interfaces, shared by preparation and runtime validation."""
+    if kind == "uno":
+        return ("lib/libuno.a", "include/uno/Uno_C_API.h")
+    if kind == "petsc":
+        return ("lib/libpetsc.so", "include/petscsnes.h", "include/petscts.h")
+    raise ValueError("unknown native pipeline capability")
+
+
 def cache_root(env: dict[str, str]) -> Path:
     base = Path(env.get("XDG_CACHE_HOME", str(Path.home() / ".cache")))
     return (

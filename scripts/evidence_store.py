@@ -331,7 +331,7 @@ def selected_snapshot(args: argparse.Namespace) -> evidence_projection.EvidenceS
 
 
 def run_offline(
-    tool: Path, arguments: list[str], *, deadline: float, operation: str = "offline"
+    tool: Path, arguments: list[str], *, deadline: float, operation: str = "offline", stdout: TextIO | None = None
 ) -> int:
     """Dispatch an explicitly built tool without configuration, service or build effects."""
     if operation not in {"offline", "compare-offline"}:
@@ -354,6 +354,7 @@ def run_offline(
     }
     return subprocess.run(
         [str(tool), "evidence", operation, *arguments],
+        stdout=stdout,
         check=False,
         timeout=surreal_server.remaining(deadline),
         env=environment,

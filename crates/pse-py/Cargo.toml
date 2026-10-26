@@ -57,7 +57,7 @@ pse-admission.workspace = true
 pse-diagnostics.workspace = true
 pse-modeling.workspace = true
 pse-model.workspace = true
-pse-operations = { workspace = true, features = ["evidence-query"] }
+pse-operations.workspace = true
 pyo3-async-runtimes.workspace = true
 pse-backend-native.workspace = true
 pse-authoring.workspace = true

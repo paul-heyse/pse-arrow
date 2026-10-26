@@ -193,7 +193,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 invocation_lifetime="single",
             )
         )
-    schemas = SchemaSet(root)
+    schemas = SchemaSet(root, family="evidence")
     for function, output in (
         (knowledge_query, "knowledge-page"),
         (knowledge_explain, "knowledge-explain"),
@@ -240,7 +240,7 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 description=tool.description or "",
                 domain="knowledge",
                 family="knowledge-recall",
-                owner="crates/pse-operations/src/knowledge.rs",
+                owner="xtask/src/development/knowledge.rs",
                 source="scripts/capabilities/knowledge_queries.py",
                 exposure="tool",
                 guides=("root", "tooling"),

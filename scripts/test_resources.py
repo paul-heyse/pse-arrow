@@ -137,6 +137,63 @@ def storage() -> resource_store.FileStore:
     return resource_store.FileStore(service_borrowers.registry())
 
 
+def register_composer(
+    invocation: Path, *, deadline: float | None = None
+) -> tuple[Path, str, str] | None:
+    """Publish only a selected live composer under its authentic operation fence.
+
+    The caller installs interruption handling before this transition. The outer
+    owner only requests and observes completion; it never composes test outcomes.
+    """
+    deadline = resource_store.clock(deadline)
+    declaration = read_invocation(invocation)
+    nonce = declaration["nonce"]
+    composer = {
+        "pid": os.getpid(),
+        "start": operation_lifetime.start_identity(os.getpid()),
+        "boot": host.boot(),
+        "scope": execution_owner(deadline=deadline),
+    }
+    with storage().invocation_edit(nonce, deadline=deadline) as selected:
+        if selected["phase"] != "open" or selected.get("composer") is not None:
+            raise ValueError(
+                "Invocation membership is closed or already has its selected composer"
+            )
+        selected["composer"] = composer
+    parent = operation.owner_record(deadline=deadline)
+    if parent is None or operation_lifetime.scope_owner(deadline=deadline) is None:
+        return None
+
+    registry = service_borrowers.registry().resolve()
+    if (
+        invocation != registry / "invocations" / f"{nonce}.json"
+        or invocation != invocation.resolve()
+    ):
+        raise ValueError("selected terminal requires its exact private invocation")
+    token = uuid.uuid4().hex
+    with operation.record_lock(parent, deadline=deadline):
+        record = operation._record(parent)
+        if record.get("cancelled"):
+            raise ValueError("native operation cancelled before selected payload")
+        composers = operation_lifetime.composer_registrations(record)
+        if nonce in composers:
+            raise ValueError("selected invocation already has a terminal composer")
+        operation.register_terminal_guard(parent, nonce, token, deadline=deadline)
+        composers[nonce] = {
+            "token": token,
+            "pid": os.getpid(),
+            "start": operation_lifetime.start_identity(os.getpid()),
+            "scope": record["scope"],
+            "invocation": str(invocation),
+            "registry": str(registry),
+            "phase": "registered",
+        }
+        record["selected_composers"] = composers
+        operation_lifetime.write_json(parent, record)
+    return parent, nonce, token
+
+
+
 def resource_phase(record: ResourceRecord) -> str:
     settled = (
         record.get("drained") is True
@@ -333,7 +390,9 @@ def invocation(
             "start": operation_lifetime.start_identity(os.getpid()),
             "boot": host.boot(),
         }
-    storage().create_invocation(declaration)
+    from scripts import test_requirements  # noqa: PLC0415 -- actual selected requirement-policy owner
+
+    storage().create_invocation(declaration, requirement_policy=test_requirements.POLICY_VERSION)
     producer = {
         "pid": os.getpid(),
         "start": operation_lifetime.start_identity(os.getpid()),

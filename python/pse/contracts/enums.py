@@ -386,6 +386,31 @@ class CanonicalRunPurpose(StrEnum):
     STUDY_ADMISSION = "study_admission"
 
 
+class CanonicalStudyCaptureState(StrEnum):
+    """The declared CanonicalStudyCaptureState enumeration."""
+
+    PENDING = "pending"
+    FROZEN = "frozen"
+    ABANDONED = "abandoned"
+    RELEASING = "releasing"
+    RELEASED = "released"
+
+
+class CanonicalStudyInstallationPageState(StrEnum):
+    """The declared CanonicalStudyInstallationPageState enumeration."""
+
+    ISSUED = "issued"
+    COMMITTED = "committed"
+
+
+class CanonicalStudyInstallationPhase(StrEnum):
+    """The declared CanonicalStudyInstallationPhase enumeration."""
+
+    NODES = "nodes"
+    EDGES = "edges"
+    ACTIVE = "active"
+
+
 class CanonicalTerminalOutcome(StrEnum):
     """The declared CanonicalTerminalOutcome enumeration."""
 
@@ -1107,20 +1132,6 @@ class EventDirection(StrEnum):
     FALLING = "falling"
 
 
-class EvidenceCoverage(StrEnum):
-    """The declared EvidenceCoverage enumeration."""
-
-    COMPLETE = "complete"
-    PARTIAL = "partial"
-
-
-class EvidenceGenerationState(StrEnum):
-    """The declared EvidenceGenerationState enumeration."""
-
-    STAGED = "staged"
-    ACTIVE = "active"
-
-
 class EvidenceUnavailableReason(StrEnum):
     """The declared EvidenceUnavailableReason enumeration."""
 
@@ -1322,101 +1333,6 @@ class KinsolStrategy(StrEnum):
     NEWTON = "newton"
     LINE_SEARCH = "line_search"
     FIXED_POINT = "fixed_point"
-
-
-class KnowledgeBasis(StrEnum):
-    """The declared KnowledgeBasis enumeration."""
-
-    DECLARED = "declared"
-    LANGUAGE_RESOLVED = "language-resolved"
-    TEXT = "text"
-    HISTORICAL = "historical"
-    NATIVE = "native"
-    AGENT_INTERPRETATION = "agent-interpretation"
-    USER_QUESTION = "user-question"
-
-
-class KnowledgeDirection(StrEnum):
-    """The declared KnowledgeDirection enumeration."""
-
-    INPUT = "input"
-    OUTPUT = "output"
-
-
-class KnowledgeDocumentRole(StrEnum):
-    """The declared KnowledgeDocumentRole enumeration."""
-
-    CONTRACT = "contract"
-    INSTRUCTION = "instruction"
-    DECISION = "decision"
-    PLAN = "plan"
-    REVIEW = "review"
-    REFERENCE = "reference"
-    EVIDENCE = "evidence"
-    INDEX = "index"
-
-
-class KnowledgeGenerationState(StrEnum):
-    """The declared KnowledgeGenerationState enumeration."""
-
-    STAGED = "staged"
-    ACTIVE = "active"
-
-
-class KnowledgeRelationKind(StrEnum):
-    """The declared KnowledgeRelationKind enumeration."""
-
-    OWNS = "owns"
-    GOVERNS = "governs"
-    CONTAINS = "contains"
-    DEPENDS_ON = "depends_on"
-    STATUS_OWNED_BY = "status_owned_by"
-    SUPERSEDED_BY = "superseded_by"
-    SUPPORTS = "supports"
-    ANSWERS = "answers"
-    DIAGNOSES = "diagnoses"
-    REFERENCES = "references"
-
-
-class KnowledgeSourceRole(StrEnum):
-    """The declared KnowledgeSourceRole enumeration."""
-
-    DEFINITION = "definition"
-    CATALOGUE_REGISTRATION = "catalogue_registration"
-    PRODUCER_DECLARATION = "producer_declaration"
-    NATIVE_SCOPE = "native_scope"
-    METADATA = "metadata"
-    OWNER_EVIDENCE = "owner_evidence"
-    QUESTION_INPUT = "question_input"
-    INTERPRETATION_INPUT = "interpretation_input"
-    INTERPRETATION_POLICY = "interpretation_policy"
-
-
-class KnowledgeSourceStatus(StrEnum):
-    """The declared KnowledgeSourceStatus enumeration."""
-
-    CURRENT = "current"
-    HISTORICAL = "historical"
-    PROPOSED = "proposed"
-    MISSING = "missing"
-    STALE = "stale"
-    UNKNOWN = "unknown"
-
-
-class KnowledgeSubjectKind(StrEnum):
-    """The declared KnowledgeSubjectKind enumeration."""
-
-    DOCUMENT = "document"
-    CONTRACT = "contract"
-    DECISION = "decision"
-    PLAN_PACKAGE = "plan_package"
-    DECLARATION = "declaration"
-    GENERATOR = "generator"
-    GENERATED_ARTIFACT = "generated_artifact"
-    EXPERIMENT = "experiment"
-    DIAGNOSTIC = "diagnostic"
-    EVIDENCE_REFERENCE = "evidence_reference"
-    RESEARCH_QUESTION = "research_question"
 
 
 class LiveSimulationEventKind(StrEnum):

@@ -458,7 +458,7 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
         arguments = (
             [
                 "--execution-profile",
-                "plan28-reference",
+                "reference",
                 "--worker-executable",
                 str(self.worker),
             ]
@@ -514,7 +514,7 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
         config = self.initialized(True)
         arguments = recovery.profile_arguments(self.state)
         selected = server.parser().parse_args(["setup", *arguments])
-        self.assertEqual(selected.execution_profile, "plan28-reference")
+        self.assertEqual(selected.execution_profile, "reference")
         self.assertEqual(
             str(selected.worker_executable),
             config["primary_receiver"]["worker_executable"],

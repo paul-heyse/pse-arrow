@@ -17,6 +17,7 @@ import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts import producer_receipts
 from scripts import (
     arrow_validation,
     pse_env,
@@ -28,7 +29,7 @@ from scripts import (
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
 
-from scripts import producer_deployment, validation, validation_receipts
+from scripts import validation, validation_receipts
 
 ROOT = Path(__file__).resolve().parents[1]
 FEATURES = "pse-runtime/native-solvers,pse-runtime/canonical-tests,pse-tests-conformance/native-acceptance,xtask/canonical-tests,pse-relations/force-validate"
@@ -543,8 +544,8 @@ def observe_deployed_artifacts(
         else python_native_binary(environment)
     )
     observations = {
-        "worker": producer_deployment.file_observation(Path(worker)),
-        "python": producer_deployment.file_observation(python),
+        "worker": producer_receipts.file_observation(Path(worker)),
+        "python": producer_receipts.file_observation(python),
     }
     validation.write_json(Path(destination), observations)
 
@@ -593,6 +594,7 @@ def _fixture_binary(
     variable: str,
     features: str,
     role: str,
+    package: str = "xtask",
 ) -> Path:
     """Supply the actual child-process executable in the selected Cargo profile."""
     supplied = environment.get(variable)
@@ -621,7 +623,7 @@ def _fixture_binary(
                 "cargo",
                 "build",
                 "-p",
-                "xtask",
+                package,
                 "--bin",
                 target,
                 "--locked",
@@ -679,8 +681,9 @@ def worker_binary(extra: list[str], environment: Mapping[str, str]) -> Path:
         environment,
         target="pse-worker",
         variable="PSE_WORKER_BINARY",
-        features="native-solvers,canonical-tests",
+        features="product-operators,native-solvers,canonical-tests",
         role="native worker",
+        package="pse-runtime",
     )
 
 

@@ -95,7 +95,7 @@ mod _native {
         diagnostics::{
             NativeCaptureSession, NativeDetailSession, NativeDiagnostics, NativeLaunchedCommand,
             NativeOperationObservations, diagnostic_analyze, diagnostic_capture,
-            diagnostic_capture_arrow, diagnostic_compare_evidence, diagnostic_compare_invocations,
+            diagnostic_capture_arrow, diagnostic_compare_invocations,
             diagnostic_detail_arrow, diagnostic_detail_records, diagnostic_explain_invocation,
             diagnostic_export_members, diagnostic_export_pack, diagnostic_extract_reproducer,
             diagnostic_inspect, diagnostic_inspect_frozen, diagnostic_inspect_image,

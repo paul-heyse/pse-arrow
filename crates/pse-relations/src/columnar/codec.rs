@@ -267,7 +267,10 @@ impl<T: ArrowValue, const N: usize> ArrowValue for [T; N] {
     }
 }
 
-pub(crate) fn append_string(
+/// Append one optional string with checked Arrow Utf8 offsets.
+/// # Errors
+/// The builder type differs or its offset extent overflows.
+pub fn append_string(
     output: &mut dyn ArrayBuilder,
     value: Option<&str>,
 ) -> Result<(), RelationError> {
@@ -287,7 +290,10 @@ pub(crate) fn append_string(
     Ok(())
 }
 
-pub(crate) fn read_string(input: &dyn Array, index: usize) -> Result<&str, RelationError> {
+/// Borrow one visible string from the declared native Utf8 representation.
+/// # Errors
+/// A null/out-of-bounds slot or a different Arrow representation.
+pub fn read_string(input: &dyn Array, index: usize) -> Result<&str, RelationError> {
     visible(input, index)?;
     Ok(array::<StringArray>(input)?.value(index))
 }

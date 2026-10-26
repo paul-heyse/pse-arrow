@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 287
+revision: 288
 date: 2026-10-26
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 288 | 2026-10-26 | Name selected Plan56d fresh `pse.substrate.v10` target for installation/capture meaning (§20.5/§20.6), preserving prior v9 qualification. | Authorized joint D/E execution and proposed ADR-0230; PSE_DESIGN_EDIT=1. No old store or qualification artifact is migrated; current product/native acceptance remains open. |
 | 287 | 2026-10-26 | Select bounded population/publication and gated immutable cohort capture, exact protection/recovery and incremental exchange targets (§19.3/§20). | Authorized Plan56d execution; proposed ADR-0230 amended after failed ungated SSI and passing gated surrogate, independently reassessed Accept at Proposed design evidence; PSE_DESIGN_EDIT=1. Actual product delivery/10,000-point qualification and cap changes remain open. |
 | 286 | 2026-10-26 | Select responsibility-owned product/private declarations, product worker/project roots, Rust deployment/allocation authority and production profiles (§D1/§3.2/§20.6/§21.1). | Maintainer-selected RC02/RC03 and remaining RC04/RC05; proposed ADR-0229 and independent Accept at Proposed design evidence precede dependent implementation; PSE_DESIGN_EDIT=1. Plan56e owns delivery/qualification; ADR-0230 capture remains unresolved. |
 | 285 | 2026-10-26 | Publish selected Plan56c canonical/native/Python/public and private mixed recovery acceptance, shared durable chunk custody and retained scope limits (§19.8/§24.2). | Maintainer-authorized C01–C05 closeout; PSE_DESIGN_EDIT=1. Original failures/composite checks retained; ADR-0228 remains proposed and wider Plan56 stays open. |

@@ -448,7 +448,7 @@ class CaseMeasurementTests(unittest.TestCase):
                 "/benchmark", "--test", {"adapter": "managed-durable"}
             )
             self.assertEqual(
-                command[command.index("--execution-profile") + 1], "plan28-reference"
+                command[command.index("--execution-profile") + 1], "reference"
             )
             self.assertEqual(
                 case_measure.managed_fixture_environment(

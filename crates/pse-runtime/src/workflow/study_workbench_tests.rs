@@ -55,6 +55,7 @@ pub(in crate::workflow) async fn create(
     let physical_row = store.revision(&physical.revision).await.unwrap().unwrap();
     let points = (0..points)
         .map(|key| NewOccurrence {
+            projection: None,
             policy: PointPolicy {
                 key: OccurrenceKey(key),
                 dependencies: vec![],
@@ -87,6 +88,9 @@ async fn finish(
     owner: pse_ids::SemanticId,
     value: Option<f64>,
 ) {
+    finish_batched(runtime,study,key,quantity,unit,owner,value,1).await;
+}
+async fn finish_batched(runtime:&Runtime,study:&str,key:u32,quantity:pse_ids::SemanticId,unit:pse_ids::SemanticId,owner:pse_ids::SemanticId,value:Option<f64>,batch_count:usize) {
     let store = runtime.canonical_store().unwrap();
     let point = point_key(study, OccurrenceKey(key));
     let scope = store.study_scope(&point).await.unwrap();
@@ -100,37 +104,24 @@ async fn finish(
         )
         .await
         .unwrap();
+    finish_claimed(runtime,study,key,quantity,unit,owner,value,batch_count,claim).await;
+}
+async fn finish_claimed(runtime:&Runtime,study:&str,key:u32,quantity:pse_ids::SemanticId,unit:pse_ids::SemanticId,owner:pse_ids::SemanticId,value:Option<f64>,batch_count:usize,claim:pse_operations::canonical_studies::StudyClaim) {
+    let store=runtime.canonical_store().unwrap();
+    let point=point_key(study,OccurrenceKey(key));
     if let Some(value) = value {
-        let mut samples = simulation_samples::Builder::with_registry(
-            runtime.registry(),
-            3,
-            &runtime.validation_context(),
-        )
-        .unwrap();
-        let run_id = pse_operations::mint_id();
-        for sample in 0..3 {
-            samples
-                .push(simulation_samples::Row {
-                    run_id,
-                    sample,
-                    time: sample as f64,
-                    symbol_id: owner,
-                    quantity_id: quantity,
-                    unit_id: unit,
-                    value: value + sample as f64 * 2.0,
-                })
-                .unwrap();
+        let run_id=pse_operations::mint_id();
+        let mut batches=Vec::with_capacity(batch_count);
+        for block in 0..batch_count {
+            let mut samples=simulation_samples::Builder::with_registry(runtime.registry(),3,&runtime.validation_context()).unwrap();
+            for offset in 0..3 {
+                let sample=i64::try_from(block*3+offset).unwrap();
+                samples.push(simulation_samples::Row{run_id,sample,time:sample as f64,symbol_id:owner,quantity_id:quantity,unit_id:unit,value:value+sample as f64*2.0}).unwrap();
+            }
+            batches.push(samples.finish().unwrap());
         }
-        flow::result_projection::store_result_table(
-            store,
-            &claim.fence,
-            simulation_samples::RELATION_ID,
-            flow::ResultCursor::from_checked(samples.finish().unwrap()),
-            &runtime.shared.pool(),
-            &flow::durable::PublicationAcks::new(&runtime.shared.pool()),
-        )
-        .await
-        .unwrap();
+        let cursor=flow::ResultCursor::from_retained(batches[0].batch().schema(),simulation_samples::RELATION_ID,&batches).unwrap();
+        flow::result_projection::store_result_table(store,&claim.fence,simulation_samples::RELATION_ID,cursor,&runtime.shared.pool(),&flow::durable::PublicationAcks::new(&runtime.shared.pool())).await.unwrap();
         // An unrelated payload deliberately is not scientific IPC. Exact selected detail
         // must never decode it to open the requested original sample relation.
         store
@@ -208,6 +199,125 @@ fn cohort(physical: &flow::PhysicalSource) -> StudyCohortRequest {
     }
 }
 #[tokio::test]
+async fn workbench_actual_10000_mixed_members_compact_summary_and_shared_provider() {
+    use datafusion::arrow::array::{Array,Float64Array,Int64Array};
+    use pse_operations::canonical::{CanonicalError,RefusalCode};
+    let started=std::time::Instant::now();
+    let runtime=flow::durable_tests::durable_runtime();
+    let physical=physical(&runtime).await;
+    let store=runtime.canonical_store().unwrap();
+    let source=store.edit("cohort-10000-model",None,"selected population fixture",&[]).await.unwrap();
+    let study=pse_operations::mint_id::<pse_ids::SemanticId>().to_hex();
+    create(&runtime,&study,&source,&physical,10000).await;
+    let created=started.elapsed();
+    let quantity=pse_operations::mint_id();let unit=pse_operations::mint_id();let owner=pse_operations::mint_id();
+    let usable=[0_u32,1,255,256,511,512,4095,8191,9998];
+    for key in usable {
+        finish_batched(&runtime,&study,key,quantity,unit,owner,Some(f64::from(key)),if key==0 {65}else {1}).await;
+    }
+    finish(&runtime,&study,127,quantity,unit,owner,None).await;
+    finish(&runtime,&study,8192,quantity,unit,owner,None).await;
+    let scope=store.study_scope(&point_key(&study,OccurrenceKey(4096))).await.unwrap();
+    let active=store.claim_study_point(&scope,None,"scale-active-before-capture","worker",Duration::from_secs(60)).await.unwrap();
+    let summary=store.canonical_study_summary(&study).await.unwrap().unwrap();
+    assert_eq!(summary.point_count,10000);assert!(summary.active&&!summary.terminal);
+    let request=StudyCohortRequest{filter:StudyWorkbenchFilter{study:Some(study.clone()),..Default::default()},maximum_studies:1,maximum_members:10000};
+    assert!(runtime.freeze_study_cohort(request.clone()).await.is_err(),"ordinary128 admission stays until qualification is accepted");
+    let capture_started=std::time::Instant::now();
+    let frozen=runtime.freeze_study_cohort_qualification(request).await.unwrap();
+    let captured=capture_started.elapsed();
+    assert_eq!((frozen.receipt().header_count,frozen.receipt().member_count),(1,10000));
+    let original=frozen.member_page(StudyCohortPageRequest{maximum:1,cursor:Some(StudyCohortCursor{issuing_store:frozen.receipt().issuing_store.clone(),capture:frozen.receipt().capture.clone(),after:4095})}).await.unwrap();
+    assert!(original.members[0].value.attempt.is_some());assert!(original.members[0].value.manifest.is_none());
+    let mut cursor=None;let mut count=0;let mut pages=0;let mut peak_retained=0;let mut mutation=None;let mut active=Some(active);
+    let baseline=runtime.shared.pool().reserved();
+    loop {
+        let page=frozen.member_page(StudyCohortPageRequest{maximum:256,cursor}).await.unwrap();
+        assert!(page.members.len()<=256);
+        for row in &page.members {
+            assert_eq!(row.position,count);count+=1;
+            if row.position==4096 {
+                assert_eq!(row.value.metadata_revision,original.members[0].value.metadata_revision);
+                assert!(row.value.manifest.is_none(),"later completion cannot change the captured unavailable member");
+            }
+        }
+        pages+=1;peak_retained=peak_retained.max(page._owner.as_ref().unwrap().size());
+        cursor=page.next.clone();drop(page);
+        if pages==1 {
+            let writer=runtime.clone();let selected=study.clone();let claim=active.take().unwrap();
+            mutation=Some(tokio::spawn(async move {finish_claimed(&writer,&selected,4096,quantity,unit,owner,Some(100000.0),1,claim).await;}));
+        }
+        if cursor.is_none(){break;}
+    }
+    mutation.unwrap().await.unwrap();
+    assert_eq!((count,pages),(10000,40));
+    assert!(peak_retained<2*1024*1024,"this fixture retains only its actual bounded member page");
+    tokio::time::timeout(Duration::from_secs(10),async {
+        while runtime.shared.pool().reserved().saturating_sub(baseline)>=2*1024*1024 {tokio::task::yield_now().await;}
+    }).await.expect("physical response drain leaves no accumulated cohort page grants");
+    let kpi=StudyKpiRequest{relation:"runtime.simulation_samples".into(),owner,field:"value".into(),partition:"0".into(),start:0,end:195};
+    let aggregate_started=std::time::Instant::now();
+    let analysis=frozen.aggregate(&kpi,CancellationToken::new()).await.unwrap();
+    let aggregated=aggregate_started.elapsed();
+    assert_eq!((analysis.included,analysis.unavailable),(9,9991));
+    assert_eq!(analysis.progress().state,StudyCohortScanState::Complete);
+    let batch=analysis.batches.iter().find(|batch|batch.num_rows()>0).unwrap();
+    let rows=batch.column_by_name("count").unwrap().as_any().downcast_ref::<Int64Array>().unwrap().value(0);
+    assert_eq!(rows,219,"one65-block source and eight3-row sources were actually decoded");
+    let mean=batch.column_by_name("mean").unwrap().as_any().downcast_ref::<Float64Array>().unwrap().value(0);
+    let expected=(37830.0+usable.into_iter().filter(|key|*key!=0).map(|key|3.0*f64::from(key)+6.0).sum::<f64>())/219.0;
+    assert!((mean-expected).abs()<1e-9);
+    let mut cursor=None;let mut classified=0;let mut included=0;
+    loop {
+        let page=analysis.classification_page(StudyCohortPageRequest{maximum:256,cursor}).await.unwrap();
+        classified+=page.members.len();included+=page.members.iter().filter(|row|row.value.availability==StudyCohortAvailability::Included).count();
+        if let Some(row)=page.members.iter().find(|row|row.position==4096) {assert_eq!(row.value.availability,StudyCohortAvailability::CapturedUnavailable);}
+        cursor=page.next.clone();if cursor.is_none(){break;}
+    }
+    assert_eq!((classified,included),(10000,9));
+    assert!(frozen.result(4096,"runtime.simulation_samples",0,1,CancellationToken::new()).await.is_err());
+    // Settle the remaining original unattempted occurrences through the existing
+    // scoped cancellation producer, then execute the actual compact finalizer.
+    store.cancel_study(&study).await.unwrap();
+    let settlement_started=std::time::Instant::now();
+    let mut after=None;
+    loop {
+        let page=store.study_point_page(&study,after).await.unwrap();
+        if page.is_empty(){break;}
+        for point in page {
+            after=Some(point.ordinal);
+            if point.settled {continue;}
+            let scope=store.study_scope(&point.key).await.unwrap();
+            store.refuse_study_point(&scope,&scope.action(None).unwrap(),None).await.unwrap();
+        }
+    }
+    let settled=settlement_started.elapsed();
+    let summary_started=std::time::Instant::now();
+    assert!(runtime.finalize_canonical_study(&study).await.unwrap());
+    let parent=store.canonical_run(&format!("{study}-parent")).await.unwrap().unwrap();
+    let read=store.read_results(&parent.key,parent.terminal_attempt.as_deref().unwrap()).await.unwrap();
+    let selected=read.sets().iter().find(|set|set.name==pse_relations::generated::runtime::study_outcomes::RELATION_ID.to_string()).unwrap();
+    assert_eq!(selected.row_count,10000);
+    assert!(selected.batch_count<=16,"summary publication packs useful rows rather than page/four-row files");
+    let summarized=summary_started.elapsed();drop(read);
+    let mut summary_reader=runtime.results(&parent.key,parent.terminal_attempt.as_deref().unwrap(),"runtime.study_outcomes",0,10000,CancellationToken::new()).await.unwrap();
+    let mut summary_rows=0;let mut summary_usable=0;
+    while let Some(batch)=summary_reader.next_relation_batch().await.unwrap() {
+        let view=pse_relations::generated::runtime::study_outcomes::View::from_checked(&batch).unwrap();
+        for index in 0..view.len() {summary_rows+=1;summary_usable+=usize::from(view.row(index).unwrap().usable);}
+    }
+    assert_eq!((summary_rows,summary_usable),(10000,10),"final summary reflects the later completed member while the captured cut stays at9");
+    summary_reader.close();drop(summary_reader);
+    store.forget_study_results(&study).await.unwrap();
+    assert!(matches!(store.forget_run_results(&format!("{study}-point-0")).await,Err(CanonicalError::Refused{code:RefusalCode::RunResultsHaveProtectedReaders,..})));
+    let key=frozen.receipt().capture.clone();
+    drop(analysis);drop(frozen);drop(original);
+    store.recover_study_capture(&key).await.unwrap();
+    store.forget_run_results(&format!("{study}-point-0")).await.unwrap();
+    store.remove_isolated_fixture().await.unwrap();
+    eprintln!("actual10000 mixed qualification: captured usable9 failed2 active1 unattempted9988; payload rows219 with65-block source; pages40; creation={created:?} capture={captured:?} aggregate={aggregated:?} cancellation_settlement={settled:?} compact_finalization={summarized:?} total={:?}",started.elapsed());
+}
+#[tokio::test]
 async fn workbench_public_cohort_retains_population_compares_value_variants_and_refuses_incompatible_quantity()
  {
     use datafusion::arrow::array::{Array, Float64Array, Int64Array};
@@ -234,16 +344,18 @@ async fn workbench_public_cohort_retains_population_compares_value_variants_and_
         .freeze_study_cohort(cohort(&physical))
         .await
         .unwrap();
-    assert_eq!(frozen.document().members.len(), 4);
-    assert!(frozen.document().complete);
+    assert_eq!(frozen.receipt().member_count, 4);
+    assert!(frozen.receipt().complete);
+    let members=frozen.member_page(StudyCohortPageRequest{maximum:4,cursor:None}).await.unwrap();
+    let headers=frozen.header_page(StudyCohortPageRequest{maximum:4,cursor:None}).await.unwrap();
     assert_eq!(
-        frozen.document().members[1].facts.lifecycle,
+        members.members[1].value.facts.lifecycle,
         StudyPointState::Failed
     );
-    assert!(frozen.document().members[2].attempt.is_none());
+    assert!(members.members[2].value.attempt.is_none());
     assert_ne!(
-        frozen.document().headers[0].source,
-        frozen.document().headers[1].source
+        headers.headers[0].value.source,
+        headers.headers[1].value.source
     );
     let kpi = StudyKpiRequest {
         relation: "runtime.simulation_samples".into(),
@@ -253,12 +365,55 @@ async fn workbench_public_cohort_retains_population_compares_value_variants_and_
         start: 0,
         end: 3,
     };
+    finish(&runtime,"study-a",2,quantity,unit,owner,Some(50.0)).await;
+    let later=frozen.member_page(StudyCohortPageRequest{maximum:4,cursor:None}).await.unwrap();
+    assert!(later.members[2].value.manifest.is_none(),"late completion cannot reclassify captured absence");
+    // A limited scan establishes only the consumed member; its unread sibling
+    // remains pending under the same exact predicate, never unavailable.
+    let scan_state=flow::cohort_provider::CohortAnalysisState::new(frozen.clone(),kpi.clone(),CancellationToken::new()).unwrap();
+    let context=datafusion::prelude::SessionContext::new_with_state(runtime.source_services().preparation().bound_model().native_state());
+    let frame=context.read_table(scan_state.table_provider()).unwrap();
+    let _limited=frame.clone().limit(0,Some(1)).unwrap().collect().await.unwrap();
+    let partial=scan_state.progress();
+    assert_eq!(partial.state,StudyCohortScanState::Partial);
+    assert!(partial.pending>0);
+    assert!(partial.unavailable<4,"unvisited members are never filled in as unavailable");
+    let (first,second)=tokio::join!(frame.clone().collect(),frame.collect());
+    assert_eq!(first.unwrap().iter().map(|batch|batch.num_rows()).sum::<usize>(),6);
+    assert_eq!(second.unwrap().iter().map(|batch|batch.num_rows()).sum::<usize>(),6);
+    assert_eq!(scan_state.progress().state,StudyCohortScanState::Complete);
+    assert_eq!(scan_state.progress().active_scans,0);
+    drop(scan_state);
+    drop(context);
+    let one=frozen.member_page(StudyCohortPageRequest{maximum:1,cursor:None}).await.unwrap();
+    assert_eq!(one.members.len(),1);
+    assert_eq!(one.members[0].position,0);
+    let mut foreign=one.next.clone().unwrap();foreign.capture.push_str("-other");
+    assert!(frozen.member_page(StudyCohortPageRequest{maximum:1,cursor:Some(foreign)}).await.is_err());
+    let second=frozen.member_page(StudyCohortPageRequest{maximum:1,cursor:one.next}).await.unwrap();
+    assert_eq!(second.members[0].position,1);
+    let exports=tempfile::tempdir().unwrap();
+    let refused=exports.path().join("refused.ndjson");
+    assert!(frozen.export_pages(&refused,1,&CancellationToken::new()).await.is_err());
+    assert!(!refused.exists());
+    assert!(exports.path().join("refused.ndjson.incomplete").is_file());
+    let published=exports.path().join("cohort.ndjson");
+    let bytes=frozen.export_pages(&published,4*1024*1024,&CancellationToken::new()).await.unwrap();
+    assert_eq!(bytes,std::fs::metadata(&published).unwrap().len());
+    let encoded=std::fs::read_to_string(published).unwrap();
+    let lines=encoded.lines().map(|line|serde_json::from_str::<StudyCohortExportRecord>(line).unwrap()).collect::<Vec<_>>();
+    assert!(matches!(lines.last(),Some(StudyCohortExportRecord::Receipt(receipt)) if receipt.member_count==4));
+    assert_eq!(lines.iter().filter_map(|line|if let StudyCohortExportRecord::Members(page)=line {Some(page.members.len())}else{None}).sum::<usize>(),4);
     let result = frozen
         .aggregate(&kpi, CancellationToken::new())
         .await
         .unwrap();
-    assert_eq!(result.included, [0, 3]);
-    assert_eq!(result.unavailable, [1, 2]);
+    assert_eq!(result.included, 2);
+    assert_eq!(result.unavailable, 2);
+    assert_eq!(result.progress().state,StudyCohortScanState::Complete);
+    let classified=result.classification_page(StudyCohortPageRequest{maximum:4,cursor:None}).await.unwrap();
+    assert_eq!(classified.members.iter().filter(|row|row.value.availability==StudyCohortAvailability::Included).map(|row|row.position).collect::<Vec<_>>(),[0,3]);
+    assert_eq!(classified.members.iter().filter(|row|row.value.availability==StudyCohortAvailability::CapturedUnavailable).map(|row|row.position).collect::<Vec<_>>(),[1,2]);
     let batch = result.batches.iter().find(|b| b.num_rows() > 0).unwrap();
     assert_eq!(
         batch
@@ -316,7 +471,7 @@ async fn workbench_public_cohort_retains_population_compares_value_variants_and_
     )
     .await;
     assert_eq!(
-        frozen.document().members.len(),
+        frozen.receipt().member_count,
         4,
         "later live membership cannot alter frozen analysis"
     );

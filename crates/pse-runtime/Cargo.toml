@@ -26,6 +26,7 @@ force-validate = [
   "pse-schema/force-validate",
 ]
 default = []
+product-operators = ["dep:clap", "dep:sha2", "pse-operations/canonical-maintenance"]
 diagnostic-taskdump = ["tokio/taskdump"]
 compiled-evaluator = ["pse-math/compiled-evaluator"]
 canonical-tests = ["pse-operations/canonical-tests"]
@@ -57,6 +58,8 @@ native-solvers = [
 ]
 
 [dependencies]
+clap = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
 tempfile.workspace = true
 datafusion-pruning.workspace = true
 levenberg-marquardt.workspace = true
@@ -123,7 +126,7 @@ datafusion-execution.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 # The operational store: durable attempts, jobs, streams and seeds (ADR-0112).
-pse-operations = { workspace = true, features = ["evidence-query"] }
+pse-operations.workspace = true
 chrono.workspace = true
 flatbuffers.workspace = true
 
@@ -142,3 +145,18 @@ tokio.workspace = true
 # linked native solvers.
 name = "worker"
 required-features = ["native-solvers"]
+
+
+[[bin]]
+name = "pse-deployment"
+path = "src/bin/pse-deployment.rs"
+
+[[bin]]
+name = "pse-worker"
+path = "src/bin/pse-worker.rs"
+required-features = ["product-operators"]
+
+[[bin]]
+name = "pse-project"
+path = "src/bin/pse-project.rs"
+required-features = ["product-operators"]

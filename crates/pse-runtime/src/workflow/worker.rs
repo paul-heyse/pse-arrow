@@ -953,6 +953,7 @@ mod lane_tests {
         };
         for name in ["a-busy-recovery", "z-later-recovery"] {
             let point = NewOccurrence {
+                projection: None,
                 policy: PointPolicy {
                     key: OccurrenceKey(0),
                     dependencies: vec![],
@@ -1026,6 +1027,7 @@ mod lane_tests {
             attestation: vec![3],
         };
         let occurrence = NewOccurrence {
+            projection: None,
             policy: PointPolicy {
                 key: OccurrenceKey(0),
                 dependencies: vec![],

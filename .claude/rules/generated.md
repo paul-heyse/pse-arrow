@@ -4,6 +4,7 @@ paths:
   - "docs/generated/**"
   - "scripts/generated/**"
   - "crates/*/src/generated/**"
+  - "xtask/src/generated/**"
   - "python/pse/contracts/**"
   - "crates/pse-ipopt-sys/src/bindings.rs"
   - "crates/pse-operations-queries/**"
@@ -18,6 +19,7 @@ next regeneration silently reverts, and a red `just codegen-check` in the meanti
 | Output | Generator |
 |---|---|
 | `crates/*/src/generated/` | `crates/pse-schema` (`cargo xtask codegen --only relations`) |
+| `xtask/src/generated/` | xtask responsibility-owned registry contributions through the same Rust/native renderer (`--only rust-contracts`) |
 | `python/pse/contracts/` | `crates/pse-schema` (`--only python`); `GENERATED.sha256` is part of the output |
 | `docs/generated/` | `crates/pse-schema` (`--only docs`) |
 | `scripts/generated/` | Compiled Rust private host contracts through the schema code generator (`--only schemas`) |

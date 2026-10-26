@@ -10,6 +10,9 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
+
+import msgspec
 from pathlib import Path
 
 from scripts import host_admission, native_operation, surreal_server, test_resources
@@ -48,16 +51,22 @@ def freeze_initializer(source: Path, invocation: Path) -> Path:
         ):
             raise ValueError("canonical initializer changed during artifact capture")
     target.chmod(0o500)
-    probe = subprocess.run(
-        [str(target), "canonical-init", "--help"],
-        capture_output=True,
-        timeout=10,
-        check=False,
-    )
-    if probe.returncode != 0 or b"canonical-init" not in probe.stdout:
-        raise ValueError(
-            "captured initializer does not expose the canonical-tools command; rebuild that selected target"
-        )
+    from scripts.generated import deployment  # noqa: PLC0415 -- product initializer protocol
+
+    with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
+        probe = subprocess.run([str(target), "--describe"], stdout=output, stderr=errors,
+                               timeout=10, check=False)
+        output.seek(0)
+        description = output.read(64 * 1024 + 1)
+    try:
+        if probe.returncode != 0 or len(description) > 64 * 1024 or "version" not in json.loads(description):
+            raise ValueError("initializer description unavailable")
+        report = msgspec.json.decode(description, type=deployment.CanonicalInitializationReport)
+        if (not report.canonical_initialize
+                or report.phase is not deployment.CanonicalInitializationPhase.DESCRIPTION):
+            raise ValueError("initializer did not describe the selected operation")
+    except (ValueError, TypeError) as error:
+        raise ValueError("captured initializer does not expose the product initialization protocol; rebuild pse-canonical-init") from error
     return target
 
 
@@ -120,7 +129,6 @@ def lifetime(
                     state,
                     "--initializer-command",
                     str(initializer),
-                    "canonical-init",
                     str(state),
                 )
                 if value["initialize"] != 0:
@@ -191,12 +199,12 @@ def execute(
     worker: Path,
     command: list[str],
     *,
-    profile: str = "plan28-reference",
+    profile: str = "reference",
     tooling_fixture: bool = False,
     initializer: Path | None = None,
 ) -> dict:
-    if not command or profile != "plan28-reference":
-        raise ValueError("select plan28-reference and a literal workload argv")
+    if not command or profile != "reference":
+        raise ValueError("select reference and a literal workload argv")
     if host_admission.MARKER in os.environ:
         raise ValueError(
             "run reference-run from outside an allocation; it owns its setup and reference phases"
@@ -214,6 +222,17 @@ def execute(
     checkpoint(invocation, value)
     environment = {**os.environ, "PSE_SURREAL_STATE": str(state)}
     boundary = [str(ROOT / "scripts/pse-env")]
+    value["deployment_build"] = (
+        "explicit prebuilt deployment operator" if environment.get("PSE_DEPLOYMENT_OPERATOR")
+        else subprocess.call([
+            *boundary, "--native=", "--", sys.executable, "-m", "scripts.arrow_validation", "build",
+            "-p", "pse-runtime", "--bin", "pse-deployment", "--no-default-features", "--locked",
+        ], env=environment, cwd=ROOT)
+    )
+    if isinstance(value["deployment_build"], int) and value["deployment_build"] != 0:
+        value["setup"] = "deployment build failed"
+        checkpoint(invocation, value)
+        return value
     # Build/setup effects precede the finite scientific allocation. The explicit
     # worker is already built; canonical schema tooling is prepared here.
     build = [
@@ -225,12 +244,10 @@ def execute(
         "scripts.arrow_validation",
         "build",
         "-p",
-        "xtask",
+        "pse-operations",
         "--bin",
-        "xtask",
+        "pse-canonical-init",
         "--no-default-features",
-        "--features",
-        "canonical-tools",
         "--locked",
     ]
     value["build"] = (
@@ -244,7 +261,7 @@ def execute(
         return value
     try:
         initializer = freeze_initializer(
-            initializer or ROOT / "target/debug/xtask", invocation
+            initializer or ROOT / "target/debug/pse-canonical-init", invocation
         )
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         value["setup"] = f"initializer unavailable: {error}"
@@ -256,7 +273,8 @@ def execute(
     }
     setup = [
         *boundary,
-        "--resource-class",
+        "--native=" + ",".join(surreal_server.WORKER_CAPABILITIES),
+        "--recipe-default-class",
         "light",
         "--",
         sys.executable,
@@ -320,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--worker", type=Path, required=not internal)
     parser.add_argument(
-        "--profile", choices=("plan28-reference",), default="plan28-reference"
+        "--profile", choices=("reference",), default="reference"
     )
     parser.add_argument("--tooling-fixture", action="store_true")
     parser.add_argument("--invocation", type=Path, required=internal)
@@ -328,7 +346,7 @@ def main(argv: list[str] | None = None) -> int:
         "--initializer",
         type=Path,
         required=internal,
-        help="selected prebuilt canonical-tools initializer; otherwise build it before reference admission",
+        help="selected prebuilt product canonical initializer; otherwise build it before reference admission",
     )
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args(arguments)

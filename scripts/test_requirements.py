@@ -71,6 +71,9 @@ CANONICAL_NATIVE = Requirement(
 # Reviewed namespace owners declare actual fixture/native demand. Unlisted new
 # namespaces are local; the before-effects guard refuses undeclared acquisition.
 RUST_OWNERS = {
+    "xtask": {
+        "development::evidence::tests::evidence_native_scoped_roles_complete_generation_and_cursor_fences": CANONICAL,
+    },
     "pse-operations": {
         **dict.fromkeys(
             (

@@ -80,6 +80,7 @@ async fn canonical_cancelled_dependent_refreshes_rejected_predecessor_premise() 
         attestation: vec![3],
     };
     let points = [0, 1].map(|ordinal| NewOccurrence {
+        projection: None,
         policy: PointPolicy {
             key: OccurrenceKey(ordinal),
             dependencies: if ordinal == 0 {

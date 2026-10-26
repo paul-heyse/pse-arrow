@@ -3,7 +3,7 @@
 //! Explicit tooling-only evidence lifecycle. Opening never initializes scientific state.
 use anyhow::{Context, Result};
 use clap::{Args, Subcommand};
-use pse_operations::evidence::{
+use xtask::development::evidence::{
     self, EvidenceAccess, EvidenceQuery, EvidenceSnapshot, EvidenceStore, ToolingOptions,
 };
 use std::{
@@ -226,10 +226,10 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
     {
         let snapshots = input
             .iter()
-            .map(|path| pse_operations::evidence_query::EvidenceAnalysis::read_snapshot(path))
+            .map(|path| xtask::development::evidence_query::EvidenceAnalysis::read_snapshot(path))
             .collect::<Result<Vec<_>, _>>()?;
         let mut analysis =
-            pse_operations::evidence_query::EvidenceAnalysis::new(snapshots, *history)?;
+            xtask::development::evidence_query::EvidenceAnalysis::new(snapshots, *history)?;
         let question = read_question(question)?;
         let observations = read_observations(observations.as_deref())?;
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -250,11 +250,11 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
     {
         let snapshots = input
             .iter()
-            .map(|path| pse_operations::evidence_query::EvidenceAnalysis::read_snapshot(path))
+            .map(|path| xtask::development::evidence_query::EvidenceAnalysis::read_snapshot(path))
             .collect::<Result<Vec<_>, _>>()?;
         let request = read_comparison_request(request)?;
         let observations = read_observations(observations.as_deref())?;
-        let mut analysis = pse_operations::evidence_query::EvidenceAnalysis::new(snapshots, true)?;
+        let mut analysis = xtask::development::evidence_query::EvidenceAnalysis::new(snapshots, true)?;
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
@@ -270,7 +270,7 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
     let knowledge_request = match &args.command {
         EvidenceCommand::KnowledgeQuery { input } | EvidenceCommand::KnowledgeExplain { input } => {
             let bytes = supplied_document(input, 32768)?;
-            let request = match pse_operations::knowledge::KnowledgeQuery::decode_json(&bytes) {
+            let request = match xtask::development::knowledge::KnowledgeQuery::decode_json(&bytes) {
                 Ok(request) => request,
                 Err(error) => {
                     let location = error.location();
@@ -337,7 +337,7 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
                         }
                         EvidenceCommand::KnowledgeImport { input } => {
                             let bytes = supplied_document(&input, 3 * 1024 * 1024).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
-                            let corpus: pse_operations::knowledge::KnowledgeCorpus = serde_json::from_slice(&bytes).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
+                            let corpus: xtask::development::knowledge::KnowledgeCorpus = serde_json::from_slice(&bytes).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))?;
                             serde_json::to_value(store.knowledge_import(&corpus).await?).map_err(|cause| evidence::EvidenceError::Configuration(cause.to_string()))
                         }
                         EvidenceCommand::KnowledgeQuery { .. } => {
@@ -357,7 +357,7 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
                         } => {
                             let sources = store.source_cut(&generation, history).await?;
                             let mut analysis =
-                                pse_operations::evidence_query::EvidenceAnalysis::new(
+                                xtask::development::evidence_query::EvidenceAnalysis::new(
                                     sources, history,
                                 )?;
                             let question = read_question(&question).map_err(|e| {
@@ -374,7 +374,7 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
                             let generations = request.baseline.generations.iter().chain(&request.candidate.generations).cloned().collect::<std::collections::BTreeSet<_>>().into_iter().collect::<Vec<_>>();
                             let snapshots = store.source_cut(&generations, true).await?;
                             let observations = read_observations(observations.as_deref()).map_err(|e| evidence::EvidenceError::Configuration(e.to_string()))?;
-                            let mut analysis = pse_operations::evidence_query::EvidenceAnalysis::new(snapshots, true)?;
+                            let mut analysis = xtask::development::evidence_query::EvidenceAnalysis::new(snapshots, true)?;
                             serde_json::to_value(analysis.compare(&request, &observations).await?).map_err(|e| evidence::EvidenceError::Configuration(e.to_string()))
                         }
                         EvidenceCommand::Import { input } => {
@@ -467,13 +467,13 @@ pub(crate) fn run(args: EvidenceArgs) -> Result<()> {
     Ok(())
 }
 
-fn read_question(path: &Path) -> Result<pse_operations::evidence_query::EvidenceQuestion> {
+fn read_question(path: &Path) -> Result<xtask::development::evidence_query::EvidenceQuestion> {
     let bytes = supplied_document(path, 65536)?;
     Ok(serde_json::from_slice(&bytes)?)
 }
 fn read_observations(
     path: Option<&Path>,
-) -> Result<Vec<pse_operations::evidence_query::EvidenceSourceObservation>> {
+) -> Result<Vec<xtask::development::evidence_query::EvidenceSourceObservation>> {
     path.map(|path| Ok(serde_json::from_slice(&supplied_document(path, 262144)?)?))
         .transpose()
         .map(|value| value.unwrap_or_default())
@@ -489,9 +489,9 @@ fn supplied_document(path: &Path, limit: u64) -> Result<Vec<u8>> {
 
 fn read_comparison_request(
     path: &Path,
-) -> Result<pse_operations::evidence_query::EvidenceComparisonRequest> {
+) -> Result<xtask::development::evidence_query::EvidenceComparisonRequest> {
     Ok(
-        pse_operations::evidence_query::EvidenceComparisonRequest::decode_json(
+        xtask::development::evidence_query::EvidenceComparisonRequest::decode_json(
             &supplied_document(path, 4 << 20)?,
         )?,
     )

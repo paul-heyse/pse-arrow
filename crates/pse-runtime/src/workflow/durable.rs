@@ -4554,6 +4554,7 @@ mod canonical_durable_codec {
                 &request(&format!("{prefix}-summary")),
                 &[9],
                 &[NewOccurrence {
+                    projection: None,
                     policy: PointPolicy {
                         key: OccurrenceKey(1),
                         dependencies: vec![],

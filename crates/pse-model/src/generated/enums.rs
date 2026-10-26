@@ -3644,6 +3644,368 @@ impl CanonicalRunPurpose {
         }
     }
 }
+impl CanonicalStudyCaptureState {
+    /// Declared lifecycle edges, including an unchanged member.
+    pub const fn permits_transition(self, next: Self) -> bool {
+        self.ordinal() == next.ordinal()
+            || matches!(
+                (self, next),
+                (Self::Pending, Self::Frozen)
+                | (Self::Pending, Self::Abandoned)
+                | (Self::Abandoned, Self::Releasing)
+                | (Self::Frozen, Self::Releasing)
+                | (Self::Releasing, Self::Released)
+            )
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum CanonicalStudyCaptureState {
+    ///pending
+    #[serde(rename = "pending")]
+    #[strum(serialize = "pending")]
+    Pending,
+    ///frozen
+    #[serde(rename = "frozen")]
+    #[strum(serialize = "frozen")]
+    Frozen,
+    ///abandoned
+    #[serde(rename = "abandoned")]
+    #[strum(serialize = "abandoned")]
+    Abandoned,
+    ///releasing
+    #[serde(rename = "releasing")]
+    #[strum(serialize = "releasing")]
+    Releasing,
+    ///released
+    #[serde(rename = "released")]
+    #[strum(serialize = "released")]
+    Released,
+}
+impl crate::SemanticEq for CanonicalStudyCaptureState {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl CanonicalStudyCaptureState {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<5usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Pending => 0usize,
+            Self::Frozen => 1usize,
+            Self::Abandoned => 2usize,
+            Self::Releasing => 3usize,
+            Self::Released => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Pending => None,
+            Self::Frozen => None,
+            Self::Abandoned => None,
+            Self::Releasing => None,
+            Self::Released => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for CanonicalStudyCaptureState {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(CanonicalStudyCaptureState))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(CanonicalStudyCaptureState)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["pending", "frozen", "abandoned", "releasing",
+            "released"] }
+        )
+    }
+}
+impl CanonicalStudyCaptureState {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(CanonicalStudyCaptureState),
+            value: value.to_owned(),
+        }
+    }
+}
+impl CanonicalStudyInstallationPageState {
+    /// Declared lifecycle edges, including an unchanged member.
+    pub const fn permits_transition(self, next: Self) -> bool {
+        self.ordinal() == next.ordinal()
+            || matches!((self, next), (Self::Issued, Self::Committed))
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum CanonicalStudyInstallationPageState {
+    ///issued
+    #[serde(rename = "issued")]
+    #[strum(serialize = "issued")]
+    Issued,
+    ///committed
+    #[serde(rename = "committed")]
+    #[strum(serialize = "committed")]
+    Committed,
+}
+impl crate::SemanticEq for CanonicalStudyInstallationPageState {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl CanonicalStudyInstallationPageState {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Issued => 0usize,
+            Self::Committed => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Issued => None,
+            Self::Committed => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for CanonicalStudyInstallationPageState {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(CanonicalStudyInstallationPageState))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(CanonicalStudyInstallationPageState)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["issued", "committed"] })
+    }
+}
+impl CanonicalStudyInstallationPageState {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(CanonicalStudyInstallationPageState),
+            value: value.to_owned(),
+        }
+    }
+}
+impl CanonicalStudyInstallationPhase {
+    /// Declared lifecycle edges, including an unchanged member.
+    pub const fn permits_transition(self, next: Self) -> bool {
+        self.ordinal() == next.ordinal()
+            || matches!(
+                (self, next),
+                (Self::Nodes, Self::Edges)
+                | (Self::Nodes, Self::Active)
+                | (Self::Edges, Self::Active)
+            )
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum CanonicalStudyInstallationPhase {
+    ///nodes
+    #[serde(rename = "nodes")]
+    #[strum(serialize = "nodes")]
+    Nodes,
+    ///edges
+    #[serde(rename = "edges")]
+    #[strum(serialize = "edges")]
+    Edges,
+    ///active
+    #[serde(rename = "active")]
+    #[strum(serialize = "active")]
+    Active,
+}
+impl crate::SemanticEq for CanonicalStudyInstallationPhase {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl CanonicalStudyInstallationPhase {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Nodes => 0usize,
+            Self::Edges => 1usize,
+            Self::Active => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Nodes => None,
+            Self::Edges => None,
+            Self::Active => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for CanonicalStudyInstallationPhase {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(CanonicalStudyInstallationPhase))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(CanonicalStudyInstallationPhase)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["nodes", "edges", "active"] }
+        )
+    }
+}
+impl CanonicalStudyInstallationPhase {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(CanonicalStudyInstallationPhase),
+            value: value.to_owned(),
+        }
+    }
+}
 impl CanonicalTerminalOutcome {
     /// Total projection declared by the owning closed vocabulary.
     pub const fn attempt_state(self) -> AttemptState {
@@ -6496,204 +6858,6 @@ impl EventDirection {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
-pub enum EvidenceCoverage {
-    ///complete
-    #[serde(rename = "complete")]
-    #[strum(serialize = "complete")]
-    Complete,
-    ///partial
-    #[serde(rename = "partial")]
-    #[strum(serialize = "partial")]
-    Partial,
-}
-impl crate::SemanticEq for EvidenceCoverage {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl EvidenceCoverage {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
-            Some(members) => *members,
-            None => panic!("strum variant count disagrees with registry"),
-        }
-    };
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        self.into_str()
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Complete => 0usize,
-            Self::Partial => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Complete => None,
-            Self::Partial => None,
-        }
-    }
-}
-/// A boundary document states this vocabulary as its registry spellings, which are
-/// its serde spellings (ADR-0116 Outcome 7).
-impl schemars::JsonSchema for EvidenceCoverage {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(stringify!(EvidenceCoverage))
-    }
-    fn schema_id() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(EvidenceCoverage)))
-    }
-    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!({ "type" : "string", "enum" : ["complete", "partial"] })
-    }
-}
-impl EvidenceCoverage {
-    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
-        pse_diagnostics::VocabularyError::UnknownMember {
-            vocabulary: stringify!(EvidenceCoverage),
-            value: value.to_owned(),
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    strum::EnumString,
-    strum::Display,
-    strum::VariantArray,
-    strum::IntoStaticStr,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    missing_docs,
-    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
-)]
-#[strum(
-    const_into_str,
-    parse_err_ty = pse_diagnostics::VocabularyError,
-    parse_err_fn = Self::unknown_member
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum EvidenceGenerationState {
-    ///staged
-    #[serde(rename = "staged")]
-    #[strum(serialize = "staged")]
-    Staged,
-    ///active
-    #[serde(rename = "active")]
-    #[strum(serialize = "active")]
-    Active,
-}
-impl crate::SemanticEq for EvidenceGenerationState {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl EvidenceGenerationState {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
-            Some(members) => *members,
-            None => panic!("strum variant count disagrees with registry"),
-        }
-    };
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        self.into_str()
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Staged => 0usize,
-            Self::Active => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Staged => None,
-            Self::Active => None,
-        }
-    }
-}
-/// A boundary document states this vocabulary as its registry spellings, which are
-/// its serde spellings (ADR-0116 Outcome 7).
-impl schemars::JsonSchema for EvidenceGenerationState {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(stringify!(EvidenceGenerationState))
-    }
-    fn schema_id() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(
-            concat!("pse_model::", stringify!(EvidenceGenerationState)),
-        )
-    }
-    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!({ "type" : "string", "enum" : ["staged", "active"] })
-    }
-}
-impl EvidenceGenerationState {
-    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
-        pse_diagnostics::VocabularyError::UnknownMember {
-            vocabulary: stringify!(EvidenceGenerationState),
-            value: value.to_owned(),
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    strum::EnumString,
-    strum::Display,
-    strum::VariantArray,
-    strum::IntoStaticStr,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    missing_docs,
-    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
-)]
-#[strum(
-    const_into_str,
-    parse_err_ty = pse_diagnostics::VocabularyError,
-    parse_err_fn = Self::unknown_member
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
 pub enum EvidenceUnavailableReason {
     ///not_requested
     #[serde(rename = "not_requested")]
@@ -8687,1059 +8851,6 @@ impl KinsolStrategy {
     fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
         pse_diagnostics::VocabularyError::UnknownMember {
             vocabulary: stringify!(KinsolStrategy),
-            value: value.to_owned(),
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    strum::EnumString,
-    strum::Display,
-    strum::VariantArray,
-    strum::IntoStaticStr,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    missing_docs,
-    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
-)]
-#[strum(
-    const_into_str,
-    parse_err_ty = pse_diagnostics::VocabularyError,
-    parse_err_fn = Self::unknown_member
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum KnowledgeBasis {
-    ///declared
-    #[serde(rename = "declared")]
-    #[strum(serialize = "declared")]
-    Declared,
-    ///language-resolved
-    #[serde(rename = "language-resolved")]
-    #[strum(serialize = "language-resolved")]
-    LanguageResolved,
-    ///text
-    #[serde(rename = "text")]
-    #[strum(serialize = "text")]
-    Text,
-    ///historical
-    #[serde(rename = "historical")]
-    #[strum(serialize = "historical")]
-    Historical,
-    ///native
-    #[serde(rename = "native")]
-    #[strum(serialize = "native")]
-    Native,
-    ///agent-interpretation
-    #[serde(rename = "agent-interpretation")]
-    #[strum(serialize = "agent-interpretation")]
-    AgentInterpretation,
-    ///user-question
-    #[serde(rename = "user-question")]
-    #[strum(serialize = "user-question")]
-    UserQuestion,
-}
-impl crate::SemanticEq for KnowledgeBasis {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl KnowledgeBasis {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 7usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<7usize>() {
-            Some(members) => *members,
-            None => panic!("strum variant count disagrees with registry"),
-        }
-    };
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        self.into_str()
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Declared => 0usize,
-            Self::LanguageResolved => 1usize,
-            Self::Text => 2usize,
-            Self::Historical => 3usize,
-            Self::Native => 4usize,
-            Self::AgentInterpretation => 5usize,
-            Self::UserQuestion => 6usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Declared => None,
-            Self::LanguageResolved => None,
-            Self::Text => None,
-            Self::Historical => None,
-            Self::Native => None,
-            Self::AgentInterpretation => None,
-            Self::UserQuestion => None,
-        }
-    }
-}
-/// A boundary document states this vocabulary as its registry spellings, which are
-/// its serde spellings (ADR-0116 Outcome 7).
-impl schemars::JsonSchema for KnowledgeBasis {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(stringify!(KnowledgeBasis))
-    }
-    fn schema_id() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(KnowledgeBasis)))
-    }
-    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!(
-            { "type" : "string", "enum" : ["declared", "language-resolved", "text",
-            "historical", "native", "agent-interpretation", "user-question"] }
-        )
-    }
-}
-impl KnowledgeBasis {
-    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
-        pse_diagnostics::VocabularyError::UnknownMember {
-            vocabulary: stringify!(KnowledgeBasis),
-            value: value.to_owned(),
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    strum::EnumString,
-    strum::Display,
-    strum::VariantArray,
-    strum::IntoStaticStr,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    missing_docs,
-    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
-)]
-#[strum(
-    const_into_str,
-    parse_err_ty = pse_diagnostics::VocabularyError,
-    parse_err_fn = Self::unknown_member
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum KnowledgeDirection {
-    ///input
-    #[serde(rename = "input")]
-    #[strum(serialize = "input")]
-    Input,
-    ///output
-    #[serde(rename = "output")]
-    #[strum(serialize = "output")]
-    Output,
-}
-impl crate::SemanticEq for KnowledgeDirection {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl KnowledgeDirection {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
-            Some(members) => *members,
-            None => panic!("strum variant count disagrees with registry"),
-        }
-    };
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        self.into_str()
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Input => 0usize,
-            Self::Output => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Input => None,
-            Self::Output => None,
-        }
-    }
-}
-/// A boundary document states this vocabulary as its registry spellings, which are
-/// its serde spellings (ADR-0116 Outcome 7).
-impl schemars::JsonSchema for KnowledgeDirection {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(stringify!(KnowledgeDirection))
-    }
-    fn schema_id() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(
-            concat!("pse_model::", stringify!(KnowledgeDirection)),
-        )
-    }
-    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!({ "type" : "string", "enum" : ["input", "output"] })
-    }
-}
-impl KnowledgeDirection {
-    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
-        pse_diagnostics::VocabularyError::UnknownMember {
-            vocabulary: stringify!(KnowledgeDirection),
-            value: value.to_owned(),
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    strum::EnumString,
-    strum::Display,
-    strum::VariantArray,
-    strum::IntoStaticStr,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    missing_docs,
-    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
-)]
-#[strum(
-    const_into_str,
-    parse_err_ty = pse_diagnostics::VocabularyError,
-    parse_err_fn = Self::unknown_member
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum KnowledgeDocumentRole {
-    ///contract
-    #[serde(rename = "contract")]
-    #[strum(serialize = "contract")]
-    Contract,
-    ///instruction
-    #[serde(rename = "instruction")]
-    #[strum(serialize = "instruction")]
-    Instruction,
-    ///decision
-    #[serde(rename = "decision")]
-    #[strum(serialize = "decision")]
-    Decision,
-    ///plan
-    #[serde(rename = "plan")]
-    #[strum(serialize = "plan")]
-    Plan,
-    ///review
-    #[serde(rename = "review")]
-    #[strum(serialize = "review")]
-    Review,
-    ///reference
-    #[serde(rename = "reference")]
-    #[strum(serialize = "reference")]
-    Reference,
-    ///evidence
-    #[serde(rename = "evidence")]
-    #[strum(serialize = "evidence")]
-    Evidence,
-    ///index
-    #[serde(rename = "index")]
-    #[strum(serialize = "index")]
-    Index,
-}
-impl crate::SemanticEq for KnowledgeDocumentRole {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl KnowledgeDocumentRole {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 8usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<8usize>() {
-            Some(members) => *members,
-            None => panic!("strum variant count disagrees with registry"),
-        }
-    };
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        self.into_str()
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Contract => 0usize,
-            Self::Instruction => 1usize,
-            Self::Decision => 2usize,
-            Self::Plan => 3usize,
-            Self::Review => 4usize,
-            Self::Reference => 5usize,
-            Self::Evidence => 6usize,
-            Self::Index => 7usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Contract => None,
-            Self::Instruction => None,
-            Self::Decision => None,
-            Self::Plan => None,
-            Self::Review => None,
-            Self::Reference => None,
-            Self::Evidence => None,
-            Self::Index => None,
-        }
-    }
-}
-/// A boundary document states this vocabulary as its registry spellings, which are
-/// its serde spellings (ADR-0116 Outcome 7).
-impl schemars::JsonSchema for KnowledgeDocumentRole {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(stringify!(KnowledgeDocumentRole))
-    }
-    fn schema_id() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(
-            concat!("pse_model::", stringify!(KnowledgeDocumentRole)),
-        )
-    }
-    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!(
-            { "type" : "string", "enum" : ["contract", "instruction", "decision", "plan",
-            "review", "reference", "evidence", "index"] }
-        )
-    }
-}
-impl KnowledgeDocumentRole {
-    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
-        pse_diagnostics::VocabularyError::UnknownMember {
-            vocabulary: stringify!(KnowledgeDocumentRole),
-            value: value.to_owned(),
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    strum::EnumString,
-    strum::Display,
-    strum::VariantArray,
-    strum::IntoStaticStr,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    missing_docs,
-    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
-)]
-#[strum(
-    const_into_str,
-    parse_err_ty = pse_diagnostics::VocabularyError,
-    parse_err_fn = Self::unknown_member
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum KnowledgeGenerationState {
-    ///staged
-    #[serde(rename = "staged")]
-    #[strum(serialize = "staged")]
-    Staged,
-    ///active
-    #[serde(rename = "active")]
-    #[strum(serialize = "active")]
-    Active,
-}
-impl crate::SemanticEq for KnowledgeGenerationState {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl KnowledgeGenerationState {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
-            Some(members) => *members,
-            None => panic!("strum variant count disagrees with registry"),
-        }
-    };
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        self.into_str()
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Staged => 0usize,
-            Self::Active => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Staged => None,
-            Self::Active => None,
-        }
-    }
-}
-/// A boundary document states this vocabulary as its registry spellings, which are
-/// its serde spellings (ADR-0116 Outcome 7).
-impl schemars::JsonSchema for KnowledgeGenerationState {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(stringify!(KnowledgeGenerationState))
-    }
-    fn schema_id() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(
-            concat!("pse_model::", stringify!(KnowledgeGenerationState)),
-        )
-    }
-    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!({ "type" : "string", "enum" : ["staged", "active"] })
-    }
-}
-impl KnowledgeGenerationState {
-    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
-        pse_diagnostics::VocabularyError::UnknownMember {
-            vocabulary: stringify!(KnowledgeGenerationState),
-            value: value.to_owned(),
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    strum::EnumString,
-    strum::Display,
-    strum::VariantArray,
-    strum::IntoStaticStr,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    missing_docs,
-    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
-)]
-#[strum(
-    const_into_str,
-    parse_err_ty = pse_diagnostics::VocabularyError,
-    parse_err_fn = Self::unknown_member
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum KnowledgeRelationKind {
-    ///owns
-    #[serde(rename = "owns")]
-    #[strum(serialize = "owns")]
-    Owns,
-    ///governs
-    #[serde(rename = "governs")]
-    #[strum(serialize = "governs")]
-    Governs,
-    ///contains
-    #[serde(rename = "contains")]
-    #[strum(serialize = "contains")]
-    Contains,
-    ///depends_on
-    #[serde(rename = "depends_on")]
-    #[strum(serialize = "depends_on")]
-    DependsOn,
-    ///status_owned_by
-    #[serde(rename = "status_owned_by")]
-    #[strum(serialize = "status_owned_by")]
-    StatusOwnedBy,
-    ///superseded_by
-    #[serde(rename = "superseded_by")]
-    #[strum(serialize = "superseded_by")]
-    SupersededBy,
-    ///supports
-    #[serde(rename = "supports")]
-    #[strum(serialize = "supports")]
-    Supports,
-    ///answers
-    #[serde(rename = "answers")]
-    #[strum(serialize = "answers")]
-    Answers,
-    ///diagnoses
-    #[serde(rename = "diagnoses")]
-    #[strum(serialize = "diagnoses")]
-    Diagnoses,
-    ///references
-    #[serde(rename = "references")]
-    #[strum(serialize = "references")]
-    References,
-}
-impl crate::SemanticEq for KnowledgeRelationKind {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl KnowledgeRelationKind {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 10usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<10usize>() {
-            Some(members) => *members,
-            None => panic!("strum variant count disagrees with registry"),
-        }
-    };
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        self.into_str()
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Owns => 0usize,
-            Self::Governs => 1usize,
-            Self::Contains => 2usize,
-            Self::DependsOn => 3usize,
-            Self::StatusOwnedBy => 4usize,
-            Self::SupersededBy => 5usize,
-            Self::Supports => 6usize,
-            Self::Answers => 7usize,
-            Self::Diagnoses => 8usize,
-            Self::References => 9usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Owns => None,
-            Self::Governs => None,
-            Self::Contains => None,
-            Self::DependsOn => None,
-            Self::StatusOwnedBy => None,
-            Self::SupersededBy => None,
-            Self::Supports => None,
-            Self::Answers => None,
-            Self::Diagnoses => None,
-            Self::References => None,
-        }
-    }
-}
-/// A boundary document states this vocabulary as its registry spellings, which are
-/// its serde spellings (ADR-0116 Outcome 7).
-impl schemars::JsonSchema for KnowledgeRelationKind {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(stringify!(KnowledgeRelationKind))
-    }
-    fn schema_id() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(
-            concat!("pse_model::", stringify!(KnowledgeRelationKind)),
-        )
-    }
-    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!(
-            { "type" : "string", "enum" : ["owns", "governs", "contains", "depends_on",
-            "status_owned_by", "superseded_by", "supports", "answers", "diagnoses",
-            "references"] }
-        )
-    }
-}
-impl KnowledgeRelationKind {
-    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
-        pse_diagnostics::VocabularyError::UnknownMember {
-            vocabulary: stringify!(KnowledgeRelationKind),
-            value: value.to_owned(),
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    strum::EnumString,
-    strum::Display,
-    strum::VariantArray,
-    strum::IntoStaticStr,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    missing_docs,
-    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
-)]
-#[strum(
-    const_into_str,
-    parse_err_ty = pse_diagnostics::VocabularyError,
-    parse_err_fn = Self::unknown_member
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum KnowledgeSourceRole {
-    ///definition
-    #[serde(rename = "definition")]
-    #[strum(serialize = "definition")]
-    Definition,
-    ///catalogue_registration
-    #[serde(rename = "catalogue_registration")]
-    #[strum(serialize = "catalogue_registration")]
-    CatalogueRegistration,
-    ///producer_declaration
-    #[serde(rename = "producer_declaration")]
-    #[strum(serialize = "producer_declaration")]
-    ProducerDeclaration,
-    ///native_scope
-    #[serde(rename = "native_scope")]
-    #[strum(serialize = "native_scope")]
-    NativeScope,
-    ///metadata
-    #[serde(rename = "metadata")]
-    #[strum(serialize = "metadata")]
-    Metadata,
-    ///owner_evidence
-    #[serde(rename = "owner_evidence")]
-    #[strum(serialize = "owner_evidence")]
-    OwnerEvidence,
-    ///question_input
-    #[serde(rename = "question_input")]
-    #[strum(serialize = "question_input")]
-    QuestionInput,
-    ///interpretation_input
-    #[serde(rename = "interpretation_input")]
-    #[strum(serialize = "interpretation_input")]
-    InterpretationInput,
-    ///interpretation_policy
-    #[serde(rename = "interpretation_policy")]
-    #[strum(serialize = "interpretation_policy")]
-    InterpretationPolicy,
-}
-impl crate::SemanticEq for KnowledgeSourceRole {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl KnowledgeSourceRole {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 9usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<9usize>() {
-            Some(members) => *members,
-            None => panic!("strum variant count disagrees with registry"),
-        }
-    };
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        self.into_str()
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Definition => 0usize,
-            Self::CatalogueRegistration => 1usize,
-            Self::ProducerDeclaration => 2usize,
-            Self::NativeScope => 3usize,
-            Self::Metadata => 4usize,
-            Self::OwnerEvidence => 5usize,
-            Self::QuestionInput => 6usize,
-            Self::InterpretationInput => 7usize,
-            Self::InterpretationPolicy => 8usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Definition => None,
-            Self::CatalogueRegistration => None,
-            Self::ProducerDeclaration => None,
-            Self::NativeScope => None,
-            Self::Metadata => None,
-            Self::OwnerEvidence => None,
-            Self::QuestionInput => None,
-            Self::InterpretationInput => None,
-            Self::InterpretationPolicy => None,
-        }
-    }
-}
-/// A boundary document states this vocabulary as its registry spellings, which are
-/// its serde spellings (ADR-0116 Outcome 7).
-impl schemars::JsonSchema for KnowledgeSourceRole {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(stringify!(KnowledgeSourceRole))
-    }
-    fn schema_id() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(
-            concat!("pse_model::", stringify!(KnowledgeSourceRole)),
-        )
-    }
-    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!(
-            { "type" : "string", "enum" : ["definition", "catalogue_registration",
-            "producer_declaration", "native_scope", "metadata", "owner_evidence",
-            "question_input", "interpretation_input", "interpretation_policy"] }
-        )
-    }
-}
-impl KnowledgeSourceRole {
-    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
-        pse_diagnostics::VocabularyError::UnknownMember {
-            vocabulary: stringify!(KnowledgeSourceRole),
-            value: value.to_owned(),
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    strum::EnumString,
-    strum::Display,
-    strum::VariantArray,
-    strum::IntoStaticStr,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    missing_docs,
-    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
-)]
-#[strum(
-    const_into_str,
-    parse_err_ty = pse_diagnostics::VocabularyError,
-    parse_err_fn = Self::unknown_member
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum KnowledgeSourceStatus {
-    ///current
-    #[serde(rename = "current")]
-    #[strum(serialize = "current")]
-    Current,
-    ///historical
-    #[serde(rename = "historical")]
-    #[strum(serialize = "historical")]
-    Historical,
-    ///proposed
-    #[serde(rename = "proposed")]
-    #[strum(serialize = "proposed")]
-    Proposed,
-    ///missing
-    #[serde(rename = "missing")]
-    #[strum(serialize = "missing")]
-    Missing,
-    ///stale
-    #[serde(rename = "stale")]
-    #[strum(serialize = "stale")]
-    Stale,
-    ///unknown
-    #[serde(rename = "unknown")]
-    #[strum(serialize = "unknown")]
-    Unknown,
-}
-impl crate::SemanticEq for KnowledgeSourceStatus {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl KnowledgeSourceStatus {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
-            Some(members) => *members,
-            None => panic!("strum variant count disagrees with registry"),
-        }
-    };
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        self.into_str()
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Current => 0usize,
-            Self::Historical => 1usize,
-            Self::Proposed => 2usize,
-            Self::Missing => 3usize,
-            Self::Stale => 4usize,
-            Self::Unknown => 5usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Current => None,
-            Self::Historical => None,
-            Self::Proposed => None,
-            Self::Missing => None,
-            Self::Stale => None,
-            Self::Unknown => None,
-        }
-    }
-}
-/// A boundary document states this vocabulary as its registry spellings, which are
-/// its serde spellings (ADR-0116 Outcome 7).
-impl schemars::JsonSchema for KnowledgeSourceStatus {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(stringify!(KnowledgeSourceStatus))
-    }
-    fn schema_id() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(
-            concat!("pse_model::", stringify!(KnowledgeSourceStatus)),
-        )
-    }
-    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!(
-            { "type" : "string", "enum" : ["current", "historical", "proposed",
-            "missing", "stale", "unknown"] }
-        )
-    }
-}
-impl KnowledgeSourceStatus {
-    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
-        pse_diagnostics::VocabularyError::UnknownMember {
-            vocabulary: stringify!(KnowledgeSourceStatus),
-            value: value.to_owned(),
-        }
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    strum::EnumString,
-    strum::Display,
-    strum::VariantArray,
-    strum::IntoStaticStr,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    missing_docs,
-    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
-)]
-#[strum(
-    const_into_str,
-    parse_err_ty = pse_diagnostics::VocabularyError,
-    parse_err_fn = Self::unknown_member
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum KnowledgeSubjectKind {
-    ///document
-    #[serde(rename = "document")]
-    #[strum(serialize = "document")]
-    Document,
-    ///contract
-    #[serde(rename = "contract")]
-    #[strum(serialize = "contract")]
-    Contract,
-    ///decision
-    #[serde(rename = "decision")]
-    #[strum(serialize = "decision")]
-    Decision,
-    ///plan_package
-    #[serde(rename = "plan_package")]
-    #[strum(serialize = "plan_package")]
-    PlanPackage,
-    ///declaration
-    #[serde(rename = "declaration")]
-    #[strum(serialize = "declaration")]
-    Declaration,
-    ///generator
-    #[serde(rename = "generator")]
-    #[strum(serialize = "generator")]
-    Generator,
-    ///generated_artifact
-    #[serde(rename = "generated_artifact")]
-    #[strum(serialize = "generated_artifact")]
-    GeneratedArtifact,
-    ///experiment
-    #[serde(rename = "experiment")]
-    #[strum(serialize = "experiment")]
-    Experiment,
-    ///diagnostic
-    #[serde(rename = "diagnostic")]
-    #[strum(serialize = "diagnostic")]
-    Diagnostic,
-    ///evidence_reference
-    #[serde(rename = "evidence_reference")]
-    #[strum(serialize = "evidence_reference")]
-    EvidenceReference,
-    ///research_question
-    #[serde(rename = "research_question")]
-    #[strum(serialize = "research_question")]
-    ResearchQuestion,
-}
-impl crate::SemanticEq for KnowledgeSubjectKind {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        self == other
-    }
-}
-impl KnowledgeSubjectKind {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 11usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<11usize>() {
-            Some(members) => *members,
-            None => panic!("strum variant count disagrees with registry"),
-        }
-    };
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        self.into_str()
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Document => 0usize,
-            Self::Contract => 1usize,
-            Self::Decision => 2usize,
-            Self::PlanPackage => 3usize,
-            Self::Declaration => 4usize,
-            Self::Generator => 5usize,
-            Self::GeneratedArtifact => 6usize,
-            Self::Experiment => 7usize,
-            Self::Diagnostic => 8usize,
-            Self::EvidenceReference => 9usize,
-            Self::ResearchQuestion => 10usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Document => None,
-            Self::Contract => None,
-            Self::Decision => None,
-            Self::PlanPackage => None,
-            Self::Declaration => None,
-            Self::Generator => None,
-            Self::GeneratedArtifact => None,
-            Self::Experiment => None,
-            Self::Diagnostic => None,
-            Self::EvidenceReference => None,
-            Self::ResearchQuestion => None,
-        }
-    }
-}
-/// A boundary document states this vocabulary as its registry spellings, which are
-/// its serde spellings (ADR-0116 Outcome 7).
-impl schemars::JsonSchema for KnowledgeSubjectKind {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(stringify!(KnowledgeSubjectKind))
-    }
-    fn schema_id() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed(
-            concat!("pse_model::", stringify!(KnowledgeSubjectKind)),
-        )
-    }
-    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!(
-            { "type" : "string", "enum" : ["document", "contract", "decision",
-            "plan_package", "declaration", "generator", "generated_artifact",
-            "experiment", "diagnostic", "evidence_reference", "research_question"] }
-        )
-    }
-}
-impl KnowledgeSubjectKind {
-    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
-        pse_diagnostics::VocabularyError::UnknownMember {
-            vocabulary: stringify!(KnowledgeSubjectKind),
             value: value.to_owned(),
         }
     }
@@ -28126,30 +27237,28 @@ macro_rules! for_each_registry_enum {
         CanonicalAttemptPhase, CanonicalFileOwnerKind, CanonicalFileState,
         CanonicalHistoryOwnerKind, CanonicalPayloadEncoding, CanonicalPayloadPlacement,
         CanonicalProducerClass, CanonicalProjectPublicationKind, CanonicalRunPurpose,
-        CanonicalTerminalOutcome, CaptureKind, CaptureOutputKind, CaptureStatus,
-        ClarabelDirect, ClarabelMergeMethod, ClarabelMode, ClosureAssessment,
-        ClosurePolicy, ColumnRole, CompositionBasis, ComputationKind,
-        ConformanceExecution, ConformancePresolve, ConstraintScalingScheme,
-        ConversionKind, CovarianceApproximation, CovarianceInputOrigin,
-        DerivationGranularity, DerivedQuantity, Determinism, DiagnosticCode,
-        DiagnosticNonfiniteObservation, DiagnosticObservationKind, DiagnosticRule,
-        DiagnosticSeverity, DiagnosticStage, DiffsolLinear, DiffsolMethod,
-        DualQualification, DynamicSensitivity, DynamicsMethod, EndpointPolicy,
-        EngineeringScaleKind, EntityKind, EventDirection, EvidenceCoverage,
-        EvidenceGenerationState, EvidenceUnavailableReason, ExecutorRole,
-        ExternalDerivativeSource, FailureClass, FeralOrdering, FeralScaling,
-        FindingSeverity, FitDerivatives, HessianMode, HighsMethod, IdPolicy,
-        IdasInitialization, IncumbentPolicy, InputConsumptionKind, IntervalEnd,
-        IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
-        KinsolOrthogonalization, KinsolStrategy, KnowledgeBasis, KnowledgeDirection,
-        KnowledgeDocumentRole, KnowledgeGenerationState, KnowledgeRelationKind,
-        KnowledgeSourceRole, KnowledgeSourceStatus, KnowledgeSubjectKind,
-        LiveSimulationEventKind, MigrationOp, ModelingAccumulatorMode,
-        ModelingAnalysisRoute, ModelingAnnotationKind, ModelingApplicabilityBasis,
-        ModelingApplicabilityKind, ModelingApplicabilityOutcome, ModelingCellKind,
-        ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
-        ModelingConformanceStatus, ModelingContributionRole, ModelingDataFacet,
-        ModelingDeclarationKind, ModelingDiagnosticSampleStop, ModelingDiagonalPolicy,
+        CanonicalStudyCaptureState, CanonicalStudyInstallationPageState,
+        CanonicalStudyInstallationPhase, CanonicalTerminalOutcome, CaptureKind,
+        CaptureOutputKind, CaptureStatus, ClarabelDirect, ClarabelMergeMethod,
+        ClarabelMode, ClosureAssessment, ClosurePolicy, ColumnRole, CompositionBasis,
+        ComputationKind, ConformanceExecution, ConformancePresolve,
+        ConstraintScalingScheme, ConversionKind, CovarianceApproximation,
+        CovarianceInputOrigin, DerivationGranularity, DerivedQuantity, Determinism,
+        DiagnosticCode, DiagnosticNonfiniteObservation, DiagnosticObservationKind,
+        DiagnosticRule, DiagnosticSeverity, DiagnosticStage, DiffsolLinear,
+        DiffsolMethod, DualQualification, DynamicSensitivity, DynamicsMethod,
+        EndpointPolicy, EngineeringScaleKind, EntityKind, EventDirection,
+        EvidenceUnavailableReason, ExecutorRole, ExternalDerivativeSource, FailureClass,
+        FeralOrdering, FeralScaling, FindingSeverity, FitDerivatives, HessianMode,
+        HighsMethod, IdPolicy, IdasInitialization, IncumbentPolicy, InputConsumptionKind,
+        IntervalEnd, IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
+        KinsolOrthogonalization, KinsolStrategy, LiveSimulationEventKind, MigrationOp,
+        ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingAnnotationKind,
+        ModelingApplicabilityBasis, ModelingApplicabilityKind,
+        ModelingApplicabilityOutcome, ModelingCellKind, ModelingCheckBasis,
+        ModelingCheckKind, ModelingConformanceKind, ModelingConformanceStatus,
+        ModelingContributionRole, ModelingDataFacet, ModelingDeclarationKind,
+        ModelingDiagnosticSampleStop, ModelingDiagonalPolicy,
         ModelingDiscreteInitialization, ModelingElasticObservation,
         ModelingEnvelopeExtent, ModelingFactNamespace, ModelingFixtureBinding,
         ModelingInitializationStep, ModelingKeyCellKind, ModelingKindFacet,
@@ -28486,6 +27595,36 @@ impl crate::SemanticFrame for CanonicalRunPurpose {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for CanonicalStudyCaptureState {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for CanonicalStudyCaptureState {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for CanonicalStudyInstallationPageState {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for CanonicalStudyInstallationPageState {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for CanonicalStudyInstallationPhase {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for CanonicalStudyInstallationPhase {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for CanonicalTerminalOutcome {
     fn heap_bytes(&self) -> usize {
         0
@@ -28726,26 +27865,6 @@ impl crate::SemanticFrame for EventDirection {
         hash.str(self.as_str());
     }
 }
-impl crate::HeapUsage for EvidenceCoverage {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for EvidenceCoverage {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for EvidenceGenerationState {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for EvidenceGenerationState {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
 impl crate::HeapUsage for EvidenceUnavailableReason {
     fn heap_bytes(&self) -> usize {
         0
@@ -28922,86 +28041,6 @@ impl crate::HeapUsage for KinsolStrategy {
     }
 }
 impl crate::SemanticFrame for KinsolStrategy {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for KnowledgeBasis {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for KnowledgeBasis {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for KnowledgeDirection {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for KnowledgeDirection {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for KnowledgeDocumentRole {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for KnowledgeDocumentRole {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for KnowledgeGenerationState {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for KnowledgeGenerationState {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for KnowledgeRelationKind {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for KnowledgeRelationKind {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for KnowledgeSourceRole {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for KnowledgeSourceRole {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for KnowledgeSourceStatus {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for KnowledgeSourceStatus {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(self.as_str());
-    }
-}
-impl crate::HeapUsage for KnowledgeSubjectKind {
-    fn heap_bytes(&self) -> usize {
-        0
-    }
-}
-impl crate::SemanticFrame for KnowledgeSubjectKind {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

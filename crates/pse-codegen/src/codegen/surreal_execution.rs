@@ -129,6 +129,7 @@ DEFINE FUNCTION fn::pse_execution_v1::source_creator($rpc_expiry:int,$problem:st
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::result_creator($rpc_expiry:int,$run:string) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::run($rpc_expiry,$run);
     SELECT * FROM ONLY type::record('canonical_result_retirements',$run) FOR UPDATE;
     IF (SELECT * FROM ONLY type::record('canonical_result_retirements',$run))!=NONE { THROW 'PSE_REFUSAL:execution_results_explicitly_retired'; };
@@ -161,6 +162,7 @@ DEFINE FUNCTION fn::pse_execution_v1::operation($rpc_expiry: int, $key: string, 
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::available($rpc_expiry: int, $run: string) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::run($rpc_expiry,$run);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'run-cancel:' + $run);
@@ -271,10 +273,62 @@ DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, 
     RETURN $rpc_result;
 };
 
+// Installation supplies only already admitted eager/input-admission runs. Native
+// bulk rows and graph edges share the point page's atomic boundary.
+DEFINE FUNCTION fn::pse_execution_v1::install_runs($rpc_expiry:int,$items:array<object>) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
+    IF array::len($items)=0 OR array::len($items)>64 OR array::len(array::distinct($items.row.key))!=array::len($items) { THROW 'PSE_REFUSAL:study_run_page_extent'; };
+    LET $marker=SELECT * FROM ONLY canonical_interpretations:current;
+    LET $checked=$items.map(|$item| {
+        LET $row=$item.row;
+        IF $row.interpretation!=__INTERPRETATION__ OR $marker.interpretation!=__INTERPRETATION__ { THROW 'PSE_REFUSAL:stale_execution_publication_interpretation'; };
+        fn::pse_execution_v1::available($rpc_expiry,$row.key);
+        fn::pse_research_v1::run_input($rpc_expiry,$row);
+        LET $old=SELECT * FROM ONLY type::record('canonical_runs',$row.key);
+        IF $old!=NONE AND ($old.purpose!=$row.purpose OR $old.admission_study!=$row.admission_study OR $old.admission_point!=$row.admission_point OR $old.request!=$row.request OR $old.problem!=$row.problem OR $old.revision!=$row.revision OR $old.source_sequence!=$row.source_sequence OR $old.source_selection!=$row.source_selection OR $old.attestation!=$row.attestation OR $old.interpretation!=$row.interpretation) { THROW 'PSE_REFUSAL:execution_run_identity_reused'; };
+        IF array::len($item.sources)>64 { THROW 'PSE_REFUSAL:execution_sources_limit_exceeded'; };
+        RETURN object::extend($item,{present:$old!=NONE});
+    });
+    LET $new=$checked.filter(|$item| !$item.present);
+    LET $sources=array::distinct(array::concat($new.map(|$item| {problem:$item.row.problem,revision:$item.row.revision,sequence:$item.row.source_sequence,interpretation:$item.row.interpretation}),array::flatten($new.sources).map(|$source| object::remove($source,'key'))));
+    FOR $source IN $sources {
+        fn::pse_execution_v1::register($rpc_expiry,'retention:'+$source.problem);
+        fn::pse_execution_v1::touch($rpc_expiry,'source-creators:'+$source.problem);
+        LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$source.revision);
+        IF $revision=NONE OR $revision.problem!=$source.problem OR $revision.sequence!=$source.sequence OR $revision.interpretation!=$source.interpretation { THROW 'PSE_REFUSAL:execution_selected_source_unavailable'; };
+        IF array::len(SELECT key FROM canonical_reclaimed_ranges WHERE problem=$source.problem AND from_sequence<=$source.sequence AND to_sequence>$source.sequence LIMIT 1)!=0 { THROW 'PSE_REFUSAL:execution_selected_source_reclaimed'; };
+    };
+    LET $rows=array::distinct($new.row.problem).map(|$problem| {
+        LET $selected=$new.filter(|$item| $item.row.problem=$problem);
+        LET $base=fn::pse_execution_v1::touch($rpc_expiry,'execution-sequence:'+$problem);
+        IF array::len($selected)>1 { UPDATE ONLY type::record('canonical_guards','execution-sequence:'+$problem) SET generation+=<decimal>array::len($selected)-1dec; };
+        RETURN $selected.map(|$item,$index| object::extend($item.row,{id:type::record('canonical_runs',$item.row.key),sequence:$base+<decimal>$index}));
+    });
+    LET $runs=array::flatten($rows);
+    LET $roots=array::flatten($new.map(|$item| {
+        LET $row=$item.row;
+        RETURN array::concat([{id:type::record('canonical_roots','run:'+$row.key),key:'run:'+$row.key,problem:$row.problem,revision:$row.revision,sequence:$row.source_sequence,owner_kind:'run',owner:$row.key}],$item.sources.map(|$source| {id:type::record('canonical_roots',$source.key),key:$source.key,problem:$source.problem,revision:$source.revision,sequence:$source.sequence,owner_kind:'run',owner:$row.key}));
+    }));
+    FOR $root IN $roots { SELECT * FROM ONLY type::record('canonical_roots',$root.key) FOR UPDATE; };
+    IF array::len($runs)!=0 {
+        INSERT INTO canonical_runs $runs RETURN NONE;
+        INSERT INTO canonical_roots $roots RETURN NONE;
+        LET $problems=$new.map(|$item| {id:type::record('canonical_problem_runs',$item.row.key),in:type::record('canonical_problems',$item.row.problem),out:type::record('canonical_runs',$item.row.key),key:$item.row.key,problem:$item.row.problem,run:$item.row.key});
+        INSERT RELATION INTO canonical_problem_runs $problems RETURN NONE;
+        LET $edges=array::flatten($new.map(|$item| {
+            LET $row=$item.row;
+            RETURN array::concat([{id:type::record('canonical_run_sources',$row.key),in:type::record('canonical_runs',$row.key),out:type::record('canonical_revisions',$row.revision),key:$row.key,run:$row.key,revision:$row.revision}],$item.sources.map(|$source| {id:type::record('canonical_run_sources',$source.key),in:type::record('canonical_runs',$row.key),out:type::record('canonical_revisions',$source.revision),key:$source.key,run:$row.key,revision:$source.revision}));
+        }));
+        INSERT RELATION INTO canonical_run_sources $edges RETURN NONE;
+    };
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
+};
+
 // Installed writer meaning is server authority, independent of a stale client's argument.
 // This fence is separate from worker freshness: current immutable replays still work
 // after cancellation, closure or a later attempt.
 DEFINE FUNCTION fn::pse_execution_v1::current_writer($rpc_expiry:int,$run:string) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::run($rpc_expiry,$run);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $marker=SELECT * FROM ONLY canonical_interpretations:current;
@@ -343,17 +397,32 @@ DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $ope
     RETURN $rpc_result;
 };
 
+// Every append, including a singleton, uses the same native grouped realization.
 DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes, $set: object, $batch: object, $inline: option<object>, $block: option<object>, $outputs: array<object>) -> object {
+    LET $result=fn::pse_execution_v1::append_many($rpc_expiry,$run,$attempt,$generation,[{operation:$operation,request:$request,set:$set,batch:$batch,inline:$inline,block:$block,outputs:$outputs}]);
+    RETURN IF $result.pse_writer!=NONE {$result} ELSE {$result.acknowledgments[0]};
+};
+
+DEFINE FUNCTION fn::pse_execution_v1::append_many($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $items: array<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
+    IF array::len($items)=0 OR array::len($items)>__INDEX_RECORDS__ OR bytes::len(encoding::cbor::encode($items))>__APPEND_TARGET_BYTES__ OR array::len(array::distinct($items.operation))!=array::len($items) OR array::len(array::distinct($items.batch.key))!=array::len($items) { THROW 'PSE_REFUSAL:execution_append_group_extent_exceeded'; };
+    LET $checked=$items.map(|$item| {
+        LET $op=fn::pse_execution_v1::operation($rpc_expiry,$item.operation,'append',$item.request);
+        IF $op!=NONE AND ($op.run!=$run OR $op.attempt!=$attempt) { THROW 'PSE_REFUSAL:execution_operation_identity_reused'; };
+        RETURN object::extend($item,{replayed:$op!=NONE,present:(SELECT key FROM ONLY type::record('canonical_result_batches',$item.batch.key))!=NONE});
+    });
+    LET $pending=$checked.filter(|$item| !$item.replayed);
+    LET $writer=IF array::len($pending)=0 {NONE} ELSE {fn::pse_execution_v1::writer($rpc_expiry,$run,$attempt,$generation,$pending[0].operation,'append')};
+    IF $writer=NONE {fn::pse_execution_v1::available($rpc_expiry,$run);};
+    IF $writer!=NONE {
+        IF $writer.pse_writer!='admitted' { RETURN $writer; };
+        IF $writer.attempt.phase!='ingesting' { THROW 'PSE_REFUSAL:execution_result_ingestion_closed'; };
+    };
+    FOR $item IN $checked {
+        LET $set=$item.set; LET $batch=$item.batch; LET $inline=$item.inline ?? ($checked.filter(|$candidate| $candidate.batch.inline_key=$batch.inline_key AND $candidate.inline!=NONE))[0].inline; LET $block=$item.block; LET $outputs=$item.outputs; LET $op=IF $item.replayed {true} ELSE {NONE};
     IF $set.interpretation!=__INTERPRETATION__ OR ($block!=NONE AND $block.interpretation!=__INTERPRETATION__) OR array::len($outputs[WHERE interpretation!=__INTERPRETATION__])!=0 { THROW 'PSE_REFUSAL:stale_execution_append_interpretation'; };
     IF array::len($outputs) > __INDEX_RECORDS__ OR bytes::len(encoding::cbor::encode({block:$block,outputs:$outputs})) > __INDEX_BYTES__ { THROW 'PSE_REFUSAL:execution_index_metadata_extent_exceeded'; };
-    fn::pse_execution_v1::available($rpc_expiry, $run);
-    LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'append', $request);
-    LET $writer = IF $op = NONE { fn::pse_execution_v1::writer($rpc_expiry, $run, $attempt, $generation, $operation, 'append') } ELSE { NONE };
-    IF $writer != NONE AND $writer.pse_writer != 'admitted' { RETURN $writer; };
-    LET $a = $writer.attempt;
-    IF $op = NONE AND (($a.phase!='ingesting')) { THROW 'PSE_REFUSAL:execution_result_ingestion_closed'; };
     IF $batch.attempt != $attempt OR $set.attempt != $attempt OR $batch.result_set != $set.key { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
     IF $batch.payload_bytes<=0dec OR ($inline!=NONE AND bytes::len($inline.body)=0) { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
     LET $existing = SELECT * FROM ONLY type::record('canonical_result_batches', $batch.key);
@@ -364,7 +433,7 @@ DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $at
         IF $old_body=NONE {
             IF $inline=NONE OR $op!=NONE OR $existing!=NONE { THROW 'PSE_REFUSAL:execution_acknowledged_batch_unavailable'; };
             IF $inline.key!=$batch.inline_key OR $inline.attempt!=$attempt OR $inline.digest!=$batch.digest OR $inline.encoding!=$batch.encoding OR $inline.schema!=$batch.schema OR $inline.interpretation!=__INTERPRETATION__ OR $inline.payload_bytes!=$batch.payload_bytes OR bytes::len($inline.body)!=$inline.payload_bytes OR bytes::len($inline.body)>__INLINE_BYTES__ OR ($inline.encoding='arrow-ipc-file' AND ($inline.batch_count=0dec OR $batch.payload_index>=$inline.batch_count)) OR ($inline.encoding!='arrow-ipc-file' AND ($inline.batch_count!=0dec OR $batch.payload_index!=0dec)) { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
-            CREATE ONLY type::record('canonical_inline_payloads',$inline.key) CONTENT $inline;
+            // New bodies are inserted together after complete preflight.
         } ELSE {
             IF ($inline!=NONE AND object::remove($old_body,'id')!=$inline) OR $old_body.attempt!=$attempt OR $old_body.digest!=$batch.digest OR $old_body.payload_bytes!=$batch.payload_bytes OR $old_body.encoding!=$batch.encoding OR $old_body.schema!=$batch.schema OR $old_body.interpretation!=__INTERPRETATION__ OR ($old_body.encoding='arrow-ipc-file' AND $batch.payload_index>=$old_body.batch_count) OR ($old_body.encoding!='arrow-ipc-file' AND $batch.payload_index!=0dec) { THROW 'PSE_REFUSAL:execution_immutable_batch_changed'; };
         };
@@ -377,59 +446,50 @@ DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $at
         IF ($block = NONE AND $existing_block != NONE) OR ($block != NONE AND ($existing_block = NONE OR object::remove($existing_block, 'id') != $block)) { THROW 'PSE_REFUSAL:execution_immutable_block_changed'; };
         LET $old_outputs = SELECT * FROM canonical_result_block_outputs WHERE batch = $batch.key ORDER BY key LIMIT __INDEX_REPLAY__;
         IF array::len($old_outputs) != array::len($outputs) OR $old_outputs.map(|$output| object::remove($output, 'id')) != $outputs { THROW 'PSE_REFUSAL:execution_immutable_output_block_indexes_changed'; };
-        IF $op != NONE { LET $rpc_result = {key:$batch.key,attempt:$attempt,result_set:$set.key,ordinal:$batch.ordinal,digest:$batch.digest,row_count:$batch.row_count,payload_binding:$batch.payload_binding,request:$request}; fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
-    } ELSE {
-        IF $op != NONE { THROW 'PSE_REFUSAL:execution_acknowledged_batch_unavailable'; };
-        LET $s = SELECT * FROM ONLY type::record('canonical_result_sets', $set.key);
-        IF $s = NONE {
-            LET $sets = SELECT key FROM canonical_result_sets WHERE attempt = $attempt LIMIT 256;
-            IF array::len($sets) >= 256 { THROW 'PSE_REFUSAL:execution_result_set_bound_exceeded'; };
-            IF $batch.ordinal != 0dec { THROW 'PSE_REFUSAL:execution_batch_sequence_gap'; };
-            CREATE ONLY type::record('canonical_result_sets', $set.key) CONTENT $set;
-        } ELSE {
-            IF $s.attempt != $attempt OR $s.name != $set.name OR $s.interpretation != $set.interpretation OR $s.next_ordinal != $batch.ordinal { THROW 'PSE_REFUSAL:execution_batch_sequence_gap'; };
-        };
-        IF $batch.placement='sealed' { fn::pse_files_v1::attach($rpc_expiry,$batch,'result',$attempt,'result:'+$batch.key); };
-        CREATE ONLY type::record('canonical_result_batches', $batch.key) CONTENT $batch;
-        IF $block != NONE { CREATE ONLY type::record('canonical_result_blocks', $batch.key) CONTENT $block; };
-        IF array::len($outputs) != 0 {
-            LET $rows = $outputs.map(|$output| object::extend($output, {id:type::record('canonical_result_block_outputs', $output.key)}));
-            INSERT INTO canonical_result_block_outputs $rows RETURN NONE;
-        };
-        UPDATE ONLY type::record('canonical_result_sets', $set.key) SET next_ordinal += 1dec, row_count += $batch.row_count;
     };
-    fn::pse_history_v1::record_operation($rpc_expiry,$operation,$run,$attempt,'append',$request,$request,NONE,NONE);
-    LET $rpc_result = {key:$batch.key,attempt:$attempt,result_set:$set.key,ordinal:$batch.ordinal,digest:$batch.digest,row_count:$batch.row_count,payload_binding:$batch.payload_binding,request:$request};
-    fn::pse_execution_v1::deadline($rpc_expiry);
-    IF $op = NONE { fn::pse_execution_v1::lease($rpc_expiry, $a.expires_at); };
-    RETURN $rpc_result;
-};
-
-// One statement/transaction, preserving every existing per-block operation receipt.
-DEFINE FUNCTION fn::pse_execution_v1::append_many($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $items: array<object>) -> object {
-    fn::pse_execution_v1::deadline($rpc_expiry);
-    fn::pse_execution_v1::current_writer($rpc_expiry,$run);
-    IF array::len($items)=0 OR array::len($items)>__INDEX_RECORDS__ OR bytes::len(encoding::cbor::encode($items))>__APPEND_TARGET_BYTES__ { THROW 'PSE_REFUSAL:execution_append_group_extent_exceeded'; };
-    fn::pse_execution_v1::available($rpc_expiry,$run);
-    // Preflight BEFORE any append mutation. An entirely replayed group needs no
-    // fresh writer admission after cancellation, closure or attempt replacement.
-    FOR $item IN $items {
-        LET $old=fn::pse_execution_v1::operation($rpc_expiry,$item.operation,'append',$item.request);
+    IF $existing=NONE AND $op!=NONE { THROW 'PSE_REFUSAL:execution_acknowledged_batch_unavailable'; };
+    };
+    LET $new=$checked.filter(|$item| !$item.present);
+    LET $set_keys=array::distinct($checked.set.key);
+    LET $sets=SELECT key FROM canonical_result_sets WHERE attempt=$attempt LIMIT 257;
+    LET $missing=$set_keys.filter(|$key| (SELECT key FROM ONLY type::record('canonical_result_sets',$key))=NONE);
+    IF array::len($sets)+array::len($missing)>256 { THROW 'PSE_REFUSAL:execution_result_set_bound_exceeded'; };
+    // One admission and one frontier write per set, while every immutable item remains exact.
+    FOR $key IN $set_keys {
+        LET $selected=$checked.filter(|$item| $item.set.key=$key);
+        LET $set=$selected[0].set;
+        LET $old=SELECT * FROM ONLY type::record('canonical_result_sets',$key);
+        IF array::len($selected.filter(|$item| $item.set.attempt!=$set.attempt OR $item.set.name!=$set.name OR $item.set.interpretation!=$set.interpretation))!=0 OR ($old!=NONE AND ($old.attempt!=$attempt OR $old.name!=$set.name OR $old.interpretation!=$set.interpretation)) { THROW 'PSE_REFUSAL:execution_batch_sequence_gap'; };
+        LET $fresh=$selected.filter(|$item| !$item.present);
+        LET $frontier=IF $old=NONE {0dec} ELSE {$old.next_ordinal};
+        LET $end=$fresh.fold($frontier,|$next,$item| {
+            IF $item.batch.ordinal!=$next { THROW 'PSE_REFUSAL:execution_batch_sequence_gap'; };
+            RETURN $next+1dec;
+        });
         IF $old=NONE {
-            LET $writer=fn::pse_execution_v1::writer($rpc_expiry,$run,$attempt,$generation,$item.operation,'append');
-            IF $writer.pse_writer!='admitted' { RETURN $writer; };
-            IF ($writer.attempt.phase!='ingesting') { THROW 'PSE_REFUSAL:execution_result_ingestion_closed'; };
+            IF array::len($fresh)=0 {THROW 'PSE_REFUSAL:execution_acknowledged_batch_unavailable';};
+            CREATE ONLY type::record('canonical_result_sets',$key) CONTENT $set;
         };
+        IF array::len($fresh)!=0 { UPDATE ONLY type::record('canonical_result_sets',$key) SET next_ordinal=$end,row_count+=(math::sum($fresh.batch.row_count) ?? 0dec); };
     };
-    // FOR executes each original append serially. A later gap, conflicting
-    // immutable receipt or deadline THROW rolls the entire new group back.
-    FOR $item IN $items {
-        LET $saved=fn::pse_execution_v1::append($rpc_expiry,$run,$attempt,$generation,$item.operation,$item.request,$item.set,$item.batch,$item.inline,$item.block,$item.outputs);
-        IF $saved.pse_writer!=NONE { THROW 'PSE_REFUSAL:execution_append_group_admission_changed'; };
+    LET $bodies=array::distinct($new.filter(|$item| $item.inline!=NONE).inline);
+    FOR $body IN $bodies {
+        LET $matching=$checked.filter(|$item| $item.batch.inline_key=$body.key AND $item.inline!=NONE);
+        IF array::len($matching.filter(|$item| $item.inline!=$body))!=0 { THROW 'PSE_REFUSAL:execution_immutable_batch_changed'; };
     };
-    LET $receipts=$items.map(|$item| {key:$item.batch.key,attempt:$attempt,result_set:$item.set.key,ordinal:$item.batch.ordinal,digest:$item.batch.digest,row_count:$item.batch.row_count,payload_binding:$item.batch.payload_binding,request:$item.request});
+    LET $body_rows=$bodies.filter(|$body| (SELECT key FROM ONLY type::record('canonical_inline_payloads',$body.key))=NONE).map(|$body| object::extend($body,{id:type::record('canonical_inline_payloads',$body.key)}));
+    IF array::len($body_rows)!=0 { INSERT INTO canonical_inline_payloads $body_rows RETURN NONE; };
+    FOR $item IN $new.filter(|$item| $item.batch.placement='sealed') { fn::pse_files_v1::attach($rpc_expiry,$item.batch,'result',$attempt,'result:'+$item.batch.key); };
+    LET $batches=$new.map(|$item| object::extend($item.batch,{id:type::record('canonical_result_batches',$item.batch.key)}));
+    LET $blocks=$new.filter(|$item| $item.block!=NONE).map(|$item| object::extend($item.block,{id:type::record('canonical_result_blocks',$item.batch.key)}));
+    LET $outputs=array::flatten($new.outputs).map(|$output| object::extend($output,{id:type::record('canonical_result_block_outputs',$output.key)}));
+    IF array::len($batches)!=0 { INSERT INTO canonical_result_batches $batches RETURN NONE; };
+    IF array::len($blocks)!=0 { INSERT INTO canonical_result_blocks $blocks RETURN NONE; };
+    IF array::len($outputs)!=0 { INSERT INTO canonical_result_block_outputs $outputs RETURN NONE; };
+    fn::pse_history_v1::record_append_operations($rpc_expiry,$run,$attempt,$pending);
     fn::pse_execution_v1::deadline($rpc_expiry);
-    RETURN {acknowledgments:$receipts};
+    IF $writer!=NONE { fn::pse_execution_v1::lease($rpc_expiry,$writer.attempt.expires_at); };
+    RETURN {acknowledgments:$checked.map(|$item| {key:$item.batch.key,attempt:$attempt,result_set:$item.set.key,ordinal:$item.batch.ordinal,digest:$item.batch.digest,row_count:$item.batch.row_count,payload_binding:$item.batch.payload_binding,request:$item.request})};
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::empty($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes, $set: object) -> object {

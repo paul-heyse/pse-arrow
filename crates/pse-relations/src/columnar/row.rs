@@ -148,7 +148,10 @@ impl<R: RelationRow> RowBuilder<R> {
     }
 }
 
-pub(crate) fn allocation_add(left: usize, right: usize) -> Result<usize, RelationError> {
+/// Add generated payload extents without overflowing the allocation allowance.
+/// # Errors
+/// The combined extent cannot be represented.
+pub fn allocation_add(left: usize, right: usize) -> Result<usize, RelationError> {
     left.checked_add(right)
         .ok_or_else(|| super::mismatch("representable generated payload extent"))
 }

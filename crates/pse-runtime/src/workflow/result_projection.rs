@@ -1553,6 +1553,7 @@ mod result_projection_unit {
                 &request("cancelled-append-queue-summary"),
                 &[9],
                 &[NewOccurrence {
+                    projection: None,
                     policy: PointPolicy {
                         key: occurrence,
                         dependencies: vec![],

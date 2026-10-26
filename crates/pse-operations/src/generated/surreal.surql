@@ -643,6 +643,48 @@ DEFINE FIELD active ON canonical_studies TYPE bool;
 DEFINE FIELD cancelled ON canonical_studies TYPE bool;
 DEFINE FIELD generation ON canonical_studies TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD terminal ON canonical_studies TYPE bool;
+DEFINE TABLE canonical_study_admission_outcomes SCHEMAFULL;
+DEFINE FIELD key ON canonical_study_admission_outcomes TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD projection ON canonical_study_admission_outcomes TYPE bytes READONLY;
+DEFINE TABLE canonical_study_capture_gate SCHEMAFULL;
+DEFINE FIELD key ON canonical_study_capture_gate TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD incarnation ON canonical_study_capture_gate TYPE string;
+DEFINE FIELD capture ON canonical_study_capture_gate TYPE option<string>;
+DEFINE FIELD owner ON canonical_study_capture_gate TYPE option<string>;
+DEFINE FIELD request ON canonical_study_capture_gate TYPE option<bytes>;
+DEFINE FIELD issued_expires_at ON canonical_study_capture_gate TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE TABLE canonical_study_capture_headers SCHEMAFULL;
+DEFINE FIELD key ON canonical_study_capture_headers TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD capture ON canonical_study_capture_headers TYPE string READONLY;
+DEFINE FIELD ordinal ON canonical_study_capture_headers TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD body ON canonical_study_capture_headers TYPE bytes READONLY;
+DEFINE TABLE canonical_study_capture_members SCHEMAFULL;
+DEFINE FIELD key ON canonical_study_capture_members TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD capture ON canonical_study_capture_members TYPE string READONLY;
+DEFINE FIELD ordinal ON canonical_study_capture_members TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD body ON canonical_study_capture_members TYPE bytes READONLY;
+DEFINE FIELD study ON canonical_study_capture_members TYPE string READONLY;
+DEFINE FIELD run ON canonical_study_capture_members TYPE string READONLY;
+DEFINE FIELD attempt ON canonical_study_capture_members TYPE option<string> READONLY;
+DEFINE FIELD manifest ON canonical_study_capture_members TYPE option<string> READONLY;
+DEFINE TABLE canonical_study_capture_protections SCHEMAFULL;
+DEFINE FIELD key ON canonical_study_capture_protections TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD capture ON canonical_study_capture_protections TYPE string READONLY;
+DEFINE FIELD study ON canonical_study_capture_protections TYPE string READONLY;
+DEFINE FIELD run ON canonical_study_capture_protections TYPE string READONLY;
+DEFINE FIELD attempt ON canonical_study_capture_protections TYPE string READONLY;
+DEFINE FIELD manifest ON canonical_study_capture_protections TYPE string READONLY;
+DEFINE FIELD problem ON canonical_study_capture_protections TYPE string READONLY;
+DEFINE FIELD revision ON canonical_study_capture_protections TYPE string READONLY;
+DEFINE TABLE canonical_study_captures SCHEMAFULL;
+DEFINE FIELD key ON canonical_study_captures TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD owner ON canonical_study_captures TYPE string READONLY;
+DEFINE FIELD request ON canonical_study_captures TYPE bytes READONLY;
+DEFINE FIELD incarnation ON canonical_study_captures TYPE string READONLY;
+DEFINE FIELD issued_expires_at ON canonical_study_captures TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD state ON canonical_study_captures TYPE "pending" | "frozen" | "abandoned" | "releasing" | "released" ASSERT (($before=NONE AND $value='pending') OR $before=$value OR ($before='pending' AND $value='frozen') OR ($before='pending' AND $value='abandoned') OR ($before='abandoned' AND $value='releasing') OR ($before='frozen' AND $value='releasing') OR ($before='releasing' AND $value='released') OR ($before=NONE AND $value='released' AND $this.incarnation='unissued' AND $this.issued_expires_at=0dec));
+DEFINE FIELD header_count ON canonical_study_captures TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD member_count ON canonical_study_captures TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE TABLE canonical_study_dependencies TYPE RELATION IN canonical_study_points OUT canonical_study_points ENFORCED SCHEMAFULL;
 DEFINE FIELD key ON canonical_study_dependencies TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD study ON canonical_study_dependencies TYPE string;
@@ -656,6 +698,24 @@ DEFINE FIELD key ON canonical_study_inputs TYPE string READONLY ASSERT $value = 
 DEFINE FIELD study ON canonical_study_inputs TYPE string;
 DEFINE FIELD solution ON canonical_study_inputs TYPE string;
 DEFINE FIELD artifact ON canonical_study_inputs TYPE string;
+DEFINE TABLE canonical_study_installation_pages SCHEMAFULL;
+DEFINE FIELD key ON canonical_study_installation_pages TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD study ON canonical_study_installation_pages TYPE string READONLY;
+DEFINE FIELD digest ON canonical_study_installation_pages TYPE string READONLY;
+DEFINE FIELD generation ON canonical_study_installation_pages TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD phase ON canonical_study_installation_pages TYPE "nodes" | "edges" | "active" READONLY ASSERT ($value IN ['nodes','edges']);
+DEFINE FIELD cursor ON canonical_study_installation_pages TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD next_cursor ON canonical_study_installation_pages TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD request ON canonical_study_installation_pages TYPE bytes READONLY;
+DEFINE FIELD issued_expires_at ON canonical_study_installation_pages TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD state ON canonical_study_installation_pages TYPE "issued" | "committed" ASSERT (($before=NONE AND $value='issued') OR $before=$value OR ($before='issued' AND $value='committed'));
+DEFINE TABLE canonical_study_installations SCHEMAFULL;
+DEFINE FIELD key ON canonical_study_installations TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD digest ON canonical_study_installations TYPE string READONLY;
+DEFINE FIELD generation ON canonical_study_installations TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD phase ON canonical_study_installations TYPE "nodes" | "edges" | "active" ASSERT (($before=NONE AND $value='nodes') OR $before=$value OR ($before='nodes' AND $value='edges') OR ($before='nodes' AND $value='active') OR ($before='edges' AND $value='active'));
+DEFINE FIELD node_cursor ON canonical_study_installations TYPE decimal ASSERT ($value>=0dec AND math::floor($value)=$value AND ($before=NONE OR $value>=$before));
+DEFINE FIELD edge_cursor ON canonical_study_installations TYPE decimal ASSERT ($value>=0dec AND math::floor($value)=$value AND ($before=NONE OR $value>=$before));
 DEFINE TABLE canonical_study_points SCHEMAFULL INLINE EDGES 64 INLINE REFERENCES 32;
 DEFINE FIELD key ON canonical_study_points TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD study ON canonical_study_points TYPE string;
@@ -831,6 +891,12 @@ DEFINE INDEX project_context_scope ON canonical_project_contexts FIELDS project,
 DEFINE INDEX project_context_ancestor ON canonical_context_ancestry FIELDS descendant, ancestor UNIQUE;
 DEFINE INDEX research_dataset_project ON canonical_research_datasets FIELDS project, key;
 DEFINE INDEX research_selection_dataset ON canonical_research_selections FIELDS dataset, key;
+DEFINE INDEX capture_protection_study ON canonical_study_capture_protections FIELDS study, key;
+DEFINE INDEX capture_header_order ON canonical_study_capture_headers FIELDS capture, ordinal UNIQUE;
+DEFINE INDEX capture_member_order ON canonical_study_capture_members FIELDS capture, ordinal UNIQUE;
+DEFINE INDEX capture_manifest_run ON canonical_study_capture_protections FIELDS run, key;
+DEFINE INDEX capture_source_problem ON canonical_study_capture_protections FIELDS problem, revision;
+DEFINE INDEX capture_protection_cleanup ON canonical_study_capture_protections FIELDS capture, key;
 DEFINE INDEX study_source_order ON canonical_studies FIELDS revision, key;
 DEFINE INDEX study_problem_order ON canonical_studies FIELDS problem, key;
 DEFINE INDEX study_physical_order ON canonical_studies FIELDS physical_revision, key;
@@ -838,6 +904,8 @@ DEFINE INDEX study_context_order ON canonical_studies FIELDS context, key;
 DEFINE INDEX study_outcome_runs ON canonical_runs FIELDS terminal_class, key;
 DEFINE INDEX study_research_revision ON canonical_research_references FIELDS revision, key;
 DEFINE EVENT pse_sealed_canonical_attempts_seed_manifest ON canonical_attempts WHEN $event='UPDATE' AND ($before.phase IN ['terminal','terminal_compacted']) AND $before.seed_manifest!=$after.seed_manifest THEN { THROW 'PSE_REFUSAL:execution_terminal_seed_manifest_immutable'; };
+DEFINE EVENT pse_sealed_canonical_study_captures_header_count ON canonical_study_captures WHEN $event='UPDATE' AND ($before.state!='pending') AND $before.header_count!=$after.header_count THEN { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
+DEFINE EVENT pse_sealed_canonical_study_captures_member_count ON canonical_study_captures WHEN $event='UPDATE' AND ($before.state!='pending') AND $before.member_count!=$after.member_count THEN { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
 
 DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
     IF time::micros() >= $rpc_expiry { THROW 'PSE_REFUSAL:original_canonical_rpc_deadline_expired'; };
@@ -935,6 +1003,7 @@ DEFINE FUNCTION fn::pse_execution_v1::source_creator($rpc_expiry:int,$problem:st
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::result_creator($rpc_expiry:int,$run:string) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::run($rpc_expiry,$run);
     SELECT * FROM ONLY type::record('canonical_result_retirements',$run) FOR UPDATE;
     IF (SELECT * FROM ONLY type::record('canonical_result_retirements',$run))!=NONE { THROW 'PSE_REFUSAL:execution_results_explicitly_retired'; };
@@ -967,6 +1036,7 @@ DEFINE FUNCTION fn::pse_execution_v1::operation($rpc_expiry: int, $key: string, 
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::available($rpc_expiry: int, $run: string) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::run($rpc_expiry,$run);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'run-cancel:' + $run);
@@ -1036,7 +1106,7 @@ DEFINE FUNCTION fn::pse_execution_v1::fence($rpc_expiry: int, $run: string, $att
 
 DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, $sources: array<object>, $admission: option<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
-    IF $row.interpretation!='pse.substrate.v9' OR (SELECT * FROM ONLY canonical_interpretations:current).interpretation!='pse.substrate.v9' { THROW 'PSE_REFUSAL:stale_execution_publication_interpretation'; };
+    IF $row.interpretation!='pse.substrate.v10' OR (SELECT * FROM ONLY canonical_interpretations:current).interpretation!='pse.substrate.v10' { THROW 'PSE_REFUSAL:stale_execution_publication_interpretation'; };
     fn::pse_execution_v1::available($rpc_expiry, $row.key);
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:' + $row.key);
     fn::pse_research_v1::run_input($rpc_expiry,$row);
@@ -1077,22 +1147,74 @@ DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, 
     RETURN $rpc_result;
 };
 
+// Installation supplies only already admitted eager/input-admission runs. Native
+// bulk rows and graph edges share the point page's atomic boundary.
+DEFINE FUNCTION fn::pse_execution_v1::install_runs($rpc_expiry:int,$items:array<object>) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
+    IF array::len($items)=0 OR array::len($items)>64 OR array::len(array::distinct($items.row.key))!=array::len($items) { THROW 'PSE_REFUSAL:study_run_page_extent'; };
+    LET $marker=SELECT * FROM ONLY canonical_interpretations:current;
+    LET $checked=$items.map(|$item| {
+        LET $row=$item.row;
+        IF $row.interpretation!='pse.substrate.v10' OR $marker.interpretation!='pse.substrate.v10' { THROW 'PSE_REFUSAL:stale_execution_publication_interpretation'; };
+        fn::pse_execution_v1::available($rpc_expiry,$row.key);
+        fn::pse_research_v1::run_input($rpc_expiry,$row);
+        LET $old=SELECT * FROM ONLY type::record('canonical_runs',$row.key);
+        IF $old!=NONE AND ($old.purpose!=$row.purpose OR $old.admission_study!=$row.admission_study OR $old.admission_point!=$row.admission_point OR $old.request!=$row.request OR $old.problem!=$row.problem OR $old.revision!=$row.revision OR $old.source_sequence!=$row.source_sequence OR $old.source_selection!=$row.source_selection OR $old.attestation!=$row.attestation OR $old.interpretation!=$row.interpretation) { THROW 'PSE_REFUSAL:execution_run_identity_reused'; };
+        IF array::len($item.sources)>64 { THROW 'PSE_REFUSAL:execution_sources_limit_exceeded'; };
+        RETURN object::extend($item,{present:$old!=NONE});
+    });
+    LET $new=$checked.filter(|$item| !$item.present);
+    LET $sources=array::distinct(array::concat($new.map(|$item| {problem:$item.row.problem,revision:$item.row.revision,sequence:$item.row.source_sequence,interpretation:$item.row.interpretation}),array::flatten($new.sources).map(|$source| object::remove($source,'key'))));
+    FOR $source IN $sources {
+        fn::pse_execution_v1::register($rpc_expiry,'retention:'+$source.problem);
+        fn::pse_execution_v1::touch($rpc_expiry,'source-creators:'+$source.problem);
+        LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$source.revision);
+        IF $revision=NONE OR $revision.problem!=$source.problem OR $revision.sequence!=$source.sequence OR $revision.interpretation!=$source.interpretation { THROW 'PSE_REFUSAL:execution_selected_source_unavailable'; };
+        IF array::len(SELECT key FROM canonical_reclaimed_ranges WHERE problem=$source.problem AND from_sequence<=$source.sequence AND to_sequence>$source.sequence LIMIT 1)!=0 { THROW 'PSE_REFUSAL:execution_selected_source_reclaimed'; };
+    };
+    LET $rows=array::distinct($new.row.problem).map(|$problem| {
+        LET $selected=$new.filter(|$item| $item.row.problem=$problem);
+        LET $base=fn::pse_execution_v1::touch($rpc_expiry,'execution-sequence:'+$problem);
+        IF array::len($selected)>1 { UPDATE ONLY type::record('canonical_guards','execution-sequence:'+$problem) SET generation+=<decimal>array::len($selected)-1dec; };
+        RETURN $selected.map(|$item,$index| object::extend($item.row,{id:type::record('canonical_runs',$item.row.key),sequence:$base+<decimal>$index}));
+    });
+    LET $runs=array::flatten($rows);
+    LET $roots=array::flatten($new.map(|$item| {
+        LET $row=$item.row;
+        RETURN array::concat([{id:type::record('canonical_roots','run:'+$row.key),key:'run:'+$row.key,problem:$row.problem,revision:$row.revision,sequence:$row.source_sequence,owner_kind:'run',owner:$row.key}],$item.sources.map(|$source| {id:type::record('canonical_roots',$source.key),key:$source.key,problem:$source.problem,revision:$source.revision,sequence:$source.sequence,owner_kind:'run',owner:$row.key}));
+    }));
+    FOR $root IN $roots { SELECT * FROM ONLY type::record('canonical_roots',$root.key) FOR UPDATE; };
+    IF array::len($runs)!=0 {
+        INSERT INTO canonical_runs $runs RETURN NONE;
+        INSERT INTO canonical_roots $roots RETURN NONE;
+        LET $problems=$new.map(|$item| {id:type::record('canonical_problem_runs',$item.row.key),in:type::record('canonical_problems',$item.row.problem),out:type::record('canonical_runs',$item.row.key),key:$item.row.key,problem:$item.row.problem,run:$item.row.key});
+        INSERT RELATION INTO canonical_problem_runs $problems RETURN NONE;
+        LET $edges=array::flatten($new.map(|$item| {
+            LET $row=$item.row;
+            RETURN array::concat([{id:type::record('canonical_run_sources',$row.key),in:type::record('canonical_runs',$row.key),out:type::record('canonical_revisions',$row.revision),key:$row.key,run:$row.key,revision:$row.revision}],$item.sources.map(|$source| {id:type::record('canonical_run_sources',$source.key),in:type::record('canonical_runs',$row.key),out:type::record('canonical_revisions',$source.revision),key:$source.key,run:$row.key,revision:$source.revision}));
+        }));
+        INSERT RELATION INTO canonical_run_sources $edges RETURN NONE;
+    };
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
+};
+
 // Installed writer meaning is server authority, independent of a stale client's argument.
 // This fence is separate from worker freshness: current immutable replays still work
 // after cancellation, closure or a later attempt.
 DEFINE FUNCTION fn::pse_execution_v1::current_writer($rpc_expiry:int,$run:string) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::run($rpc_expiry,$run);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $marker=SELECT * FROM ONLY canonical_interpretations:current;
     LET $row=SELECT * FROM ONLY type::record('canonical_runs',$run);
-    IF $marker=NONE OR $marker.interpretation!='pse.substrate.v9' OR $row=NONE OR $row.interpretation!='pse.substrate.v9' { THROW 'PSE_REFUSAL:historical_execution_is_read_only'; };
+    IF $marker=NONE OR $marker.interpretation!='pse.substrate.v10' OR $row=NONE OR $row.interpretation!='pse.substrate.v10' { THROW 'PSE_REFUSAL:historical_execution_is_read_only'; };
     RETURN true;
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $operation: string, $request: bytes, $attempt: string, $worker: string, $lifetime: int, $interpretation: string, $finalization_study: option<string>, $admission_owner: option<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
-    IF $interpretation!='pse.substrate.v9' { THROW 'PSE_REFUSAL:stale_execution_claim_interpretation'; };
+    IF $interpretation!='pse.substrate.v10' { THROW 'PSE_REFUSAL:stale_execution_claim_interpretation'; };
     fn::pse_execution_v1::available($rpc_expiry, $run);
     // Immutable owner meaning is checked before receipt replay. A generic
     // execution caller cannot borrow an input-admission acknowledgement.
@@ -1149,17 +1271,32 @@ DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $ope
     RETURN $rpc_result;
 };
 
+// Every append, including a singleton, uses the same native grouped realization.
 DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes, $set: object, $batch: object, $inline: option<object>, $block: option<object>, $outputs: array<object>) -> object {
+    LET $result=fn::pse_execution_v1::append_many($rpc_expiry,$run,$attempt,$generation,[{operation:$operation,request:$request,set:$set,batch:$batch,inline:$inline,block:$block,outputs:$outputs}]);
+    RETURN IF $result.pse_writer!=NONE {$result} ELSE {$result.acknowledgments[0]};
+};
+
+DEFINE FUNCTION fn::pse_execution_v1::append_many($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $items: array<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
-    IF $set.interpretation!='pse.substrate.v9' OR ($block!=NONE AND $block.interpretation!='pse.substrate.v9') OR array::len($outputs[WHERE interpretation!='pse.substrate.v9'])!=0 { THROW 'PSE_REFUSAL:stale_execution_append_interpretation'; };
+    IF array::len($items)=0 OR array::len($items)>18724 OR bytes::len(encoding::cbor::encode($items))>2097152 OR array::len(array::distinct($items.operation))!=array::len($items) OR array::len(array::distinct($items.batch.key))!=array::len($items) { THROW 'PSE_REFUSAL:execution_append_group_extent_exceeded'; };
+    LET $checked=$items.map(|$item| {
+        LET $op=fn::pse_execution_v1::operation($rpc_expiry,$item.operation,'append',$item.request);
+        IF $op!=NONE AND ($op.run!=$run OR $op.attempt!=$attempt) { THROW 'PSE_REFUSAL:execution_operation_identity_reused'; };
+        RETURN object::extend($item,{replayed:$op!=NONE,present:(SELECT key FROM ONLY type::record('canonical_result_batches',$item.batch.key))!=NONE});
+    });
+    LET $pending=$checked.filter(|$item| !$item.replayed);
+    LET $writer=IF array::len($pending)=0 {NONE} ELSE {fn::pse_execution_v1::writer($rpc_expiry,$run,$attempt,$generation,$pending[0].operation,'append')};
+    IF $writer=NONE {fn::pse_execution_v1::available($rpc_expiry,$run);};
+    IF $writer!=NONE {
+        IF $writer.pse_writer!='admitted' { RETURN $writer; };
+        IF $writer.attempt.phase!='ingesting' { THROW 'PSE_REFUSAL:execution_result_ingestion_closed'; };
+    };
+    FOR $item IN $checked {
+        LET $set=$item.set; LET $batch=$item.batch; LET $inline=$item.inline ?? ($checked.filter(|$candidate| $candidate.batch.inline_key=$batch.inline_key AND $candidate.inline!=NONE))[0].inline; LET $block=$item.block; LET $outputs=$item.outputs; LET $op=IF $item.replayed {true} ELSE {NONE};
+    IF $set.interpretation!='pse.substrate.v10' OR ($block!=NONE AND $block.interpretation!='pse.substrate.v10') OR array::len($outputs[WHERE interpretation!='pse.substrate.v10'])!=0 { THROW 'PSE_REFUSAL:stale_execution_append_interpretation'; };
     IF array::len($outputs) > 18724 OR bytes::len(encoding::cbor::encode({block:$block,outputs:$outputs})) > 131072 { THROW 'PSE_REFUSAL:execution_index_metadata_extent_exceeded'; };
-    fn::pse_execution_v1::available($rpc_expiry, $run);
-    LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'append', $request);
-    LET $writer = IF $op = NONE { fn::pse_execution_v1::writer($rpc_expiry, $run, $attempt, $generation, $operation, 'append') } ELSE { NONE };
-    IF $writer != NONE AND $writer.pse_writer != 'admitted' { RETURN $writer; };
-    LET $a = $writer.attempt;
-    IF $op = NONE AND (($a.phase!='ingesting')) { THROW 'PSE_REFUSAL:execution_result_ingestion_closed'; };
     IF $batch.attempt != $attempt OR $set.attempt != $attempt OR $batch.result_set != $set.key { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
     IF $batch.payload_bytes<=0dec OR ($inline!=NONE AND bytes::len($inline.body)=0) { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
     LET $existing = SELECT * FROM ONLY type::record('canonical_result_batches', $batch.key);
@@ -1169,10 +1306,10 @@ DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $at
         LET $old_body=SELECT * FROM ONLY type::record('canonical_inline_payloads',$batch.inline_key) FOR UPDATE;
         IF $old_body=NONE {
             IF $inline=NONE OR $op!=NONE OR $existing!=NONE { THROW 'PSE_REFUSAL:execution_acknowledged_batch_unavailable'; };
-            IF $inline.key!=$batch.inline_key OR $inline.attempt!=$attempt OR $inline.digest!=$batch.digest OR $inline.encoding!=$batch.encoding OR $inline.schema!=$batch.schema OR $inline.interpretation!='pse.substrate.v9' OR $inline.payload_bytes!=$batch.payload_bytes OR bytes::len($inline.body)!=$inline.payload_bytes OR bytes::len($inline.body)>65536 OR ($inline.encoding='arrow-ipc-file' AND ($inline.batch_count=0dec OR $batch.payload_index>=$inline.batch_count)) OR ($inline.encoding!='arrow-ipc-file' AND ($inline.batch_count!=0dec OR $batch.payload_index!=0dec)) { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
-            CREATE ONLY type::record('canonical_inline_payloads',$inline.key) CONTENT $inline;
+            IF $inline.key!=$batch.inline_key OR $inline.attempt!=$attempt OR $inline.digest!=$batch.digest OR $inline.encoding!=$batch.encoding OR $inline.schema!=$batch.schema OR $inline.interpretation!='pse.substrate.v10' OR $inline.payload_bytes!=$batch.payload_bytes OR bytes::len($inline.body)!=$inline.payload_bytes OR bytes::len($inline.body)>65536 OR ($inline.encoding='arrow-ipc-file' AND ($inline.batch_count=0dec OR $batch.payload_index>=$inline.batch_count)) OR ($inline.encoding!='arrow-ipc-file' AND ($inline.batch_count!=0dec OR $batch.payload_index!=0dec)) { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
+            // New bodies are inserted together after complete preflight.
         } ELSE {
-            IF ($inline!=NONE AND object::remove($old_body,'id')!=$inline) OR $old_body.attempt!=$attempt OR $old_body.digest!=$batch.digest OR $old_body.payload_bytes!=$batch.payload_bytes OR $old_body.encoding!=$batch.encoding OR $old_body.schema!=$batch.schema OR $old_body.interpretation!='pse.substrate.v9' OR ($old_body.encoding='arrow-ipc-file' AND $batch.payload_index>=$old_body.batch_count) OR ($old_body.encoding!='arrow-ipc-file' AND $batch.payload_index!=0dec) { THROW 'PSE_REFUSAL:execution_immutable_batch_changed'; };
+            IF ($inline!=NONE AND object::remove($old_body,'id')!=$inline) OR $old_body.attempt!=$attempt OR $old_body.digest!=$batch.digest OR $old_body.payload_bytes!=$batch.payload_bytes OR $old_body.encoding!=$batch.encoding OR $old_body.schema!=$batch.schema OR $old_body.interpretation!='pse.substrate.v10' OR ($old_body.encoding='arrow-ipc-file' AND $batch.payload_index>=$old_body.batch_count) OR ($old_body.encoding!='arrow-ipc-file' AND $batch.payload_index!=0dec) { THROW 'PSE_REFUSAL:execution_immutable_batch_changed'; };
         };
     } ELSE IF $batch.placement='sealed' {
         IF $batch.inline_key!=NONE OR $batch.file_instance=NONE OR $inline!=NONE { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
@@ -1183,59 +1320,50 @@ DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $at
         IF ($block = NONE AND $existing_block != NONE) OR ($block != NONE AND ($existing_block = NONE OR object::remove($existing_block, 'id') != $block)) { THROW 'PSE_REFUSAL:execution_immutable_block_changed'; };
         LET $old_outputs = SELECT * FROM canonical_result_block_outputs WHERE batch = $batch.key ORDER BY key LIMIT 18725;
         IF array::len($old_outputs) != array::len($outputs) OR $old_outputs.map(|$output| object::remove($output, 'id')) != $outputs { THROW 'PSE_REFUSAL:execution_immutable_output_block_indexes_changed'; };
-        IF $op != NONE { LET $rpc_result = {key:$batch.key,attempt:$attempt,result_set:$set.key,ordinal:$batch.ordinal,digest:$batch.digest,row_count:$batch.row_count,payload_binding:$batch.payload_binding,request:$request}; fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
-    } ELSE {
-        IF $op != NONE { THROW 'PSE_REFUSAL:execution_acknowledged_batch_unavailable'; };
-        LET $s = SELECT * FROM ONLY type::record('canonical_result_sets', $set.key);
-        IF $s = NONE {
-            LET $sets = SELECT key FROM canonical_result_sets WHERE attempt = $attempt LIMIT 256;
-            IF array::len($sets) >= 256 { THROW 'PSE_REFUSAL:execution_result_set_bound_exceeded'; };
-            IF $batch.ordinal != 0dec { THROW 'PSE_REFUSAL:execution_batch_sequence_gap'; };
-            CREATE ONLY type::record('canonical_result_sets', $set.key) CONTENT $set;
-        } ELSE {
-            IF $s.attempt != $attempt OR $s.name != $set.name OR $s.interpretation != $set.interpretation OR $s.next_ordinal != $batch.ordinal { THROW 'PSE_REFUSAL:execution_batch_sequence_gap'; };
-        };
-        IF $batch.placement='sealed' { fn::pse_files_v1::attach($rpc_expiry,$batch,'result',$attempt,'result:'+$batch.key); };
-        CREATE ONLY type::record('canonical_result_batches', $batch.key) CONTENT $batch;
-        IF $block != NONE { CREATE ONLY type::record('canonical_result_blocks', $batch.key) CONTENT $block; };
-        IF array::len($outputs) != 0 {
-            LET $rows = $outputs.map(|$output| object::extend($output, {id:type::record('canonical_result_block_outputs', $output.key)}));
-            INSERT INTO canonical_result_block_outputs $rows RETURN NONE;
-        };
-        UPDATE ONLY type::record('canonical_result_sets', $set.key) SET next_ordinal += 1dec, row_count += $batch.row_count;
     };
-    fn::pse_history_v1::record_operation($rpc_expiry,$operation,$run,$attempt,'append',$request,$request,NONE,NONE);
-    LET $rpc_result = {key:$batch.key,attempt:$attempt,result_set:$set.key,ordinal:$batch.ordinal,digest:$batch.digest,row_count:$batch.row_count,payload_binding:$batch.payload_binding,request:$request};
-    fn::pse_execution_v1::deadline($rpc_expiry);
-    IF $op = NONE { fn::pse_execution_v1::lease($rpc_expiry, $a.expires_at); };
-    RETURN $rpc_result;
-};
-
-// One statement/transaction, preserving every existing per-block operation receipt.
-DEFINE FUNCTION fn::pse_execution_v1::append_many($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $items: array<object>) -> object {
-    fn::pse_execution_v1::deadline($rpc_expiry);
-    fn::pse_execution_v1::current_writer($rpc_expiry,$run);
-    IF array::len($items)=0 OR array::len($items)>18724 OR bytes::len(encoding::cbor::encode($items))>2097152 { THROW 'PSE_REFUSAL:execution_append_group_extent_exceeded'; };
-    fn::pse_execution_v1::available($rpc_expiry,$run);
-    // Preflight BEFORE any append mutation. An entirely replayed group needs no
-    // fresh writer admission after cancellation, closure or attempt replacement.
-    FOR $item IN $items {
-        LET $old=fn::pse_execution_v1::operation($rpc_expiry,$item.operation,'append',$item.request);
+    IF $existing=NONE AND $op!=NONE { THROW 'PSE_REFUSAL:execution_acknowledged_batch_unavailable'; };
+    };
+    LET $new=$checked.filter(|$item| !$item.present);
+    LET $set_keys=array::distinct($checked.set.key);
+    LET $sets=SELECT key FROM canonical_result_sets WHERE attempt=$attempt LIMIT 257;
+    LET $missing=$set_keys.filter(|$key| (SELECT key FROM ONLY type::record('canonical_result_sets',$key))=NONE);
+    IF array::len($sets)+array::len($missing)>256 { THROW 'PSE_REFUSAL:execution_result_set_bound_exceeded'; };
+    // One admission and one frontier write per set, while every immutable item remains exact.
+    FOR $key IN $set_keys {
+        LET $selected=$checked.filter(|$item| $item.set.key=$key);
+        LET $set=$selected[0].set;
+        LET $old=SELECT * FROM ONLY type::record('canonical_result_sets',$key);
+        IF array::len($selected.filter(|$item| $item.set.attempt!=$set.attempt OR $item.set.name!=$set.name OR $item.set.interpretation!=$set.interpretation))!=0 OR ($old!=NONE AND ($old.attempt!=$attempt OR $old.name!=$set.name OR $old.interpretation!=$set.interpretation)) { THROW 'PSE_REFUSAL:execution_batch_sequence_gap'; };
+        LET $fresh=$selected.filter(|$item| !$item.present);
+        LET $frontier=IF $old=NONE {0dec} ELSE {$old.next_ordinal};
+        LET $end=$fresh.fold($frontier,|$next,$item| {
+            IF $item.batch.ordinal!=$next { THROW 'PSE_REFUSAL:execution_batch_sequence_gap'; };
+            RETURN $next+1dec;
+        });
         IF $old=NONE {
-            LET $writer=fn::pse_execution_v1::writer($rpc_expiry,$run,$attempt,$generation,$item.operation,'append');
-            IF $writer.pse_writer!='admitted' { RETURN $writer; };
-            IF ($writer.attempt.phase!='ingesting') { THROW 'PSE_REFUSAL:execution_result_ingestion_closed'; };
+            IF array::len($fresh)=0 {THROW 'PSE_REFUSAL:execution_acknowledged_batch_unavailable';};
+            CREATE ONLY type::record('canonical_result_sets',$key) CONTENT $set;
         };
+        IF array::len($fresh)!=0 { UPDATE ONLY type::record('canonical_result_sets',$key) SET next_ordinal=$end,row_count+=(math::sum($fresh.batch.row_count) ?? 0dec); };
     };
-    // FOR executes each original append serially. A later gap, conflicting
-    // immutable receipt or deadline THROW rolls the entire new group back.
-    FOR $item IN $items {
-        LET $saved=fn::pse_execution_v1::append($rpc_expiry,$run,$attempt,$generation,$item.operation,$item.request,$item.set,$item.batch,$item.inline,$item.block,$item.outputs);
-        IF $saved.pse_writer!=NONE { THROW 'PSE_REFUSAL:execution_append_group_admission_changed'; };
+    LET $bodies=array::distinct($new.filter(|$item| $item.inline!=NONE).inline);
+    FOR $body IN $bodies {
+        LET $matching=$checked.filter(|$item| $item.batch.inline_key=$body.key AND $item.inline!=NONE);
+        IF array::len($matching.filter(|$item| $item.inline!=$body))!=0 { THROW 'PSE_REFUSAL:execution_immutable_batch_changed'; };
     };
-    LET $receipts=$items.map(|$item| {key:$item.batch.key,attempt:$attempt,result_set:$item.set.key,ordinal:$item.batch.ordinal,digest:$item.batch.digest,row_count:$item.batch.row_count,payload_binding:$item.batch.payload_binding,request:$item.request});
+    LET $body_rows=$bodies.filter(|$body| (SELECT key FROM ONLY type::record('canonical_inline_payloads',$body.key))=NONE).map(|$body| object::extend($body,{id:type::record('canonical_inline_payloads',$body.key)}));
+    IF array::len($body_rows)!=0 { INSERT INTO canonical_inline_payloads $body_rows RETURN NONE; };
+    FOR $item IN $new.filter(|$item| $item.batch.placement='sealed') { fn::pse_files_v1::attach($rpc_expiry,$item.batch,'result',$attempt,'result:'+$item.batch.key); };
+    LET $batches=$new.map(|$item| object::extend($item.batch,{id:type::record('canonical_result_batches',$item.batch.key)}));
+    LET $blocks=$new.filter(|$item| $item.block!=NONE).map(|$item| object::extend($item.block,{id:type::record('canonical_result_blocks',$item.batch.key)}));
+    LET $outputs=array::flatten($new.outputs).map(|$output| object::extend($output,{id:type::record('canonical_result_block_outputs',$output.key)}));
+    IF array::len($batches)!=0 { INSERT INTO canonical_result_batches $batches RETURN NONE; };
+    IF array::len($blocks)!=0 { INSERT INTO canonical_result_blocks $blocks RETURN NONE; };
+    IF array::len($outputs)!=0 { INSERT INTO canonical_result_block_outputs $outputs RETURN NONE; };
+    fn::pse_history_v1::record_append_operations($rpc_expiry,$run,$attempt,$pending);
     fn::pse_execution_v1::deadline($rpc_expiry);
-    RETURN {acknowledgments:$receipts};
+    IF $writer!=NONE { fn::pse_execution_v1::lease($rpc_expiry,$writer.attempt.expires_at); };
+    RETURN {acknowledgments:$checked.map(|$item| {key:$item.batch.key,attempt:$attempt,result_set:$item.set.key,ordinal:$item.batch.ordinal,digest:$item.batch.digest,row_count:$item.batch.row_count,payload_binding:$item.batch.payload_binding,request:$item.request})};
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::empty($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes, $set: object) -> object {
@@ -1246,7 +1374,7 @@ DEFINE FUNCTION fn::pse_execution_v1::empty($rpc_expiry: int, $run: string, $att
     LET $writer=IF $op=NONE { fn::pse_execution_v1::writer($rpc_expiry,$run,$attempt,$generation,$operation,'empty') } ELSE { NONE };
     IF $writer!=NONE AND $writer.pse_writer != 'admitted' { RETURN $writer; };
     IF $op=NONE AND (($writer.attempt.phase!='ingesting')) { THROW 'PSE_REFUSAL:execution_empty_declaration_ingestion_closed'; };
-    IF $set.attempt != $attempt OR $set.interpretation != 'pse.substrate.v9' OR $set.next_ordinal != 0dec OR $set.row_count != 0dec { THROW 'PSE_REFUSAL:execution_empty_declaration_mismatch'; };
+    IF $set.attempt != $attempt OR $set.interpretation != 'pse.substrate.v10' OR $set.next_ordinal != 0dec OR $set.row_count != 0dec { THROW 'PSE_REFUSAL:execution_empty_declaration_mismatch'; };
     LET $old = SELECT * FROM ONLY type::record('canonical_result_sets',$set.key);
     IF $old != NONE {
         IF object::remove($old,'id') != $set { THROW 'PSE_REFUSAL:execution_demanded_empty_set_changed'; };
@@ -1274,12 +1402,12 @@ DEFINE FUNCTION fn::pse_execution_v1::verify_acknowledged($rpc_expiry: int, $run
     FOR $s IN $sets {
         LET $matching=$proofs.filter(|$p| $p.set=$s.key);
         IF array::len($matching)=0 {
-            IF $progress_queued=NONE OR $s.name!='__progress' OR $s.attempt!=$attempt OR $s.interpretation!='pse.substrate.v9' OR $s.row_count>$progress_queued { THROW 'PSE_REFUSAL:execution_unacknowledged_set_membership_differs'; };
+            IF $progress_queued=NONE OR $s.name!='__progress' OR $s.attempt!=$attempt OR $s.interpretation!='pse.substrate.v10' OR $s.row_count>$progress_queued { THROW 'PSE_REFUSAL:execution_unacknowledged_set_membership_differs'; };
         } ELSE {
         IF array::len($matching)!=1 { THROW 'PSE_REFUSAL:execution_advertised_set_ambiguous'; };
         LET $p=$matching[0];
         LET $uncertain=$s.name='__progress' AND $progress_queued!=NONE;
-        IF $s.attempt != $attempt OR $s.name != $p.name OR $s.interpretation != 'pse.substrate.v9' OR (!$uncertain AND ($s.next_ordinal != $p.count OR $s.row_count != $p.row_count)) OR ($uncertain AND ($s.next_ordinal<$p.count OR $s.row_count<$p.row_count OR $s.row_count>$progress_queued)) { THROW 'PSE_REFUSAL:execution_acknowledged_set_coverage_differs'; };
+        IF $s.attempt != $attempt OR $s.name != $p.name OR $s.interpretation != 'pse.substrate.v10' OR (!$uncertain AND ($s.next_ordinal != $p.count OR $s.row_count != $p.row_count)) OR ($uncertain AND ($s.next_ordinal<$p.count OR $s.row_count<$p.row_count OR $s.row_count>$progress_queued)) { THROW 'PSE_REFUSAL:execution_acknowledged_set_coverage_differs'; };
         LET $receipt=SELECT * FROM ONLY type::record('canonical_execution_operations',$p.operation);
         IF $receipt=NONE OR $receipt.run != $run OR $receipt.attempt != $attempt OR $receipt.kind != $p.kind OR $receipt.request != $p.request OR $receipt.result != $p.request { THROW 'PSE_REFUSAL:execution_actual_final_receipt_differs'; };
         IF $p.count=0dec {
@@ -1502,7 +1630,7 @@ DEFINE FUNCTION fn::pse_execution_v1::seed_eligible($seed: object) -> bool {
     IF $a = NONE OR ($a.phase NOT IN ['terminal','terminal_compacted']) OR $a.seed_manifest = NONE OR $a.seed_manifest != $a.closed_manifest OR $a.run != $seed.run OR $a.generation != $seed.attempt_generation { RETURN false; };
     LET $r = SELECT sequence,interpretation FROM ONLY type::record('canonical_runs', $seed.run);
     LET $installed=SELECT interpretation FROM ONLY canonical_interpretations:current;
-    IF $r=NONE OR $r.interpretation!='pse.substrate.v9' OR $installed=NONE OR $installed.interpretation!='pse.substrate.v9' { RETURN false; };
+    IF $r=NONE OR $r.interpretation!='pse.substrate.v10' OR $installed=NONE OR $installed.interpretation!='pse.substrate.v10' { RETURN false; };
     LET $m = SELECT attempt,generation FROM ONLY type::record('canonical_result_manifests', $a.seed_manifest);
     RETURN $r != NONE AND $r.sequence = $seed.run_sequence AND $m != NONE AND $m.attempt = $seed.attempt AND $m.generation = $seed.attempt_generation;
 };
@@ -1552,6 +1680,7 @@ DEFINE FUNCTION fn::pse_project_v1::project($expiry:int,$key:string,$generation:
     RETURN $p;
 };
 DEFINE FUNCTION fn::pse_project_v1::root($expiry:int,$revision:string,$owner:string) -> bool {
+    fn::pse_workbench_v1::publication($expiry);
     LET $r=SELECT * FROM ONLY type::record('canonical_revisions',$revision);
     IF $r=NONE { THROW 'PSE_REFUSAL:project_source_unavailable'; };
     fn::pse_execution_v1::source_creator($expiry,$r.problem,$owner);
@@ -1562,6 +1691,7 @@ DEFINE FUNCTION fn::pse_project_v1::root($expiry:int,$revision:string,$owner:str
 };
 DEFINE FUNCTION fn::pse_project_v1::create($expiry:int,$operation:string,$request:bytes,$project:string,$title:string) -> object {
     LET $old=fn::pse_project_v1::ack($expiry,$operation,$request); IF $old!=NONE { RETURN $old; };
+    fn::pse_workbench_v1::publication($expiry);
     IF $project='' OR string::len($project)>4096 OR string::len($title)>4096 { THROW 'PSE_REFUSAL:project_metadata_bound'; };
     CREATE ONLY type::record('canonical_projects',$project) CONTENT {key:$project,title:$title,deleted:false,generation:0dec};
     LET $ack=CREATE ONLY type::record('canonical_project_operations',$operation) CONTENT {key:$operation,kind:'create',project:$project,request:$request,generation:0dec};
@@ -1570,6 +1700,7 @@ DEFINE FUNCTION fn::pse_project_v1::create($expiry:int,$operation:string,$reques
 // Called inside EDIT before canonical_problems is changed. All branch writes,
 // including ordinary source APIs, must present the matching project guard.
 DEFINE FUNCTION fn::pse_project_v1::source_guard($expiry:int,$problem:string,$operation:string,$intent:option<object>) -> bool {
+    fn::pse_workbench_v1::publication($expiry);
     IF $intent!=NONE {fn::pse_project_v1::authority($expiry,$intent.issuing_store);};
     LET $owners=SELECT * FROM canonical_project_branches WITH INDEX project_branch_problem WHERE problem=$problem LIMIT 2;
     IF $intent=NONE { IF array::len($owners)!=0 { THROW 'PSE_REFUSAL:project_publication_guard_required'; }; RETURN true; };
@@ -1607,6 +1738,7 @@ DEFINE FUNCTION fn::pse_project_v1::source_guard($expiry:int,$problem:string,$op
     RETURN true;
 };
 DEFINE FUNCTION fn::pse_project_v1::source_ack($expiry:int,$problem:string,$operation:string,$intent:option<object>) -> bool {
+    fn::pse_workbench_v1::publication($expiry);
     IF $intent=NONE { RETURN true; };
     fn::pse_project_v1::root($expiry,$operation,'project-head:'+$intent.branch);
     fn::pse_research_v1::publication_ack($expiry,$operation,$intent);
@@ -1622,6 +1754,7 @@ DEFINE FUNCTION fn::pse_project_v1::source_ack($expiry:int,$problem:string,$oper
 };
 DEFINE FUNCTION fn::pse_project_v1::draft($expiry:int,$operation:string,$request:bytes,$row:object,$expected:option<decimal>,$project_generation:decimal,$obligation:option<object>) -> object {
     LET $ack=fn::pse_project_v1::ack($expiry,$operation,$request); IF $ack!=NONE { RETURN $ack; };
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_project_v1::project($expiry,$row.project,$project_generation);
     LET $branch=SELECT * FROM ONLY type::record('canonical_project_branches',$row.branch) FOR UPDATE;
     IF $branch=NONE OR $branch.project!=$row.project { THROW 'PSE_REFUSAL:project_branch_changed'; };
@@ -1645,6 +1778,7 @@ DEFINE FUNCTION fn::pse_project_v1::draft($expiry:int,$operation:string,$request
 };
 DEFINE FUNCTION fn::pse_project_v1::research($expiry:int,$operation:string,$request:bytes,$row:object,$project_generation:decimal,$obligation:option<object>) -> object {
     LET $ack=fn::pse_project_v1::ack($expiry,$operation,$request); IF $ack!=NONE { RETURN $ack; };
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_project_v1::project($expiry,$row.project,$project_generation);
     fn::pse_project_v1::root($expiry,$row.revision,'project-research:'+$row.key);
     IF ($row.run=NONE)!=($row.attempt=NONE) { THROW 'PSE_REFUSAL:project_research_reference_differs'; };
@@ -1670,6 +1804,7 @@ DEFINE FUNCTION fn::pse_project_v1::research($expiry:int,$operation:string,$requ
 };
 DEFINE FUNCTION fn::pse_project_v1::navigate($expiry:int,$operation:string,$request:bytes,$project:string,$generation:decimal,$action:object) -> object {
     LET $old=fn::pse_project_v1::ack($expiry,$operation,$request); IF $old!=NONE {RETURN $old;};
+    fn::pse_workbench_v1::publication($expiry);
     LET $p=SELECT * FROM ONLY type::record('canonical_projects',$project) FOR UPDATE;
     IF $p=NONE OR $p.generation!=$generation OR !fn::pse_project_import_v1::available($project) OR ($p.deleted AND $action.kind!='project_visibility') {THROW 'PSE_REFUSAL:project_generation_changed';};
     IF $action.kind='project_title' {UPDATE ONLY type::record('canonical_projects',$project) SET title=$action.name;}
@@ -1719,6 +1854,7 @@ DEFINE FUNCTION fn::pse_project_import_v1::available($project:string) -> bool {
     RETURN array::len($pending)=0;
 };
 DEFINE FUNCTION fn::pse_project_import_v1::bind($expiry:int,$key:string,$request:bytes,$artifact:object,$bytes:bytes,$provenance:bytes) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_execution_v1::deadline($expiry);
     LET $row=SELECT * FROM ONLY type::record('canonical_project_imports',$key) FOR UPDATE;
     IF $row=NONE OR $row.request!=$request {THROW 'PSE_REFUSAL:project_import_intent_differs';};
@@ -1727,6 +1863,7 @@ DEFINE FUNCTION fn::pse_project_import_v1::bind($expiry:int,$key:string,$request
     RETURN UPDATE ONLY type::record('canonical_project_imports',$key) SET artifact=$bytes;
 };
 DEFINE FUNCTION fn::pse_project_import_v1::retire_artifact($expiry:int,$key:string,$request:bytes,$original:object,$bytes:bytes,$previous:option<bytes>,$next:bytes) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_execution_v1::deadline($expiry);
     LET $row=SELECT * FROM ONLY type::record('canonical_project_imports',$key) FOR UPDATE;
     IF $row=NONE OR $row.request!=$request {THROW 'PSE_REFUSAL:project_import_intent_differs';};
@@ -1739,6 +1876,7 @@ DEFINE FUNCTION fn::pse_project_import_v1::retire_artifact($expiry:int,$key:stri
     RETURN UPDATE ONLY type::record('canonical_project_imports',$key) SET artifact=NONE,retired_artifacts=$next;
 };
 DEFINE FUNCTION fn::pse_project_import_v1::finish($expiry:int,$key:string,$request:bytes,$artifact:object,$bytes:bytes,$obligation:object) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_execution_v1::deadline($expiry);
     LET $row=SELECT * FROM ONLY type::record('canonical_project_imports',$key) FOR UPDATE;
     IF $row=NONE OR $row.request!=$request OR $row.artifact=NONE OR $row.artifact!=$bytes {THROW 'PSE_REFUSAL:project_import_intent_differs';};
@@ -1822,6 +1960,11 @@ DEFINE FUNCTION fn::pse_lifecycle_v1::explain($expiry:int,$selection:object) -> 
     LET $savepoints=IF $draft!=NONE {SELECT key FROM canonical_project_savepoints WHERE version=$s.key ORDER BY key LIMIT 65} ELSE {[]};
     LET $other_versions=IF $draft.artifact!=NONE {SELECT key FROM canonical_project_draft_versions WHERE artifact=$draft.artifact AND key!=$s.key AND retired=false ORDER BY key LIMIT 65} ELSE {[]};
     LET $artifact_reads=IF $draft.artifact!=NONE {SELECT key FROM canonical_artifact_reads WHERE artifact=$draft.artifact AND type::record('canonical_protections',key).released=false AND (type::record('canonical_protections',key).expires_at>time::micros() OR fn::pse_files_v1::ticket_open($expiry,key)) ORDER BY key LIMIT 65} ELSE {[]};
+    LET $captures=SELECT key FROM canonical_study_capture_protections
+        WHERE (revision=$s.revision AND $s.kind='source_history')
+            OR (run=$s.key AND $s.kind IN ['run_results','run_history'])
+            OR ($s.kind IN ['study_results','study_history'] AND study=$s.key)
+        ORDER BY key LIMIT 65;
     LET $blockers=[
         IF $s.kind='source_history' {$roots.map(|$r| {kind:'retained_source_owner',identity:$r.key})} ELSE {[]},
         $pins.map(|$r| {kind:'active_source_protection',identity:$r.key}),
@@ -1829,6 +1972,7 @@ DEFINE FUNCTION fn::pse_lifecycle_v1::explain($expiry:int,$selection:object) -> 
         $imports.map(|$r| {kind:'incomplete_project_import',identity:$r.key}),
         IF $s.kind IN ['source_history','run_results','run_history'] {$project_refs.map(|$r| {kind:'project_research_reference',identity:$r.key})} ELSE {[]},
         $borrowers.map(|$r| {kind:'active_result_borrower',identity:$r.key}),
+        $captures.map(|$r| {kind:'active_result_borrower',identity:$r.key}),
         $attempts.map(|$r| {kind:'unsettled_attempt',identity:$r.key}),
         $studies.map(|$r| {kind:'retained_study',identity:$r.key}),
         $members.map(|$r| {kind:'retained_study_point',identity:$r.key}),
@@ -1849,6 +1993,7 @@ DEFINE FUNCTION fn::pse_lifecycle_v1::explain($expiry:int,$selection:object) -> 
     RETURN {selection:$s,blockers:$blockers,blockers_complete:false,logical_bytes:$logical,detail_released:$draft.retired ?? $retired.complete ?? false};
 };
 DEFINE FUNCTION fn::pse_project_v1::retire_draft_version($expiry:int,$s:object) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_lifecycle_v1::check($expiry,$s);
     LET $v=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$s.key) FOR UPDATE;
     LET $p=SELECT * FROM ONLY type::record('canonical_projects',$v.project) FOR UPDATE;
@@ -1873,6 +2018,7 @@ DEFINE FUNCTION fn::pse_project_v1::retire_draft_version($expiry:int,$s:object) 
     fn::pse_execution_v1::deadline($expiry); RETURN {complete:true};
 };
 DEFINE FUNCTION fn::pse_lifecycle_v1::release($expiry:int,$s:object) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     fn::pse_lifecycle_v1::check($expiry,$s);
     // Explanation is advisory. The original owner checks live guards in this
     // same effect transaction; no prior explanation is a deletion capability.
@@ -1951,6 +2097,7 @@ DEFINE FUNCTION fn::pse_research_v1::context($expiry:int,$row:object) -> bool {
     RETURN true;
 };
 DEFINE FUNCTION fn::pse_research_v1::dataset($expiry:int,$row:object,$generation:decimal) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     LET $old=SELECT * FROM ONLY type::record('canonical_research_datasets',$row.key);
     IF $old!=NONE { IF $old.request!=$row.request {THROW 'PSE_REFUSAL:project_operation_identity_changed';}; RETURN $old; };
     fn::pse_project_v1::project($expiry,$row.project,$generation);
@@ -1964,6 +2111,7 @@ DEFINE FUNCTION fn::pse_research_v1::dataset($expiry:int,$row:object,$generation
     RETURN CREATE ONLY type::record('canonical_research_datasets',$row.key) CONTENT $row;
 };
 DEFINE FUNCTION fn::pse_research_v1::selection($expiry:int,$row:object,$generation:decimal) -> object {
+    fn::pse_workbench_v1::publication($expiry);
     LET $old=SELECT * FROM ONLY type::record('canonical_research_selections',$row.key);
     IF $old!=NONE {IF $old.request!=$row.request {THROW 'PSE_REFUSAL:project_operation_identity_changed';}; RETURN $old;};
     fn::pse_project_v1::project($expiry,$row.project,$generation);
@@ -1975,6 +2123,7 @@ DEFINE FUNCTION fn::pse_research_v1::selection($expiry:int,$row:object,$generati
 };
 
 DEFINE FUNCTION fn::pse_research_v1::publication_guard($expiry:int,$operation:string,$intent:object) -> bool {
+    fn::pse_workbench_v1::publication($expiry);
     IF $intent.research=NONE {RETURN true;};
     LET $e=$intent.research;
     LET $selection=SELECT * FROM ONLY type::record('canonical_research_selections',$e.selection);
@@ -1989,6 +2138,7 @@ DEFINE FUNCTION fn::pse_research_v1::publication_guard($expiry:int,$operation:st
     RETURN true;
 };
 DEFINE FUNCTION fn::pse_research_v1::publication_ack($expiry:int,$operation:string,$intent:object) -> bool {
+    fn::pse_workbench_v1::publication($expiry);
     IF $intent.research=NONE {RETURN true;};
     LET $e=$intent.research;
     LET $selection=SELECT * FROM ONLY type::record('canonical_research_selections',$e.selection);
@@ -1999,6 +2149,7 @@ DEFINE FUNCTION fn::pse_research_v1::publication_ack($expiry:int,$operation:stri
 };
 
 DEFINE FUNCTION fn::pse_research_v1::run_input($expiry:int,$row:object) -> bool {
+    fn::pse_workbench_v1::publication($expiry);
     IF $row.research_selection=NONE {IF $row.research_dataset!=NONE {THROW 'PSE_REFUSAL:research_context_differs';}; RETURN true;};
     LET $selection=SELECT * FROM ONLY type::record('canonical_research_selections',$row.research_selection);
     IF $selection=NONE OR $selection.dataset!=$row.research_dataset {THROW 'PSE_REFUSAL:research_context_differs';};
@@ -2290,6 +2441,7 @@ DEFINE FUNCTION fn::pse_maintenance_v1::activate($expiry:int,$predecessor:option
 // Every point writer queues its own derivation and outgoing propagation in the
 // same transaction. These rows are evidence for discovery, never permission.
 DEFINE FUNCTION fn::pse_study_v1::readiness_invalidate($rpc_expiry:int,$p: object, $initial: bool) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$p.study);
     SELECT * FROM ONLY type::record('canonical_study_readiness',$p.key) FOR UPDATE;
     LET $edges = type::record('canonical_study_points',$p.key)->(SELECT predecessor FROM canonical_study_dependencies LIMIT 193);
@@ -2306,6 +2458,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_invalidate($rpc_expiry:int,$p: objec
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_cursor($rpc_expiry:int,$study:string,$fresh:bool) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study) FOR UPDATE;
@@ -2321,6 +2474,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_cursor($rpc_expiry:int,$study:string
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_notify_advance($rpc_expiry:int,$study:string,$point:string,$revision:decimal,$before:string,$after:string,$done:bool) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     SELECT * FROM ONLY type::record('canonical_study_readiness',$point) FOR UPDATE;
@@ -2332,6 +2486,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_notify_advance($rpc_expiry:int,$stud
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_scan_advance($rpc_expiry:int,$study:string,$revision:decimal,$mode:string,$after:option<decimal>,$done:bool) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study) FOR UPDATE;
@@ -2351,6 +2506,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_scan_advance($rpc_expiry:int,$study:
 // Scope pages retain one native row per distinct premise. A candidate is admitted
 // whole or left before the continuation; dependency lists are never truncated.
 DEFINE FUNCTION fn::pse_study_v1::readiness_page_item($rpc_expiry:int,$study:string,$acc:object,$entry:object,$maximum:int) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     IF $acc.stopped OR $acc.refused { RETURN $acc; };
     IF $entry.position>=$maximum { RETURN object::extend($acc,{stopped:true}); };
     IF $entry.point IN $acc.items.point { RETURN object::extend($acc,{next_edge:$entry.edge,next_ordinal:$entry.ordinal}); };
@@ -2375,6 +2531,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_page_item($rpc_expiry:int,$study:str
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_scope_page($rpc_expiry:int,$study:string,$cursor:decimal,$mode:string,$after:option<decimal>,$source:option<object>,$maximum:int) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     IF $maximum<1 OR $maximum>64 { THROW 'PSE_REFUSAL:study_readiness_page_extent'; };
@@ -2411,6 +2568,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_policy($page:object) -> object {
 // snapshot. Only the destination hint needs a write lock; scientific rows and
 // dependency edges are neither fetched nor decoded again per candidate.
 DEFINE FUNCTION fn::pse_study_v1::readiness_apply_hint($rpc_expiry:int,$point:object,$item:object,$mutating:bool) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     LET $hint=SELECT * FROM ONLY type::record('canonical_study_readiness',$point.key) FOR UPDATE;
     LET $eligible=$item.eligible AND $point.assigned=false AND $point.settled=false;
     LET $changed=$hint=NONE OR $hint.source_revision!=$point.revision OR $hint.pending!=$item.pending OR $hint.eligible!=$eligible OR $hint.premises!=$item.premises OR $hint.dirty;
@@ -2431,6 +2589,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_apply_hint($rpc_expiry:int,$point:ob
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_settlement($rpc_expiry:int,$operation:string,$study:string,$run:string) -> option<object> {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     LET $old=fn::pse_history_v1::study_repair_operation($rpc_expiry,$operation,$study,$run,NONE);
     RETURN IF $old=NONE OR $old.disposition NOT IN ['settled','no-effect','refused'] {NONE} ELSE IF $old.disposition='no-effect' {{no_effect:true}} ELSE IF $old.disposition='refused' {{refusal:true}} ELSE {encoding::cbor::decode($old.result)};
 };
@@ -2438,6 +2597,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_settlement($rpc_expiry:int,$operatio
 // The pending locator, exact original request and history obligation are born
 // in one transaction. Losing preparation's acknowledgment cannot orphan an ID.
 DEFINE FUNCTION fn::pse_study_v1::readiness_pending_page($rpc_expiry:int,$study:string) -> option<object> {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     LET $cursor=SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study);
     IF $cursor.pending_operation=NONE { RETURN NONE; };
@@ -2449,6 +2609,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_pending_page($rpc_expiry:int,$study:
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_prepare_page($rpc_expiry:int,$operation:string,$coordinates:object) -> option<object> {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     LET $study=$coordinates.study;
     LET $module=(SELECT study_module_sha256 FROM ONLY canonical_interpretations:current).study_module_sha256;
     IF $coordinates.module_sha256!=$module {THROW 'PSE_REFUSAL:study_readiness_module_identity_changed';};
@@ -2491,6 +2652,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_prepare_page($rpc_expiry:int,$operat
 // A delayed old dispatch mismatches its epoch; an in-flight old transaction
 // cannot commit its receipt after this write wins under native SSI.
 DEFINE FUNCTION fn::pse_study_v1::readiness_fence_page($rpc_expiry:int,$operation:string,$study:string,$run:string,$before:string,$after:string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     LET $old=fn::pse_history_v1::study_repair_operation($rpc_expiry,$operation,$study,$run,NONE);
     IF $old=NONE { THROW 'PSE_REFUSAL:study_readiness_pending_operation_unavailable'; };
     IF $old.disposition='no-effect' { RETURN {settled:true,result:{no_effect:true}}; };
@@ -2503,6 +2665,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_fence_page($rpc_expiry:int,$operatio
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_apply_decisions($rpc_expiry:int,$request:object,$page:object,$items:array<object>,$finish:bool) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     LET $study=$request.study; LET $fence=$request.fence;
     fn::pse_execution_v1::register($rpc_expiry,'study-cancel:'+$study);
     // Validate the entire guest result before any hint/cursor write. An empty
@@ -2543,6 +2706,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_apply_decisions($rpc_expiry:int,$req
 // the same original operation, exact inputs and cursor fence. Committed prefixes
 // are retained in its pending body; only a complete result becomes immutable.
 DEFINE FUNCTION fn::pse_study_v1::readiness_apply_page($rpc_expiry:int,$operation:string,$study:string,$run:string,$epoch:string,$maximum:int) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     LET $old=fn::pse_history_v1::study_repair_operation($rpc_expiry,$operation,$study,$run,NONE);
     IF $old=NONE OR $maximum<1 OR $maximum>65 { THROW 'PSE_REFUSAL:study_readiness_pending_operation_unavailable'; };
     IF $old.disposition='no-effect' { RETURN {settled:true,result:{no_effect:true}}; };
@@ -2585,12 +2749,16 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_apply_page($rpc_expiry:int,$operatio
     RETURN {settled:$finish,result:$result};
 };
 
-DEFINE FUNCTION fn::pse_study_v1::create($rpc_expiry: int, $row: object) -> object {
+DEFINE FUNCTION fn::pse_study_v1::create($rpc_expiry: int, $row: object, $digest:string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$row.key);
     IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$row.key) FOR UPDATE)!=NONE { THROW 'PSE_REFUSAL:study_identity_explicitly_retired'; };
     fn::pse_history_v1::run($rpc_expiry,$row.run);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'study:' + $row.key);
+    LET $installation=SELECT * FROM ONLY type::record('canonical_study_installations',$row.key) FOR UPDATE;
+    IF $installation!=NONE AND $installation.digest!=$digest { THROW 'PSE_REFUSAL:study_immutable_population_changed'; };
+    IF $installation=NONE { CREATE ONLY type::record('canonical_study_installations',$row.key) SET key=$row.key,digest=$digest,generation=0dec,phase='nodes',node_cursor=0dec,edge_cursor=0dec; };
     LET $old = SELECT * FROM ONLY type::record('canonical_studies', $row.key);
     IF $old != NONE {
         IF $old.run != $row.run OR $old.revision != $row.revision OR $old.problem != $row.problem OR $old.metadata != $row.metadata OR $old.physical_revision != $row.physical_revision OR $old.physical_identity != $row.physical_identity OR $old.context != $row.context OR $old.point_count != $row.point_count OR $old.dependency_count != $row.dependency_count OR $old.interpretation != $row.interpretation { THROW 'PSE_REFUSAL:study_identity_reused'; };
@@ -2614,7 +2782,60 @@ DEFINE FUNCTION fn::pse_study_v1::create($rpc_expiry: int, $row: object) -> obje
     RETURN $rpc_result;
 };
 
+// Issue the exact page once, before its effect transaction. A retry reads this
+// original grant; it cannot replace an expired issued operation with a new clock.
+DEFINE FUNCTION fn::pse_study_v1::issue_page($rpc_expiry:int,$study:string,$digest:string,$phase:string,$cursor:decimal,$request:bytes,$count:int) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
+    LET $state=SELECT * FROM ONLY type::record('canonical_study_installations',$study) FOR UPDATE;
+    IF $state=NONE OR $state.digest!=$digest OR $phase NOT IN ['nodes','edges'] { THROW 'PSE_REFUSAL:study_installation_identity_differs'; };
+    LET $key=$study+':'+$phase+':'+<string>$cursor;
+    LET $old=SELECT * FROM ONLY type::record('canonical_study_installation_pages',$key) FOR UPDATE;
+    IF $old!=NONE {
+        IF $old.request!=$request OR $old.digest!=$digest OR $old.generation!=$state.generation OR $old.next_cursor!=$cursor+<decimal>$count { THROW 'PSE_REFUSAL:study_installation_page_reused'; };
+        RETURN $old;
+    };
+    LET $frontier=IF $phase='nodes' {$state.node_cursor} ELSE {$state.edge_cursor};
+    IF $cursor!=$frontier OR $count<1 OR $count>64 OR bytes::len($request)>4194304 { THROW 'PSE_REFUSAL:study_installation_page_extent'; };
+    LET $receipt=CREATE ONLY type::record('canonical_study_installation_pages',$key) SET key=$key,study=$study,digest=$digest,generation=$state.generation,phase=$phase,cursor=$cursor,next_cursor=$cursor+<decimal>$count,request=$request,issued_expires_at=<decimal>$rpc_expiry,state='issued';
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $receipt;
+};
+
+// A page is one immutable native transaction and one exact receipt, independent
+// from the invocation's total population. Replaying never recreates runs/roots.
+DEFINE FUNCTION fn::pse_study_v1::install_page($rpc_expiry:int,$study:string,$digest:string,$phase:string,$cursor:decimal,$request:bytes,$points:array<object>,$runs:array<object>,$edges:array<object>) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
+    LET $state=SELECT * FROM ONLY type::record('canonical_study_installations',$study) FOR UPDATE;
+    IF $state=NONE OR $state.digest!=$digest OR $phase NOT IN ['nodes','edges'] { THROW 'PSE_REFUSAL:study_installation_identity_differs'; };
+    LET $key=$study+':'+$phase+':'+<string>$cursor;
+    LET $old=SELECT * FROM ONLY type::record('canonical_study_installation_pages',$key) FOR UPDATE;
+    IF $old!=NONE {
+        IF $old.request!=$request OR $old.digest!=$digest OR $old.generation!=$state.generation { THROW 'PSE_REFUSAL:study_installation_page_reused'; };
+        IF $old.state='committed' { RETURN $old; };
+    };
+    IF $old=NONE OR $old.state!='issued' OR $old.issued_expires_at<=time::micros() { THROW 'PSE_REFUSAL:study_installation_original_page_expired'; };
+    LET $frontier=IF $phase='nodes' {$state.node_cursor} ELSE {$state.edge_cursor};
+    IF $cursor!=$frontier OR ($phase='nodes' AND $state.phase!='nodes') OR ($phase='edges' AND $state.phase NOT IN ['nodes','edges']) { THROW 'PSE_REFUSAL:study_installation_frontier_changed'; };
+    LET $count=IF $phase='nodes' {array::len($points)} ELSE {array::len($edges)};
+    IF $count=0 OR $count>64 OR bytes::len($request)>4194304 { THROW 'PSE_REFUSAL:study_installation_page_extent'; };
+    IF $phase='nodes' {
+        IF array::len($runs)!=array::len($points) OR array::len($edges)!=0 { THROW 'PSE_REFUSAL:study_installation_page_extent'; };
+        fn::pse_execution_v1::install_runs($rpc_expiry,$runs);
+        LET $projections=$runs.filter(|$item| $item.projection!=NONE).map(|$item| {id:type::record('canonical_study_admission_outcomes',$item.point),key:$item.point,projection:$item.projection});
+        IF array::len($projections)!=0 { INSERT INTO canonical_study_admission_outcomes $projections RETURN NONE; };
+        fn::pse_study_v1::append($rpc_expiry,$study,$points);
+        UPDATE ONLY type::record('canonical_study_installations',$study) SET node_cursor+=$count;
+    } ELSE {
+        IF array::len($runs)!=0 OR array::len($points)!=0 { THROW 'PSE_REFUSAL:study_installation_page_extent'; };
+        fn::pse_study_v1::append_dependencies($rpc_expiry,$study,$edges);
+        UPDATE ONLY type::record('canonical_study_installations',$study) SET phase='edges',edge_cursor+=$count;
+    };
+    IF $old.issued_expires_at<=time::micros() { THROW 'PSE_REFUSAL:study_installation_original_page_expired'; };
+    LET $receipt=UPDATE ONLY type::record('canonical_study_installation_pages',$key) SET state='committed';
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $receipt;
+};
+
 DEFINE FUNCTION fn::pse_study_v1::append($rpc_expiry: int, $study: string, $points: array<object>) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'study-cancel:' + $study);
@@ -2664,35 +2885,42 @@ DEFINE FUNCTION fn::pse_study_v1::append($rpc_expiry: int, $study: string, $poin
 };
 
 DEFINE FUNCTION fn::pse_study_v1::append_dependencies($rpc_expiry:int,$study:string,$edges:array<object>) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::register($rpc_expiry,'study-cancel:'+$study);
     LET $s=SELECT * FROM ONLY type::record('canonical_studies',$study) FOR UPDATE;
     IF $s=NONE OR $s.next_ordinal!=$s.point_count OR array::len($edges)=0 OR array::len($edges)>64 OR array::len(array::distinct($edges.key))!=array::len($edges) { THROW 'PSE_REFUSAL:study_dependency_installation_unavailable'; };
-    FOR $edge IN $edges {
+    LET $checked=$edges.map(|$edge| {
         IF $edge.study!=$study { THROW 'PSE_REFUSAL:study_dependency_belongs_elsewhere'; };
         LET $old=SELECT * FROM ONLY type::record('canonical_study_dependencies',$edge.key);
         IF $old!=NONE {
             IF object::remove($old,['id'])!=$edge { THROW 'PSE_REFUSAL:study_immutable_dependency_changed'; };
         } ELSE {
             IF $s.active OR $s.cancelled { THROW 'PSE_REFUSAL:study_dependency_installation_closed'; };
-            LET $dependent=SELECT * FROM ONLY type::record('canonical_study_points',$edge.dependent);
+            LET $dependent=SELECT study FROM ONLY type::record('canonical_study_points',$edge.dependent);
             LET $predecessor=SELECT study FROM ONLY type::record('canonical_study_points',$edge.predecessor);
             IF $dependent=NONE OR $predecessor=NONE OR $dependent.study!=$study OR $predecessor.study!=$study { THROW 'PSE_REFUSAL:study_dependency_endpoint_unavailable'; };
-            INSERT RELATION INTO canonical_study_dependencies object::extend($edge,{id:type::record('canonical_study_dependencies',$edge.key),in:type::record('canonical_study_points',$edge.dependent),out:type::record('canonical_study_points',$edge.predecessor)}) RETURN NONE;
-            UPDATE ONLY type::record('canonical_studies',$study) SET installed_dependencies+=1dec;
-            fn::pse_study_v1::readiness_invalidate($rpc_expiry,$dependent,true);
         };
+        RETURN object::extend($edge,{present:$old!=NONE});
+    });
+    LET $new=$checked.filter(|$edge| !$edge.present).map(|$edge| object::extend(object::remove($edge,'present'),{id:type::record('canonical_study_dependencies',$edge.key),in:type::record('canonical_study_points',$edge.dependent),out:type::record('canonical_study_points',$edge.predecessor)}));
+    IF array::len($new)!=0 {
+        INSERT RELATION INTO canonical_study_dependencies $new RETURN NONE;
+        UPDATE ONLY type::record('canonical_studies',$study) SET installed_dependencies+=<decimal>array::len($new);
+        FOR $point IN array::distinct($new.dependent) { fn::pse_study_v1::readiness_invalidate($rpc_expiry,(SELECT * FROM ONLY type::record('canonical_study_points',$point)),true); };
     };
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN true;
 };
 
 DEFINE FUNCTION fn::pse_study_v1::activate($rpc_expiry: int, $study: string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'study-cancel:' + $study);
     LET $s = SELECT * FROM ONLY type::record('canonical_studies', $study) FOR UPDATE;
     IF $s = NONE OR $s.cancelled OR $s.point_count = 0dec OR $s.next_ordinal != $s.point_count OR $s.installed_dependencies!=$s.dependency_count { THROW 'PSE_REFUSAL:study_membership_incomplete'; };
+    UPDATE ONLY type::record('canonical_study_installations',$study) SET phase='active';
     LET $rpc_result = UPDATE ONLY type::record('canonical_studies', $study) SET active = true;
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
@@ -2738,9 +2966,11 @@ DEFINE FUNCTION fn::pse_study_v1::guard($rpc_expiry: int, $study: string, $gener
 };
 
 DEFINE FUNCTION fn::pse_study_v1::settle($rpc_expiry: int, $study: string, $generation: decimal, $cancelled: bool, $point: string, $expected: array<object>, $facts: bytes, $outcome: bytes) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $p = fn::pse_study_v1::guard($rpc_expiry, $study,$generation,$cancelled,$point,$expected);
+    IF (SELECT key FROM ONLY type::record('canonical_study_admission_outcomes',$point))=NONE { CREATE ONLY type::record('canonical_study_admission_outcomes',$point) SET key=$point,projection=type::bytes('[null,null]'); };
     LET $rpc_result = UPDATE ONLY type::record('canonical_study_points',$point) SET revision += 1dec, facts=$facts,outcome=$outcome,settled=true;
     IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE {
         LET $run=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.run);
@@ -2756,6 +2986,7 @@ DEFINE FUNCTION fn::pse_study_v1::settle($rpc_expiry: int, $study: string, $gene
 };
 
 DEFINE FUNCTION fn::pse_study_v1::started($rpc_expiry: int, $study: string, $point: string, $revision: decimal, $run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes, $facts: bytes) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'study-cancel:' + $study);
@@ -2784,6 +3015,7 @@ DEFINE FUNCTION fn::pse_study_v1::started($rpc_expiry: int, $study: string, $poi
 };
 
 DEFINE FUNCTION fn::pse_study_v1::finalize($rpc_expiry: int, $study: string, $operation: string, $request: bytes, $attempt: string, $worker: string, $lifetime: int) -> option<object> {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'study-cancel:' + $study);
@@ -2806,6 +3038,7 @@ DEFINE FUNCTION fn::pse_study_v1::finalize($rpc_expiry: int, $study: string, $op
 };
 
 DEFINE FUNCTION fn::pse_study_v1::seal($rpc_expiry: int, $study: string, $run: string, $attempt: string, $authority: decimal, $operation: string, $request: bytes, $manifest: string, $digest: string, $outcome: string, $completion: bytes) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'study-cancel:' + $study);
@@ -2834,6 +3067,7 @@ DEFINE FUNCTION fn::pse_study_v1::admission_authority($rpc_expiry:int,$authority
 
 // Input admission uses a separate run. Its lease never increments native point attempts.
 DEFINE FUNCTION fn::pse_study_v1::admission_claim($rpc_expiry:int,$study:string,$generation:decimal,$point:string,$expected:array<object>,$operation:string,$request:bytes,$attempt:string,$worker:string,$lifetime:int) -> option<object> {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     LET $p=fn::pse_study_v1::guard($rpc_expiry,$study,$generation,false,$point,$expected);
     IF $p.admission!=NONE { RETURN NONE; };
     LET $run=$p.admission_run;
@@ -2859,7 +3093,8 @@ DEFINE FUNCTION fn::pse_study_v1::admission_claim($rpc_expiry:int,$study:string,
     RETURN $claimed;
 };
 
-DEFINE FUNCTION fn::pse_study_v1::admission_complete($rpc_expiry:int,$study:string,$generation:decimal,$point:string,$expected:array<object>,$run:string,$attempt:string,$authority:decimal,$operation:string,$request:bytes,$admission:bytes,$facts:bytes,$outcome:option<bytes>) -> object {
+DEFINE FUNCTION fn::pse_study_v1::admission_complete($rpc_expiry:int,$study:string,$generation:decimal,$point:string,$expected:array<object>,$run:string,$attempt:string,$authority:decimal,$operation:string,$request:bytes,$admission:bytes,$projection:option<bytes>,$facts:bytes,$outcome:option<bytes>) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::point($rpc_expiry,$point);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $op=fn::pse_execution_v1::operation($rpc_expiry,$operation,'study-admission',$request);
@@ -2875,6 +3110,7 @@ DEFINE FUNCTION fn::pse_study_v1::admission_complete($rpc_expiry:int,$study:stri
         LET $science=SELECT key FROM ONLY type::record('canonical_runs',$p.run);
         IF $science=NONE { THROW 'PSE_REFUSAL:selected_scientific_source_run_unavailable'; };
     };
+    IF $projection!=NONE { CREATE ONLY type::record('canonical_study_admission_outcomes',$point) SET key=$point,projection=$projection; };
     LET $result=UPDATE ONLY type::record('canonical_study_points',$point) SET admission=$admission,facts=$facts,outcome=$outcome,settled=($outcome!=NONE),revision+=1dec;
     UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='terminal',outcome='succeeded',completion=$admission;
     UPDATE ONLY type::record('canonical_runs',$run) SET terminal_attempt=$attempt,terminal_class='succeeded';
@@ -2890,6 +3126,7 @@ DEFINE FUNCTION fn::pse_study_v1::admission_complete($rpc_expiry:int,$study:stri
 };
 
 DEFINE FUNCTION fn::pse_study_v1::claim($rpc_expiry: int, $study: string, $generation: decimal, $point: string, $expected: array<object>, $start: bytes, $operation: string, $request: bytes, $claim_request: bytes, $attempt: string, $worker: string, $lifetime: int, $facts: bytes) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'study-claim', $request);
@@ -2920,6 +3157,7 @@ DEFINE FUNCTION fn::pse_study_v1::claim($rpc_expiry: int, $study: string, $gener
 };
 
 DEFINE FUNCTION fn::pse_study_v1::observe($rpc_expiry: int, $point: string, $revision: decimal, $attempt: option<string>, $facts: bytes, $outcome: bytes, $settled: bool) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::point($rpc_expiry,$point);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'study-point:' + $point);
@@ -2935,6 +3173,7 @@ DEFINE FUNCTION fn::pse_study_v1::observe($rpc_expiry: int, $point: string, $rev
         LET $a = SELECT * FROM ONLY type::record('canonical_attempts', $attempt);
         IF $a = NONE OR $a.run != $p.run OR ($a.phase NOT IN ['terminal','terminal_compacted']) { THROW 'PSE_REFUSAL:study_result_attempt_not_admitted'; };
     };
+    IF $settled AND (SELECT key FROM ONLY type::record('canonical_study_admission_outcomes',$point))=NONE { CREATE ONLY type::record('canonical_study_admission_outcomes',$point) SET key=$point,projection=type::bytes('[null,null]'); };
     LET $rpc_result = UPDATE ONLY type::record('canonical_study_points', $point) SET revision += 1dec, assigned = false, settled = $settled, facts = $facts, outcome = $outcome;
     IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE {
         LET $run=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.run);
@@ -2950,6 +3189,7 @@ DEFINE FUNCTION fn::pse_study_v1::observe($rpc_expiry: int, $point: string, $rev
 };
 
 DEFINE FUNCTION fn::pse_study_v1::cancel($rpc_expiry: int, $study: string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'study-cancel:' + $study);
@@ -2962,6 +3202,7 @@ DEFINE FUNCTION fn::pse_study_v1::cancel($rpc_expiry: int, $study: string) -> ob
 };
 
 DEFINE FUNCTION fn::pse_study_v1::conclude($rpc_expiry: int, $study: string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'study-cancel:' + $study);
@@ -2978,32 +3219,216 @@ DEFINE FUNCTION fn::pse_study_v1::conclude($rpc_expiry: int, $study: string) -> 
     RETURN $rpc_result;
 };
 
-DEFINE FUNCTION fn::pse_workbench_v1::capture($rpc_expiry:int,$rows:array<object>,$maximum:int,$frozen:bool,$members:int) -> object {
+// Conservative global publication scope includes future matching studies and all
+// selector metadata. Expiry is never a writer-side bypass of the checked guard.
+DEFINE FUNCTION fn::pse_workbench_v1::publication($rpc_expiry:int) -> bool {
+    LET $gate=SELECT * FROM ONLY canonical_study_capture_gate:current FOR UPDATE;
+    IF $gate!=NONE AND $gate.capture!=NONE { THROW 'PSE_REFUSAL:study_capture_publication_busy'; };
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
+};
+// A physical tuple key is injectively framed, including opaque IDs containing
+// delimiters. This is operational encoding, not a new semantic hash identity.
+DEFINE FUNCTION fn::pse_workbench_v1::protection_key($capture:string,$study:string,$attempt:string) -> string {
+    RETURN encoding::base64::encode(encoding::cbor::encode([$capture,$study,$attempt]));
+};
+DEFINE FUNCTION fn::pse_workbench_v1::open_capture($rpc_expiry:int,$key:string,$owner:string,$request:bytes) -> object {
+    LET $old=SELECT * FROM ONLY type::record('canonical_study_captures',$key) FOR UPDATE;
+    IF $old!=NONE {
+        IF $old.owner!=$owner OR $old.request!=$request { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
+        RETURN $old;
+    };
+    LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
+    IF $process=NONE OR $process.drained OR $process.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable'; };
+    fn::pse_workbench_v1::publication($rpc_expiry);
+    LET $incarnation=<string>rand::uuid::v4();
+    UPSERT ONLY canonical_study_capture_gate:current SET key='current',incarnation=$incarnation,capture=$key,owner=$owner,request=$request,issued_expires_at=<decimal>$rpc_expiry;
+    LET $saved=CREATE ONLY type::record('canonical_study_captures',$key) SET key=$key,owner=$owner,request=$request,incarnation=$incarnation,issued_expires_at=<decimal>$rpc_expiry,state='pending',header_count=0dec,member_count=0dec;
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $saved;
+};
+// Selection, exact facts, all selected manifest protections and gate closure
+// commit together. Only compact receipt leaves this transaction.
+DEFINE FUNCTION fn::pse_workbench_v1::commit_capture($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$rows:array<object>,$maximum:int,$members:int) -> object {
+    LET $capture=SELECT * FROM ONLY type::record('canonical_study_captures',$key) FOR UPDATE;
+    IF $capture=NONE OR $capture.owner!=$owner OR $capture.request!=$request { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
+    IF $capture.state='frozen' { RETURN $capture; };
+    LET $gate=SELECT * FROM ONLY canonical_study_capture_gate:current FOR UPDATE;
+    IF $capture.state!='pending' OR $gate=NONE OR $gate.capture!=$key OR $gate.owner!=$owner OR $gate.request!=$request OR $gate.incarnation!=$capture.incarnation OR $gate.issued_expires_at!=$capture.issued_expires_at OR $capture.issued_expires_at<=time::micros() { THROW 'PSE_REFUSAL:study_capture_original_grant_closed'; };
+    LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
+    IF $process=NONE OR $process.drained OR $process.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable'; };
+    IF array::len($rows)>$maximum OR $maximum<1 OR $maximum>64 OR $members<1 OR $members>10000 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    FOR $s IN $rows { fn::pse_history_v1::check_owner($rpc_expiry,'study',$s.key); };
+    LET $total=math::sum($rows.point_count) ?? 0dec;
+    IF array::len($rows.filter(|$s| !$s.active))!=0 OR $total>$members { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    LET $selected_headers=$rows.map(|$s,$index| {
+        LET $run=SELECT problem,revision,terminal_attempt,terminal_class FROM ONLY type::record('canonical_runs',$s.run);
+        LET $attempt=IF $run.terminal_attempt=NONE {NONE} ELSE {SELECT key,run,phase,closed_manifest FROM ONLY type::record('canonical_attempts',$run.terminal_attempt)};
+        LET $manifest=IF $attempt=NONE OR $attempt.run!=$s.run OR $attempt.phase NOT IN ['terminal','terminal_compacted'] OR $attempt.closed_manifest=NONE {NONE} ELSE {SELECT key,attempt FROM ONLY type::record('canonical_result_manifests',$attempt.closed_manifest)};
+        LET $available=$manifest!=NONE AND $manifest.attempt=$run.terminal_attempt AND (SELECT key FROM ONLY type::record('canonical_result_retirements',$s.run))=NONE;
+        LET $header=object::extend($s,{result_attempt:$run.terminal_attempt,outcome:$run.terminal_class});
+        LET $protection=IF !$available {NONE} ELSE {{id:type::record('canonical_study_capture_protections',fn::pse_workbench_v1::protection_key($key,$s.key,$attempt.key)),key:fn::pse_workbench_v1::protection_key($key,$s.key,$attempt.key),capture:$key,study:$s.key,run:$s.run,attempt:$attempt.key,manifest:$manifest.key,problem:$run.problem,revision:$run.revision}};
+        RETURN {row:{id:type::record('canonical_study_capture_headers',$key+':'+<string>$index),key:$key+':'+<string>$index,capture:$key,ordinal:<decimal>$index,body:encoding::cbor::encode($header)},protection:$protection};
+    });
+    LET $headers=$selected_headers.row;
+    LET $selected=$rows.key;
+    LET $points=SELECT key,study,ordinal,occurrence,run,attempt,revision,settled,facts FROM canonical_study_points WHERE study IN $selected ORDER BY study,ordinal LIMIT 10001;
+    IF array::len($points)!=$total { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    LET $facts=$points.map(|$point,$index| {
+        LET $attempt=IF $point.attempt=NONE {NONE} ELSE {SELECT key,run,phase,closed_manifest FROM ONLY type::record('canonical_attempts',$point.attempt)};
+        LET $manifest=IF $attempt=NONE OR $attempt.run!=$point.run OR $attempt.phase NOT IN ['terminal','terminal_compacted'] OR $attempt.closed_manifest=NONE {NONE} ELSE {SELECT key,attempt FROM ONLY type::record('canonical_result_manifests',$attempt.closed_manifest)};
+        LET $available=$manifest!=NONE AND $manifest.attempt=$point.attempt AND (SELECT key FROM ONLY type::record('canonical_result_retirements',$point.run))=NONE;
+        LET $member=object::extend($point,{manifest:IF $available {$manifest.key} ELSE {NONE}});
+        RETURN {id:type::record('canonical_study_capture_members',$key+':'+<string>$index),key:$key+':'+<string>$index,capture:$key,ordinal:<decimal>$index,body:encoding::cbor::encode($member),study:$point.study,run:$point.run,attempt:$point.attempt,manifest:IF $available {$manifest.key} ELSE {NONE}};
+    });
+    LET $member_protections=$facts.filter(|$fact| $fact.manifest!=NONE).map(|$fact| {
+        LET $run=SELECT problem,revision FROM ONLY type::record('canonical_runs',$fact.run);
+        RETURN {id:type::record('canonical_study_capture_protections',fn::pse_workbench_v1::protection_key($key,$fact.study,$fact.attempt)),key:fn::pse_workbench_v1::protection_key($key,$fact.study,$fact.attempt),capture:$key,study:$fact.study,run:$fact.run,attempt:$fact.attempt,manifest:$fact.manifest,problem:$run.problem,revision:$run.revision};
+    });
+    LET $protections=array::distinct(array::concat($member_protections,$selected_headers.protection.filter(|$protection|$protection!=NONE)));
+    IF array::len($headers)!=0 { INSERT INTO canonical_study_capture_headers $headers RETURN NONE; };
+    IF array::len($facts)!=0 { INSERT INTO canonical_study_capture_members $facts RETURN NONE; };
+    IF array::len($protections)!=0 { INSERT INTO canonical_study_capture_protections $protections RETURN NONE; };
+    UPDATE ONLY canonical_study_capture_gate:current SET incarnation=<string>rand::uuid::v4(),capture=NONE,owner=NONE,request=NONE,issued_expires_at=0dec;
+    LET $saved=UPDATE ONLY type::record('canonical_study_captures',$key) SET state='frozen',header_count=<decimal>array::len($headers),member_count=<decimal>array::len($facts);
+    IF $capture.issued_expires_at<=time::micros() { THROW 'PSE_REFUSAL:study_capture_original_grant_closed'; };
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $saved;
+};
+DEFINE FUNCTION fn::pse_workbench_v1::capture_page($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$kind:string,$after:decimal) -> array<object> {
+    LET $capture=SELECT * FROM ONLY type::record('canonical_study_captures',$key) FOR UPDATE;
+    IF $capture=NONE OR $capture.owner!=$owner OR $capture.request!=$request OR $capture.state!='frozen' { THROW 'PSE_REFUSAL:study_capture_original_owner_closed'; };
+    LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
+    IF $process=NONE OR $process.drained OR $process.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable'; };
+    LET $rows=IF $kind='headers' {SELECT ordinal,body FROM canonical_study_capture_headers WHERE capture=$key AND ordinal>$after ORDER BY ordinal LIMIT 64} ELSE IF $kind='members' {SELECT ordinal,body FROM canonical_study_capture_members WHERE capture=$key AND ordinal>$after ORDER BY ordinal LIMIT 256} ELSE {THROW 'PSE_REFUSAL:study_capture_page_kind';};
+    // Byte-bound each page as well as its row count; keep an exact prefix.
+    LET $page=$rows.fold({items:[],bytes:0,stopped:false},|$acc,$row| {
+        LET $bytes=$acc.bytes+bytes::len($row.body)+128;
+        IF $acc.stopped OR ($bytes>2097152 AND array::len($acc.items)!=0) {RETURN object::extend($acc,{stopped:true});};
+        RETURN {items:array::append($acc.items,{ordinal:$row.ordinal,body:encoding::cbor::decode($row.body)}),bytes:$bytes,stopped:false};
+    });
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $page.items;
+};
+// Every lazy native read consumes the original unforgeable capture witness and
+// checks the current process/restore identity before exact immutable references.
+DEFINE FUNCTION fn::pse_workbench_v1::captured_result($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$position:decimal) -> object {
+    LET $capture=SELECT * FROM ONLY type::record('canonical_study_captures',$key) FOR UPDATE;
+    IF $capture=NONE OR $capture.owner!=$owner OR $capture.request!=$request OR $capture.state!='frozen' {THROW 'PSE_REFUSAL:study_capture_original_owner_closed';};
+    LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
+    IF $process=NONE OR $process.drained OR $process.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store {THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable';};
+    LET $member=SELECT * FROM ONLY type::record('canonical_study_capture_members',$key+':'+<string>$position);
+    IF $member=NONE OR $member.capture!=$key OR $member.ordinal!=$position OR $member.attempt=NONE OR $member.manifest=NONE {THROW 'PSE_REFUSAL:terminal_result_selection_unavailable';};
+    LET $protection=SELECT * FROM ONLY type::record('canonical_study_capture_protections',fn::pse_workbench_v1::protection_key($key,$member.study,$member.attempt));
+    LET $run=SELECT key,problem,revision,interpretation FROM ONLY type::record('canonical_runs',$member.run);
+    LET $attempt=SELECT key,run,phase,closed_manifest,generation FROM ONLY type::record('canonical_attempts',$member.attempt);
+    LET $manifest=SELECT * FROM ONLY type::record('canonical_result_manifests',$member.manifest);
+    IF $protection=NONE OR $protection.capture!=$key OR $protection.study!=$member.study OR $protection.run!=$member.run OR $protection.attempt!=$member.attempt OR $protection.manifest!=$member.manifest OR $run=NONE OR $run.problem!=$protection.problem OR $run.revision!=$protection.revision OR $attempt=NONE OR $attempt.run!=$member.run OR $attempt.phase NOT IN ['terminal','terminal_compacted'] OR $attempt.closed_manifest!=$member.manifest OR $manifest=NONE OR $manifest.attempt!=$member.attempt OR $manifest.generation!=$attempt.generation {THROW 'PSE_REFUSAL:terminal_result_selection_unavailable';};
     fn::pse_execution_v1::deadline($rpc_expiry);
-    LET $more=array::len($rows)>$maximum;
-    IF $frozen AND $more { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    RETURN {member:$member,run:$run,attempt:$attempt,manifest:$manifest};
+};
+// One useful bounded locator page may cover many original members. No per-member
+// result ticket, full snapshot or open transaction survives this native call.
+DEFINE FUNCTION fn::pse_workbench_v1::result_page($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$selected:array<decimal>,$relation:string,$output:string,$partition:string,$dense:bool,$start:decimal,$end:decimal,$member:option<decimal>,$after:option<decimal>) -> object {
+    IF array::len($selected)>256 {THROW 'PSE_REFUSAL:study_workbench_narrow_selection';};
+    LET $page=$selected.filter(|$position|$member=NONE OR $position>=$member).fold({items:[],bytes:512,blocks:0,next_member:$member,next_after:$after,stopped:false},|$acc,$position| {
+        IF $acc.stopped {RETURN $acc;};
+        LET $source=fn::pse_workbench_v1::captured_result($rpc_expiry,$key,$owner,$request,$position);
+        LET $sets=SELECT key,next_ordinal FROM canonical_result_sets WHERE attempt=$source.member.attempt AND name=$relation LIMIT 1;
+        LET $set=IF array::len($sets)=0 {NONE} ELSE {$sets[0]};
+        LET $resume=IF $member=$position {$after} ELSE {NONE};
+        LET $locators=IF $set=NONE {NONE} ELSE IF $start=$end {IF $dense {{indexes:[],blocks:[],batches:[],next:NULL,exhausted:true}} ELSE {{blocks:[],batches:[],next:NULL,exhausted:true}}} ELSE IF $dense {fn::pse_execution_v1::result_output_page($rpc_expiry,$set.key,$output,$partition,$start,$end,$resume,NONE,NONE)} ELSE {fn::pse_execution_v1::result_block_page($rpc_expiry,$set.key,$relation,'0',$start,$end,$resume,$set.next_ordinal)};
+        LET $item={position:$position,attempt:$source.member.attempt,generation:$source.attempt.generation,interpretation:$source.run.interpretation,manifest:$source.manifest,set:$set,page:$locators};
+        LET $blocks=$acc.blocks+IF $locators=NONE {0} ELSE {array::len($locators.blocks)};
+        LET $bytes=$acc.bytes+bytes::len(encoding::cbor::encode($item));
+        IF array::len($acc.items)>=64 OR $blocks>64 OR $bytes>2097152 {
+            IF array::len($acc.items)=0 {THROW 'PSE_REFUSAL:results_page_member_extent_exceeded';};
+            RETURN object::extend($acc,{stopped:true});
+        };
+        LET $done=$locators=NONE OR $locators.exhausted;
+        RETURN {items:array::append($acc.items,$item),bytes:$bytes,blocks:$blocks,next_member:IF $done {$position+1dec} ELSE {$position},next_after:IF $done {NONE} ELSE {$locators.next},stopped:!$done};
+    });
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN {items:$page.items,member:$page.next_member,after:$page.next_after,exhausted:!$page.stopped};
+};
+// Descriptor equality is checked natively before a physical handle or body is
+// exposed. The original capture reference stays held through physical drain.
+DEFINE FUNCTION fn::pse_workbench_v1::result_descriptor($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$position:decimal,$expected:object) -> object {
+    LET $source=fn::pse_workbench_v1::captured_result($rpc_expiry,$key,$owner,$request,$position);
+    LET $batch=SELECT * FROM ONLY type::record('canonical_result_batches',$expected.key);
+    LET $sets=SELECT key,next_ordinal FROM canonical_result_sets WHERE attempt=$source.member.attempt AND key=$expected.result_set LIMIT 1;
+    IF $batch=NONE OR object::remove($batch,'id')!=$expected OR $batch.attempt!=$source.member.attempt OR array::len($sets)!=1 OR $batch.ordinal>=$sets[0].next_ordinal {THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch';};
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $batch;
+};
+DEFINE FUNCTION fn::pse_workbench_v1::inline_payload($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$position:decimal,$expected:object,$inline:string) -> object {
+    fn::pse_workbench_v1::result_descriptor($rpc_expiry,$key,$owner,$request,$position,$expected);
+    LET $body=SELECT * FROM ONLY type::record('canonical_inline_payloads',$inline);
+    IF $body=NONE {THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch';};
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $body;
+};
+// Exact pending-gate recovery changes incarnation even after expiry, so a stale
+// in-flight capture cannot commit against the reopened publication universe.
+DEFINE FUNCTION fn::pse_workbench_v1::recover_capture($rpc_expiry:int,$key:string,$owner:string,$request:bytes) -> object {
+    LET $capture=SELECT * FROM ONLY type::record('canonical_study_captures',$key) FOR UPDATE;
+    IF $capture=NONE OR $capture.owner!=$owner OR $capture.request!=$request { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
+    IF $capture.state!='pending' {RETURN $capture;};
+    // The authenticated original holder can abandon early; every recovery fences
+    // incarnation before reopening, including expiry and uncertain cancellation.
+    LET $gate=SELECT * FROM ONLY canonical_study_capture_gate:current FOR UPDATE;
+    IF $gate.capture=$key {
+        IF $gate.incarnation!=$capture.incarnation OR $gate.request!=$request OR $gate.owner!=$owner { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
+        UPDATE ONLY canonical_study_capture_gate:current SET incarnation=<string>rand::uuid::v4(),capture=NONE,owner=NONE,request=NONE,issued_expires_at=0dec;
+    };
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN UPDATE ONLY type::record('canonical_study_captures',$key) SET state='abandoned';
+};
+// Only the last local capability/scan releases. A different process may clean an
+// abandoned owner only after its actual authenticated native owner is drained.
+DEFINE FUNCTION fn::pse_workbench_v1::release_capture($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$custodian:string) -> bool {
+    LET $actual=SELECT * FROM ONLY type::record('canonical_file_owners',$custodian) FOR UPDATE;
+    IF $actual=NONE OR $actual.drained OR $actual.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable'; };
+    LET $capture=SELECT * FROM ONLY type::record('canonical_study_captures',$key) FOR UPDATE;
+    IF $capture=NONE {
+        IF $custodian!=$owner { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
+        LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
+        IF $process=NONE OR $process.drained { THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable'; };
+        // An exact tombstone fences a delayed gate acquisition after lost ACK.
+        CREATE ONLY type::record('canonical_study_captures',$key) SET key=$key,owner=$owner,request=$request,incarnation='unissued',issued_expires_at=0dec,state='released',header_count=0dec,member_count=0dec;
+        fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
+    };
+    IF $capture.owner!=$owner OR $capture.request!=$request { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };
+    IF $custodian!=$owner {
+        LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
+        IF $process=NONE OR !$process.drained { THROW 'PSE_REFUSAL:study_capture_original_owner_not_drained'; };
+    };
+    IF $capture.state='pending' {
+        fn::pse_workbench_v1::recover_capture($rpc_expiry,$key,$owner,$request);
+    };
+    IF $capture.state='released' {RETURN true;};
+    UPDATE ONLY type::record('canonical_study_captures',$key) SET state='releasing';
+    LET $references=SELECT key FROM canonical_study_capture_protections WHERE capture=$key LIMIT 256;
+    LET $members=SELECT key FROM canonical_study_capture_members WHERE capture=$key LIMIT 256;
+    LET $headers=SELECT key FROM canonical_study_capture_headers WHERE capture=$key LIMIT 64;
+    FOR $row IN $references { DELETE ONLY type::record('canonical_study_capture_protections',$row.key); };
+    FOR $row IN $members { DELETE ONLY type::record('canonical_study_capture_members',$row.key); };
+    FOR $row IN $headers { DELETE ONLY type::record('canonical_study_capture_headers',$row.key); };
+    LET $done=array::len($references)<256 AND array::len($members)<256 AND array::len($headers)<64;
+    IF $done { UPDATE ONLY type::record('canonical_study_captures',$key) SET state='released'; };
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $done;
+};
+
+DEFINE FUNCTION fn::pse_workbench_v1::browse($rpc_expiry:int,$rows:array<object>,$maximum:int) -> object {
     LET $selected=array::slice($rows,0,$maximum);
-    FOR $s IN $selected { fn::pse_history_v1::check_owner($rpc_expiry,'study',$s.key); };
+    FOR $s IN $selected {fn::pse_history_v1::check_owner($rpc_expiry,'study',$s.key);};
     LET $headers=$selected.map(|$s| {
         LET $run=SELECT terminal_attempt,terminal_class FROM ONLY type::record('canonical_runs',$s.run);
         RETURN object::extend($s,{result_attempt:$run.terminal_attempt,outcome:$run.terminal_class});
     });
-    LET $total=math::sum($selected.point_count) ?? 0;
-    IF $frozen AND (array::len($selected.filter(|$s|$s.active=false))!=0 OR $total>$members) { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
-    LET $points=IF $frozen {
-        LET $selected_keys=$selected.key;
-        SELECT key,study,ordinal,occurrence,run,attempt,revision,settled,facts FROM canonical_study_points WHERE study IN $selected_keys ORDER BY study,ordinal LIMIT 129
-    } ELSE {[]};
-    IF $frozen AND (array::len($points)!=$total OR array::len($points)>$members) { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
-    LET $result={headers:$headers,members:$points,has_more:$more};
-    IF bytes::len(encoding::cbor::encode($result))>1048576 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
-    fn::pse_execution_v1::deadline($rpc_expiry);
-    RETURN $result;
+    LET $result={headers:$headers,members:[],has_more:array::len($rows)>$maximum};
+    IF bytes::len(encoding::cbor::encode($result))>1048576 {THROW 'PSE_REFUSAL:study_workbench_narrow_selection';};
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $result;
 };
 
 
 // One physical source-deletion decision shared by stage and membership cleanup.
 DEFINE FUNCTION fn::pse_retention_v1::delete_source_version($pse_rpc_expires_at:int,$version:string,$excluded_membership:option<string>,$excluded_stage:option<string>) -> object {
+    fn::pse_workbench_v1::publication($pse_rpc_expires_at);
 LET $version_guard = type::record('canonical_guards', 'version:' + $version);
 SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $members = SELECT key FROM canonical_memberships WHERE version = $version AND ($excluded_membership = NONE OR key != $excluded_membership) LIMIT 1;
@@ -3035,6 +3460,7 @@ UPSERT $version_guard SET key = 'version:' + $version, generation = (generation 
 
 // Cursor and the candidate's full fresh decision commit in the same native transaction.
 DEFINE FUNCTION fn::pse_retention_v1::source_step($pse_rpc_expires_at:int,$problem:string) -> object {
+    fn::pse_workbench_v1::publication($pse_rpc_expires_at);
     fn::pse_execution_v1::register($pse_rpc_expires_at,'source-creators:'+$problem);
     LET $guard = type::record('canonical_guards','retention:'+$problem);
     LET $position = SELECT * FROM ONLY $guard FOR UPDATE;
@@ -3054,13 +3480,16 @@ LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_seq
     LET $head = SELECT * FROM ONLY type::record('canonical_problems', $problem);
     IF $head = NONE { THROW 'PSE_REFUSAL:reclamation_problem_head_unavailable'; };
     LET $roots = SELECT key FROM canonical_roots WHERE problem = $problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence LIMIT 1;
+    LET $captures=SELECT key FROM canonical_study_capture_protections WHERE problem=$problem
+        AND type::record('canonical_revisions',revision).sequence >= $member.from_sequence
+        AND type::record('canonical_revisions',revision).sequence < $member.to_sequence LIMIT 1;
     LET $pin_page=SELECT key,expires_at FROM canonical_protections WHERE problem=$problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence AND released=false ORDER BY key LIMIT 64;
     FOR $pin_key IN $pin_page {
         SELECT * FROM ONLY type::record('canonical_protections',$pin_key.key) FOR UPDATE;
         IF $pin_key.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$pin_key.key) { UPDATE ONLY type::record('canonical_protections',$pin_key.key) SET released=true; };
     };
     LET $pins=$pin_page.filter(|$pin|$pin.expires_at>time::micros() OR fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$pin.key));
-    IF ($head.sequence >= $member.from_sequence AND $head.sequence < $member.to_sequence) OR array::len($roots) != 0 OR array::len($pins) != 0 {
+    IF ($head.sequence >= $member.from_sequence AND $head.sequence < $member.to_sequence) OR array::len($roots) != 0 OR array::len($pins) != 0 OR array::len($captures) != 0 {
         {membership:false, version:false, edges:0dec, blocks:0dec, pending:false}
     } ELSE IF array::len($pin_page)=64 {
         {membership:false,version:false,edges:0dec,blocks:0dec,pending:true}
@@ -3127,6 +3556,7 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_protection($rpc_expiry:int,$problem
 };
 
 DEFINE FUNCTION fn::pse_retention_v1::forget_study($rpc_expiry: int, $study:string) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'study:'+$study);
     LET $header=SELECT * FROM ONLY type::record('canonical_studies',$study);
@@ -3141,6 +3571,7 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_study($rpc_expiry: int, $study:stri
 
 // The occurrence key carries its immutable authority and expiry even after header deletion.
 DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysis:string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $header=SELECT * FROM ONLY type::record('canonical_analyses',$analysis) FOR UPDATE;
     IF $header=NONE {
@@ -3174,6 +3605,7 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysi
 };
 
 DEFINE FUNCTION fn::pse_retention_v1::settle_analysis($rpc_expiry:int,$intent:object) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $header=SELECT * FROM ONLY type::record('canonical_analyses',$intent.key) FOR UPDATE;
     LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) FOR UPDATE;
@@ -3198,6 +3630,9 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_analysis($rpc_expiry:int,$intent:ob
 };
 
 DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
+    LET $captures=SELECT key FROM canonical_study_capture_protections WHERE run=$run LIMIT 1;
+    IF array::len($captures)!=0 { THROW 'PSE_REFUSAL:run_results_have_protected_readers'; };
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:'+$run);
     fn::pse_execution_v1::register($rpc_expiry,'result-creators:'+$run);
@@ -3238,6 +3673,9 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) 
 };
 
 DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
+    LET $captures=SELECT key FROM canonical_study_capture_protections WHERE run=$run LIMIT 1;
+    IF array::len($captures)!=0 { THROW 'PSE_REFUSAL:run_results_have_protected_readers'; };
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:'+$run);
     LET $retirement=SELECT * FROM ONLY type::record('canonical_result_retirements',$run);
@@ -3709,6 +4147,28 @@ DEFINE FUNCTION fn::pse_history_v1::record_operation($rpc_expiry:int,$key:string
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
 
+// Shared attribution is resolved once for a native bulk append transaction.
+DEFINE FUNCTION fn::pse_history_v1::record_append_operations($rpc_expiry:int,$run:string,$attempt:string,$items:array<object>) -> bool {
+    IF array::len($items)=0 { RETURN true; };
+    fn::pse_history_v1::run($rpc_expiry,$run);
+    LET $parents=SELECT study,point FROM canonical_history_locators WHERE run=$run LIMIT 3;
+    IF array::len($parents)>2 { THROW 'PSE_REFUSAL:operation_association_bound_exceeded'; };
+    LET $finalization=IF $attempt=NONE {NONE} ELSE {(SELECT finalization_study FROM ONLY type::record('canonical_attempts',$attempt)).finalization_study};
+    LET $study=NONE; LET $point=NONE;
+    LET $selected_study=$finalization;
+    LET $applicable=IF $point!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=$point)} ELSE IF $selected_study!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=NONE)} ELSE {
+        LET $points=$parents.filter(|$parent|$parent.point!=NONE);
+        IF array::len($points)!=0 {$points} ELSE {$parents}
+    };
+    IF array::len($applicable)>1 OR (($study!=NONE OR $point!=NONE OR $finalization!=NONE) AND array::len($applicable)!=1) { THROW 'PSE_REFUSAL:operation_exact_study_point_attribution_differs'; };
+    LET $parent=IF array::len($applicable)=0 {NONE} ELSE {$applicable[0]};
+    LET $issuing=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
+    LET $rows=$items.map(|$item| {id:type::record('canonical_execution_operations',$item.operation),key:$item.operation,run:$run,attempt:$attempt,kind:'append',request:$item.request,result:$item.request,issuing_store:$issuing,study:$parent.study,point:$parent.point,minimal:false,disposition:'settled'});
+    INSERT INTO canonical_execution_operations $rows RETURN NONE;
+    fn::pse_history_v1::identity($rpc_expiry,'attempt',$attempt,$run);
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
+};
+
 DEFINE FUNCTION fn::pse_history_v1::identity($rpc_expiry:int,$category:string,$identity:string,$run:string) -> bool {
     fn::pse_history_v1::run($rpc_expiry,$run);
     LET $key=$category+':'+$identity;
@@ -3836,6 +4296,13 @@ DEFINE FUNCTION fn::pse_history_v1::drop_obligation($rpc_expiry:int,$key:string,
 };
 
 DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
+    LET $captures=IF $kind='run' {
+        SELECT key FROM canonical_study_capture_protections WHERE run=$owner LIMIT 1
+    } ELSE {
+        SELECT key FROM canonical_study_capture_protections WHERE study=$owner LIMIT 1
+    };
+    IF array::len($captures)!=0 { THROW 'PSE_REFUSAL:history_has_protected_captures'; };
     LET $key=fn::pse_history_v1::owner_key($kind,$owner);
     fn::pse_execution_v1::touch($rpc_expiry,'history:'+$key);
     LET $old=SELECT * FROM ONLY type::record('canonical_history_retirements',$key) FOR UPDATE;
@@ -3872,6 +4339,13 @@ DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:
 };
 
 DEFINE FUNCTION fn::pse_history_v1::collect($rpc_expiry:int,$kind:string,$owner:string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
+    LET $captures=IF $kind='run' {
+        SELECT key FROM canonical_study_capture_protections WHERE run=$owner LIMIT 1
+    } ELSE {
+        SELECT key FROM canonical_study_capture_protections WHERE study=$owner LIMIT 1
+    };
+    IF array::len($captures)!=0 { THROW 'PSE_REFUSAL:history_has_protected_captures'; };
     LET $key=fn::pse_history_v1::owner_key($kind,$owner);
     fn::pse_execution_v1::touch($rpc_expiry,'history:'+$key);
     LET $fence=SELECT * FROM ONLY type::record('canonical_history_retirements',$key) FOR UPDATE;

@@ -32,7 +32,6 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from scripts import service_borrowers
 from scripts import (  # noqa: E402 -- direct-script path routing
     build_environment,
     host_admission,
@@ -721,64 +720,6 @@ def cancel_foreground_handoffs(
 
 
 
-def register_composer(
-    invocation: Path, *, deadline: float | None = None
-) -> tuple[Path, str, str] | None:
-    """Publish only a selected live composer under its authentic operation fence.
-
-    The caller installs interruption handling before this transition. The outer
-    owner only requests and observes completion; it never composes test outcomes.
-    """
-    from scripts import (  # noqa: PLC0415 -- reciprocal admission/resource ownership
-        test_resources as resources,
-    )
-
-    deadline = resources.resource_store.clock(deadline)
-    declaration = resources.read_invocation(invocation)
-    nonce = declaration["nonce"]
-    composer = {
-        "pid": os.getpid(),
-        "start": operation_lifetime.start_identity(os.getpid()),
-        "boot": resources.host.boot(),
-        "scope": resources.execution_owner(deadline=deadline),
-    }
-    with resources.storage().invocation_edit(nonce, deadline=deadline) as selected:
-        if selected["phase"] != "open" or selected.get("composer") is not None:
-            raise ValueError(
-                "Invocation membership is closed or already has its selected composer"
-            )
-        selected["composer"] = composer
-    parent = owner_record(deadline=deadline)
-    if parent is None or operation_lifetime.scope_owner(deadline=deadline) is None:
-        return None
-
-    registry = service_borrowers.registry().resolve()
-    if (
-        invocation != registry / "invocations" / f"{nonce}.json"
-        or invocation != invocation.resolve()
-    ):
-        raise ValueError("selected terminal requires its exact private invocation")
-    token = uuid.uuid4().hex
-    with record_lock(parent, deadline=deadline):
-        record = _record(parent)
-        if record.get("cancelled"):
-            raise ValueError("native operation cancelled before selected payload")
-        composers = operation_lifetime.composer_registrations(record)
-        if nonce in composers:
-            raise ValueError("selected invocation already has a terminal composer")
-        register_terminal_guard(parent, nonce, token, deadline=deadline)
-        composers[nonce] = {
-            "token": token,
-            "pid": os.getpid(),
-            "start": operation_lifetime.start_identity(os.getpid()),
-            "scope": record["scope"],
-            "invocation": str(invocation),
-            "registry": str(registry),
-            "phase": "registered",
-        }
-        record["selected_composers"] = composers
-        operation_lifetime.write_json(parent, record)
-    return parent, nonce, token
 
 
 def register_terminal_guard(
@@ -1347,7 +1288,7 @@ def _environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
         if kind in requested:
             if result.get(variable):
                 cache.admit_external(
-                    Path(result[variable]), pipeline.required_files(kind)
+                    Path(result[variable]), cache.pipeline_files(kind)
                 )
             else:
                 result[variable] = str(pipeline.prepare(kind, result))
@@ -2029,6 +1970,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--capabilities", default="")
     parser.add_argument("--shell", action="store_true")
+    parser.add_argument("--prepared-environment", type=Path)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     requested = [value for value in args.capabilities.split(",") if value]
@@ -2040,6 +1982,23 @@ def main() -> int:
     from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
 
     original = dict(os.environ)
+    if args.prepared_environment is not None:
+        if args.shell:
+            parser.error("a prepared receiver runs only its selected child")
+        from scripts import receiver_environment, surreal_server  # noqa: PLC0415 -- immutable launch boundary
+
+        if args.prepared_environment != ROOT / "native-environment.json":
+            raise ValueError("prepared receiver inputs must belong to this immutable helper")
+        surreal_server.activatable_generation(ROOT)
+        selected = receiver_environment.read(args.prepared_environment)
+        original.update(selected.values)
+
+    def selected_environment(source: dict[str, str]) -> dict[str, str]:
+        if args.prepared_environment is not None:
+            from scripts import receiver_environment  # noqa: PLC0415 -- no setup path in this branch
+            return receiver_environment.restore(args.prepared_environment, requested, source)
+        return environment(requested, build_environment.configure(ROOT, source))
+
     if not args.shell and original.get("PSE_HOST_ALLOCATION"):
         from scripts import (  # noqa: PLC0415 -- reciprocal operation/admission ownership
             host_admission,
@@ -2051,7 +2010,7 @@ def main() -> int:
             raise ValueError("Managed native role lacks actual allocation membership")
         allocation.bind(owner["unit"])
     if args.shell:
-        configured = environment(requested, build_environment.configure(ROOT, original))
+        configured = selected_environment(original)
         for name, value in sorted(configured.items()):
             if original.get(name) != value:
                 print(f"export {name}={shlex.quote(value)}")
@@ -2060,14 +2019,14 @@ def main() -> int:
         return 0
     if owner_record() is not None:
         return run(
-            command, environment(requested, build_environment.configure(ROOT, original))
+            command, selected_environment(original)
         )
     with Operation(cache.cache_root(original)):
         if original.get("PSE_NATIVE_HANDOFF"):
             bind_handoff(Path(original["PSE_NATIVE_HANDOFF"]))
         return run(
             command,
-            environment(requested, build_environment.configure(ROOT, dict(os.environ))),
+            selected_environment(dict(os.environ)),
         )
 
 

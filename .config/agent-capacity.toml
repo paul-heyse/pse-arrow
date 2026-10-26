@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-# Host policy, not a RAM reservation. Reference scientific capacities are derived
-# from packages/reference/conformance.toml, never redeclared here.
+# Host admission policy and separately typed production execution declarations.
+# Production profiles are upstream of conformance; these are not RAM reservations.
 version = 1
 aggregate_gib = 160
 non_agent_headroom_gib = 16
@@ -27,57 +27,20 @@ slot_gib = 40
 store_gib = 16
 # Allow main, a campaign and an isolated worktree to retain separate services.
 store_slots = 3
-receiver_gib = 32
-observer_gib = 4
 control_gib = 4
-pool_gib = 24
-worker_gib = 8
-case_lanes = 2
-cpu_threads = 16
-math_jobs = 4
-compiler_cores = 1
 [wide]
 slot_gib = 80
-receiver_gib = 72
-observer_gib = 4
 control_gib = 4
-pool_gib = 64
-worker_gib = 16
-case_lanes = 4
-cpu_threads = 16
-math_jobs = 8
-compiler_cores = 1
 [timing]
 slot_gib = 56
 store_gib = 8
 store_slots = 1
-receiver_gib = 48
-observer_gib = 4
 control_gib = 4
-pool_gib = 40
-worker_gib = 8
-case_lanes = 4
-cpu_threads = 16
-math_jobs = 8
-compiler_cores = 1
 [exclusive]
 slot_gib = 144
 store_gib = 16
 light_gib = 8
-receiver_gib = 136
-observer_gib = 4
 control_gib = 4
-pool_gib = 128
-worker_gib = 16
-case_lanes = 16
-cpu_threads = 16
-math_jobs = 32
-compiler_cores = 1
-[reference]
-store_gib = 16
-receiver_headroom_gib = 12
-observer_gib = 4
-
 [test-runner]
 rust_thread_stack_mib = 16
 
@@ -86,12 +49,116 @@ rust_thread_stack_mib = 16
 # This is not the reference primary/observer partition.
 [exclusive-observer]
 slot_gib = 144
-receiver_gib = 72
-observer_gib = 64
 control_gib = 8
-pool_gib = 64
-worker_gib = 16
-case_lanes = 4
+
+# Production execution authority. Host lane and process scopes retain distinct totals.
+[production]
+version = 1
+default_profile = "service"
+
+[production.capabilities]
+memory_limit_bytes = 17179869184
+threads = 16
+max_spill_bytes = 1073741824
+
+[[production.profiles]]
+name = "service"
+total_memory_bytes = 51539607552
+server_memory_bytes = 17179869184
+native_worker_memory_bytes = 34359738368
+
+[[production.profiles]]
+name = "functional"
+total_memory_bytes = 60129542144
+server_memory_bytes = 17179869184
+native_worker_memory_bytes = 34359738368
+[production.profiles.execution]
+pool_memory_bytes = 25769803776
+worker_bytes = 8589934592
 cpu_threads = 16
+case_lanes = 2
+math_jobs = 4
+compiler_cores = 1
+admission_wait_ms = 30000
+process_headroom_bytes = 8589934592
+observer_memory_bytes = 4294967296
+
+[[production.profiles]]
+name = "wide"
+total_memory_bytes = 103079215104
+server_memory_bytes = 17179869184
+native_worker_memory_bytes = 77309411328
+[production.profiles.execution]
+pool_memory_bytes = 68719476736
+worker_bytes = 17179869184
+cpu_threads = 16
+case_lanes = 4
 math_jobs = 8
 compiler_cores = 1
+admission_wait_ms = 30000
+process_headroom_bytes = 8589934592
+observer_memory_bytes = 4294967296
+
+[[production.profiles]]
+name = "timing"
+total_memory_bytes = 68719476736
+server_memory_bytes = 8589934592
+native_worker_memory_bytes = 51539607552
+[production.profiles.execution]
+pool_memory_bytes = 42949672960
+worker_bytes = 8589934592
+cpu_threads = 16
+case_lanes = 4
+math_jobs = 8
+compiler_cores = 1
+admission_wait_ms = 30000
+process_headroom_bytes = 8589934592
+observer_memory_bytes = 4294967296
+
+[[production.profiles]]
+name = "exclusive"
+total_memory_bytes = 171798691840
+server_memory_bytes = 17179869184
+native_worker_memory_bytes = 146028888064
+[production.profiles.execution]
+pool_memory_bytes = 137438953472
+worker_bytes = 17179869184
+cpu_threads = 16
+case_lanes = 16
+math_jobs = 32
+compiler_cores = 1
+admission_wait_ms = 30000
+process_headroom_bytes = 8589934592
+observer_memory_bytes = 4294967296
+
+[[production.profiles]]
+name = "reference"
+total_memory_bytes = 171798691840
+server_memory_bytes = 17179869184
+native_worker_memory_bytes = 150323855360
+[production.profiles.execution]
+pool_memory_bytes = 137438953472
+worker_bytes = 17179869184
+cpu_threads = 16
+case_lanes = 16
+math_jobs = 32
+compiler_cores = 1
+admission_wait_ms = 30000
+process_headroom_bytes = 12884901888
+observer_memory_bytes = 4294967296
+
+[[production.profiles]]
+name = "exclusive-observer"
+total_memory_bytes = 171798691840
+server_memory_bytes = 17179869184
+native_worker_memory_bytes = 77309411328
+[production.profiles.execution]
+pool_memory_bytes = 68719476736
+worker_bytes = 17179869184
+cpu_threads = 16
+case_lanes = 4
+math_jobs = 8
+compiler_cores = 1
+admission_wait_ms = 30000
+process_headroom_bytes = 8589934592
+observer_memory_bytes = 68719476736

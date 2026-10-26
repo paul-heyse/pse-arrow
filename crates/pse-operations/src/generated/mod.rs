@@ -2,7 +2,3 @@
 //! Canonical native schema and exact codecs.
 /// Generated native schema and typed wire lowering.
 pub mod surreal;
-/// Independently installed derived evidence schema and codecs.
-pub mod evidence;
-/// Derived development-knowledge schema and codecs.
-pub mod knowledge;

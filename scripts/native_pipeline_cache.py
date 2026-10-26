@@ -18,17 +18,10 @@ from pathlib import Path
 if str(Path(__file__).resolve().parents[1]) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts import operation_lifetime
-from scripts import build_environment, producer_deployment
+from scripts import build_environment, producer_receipts
 from scripts import native_cache as cache
 from scripts import native_operation as operation
 
-
-def required_files(kind: str) -> tuple[str, ...]:
-    if kind == "uno":
-        return ("lib/libuno.a", "include/uno/Uno_C_API.h")
-    if kind == "petsc":
-        return ("lib/libpetsc.so", "include/petscsnes.h", "include/petscts.h")
-    raise ValueError("unknown native pipeline capability")
 
 
 def source_archive(base: Path, url: str, checksum: str) -> Path:
@@ -116,7 +109,7 @@ def _highs_candidate(env: dict[str, str], request: dict) -> Path:
         try:
             association = json.loads(candidate.read_text())
             directory = Path(association["directory"])
-            if receipt and producer_deployment.verify_native_provider(
+            if receipt and producer_receipts.verify_native_provider(
                 Path(receipt), association["package"], directory, env
             ):
                 return directory
@@ -401,7 +394,7 @@ def _prepare(kind: str, env: dict[str, str]) -> Path:
                     metadata.read_text().replace(str(stage), str(destination))
                 )
 
-    return cache.prepare(base, kind, identity, required_files(kind), build)
+    return cache.prepare(base, kind, identity, cache.pipeline_files(kind), build)
 
 
 def main() -> None:

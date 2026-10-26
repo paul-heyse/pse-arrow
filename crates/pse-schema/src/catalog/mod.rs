@@ -13,14 +13,12 @@
 //! together during registry construction.
 
 mod cache;
-mod declarations;
+use crate::declaration as declarations;
 mod diagnostic_evidence;
 pub mod documents;
 pub mod enums_platform;
-pub mod evidence;
 pub mod inv;
 pub mod invariants;
-pub mod knowledge;
 mod modeling;
 mod modeling_analysis;
 mod modeling_expression;
@@ -35,7 +33,7 @@ pub mod project_contexts;
 pub mod project_imports;
 pub mod projects;
 pub mod research;
-mod row_checks;
+pub(crate) mod row_checks;
 pub mod s14_passes;
 pub mod s4_schema;
 pub mod s6_11_numerical;
@@ -108,8 +106,6 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     research::declare(builder);
     project_contexts::declare(builder);
     project_imports::declare(builder);
-    evidence::declare(builder);
-    knowledge::declare(builder);
     s6_14_idaes_enums::declare(builder);
     s6_15_semantic::declare(builder);
     normalization::declare(builder);

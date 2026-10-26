@@ -114,6 +114,8 @@ pub use bindings::{
 };
 pub use native_deployment::{
     ManagedPrimaryReceiver, NativeAllocation, NativeExecutionAllocation, NativeExecutionSelection,
+    ProductionProfileName, ProductionProfile, ProductionProfiles, CapabilityDefaults, DeploymentRequest, DeploymentResponse,
+    RegisteredNativeContext, DeploymentReadiness, DeploymentObservation, ManagedExecutionPolicy, PreparedReceiverEnvironment,
 };
 pub use worker::{PhysicalSource, Processed, WorkerSettings};
 mod declared_requests;
@@ -1343,16 +1345,19 @@ pub use result_selection::{PackResultPredicate, PackResultSelection, PackScienti
 #[cfg(test)]
 mod observation_inquiry_tests;
 
+mod cohort_provider;
 mod study_workbench;
 pub use study_workbench::{
-    FrozenStudyCohort, StudyCohortDocument, StudyCohortMember, StudyCohortRequest,
-    StudyKpiAnalysis, StudyKpiRequest, StudyWorkbenchCursor, StudyWorkbenchFilter,
-    StudyWorkbenchHeader, StudyWorkbenchPage, StudyWorkbenchRequest,
+    FrozenStudyCohort, CapturedStudyRow, StudyCohortReceipt, StudyCohortMember, StudyCohortRequest,
+    StudyCohortExportRecord, StudyCohortCursor, StudyCohortPageRequest, StudyCohortHeaderPage, StudyCohortMemberPage,
+    StudyCohortAvailability, StudyCohortScanState, StudyCohortScanProgress, StudyCohortClassification, StudyCohortClassificationPage,
+    StudyKpiAnalysis, StudyKpiRequest, StudyWorkbenchCursor, StudyWorkbenchFilter, StudyWorkbenchHeader,
+    StudyWorkbenchPage, StudyWorkbenchRequest,
 };
 
 mod study_observation;
 pub use study_observation::{
     StudyObservationContext, StudyObservationContinuity, StudyObservationCursor,
-    StudyObservationPage, StudyObservationPosition, StudyObservationRequest, StudyObservedSource,
+    StudyObservationPage, StudyObservationStatus, StudyObservationPosition, StudyObservationRequest, StudyObservedSource,
     StudyObserver,
 };

@@ -110,3 +110,6 @@ pub fn shared_registry() -> Result<Arc<Registry>, SchemaError> {
         .get_or_init(|| generated::standard_registry::hydrate().map(Arc::new))
         .clone()
 }
+
+/// Explicit constructors shared by responsibility-owned registry contributions.
+pub mod declaration;

@@ -55,7 +55,6 @@ HostPolicy = TypedDict(
         "wide": dict[str, int],
         "timing": dict[str, int],
         "exclusive": dict[str, int],
-        "reference": dict[str, int],
         "exclusive-observer": dict[str, int],
         "test-runner": dict[str, int],
     },
@@ -128,6 +127,9 @@ class Profile:
 
 def policy() -> HostPolicy:
     declared = tomllib.loads((ROOT / ".config/agent-capacity.toml").read_text())
+    # This separate declaration belongs to product deployment, not host lanes.
+    # Bootstrap commands need only the host policy before the product operator is built.
+    declared.pop("production", None)
     for key, value in declared.items():
         if key.endswith("_cores") and key in {"functional_cores", "timing_cores"}:
             valid = isinstance(value, list) and all(type(core) is int for core in value)
@@ -186,25 +188,9 @@ def settings(name: str) -> dict[str, int]:
 
 
 def execution(name: str) -> dict[str, int]:
-    if name == "reference":
-        from scripts.surreal_server import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
-            reference_execution,
-        )
+    from scripts import execution_profiles  # noqa: PLC0415 -- explicit product profile selection
 
-        return reference_execution()
-    selected = settings(name)
-    return {
-        "pool_memory_bytes": selected["pool_gib"] * GIB,
-        "worker_bytes": selected["worker_gib"] * GIB,
-        "cpu_threads": selected["cpu_threads"],
-        "case_lanes": selected["case_lanes"],
-        "math_jobs": selected["math_jobs"],
-        "compiler_cores": selected["compiler_cores"],
-        "admission_wait_ms": policy()["admission_seconds"] * 1000,
-        "process_headroom_bytes": (selected["receiver_gib"] - selected["pool_gib"])
-        * GIB,
-        "observer_memory_bytes": selected["observer_gib"] * GIB,
-    }
+    return execution_profiles.execution(name)
 
 
 def select(name: str, requested: str | None = None) -> Profile:
@@ -275,16 +261,13 @@ def select(name: str, requested: str | None = None) -> Profile:
     elif name == "timing":
         result = Profile(name, settings(name)["slot_gib"] * GIB, name, 1, timing)
     elif name == "reference":
-        selected = execution(name)
-        memory = (
-            selected["pool_memory_bytes"]
-            + settings(name)["receiver_headroom_gib"] * GIB
-        )
+        from scripts import execution_profiles  # noqa: PLC0415 -- explicit production profile admission
+
+        admitted = execution_profiles.profile("reference")
+        memory = integer(admitted["native_worker_memory_bytes"])
         result = Profile(name, memory, "exclusive", 2, all_cores, True)
         if amount is not None and amount != memory:
-            raise AdmissionError(
-                "Reference profile requires its unchanged 140GiB primary and 160GiB envelope; select exclusive for another allocation"
-            )
+            raise AdmissionError("Reference profile requires its declared primary and service envelope; select exclusive for another allocation")
     else:
         result = Profile(
             name,
@@ -308,14 +291,9 @@ def select(name: str, requested: str | None = None) -> Profile:
 def aggregate(profile: Profile) -> int:
     config = policy()
     if profile.name == "reference":
-        return (
-            profile.memory
-            + (
-                settings("reference")["store_gib"]
-                + settings("reference")["observer_gib"]
-            )
-            * GIB
-        )
+        from scripts import execution_profiles  # noqa: PLC0415 -- explicit production profile envelope
+
+        return integer(execution_profiles.profile("reference")["total_memory_bytes"])
     if profile.exclusive:
         resident = settings("exclusive")
         return max(

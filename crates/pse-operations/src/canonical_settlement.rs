@@ -206,7 +206,7 @@ mod canonical_settlement_unit {
 
     #[tokio::test]
     async fn settlement_keeps_existing_task_local_deadline() {
-        use super::super::transport::{current_deadline, within_clock};
+        use crate::transport::{current_deadline, within_clock};
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(1);
         let result = within_clock(
             deadline,

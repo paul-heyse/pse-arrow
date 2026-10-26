@@ -41,7 +41,7 @@ class Worker:
             worker_bindings,
         )
 
-        return frozenset(binding.operation for binding in worker_bindings())
+        return frozenset(binding.operation for binding in worker_bindings() if binding.worker.worker == "native")
 
 
 WORKERS = {
@@ -89,6 +89,11 @@ WORKERS = {
             "exclusive",
             "--native=solver,klu,isolation,uno,petsc",
         ),
+    ),
+    "evidence": Worker(
+        "scripts.capabilities.evidence_worker",
+        frozenset({"evidence_compare"}),
+        sources=("xtask/src/bin/pse-evidence.rs",),
     ),
     "native": Worker(
         "scripts.capabilities.native_worker",

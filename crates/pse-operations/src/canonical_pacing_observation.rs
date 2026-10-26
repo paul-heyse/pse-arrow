@@ -74,7 +74,7 @@ pub(super) fn entered(key: &str, effect: QueryEffect, queued: Duration) -> Optio
         })
         .ok()
 }
-pub(super) fn conflict(key: &str) {
+pub(crate) fn conflict(key: &str) {
     let _ = CURRENT.try_with(|probe| {
         if let Ok(mut observations) = probe.0.lock() {
             observations.entry(key.to_owned()).or_default().conflicts += 1;

@@ -11,6 +11,7 @@ const FUNCTIONS: &str = r#"
 
 // One physical source-deletion decision shared by stage and membership cleanup.
 DEFINE FUNCTION fn::pse_retention_v1::delete_source_version($pse_rpc_expires_at:int,$version:string,$excluded_membership:option<string>,$excluded_stage:option<string>) -> object {
+    fn::pse_workbench_v1::publication($pse_rpc_expires_at);
 LET $version_guard = type::record('canonical_guards', 'version:' + $version);
 SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $members = SELECT key FROM canonical_memberships WHERE version = $version AND ($excluded_membership = NONE OR key != $excluded_membership) LIMIT 1;
@@ -42,6 +43,7 @@ UPSERT $version_guard SET key = 'version:' + $version, generation = (generation 
 
 // Cursor and the candidate's full fresh decision commit in the same native transaction.
 DEFINE FUNCTION fn::pse_retention_v1::source_step($pse_rpc_expires_at:int,$problem:string) -> object {
+    fn::pse_workbench_v1::publication($pse_rpc_expires_at);
     fn::pse_execution_v1::register($pse_rpc_expires_at,'source-creators:'+$problem);
     LET $guard = type::record('canonical_guards','retention:'+$problem);
     LET $position = SELECT * FROM ONLY $guard FOR UPDATE;
@@ -61,13 +63,16 @@ LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_seq
     LET $head = SELECT * FROM ONLY type::record('canonical_problems', $problem);
     IF $head = NONE { THROW 'PSE_REFUSAL:reclamation_problem_head_unavailable'; };
     LET $roots = SELECT key FROM canonical_roots WHERE problem = $problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence LIMIT 1;
+    LET $captures=SELECT key FROM canonical_study_capture_protections WHERE problem=$problem
+        AND type::record('canonical_revisions',revision).sequence >= $member.from_sequence
+        AND type::record('canonical_revisions',revision).sequence < $member.to_sequence LIMIT 1;
     LET $pin_page=SELECT key,expires_at FROM canonical_protections WHERE problem=$problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence AND released=false ORDER BY key LIMIT 64;
     FOR $pin_key IN $pin_page {
         SELECT * FROM ONLY type::record('canonical_protections',$pin_key.key) FOR UPDATE;
         IF $pin_key.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$pin_key.key) { UPDATE ONLY type::record('canonical_protections',$pin_key.key) SET released=true; };
     };
     LET $pins=$pin_page.filter(|$pin|$pin.expires_at>time::micros() OR fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$pin.key));
-    IF ($head.sequence >= $member.from_sequence AND $head.sequence < $member.to_sequence) OR array::len($roots) != 0 OR array::len($pins) != 0 {
+    IF ($head.sequence >= $member.from_sequence AND $head.sequence < $member.to_sequence) OR array::len($roots) != 0 OR array::len($pins) != 0 OR array::len($captures) != 0 {
         {membership:false, version:false, edges:0dec, blocks:0dec, pending:false}
     } ELSE IF array::len($pin_page)=64 {
         {membership:false,version:false,edges:0dec,blocks:0dec,pending:true}
@@ -134,6 +139,7 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_protection($rpc_expiry:int,$problem
 };
 
 DEFINE FUNCTION fn::pse_retention_v1::forget_study($rpc_expiry: int, $study:string) -> bool {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'study:'+$study);
     LET $header=SELECT * FROM ONLY type::record('canonical_studies',$study);
@@ -148,6 +154,7 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_study($rpc_expiry: int, $study:stri
 
 // The occurrence key carries its immutable authority and expiry even after header deletion.
 DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysis:string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $header=SELECT * FROM ONLY type::record('canonical_analyses',$analysis) FOR UPDATE;
     IF $header=NONE {
@@ -181,6 +188,7 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysi
 };
 
 DEFINE FUNCTION fn::pse_retention_v1::settle_analysis($rpc_expiry:int,$intent:object) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $header=SELECT * FROM ONLY type::record('canonical_analyses',$intent.key) FOR UPDATE;
     LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) FOR UPDATE;
@@ -205,6 +213,9 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_analysis($rpc_expiry:int,$intent:ob
 };
 
 DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
+    LET $captures=SELECT key FROM canonical_study_capture_protections WHERE run=$run LIMIT 1;
+    IF array::len($captures)!=0 { THROW 'PSE_REFUSAL:run_results_have_protected_readers'; };
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:'+$run);
     fn::pse_execution_v1::register($rpc_expiry,'result-creators:'+$run);
@@ -245,6 +256,9 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) 
 };
 
 DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string) -> object {
+    fn::pse_workbench_v1::publication($rpc_expiry);
+    LET $captures=SELECT key FROM canonical_study_capture_protections WHERE run=$run LIMIT 1;
+    IF array::len($captures)!=0 { THROW 'PSE_REFUSAL:run_results_have_protected_readers'; };
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:'+$run);
     LET $retirement=SELECT * FROM ONLY type::record('canonical_result_retirements',$run);

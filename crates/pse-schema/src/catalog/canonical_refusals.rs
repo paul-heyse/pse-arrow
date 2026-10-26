@@ -45,6 +45,21 @@ macro_rules! refusals {
     };
 }
 refusals! {
+    StudyCapturePublicationBusy: "study_capture_publication_busy" => (Fence, "publication is temporarily gated by an exact immutable capture"),
+    HistoryHasProtectedCaptures: "history_has_protected_captures" => (Fence, "immutable captured facts retain original result and history ownership"),
+    StudyInstallationOriginalPageExpired: "study_installation_original_page_expired" => (Fence, "study installation original page expired"),
+    StudyCapturePageKind: "study_capture_page_kind" => (Admission, "study capture page kind"),
+    StudyCaptureOriginalOwnerNotDrained: "study_capture_original_owner_not_drained" => (Fence, "study capture original owner not drained"),
+    StudyCaptureOriginalOwnerClosed: "study_capture_original_owner_closed" => (Fence, "study capture original owner closed"),
+    StudyCaptureOriginalGrantClosed: "study_capture_original_grant_closed" => (Fence, "study capture original grant closed"),
+    StudyCaptureIdentityReused: "study_capture_identity_reused" => (Identity, "study capture identity reused"),
+    StudyCaptureActualOwnerUnavailable: "study_capture_actual_owner_unavailable" => (Fence, "study capture actual owner unavailable"),
+    StudyRunPageExtent: "study_run_page_extent" => (Admission, "study run page extent"),
+    StudyInstallationPageReused: "study_installation_page_reused" => (Identity, "study installation page reused"),
+    StudyInstallationPageExtent: "study_installation_page_extent" => (Admission, "study installation page extent"),
+    StudyInstallationIdentityDiffers: "study_installation_identity_differs" => (Identity, "study installation identity differs"),
+    StudyInstallationFrontierChanged: "study_installation_frontier_changed" => (Fence, "study installation frontier changed"),
+    StudyImmutablePopulationChanged: "study_immutable_population_changed" => (Identity, "study immutable population changed"),
     ResearchContextDiffers: "research_context_differs" => (Invariant, "research source, context or original evidence differs"),
     ResearchBound: "research_bound" => (Admission, "research metadata exceeds declared bound"),
     ProjectContextInvalid: "project_context_invalid" => (Invariant, "context coordinates or correction differ"),

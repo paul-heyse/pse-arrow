@@ -25,7 +25,10 @@ impl pse_diagnostics::TypedDiagnostic for CodecError {
     }
 }
 
-pub(crate) fn required(object: &mut Object, field: &'static str) -> Result<Value, CodecError> {
+/// Remove one required native field before exact owner decoding.
+/// # Errors
+/// The named field is absent.
+pub fn required(object: &mut Object, field: &'static str) -> Result<Value, CodecError> {
     object.remove(field).ok_or(CodecError::Missing(field))
 }
 

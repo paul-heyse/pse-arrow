@@ -7,7 +7,7 @@
 use crate::model::Namespace;
 use std::collections::BTreeMap;
 
-pub(super) fn for_relation(namespace: Namespace, name: &str) -> BTreeMap<String, String> {
+pub(crate) fn for_relation(namespace: Namespace, name: &str) -> BTreeMap<String, String> {
     use Namespace::{Reference, Runtime};
     let (check, sql) = match (namespace, name) {
         (Runtime, "solve_metrics" | "operational_progress_values") => (

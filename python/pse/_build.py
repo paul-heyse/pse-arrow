@@ -157,7 +157,6 @@ _diagnostic_inventory_from_evidence = _native.diagnostic_inventory_from_evidence
 _diagnostic_analyze = _native.diagnostic_analyze
 _diagnostic_query_specification = _native.diagnostic_query_specification
 _diagnostic_export_pack = _native.diagnostic_export_pack
-_diagnostic_compare_evidence = _native.diagnostic_compare_evidence
 _diagnostic_export_members = _native.diagnostic_export_members
 _diagnostic_pack_member = _native.diagnostic_pack_member
 _diagnostic_review_pack = _native.diagnostic_review_pack

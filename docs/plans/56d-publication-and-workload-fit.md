@@ -161,11 +161,11 @@ interpretation.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| D01 | planned; C03 inline/sealed placement available | 56d | Grouped append changes actual guard/frontier/filesystem work; demand/ack semantics preserved |
-| D02 | planned | 56d | Resume begins at exact installed frontier; incomplete population never activates |
-| D03 | planned | 56d | Compact outcomes and one lazy relation provider replace descriptor/full-snapshot loops |
-| D04 | planned; capture evidence required | 56d | Coherent live capture and bounded membership read qualify any changed admission cap |
-| D05 | planned | 56d | Inventory/copy progress is resumable and integrity passes reused with distinct guarantees retained |
+| D01 | implemented; native publication and benefit controls pending | 56d | Grouped append changes actual guard/frontier/filesystem work; demand/ack semantics preserved |
+| D02 | implemented; native frontier, replay and expiry controls pending | 56d | Resume begins at exact installed frontier; incomplete population never activates |
+| D03 | implemented; targeted provider and public-consumer execution pending | 56d | Compact outcomes and one lazy relation provider replace descriptor/full-snapshot loops |
+| D04 | implemented; actual canonical capture and selected scale qualification pending | 56d | Coherent live capture and bounded membership read qualify any changed admission cap |
+| D05 | implemented; native physical recovery and composed backup qualification pending | 56d | Inventory/copy progress is resumable and integrity passes reused with distinct guarantees retained |
 | D06 | incremental source traversal implemented; targeted units passed, canonical exchange/benefit checks pending | 56d | Executable explanation/export retain only useful hydrated units, with exact closure and final visibility |
 
 D01 consumes C01/C03; D02 consumes C01/C02 and B03 operation facts. D03 needs B01 permission
@@ -243,7 +243,7 @@ owned module and project-to-review-pack validation dependency are deleted.
 force-validation, default/non-native closure: 24 selected tests passed, zero failed against the
 zero baseline (1,011 unselected tests). This includes exact count/export receipts, refusal before
 copy, cancellation, contained-file mutation and original IPC lineage controls. Compilation took
-3m56s and selected tests14.294s on this local Linux host. Three warnings in concurrent cohort work
+3m56s and selected tests 14.294s on this local Linux host. Three warnings in concurrent cohort work
 remain for its owner; this is not a zero-warning whole-plan result. Earlier malformed filter,
 stale test-module name and source-fence interruptions were corrected; only the stated final
 selection passed.
@@ -252,3 +252,56 @@ The correction was to borrow already leased document collections rather than mov
 backing vectors. Processing the already admitted origin first deliberately bounds live hydration
 while ids retain sorted-source ordinals. Native multi-revision export/explanation, interruption
 and focused benefit measurements remain for joint scope-end qualification.
+
+## Canonical integration checkpoint — 2026-10-26
+
+D01/D02 and the D04 lifecycle source now implement native bulk publication, durable installation
+frontiers/original page grants, compact admission facts, gated capture, atomic member and parent
+manifest protection, local replay/drain fencing and explicit failed-cleanup recovery. Root-owned
+project/research/retention participation uses the same gate and capture protection. D03 now supplies
+the compact receipt, paged public metadata and shared lazy provider; the admission cap remains 128 pending
+actual 10,000-point qualification. Source maturity is not native execution evidence.
+
+An independent bounded implementation review found a pure readiness-policy helper calling the
+gate with an undeclared deadline parameter. The redundant call was removed; the effectful caller
+remains guarded. The reviewer re-read that correction and found no additional high-confidence
+issue in the stable bulk/install/capture subset. Incomplete D03 and deployment work were excluded;
+no tests were run by the reviewer. Required native SQL/replay/expiry/drain controls remain open.
+
+The single handwritten canonical interpretation declaration now selects `pse.substrate.v10`.
+All current declarations/writers/readers/retention/backup outputs must publish before first fresh
+owned-state activation. Existing selected and 56a/b/c states, artifacts and qualification evidence
+remain preserved; v10 has no product qualification claim yet.
+
+## Provider and publication checkpoint — 2026-10-26
+
+The shared cohort provider now traverses bounded member and locator pages under one original
+capture. Opaque payload references are minted only after exact captured-manifest validation and
+retain original custody through physical readers. Included, unavailable and unvisited members
+remain distinct through predicates, limits and concurrent scans. Existing shared scientific
+decoding and quantity/permission checks remain the payload interpretation. Public consumers use
+compact receipts and explicit bounded metadata pages; optional NDJSON export publishes its final
+receipt only after the original capture's pages settle.
+
+A focused independent implementation review of the current provider, captured payload seam and
+Rust/Python consumers found no high-confidence contract defect. It was read-only and established
+no native SQL, DataFusion execution, cancellation-race or measured-memory result. Actual native
+controls and the selected mixed-availability 10,000-point journey remain required. Full generation
+now publishes the closed owner-declared export envelopes and all ten selected generation targets.
+
+The new product initializer successfully installed the v10 schema in the fresh owned disposable
+`build/qualification/56de-v10-gdxn2u4_` deployment. This establishes initialization only; the earlier
+56a/b/c deployments remain untouched and retain their original qualification boundaries.
+
+## Native integration repair checkpoint — 2026-10-26
+
+The first prepared canonical publication/install/capture selection ran 25 tests: seven passed
+and eighteen failed against the zero failure target. Seventeen failures shared a new installation
+root-read query rejected by the pinned engine before population creation; its static `FOR UPDATE`
+target checker accepts record literals, parameters and function calls, but rejects object-field
+expressions such as `$root.id`. The generated source now constructs that same exact root through
+`type::record`; regeneration preserves the original conflict registration and bulk insertion.
+The remaining busy-publication deadline assertion needs exact returned-error and cleanup timing
+investigation; unknown effects must remain conservative. The owning failure log is
+`/tmp/pse-56de-native-publication-controls.log`. Dependent native and 10,000-point acceptance
+remain open until the corrected paths execute successfully.

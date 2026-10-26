@@ -4,8 +4,7 @@
 //! Concrete remote canonical substrate. Scientific work runs outside guarded transactions.
 
 use crate::{canonical_codec::CodecError, generated::surreal as wire};
-#[path = "canonical_lifetime.rs"]
-pub(crate) mod lifetime;
+pub(crate) use crate::transport::lifetime;
 #[cfg(feature = "canonical-maintenance")]
 #[path = "canonical_maintenance.rs"]
 pub mod maintenance;
@@ -33,7 +32,9 @@ mod metadata;
 #[path = "canonical_study_module.rs"]
 pub(crate) mod study_module;
 pub use metadata::MetadataResponse;
-use transport::{CanonicalClient, original_deadline, within_clock};
+use transport::CanonicalClient;
+use crate::transport::{original_deadline, within_clock};
+pub(crate) use crate::transport::{bounded_query, protected_query, request, checked, complete_response, operation_failed, conflict_backoff};
 pub use transport::{CanonicalQueryMetrics, CanonicalQuerySample, query_metrics};
 
 /// Initial negotiated protocol limit; batches must leave space for their envelope.
@@ -41,12 +42,12 @@ pub const MESSAGE_BYTES: usize = wire::RESULT_MESSAGE_BYTES;
 /// Bounded submitted payload, leaving conservative room for query/record metadata.
 pub const PAYLOAD_BYTES: usize = 3 * 1024 * 1024;
 /// Client operation deadline. Mutations settle a lost acknowledgment by immutable identity.
-pub const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+pub use crate::transport::REQUEST_TIMEOUT;
 pub(crate) const ACTIVATION_REQUEST_TIMEOUT: std::time::Duration =
     std::time::Duration::from_secs(90);
 // A finite contention window for sixteen clients sharing one retention guard.
 // This does not change any RPC deadline or permit replay after uncertain completion.
-const GUARDED_ATTEMPTS: u32 = 32;
+pub(crate) use crate::transport::GUARDED_ATTEMPTS;
 
 /// Registry-owned native refusal identities and their policy meaning.
 pub use pse_schema::catalog::canonical_refusals::{RefusalClass, RefusalCode};
@@ -80,6 +81,24 @@ pub enum StoreFailure {
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[diagnostic(code(runtime::infrastructure))]
 pub enum CanonicalError {
+    /// A live exact capture or scan still owns its immutable selection.
+    #[error("canonical study capture {capture} still has live readers")]
+    CaptureInUse {
+        /// Original immutable capture identity.
+        capture:String,
+    },
+    /// Exact capture cleanup completed; its original grant cannot be reopened.
+    #[error("canonical study capture {capture} is closed")]
+    CaptureClosed {
+        /// Original immutable capture identity.
+        capture:String,
+    },
+    /// Exact immutable capture custody is draining and cannot admit another scan.
+    #[error("canonical study capture {capture} is draining")]
+    CaptureDraining {
+        /// Original immutable capture identity, unchanged during cleanup.
+        capture: String,
+    },
     /// This logical caller has released admission; already admitted work is unaffected.
     #[error("canonical caller is closed")]
     CallerClosed,
@@ -323,7 +342,10 @@ impl CanonicalError {
         }
         matches!(
             self,
-            Self::Driver(_)
+            Self::CaptureInUse { .. }
+                | Self::CaptureDraining { .. }
+                | Self::CaptureClosed { .. }
+                | Self::Driver(_)
                 | Self::StoreFailure { .. }
                 | Self::ConflictExhausted { .. }
                 | Self::WorkerLost { .. }
@@ -394,7 +416,10 @@ impl CanonicalError {
         }
         self
     }
-    fn is_conflict(&self) -> bool {
+    pub(crate) fn is_capture_busy(&self) -> bool {
+        matches!(self, Self::Refused {code:RefusalCode::StudyCapturePublicationBusy,effect:FailureEffect::StatementRefused,..})
+    }
+    pub(crate) fn is_conflict(&self) -> bool {
         matches!(self, Self::Driver(error) if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
     }
     pub(crate) fn exhaust_conflict(self, operation: &'static str, attempts: u32) -> Self {
@@ -615,16 +640,6 @@ impl CanonicalOptions {
         database: Option<&str>,
     ) -> Result<Self, CanonicalError> {
         #[derive(serde::Deserialize)]
-        struct Deployment {
-            profile_version: u32,
-            endpoint: String,
-            namespace: String,
-            database: String,
-            schema_interpretation: String,
-            max_message_bytes: usize,
-            credentials_file: String,
-        }
-        #[derive(serde::Deserialize)]
         #[serde(deny_unknown_fields)]
         struct Credentials {
             username: String,
@@ -681,12 +696,11 @@ impl CanonicalOptions {
             }
             std::fs::read(path).map_err(|error| CanonicalError::Configuration(error.to_string()))
         };
-        let deployment: Deployment =
-            serde_json::from_slice(&read(&state.join("config.json"), CONFIGURATION_FILE_BYTES)?)
-                .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        if deployment.profile_version != 3 {
-            return Err(CanonicalError::Configuration("canonical service profile revision 3 required; retire an older profile with fresh-engine and initialize fresh data".into()));
-        }
+        let configuration = read(&state.join("config.json"), CONFIGURATION_FILE_BYTES)?;
+        let deployment: crate::deployment::ServiceIdentity = crate::deployment::projection(&configuration)
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+        let connection: crate::deployment::CanonicalConnectionSettings = crate::deployment::projection(&configuration)
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
         let mut deployment = deployment;
         if let Some(database) = database {
             if database.is_empty()
@@ -713,20 +727,20 @@ impl CanonicalOptions {
                 initializer_nonce.as_deref(),
             )?;
         }
-        if deployment.schema_interpretation != wire::INTERPRETATION {
+        if connection.schema_interpretation != wire::INTERPRETATION {
             return Err(CanonicalError::Interpretation {
                 expected: wire::INTERPRETATION,
-                observed: deployment.schema_interpretation,
+                observed: connection.schema_interpretation,
             });
         }
-        if deployment.max_message_bytes != MESSAGE_BYTES {
+        if connection.max_message_bytes != MESSAGE_BYTES {
             return Err(CanonicalError::Configuration(
                 "unsupported protocol bound".into(),
             ));
         }
         study_module::StudyModuleReceipt::read(state)?;
         let credentials: Credentials = serde_json::from_slice(&read(
-            Path::new(&deployment.credentials_file),
+            Path::new(&connection.credentials_file),
             CREDENTIALS_FILE_BYTES,
         )?)
         .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
@@ -1252,8 +1266,11 @@ impl CanonicalStore {
                 ).await;
                 #[cfg(all(test, feature = "canonical-tests"))]
                 if matches!(&result,Err(CanonicalError::Driver(error)) if matches!(error.query_details(),Some(surrealdb::types::QueryError::TransactionConflict))) { pacing_observation::conflict(problem); }
-                if matches!(&result, Err(CanonicalError::Driver(error))
-                    if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
+                if result.as_ref().err().is_some_and(CanonicalError::is_capture_busy) {
+                    conflict_backoff(4).await;
+                    continue;
+                }
+                if result.as_ref().err().is_some_and(CanonicalError::is_conflict)
                     && attempt + 1 < GUARDED_ATTEMPTS {
                     conflict_backoff(attempt).await;
                     attempt+=1;
@@ -1783,6 +1800,7 @@ impl CanonicalStore {
                             result
                         };
                         if let Err(error) = result {
+                            if error.is_capture_busy() { conflict_backoff(4).await; continue; }
                             // A lost acknowledgment or concurrent identical activation is settled
                             // exclusively by the immutable operation receipt, never by the head.
                             let acknowledgement = self.revision(&stage.operation).await;
@@ -2204,6 +2222,7 @@ impl CanonicalStore {
                     )?);
                 }
                 Err(error) => {
+                    if error.is_capture_busy() { conflict_backoff(4).await; continue; }
                     // This immutable acknowledgment remains meaningful even if the
                     // preparation pin expired after the successful commit.
                     if let Ok(Some(key)) = self.product_acknowledged(product).await {
@@ -2469,36 +2488,6 @@ fn initialization_statement(module: &study_module::StudyModuleReceipt) -> String
     )
 }
 
-/// Bound one native client operation, preserving its typed failure.
-pub(crate) async fn request<F, T>(future: F) -> Result<T, CanonicalError>
-where
-    F: IntoFuture<Output = Result<T, surrealdb::Error>>,
-{
-    within_clock(original_deadline(REQUEST_TIMEOUT), async {
-        future.into_future().await.map_err(Into::into)
-    })
-    .await
-}
-
-// Transaction failures also mark preceding statements NotExecuted. Preserve the substantive failure.
-/// A single checked RPC with a transport deadline; callers retry complete decisions.
-pub(crate) async fn bounded_query<F>(future: F) -> Result<surrealdb::IndexedResults, CanonicalError>
-where
-    F: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
-{
-    complete_response(request(future).await?)
-}
-
-fn complete_response(
-    response: surrealdb::IndexedResults,
-) -> Result<surrealdb::IndexedResults, CanonicalError> {
-    let response = checked(response)?;
-    if response.num_statements() == 0 {
-        return Err(CanonicalError::IncompleteResponse);
-    }
-    Ok(response)
-}
-
 async fn connect_client(
     address: std::net::SocketAddr,
     options: &CanonicalOptions,
@@ -2523,92 +2512,6 @@ async fn connect_client(
         Ok(client)
     })
     .await
-}
-
-/// Rebuild a protected immutable read or idempotent lease transaction after a
-/// conflict. Every attempt rechecks the live pin and reclamation guard; no
-/// scientific decision or partial response is retained across attempts.
-pub(crate) async fn protected_query<F, Q>(
-    operation: &'static str,
-    mut build: F,
-) -> Result<surrealdb::IndexedResults, CanonicalError>
-where
-    F: FnMut() -> Result<Q, CanonicalError>,
-    Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
-{
-    within_clock(original_deadline(REQUEST_TIMEOUT), async {
-        let mut attempt=0;
-            loop {
-            let result=bounded_query(build()?).await;
-            #[cfg(all(test, feature = "canonical-tests"))]
-            if matches!(&result,Err(CanonicalError::Driver(error)) if matches!(error.query_details(),Some(surrealdb::types::QueryError::TransactionConflict))) { pacing_observation::conflict(operation); }
-            match result {
-                Err(CanonicalError::Driver(error))
-                    if matches!(
-                        error.query_details(),
-                        Some(surrealdb::types::QueryError::TransactionConflict)
-                    ) && attempt + 1 < GUARDED_ATTEMPTS =>
-                {
-                    conflict_backoff(attempt).await;
-                    attempt+=1;
-                }
-                result => {
-                    if let Err(error) = &result {
-                        operation_failed(operation, error);
-                    }
-                    return result.map_err(|error| error.exhaust_conflict(operation, GUARDED_ATTEMPTS));
-                }
-            }
-        }
-    })
-    .await
-}
-
-/// Attribute an escaping failure without altering its typed cause or retry authority.
-/// Labels are supplied by callers; bindings and query text are never logged.
-pub(crate) fn operation_failed(operation: &'static str, error: &CanonicalError) {
-    tracing::warn!(operation, error = %error, "canonical operation failed");
-    #[cfg(any(test, feature = "test-support"))]
-    {
-        #[allow(
-            clippy::print_stderr,
-            reason = "explicit test support captures final operation attribution without requiring a tracing subscriber"
-        )]
-        {
-            eprintln!("canonical operation {operation} failed: {error}");
-        }
-    }
-}
-
-// Jitter separates definite conflict retries after the RPC releases its local turn.
-// Each owner rebuilds its complete decision under the original request clock.
-async fn conflict_backoff(attempt: u32) {
-    let jitter = u64::from(uuid::Uuid::new_v4().as_bytes()[0] % 64);
-    tokio::time::sleep(std::time::Duration::from_millis(
-        (10_u64 << attempt.min(4)) + jitter,
-    ))
-    .await;
-}
-
-pub(crate) fn checked(
-    mut response: surrealdb::IndexedResults,
-) -> Result<surrealdb::IndexedResults, CanonicalError> {
-    let errors = response.take_errors().into_values().collect::<Vec<_>>();
-    if !errors.is_empty() {
-        let substantive = errors.iter().position(|error| {
-            !matches!(
-                error.query_details(),
-                Some(
-                    surrealdb::types::QueryError::NotExecuted
-                        | surrealdb::types::QueryError::Cancelled
-                )
-            )
-        });
-        if let Some(error) = errors.into_iter().nth(substantive.unwrap_or(0)) {
-            return Err(error.into());
-        }
-    }
-    Ok(response)
 }
 
 // The native indexed route includes BEGIN and COMMIT result slots. Consumer SELECT
@@ -5670,6 +5573,20 @@ pub(crate) const RELEASE_PROTECTION: &str = r#"BEGIN;
 #[cfg(test)]
 mod source_refusal_tests {
     use super::*;
+    #[test]
+    fn publication_busy_retries_only_the_exact_native_rollback_tag() {
+        let busy=CanonicalError::from(surrealdb::Error::thrown("PSE_REFUSAL:study_capture_publication_busy".into()));
+        assert!(busy.is_capture_busy());
+        assert!(!busy.is_conflict());
+        assert!(busy.source_transaction_refused());
+        assert!(!busy.effect_is_unknown());
+        for text in ["PSE_BUSY:other", "PSE_REFUSAL:study_capture_publication_busy changed", "PSE_REFUSAL:study_capture_publication_gate"] {
+            assert!(!CanonicalError::from(surrealdb::Error::thrown(text.into())).is_capture_busy());
+        }
+        assert!(!CanonicalError::Timeout.is_capture_busy());
+        assert!(!CanonicalError::from(surrealdb::Error::internal(RefusalCode::StudyCapturePublicationBusy.wire().into())).is_capture_busy());
+    }
+
     #[test]
     fn native_refusal_type_is_not_proof_without_the_source_effect_phase() {
         let raw = CanonicalError::Driver(surrealdb::Error::thrown(
