@@ -173,13 +173,19 @@ register crates.
 | `pse-py` | The PyO3 extension `pse._native`, which is the whole Rust/Python boundary ([§21](workflows-and-results.md#section-21)) |
 | `pse-testkit` | Development-only fixtures that use production engine factories; never a production dependency |
 
+The product `pse-canonical-recovery` binary belongs to existing `pse-operations` under
+[ADR-0228](../../adr/0228-canonical-placement-and-recovery-authority.md) (proposed). It owns
+bounded native offline file observations and copy/restore operations; Python retains service,
+manager/cgroup and maintenance authority. The separate xtask recovery fixture has no product
+role. Worker/project root relocation remains separate decision work.
+
 | Non-product member | Role |
 |---|---|
 | `pse-tests-governance` | Workspace invariants: pins, MSRV, unsafe allowlist, error taxonomy, BLAKE3 ownership, shadow structs |
 | `pse-tests-engine` | Engine and catalog inspection, pushdown truthfulness and unified sources |
 | `pse-tests-conformance` | Canonical encoding properties and scientific/native boundary journeys; independent integrity mechanisms live with their production owners |
 | `pse-tests-lifecycle` | Canonical lifecycle and memory-budget behavior |
-| `xtask` | Code generation, governance and tooling; worker and recovery executable composition roots, controlled producer capture and inspection fixtures |
+| `xtask` | Code generation, governance and tooling; current worker composition, recovery fixture/signal controls, controlled producer capture and inspection fixtures |
 | `pse-benches` | Criterion groups for native cache, consolidation, process cases and modeling preparation |
 
 Dependencies point one way. The semantic foundations (`pse-diagnostics`, `pse-ids`,

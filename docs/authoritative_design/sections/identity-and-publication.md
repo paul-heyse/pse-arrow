@@ -481,9 +481,9 @@ never substitutes success for a requested failed result or orders by wall clock.
 > Decision: [ADR-0214](../../adr/0214-surrealmx-canonical-store.md) (proposed; maintainer-authorized Plan49a target). Select pinned SurrealDB3.3.4 with persistent MX1.0, explicit SSI, synchronous AOL/EveryAppend, finite capacity/transaction age and bounded gRPC. gRPC sessions are scoped to their actual physical connection and reclaimed on disconnect; new connections restore acknowledged setup rather than reuse dead-session IDs. Fresh initialization regenerates existing data; historical import/backfill and old-data rollback are not required. Newly generated data retains durable receipts, protected payloads and backup/restore/recovery obligations. STO01–STO08 own implementation and qualification; prior RocksDB/WS evidence does not qualify this target.
 
 One authenticated loopback SurrealDB database holds canonical source revisions, compilation
-products, execution receipts, scientific result descriptors and analysis lineage. Bulk
-result/artifact/seed payloads reside in sealed private files; persistent MX is the selected
-replacement catalog backend. The registry declares their contracts; `pse-operations` supplies
+products, execution receipts, scientific result descriptors and analysis lineage. Small complete
+encoded result/seed/completion bodies may be inline; larger bodies and artifact members retain
+sealed private files. Persistent MX is the catalog backend. The registry declares their contracts; `pse-operations` supplies
 typed operations and generated native structural functions. Scientific computation and bulk
 payload staging stay outside short guarded admission transactions. Ordinary execution
 retains the actual scientific outcome automatically. Explicit ephemeral execution keeps its
@@ -518,7 +518,15 @@ markers prevent those receipts from reopening removed content.
 > 4 MiB RPC admission and the separate 128 KiB index bound. Choose before file work; allocation
 > pressure cannot change placement. Plan56c owns the v9 migration and current delivery status.
 
-**Sealed payload results.** Registry-admitted Arrow rows use completed uncompressed IPC files in the selected private state's `payloads/<payload_incarnation>/<database>/` root. Compatible batches share one file only within an attempt, relation, schema and interpretation. Packing targets 16 MiB and has a 32 MiB hard encoded-file bound; demanded acknowledgements and live-prefix boundaries flush immediately rather than waiting for unrelated work. Logical descriptors retain original ordering/coordinates and bind unique file instance, encoding digest, batch index, schema and interpretation. JSON seed/completion owners retain their exact declared codecs through the same opaque file tier. File framing/layout/integrity admission precedes decoder allocation; neither file completion nor a submitted write is a catalog acknowledgement. Selected qualified coverage belongs to the Plan39d Outcome (§24.2).
+The registry declares canonical key domains, closed enum transitions/projections, explicit
+run purpose and study/admission/variant associations, and backup/retention classification.
+Generated wire codecs retain textual boundary values with typed domain accessors; canonical
+lookup keys remain distinct from scientific semantic identity. Backup inventory consumes the
+same declaration. Producer authority is an explicit General/LibraryMathematics/
+LocalScientificReplay class derived from actual receiving capability, bound in publication and
+candidate identity; receipt prefixes confer no scientific eligibility.
+
+**Payload results.** The inline arm retains one immutable complete encoded body, shared member coordinates, exact digest/extent and an exclusive typed locator. Protected descriptor discovery is separate from prepaid body hydration; inline allocation ownership lasts through native query/response drain. Empty demanded relations are explicit close-inventory entries, and empty bodies refuse before effects. The sealed arm uses completed uncompressed IPC files in the selected private state's `payloads/<payload_incarnation>/<database>/` root. Compatible batches share one file only within an attempt, relation, schema and interpretation. Packing targets 16 MiB and has a 32 MiB hard encoded-file bound; demanded acknowledgements and live-prefix boundaries flush immediately rather than waiting for unrelated work. Logical descriptors retain original ordering/coordinates and bind unique file instance, encoding digest, batch index, schema and interpretation. Seed/completion owners retain their exact declared codecs through the same inline/sealed placement owner. File framing/layout/integrity admission precedes decoder allocation; neither file completion nor a submitted write is a catalog acknowledgement. Selected qualified coverage belongs to the Plan39d Outcome (§24.2).
 
 Sparse scalar indexes and dense output descriptors reference the original IPC batch and
 row/field coordinates; they do not replace it with a second scientific payload. Finite
@@ -532,6 +540,11 @@ values. Unsupported scientific output fields refuse explicitly.
 ### 20.2 Exact coherent publication
 
 > Decision: [ADR-0187](../../adr/0187-sealed-payloads-and-strong-result-snapshots.md) (proposed; Plan38e target).
+
+**Inline publication.** Select the complete encoded body before reserving a file. Its body,
+member descriptors and exact ACK commit atomically. Reuse compares original bytes as well as
+identity; read tickets and canonical references protect retirement. No file instance, file
+reservation, synthetic file UUID or empty-schema marker represents an inline body.
 
 **File publication.** Reserve the original intent and unique physical instance before filesystem work. Finish, validate, synchronize and publish without replacement before transactionally attaching the exact descriptor, references and receipt under current permission. Unresolved intents retain their physical objects. A collecting instance never revives and its path is never reused; delayed unlink cannot target a replacement. Deduplication checks bytes as well as digest/encoding. Semantic content, occurrence, interpretation and physical placement remain distinct. Logical descriptors omit absolute roots and storage incarnation; only closed restore rehomes physical placement, while owner capabilities bind the selected incarnation.
 
@@ -549,8 +562,11 @@ checks the expected parent, frozen descriptor and actual guards before moving a 
 or exposing the product. Large payloads do not enter that visibility transaction.
 
 Immutable operation requests and acknowledgments settle uncertain outcomes by exact
-identity and request comparison. A lost response is not success, absence or permission to
-rerun an effect. Typed transaction conflicts retry the whole guarded decision. Other errors
+identity and request comparison. Shared settlement distinguishes exact ACK, reused immutable
+request, owner-proven refusal/absence and unresolved effect retaining both original and readback
+causes with owner/operation attribution. A missing row supplies no universal absence proof;
+original clocks, cancellation and fences still govern each owner's distinct lifetime. A lost
+response is not success, absence or permission to rerun an effect. Typed transaction conflicts retry the whole guarded decision. Other errors
 remain errors or invoke the operation's exact acknowledgment settlement. Two callers
 publishing the same in-flight product do not take over its live stage: one owns the writer
 fence and the other waits within the request deadline for the immutable acknowledgment.
@@ -1246,6 +1262,18 @@ but lost occurrence retains uncertainty; cancellation alone supplies no absence 
 
 **Operational limits.** The target deployment is authenticated loopback gRPC with persistent
 MX1.0, synchronous AOL/EveryAppend, periodic snapshots and finite server/native-worker allocations. Offline backup closes admission and excludes GC before freezing its catalog, drains authenticated file owners and managed work, and copies the stopped database together with its exact required file closure. Acknowledged unpublished/incomplete data and unresolved intents are included; legitimately absent/unsealed staging remains unresolved. Missing required sealed files fail closure. Completion is published last. Restore validates inventory, integrity and interpretation under a fresh root/incarnation/credentials before activation; old-root cleanup still requires authentic drain. This is an offline operator lifecycle.
+The native product recovery helper owns bounded inventory, stable descriptors, alias/extent/
+digest validation, instance locks and copy/restore publication. Copy holds directory and file
+descriptors, uses anonymous temporary files and no-replace publication, and synchronizes the
+inode and parent; unsupported filesystems refuse. Archive restore does not require source locks
+that belong only to a live placement. Python owns freeze, service/manager/cgroup authentication,
+maintenance and exact target recovery. Uncertain ownership remains protective.
+
+Fresh regeneration preserves recorded telemetry while publishing a closed v9 target. Explicit
+readmission may install current supervisor/receiver/helper artifacts on a stopped, drained
+quiesced or validation-required target, preserving allocation, identity and pending initializer.
+Initialization/validation and application readmission remain separate operations.
+
 These contracts alone do not establish qualification or claim power-loss durability, remote
 deployment support, capacity measurements or comprehensive scientific coverage. Completed selected Plan39/38 acceptance belongs to §24.2 and the Plan39d Outcome.
 Plan28's remaining independent campaign belongs to the

@@ -474,7 +474,7 @@ The underlying tool commands are:
 
 ```bash
 scripts/pse-env --resource-class compile -- .venv/bin/python scripts/surreal_server.py build-server
-.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v8
+.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v9
 .venv/bin/python scripts/surreal_server.py initialize --initializer-command target/debug/xtask canonical-init "$PSE_SURREAL_STATE"
 .venv/bin/python scripts/surreal_server.py start
 .venv/bin/python scripts/surreal_server.py status
@@ -518,10 +518,10 @@ selection. Initialize the new identity before normal start; no mixed policy vers
 are accepted. Blueprint §19.3/§20.6 own the enduring contract, and Plan49 owns selected
 qualification and its limits.
 
-The current generated interpretation is `pse.substrate.v8`, including native physical
+The current generated interpretation is `pse.substrate.v9`, including native physical
 attempt phases, typed refusals, immutable record identities, independent
 scientific artifacts, copied study inputs and releasable detail history with permanent
-identity fences, sealed payload descriptors and nonexpiring exact manifest tickets. Fresh stores and evidence replace earlier design-phase data. These commands
+identity fences, explicit canonical key/producer/association meaning, inline/sealed payload locators and nonexpiring exact manifest tickets. Fresh stores and evidence replace earlier design-phase data. These commands
 do not authorize activation, migration or deletion of an existing deployment;
 an existing interpretation mismatch still refuses ordinary startup/admission.
 
@@ -681,7 +681,7 @@ Timing uses a dedicated state and endpoint. With an already built linked worker:
 ```bash
 timing_state="${XDG_STATE_HOME:-$HOME/.local/state}/pse-arrow/surreal-timing-v2"
 scripts/pse-env --resource-class timing -- just surreal setup --state "$timing_state" \
-  --port 18242 --interpretation pse.substrate.v8 --execution-profile timing \
+  --port 18242 --interpretation pse.substrate.v9 --execution-profile timing \
   --worker-executable "$PWD/target/debug/pse-worker"
 scripts/pse-env --resource-class timing -- just surreal start --state "$timing_state"
 ```
@@ -696,7 +696,21 @@ Changing an existing selected service profile requires stopped, drained `reconfi
 
 For an explicitly selected older owned profile, quiesce and drain all contexts, stop,
 then use `upgrade` for the supported profile revision or `readmit` for the stopped
-service closure/selection credentials. Those commands preserve earlier profile and
+service closure/selection credentials. Readmission also accepts a stopped, drained target with
+`validation_required` admission: current artifacts can be installed without opening writes or
+replacing its exact pending initializer. After authorized fresh regeneration, explicitly select
+its unchanged execution profile and current artifacts, then resume initialization:
+
+```bash
+just surreal readmit --state "$PSE_SURREAL_STATE" --execution-profile functional \
+  --worker-executable "$PWD/target/debug/pse-worker" \
+  --payload-verifier "$PWD/target/debug/pse-canonical-recovery"
+just canonical-init "$PSE_SURREAL_STATE"
+just surreal start --state "$PSE_SURREAL_STATE"
+```
+
+A differing profile/allocation refuses; readmission is not reconfiguration. Recorded telemetry
+survives fresh regeneration and artifact readmission. These commands preserve earlier profile and
 credential evidence. Unknown or incompatible profiles are refused. `ensure`, `drain`
 and `recover` operate only on the selected ownership; status is read-only and redacts
 secrets. A wider allocation must be explicitly admitted before launching its roles.
@@ -811,7 +825,7 @@ An interrupted incomplete copy lacks a valid complete manifest and is not a read
 Inspect a copied application backup independently of its source service:
 
 ```bash
-just surreal inspect-backup --source /path/to/new-backup --interpretation pse.substrate.v8 --payload-verifier /absolute/path/to/pse-canonical-recovery
+just surreal inspect-backup --source /path/to/new-backup --interpretation pse.substrate.v9 --payload-verifier /absolute/path/to/pse-canonical-recovery
 ```
 
 `inspect-backup` shares restore's version-4 inventory, interpretation and required-file validation,
@@ -826,9 +840,15 @@ their original state. Only the existing explicit restore/maintenance owner can s
 current authority and validation fences. Native log/snapshot completion alone does not establish a
 complete application backup.
 
-## Sealed files and owner recovery
+## Payload placement and owner recovery
 
-Result files are complete uncompressed IPC files, packed within one attempt, relation,
+One complete admitted encoding through 64 KiB inclusive is stored inline before any file
+reservation. Member descriptors share one immutable body, exact bytes/digest and protected
+read-ticket/reference lifetime. The 2 MiB append target is separate from the 128 KiB index and
+4 MiB RPC bounds. Empty demanded relations use explicit closure entries rather than empty
+payload bodies. Allocation pressure does not choose a different placement.
+
+Larger result files are complete uncompressed IPC files, packed within one attempt, relation,
 schema and interpretation. Packing targets 16 MiB with a 32 MiB hard bound and flushes
 at demanded acknowledgment/live-prefix boundaries. Opaque JSON seed/progress payloads
 retain their encoding. Catalog acknowledgments bind the exact file instance, digest,
@@ -839,6 +859,19 @@ logical caller prevents new admission while existing read continuations remain p
 physical disconnect waits for file effects and read drain. Copied Arrow buffers retain
 allocation owners after snapshot release. Creation deadlines remain finite permission
 controls and do not shorten admitted-reader lifetime.
+
+Build the product helper explicitly:
+
+```bash
+scripts/pse-env -- .venv/bin/python -m scripts.arrow_validation build \
+  -p pse-operations --bin pse-canonical-recovery \
+  --features canonical-maintenance --locked
+```
+
+Fixture and signal controls belong to the separate xtask `pse-canonical-recovery-fixture`.
+Native operations retain exact file/instance locks and stable descriptors through integrity,
+copy and synchronization; Python delegates those facts while retaining freeze/maintenance
+orchestration. Inline bodies travel with the canonical database and never acquire file entries.
 
 Backup, backup inspection and restore require an explicitly built native verifier selected by
 `--payload-verifier /absolute/path/to/pse-canonical-recovery`. Its executable digest is
@@ -858,9 +891,9 @@ Restore into a new or empty owned target, never over an existing application:
 
 ```bash
 .venv/bin/python scripts/surreal_server.py restore --state /path/to/restored-state \
-  --source /path/to/new-backup --interpretation pse.substrate.v8
+  --source /path/to/new-backup --interpretation pse.substrate.v9
 .venv/bin/python scripts/surreal_server.py validate --state /path/to/restored-state \
-  --interpretation pse.substrate.v8 --check-command <typed-semantic-validator> <arguments>
+  --interpretation pse.substrate.v9 --check-command <typed-semantic-validator> <arguments>
 .venv/bin/python scripts/surreal_server.py start --state /path/to/restored-state
 ```
 
@@ -885,7 +918,7 @@ recovery compares complete schema metadata and exact float/binary bits while dis
 metadata map order and transport chunk boundaries.
 
 `validate` starts the gated server, authenticates against `pse/canonical`, and requires
-`canonical_interpretations:current.interpretation` to match `pse.substrate.v8`. It then
+`canonical_interpretations:current.interpretation` to match `pse.substrate.v9`. It then
 runs the supplied semantic validator with `PSE_SURREAL_STATE` selecting the restore.
 Under the exact restored incarnation, validation atomically admits protected file readers
 while keeping GC frozen and application writes closed. Every exit refreezes file admission

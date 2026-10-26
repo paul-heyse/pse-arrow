@@ -201,7 +201,14 @@ have passed; they do not establish assembled acceptance.
 The owned fixture `build/qualification/56c-v8-PMtzWmL1` first retained an actual v8 failed-check
 result, then underwent authorized fresh regeneration. A real interruption after publishing the
 pending target refused startup; resume reused the exact v9 target and removed the old database.
-Admission remains closed. Initialization exposed a lifecycle gap between the omitted telemetry
-selection and readmission's quiesced-only guard. Repairing that transition, completing current
-receiver admission and running the composed database/public/recovery journeys remain required.
-No C package is complete yet. Other stores and prior 56b artifacts remain preserved.
+Initialization exposed a lifecycle gap between the omitted telemetry selection and readmission's
+quiesced-only guard. The repaired explicit readmission preserved the exact closed target and its
+initializer; initialization and normal startup then succeeded with current receiver/helper
+artifacts. Fresh regeneration now preserves recorded telemetry selection.
+
+The first assembled database selection exposed a missing study-scope association projection,
+stale fixture/knowledge expectations, an undeclared research-test effect and a fixture bridge
+that omitted registration's original deadline. These are being corrected at their owners before
+regeneration and composed acceptance. The service is being drained/stopped for the corrected
+source baseline. Public and mixed recovery journeys remain required. No C package is complete
+yet. Other stores and prior 56b artifacts remain preserved.
