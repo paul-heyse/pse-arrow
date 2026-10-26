@@ -16,6 +16,10 @@ pub(crate) use history::verify_historical_evidence;
 #[path = "producer_preparation.rs"]
 mod preparation;
 pub(crate) use preparation::begin as begin_preparation;
+#[path = "producing_inputs.rs"]
+mod producing_inputs;
+pub(crate) use producing_inputs::extract as currency_inputs;
+pub(crate) use producing_inputs::graph as currency_graph;
 
 use anyhow::{Context, Result, ensure};
 use pse_ids::{EncodingHasher, Frame, FramedHasher};
@@ -829,6 +833,9 @@ fn observed_graph_arguments(arguments: &[String]) -> Vec<String> {
     let mut result = Vec::new();
     let mut index = 0;
     while index < arguments.len() {
+        if arguments[index] == "--" {
+            break;
+        }
         let name = arguments[index].split('=').next().unwrap();
         if ["--message-format", "--color"].contains(&name) {
             if !arguments[index].contains('=') {
@@ -840,6 +847,7 @@ fn observed_graph_arguments(arguments: &[String]) -> Vec<String> {
         index += 1;
     }
     result.extend(["--unit-graph".into(), "-Zunstable-options".into()]);
+    result.extend_from_slice(&arguments[index..]);
     result
 }
 

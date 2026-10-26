@@ -17,6 +17,7 @@ from unittest.mock import patch
 
 from scripts import evidence_store, resource_store, service_borrowers, surreal_server
 from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
+from scripts.tests.producing_receipt_fixture import executable
 
 
 class EvidenceStoreTests(unittest.TestCase):
@@ -26,6 +27,7 @@ class EvidenceStoreTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.state = Path(temporary.name) / "service"
         self.state.mkdir(mode=0o700)
+        self.enterContext(patch.object(evidence_store, "ROOT", self.state.parent))
         self.config: dict[str, object] = {
             "owner": surreal_server.OWNER,
             "profile_version": 3,
@@ -169,6 +171,7 @@ class EvidenceStoreTests(unittest.TestCase):
         tool = self.state / "built-xtask"
         tool.write_text("#!/bin/sh\nexit 0\n")
         tool.chmod(0o700)
+        executable(self.state.parent, tool)
         with (
             patch.object(surreal_server, "owns_listener", return_value=True),
             patch.object(
@@ -189,7 +192,7 @@ class EvidenceStoreTests(unittest.TestCase):
             )
         command = run.call_args.args[0]
         self.assertEqual(
-            command[:4], [str(tool), "evidence", "--state", str(self.state)]
+            command[1:4], ["evidence", "--state", str(self.state)]
         )
         self.assertIn("--timeout-ms", command)
         self.assertNotIn("cargo", command)
@@ -204,13 +207,15 @@ class EvidenceStoreTests(unittest.TestCase):
             int(run.call_args.kwargs["env"]["PSE_TOOLING_ACTIVITY_FD"]),
             run.call_args.kwargs["pass_fds"][0],
         )
-        self.assertEqual(len(run.call_args.kwargs["pass_fds"]), 1)
+        self.assertEqual(len(run.call_args.kwargs["pass_fds"]), 2)
+        self.assertEqual(command[0], f"/proc/self/fd/{run.call_args.kwargs['pass_fds'][1]}")
 
     def test_foreign_or_unavailable_listener_refuses_before_native_launch(self) -> None:
         self.prepare()
         tool = self.state / "built-xtask"
         tool.write_text("#!/bin/sh\nexit 0\n")
         tool.chmod(0o700)
+        executable(self.state.parent, tool)
         with (
             patch.object(surreal_server, "owns_listener", return_value=False),
             patch.object(evidence_store.subprocess, "run") as run,

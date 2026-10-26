@@ -144,6 +144,24 @@ enum Cmd {
         output: PathBuf,
     },
     ProducerIdentity(Box<ProducerIdentityArgs>),
+    /// Extract bounded ordinary-build currency inputs from actual Cargo evidence.
+    ProducingInputs {
+        #[arg(long)]
+        graph: PathBuf,
+        #[arg(long)]
+        messages: PathBuf,
+        #[arg(long)]
+        metadata: PathBuf,
+        #[arg(long)]
+        output: PathBuf,
+    },
+    /// Observe the original ordinary installer's exact selected Cargo unit graph.
+    ProducingGraph {
+        #[arg(long)]
+        arguments: PathBuf,
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Refresh the finite strict preparation family union before any role capture.
     ProducerPreparationBegin {
         #[arg(long)]
@@ -369,6 +387,12 @@ fn main() -> Result<()> {
         Cmd::ProducerIdentityFixture { output } => {
             producer_identity::qualified_fixture(&root, &output)?;
             Ok(())
+        }
+        Cmd::ProducingInputs { graph, messages, metadata, output } => {
+            producer_identity::currency_inputs(&root, &graph, &messages, &metadata, &output)
+        }
+        Cmd::ProducingGraph { arguments, output } => {
+            producer_identity::currency_graph(&root, &arguments, &output)
         }
         Cmd::VerifyNativeProvider {
             receipt,

@@ -153,7 +153,7 @@ canonical-init state:
 [group('local')]
 [doc('Explicitly build the dedicated tooling evidence operator; inspection never builds it implicitly')]
 evidence-build:
-    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin pse-evidence --no-default-features --features evidence-tools --locked
+    scripts/pse-env --native= -- "{{ py }}" -m scripts.evidence_store build
 
 [group('local')]
 [doc('Inspect supplied evidence offline or explicitly manage its independently disposable index')]

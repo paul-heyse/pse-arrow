@@ -15,6 +15,7 @@ from unittest.mock import patch
 
 from scripts import evidence_store
 from scripts.capabilities import evidence_worker
+from scripts.tests.producing_receipt_fixture import executable
 from scripts.capabilities.native_contracts import BINDINGS
 
 
@@ -31,9 +32,11 @@ class EvidenceComparisonDispatchTests(unittest.TestCase):
             tool = directory / "tool"
             tool.write_text("#!/bin/sh\nexit 0\n")
             tool.chmod(0o700)
+            executable(directory, tool)
             original_request = request.read_bytes()
             original_source = source.read_bytes()
             with (
+                patch.object(evidence_store, "ROOT", directory),
                 patch.dict(
                     os.environ, {"PSE_SURREAL_STATE": str(directory / "unavailable")}
                 ),
@@ -60,7 +63,7 @@ class EvidenceComparisonDispatchTests(unittest.TestCase):
             self.assertEqual(
                 run.call_args.args[0],
                 [
-                    str(tool),
+                    f"/proc/self/fd/{run.call_args.kwargs['pass_fds'][0]}",
                     "evidence",
                     "compare-offline",
                     "--request",
@@ -122,7 +125,9 @@ class PrivateEvidenceWorkerTests(unittest.TestCase):
                 "print(json.dumps({'cut':'private-cut','request':request,'sources':sources}))\n"
             )
             tool.chmod(0o700)
+            executable(root, tool)
             with (
+                patch.object(evidence_store, "ROOT", root),
                 patch.object(
                     evidence_worker,
                     "SchemaSet",

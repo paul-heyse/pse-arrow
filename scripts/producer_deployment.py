@@ -13,15 +13,12 @@ import argparse
 import fcntl
 import json
 import os
-import shutil
 import subprocess
 import sys
-import tempfile
-from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, TypeAlias
 
-from scripts import producer_cargo, producer_receipts, python_extension
+from scripts import installed_artifact, producer_cargo, producer_receipts, python_extension
 from scripts.producer_cargo import EFFECTIVE_ENVIRONMENT as DECLARED_ENVIRONMENT
 
 if TYPE_CHECKING:
@@ -200,79 +197,15 @@ def bind_python_artifact(
     original = Path(str(built["path"]))
     verify_artifact(root, path, original, environment)
     installed = producer_receipts.file_observation(imported)
-    transformation: dict[str, object] = {"kind": "identical-bytes"}
-    if installed["sha256"] != built["sha256"]:
-        messages = [
-            json.loads(line)
-            for line in str(evidence["stdout"]).splitlines()
-            if line.startswith("{")
-        ]
-        linked = []
-        for message in messages:
-            if message.get("reason") != "build-script-executed":
-                continue
-            libraries = message.get("linked_libs", [])
-            if not any(
-                "=" not in value or value.split("=", 1)[0].startswith("dylib")
-                for value in libraries
-            ):
-                continue
-            for value in message.get("linked_paths", []):
-                if "=" not in value:
-                    linked.append(value)
-                elif value.split("=", 1)[0] in {"native", "all"}:
-                    linked.append(value.split("=", 1)[1])
-        old = (
-            subprocess.check_output(
-                ["patchelf", "--print-rpath", str(original)], text=True
-            )
-            .strip()
-            .split(":")
-        )
-        old = [value for value in old if value]
-        actual = (
-            subprocess.check_output(
-                ["patchelf", "--print-rpath", str(imported)], text=True
-            )
-            .strip()
-            .split(":")
-        )
-        # Maturin 1.15 editable install appends dynamic linked paths absent from
-        # the original RPATH. Cargo's independent message scheduling can reorder
-        # the appended paths; their exact multiplicity and original prefix remain.
-        appended = [value for value in linked if value not in old]
-        if actual[: len(old)] != old or Counter(actual[len(old) :]) != Counter(
-            appended
-        ):
-            raise ValueError(
-                "Imported extension is not the admitted Maturin RPATH transformation"
-            )
-        with tempfile.TemporaryDirectory() as scratch:
-            replay = Path(scratch) / original.name
-            shutil.copyfile(original, replay)
-            subprocess.run(["patchelf", "--remove-rpath", str(replay)], check=True)
-            subprocess.run(
-                [
-                    "patchelf",
-                    "--force-rpath",
-                    "--set-rpath",
-                    ":".join(actual),
-                    str(replay),
-                ],
-                check=True,
-            )
-            replayed = producer_receipts.file_observation(replay)["sha256"]
-            if replayed != installed["sha256"]:
-                raise ValueError(
-                    "Imported extension differs beyond the admitted RPATH-only transformation"
-                )
-            transformation = {
-                "kind": "maturin-rpath-only",
-                "original_rpath": old,
-                "installed_rpath": actual,
-                "appended_rpaths": appended,
-                "replayed_sha256": replayed,
-            }
+    messages = [
+        json.loads(line)
+        for line in str(evidence["stdout"]).splitlines()
+        if line.startswith("{")
+    ]
+    transformation = installed_artifact.associate(
+        original, imported, str(built["sha256"]), str(installed["sha256"]),
+        messages, environment=environment,
+    )
     association = receipt["deployment"]
     if not isinstance(association, dict):
         raise TypeError("Python deployment association absent")

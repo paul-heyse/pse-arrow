@@ -369,29 +369,25 @@ RUST_INPUTS = (
     # Keep their conservative owner closure rather than filename-prefix guesses.
     "scripts",
 )
+PYTHON_EXTENSION_SUPPORT_INPUTS = (
+    "rust-toolchain.toml", ".python-version", "pyproject.toml", "uv.lock", ".envrc", ".envrc.local",
+    ".config/build.toml", ".config/sccache.toml", "scripts/sccache", "scripts/compiler_cache.py",
+    "scripts/python_extension.py", "scripts/native_tests.py", "scripts/arrow_validation.py",
+    "scripts/pse_env.py", "scripts/build_environment.py", "scripts/native_cache.py", "scripts/native_operation.py",
+    "scripts/producer-cargo", "scripts/producer_cargo.py", "scripts/producing_currency.py", "scripts/installed_artifact.py",
+)
+
 INPUT_SCOPES = {
     # Ordinary editable installation consumes Rust/package declarations, never
     # arbitrary Python source bytes. Stub production has its own generator closure.
     "python-extension": (
         "Cargo.toml",
         "Cargo.lock",
-        "rust-toolchain.toml",
-        ".python-version",
-        "pyproject.toml",
-        "uv.lock",
+        *(name for name in PYTHON_EXTENSION_SUPPORT_INPUTS if not name.startswith(".envrc")),
         ".cargo",
         "crates",
         "vendor",
         "packages",
-        ".config/build.toml",
-        ".config/sccache.toml",
-        "scripts/python_extension.py",
-        "scripts/native_tests.py",
-        "scripts/arrow_validation.py",
-        "scripts/pse_env.py",
-        "scripts/build_environment.py",
-        "scripts/native_cache.py",
-        "scripts/native_operation.py",
     ),
     "python-stubs": (
         "Cargo.toml",

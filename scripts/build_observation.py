@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 
 from scripts import (
@@ -172,7 +173,12 @@ class BuildObservation:
             pass  # Diagnostics cannot change Cargo's exit or compilation policy.
 
 
-def run_command(command: list[str], *, env: dict[str, str]) -> int:
+def run_command(
+    command: list[str],
+    *,
+    env: dict[str, str],
+    record: Callable[[bytes, str], None] | None = None,
+) -> int:
     """Preserve both byte streams and the command's exit while observing records."""
     child = subprocess.Popen(
         command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE
@@ -212,9 +218,15 @@ def run_command(command: list[str], *, env: dict[str, str]) -> int:
                             line, buffers[name] = buffers[name].split(b"\n", 1)
                             if observation is not None:
                                 observation.message(line, name)
+                            if record is not None:
+                                record(line, name)
                         buffers[name] = buffers[name][-1024 * 1024 :]
                     if observation is not None:
                         observation.publish()
+                if record is not None:
+                    for name, remaining in buffers.items():
+                        if remaining:
+                            record(remaining, name)
             code = child.wait()
             if observation is not None:
                 observation.value["exit_code"] = code

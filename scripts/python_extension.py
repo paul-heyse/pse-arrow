@@ -12,6 +12,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal
@@ -21,9 +22,22 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
-from scripts import arrow_validation
+from scripts import arrow_validation, producing_currency
 
 ROOT = Path(__file__).resolve().parents[1]
+PRODUCING_WITNESS = producing_currency.Witness()
+
+# Positive compiler/installer selectors supplement actual dep-info and build
+# directives, including newly introduced values in these supported namespaces.
+PRODUCING_ENVIRONMENT_PREFIXES = (
+    "CARGO_", "RUST", "PYO3_", "MATURIN_", "BINDGEN_", "PKG_CONFIG_",
+    "CMAKE_", "CC_", "CXX_", "SCCACHE_", "PYTHON_", "_PYTHON_",
+)
+PRODUCING_ENVIRONMENT = (
+    "PATH", "HOME", "TMPDIR", "TEMP", "TMP", "LD_LIBRARY_PATH", "LIBRARY_PATH",
+    "CPATH", "C_INCLUDE_PATH", "CPLUS_INCLUDE_PATH", "PYTHONPATH", "PYTHONHOME",
+    "PYTHONNOUSERSITE",
+)
 
 
 class ExtensionContract(BaseModel):
@@ -664,7 +678,12 @@ def preparation_inputs(
             [
                 str(selected_python),
                 "-c",
-                "import json,sys,sysconfig; print(json.dumps({'executable':sys.executable,'prefix':sys.prefix,'version':sys.version,'config':sysconfig.get_config_vars()}))",
+                "import importlib,json,pathlib,sys,sysconfig; "
+                "data=importlib.import_module(sysconfig._get_sysconfigdata_name()); "
+                "paths=[sysconfig.__file__,data.__file__,sysconfig.get_config_h_filename(),sysconfig.get_makefile_filename(),getattr(sysconfig,'__cached__',None),getattr(data,'__cached__',None)]; "
+                "libdir=sysconfig.get_config_var('LIBDIR'); library=sysconfig.get_config_var('LDLIBRARY'); "
+                "paths += [str(pathlib.Path(libdir)/library)] if libdir and library else []; "
+                "print(json.dumps({'executable':sys.executable,'prefix':sys.prefix,'version':sys.version,'config':sysconfig.get_config_vars(),'files':[p for p in paths if p]}))",
             ],
             cwd=ROOT,
             env=probe_environment,
@@ -804,17 +823,22 @@ def currency_check(
         recorded = ExtensionArtifact.model_validate(previous.get("artifact"))
     except ValueError:
         return observed("unknown", "missing-preparation-evidence")
-    if (
-        not isinstance(inputs, dict)
-        or inputs.get("schema") != "ordinary-editable-inputs-v1"
-    ):
+    if not isinstance(inputs, dict) or inputs.get("schema") not in {
+        "ordinary-editable-inputs-v1", "producing-cargo-inputs-v1"
+    }:
         return observed(
             "unsupported", "unsupported-preparation-evidence", receipt_recorded=True
         )
     try:
-        current = preparation_inputs(
-            "python-extension", mode, profile, environment, validated=validated
-        )
+        if inputs.get("schema") == "producing-cargo-inputs-v1":
+            producing = previous.get("producing")
+            if not isinstance(producing, dict) or not isinstance(producing.get("selection"), dict) or not isinstance(producing.get("association"), dict):
+                return observed("unsupported", "unsupported-preparation-evidence", receipt_recorded=True)
+            current = producing_inputs(producing["selection"], environment, mode=mode, profile=profile, validated=validated)
+        else:
+            current = preparation_inputs(
+                "python-extension", mode, profile, environment, validated=validated
+            )
     except (OSError, ValueError, TypeError, subprocess.SubprocessError):
         return observed("unknown", "inputs-unavailable", receipt_recorded=True)
     if current is None:
@@ -834,9 +858,18 @@ def currency_check(
         )
     try:
         before = artifact_stamp(recorded)
-        artifact = ExtensionArtifact.model_validate(
-            capture(environment, validated=validated, native=mode == "native")
-        )
+        if inputs.get("schema") == "producing-cargo-inputs-v1":
+            identity = PRODUCING_WITNESS.file(Path(recorded.binary))
+            if (Path(recorded.binary).parent != (ROOT / "python/pse").resolve()
+                    or identity["sha256"] != recorded.sha256
+                    or validated and "force-validate" not in recorded.features
+                    or mode == "native" and "native-solvers" not in recorded.features):
+                return observed("stale", "artifact-changed", **facts)
+            artifact = recorded
+        else:
+            artifact = ExtensionArtifact.model_validate(
+                capture(environment, validated=validated, native=mode == "native")
+            )
         after = artifact_stamp(artifact)
     except (OSError, ValueError, TypeError, subprocess.SubprocessError):
         return observed("unknown", "import-unavailable", **facts)
@@ -883,6 +916,159 @@ def publish_receipt(path: Path, value: dict[str, object]) -> None:
     validation.write_json(path, value)
 
 
+def observed_installation(
+    command: Sequence[str], environment: Mapping[str, str]
+) -> tuple[int, dict[str, object] | None]:
+    """Capture actual ordinary Cargo input selection; unsupported stays conservative."""
+    from scripts import producer_cargo  # noqa: PLC0415
+
+    extractor = ROOT / "target/debug/xtask"
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text()).get("tool", {}).get("maturin", {})
+    if (not extractor.is_file() or config.get("strip") or config.get("pgo-command")
+            or any(name.startswith(("PYO3_CROSS", "MATURIN_")) for name in environment)):
+        return subprocess.call(command, cwd=ROOT, env=environment), None
+    with tempfile.TemporaryDirectory(prefix="pse-ordinary-installation-") as temporary:
+        selected = producer_cargo.configure_currency(ROOT, Path(temporary), environment)
+        code = subprocess.call(command, cwd=ROOT, env=selected)
+        if code:
+            return code, None
+        path = Path(selected[producer_cargo.CURRENCY_CAPTURE])
+        status = read_receipt(path.with_suffix(".status.json"))
+        if status.get("supported") is not True:
+            print("producing-currency: retained conservative preparation checks (" + str(status.get("cause", "observation-unavailable")) + ")", file=sys.stderr)
+            return 0, None
+        inputs = read_receipt(path.with_suffix(".inputs.json"))
+        invocation = read_receipt(path.with_suffix(".selection.json"))
+        if not inputs or not invocation:
+            return 0, None
+        return 0, {"inputs": inputs, "invocation": invocation}
+
+
+def producing_selection(
+    observed: dict[str, object], context: dict[str, object]
+) -> dict[str, object]:
+    """Bind preparation tools/configuration to the actual producing selection."""
+    from scripts import producer_cargo, validation_scope  # noqa: PLC0415
+
+    raw = observed.get("inputs")
+    if not isinstance(raw, dict):
+        raise ValueError("missing producing input observation")
+    selection = dict(raw)
+    files = set(producing_currency.string_list(selection.get("files")))
+    files.update(str(ROOT / name) for name in validation_scope.PYTHON_EXTENSION_SUPPORT_INPUTS)
+    for section in ("tools", "configuration"):
+        values = context.get(section)
+        if not isinstance(values, dict):
+            raise ValueError("missing producing tool/configuration identity")
+        for value in values.values():
+            if isinstance(value, dict) and isinstance(value.get("path"), str):
+                files.add(value["path"])
+    selected_interpreter = context.get("interpreter")
+    if not isinstance(selected_interpreter, dict):
+        raise ValueError("missing producing interpreter identity")
+    for key in ("binary", "venv"):
+        value = selected_interpreter.get(key)
+        if not isinstance(value, dict) or not isinstance(value.get("path"), str):
+            raise ValueError("missing producing interpreter file")
+        files.add(value["path"])
+    configuration = selected_interpreter.get("configuration")
+    if not isinstance(configuration, dict):
+        raise ValueError("missing producing interpreter configuration")
+    files.update(producing_currency.string_list(configuration.get("files")))
+    selection["files"] = sorted(files)
+    selection["environment"] = sorted(set(producing_currency.string_list(selection.get("environment"))) |
+                                        set(PRODUCING_ENVIRONMENT) | set(producer_cargo.EFFECTIVE_ENVIRONMENT))
+    selection["invocation"] = observed.get("invocation")
+    selection["generations"] = context.get("generations")
+    if isinstance(selection["generations"], dict):
+        for generation in selection["generations"].values():
+            if isinstance(generation, dict) and isinstance(generation.get("receipt"), dict):
+                path = generation["receipt"].get("path")
+                if isinstance(path, str):
+                    files.add(path)
+    selection["files"] = sorted(files)
+    return producing_currency.retained_selection(selection)
+
+
+def producing_inputs(
+    selection: dict[str, object], environment: Mapping[str, str], *,
+    mode: str, profile: str, validated: bool, stage: str = "python-extension",
+) -> dict[str, object] | None:
+    """Read only changed relevant files; tools and interpreter are witnessed inputs."""
+    from scripts import native_operation  # noqa: PLC0415
+
+    if any(name.startswith(("PYO3_CROSS", "MATURIN_")) for name in environment):
+        return None
+    generations = selection.get("generations")
+    if not isinstance(generations, dict):
+        return None
+    if mode == "native":
+        for name, expected in generations.items():
+            if not isinstance(expected, dict):
+                return None
+            prefix = expected.get("prefix")
+            selected = environment.get(name)
+            if not isinstance(prefix, str) or not selected:
+                return None
+            path = Path(selected).resolve()
+            if name == "SUITESPARSE_LIBRARY_DIR":
+                path = path.parent
+            if str(path) != prefix:
+                return None
+            admitted = native_operation.remembered("prefix:" + prefix)
+            if admitted != expected.get("admission"):
+                return None
+    names = set(producing_currency.string_list(selection.get("environment")))
+    names.update(name for name in environment if name.startswith(PRODUCING_ENVIRONMENT_PREFIXES))
+    observed = PRODUCING_WITNESS.inputs({**selection, "environment": sorted(names)}, environment)
+    return {"schema": "producing-cargo-inputs-v1", "stage": stage, "mode": mode,
+            "profile": profile, "validated": validated, **observed,
+            "configuration": {"producing-selection": producing_currency.basis(selection)}}
+
+
+def installed_association(
+    selection: dict[str, object], installed: dict[str, object], environment: Mapping[str, str]
+) -> dict[str, object] | None:
+    """Associate the imported installation with its actual Cargo root output."""
+    records = selection.get("root_artifacts")
+    if not isinstance(records, list):
+        return None
+    names = set()
+    for record in records:
+        if not isinstance(record, dict) or not isinstance(record.get("filenames"), list):
+            return None
+        for name in record["filenames"]:
+            if isinstance(name, str) and Path(name).suffix in {".so", ".pyd", ".dylib"}:
+                names.add(name)
+    if len(names) != 1:
+        return None
+    built = PRODUCING_WITNESS.file(Path(names.pop()))
+    from scripts import installed_artifact  # noqa: PLC0415
+
+    invocation = selection.get("invocation")
+    recorded = invocation.get("artifacts") if isinstance(invocation, dict) else None
+    if not isinstance(recorded, dict) or recorded.get(str(built["path"])) != built:
+        return None
+    messages = selection.get("build_scripts")
+    if not isinstance(messages, list) or any(not isinstance(message, dict) for message in messages):
+        return None
+    try:
+        before = producing_currency.stamp(Path(str(installed["binary"])))
+        transformation = installed_artifact.associate(
+            Path(str(built["path"])), Path(str(installed["binary"])),
+            str(built["sha256"]), str(installed["sha256"]), messages,
+            environment=environment,
+        )
+        if before != producing_currency.stamp(Path(str(installed["binary"]))):
+            return None
+        tool = transformation.get("tool")
+        if isinstance(tool, str):
+            selection["files"] = sorted(set(producing_currency.string_list(selection.get("files"))) | {tool})
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    return {"built": built, "installed": installed, "transformation": transformation}
+
+
 def extension_prepare(
     mode: str, profile: str, environment: Mapping[str, str], *, validated: bool = True
 ) -> StageResult:
@@ -892,11 +1078,16 @@ def extension_prepare(
     )
     # Refuse unsupported correctness selections before any currency shortcut.
     maturin_cargo_command(command, ROOT)
+    path = stage_receipt("extension", environment)
+    previous = read_receipt(path)
+    previous_inputs = previous.get("inputs")
+    if isinstance(previous_inputs, dict) and previous_inputs.get("schema") == "producing-cargo-inputs-v1":
+        current = currency_check(environment, mode=mode, profile=profile, validated=validated)
+        if current.state == "current":
+            return StageResult(stage="prepare", status="reused", receipt=str(path), artifact=current.artifact)
     inputs = preparation_inputs(
         "python-extension", mode, profile, environment, validated=validated
     )
-    path = stage_receipt("extension", environment)
-    previous = read_receipt(path)
     if inputs is not None and previous.get("inputs") == inputs:
         # A stale or unsupported preparation must build regardless of the old
         # installed bytes. Import/hash them only when they can establish reuse.
@@ -918,7 +1109,7 @@ def extension_prepare(
             )
     if validated:
         command = validated_maturin_command(command, environment)
-    result = subprocess.call(command, cwd=ROOT, env=environment)
+    result, producing = observed_installation(command, environment) if inputs is not None else (subprocess.call(command, cwd=ROOT, env=environment), None)
     if result:
         return StageResult(stage="prepare", status="failed", exit_code=result)
     installed = capture(environment, validated=validated, native=mode == "native")
@@ -930,7 +1121,17 @@ def extension_prepare(
     # Bind installed/imported bytes. Maturin may legitimately transform editable
     # RPATH bytes, so raw Cargo-artifact equality is not a currency premise.
     if inputs is not None:
-        publish_receipt(path, {"inputs": inputs, "artifact": installed})
+        receipt: dict[str, object] = {"inputs": inputs, "artifact": installed}
+        if producing is not None:
+            selection = producing_selection(producing, inputs)
+            association = installed_association(selection, installed, environment)
+            if association is not None:
+                selected_inputs = producing_inputs(selection, environment, mode=mode, profile=profile, validated=validated)
+                if selected_inputs is not None:
+                    receipt.update(inputs=selected_inputs, producing={"selection": selection, "association": association})
+            else:
+                print("producing-currency: retained conservative preparation checks (installed-artifact-association-unavailable)", file=sys.stderr)
+        publish_receipt(path, receipt)
     return StageResult(
         stage="prepare",
         status="prepared",
