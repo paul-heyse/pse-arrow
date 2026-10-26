@@ -122,10 +122,10 @@ references and owning scope are satisfied; other plan series retain their obliga
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| G01 | planned; selected 56a slice complete | 56g | Named scientific/installed/public journeys exercise the composed target and adverse semantics |
-| G02 | planned; selected 56a slice complete | 56g | Exact durable/workload/operator journeys pass with original custody/drain and supported scope |
-| G03 | planned; selected 56a slice complete | 56g | Relevant zero-target scope-end/manual checks complete; structural and measured claims separated |
-| G04 | planned; selected 56a slice complete | 56g | Independent assessment, all finding obligations/evidence reconciled and enduring meaning published |
+| G01 | planned; selected 56a/56b slices complete | 56g | Named scientific/installed/public journeys exercise the composed target and adverse semantics |
+| G02 | planned; selected 56a/56b slices complete | 56g | Exact durable/workload/operator journeys pass with original custody/drain and supported scope |
+| G03 | planned; selected 56a/56b slices complete | 56g | Relevant zero-target scope-end/manual checks complete; structural and measured claims separated |
+| G04 | planned; selected 56a/56b slices complete | 56g | Independent assessment, all finding obligations/evidence reconciled and enduring meaning published |
 
 G01/G02 consume completed relevant functional scope and C05 activation; neither substitutes for
 another's subjects. G03 runs after all functional work; G04 closes the integrated evidence/authority
@@ -138,7 +138,7 @@ at the end when implementation is already entrenched.
 original scope, library documentation and focused independent design advice. Document reference,
 metadata, scope-binding and formatting checks establish planning-artifact consistency only.
 At authoring, no product, solver, store, host or benchmark journey had run for Plan56. Subsequent
-selected 56a execution is recorded below; scheduling other findings is not their resolution.
+selected 56a/56b execution is recorded below; scheduling other findings is not their resolution.
 
 ## Selected 56a qualification — 2026-10-25
 
@@ -155,3 +155,20 @@ producer Assessment facts suffice. The separate functional deployment and same-s
 preserved the preexisting selected store. Full S01 permission/covariance migration, C/D/E/F scenarios,
 remaining package qualification and RC01–RC06 stay with their owners. No fresh exhaustive matrix,
 full parity/fleet, distribution, other-platform or measured performance claim follows from 56a.
+
+## Selected 56b qualification — 2026-10-25
+
+**Implemented/Tested:** [56b Outcome](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25) owns all B01–B06 and necessary C03/C05/F01/F03 adoption,
+with selected G01–G04 contributions for S01/S04/S05. Evidence includes pure policy/service controls,
+actual native fitting/profile/KINSOL, strict kind replay and protected canonical hydration, installed
+Python and actual STDIO MCP/CLI permission agreement, typed host remedies, independent source
+assessment, repaired scope-end checks and enduring contract publication. Initial 69-case Rust and
+80-case Python failures and exact affected reruns retain separate records; no clean monolithic
+invocation is inferred. Four fresh functional/no-resident fixtures were authenticated-drained and
+stopped, with databases/receipts retained and the preexisting selected store preserved.
+
+The accidentally launched full feature powerset was interrupted/drained and remains incomplete;
+it was not restarted and supplies no matrix claim. Default/no-default/supported native compile/lint
+closures passed at their actual scope. No full parity/fleet, distribution, desktop-host attachment,
+other-platform, performance or remaining C/D/E/F scenario qualification follows. RC01–RC06 and the
+wider G01–G04 scope remain pending. ADR-0227 remains proposed.

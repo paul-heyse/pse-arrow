@@ -8,11 +8,11 @@ level: decision
 principles: [AP-01, AP-02, AP-04, DP-01, DP-04, PS-09, PS-10, PS-12]
 blueprint: [§19.2, §19.4, §19.8, §21.1]
 review: "not-required: versioned scientific contracts within the accepted runtime and Rust-owned boundary decisions; no D1-D14 or representation-policy change"
-evidence: Interface-checked
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A scientific product needs a governing scope or effect/service lifetime that the closed operation projections cannot express.
-verification: Plan56b original-fit refusal through local and persisted covariance, kind replay roundtrips, explicit service construction and typed effect-safe refusal controls.
+verification: "Plan56b Verification and Outcome (2026-10-25): local Linux native/canonical failed-fit covariance refusal, kind replay, binding/issuer and typed effects; actual installed Python, STDIO MCP and CLI permission agreement; original failures and affected reruns retained."
 standard: core-3.4/process-simulator-1.5
 scenarios: [docs/plans/56-design-principle-alignment.md#s01, docs/plans/56-design-principle-alignment.md#s04, docs/plans/56-design-principle-alignment.md#s05]
 ---
@@ -64,8 +64,12 @@ no-store/no-solver scientific decisions and transient-versus-deterministic refus
 
 ### Confirmation
 
-Interfaces inspected at dbc018568. This record does not claim implementation or qualification;
-Plan56b owns current evidence. Execution was explicitly authorized after its planning choices.
+**Implemented/Tested:** B01–B06 and necessary C/F adoption are complete at the local Linux
+conditions in [Plan56b's Outcome](../plans/56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25).
+Native/canonical failed-fit product refusal, replay, binding/issuer and typed effects pass with
+original failures and exact affected reruns retained. Actual installed Python, STDIO MCP and CLI
+agree on original permission and retained diagnostics. No full matrix, fleet or measured benefit
+is claimed. Execution was explicitly authorized; formal ADR status remains proposed.
 
 ## Pros and cons
 

@@ -1351,6 +1351,26 @@ selected model/physical qualification, not the remainder of Plan56, a fresh feat
 full parity/solver-fleet, distribution, other-platform or measured performance evidence.
 ADR-0226 remains proposed; RC01–RC06 are not adopted.
 
+Selected Plan56b scientific-operation acceptance of 2026-10-25 belongs to its
+[Verification and Outcome](../../plans/56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25).
+**Implemented/Tested:** original/product permission, complete profile endpoints, exhaustive kind
+facts/tagged replay, explicit service/binding/issuer boundaries, configured native capability and
+typed failure/effect remedies are adopted through local, durable and public consumers. Local Linux
+pure controls, actual native fit/profile/KINSOL, protected canonical hydration/replay and installed
+correctness Python passed at the recorded scopes. Actual STDIO MCP and derived CLI agree with
+Python on original failed permission while diagnostic check bytes remain readable. Initial Rust
+and Python integration failures and exact affected reruns retain distinct evidence; no single
+clean full selection is inferred.
+
+Scope-end generation, compiled API stubs, default/no-default/supported native lint, governance
+and repaired hygiene leaves passed against zero. The full feature powerset was accidentally
+started, interrupted and authenticated-drained; its incomplete receipt remains, with no matrix
+qualification claim. Four new functional/no-resident deployments were initialized and qualified,
+then quiesced, authenticated-drained and stopped with databases/receipts retained. The preexisting
+selected store was preserved. This acceptance covers B01–B06 and necessary C/F adoption, not the
+remaining Plan56 scenarios, full parity/fleet, desktop-host attachment, distribution, other
+platforms or measured performance. ADR-0227 remains proposed; RC01–RC06 are not adopted.
+
 ### 24.3 Benchmarks
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)

@@ -146,6 +146,13 @@ code. Existing physical wrappers remain authoritative; identity bytes and framin
 RC01–RC06 remain pending. The reader slice uses existing retained physical source references and
 producer-recorded assessment facts; no payload redesign or storage reset is authorized here.
 
+**56b execution decision — 2026-10-25:** the operator authorized all B01–B06 and only the working
+C/F prerequisites needed for durable/public adoption, selecting fresh owned deployments and
+explicit narrow Rust services while preserving Python/MCP facades and the preexisting selected
+store. Proposed ADR-0227 preceded the versioned contract cutover. Completion v2, stored completion
+v3, replay v5 and standalone fit-profile v2 migrate current consumers together. Receipt framing,
+file placement and RC01–RC06 remain unchanged/unadopted; the full 505-case campaign is excluded.
+
 P00 produces only the needed decision/review artifacts for confirmed changes before their dependent
 code. Focused authoring advice is not a substitute for a required formal review. The recent audit
 can supply its bounded input after reconciling affected owner changes; no unrelated new audit or
@@ -198,7 +205,7 @@ enduring publication and checks no contradictory current description remains.
 | Package | Status | Owner | Completion |
 |---|---|---|---|
 | P00 | planned; RC07 route delivered, RC01–RC06 pending | 56 coordinator | Concrete rule dispositions integrated and required design/ADR/review route supplies dependent authorization basis |
-| P01 | planned; 56a owner reconciliation delivered | 56 coordinator | Current contract navigation reconciled at actual owners without invalid governance changes |
+| P01 | planned; selected 56a/56b owner reconciliation delivered | 56 coordinator | Current contract navigation reconciled at actual owners without invalid governance changes |
 
 ## Scenarios
 
@@ -219,8 +226,9 @@ enduring publication and checks no contradictory current description remains.
 
 ## Finding dispositions
 
-This is the sole scheduled-disposition owner for Plan56. Active rows are proposed work, not
-implementation authorization or resolution. Inherited resolved/closed rows preserve the audit's
+This is the sole scheduled-disposition owner for Plan56. Scheduled rows are proposed work, not
+implementation authorization or resolution. Resolved A/B rows link their accepted implementation
+and bounded qualification. Inherited resolved/closed rows preserve the audit's
 bounded evidence; affected regressions remain tested where the new target crosses them. Merged
 identities retain lineage to the active home. No fresh qualification is inferred.
 
@@ -234,7 +242,7 @@ identities retain lineage to the active home. No fresh qualification is inferred
 | [DA-006](../design_review/audit/semantic-model-and-authority.md#da-006) | S02 | resolved | [A02](56a-model-meaning-and-physical-interpretation.md) | **Implemented/Tested:** A02 complete; [56a Outcome](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25) records exact source/native/public conditions and affected reruns |
 | [DA-007](../design_review/audit/structure-and-invariants.md#da-007) | S05 | scheduled — proposed | [C01](56c-canonical-contracts-and-effects.md) | Canonical vocabulary/key/association/lifecycle/projection meaning declared and consumed throughout current families |
 | [DA-008](../design_review/audit/structure-and-invariants.md#da-008) | preservation | resolved | coordinator / affected consumer | Typed canonical refusal/effect correction retained; B06 addresses different workflow causes; source audit at f9b96810a |
-| [DA-009](../design_review/audit/structure-and-invariants.md#da-009) | S04 | scheduled — proposed | [B03](56b-scientific-operations-and-permission.md) | Kind-owned facts/tagged replay replace consumer reach-ins and silent omissions |
+| [DA-009](../design_review/audit/structure-and-invariants.md#da-009) | S04 | resolved | [B03](56b-scientific-operations-and-permission.md) | **Implemented/Tested:** B03 owns exhaustive kind facts and tagged replay v5; strict local/recovered controls pass; [56b Outcome](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25) owns exact composite conditions and exclusions |
 | [DA-010](../design_review/audit/structure-and-invariants.md#da-010) | preservation | resolved | coordinator / affected consumer | Covariance content/external origin/PSD correction retained; governing permission is DA-038; source audit at f9b96810a |
 | [DA-011](../design_review/audit/structure-and-invariants.md#da-011) | preservation | resolved | coordinator / affected consumer | Generated catalogue/fingerprint correction retained and extended, not requalified by planning; source audit at f9b96810a |
 | [DA-012](../design_review/audit/boundaries-and-composition.md#da-012) | preservation | superseded | coordinator / affected consumer | Shared supervisor retained; kind projection residue remains DA-009; source audit at f9b96810a |
@@ -242,11 +250,11 @@ identities retain lineage to the active home. No fresh qualification is inferred
 | [DA-014](../design_review/audit/boundaries-and-composition.md#da-014) | preservation | resolved — closed by decision | coordinator / affected consumer | I22/RC12 supported study subset and explicit refusals retained; source audit at f9b96810a |
 | [DA-015](../design_review/audit/boundaries-and-composition.md#da-015) | S10 | scheduled — proposed | [F02](56f-host-agent-and-observability-contracts.md) | All intended hosts derive operation envelopes/defaults/effects/prerequisites, with actual receiver glue |
 | [DA-016](../design_review/audit/boundaries-and-composition.md#da-016) | preservation | superseded | coordinator / affected consumer | Adapter-owned admission retained; residual coupling remains DA-017; source audit at f9b96810a |
-| [DA-017](../design_review/audit/boundaries-and-composition.md#da-017) | S04 | scheduled — proposed | [B05](56b-scientific-operations-and-permission.md) | Default/configured inventory and attribution agree with reachable admitted routes |
+| [DA-017](../design_review/audit/boundaries-and-composition.md#da-017) | S04 | resolved | [B05](56b-scientific-operations-and-permission.md) | **Implemented/Tested:** B05 default/configured capability, recovery and concrete dynamics attribution controls pass, including actual KINSOL; [56b Outcome](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25) owns exact composite conditions and exclusions |
 | [DA-018](../design_review/audit/boundaries-and-composition.md#da-018) | preservation | resolved — closed by decision | coordinator / affected consumer | I23 retained solver patches; no new patch-semantics investigation; source audit at f9b96810a |
 | [DA-019](../design_review/audit/boundaries-and-composition.md#da-019) | S09 | scheduled — proposed | [E02](56e-product-deployment-and-resource-ownership.md) | One deployment protocol/validator, product roots and complete bounded receiver closure |
 | [DA-020](../design_review/audit/boundaries-and-composition.md#da-020) | S09 | scheduled — proposed | [E01](56e-product-deployment-and-resource-ownership.md) | Actual product build/publication excludes development families and shared product primitives have correct owner |
-| [DA-021](../design_review/audit/local-reasoning-and-assurance.md#da-021) | S04 | scheduled — proposed | [B04](56b-scientific-operations-and-permission.md) | Working projections/pure policy and selected value/service boundaries remove reverse/cyclic knowledge |
+| [DA-021](../design_review/audit/local-reasoning-and-assurance.md#da-021) | S04 | resolved | [B04](56b-scientific-operations-and-permission.md) | **Implemented/Tested:** B04 explicit service/value boundaries, source binding/issuer admission and independent caller lifetime pass; reverse declarations removed; [56b Outcome](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25) owns exact composite conditions and exclusions |
 | [DA-022](../design_review/audit/execution-fit.md#da-022) | preservation | resolved — closed by decision | coordinator / affected consumer | I16 sizing decision retained; no new estimator/allocation campaign; source audit at f9b96810a |
 | [DA-023](../design_review/audit/local-reasoning-and-assurance.md#da-023) | S12 | scheduled — proposed | [P01](56-design-principle-alignment.md) | Stale current descriptions corrected without false ADR/status/path-rule diagnosis |
 | [DA-024](../design_review/audit/local-reasoning-and-assurance.md#da-024) | preservation | superseded | coordinator / affected consumer | Broad purposelessness/startup diagnosis unestablished; optional producer, local admission and outer lineage scopes retained; source audit at f9b96810a |
@@ -263,8 +271,8 @@ identities retain lineage to the active home. No fresh qualification is inferred
 | [DA-035](../design_review/audit/execution-fit.md#da-035) | S06, S07 | scheduled — proposed | [D02–D04](56d-publication-and-workload-fit.md) | Resumable population, compact outcomes, shared provider and coherent capture support selected admission |
 | [DA-036](../design_review/audit/development-tooling.md#da-036) | S09 | scheduled — proposed | [E03](56e-product-deployment-and-resource-ownership.md) | Production profile upstream of conformance; all materialized consumers agree within explicit budget scopes |
 | [DA-037](../design_review/audit/development-tooling.md#da-037) | S09 | scheduled — proposed | [E04](56e-product-deployment-and-resource-ownership.md) | Shared observations/borrower boundary break cyclic coupling; distinct liveness/drain policies preserved |
-| [DA-038](../design_review/audit/semantic-model-and-authority.md#da-038) | S01, S04 | scheduled — proposed | [B01/B02](56b-scientific-operations-and-permission.md) | All local/persisted/public/derived consumers use original/product facts and preserve qualifiers; C/F adoption included |
-| [DA-039](../design_review/audit/structure-and-invariants.md#da-039) | S05 | scheduled — proposed | [B06 + F03](56b-scientific-operations-and-permission.md) | Meaning-based failures drive lazy persistence/effect recovery/redacted remedies with source identities |
+| [DA-038](../design_review/audit/semantic-model-and-authority.md#da-038) | S01, S04 | resolved | [B01/B02](56b-scientific-operations-and-permission.md) | **Implemented/Tested:** B01/B02 original/product facts govern all local, persisted, public and derived consumers; failed-fit, profile and horizon controls pass; [56b Outcome](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25) owns exact composite conditions and exclusions |
+| [DA-039](../design_review/audit/structure-and-invariants.md#da-039) | S05 | resolved | [B06 + F03](56b-scientific-operations-and-permission.md) | **Implemented/Tested:** B06 plus minimal F03 typed failures/effects drive lazy refusal, recovery and redacted source-attributed remedies; [56b Outcome](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25) owns exact composite conditions and exclusions |
 | [DA-040](../design_review/audit/structure-and-invariants.md#da-040) | S10, S11 | scheduled — proposed | [F01](56f-host-agent-and-observability-contracts.md) | Owned enum/bound/key/event/instrument semantics preserved in all generated and query consumers |
 | [DA-041](../design_review/audit/local-reasoning-and-assurance.md#da-041) | S12 | scheduled — proposed | [E05](56e-product-deployment-and-resource-ownership.md) | Truthful exact supplier origins/deltas/workarounds; no impossible-reconstruction/universal-format claim |
 | [DA-042](../design_review/audit/execution-fit.md#da-042) | S11 | scheduled — proposed | [F04](56f-host-agent-and-observability-contracts.md) | Stage eligibility and observable SDK queue-loss precision replace prefix/compiled-away selection |
@@ -288,14 +296,15 @@ An inquiry or accepted ADR alone cannot close an active finding. If a rule rejec
 failure changes that route, revise the dependent design/disposition explicitly before execution;
 no active gap silently becomes an open-ended study or a waived MUST.
 
-**Current checkpoint — selected 56a closeout, 2026-10-25:** A01–A03 are complete at the
-[56a Outcome](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25)'s
-local Linux conditions; DA-003/005/006 are resolved. Minimal B01/C03/F01 reader prerequisites are
-implemented and tested, while those packages' full scope remains planned. G records this selected
-qualification without claiming its wider scenarios. P01's affected model/physical descriptions
-are reconciled at their owners; its other corrections remain open. The owned canonical fixture
-was drained/stopped with its database/receipts retained; the preexisting selected store was preserved.
+**Current checkpoint — selected 56a/56b closeout, 2026-10-25:** A01–A03 and B01–B06 are complete
+at their respective [56a Outcome](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25)
+and [56b Outcome](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25) local Linux conditions. DA-003/005/006/009/017/021/038/039 are resolved. Minimal
+C03/C05 and F01/F03 adoption is implemented/tested; those companions' wider scope remains planned.
+G records the selected qualification without claiming its wider scenarios. P01's affected
+model/physical, completion/service and public capability descriptions are reconciled at their
+owners; its other corrections remain open. Owned canonical fixtures were drained/stopped with
+databases/receipts retained; the preexisting selected store was preserved.
 
-RC07's scoped review and proposed ADR preceded dependent implementation; ADR-0226 remains proposed.
-RC01–RC06 still require their separate decision route. No remaining companion execution, storage
-interpretation reset or other plan-series completion follows from this selected acceptance.
+RC07's scoped review and proposed ADR preceded dependent implementation; ADR-0226 and ADR-0227
+remain proposed. RC01–RC06 require their separate decision route. No remaining companion execution,
+other deployment reset or other plan-series completion follows from selected A/B acceptance.

@@ -1222,7 +1222,12 @@ limited to doubling, halves its step on failure, and ends with a secant root onc
 bracketed (at most 40 points and a relative tolerance of 10⁻³ by default). Every point is
 published in `runtime.profile_points` with its seed, qualification, objective, statistic and
 acceptance, and an end reached at a bound or stopped by its point budget says so
-(`IntervalOutcome`). A profile needs a valid estimate, not full rank. With absolute
+(`IntervalOutcome`). Original-check/applicability qualifiers remain required facts of each point
+and chain. The standalone fit-profile document uses version 2; version 1 refuses at header
+admission before body decoding. The profile-points relation uses version 3 and parameter intervals
+version 2. A permitted interval product needs the complete unique two-end inventory for every
+requested parameter, finite bound/threshold ends and no chain worker failure; stopped diagnostic
+chains do not supply it. A profile needs a valid estimate, not full rank. With absolute
 deviations both methods use the same quantile, so they agree on a linear model.
 
 *Tested* by `linear_regression_covariance_analytic` (exact, limited-memory and Gauss–Newton

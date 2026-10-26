@@ -12,8 +12,11 @@ authorized by the original authoring decision. The maintainer subsequently autho
 [56a execution](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25),
 including minimal boundary/permission/context prerequisites and source-owned identity direction
 RC07 (proposed ADR-0226). A01–A03 are now complete at their recorded local Linux conditions;
-DA-003/005/006 are resolved. B/C/F record only the implemented reader prerequisites and G the
-selected qualification; their wider packages and RC01–RC06 remain pending.
+DA-003/005/006 are resolved. Subsequent authorized
+[56b execution](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25)
+completed B01–B06 with necessary C/F adoption and selected local native/canonical/Python/MCP/CLI
+acceptance. C/F/G retain their wider obligations and RC01–RC06 remain pending; the coordinator
+owns current finding dispositions. Completed 56a/56b remain as evidence for active dependents.
 Other plans retain their independent scope and status.
 
 [Plan55: MCP development effectiveness](55-mcp-development-effectiveness.md) is complete for

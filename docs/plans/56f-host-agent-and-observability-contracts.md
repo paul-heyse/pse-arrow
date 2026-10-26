@@ -2,7 +2,7 @@
 title: "Plan 56f: Host, agent and observability contracts"
 status: draft
 date: 2026-10-25
-adrs: []
+adrs: [ADR-0227]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
 scenario_sources: [docs/design_review/audit/system-architecture.md]
 doc_role: plan
@@ -179,9 +179,9 @@ redundant imports only when their current guarantees are supplied by the retaine
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| F01 | planned; 56a physical boundary implemented/tested, RC02 pending | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
+| F01 | planned; selected 56a/56b boundary adoption complete, RC02 pending | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
 | F02 | planned | 56f | Intended public hosts agree on contracts/defaults/effects and actual prerequisites without parallel operation lists |
-| F03 | planned | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
+| F03 | planned; selected 56b typed remedies complete | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
 | F04 | planned | 56f | Ordinary export follows stage policy; SDK queue loss observed with truthful lifetime/final-count precision |
 | F05 | planned | 56f | Supported producing receipt and actual image witness replace per-read supersets/deny-lists without lost inputs |
 | F06 | planned; RC06 governs retention | 56f | Admitted read/page lifetime amortizes preparation while source/image, protections and physical drain remain exact |
@@ -229,3 +229,14 @@ inputs and an unrelated workspace leaf, replace the installed image during admis
 cancel reads and replace workers while protections survive. A supplied-only comparison must work
 without product-extension/store startup. No source-only pass establishes current call latency,
 full native qualification or unexercised supported input modes.
+
+## Selected 56b adoption — 2026-10-25
+
+**Implemented/Tested:** [56b Outcome](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25) owns current completion/product permission, required qualifiers,
+strict replay/profile versions and executable direct capability settings through generated
+Rust/Python contracts. Typed failure classes, source references and admission effect knowledge
+feed redacted host remedies. The installed correctness extension, actual STDIO MCP and derived
+CLI agree on an original failed model's permission and retained diagnostic checks; host contract
+unit controls remain separate evidence. This completes only B's necessary F01/F03 adoption.
+General declaration/metric fidelity, all-host operation envelopes, wider settlement/telemetry,
+image-currency redesign and reused page/worker lifetimes remain planned; RC02/RC06 remain pending.

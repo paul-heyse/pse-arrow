@@ -1,6 +1,6 @@
 ---
 title: "Plan 56b: Scientific operations and permission"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: [ADR-0227]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -14,11 +14,11 @@ doc_topics: [design, numerical-execution, validation]
 
 ## Purpose and assessed foundations
 
-**Proposed:** completion-owned scientific permission governs every aggregate, derived product
+**Implemented:** completion-owned scientific permission governs every aggregate, derived product
 and public/recovered consumer; each analysis kind owns its lifecycle facts. This companion
 addresses DA-009/017/021/038/039. [Plan 56](56-design-principle-alignment.md) owns scope,
-disposition and decisions. This is plan-authoring design advice, not a new broad audit or a
-scientific qualification.
+disposition and decisions. The accepted implementation and selected local qualification are recorded
+in the Verification and Outcome below; the original audit retains its diagnostic baseline.
 
 Reuse the pure `workflow/numerics.rs` decisions, shared `RunSupervisor`, typed `RunOutcome`,
 immutable preparations, original assessment and class-specific native adapters. Keep runtime's
@@ -150,12 +150,12 @@ ordinary observation events do not masquerade as registered diagnostic codes.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| B01 | implemented; review corrections and acceptance pending | 56b | Completion/product facts govern every local, persisted and public consumer; diagnostic bytes retained |
-| B02 | implemented; profile endpoint acceptance pending | 56b | Shared evidence policy and explicit pure composite decisions; qualifiers survive |
-| B03 | implemented projections/tagged replay; focused acceptance pending | 56b | Each kind supplies lifecycle facts once; tagged replay and exhaustive consumers replace old projections |
-| B04 | implemented; binding/issuer guard qualification pending | 56b | Selected owner slices have narrow inputs/visibility and no reverse declaration cycle |
-| B05 | focused native controls tested; public qualification pending | 56b | Default/configured capability agrees with admission and exact backend attribution |
-| B06 | implemented; classification repair and composed qualification pending | 56b | Meaning-based failures drive scientific persistence, safe recovery and host diagnostics |
+| B01 | complete | 56b | Original/product permission agrees across local, durable and public consumers; failed-fit diagnostic bytes retained |
+| B02 | complete | 56b | Shared native evidence and pure pin/horizon decisions preserve complete endpoint requirements and qualifiers |
+| B03 | complete | 56b | Exhaustive kind-owned request/completed facts and one tagged replay constructor replace parallel projections |
+| B04 | complete | 56b | Explicit services replace whole-runtime retention in selected scientific values; binding/issuer and lifetime controls pass |
+| B05 | complete | 56b | Adapter-owned default/configured capabilities, recovery starts and concrete dynamics attribution; generated direct settings migrated |
+| B06 | complete | 56b | Typed causes/effects govern lazy refusal, recovery, inspection and redacted remedies; transient/internal causes stay distinct |
 
 B01's pure decision can precede the canonical cutover; persisted completion requires C03/C05.
 B03 provides early constructor/fact declarations to C before all lifecycle migrations finish.
@@ -167,11 +167,11 @@ working projections, not merely an agreed interface. No whole-document barrier i
 from the same admitted selection. Missing permission remains explicit; selected-product usability
 keeps its separate meaning. This does not version Completion or complete the local/persisted
 covariance and downstream permission migration. [56a](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25)
-owns this slice's acceptance; DA-038 remains open in the coordinator.
+owns this slice's acceptance. The completed B01/B02 adoption below now supplies DA-038's remaining evidence.
 
 ## Revealing acceptance
 
-**Planned:** extend `original_fit_failure_withholds_completed_statistical_products_in_invocation`
+The acceptance target was to extend `original_fit_failure_withholds_completed_statistical_products_in_invocation`
 through result rows, local/persisted covariance and downstream propagation. Assert retained bytes,
 agreed refusal and unchanged independent local validity/estimate meanings. Add successful and
 external-covariance controls, LM/NLP policy/termination equivalence, missing and partial coverage,
@@ -190,42 +190,138 @@ genuine missing initial conditions and equivalent poisoned-provider errors. Asse
 affected sources, effect/recovery state and redacted remedy, not exception prose.
 
 Targeted tests accompany each integrated change with explicit force-validation for Arrow closures.
-G owns composed scientific/native/Python/operator qualification. No new numerical, runtime or speed
-evidence is claimed by authoring this document.
+G records the selected scientific/native/Python/operator qualification below. No measured speed,
+capacity or memory benefit is claimed.
 
-## Execution checkpoint — 2026-10-25
+## Verification and Outcome — 2026-10-25
 
-The maintainer authorized all B01–B06 with only the working C/F prerequisites needed for complete
-durable/public adoption. Qualify the new interpretation in a fresh owned deployment and preserve
-the existing selected store. Scientific values use explicit narrow services at effectful Rust
-entry points; existing Python/MCP facades retain convenience. Completion v2, stored completion v3
-and replay v5 publish together; standalone fit-profile v2 identifies required chain/point qualifiers. Receipt framing and file placement stay unchanged. RC01–RC06
-remain pending. ADR-0227 records the selected contract before publication. 56a evidence retains
-its original scope; no B package is complete from that prerequisite alone.
+### What was built
 
+**Implemented:** B01–B06 and their required C/F adoption are complete. Completion v2 owns original
+coverage/report/assessment permission and separate product permission with required qualifiers.
+Covariance, own propagation, invocation, studies, Python and protected stored readers consume it.
+A failed original fit retains diagnostic covariance, Wald and profile bytes without granting
+qualified reuse. Independent step permission remains separate from whole-horizon permission.
+Profile interval permission requires the complete unique two-end inventory, finite bound/threshold
+ends and no chain worker failure; a successful collection of stopped chains is insufficient.
 
-The source cutover now records original scope and product permission in Completion, shares request/
-completed lifecycle projections, and uses a single tagged replay constructor. Native adapters own
-configured capability and replacement starts. Typed admission effects preserve acknowledged source
-revisions and unresolved publication; host remedies consume those facts. These source changes are
-under integration, with no B package completion claim.
+**Implemented:** kind-owned request/completed facts replace lifecycle reach-ins; replay v5 has one
+closed tagged constructor. Stored completion v3 requires current permission and explicit progress;
+historical versions refuse instead of inferring permission. Standalone fit-profile v2 identifies
+required chain/point qualifiers and refuses v1 at header admission. Profile points v3 and parameter
+intervals v2 retain those facts in relations. Receipt framing and file placement are unchanged.
 
-B04 removes broad runtime retention from the selected modeling, fitting and prepared strategy values.
-Explicit preparation, source, publication and execution capabilities preserve existing allocation,
-validation, cancellation and selected durability behavior. Canonical source revisions retain their
-original issuer as immutable provenance: a supplied target service cannot stand in for that fact.
-Python effectful facades carry the explicit services supplied during preparation. Remaining work is
-consumer/fixture migration, full generation, focused scientific execution and the selected composed
-qualification against the fresh owned deployment. Earlier source-drift refusals executed no tests;
-they provide no scientific acceptance evidence.
+**Implemented:** preparation/source/publication/execution services supply effects to immutable
+scientific values. Selected model, fit and prepared owners retain their data and legitimate leases,
+not the whole Runtime. Common binding checks authenticate actual math/registry/native bindings;
+durable registration also authenticates the immutable original source issuer before effects.
+Independent callers over the same bindings retain valid lifetime behavior after the original
+caller closes. Ephemeral execution retains configured canonical reads while suppressing automatic
+writes. Common fitting declarations moved to the modeling owner, removing the reverse cycle.
+Supported conformance and benchmark callers migrated with their actual fixture resources intact.
 
+**Implemented:** adapters own default/configured capability and recovery profiles; dynamics
+attribution is exhaustive over concrete methods. Direct PETSc settings expose executable root
+controls; internal scientific composition retains its complete settings and identity. Typed internal,
+resource/time, integrity/infrastructure and scientific causes survive wrapping. Admission effects
+distinguish no publication, acknowledged source and unresolved publication. Lazy rejection uses an
+explicit deterministic scientific whitelist; it does not permanently reject transient/internal
+failures. Host remedies consume typed facts and source references.
 
-Independent implementation review of `8943cf557` identified two corrections before acceptance:
-profile products must require actual complete endpoints rather than an outer successful diagnostic
-collection, and explicit receiver services must authenticate retained source bindings and durable
-issuer before effects. Both are being integrated with focused controls; no completion is inferred
-from the original compile. The first focused runtime selection executed 29 tests (28 passed,
-one internal-cause classification mismatch); the typed wrapper projection is being corrected.
-The five focused native backend controls passed, including KINSOL execution. Final generation,
-correctness extension, fresh owned canonical/Python journeys and scope-end checks follow the
-corrected source baseline. Earlier qualification keeps its exact original scope.
+### Verification and accepted evidence
+
+**Tested — local Linux, baseline zero:** these are distinct, overlapping scopes, not an additive
+total or one uninterrupted passing campaign. Rust correctness routes explicitly enable Arrow
+force-validation; actual native iteration uses the selected native environment. The retained
+`qualification.sh` in each receipt directory contains the exact expanded filters and arguments.
+All fixture directories below are under `build/qualification/`, with a sibling `-receipts` directory.
+
+| Command / scope | Actual result and retained conditions |
+|---|---|
+| Workspace/all-target compile, then supported native graph including `pse-py/native-solvers,pse-runtime/canonical-tests,pse-tests-conformance/native-acceptance,pse-benches/native-process` | Passed after migrating the initially exposed external conformance/benchmark callers; zero errors/warnings |
+| `scripts/pse-env --native= -- just unit-package pse-runtime <pure-filter> --execution-effects native-local` | 34 passed, 0 failed with canonical/solver effects disabled; Completion/numerics, strict replay, product completeness, pin/horizon policy, service lifetime, actual poisoned compiler and draft deadline controls. Invocation `ca12ed1b40134cb688dd57d2b4137b57` |
+| `scripts/pse-env --native -- just unit-package pse-backend-native <capability-filter> --features native-solvers --execution-effects native-local` | 5 passed, 0 failed: default/configured capabilities, concrete dynamics attribution, PETSc direct document, admitted recovery settings and actual KINSOL dense/SPGMR/Picard solve |
+| `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_capability_diagnostics scripts.tests.test_capability_native scripts.tests.test_capability_cli` | 53 passed, 0 failed; schema/remedy/CLI controls, separate from actual receiver evidence |
+| Requirement/diagnostic controller unit selection | 22 passed, 0 failed; pure versus canonical/native test requirements and typed diagnostics |
+| `PSE_SURREAL_STATE=<owned> just unit-package pse-runtime <selected-filter> --features native-solvers,canonical-tests --profile local` in `56b-canonical-RV7WElox` | 69 executed: 67 passed, 2 failed. Passed scope includes failed-fit local/persisted covariance/reuse, profile/Wald controls, protected permission/hydration, binding/issuer, service/replay/cancellation and typed failures. Failures were stale replay version and an unentered direct-horizon activity fixture; invocation `4604ead4bbac4543b69e9cfa508bd48a` |
+| Same route, affected replay and all five direct-horizon controls in `56b-canonical-GlC4fqOB` | 6 executed: 4 passed, 2 failed. The activity correction reached the actual publication-pressure branches; the remaining assertions compared whole and step permission scopes incorrectly |
+| Same route, only the two affected horizon controls in `56b-canonical-Rrnk4woG` | 2 passed, 0 failed; every non-governing Completion field compared exactly, exact independent step versus whole coverage/refusal asserted. Invocation `7ce7c58cb80d4e47bbf3465e7dc8c618` |
+| `PSE_SURREAL_STATE=<owned> just native-python <output> <selected-local/workflow/boundary/settings/accuracy/canonical-nodes> --basetemp=<owned> -m 'unit or component or integration' -q` in `56b-canonical-RV7WElox` | 80 executed: 71 passed, 9 failed. Failures exposed stale directional document types, attempt phase assertions, missing required qualifiers and a constructor using a different process budget; all corrected without lowering science |
+| Same Python route, affected nine in `56b-canonical-GlC4fqOB` | 8 passed, 1 failed; remaining settings assertion expected private exception prose rather than the typed decode diagnostic |
+| Same Python route, affected settings plus profile codec and real fixed-fit profile producer in `56b-canonical-Rrnk4woG` | 3 passed, 0 failed; actual producer emits fit-profile v2, v2 qualifiers decode, historical v1 refuses before malformed body decode, invalid direct settings preserve typed location/rule |
+| `just py-extension-prepare native dev`; `scripts/pse-env --native -- .venv/bin/python <retained-public-probe> <state> <output>` in `56b-canonical-HY2sh2AV` | Both passed. Installed correctness Python, actual STDIO MCP and derived CLI agree exactly on failed original permission while retained false check bytes remain readable. Native/dev extension SHA256 `aafb653f5db72cd10bbbfe8b01f0541be38657eb58c6e697cb5990e55584a033`; public `receipt.json` records original run/attempt and exact document |
+
+**Tested — scope-end static/manual checks, baseline zero:** `just hygiene` attempted all 24 leaves;
+20 passed and 4 failed (types, compiled Python stubs, default/no-default Clippy). Each failed leaf
+was repaired and passed on rerun; the original aggregate remains failed. The receipt is
+`build/assessment/20261026T013703.178111Z-hygiene-3605190-6cd3a0`.
+`just governance` passed all seven checks at
+`build/assessment/20261026T011716.593273Z-governance-3537907-0293e6`.
+Full `just codegen` published all ten targets; final `just codegen-check` passed all five leaves,
+including actual compiled API stubs, at
+`build/assessment/20261026T030225.624038Z-codegen-check-3860802-6e6031`.
+`just typecheck`, `just clippy-default`, `just clippy-no-default`, `just lint-native-contracts` and
+`just lint-native-data` passed. The full supported native workspace/all-target Clippy graph above
+also passed with `--locked -- -D warnings`; the final changed runtime/test scope passed native
+Clippy with `-p pse-runtime --all-targets --features pse-runtime/native-solvers,pse-runtime/canonical-tests`.
+No warnings/errors were waived. `just docs` passed and published 678 chapters;
+`scripts/pse-env --docs -- python3 -m scripts.document_lifecycle validate` passed with 1,483 native
+scope items and zero errors. `just turn-end` passed both ADR index and formatting at
+`build/assessment/20261026T030810.766604Z-turn-end-3879169-42dda8`. Supporting policy/native/host and
+static logs are retained in `build/qualification/56b-source-and-static`. Documentation-only closeout
+did not repeat product qualification.
+
+**Interface-checked — independent source assessment:** review of `8943cf557` found incompatible
+service/issuer admission and stopped-profile product permission gaps. The corrections at
+`f164adcd8` were independently checked, then `dfa6f67e1`'s external callers, resources, boxed replay
+wire and typed failures were checked with no remaining actionable finding in that scope. A later
+focused boundary review identified standalone fit-profile versioning; `07fa43c32` amended the
+proposed ADR before `7fc1ad924` migrated catalogue/generated readers and the actual producer tests.
+Source review is distinct from functional/scientific acceptance and is not a new broad audit.
+
+**Tested — deployment custody:** all four fixtures used the existing functional profile,
+`--no-resident`, genuine canonical server/native worker and random owned ports. Each was initialized
+with current producers before admission. Final stop receipts show inactive service, closed writes,
+quiesced admission and no owned listener. The first failed horizon fixture retained one creation
+borrower: the exact registered owner was authenticated, its original test process was terminal,
+and its empty child/reference inventory was drained before successful stop. Databases and original
+failed/passing records remain retained. The preexisting selected store
+`/home/paul/.local/state/pse-arrow/surreal-plan49-surrealism-20261022` was preserved.
+
+### Mistakes made and corrected
+
+The first integration exposed unmigrated conformance/benchmark consumers and stale test documents;
+these were migrated with real resources and typed current facts. Initial policy classification,
+replay-version and horizon fixture/oracle failures were repaired at their owners. Horizon oracles
+now distinguish independently accepted steps from failed whole operations and settle owned handles
+before assertions. The generated profile contract initially retained a v1 header despite requiring
+new qualifiers; the wire catalogue now owns v2, including actual-producer and header-first refusal
+controls. Public probe setup initially omitted spill storage, then selected too small a pool; both
+were corrected. A subsequent real MCP call correctly refused a noncurrent extension because the
+selected environment changed `OLDPWD`/`PSE_WORKER_BINARY`; preparing the image in that exact
+environment produced the passing public journey. No currency or scientific guard was weakened.
+
+The root mistakenly launched the excluded 505-case `just features-powerset` campaign. It was
+interrupted and its authenticated owned allocation drained; it was not restarted. Receipt
+`build/assessment/20261026T015814.696354Z-features-powerset-3695775-e2ee5b` remains incomplete,
+with combinations interrupted and no-default not run (exit 130). This is not feature-matrix
+qualification. Default, no-default and supported native graph lint/compile evidence above retains
+its actual narrower meaning.
+
+### Deliberate deviations and limits
+
+Only the necessary C03/C05 completion/replay/fresh-deployment and F01/F03 contract/remedy adoption
+was included. Wider canonical declaration/settlement, locator placement, host operation catalogues,
+worker/read reuse and observability remain with their Plan56 owners. RC01–RC06 remain pending;
+there is no new crate, solver substitution, altered numerical algorithm, payload-inline redesign,
+old-data compatibility reader, broad repartition or lowered scientific profile. Existing receipt
+framing and physical placement remain. Boxed replay payloads reduce enum size without changing wire
+meaning. Legitimate prepared leases retain custody rather than reacquiring a whole runtime.
+
+Acceptance composes original passes and exact affected reruns. No single clean 69/80-case invocation,
+full solver fleet/parity, 505-case powerset, benchmark/speed/capacity/memory benefit, desktop-host
+attachment, distribution or other-platform qualification is claimed. Public evidence covers an
+actual local STDIO MCP session and CLI. ADR-0227 remains proposed; implementation evidence does not
+change its formal status. Enduring meaning belongs to blueprint §19.2/§19.4/§19.8/§21.1 and the
+selected qualification basis in §24.2. This completed companion is retained while the active
+coordinator and C/F/G packages consume its evidence; it authorizes no further production work.
