@@ -809,9 +809,14 @@ lint-imports:
 [group('local')]
 [doc('Python unit + component tests against the canonical store at $PSE_SURREAL_STATE (pass -m to override)')]
 [positional-arguments]
+[script]
 py-test *args:
     "{{ py }}" -m scripts.python_extension sync auto
-    scripts/pse-env --store -- "{{ py }}" -m scripts.python_tests "$@"
+    case "$(python3 scripts/doctor.py --extension-kind)" in
+      native) exec scripts/pse-env --native --store -- "{{ py }}" -m scripts.python_tests "$@" ;;
+      dev) exec scripts/pse-env --store -- "{{ py }}" -m scripts.python_tests "$@" ;;
+      *) echo "pse-env: no installed pse extension; run just py-sync (or just py-sync-native)" >&2; exit 125 ;;
+    esac
 
 [group('local')]
 [doc('Python unit tests; routes through the native environment when the installed extension is the linked build')]
