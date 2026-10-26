@@ -152,15 +152,15 @@ impl CanonicalStore {
             let response=protected_query("canonical_contexts::append",||Ok(self.context_query("RETURN fn::pse_context_v1::append($pse_rpc_expires_at,$row,$generation);")?.bind(("row",wire::encode_canonical_project_contexts(&row)?)).bind(("generation",codec::encode_uint(project.generation)?)))).await;
             #[cfg(all(test,feature="canonical-tests"))]
             let response=if response.is_ok()&&crate::canonical_projects::simulate_reply_loss(){Err(CanonicalError::IncompleteResponse)}else{response};
-            match response {
-                Ok(mut response)=>{let got=wire::decode_canonical_project_contexts(final_object(&mut response)?.ok_or(CanonicalError::IncompleteResponse)?)?;if got.request.as_slice()!=request {return Err(CanonicalError::OperationReused);}Ok(got)},
-                Err(source)=>match self.project_context_record(operation).await {
-                    Ok(Some(got)) if got.request.as_slice()==request=>Ok(got),
-                    Ok(Some(_))=>Err(CanonicalError::OperationReused),
-                    Ok(None) if source.source_transaction_refused()=>Err(source),
-                    _=>Err(CanonicalError::ProjectUnsettled{operation:operation.into(),source:Box::new(source)}),
-                }
-            }
+            let write = response.and_then(|mut response| {
+                wire::decode_canonical_project_contexts(final_object(&mut response)?.ok_or(CanonicalError::IncompleteResponse)?).map_err(Into::into)
+            });
+            crate::canonical::settlement::settle_exact(
+                "project-context", operation, &request, write,
+                self.project_context_record(operation),
+                |got| got.request.as_slice() == request,
+                CanonicalError::source_transaction_refused,
+            ).await
         })).await
     }
     /// Exact immutable metadata, including tombstones and hidden project membership.

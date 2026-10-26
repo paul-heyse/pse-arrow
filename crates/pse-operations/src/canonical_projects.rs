@@ -486,30 +486,17 @@ impl CanonicalStore {
         } else {
             result
         };
-        match result {
-            Ok(mut response) => {
-                let ack = wire::decode_canonical_project_operations(final_object(&mut response)?)?;
-                if ack.request.as_slice() != request {
-                    return Err(CanonicalError::OperationReused);
-                }
-                Ok(ack)
-            }
-            Err(source) => match self.project_acknowledgement(operation).await {
-                Ok(Some(ack)) => {
-                    if ack.request.as_slice() == request {
-                        Ok(ack)
-                    } else {
-                        Err(CanonicalError::OperationReused)
-                    }
-                }
-                Ok(None) if source.source_transaction_refused() => Err(source),
-                _ => Err(CanonicalError::ProjectUnsettled {
-                    operation: operation.into(),
-                    source: Box::new(source),
-                }),
-            },
-        }
+        let write = result.and_then(|mut response| {
+            wire::decode_canonical_project_operations(final_object(&mut response)?).map_err(Into::into)
+        });
+        crate::canonical::settlement::settle_exact(
+            "project", operation, request, write,
+            self.project_acknowledgement(operation),
+            |ack| ack.request.as_slice() == request,
+            CanonicalError::source_transaction_refused,
+        ).await
     }
+
     /// Select one compact project header without admitting or opening source payloads.
     pub async fn project(&self, key: &str) -> Result<Option<Project>, CanonicalError> {
         identity(key)?;

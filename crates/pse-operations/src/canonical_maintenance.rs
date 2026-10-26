@@ -419,19 +419,15 @@ impl CanonicalStore {
                 let predecessor_bytes = serde_json::to_vec(&predecessor).map_err(|error| invalid(error.to_string()))?;
                 let input_sha256 = pending.get("input_sha256").and_then(serde_json::Value::as_str).ok_or_else(|| invalid("pending input identity absent"))?;
                 let mut existing = bounded_query(self.db.query("SELECT * FROM ONLY type::record('canonical_maintenance_activations',$nonce);").bind(("nonce",nonce.to_owned()))).await?;
-                if let Some(mut receipt) = existing.take::<Option<Object>>(0)? {
-                    receipt.remove("id");
-                    let field = |receipt: &mut Object, name| crate::canonical_codec::required(receipt,name);
-                    let issuing = crate::canonical_codec::decode_string(field(&mut receipt,"issuing_store")?)?;
-                    if crate::canonical_codec::decode_string(field(&mut receipt,"key")?)? != nonce
-                        || crate::canonical_codec::decode_string(field(&mut receipt,"input_sha256")?)? != input_sha256
-                        || crate::canonical_codec::decode_bytes(field(&mut receipt,"predecessor")?)?.as_slice() != predecessor_bytes.as_slice()
-                        || crate::canonical_codec::decode_string(field(&mut receipt,"interpretation")?)? != wire::INTERPRETATION
-                        || crate::canonical_codec::decode_string(field(&mut receipt,"schema_digest")?)? != wire::SCHEMA_DIGEST
-                        || crate::canonical_codec::decode_string(field(&mut receipt,"study_module_sha256")?)? != witness.study_module_sha256
-                        || !receipt.is_empty()
-                        || witness.previous_marker != Some(Marker { interpretation: wire::INTERPRETATION.into(), schema_digest: wire::SCHEMA_DIGEST.into(), study_module_sha256: witness.study_module_sha256.clone(), issuing_store: issuing }) {
-                        return Err(invalid("immutable activation receipt differs"));
+                if let Some(receipt) = existing.take::<Option<Object>>(0)?.map(wire::decode_canonical_maintenance_activations).transpose()? {
+                    if receipt.key != nonce
+                        || receipt.input_sha256 != input_sha256
+                        || receipt.predecessor.as_slice() != predecessor_bytes.as_slice()
+                        || receipt.interpretation != wire::INTERPRETATION
+                        || receipt.schema_digest != wire::SCHEMA_DIGEST
+                        || receipt.study_module_sha256 != witness.study_module_sha256
+                        || witness.previous_marker != Some(Marker { interpretation: wire::INTERPRETATION.into(), schema_digest: wire::SCHEMA_DIGEST.into(), study_module_sha256: witness.study_module_sha256.clone(), issuing_store: receipt.issuing_store }) {
+                        return Err(CanonicalError::OperationReused);
                     }
                     self.maintenance_config()?;
                     self.open().await?;
@@ -453,8 +449,23 @@ impl CanonicalStore {
                 let issuing = predecessor.as_ref().map(|marker| marker.issuing_store.clone()).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
                 let query = "BEGIN; RETURN fn::pse_maintenance_v1::activate($pse_rpc_expires_at,$predecessor,$interpretation,$schema_digest,$study_module_sha256,$issuing,$payload_incarnation,$nonce,$input_sha256,$predecessor_bytes); COMMIT;";
                 let predecessor_value = match predecessor { Some(marker) => { let mut value=Object::new(); value.insert("interpretation", marker.interpretation); value.insert("schema_digest", marker.schema_digest); value.insert("study_module_sha256", marker.study_module_sha256); value.insert("issuing_store", marker.issuing_store); Value::Object(value) }, None => Value::None };
-                let response = bounded_query(self.activation_db.query(query).bind(("predecessor",predecessor_value)).bind(("interpretation",wire::INTERPRETATION)).bind(("schema_digest",wire::SCHEMA_DIGEST)).bind(("study_module_sha256",witness.study_module_sha256.clone())).bind(("issuing",issuing)).bind(("payload_incarnation",self.files.incarnation.clone())).bind(("nonce",nonce.to_owned())).bind(("input_sha256",input_sha256.to_owned())).bind(("predecessor_bytes",surrealdb::types::Bytes::from(predecessor_bytes)))).await?;
-                super::complete_response(response)?;
+                let request = serde_json::to_vec(&(nonce, input_sha256, &predecessor_bytes, wire::INTERPRETATION, wire::SCHEMA_DIGEST, &witness.study_module_sha256, &issuing, &self.files.incarnation)).map_err(|error| invalid(error.to_string()))?;
+                let expected = pse_model::generated::runtime::canonical_maintenance_activations::Row {
+                    key: nonce.to_owned(), input_sha256: input_sha256.to_owned(),
+                    predecessor: predecessor_bytes.clone().into(),
+                    interpretation: wire::INTERPRETATION.into(), schema_digest: wire::SCHEMA_DIGEST.into(),
+                    study_module_sha256: witness.study_module_sha256.clone(), issuing_store: issuing.clone(),
+                };
+                let write = bounded_query(self.activation_db.query(query).bind(("predecessor",predecessor_value)).bind(("interpretation",wire::INTERPRETATION)).bind(("schema_digest",wire::SCHEMA_DIGEST)).bind(("study_module_sha256",witness.study_module_sha256.clone())).bind(("issuing",issuing)).bind(("payload_incarnation",self.files.incarnation.clone())).bind(("nonce",nonce.to_owned())).bind(("input_sha256",input_sha256.to_owned())).bind(("predecessor_bytes",surrealdb::types::Bytes::from(predecessor_bytes)))).await.and_then(super::complete_response).map(|_| expected.clone());
+                super::settlement::settle_exact(
+                    "maintenance-activation", nonce, &request, write,
+                    async {
+                        let mut response = bounded_query(self.db.query("SELECT * FROM ONLY type::record('canonical_maintenance_activations',$nonce);").bind(("nonce",nonce.to_owned()))).await?;
+                        response.take::<Option<Object>>(0)?.map(wire::decode_canonical_maintenance_activations).transpose().map_err(Into::into)
+                    },
+                    |receipt| receipt == &expected,
+                    CanonicalError::source_transaction_refused,
+                ).await?;
                 self.maintenance_config()?;
                 self.open().await?;
                 Ok(witness)

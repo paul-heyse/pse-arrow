@@ -11,6 +11,8 @@ pub(crate) mod lifetime;
 pub mod maintenance;
 #[path = "canonical_transport.rs"]
 pub(crate) mod transport;
+#[path = "canonical_settlement.rs"]
+pub(crate) mod settlement;
 pub use lifetime::{ConnectionActivity, inherit_activity};
 pub use pse_model::generated::runtime::{
     canonical_memberships::Row as Membership, canonical_revisions::Row as Revision,
@@ -223,14 +225,20 @@ pub enum CanonicalError {
         #[source]
         source: Box<CanonicalError>,
     },
-    /// The original project operation may have committed; settle only this identity.
-    #[error("project operation {operation} did not settle: {source}")]
-    ProjectUnsettled {
-        /// Caller-issued original immutable operation.
+    /// An exact owner's effect remains unresolved; neither cause proves absence.
+    #[error("canonical {owner} operation {operation} did not settle: {source}; readback: {readback:?}")]
+    SettlementUnresolved {
+        /// Actual effect owner, rather than the transport used for readback.
+        owner: &'static str,
+        /// Original immutable operation identity.
         operation: String,
-        /// Original failure, never proof of absence.
+        /// Complete original immutable request, retained for exact recovery.
+        request: Vec<u8>,
+        /// Original submission or acknowledgement-decoding failure.
         #[source]
         source: Box<CanonicalError>,
+        /// Independent readback failure; absent for a completed but inconclusive read.
+        readback: Option<Box<CanonicalError>>,
     },
     #[error("canonical write payload exceeds the bounded protocol batch")]
     /// A bounded payload or selector limit was exceeded.
@@ -295,6 +303,16 @@ impl From<surrealdb::Error> for CanonicalError {
 impl CanonicalError {
     /// Infrastructure termination is distinct from a scientific/domain refusal.
     pub fn is_infrastructure(&self) -> bool {
+        if let Self::SettlementUnresolved { source, readback, .. } = self {
+            return source.is_infrastructure()
+                || readback.as_ref().is_some_and(|error| error.is_infrastructure());
+        }
+        if let Self::AnalysisUnsettled { source, .. }
+        | Self::ArtifactUnsettled { source, .. }
+        | Self::SourceEditUnsettled { source, .. }
+        | Self::SourceEditRefused { source, .. } = self {
+            return source.is_infrastructure();
+        }
         matches!(
             self,
             Self::Driver(_)
@@ -329,7 +347,7 @@ impl CanonicalError {
             Self::AnalysisUnsettled { .. }
             | Self::ArtifactUnsettled { .. }
             | Self::SourceEditUnsettled { .. }
-            | Self::ProjectUnsettled { .. } => true,
+            | Self::SettlementUnresolved { .. } => true,
             Self::PhysicalClose { source } | Self::ProtectionRelease { source } => {
                 source.effect_is_unknown()
             }
@@ -1746,13 +1764,19 @@ impl CanonicalStore {
                 // exclusively by the immutable operation receipt, never by the head.
                 let acknowledgement=self.revision(&stage.operation).await;
                 if let Ok(Some(revision))=&acknowledgement {
-                    if let Some(intent)=project {self.verify_project_publication_ack(intent).await?;}
-                    return if revision.request.as_slice()==stage.request.as_slice() {
-                        Ok(revision.clone())
-                    }else{Err(CanonicalError::OperationReused)};
+                    if revision.request.as_slice()!=stage.request.as_slice() {
+                        return Err(CanonicalError::OperationReused);
+                    }
+                    if let Some(intent)=project {
+                        if let Err(readback)=self.verify_project_publication_ack(intent).await {
+                            return Err(settlement::unresolved("source-activation", &stage.operation, &stage.request, error, Some(readback)));
+                        }
+                    }
+                    return Ok(revision.clone());
                 }
                 let refused=matches!(acknowledgement,Ok(None)) && error.source_transaction_refused();
-                if matches!(&error, CanonicalError::Driver(error) if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
+                if matches!(acknowledgement,Ok(None))
+                    && error.is_conflict()
                     && attempt + 1 < GUARDED_ATTEMPTS
                 {
                     conflict_backoff(attempt).await;
@@ -1761,13 +1785,31 @@ impl CanonicalStore {
                 }
                 let error = error.exhaust_conflict("canonical::activate_source_stage", GUARDED_ATTEMPTS);
                 operation_failed("canonical::activate_source_stage", &error);
-                return Err(if refused {CanonicalError::SourceEditRefused {problem:stage.problem.clone(),operation:stage.operation.clone(),source:Box::new(error)}}else{error});
-
+                let result = settlement::settle_exact(
+                    "source-activation", &stage.operation, &stage.request, Err(error),
+                    async { acknowledgement },
+                    |revision| revision.request.as_slice() == stage.request.as_slice(),
+                    CanonicalError::source_transaction_refused,
+                ).await;
+                return result.map_err(|error| if refused {
+                    CanonicalError::SourceEditRefused { problem: stage.problem.clone(), operation: stage.operation.clone(), source: Box::new(error) }
+                } else { error });
             }
-            let revision = self.revision(&stage.operation).await?;
-            let revision = revision.ok_or_else(|| CanonicalError::Configuration("committed revision missing".into()))?;
-            if let Some(intent)=project {self.verify_project_publication_ack(intent).await?;}
-            return Ok(revision);
+            // The write completed, but a missing or failed receipt read still
+            // cannot invent an immutable acknowledgement for this activation.
+            return settlement::settle_exact(
+                "source-activation", &stage.operation, &stage.request,
+                Err(CanonicalError::IncompleteResponse),
+                async {
+                    let revision = self.revision(&stage.operation).await?;
+                    if revision.as_ref().is_some_and(|revision| revision.request.as_slice() == stage.request.as_slice()) {
+                        if let Some(intent)=project {self.verify_project_publication_ack(intent).await?;}
+                    }
+                    Ok(revision)
+                },
+                |revision| revision.request.as_slice() == stage.request.as_slice(),
+                |_| false,
+            ).await;
         }
         }).await
             }).await
