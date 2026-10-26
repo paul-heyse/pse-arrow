@@ -30,7 +30,6 @@ import sys
 import tempfile
 import threading
 import time
-import tomllib
 import urllib.error
 import urllib.request
 import uuid
@@ -49,21 +48,21 @@ if not __package__:
 if __name__ == "__main__":
     sys.modules["scripts.surreal_server"] = sys.modules[__name__]
 
-from scripts import operation_lifetime
 from scripts import (
-    host_admission,
+    backup_image,
     execution_profiles,
+    host_admission,
     native_operation,
+    operation_lifetime,
+    process_observation,
     pse_env,
+    receiver_closure,
+    receiver_environment,
+    recovery_operation,
+    service_borrowers,
     surreal_source,
     surrealism_module,
     telemetry_service,
-    process_observation,
-    service_borrowers,
-    receiver_closure,
-    receiver_environment,
-    backup_image,
-    recovery_operation,
 )
 from scripts.generated import deployment
 from scripts.generated.deployment import DeploymentReadiness as Readiness
@@ -131,10 +130,19 @@ class ServiceObservation:
     def document(self) -> dict[str, object]:
         import msgspec  # noqa: PLC0415 -- private typed observation transport
 
-        return object_mapping(msgspec.to_builtins(deployment.DeploymentObservation(
-            phase=self.phase, state=str(self.state), unit=self.unit, cause=self.cause,
-            instance_id=self.instance_id if isinstance(self.instance_id, str) else None,
-        )))
+        return object_mapping(
+            msgspec.to_builtins(
+                deployment.DeploymentObservation(
+                    phase=self.phase,
+                    state=str(self.state),
+                    unit=self.unit,
+                    cause=self.cause,
+                    instance_id=self.instance_id
+                    if isinstance(self.instance_id, str)
+                    else None,
+                )
+            )
+        )
 
     def __bool__(self) -> bool:
         raise TypeError("Consume ServiceObservation.phase explicitly")
@@ -159,10 +167,10 @@ def unadmitted_service_launch_drained(
     if "binding" in launch:
         return False
     config = config_for(state, deadline=deadline)
-    drain_config = storage_launch_drain_config(
-        state, config, launch, deadline=deadline
+    drain_config = storage_launch_drain_config(state, config, launch, deadline=deadline)
+    observed = operation_lifetime.unit_observation(
+        unit, **operation_lifetime.deadline_options(deadline)
     )
-    observed = operation_lifetime.unit_observation(unit, **operation_lifetime.deadline_options(deadline))
     if (
         observed.get("LoadState") != "loaded"
         or observed.get("ActiveState") not in {"inactive", "failed"}
@@ -182,13 +190,12 @@ def unadmitted_service_launch_drained(
             for key in ("ActiveState", "ControlGroup", "InvocationID")
         )
         or config_for(state, deadline=deadline) != config
-        or storage_launch_drain_config(
-            state, config, launch, deadline=deadline
-        )
+        or storage_launch_drain_config(state, config, launch, deadline=deadline)
         != drain_config
-        or read_json(state / "service-launch.json", deadline=deadline)
-        != launch
-        or operation_lifetime.unit_observation(unit, **operation_lifetime.deadline_options(deadline))
+        or read_json(state / "service-launch.json", deadline=deadline) != launch
+        or operation_lifetime.unit_observation(
+            unit, **operation_lifetime.deadline_options(deadline)
+        )
         != observed
     ):
         return False
@@ -223,7 +230,9 @@ def service_processes_drained(
         services.append(record["service"])
     for selected in services:
         if deadline is not None:
-            host_admission.require_admission_time(deadline, "Original drain clock expired")
+            host_admission.require_admission_time(
+                deadline, "Original drain clock expired"
+            )
         state = Path(selected)
         unit = unit_name(state)
         if unit not in units:
@@ -232,9 +241,7 @@ def service_processes_drained(
             return False
         launch = None
         try:
-            launch = read_json(
-                state / "service-launch.json", deadline=deadline
-            )
+            launch = read_json(state / "service-launch.json", deadline=deadline)
             affiliation = launch["allocation"]
             if not isinstance(affiliation, str) or not re.fullmatch(
                 r"[a-f0-9]{32}", Path(affiliation).name
@@ -242,9 +249,7 @@ def service_processes_drained(
                 return False
             if Path(affiliation).absolute() != allocation.absolute():
                 continue  # A stale service descriptor belongs to a different owner.
-            process = read_json(
-                state / "server-process.json", deadline=deadline
-            )
+            process = read_json(state / "server-process.json", deadline=deadline)
             generation = launch["generation"]
             if (
                 not isinstance(generation, str)
@@ -316,13 +321,9 @@ def service_processes_drained(
                         state, config, launch, deadline=deadline
                     )
                     != drain_config
-                    or read_json(
-                        state / "service-launch.json", deadline=deadline
-                    )
+                    or read_json(state / "service-launch.json", deadline=deadline)
                     != launch
-                    or read_json(
-                        state / "server-process.json", deadline=deadline
-                    )
+                    or read_json(state / "server-process.json", deadline=deadline)
                     != process
                 ):
                     return False
@@ -349,7 +350,9 @@ def service_processes_drained(
                     observed = (
                         operation_lifetime.unit_observation(unit)
                         if deadline is None
-                        else operation_lifetime.unit_observation(unit, deadline=deadline)
+                        else operation_lifetime.unit_observation(
+                            unit, deadline=deadline
+                        )
                     )
                     if observed.get("LoadState") == "not-found":
                         continue
@@ -410,7 +413,9 @@ def drain_borrowed_services(
         "released": True,
     }
     options = operation_lifetime.deadline_options(deadline)
-    if not host_admission.drained(other, deadline=deadline, services=ServiceAdmission()):
+    if not host_admission.drained(
+        other, deadline=deadline, services=ServiceAdmission()
+    ):
         return
     for value in services:
         state = Path(value)
@@ -423,7 +428,9 @@ def drain_borrowed_services(
             if not isinstance(affiliation, str) or not re.fullmatch(
                 r"[a-f0-9]{32}", Path(affiliation).name
             ):
-                raise host_admission.AdmissionError("Borrowed storage allocation is unobservable")
+                raise host_admission.AdmissionError(
+                    "Borrowed storage allocation is unobservable"
+                )
             if Path(affiliation).absolute() != allocation.absolute():
                 continue  # A newer allocation owns this service; the snapshot cannot act on it.
             unit = unit_name(state)
@@ -446,7 +453,9 @@ def drain_borrowed_services(
                 raise host_admission.AdmissionError("Borrowed storage binding changed")
             config = config_for(state, **options)
             if config.get("instance_id") != launch.get("generation"):
-                raise host_admission.AdmissionError("Borrowed storage generation changed")
+                raise host_admission.AdmissionError(
+                    "Borrowed storage generation changed"
+                )
             if observed.get("LoadState") != "not-found":
                 stopped = observed.get("ActiveState") in {"inactive", "failed"}
                 identity = host_admission.group_identity(expected["group"])
@@ -469,7 +478,9 @@ def drain_borrowed_services(
                         {None, expected["inode"]} if stopped else {expected["inode"]}
                     )
                 ):
-                    raise host_admission.AdmissionError("Borrowed storage lifetime changed")
+                    raise host_admission.AdmissionError(
+                        "Borrowed storage lifetime changed"
+                    )
             # Residency permits borrowing a running service; it does not reverse
             # an intentional stop or a failed service on allocation release.
             if not config.get("resident") or observed.get("ActiveState") != "active":
@@ -477,9 +488,7 @@ def drain_borrowed_services(
                 stop(state, config)
             else:
                 try:
-                    park_service(
-                        state, expected_binding=expected, **options
-                    )
+                    park_service(state, expected_binding=expected, **options)
                 finally:
                     queue_parked_service(directory, state, **options)
 
@@ -488,31 +497,49 @@ def queue_parked_service(
     directory: Path, state: Path, *, deadline: float | None = None
 ) -> None:
     """Publish actual parking intent while the caller owns the service lifecycle."""
-    if config_for(state, **operation_lifetime.deadline_options(deadline)).get(
-        "parked"
-    ):
+    if config_for(state, **operation_lifetime.deadline_options(deadline)).get("parked"):
         selected = str(state)
         with host_admission.allocation_metadata(directory, deadline=deadline) as ledger:
             if selected not in ledger.setdefault("parked_services", []):
                 ledger["parked_services"].append(selected)
 
 
-
 class ServiceAdmission:
     """Compose host allocation with this supervisor's exact storage lifetime."""
 
-    def processes_drained(self, record: Mapping[str, object], allocation: Path | None,
-                          *, deadline: float | None = None) -> bool:
+    def processes_drained(
+        self,
+        record: Mapping[str, object],
+        allocation: Path | None,
+        *,
+        deadline: float | None = None,
+    ) -> bool:
         return service_processes_drained(record, allocation, deadline=deadline)
 
-    def return_borrowed(self, directory: Path, record: Mapping[str, object], *,
-                        allocation: Path, explicit: bool = False,
-                        deadline: float | None = None) -> None:
-        drain_borrowed_services(directory, record, allocation=allocation,
-                                explicit=explicit, deadline=deadline)
+    def return_borrowed(
+        self,
+        directory: Path,
+        record: Mapping[str, object],
+        *,
+        allocation: Path,
+        explicit: bool = False,
+        deadline: float | None = None,
+    ) -> None:
+        drain_borrowed_services(
+            directory,
+            record,
+            allocation=allocation,
+            explicit=explicit,
+            deadline=deadline,
+        )
 
-    def park(self, directory: Path, owners: Mapping[str, host_admission.AllocationRecord], *,
-             deadline: float) -> None:
+    def park(
+        self,
+        directory: Path,
+        owners: Mapping[str, host_admission.AllocationRecord],
+        *,
+        deadline: float,
+    ) -> None:
         for owner in owners.values():
             host_admission.require_admission_time(
                 deadline,
@@ -522,7 +549,7 @@ class ServiceAdmission:
             path = Path(service)
             binding = owner["units"].get(unit_name(path))
             if not binding:
-                raise host_admission.AdmissionError(  # noqa: TRY301 -- release this selected allocation on a missing parking premise
+                raise host_admission.AdmissionError(
                     "Parkable service lacks its bound lifetime"
                 )
             with lifecycle_reservation(path):
@@ -554,9 +581,7 @@ def measurement_context(env: Mapping[str, str] | None = None) -> dict[str, objec
             "state": selected,
             "generation": config["instance_id"],
             "resident": bool(config.get("resident")),
-            "server_process": read_json(process)
-            if process.is_file()
-            else None,
+            "server_process": read_json(process) if process.is_file() else None,
             "supervisor": config.get("service_supervisor"),
             "receiver": config.get("primary_receiver"),
             "execution_profile": source.get("PSE_TEST_EXECUTION_PROFILE"),
@@ -577,7 +602,11 @@ def read_json(path: Path, *, deadline: float | None = None) -> dict[str, object]
         return result
 
     if deadline is not None:
-        return object_mapping(json.loads(private_record_bytes(path, deadline), object_pairs_hook=unique_object))
+        return object_mapping(
+            json.loads(
+                private_record_bytes(path, deadline), object_pairs_hook=unique_object
+            )
+        )
     value = json.loads(path.read_text(), object_pairs_hook=unique_object)
     if not isinstance(value, dict):
         raise SupervisorError(f"Expected an object in {path.name}")
@@ -711,7 +740,11 @@ def publish_generation(
     ]
     for relative in GENERATION_CONFIGURATION:
         sources.append(root / relative)
-    prepared_inputs = receiver_environment.capture(WORKER_CAPABILITIES, systemd_environment()) if worker is not None else None
+    prepared_inputs = (
+        receiver_environment.capture(WORKER_CAPABILITIES, systemd_environment())
+        if worker is not None
+        else None
+    )
     entries = {str(path.relative_to(root)): file_digest(path) for path in sources}
     if prepared_inputs is not None:
         entries["native-environment.json"] = hashlib.sha256(prepared_inputs).hexdigest()
@@ -740,26 +773,45 @@ def publish_generation(
             output.flush()
             os.fsync(output.fileno())
         (pending / "native-environment.json").chmod(0o600)
-    for name, source in (("bin/pse-deployment", operator), ("bin/pse-worker", worker),
-                         ("producer/worker.json", producer)):
+    for name, source in (
+        ("bin/pse-deployment", operator),
+        ("bin/pse-worker", worker),
+        ("producer/worker.json", producer),
+    ):
         if source is not None:
             target = pending / name
             target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             shutil.copyfile(source, target)
             target.chmod(0o700 if name.startswith("bin/") else 0o600)
-    if any(file_digest(pending / name) != expected for name, expected in entries.items()):
-        raise SupervisorError("Source changed while publishing immutable generation; pending bytes preserved")
+    if any(
+        file_digest(pending / name) != expected for name, expected in entries.items()
+    ):
+        raise SupervisorError(
+            "Source changed while publishing immutable generation; pending bytes preserved"
+        )
     interpreter = Path(sys.executable).absolute()
     try:
         providers = receiver_closure.probe(pending, owned, interpreter)
     except receiver_closure.ClosureError as error:
         raise SupervisorError(str(error)) from error
     if prepared_inputs is not None:
-        providers.update(receiver_environment.compiler_files(object_mapping(json.loads(prepared_inputs)["values"])))
-    declaration = {"files": entries, "runtime": providers, "interpreter": str(interpreter)}
-    identity = hashlib.sha256(json.dumps(declaration, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        providers.update(
+            receiver_environment.compiler_files(
+                object_mapping(json.loads(prepared_inputs)["values"])
+            )
+        )
+    declaration = {
+        "files": entries,
+        "runtime": providers,
+        "interpreter": str(interpreter),
+    }
+    identity = hashlib.sha256(
+        json.dumps(declaration, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
     destination = generations / identity
-    write_json(pending / "generation.json", {"version": 2, "identity": identity, **declaration})
+    write_json(
+        pending / "generation.json", {"version": 2, "identity": identity, **declaration}
+    )
     if not destination.exists():
         # Concurrent complete generations have identical content; preserve pending.
         try:
@@ -856,7 +908,10 @@ def wait_reservation(state: Path, path: Path, nonce: object, deadline: float) ->
 
 
 def reservation_live(reservation: dict[str, object]) -> bool:
-    if reservation.get("boot") is not None and reservation["boot"] != process_observation.boot():
+    if (
+        reservation.get("boot") is not None
+        and reservation["boot"] != process_observation.boot()
+    ):
         return False
     if reservation.get("unresolved") is True:
         # Launcher exit cannot settle a dispatched manager job or its descendants.
@@ -941,8 +996,10 @@ def open_context_admission(state: Path) -> None:
     for context in managed_contexts(state):
         with state_lock(context):
             config = config_for(context)
-            if config.get("backup_pending") is not None or config.get("derived_rebuild_pending") or config.get(
-                "surrealkit_rollout_pending"
+            if (
+                config.get("backup_pending") is not None
+                or config.get("derived_rebuild_pending")
+                or config.get("surrealkit_rollout_pending")
             ):
                 raise SupervisorError("Incomplete owned maintenance remains closed")
             deadline = getattr(_STARTUP, "deadline", None)
@@ -973,10 +1030,16 @@ def require_borrowers_drained(state: Path) -> None:
             continue
         if borrower.protected is not None:
             raise SupervisorError(borrower.protected)
-        if borrower.requires_association and selected != owner and service_directory(selected) != owner:
+        if (
+            borrower.requires_association
+            and selected != owner
+            and service_directory(selected) != owner
+        ):
             raise SupervisorError("Live context has an unresolved service association")
         if borrower.active_owner:
-            raise SupervisorError("A live test context still borrows this storage service")
+            raise SupervisorError(
+                "A live test context still borrows this storage service"
+            )
 
 
 def all_contexts_drained(state: Path) -> None:
@@ -1098,7 +1161,9 @@ def _readmit_supervisor(
 ) -> dict[str, object]:
     config = config_for(state)
     if config.get("backup_pending") is not None:
-        raise SupervisorError("Backup pending owner requires explicit resume before readmission")
+        raise SupervisorError(
+            "Backup pending owner requires explicit resume before readmission"
+        )
     if (
         active(state)
         or config.get("accepting_writes")
@@ -1257,8 +1322,12 @@ def settle_legacy_telemetry_launch(
             record["exclusive"],
         )
         owner = host_admission.Allocation(
-            allocation.parent, allocation.name, profile, record["deadline"]
-        , services=ServiceAdmission())
+            allocation.parent,
+            allocation.name,
+            profile,
+            record["deadline"],
+            services=ServiceAdmission(),
+        )
     stop(state, config)
     if owner is not None and not owner.release(deadline=deadline):
         raise SupervisorError(
@@ -1362,9 +1431,18 @@ def generation_observation(
             remaining(deadline)
     for name in runtime or {}:
         information = Path(name).stat()
-        observed.append((name, information.st_dev, information.st_ino, information.st_mode,
-                         information.st_uid, information.st_size, information.st_mtime_ns,
-                         information.st_ctime_ns))
+        observed.append(
+            (
+                name,
+                information.st_dev,
+                information.st_ino,
+                information.st_mode,
+                information.st_uid,
+                information.st_size,
+                information.st_mtime_ns,
+                information.st_ctime_ns,
+            )
+        )
     return tuple(observed)
 
 
@@ -1373,7 +1451,8 @@ def verify_generation(directory: Path) -> GenerationVerification:
     retained = owner.generations.get(directory) if owner is not None else None
     if (
         retained is not None
-        and generation_observation(directory, retained.files, retained.runtime) == retained.observation
+        and generation_observation(directory, retained.files, retained.runtime)
+        == retained.observation
     ):
         return retained
     if owner is not None:
@@ -1397,8 +1476,11 @@ def verify_generation(directory: Path) -> GenerationVerification:
         for name, expected in runtime.items()
     ):
         raise SupervisorError("Immutable interpreter/provider declaration changed")
-    declaration = ({"files": files, "runtime": runtime, "interpreter": receipt.get("interpreter")}
-                   if receipt["version"] == 2 else files)
+    declaration = (
+        {"files": files, "runtime": runtime, "interpreter": receipt.get("interpreter")}
+        if receipt["version"] == 2
+        else files
+    )
     identity = hashlib.sha256(
         json.dumps(declaration, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
@@ -1436,7 +1518,9 @@ def verify_generation(directory: Path) -> GenerationVerification:
     after = generation_observation(directory, files, runtime)
     if before != after:
         raise SupervisorError("Immutable generation changed during verification")
-    verified = GenerationVerification(dict(files), after, dict(runtime), receipt["version"])
+    verified = GenerationVerification(
+        dict(files), after, dict(runtime), receipt["version"]
+    )
     if owner is not None:
         owner.generations[directory] = verified
     return verified
@@ -1445,7 +1529,9 @@ def verify_generation(directory: Path) -> GenerationVerification:
 def activatable_generation(directory: Path) -> GenerationVerification:
     verified = verify_generation(directory)
     if verified.version != 2:
-        raise SupervisorError("Retained generation requires explicit offline readmission before startup")
+        raise SupervisorError(
+            "Retained generation requires explicit offline readmission before startup"
+        )
     return verified
 
 
@@ -1458,15 +1544,26 @@ def execution_resources(name: str) -> dict[str, object]:
 
 
 def context_document(value: Mapping[str, object]) -> dict[str, object]:
-    from scripts.generated import deployment  # noqa: PLC0415 -- actual registered context owner
     import msgspec  # noqa: PLC0415 -- private typed boundary
+
+    from scripts.generated import (
+        deployment,
+    )
 
     if "version" not in value:
         raise SupervisorError("Registered context omitted its persisted version")
     try:
-        return object_mapping(msgspec.to_builtins(msgspec.convert(value, type=deployment.RegisteredNativeContext, strict=True)))
+        return object_mapping(
+            msgspec.to_builtins(
+                msgspec.convert(
+                    value, type=deployment.RegisteredNativeContext, strict=True
+                )
+            )
+        )
     except msgspec.ValidationError as error:
-        raise SupervisorError("Registered context differs from its owned deployment schema") from error
+        raise SupervisorError(
+            "Registered context differs from its owned deployment schema"
+        ) from error
 
 
 def register_context(
@@ -1577,14 +1674,16 @@ def register_context(
         write_json(receiver_state / "config.json", selected)
         write_json(
             target,
-            context_document({
-                "version": 1,
-                "database": database,
-                "resources": allocation,
-                "primary_receiver": receiver,
-                "receiver_state": str(receiver_state),
-                "receiver_generation": identity,
-            }),
+            context_document(
+                {
+                    "version": 1,
+                    "database": database,
+                    "resources": allocation,
+                    "primary_receiver": receiver,
+                    "receiver_state": str(receiver_state),
+                    "receiver_generation": identity,
+                }
+            ),
         )
     return read_json(target)
 
@@ -1800,7 +1899,10 @@ def admitted_runtime_server(
         or SCRIPT.parent.name != "scripts"
         or directory.parent != service / ".generations"
         or supervisor.get("supervisor_executable")
-        not in {str(Path(sys.executable).absolute()), str(Path(sys.executable).resolve())}
+        not in {
+            str(Path(sys.executable).absolute()),
+            str(Path(sys.executable).resolve()),
+        }
     ):
         raise SupervisorError(
             "Running supervisor is not its bound immutable service generation"
@@ -1865,8 +1967,10 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
         raise SupervisorError("Missing resource allocation")
     if retiring:
         expected = resources(
-            integer(budget["total_memory_bytes"]), integer(budget["server_memory_bytes"]),
-            integer(budget["native_workers"]), integer(budget["native_worker_memory_bytes"]),
+            integer(budget["total_memory_bytes"]),
+            integer(budget["server_memory_bytes"]),
+            integer(budget["native_workers"]),
+            integer(budget["native_worker_memory_bytes"]),
             budget.get("execution"),
         )
         expected = {
@@ -1882,7 +1986,9 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
             rocksdb_write_buffers=2,
         )
         if budget != expected:
-            raise SupervisorError("Retiring resource overrides differ from their original allocation")
+            raise SupervisorError(
+                "Retiring resource overrides differ from their original allocation"
+            )
     else:
         try:
             execution_profiles.validate_configuration(config, deadline=deadline)
@@ -2029,10 +2135,18 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
     # Download first so network failure leaves no half-initialized application state.
     default = execution_profiles.default_allocation()
     allocation = resources(
-        integer(default["total_memory_bytes"]) if args.memory_mib is None else args.memory_mib * MIB,
-        integer(default["server_memory_bytes"]) if args.server_memory_mib is None else args.server_memory_mib * MIB,
-        integer(default["native_workers"]) if args.native_workers is None else args.native_workers,
-        integer(default["native_worker_memory_bytes"]) if args.native_worker_memory_mib is None else args.native_worker_memory_mib * MIB,
+        integer(default["total_memory_bytes"])
+        if args.memory_mib is None
+        else args.memory_mib * MIB,
+        integer(default["server_memory_bytes"])
+        if args.server_memory_mib is None
+        else args.server_memory_mib * MIB,
+        integer(default["native_workers"])
+        if args.native_workers is None
+        else args.native_workers,
+        integer(default["native_worker_memory_bytes"])
+        if args.native_worker_memory_mib is None
+        else args.native_worker_memory_mib * MIB,
     )
     receiver = None
     if args.execution_profile:
@@ -2142,7 +2256,9 @@ def reconfigure(
 ) -> None:
     """Replace only the allocation after proving the owned lifecycle is offline."""
     if config.get("backup_pending") is not None:
-        raise SupervisorError("Backup pending owner requires explicit resume before reconfiguration")
+        raise SupervisorError(
+            "Backup pending owner requires explicit resume before reconfiguration"
+        )
     if any(
         value is not None
         for value in (
@@ -2324,7 +2440,9 @@ def group_populated(group: str) -> bool:
     try:
         return process_observation.populated(group)
     except ValueError as error:
-        raise SupervisorError("Cannot verify managed worker cgroup population") from error
+        raise SupervisorError(
+            "Cannot verify managed worker cgroup population"
+        ) from error
 
 
 def worker_observation(
@@ -2424,8 +2542,12 @@ def primary_environment(
 ) -> tuple[dict[str, str], tuple[str, ...]]:
     """Carry role-specific inputs to the actual service; the worker validates them."""
     environment = worker_environment(state, 0, allocation, handoff)
-    inputs = receiver_environment.read(Path(receiver["supervisor_script"]).parents[1] / "native-environment.json")
-    environment = receiver_environment.selection(inputs, WORKER_CAPABILITIES, environment)
+    inputs = receiver_environment.read(
+        Path(receiver["supervisor_script"]).parents[1] / "native-environment.json"
+    )
+    environment = receiver_environment.selection(
+        inputs, WORKER_CAPABILITIES, environment
+    )
     selected = environment.get("PSE_WORKER_BINARY")
     if selected is not None:
         try:
@@ -3022,7 +3144,9 @@ def inherit_host_owner(
         else min(deadline, inherited)
     )
     try:
-        return host_admission.inherit(os.environ, deadline=deadline, services=ServiceAdmission())
+        return host_admission.inherit(
+            os.environ, deadline=deadline, services=ServiceAdmission()
+        )
     except host_admission.AdmissionError:
         if deadline is not None:
             remaining(deadline)
@@ -3361,7 +3485,8 @@ def observer_launch_busy(state: Path) -> bool:
     process = Path(f"/proc/{integer(launch['pid'])}/stat")
     if (
         process.exists()
-        and process_observation.start_identity(integer(launch["pid"])) == launch["start"]
+        and process_observation.start_identity(integer(launch["pid"]))
+        == launch["start"]
     ):
         return True
     result = systemctl(
@@ -3561,7 +3686,9 @@ def observer_allocation_drained(
         # compose and acknowledge the selected terminal. The enclosing host
         # owner still requires every terminal guard when releasing its charge.
         record.pop("terminal_guards", None)
-    return host_admission.drained(record, deadline=deadline, services=ServiceAdmission())
+    return host_admission.drained(
+        record, deadline=deadline, services=ServiceAdmission()
+    )
 
 
 @contextlib.contextmanager
@@ -3739,12 +3866,11 @@ def observer(
             process = Path(f"/proc/{integer(prior['pid'])}/stat")
             if (
                 process.exists()
-                and process_observation.start_identity(integer(prior["pid"])) == prior["start"]
+                and process_observation.start_identity(integer(prior["pid"]))
+                == prior["start"]
             ):
                 raise SupervisorError("The reference observer allocation is occupied")
-        start = (
-            process_observation.start_identity(os.getpid())
-        )
+        start = process_observation.start_identity(os.getpid())
         write_json(
             state / "observer-launch.json",
             {"pid": os.getpid(), "start": start, "unit": unit},
@@ -3872,13 +3998,24 @@ def primary_association(config: dict[str, object]) -> dict[str, str]:
         raise SupervisorError(
             "Selected execution requires a configured primary receiver"
         )
-    from scripts.generated import deployment  # noqa: PLC0415 -- executable association owner
     import msgspec  # noqa: PLC0415 -- private typed boundary
 
+    from scripts.generated import (
+        deployment,
+    )
+
     try:
-        result = object_mapping(msgspec.to_builtins(msgspec.convert(receiver, type=deployment.ManagedPrimaryReceiver, strict=True)))
+        result = object_mapping(
+            msgspec.to_builtins(
+                msgspec.convert(
+                    receiver, type=deployment.ManagedPrimaryReceiver, strict=True
+                )
+            )
+        )
     except msgspec.ValidationError as error:
-        raise SupervisorError("Primary receiver association has unsupported fields") from error
+        raise SupervisorError(
+            "Primary receiver association has unsupported fields"
+        ) from error
     if any(
         not Path(result[key]).is_absolute()
         for key in ("supervisor_executable", "supervisor_script", "worker_executable")
@@ -4581,11 +4718,18 @@ def _ensure_primary(
                     receiver["supervisor_executable"],
                     "-I",
                     "-B",
-                    str(Path(receiver["supervisor_script"]).with_name("native_operation.py")),
+                    str(
+                        Path(receiver["supervisor_script"]).with_name(
+                            "native_operation.py"
+                        )
+                    ),
                     "--capabilities",
                     ",".join(WORKER_CAPABILITIES),
                     "--prepared-environment",
-                    str(Path(receiver["supervisor_script"]).parents[1] / "native-environment.json"),
+                    str(
+                        Path(receiver["supervisor_script"]).parents[1]
+                        / "native-environment.json"
+                    ),
                     "--",
                     receiver["worker_executable"],
                     "--maximum-in-flight",
@@ -5426,7 +5570,10 @@ def interrupted_initializer_drain_config(
         or script.parent.name != "scripts"
         or script.parent.parent.parent != state / ".generations"
         or supervisor.get("supervisor_executable")
-        not in {str(Path(sys.executable).absolute()), str(Path(sys.executable).resolve())}
+        not in {
+            str(Path(sys.executable).absolute()),
+            str(Path(sys.executable).resolve()),
+        }
     ):
         raise SupervisorError(
             "Interrupted initializer drain source escaped its immutable state"
@@ -5495,7 +5642,9 @@ def recorded_storage_owner(
         deadline = record["deadline"]
     if bound != launch.get("binding"):
         raise SupervisorError("Storage launch does not match its bound kernel lifetime")
-    return host_admission.Allocation(path.parent, path.name, profile, deadline, services=ServiceAdmission()), launch
+    return host_admission.Allocation(
+        path.parent, path.name, profile, deadline, services=ServiceAdmission()
+    ), launch
 
 
 def storage_unit_observation(
@@ -5608,7 +5757,9 @@ def materialize_service(
                 "store-" + str(config.get("service_class", "functional")),
                 str(allocation["server_memory_bytes"]),
             )
-            owner = host_admission.Allocation(state, "", profile, 0, services=ServiceAdmission())
+            owner = host_admission.Allocation(
+                state, "", profile, 0, services=ServiceAdmission()
+            )
     placement = storage_placement(config, owner)
     text = f"[Unit]\nDescription=pse-arrow owned storage {config['instance_id']}\nStartLimitIntervalSec=300\nStartLimitBurst=3\n\n[Service]\nType=exec\nExecStart={executable}\nKillMode=control-group\nTimeoutStopSec=45\nRestart={restart}\nRestartSec=5\nSlice={placement['slice']}\nMemoryMax={placement['memory_bytes']}\nCPUQuota={integer(placement['cpu_threads']) * 100}%\nMemorySwapMax=0\nTasksMax=128\nStandardOutput=null\nStandardError=null\n\n[Install]\nWantedBy=default.target\n"
     if path.exists() and not config.get("unit_materialized"):
@@ -5680,8 +5831,10 @@ def service_allocation(
         )
         requested = str(object_mapping(config["resources"])["server_memory_bytes"])
         allocation = host_admission.acquire(
-            host_admission.select(profile, requested), deadline=deadline
-        , services=ServiceAdmission())
+            host_admission.select(profile, requested),
+            deadline=deadline,
+            services=ServiceAdmission(),
+        )
     storage_placement(config, allocation)
     allocation.register(unit_name(state), deadline=deadline)
     if allocation.profile.exclusive:
@@ -5817,7 +5970,9 @@ def start(
     deadline: float | None = None,
 ) -> None:
     if config.get("backup_pending") is not None:
-        raise SupervisorError("Backup pending owner keeps startup closed until explicit resume completes")
+        raise SupervisorError(
+            "Backup pending owner keeps startup closed until explicit resume completes"
+        )
     deadline = time.monotonic() + 40 if deadline is None else deadline
     previous = getattr(_STARTUP, "deadline", None)
     deadline = deadline if previous is None else min(previous, deadline)
@@ -5967,10 +6122,14 @@ def _start(
     deadline: float,
 ) -> None:
     if config.get("backup_pending") is not None:
-        raise SupervisorError("Backup pending owner keeps startup closed until explicit resume completes")
+        raise SupervisorError(
+            "Backup pending owner keeps startup closed until explicit resume completes"
+        )
     supervisor = config.get("service_supervisor")
     if not isinstance(supervisor, dict):
-        raise SupervisorError("Profile has no immutable service supervisor; explicitly readmit it")
+        raise SupervisorError(
+            "Profile has no immutable service supervisor; explicitly readmit it"
+        )
     activatable_generation(Path(str(supervisor["supervisor_script"])).parents[1])
     owner = service_directory(state)
     if owner != state:
@@ -6223,7 +6382,8 @@ def release_stopped_service(state: Path, config: dict[str, object]) -> None:
             {host_admission.MARKER: str(launch["allocation"])},
             handoff=True,
             deadline=deadline,
-        services=ServiceAdmission())
+            services=ServiceAdmission(),
+        )
     except host_admission.AdmissionError:
         # A dead launch caller is settled by host reconciliation using the
         # recorded cgroup inode/invocation, not by guessing a live replacement.
@@ -6271,8 +6431,11 @@ def release_stopped_service(state: Path, config: dict[str, object]) -> None:
         # Keeping the stopped affiliation pins a disposable profile until its
         # enclosing caller exits, even though that caller may own other work.
         if not host_admission.drained(
-            selected, allocation=owner.directory / owner.nonce, deadline=deadline
-        , services=ServiceAdmission()):
+            selected,
+            allocation=owner.directory / owner.nonce,
+            deadline=deadline,
+            services=ServiceAdmission(),
+        ):
             raise SupervisorError("Stopped borrowed storage lifetime is undrained")
         with host_admission.allocation_metadata(
             owner.directory, deadline=deadline
@@ -6817,7 +6980,8 @@ def _serve(state: Path) -> int:
                 {host_admission.MARKER: str(launch["allocation"])},
                 handoff=True,
                 deadline=_STARTUP.deadline,
-            services=ServiceAdmission())
+                services=ServiceAdmission(),
+            )
         if allocation_owner is None:
             raise SupervisorError("Storage launch has no admitted owner")
     else:
@@ -6979,6 +7143,33 @@ def admitted_payload_verifier(config: Mapping[str, object]) -> dict[str, object]
         )
     return actual
 
+
+def set_payload_verifier(
+    state: Path, config: dict[str, object], verifier: Path | None
+) -> None:
+    """Select an explicit helper without changing an original pending backup."""
+    pending = backup_pending(config) if "backup_pending" in config else None
+    if pending is not None and (
+        config.get("instance_id") != pending["source_instance_id"]
+        or backup_configuration_identity(config)
+        != pending["source_configuration_sha256"]
+    ):
+        raise SupervisorError(
+            "Backup source configuration differs from its original frozen owner"
+        )
+    if verifier is None:
+        return
+    selected = payload_verifier(verifier)
+    original = config.get("payload_verifier")
+    if pending is not None and selected != original:
+        raise SupervisorError(
+            "Pending backup requires its original exact native payload helper"
+        )
+    if selected != original:
+        config["payload_verifier"] = selected
+        write_json(state / "config.json", config)
+
+
 def native_payload_operation(
     state: Path,
     config: Mapping[str, object],
@@ -7018,7 +7209,9 @@ def native_payload_operation(
     ):
         inventory_digest = hashlib.sha256()
         for entry in inventory or []:
-            line = (json.dumps(entry, sort_keys=True, separators=(",", ":")) + "\n").encode()
+            line = (
+                json.dumps(entry, sort_keys=True, separators=(",", ":")) + "\n"
+            ).encode()
             if len(line) > 64 * 1024:
                 raise SupervisorError(
                     "Native payload entry exceeds its bounded envelope"
@@ -7026,21 +7219,42 @@ def native_payload_operation(
             request.write(line)
             inventory_digest.update(line)
         request.seek(0)
-        checkpoint = recovery_operation.checkpoint_path(command, inventory_digest.hexdigest(), str(actual["sha256"]))
-        if operation == "backup" and isinstance(config, dict) and config.get("backup_pending") is not None:
+        checkpoint = recovery_operation.checkpoint_path(
+            command, inventory_digest.hexdigest(), str(actual["sha256"])
+        )
+        if (
+            operation == "backup"
+            and isinstance(config, dict)
+            and config.get("backup_pending") is not None
+        ):
             pending = object_mapping(config["backup_pending"])
             if pending.get("payload_checkpoint") not in {None, str(checkpoint)}:
-                raise SupervisorError("Backup native checkpoint differs from its original pending owner")
+                raise SupervisorError(
+                    "Backup native checkpoint differs from its original pending owner"
+                )
             pending["payload_checkpoint"] = str(checkpoint)
             config["backup_pending"] = pending
             write_json(state / "config.json", config)
         try:
-            result = recovery_operation.run(command, request, response, errors, checkpoint,
-                                            deadline=getattr(_STARTUP, "deadline", None))
-        except (recovery_operation.RecoveryError, host_admission.AdmissionError) as error:
-            raise SupervisorError(f"{error}; maintenance remains incomplete; checkpoint={checkpoint}") from error
+            result = recovery_operation.run(
+                command,
+                request,
+                response,
+                errors,
+                checkpoint,
+                deadline=getattr(_STARTUP, "deadline", None),
+            )
+        except (
+            recovery_operation.RecoveryError,
+            host_admission.AdmissionError,
+        ) as error:
+            raise SupervisorError(
+                f"{error}; maintenance remains incomplete; checkpoint={checkpoint}"
+            ) from error
         if payload_verifier(Path(binary)) != actual:
-            raise SupervisorError("Native payload helper changed during its operation; maintenance remains incomplete")
+            raise SupervisorError(
+                "Native payload helper changed during its operation; maintenance remains incomplete"
+            )
         if result:
             errors.seek(0)
             detail = errors.read(4096).decode(errors="replace").strip()
@@ -7619,27 +7833,45 @@ def backup(
 
 
 def backup_configuration_identity(config: Mapping[str, object]) -> str:
-    return hashlib.sha256(json.dumps({key: value for key, value in config.items() if key != "backup_pending"},
-                                    sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(
+            {key: value for key, value in config.items() if key != "backup_pending"},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
 
 
 def backup_sources(state: Path) -> tuple[Path, ...]:
-    return (state / "database", state / "config.json", state / "credentials.json",
-            *sorted(owned_generations(state)),
-            *((state / ".contexts",) if (state / ".contexts").exists() else ()))
+    return (
+        state / "database",
+        state / "config.json",
+        state / "credentials.json",
+        *sorted(owned_generations(state)),
+        *((state / ".contexts",) if (state / ".contexts").exists() else ()),
+    )
 
 
 def backup_pending(config: Mapping[str, object]) -> dict[str, object]:
-    from scripts.generated import deployment  # noqa: PLC0415 -- actual lifecycle owner document
     import msgspec  # noqa: PLC0415 -- private typed boundary
+
+    from scripts.generated import (
+        deployment,
+    )
 
     pending = object_mapping(config["backup_pending"])
     if "version" not in pending:
         raise SupervisorError("Backup pending owner omitted its persisted version")
     try:
-        return object_mapping(msgspec.to_builtins(msgspec.convert(pending, type=deployment.BackupOperation, strict=True)))
+        return object_mapping(
+            msgspec.to_builtins(
+                msgspec.convert(pending, type=deployment.BackupOperation, strict=True)
+            )
+        )
     except msgspec.ValidationError as error:
-        raise SupervisorError("Backup pending owner is malformed; admission remains closed") from error
+        raise SupervisorError(
+            "Backup pending owner is malformed; admission remains closed"
+        ) from error
 
 
 def backup_operation_directory(state: Path, pending: Mapping[str, object]) -> Path:
@@ -7652,21 +7884,35 @@ def backup_operation_directory(state: Path, pending: Mapping[str, object]) -> Pa
 def backup_destination(pending: Mapping[str, object], selected: Path) -> Path:
     destination = checked_directory(selected)
     information = destination.stat()
-    if (str(destination) != pending.get("destination")
-            or information.st_dev != pending.get("destination_device")
-            or information.st_ino != pending.get("destination_inode")):
-        raise SupervisorError("Backup destination differs from its original pending owner")
+    if (
+        str(destination) != pending.get("destination")
+        or information.st_dev != pending.get("destination_device")
+        or information.st_ino != pending.get("destination_inode")
+    ):
+        raise SupervisorError(
+            "Backup destination differs from its original pending owner"
+        )
     return destination
 
 
 def _backup(
     state: Path, config: dict[str, object], destination: Path
 ) -> dict[str, object]:
-    if config.get("derived_rebuild_pending") or config.get("surrealkit_rollout_pending"):
-        raise SupervisorError("Incomplete derived rebuild cannot be backed up as current state")
+    if config.get("derived_rebuild_pending") or config.get(
+        "surrealkit_rollout_pending"
+    ):
+        raise SupervisorError(
+            "Incomplete derived rebuild cannot be backed up as current state"
+        )
     destination = lexical_absolute(destination)
-    if destination == state or state in destination.parents or destination in state.parents:
-        raise SupervisorError("Backup destination must be outside the live state directory")
+    if (
+        destination == state
+        or state in destination.parents
+        or destination in state.parents
+    ):
+        raise SupervisorError(
+            "Backup destination must be outside the live state directory"
+        )
     require_private_service_context(state, "Backup")
     try:
         if config.get("backup_pending") is None:
@@ -7686,49 +7932,84 @@ def _backup(
             for entry in payload_inventory:
                 for name, binding in object_mapping(entry["files"]).items():
                     digest = object_mapping(binding).get("sha256")
-                    if not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest):
-                        raise SupervisorError("Native payload inventory SHA256 binding is invalid")
+                    if not isinstance(digest, str) or not re.fullmatch(
+                        r"[a-f0-9]{64}", digest
+                    ):
+                        raise SupervisorError(
+                            "Native payload inventory SHA256 binding is invalid"
+                        )
                     files[name] = digest
-            draft = {"owner": OWNER, "backup_version": 4, "state_root": str(state),
-                     "interpretation": config["interpretation"], "files": files,
-                     "payload_inventory": payload_inventory, "application_inventory": application_inventory}
+            draft = {
+                "owner": OWNER,
+                "backup_version": 4,
+                "state_root": str(state),
+                "interpretation": config["interpretation"],
+                "files": files,
+                "payload_inventory": payload_inventory,
+                "application_inventory": application_inventory,
+            }
             nonce = uuid.uuid4().hex
-            directory = checked_directory(state / ".backup-operations" / nonce, empty=True)
-            backup_image.copy(state / "config.json", directory / "config.json", metadata["config.json"])
+            directory = checked_directory(
+                state / ".backup-operations" / nonce, empty=True
+            )
+            backup_image.copy(
+                state / "config.json",
+                directory / "config.json",
+                metadata["config.json"],
+            )
             write_json(directory / "backup.json", draft)
             information = destination.stat()
             config["backup_pending"] = {
-                "version": 1, "nonce": nonce, "destination": str(destination),
-                "destination_device": information.st_dev, "destination_inode": information.st_ino,
+                "version": 1,
+                "nonce": nonce,
+                "destination": str(destination),
+                "destination_device": information.st_dev,
+                "destination_inode": information.st_ino,
                 "source_instance_id": str(config["instance_id"]),
                 "source_configuration_sha256": backup_configuration_identity(config),
                 "manifest_sha256": backup_image.digest(directory / "backup.json"),
-                "payload_checkpoint": None, "phase": "metadata",
+                "payload_checkpoint": None,
+                "phase": "metadata",
             }
             write_json(state / "config.json", config)
         return resume_backup(state, config, destination)
     except backup_image.ImageError as error:
-        raise SupervisorError(f"{error}; backup remains incomplete and source admission closed") from error
+        raise SupervisorError(
+            f"{error}; backup remains incomplete and source admission closed"
+        ) from error
 
 
-def resume_backup(state: Path, config: dict[str, object], destination: Path) -> dict[str, object]:
+def resume_backup(
+    state: Path, config: dict[str, object], destination: Path
+) -> dict[str, object]:
     pending = backup_pending(config)
     private_offline_state(state, config, backup_resume=True)
-    if (str(config.get("instance_id")) != pending["source_instance_id"]
-            or backup_configuration_identity(config) != pending["source_configuration_sha256"]
-            or config.get("payload_frozen") is not True):
-        raise SupervisorError("Backup source configuration differs from its original frozen owner")
+    if (
+        str(config.get("instance_id")) != pending["source_instance_id"]
+        or backup_configuration_identity(config)
+        != pending["source_configuration_sha256"]
+        or config.get("payload_frozen") is not True
+    ):
+        raise SupervisorError(
+            "Backup source configuration differs from its original frozen owner"
+        )
     destination = backup_destination(pending, destination)
     directory = backup_operation_directory(state, pending)
     if backup_image.digest(directory / "backup.json") != pending["manifest_sha256"]:
         raise SupervisorError("Backup original manifest snapshot changed")
     draft = read_json(directory / "backup.json")
     files = object_mapping(draft["files"])
-    metadata = {name: str(digest) for name, digest in files.items() if Path(name).parts[0] != "payloads"}
+    metadata = {
+        name: str(digest)
+        for name, digest in files.items()
+        if Path(name).parts[0] != "payloads"
+    }
     observed = backup_image.files(state, backup_sources(state))
     observed["config.json"] = backup_image.digest(directory / "config.json")
     if observed != metadata:
-        raise SupervisorError("Stopped backup source image differs from its original snapshot")
+        raise SupervisorError(
+            "Stopped backup source image differs from its original snapshot"
+        )
     backup_image.check_destination(destination, files, str(pending["manifest_sha256"]))
     for name, digest in sorted(metadata.items()):
         backup_destination(pending, destination)
@@ -7739,12 +8020,18 @@ def resume_backup(state: Path, config: dict[str, object], destination: Path) -> 
     write_json(state / "config.json", config)
     # Re-reading the original retained inventory preserves exact native request
     # bytes, including after a process crash or a completed-prefix copy.
-    copy_payload_inventory(state, destination, object_inventory(draft["payload_inventory"]))
+    copy_payload_inventory(
+        state, destination, object_inventory(draft["payload_inventory"])
+    )
     config.update(config_for(state))
     pending = backup_pending(config)
     backup_destination(pending, destination)
     backup_image.check_destination(destination, files, str(pending["manifest_sha256"]))
-    backup_image.copy(directory / "backup.json", destination / "backup.json", str(pending["manifest_sha256"]))
+    backup_image.copy(
+        directory / "backup.json",
+        destination / "backup.json",
+        str(pending["manifest_sha256"]),
+    )
     pending["phase"] = "published"
     config["backup_pending"] = pending
     write_json(state / "config.json", config)
@@ -7754,13 +8041,21 @@ def resume_backup(state: Path, config: dict[str, object], destination: Path) -> 
     for name in ("config.json", "backup.json"):
         (directory / name).unlink()
     directory.rmdir()
-    return {"backup": str(destination), "interpretation": config["interpretation"], "server_stopped": True}
+    return {
+        "backup": str(destination),
+        "interpretation": config["interpretation"],
+        "server_stopped": True,
+    }
 
 
-def private_offline_state(state: Path, config: dict[str, object], *, backup_resume: bool = False) -> None:
+def private_offline_state(
+    state: Path, config: dict[str, object], *, backup_resume: bool = False
+) -> None:
     """Only the stopped service's sole database may be replaced by its owner."""
     if config.get("backup_pending") is not None and not backup_resume:
-        raise SupervisorError("Explicit original backup resume is required before another offline mutation")
+        raise SupervisorError(
+            "Explicit original backup resume is required before another offline mutation"
+        )
     require_private_service_context(state, "Derived cutover")
     if config["accepting_writes"] or config["admission"] not in {
         "quiesced",
@@ -9427,9 +9722,9 @@ def recover_maintenance(
     with lifecycle_reservation(state):
         service_borrowers.service_registry_binding(state)
         config = config_for(state)
-        if verifier is not None:
-            config["payload_verifier"] = payload_verifier(verifier)
-            write_json(state / "config.json", config)
+        set_payload_verifier(state, config, verifier)
+        if "backup_pending" in config:
+            private_offline_state(state, config)
         if config.get("surrealkit_rollout_pending"):
             raise SupervisorError(
                 "Interrupted beta rollout requires its exact rollout owner and settlement; rebuild recovery refuses it"
@@ -10779,7 +11074,9 @@ def mcp_headers_main(arguments: list[str]) -> int:
             deadline = args.deadline
             remaining(deadline)
             try:
-                owner = host_admission.inherit(os.environ, deadline=deadline, services=ServiceAdmission())
+                owner = host_admission.inherit(
+                    os.environ, deadline=deadline, services=ServiceAdmission()
+                )
             except host_admission.AdmissionError:
                 owner = host_admission.verify_light_control_child(
                     os.environ, deadline=deadline
@@ -10922,8 +11219,11 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--native-worker-memory-mib", type=int)
     result.add_argument(
         "--execution-profile",
-        choices=[profile.value for profile in deployment.ProductionProfileName
-                 if profile is not deployment.ProductionProfileName.SERVICE],
+        choices=[
+            profile.value
+            for profile in deployment.ProductionProfileName
+            if profile is not deployment.ProductionProfileName.SERVICE
+        ],
     )
     result.add_argument("--worker-executable", type=Path)
     result.add_argument(
@@ -11114,8 +11414,7 @@ def _dispatch(args: argparse.Namespace) -> int:
                     raise SupervisorError(
                         "Verifier selection is only available with setup, backup, restore or recover-maintenance"
                     )
-                config["payload_verifier"] = payload_verifier(args.payload_verifier)
-                write_json(state / "config.json", config)
+                set_payload_verifier(state, config, args.payload_verifier)
             if args.command == "recover-file-owners":
                 output = recover_file_owners(state)
                 print(json.dumps(output, sort_keys=True))
