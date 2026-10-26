@@ -22,22 +22,37 @@ pub(in crate::workflow) fn document_extent(
     struct Counter {
         bytes: usize,
         limit: usize,
+        exceeded: bool,
     }
     impl Write for Counter {
         fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-            self.bytes = self
+            let Some(total) = self
                 .bytes
                 .checked_add(bytes.len())
                 .filter(|n| *n <= self.limit)
-                .ok_or_else(|| io::Error::other("bounded study descriptor bytes"))?;
+            else {
+                self.exceeded = true;
+                return Err(io::Error::other("bounded study descriptor bytes"));
+            };
+            self.bytes = total;
             Ok(bytes.len())
         }
         fn flush(&mut self) -> io::Result<()> {
             Ok(())
         }
     }
-    let mut counter = Counter { bytes: 0, limit };
-    serde_json::to_writer(&mut counter, value).map_err(|error| contract(error.to_string()))?;
+    let mut counter = Counter {
+        bytes: 0,
+        limit,
+        exceeded: false,
+    };
+    if let Err(error) = serde_json::to_writer(&mut counter, value) {
+        return Err(if counter.exceeded {
+            WorkflowError::Resource("bounded study descriptor bytes".into())
+        } else {
+            WorkflowError::Internal(format!("study descriptor serialization: {error}"))
+        });
+    }
     Ok(counter.bytes)
 }
 
@@ -97,13 +112,14 @@ impl StudyVariants {
     /// Validate finite descriptor/cardinality and ordinals without constructing a variant.
     pub(in crate::workflow) fn validate(&self) -> Result<(), WorkflowError> {
         document_extent(self, pse_operations::canonical::PAYLOAD_BYTES / 2)?;
-        if self.choices.is_empty()
-            || self.choices.len() > 64
-            || self.selected.is_empty()
-            || self.selected.len() > super::MAXIMUM_STUDY_POINTS
-        {
+        if self.choices.is_empty() || self.selected.is_empty() {
             return Err(contract(
                 "bounded lazy study dimensions and selected occurrences",
+            ));
+        }
+        if self.choices.len() > 64 || self.selected.len() > super::MAXIMUM_STUDY_POINTS {
+            return Err(WorkflowError::Resource(
+                "lazy study dimensions or selected occurrences".into(),
             ));
         }
         let mut cardinality = 1_u64;
@@ -115,11 +131,13 @@ impl StudyVariants {
             }
             cardinality = cardinality
                 .checked_mul(choice.alternatives.len() as u64)
-                .ok_or_else(|| contract("structural ordinal cardinality overflow"))?;
+                .ok_or_else(|| {
+                    WorkflowError::Resource("structural ordinal cardinality overflow".into())
+                })?;
             alternatives = alternatives
                 .checked_add(choice.alternatives.len())
                 .filter(|n| *n <= super::MAXIMUM_STUDY_POINTS)
-                .ok_or_else(|| contract("bounded structural alternative count"))?;
+                .ok_or_else(|| WorkflowError::Resource("structural alternative count".into()))?;
             let mut objects = BTreeSet::new();
             for delta in &choice.alternatives {
                 let mut touched = BTreeSet::new();
@@ -319,30 +337,60 @@ fn policy(requested: &StudyPointPolicy) -> PointPolicy {
 impl LazyStudyDefinition {
     pub(in crate::workflow) async fn admit_selected(
         &self,
+        services: &super::SourceServices,
         base: &ModelingPackage,
         selection: usize,
         occurrence: Option<&pse_operations::canonical_studies::StudyAdmissionAuthority>,
         cancel: &crate::CancelSource,
     ) -> Result<(ModelingPackage, StudyPointDefinition), WorkflowError> {
-        self.variants.source.check(base)?;
-        let requested = self
-            .variants
-            .selected
-            .get(selection)
-            .ok_or_else(|| contract("selected variant absent"))?;
+        let no_publication = |cause| WorkflowError::Admission {
+            effect: super::AdmissionEffect::NoPublication,
+            cause: Box::new(cause),
+        };
+        self.variants.source.check(base).map_err(no_publication)?;
+        let requested = self.variants.selected.get(selection).ok_or_else(|| {
+            no_publication(WorkflowError::Internal(
+                "selected admitted variant absent".into(),
+            ))
+        })?;
+        let delta = self.variants.delta(selection).map_err(no_publication)?;
         let mut package = base
-            .construct_study_variant(
-                &self.variants.source,
-                self.variants.delta(selection)?,
+            .construct_study_variant(services, &self.variants.source, delta, cancel)
+            .await
+            .map_err(no_publication)?;
+        let effect = if let Some(occurrence) = occurrence {
+            package = package
+                .record_study_variant(services, occurrence, cancel)
+                .await
+                .map_err(|cause| WorkflowError::Admission {
+                    effect: super::diagnostics::publication_failure_effect(&cause),
+                    cause: Box::new(cause),
+                })?;
+            super::AdmissionEffect::SourceAcknowledged {
+                revision: package
+                    .recorded_revision()
+                    .map_err(|cause| WorkflowError::Admission {
+                        effect: super::AdmissionEffect::UnresolvedPublication,
+                        cause: Box::new(cause),
+                    })?
+                    .key
+                    .clone(),
+            }
+        } else {
+            super::AdmissionEffect::NoPublication
+        };
+        let point = package
+            .admit_one_study_point(
+                services.preparation(),
+                &requested.point,
+                &self.output,
                 cancel,
             )
-            .await?;
-        if let Some(occurrence) = occurrence {
-            package = package.record_study_variant(occurrence, cancel).await?;
-        }
-        let point = package
-            .admit_one_study_point(&requested.point, &self.output, cancel)
-            .await?;
+            .await
+            .map_err(|cause| WorkflowError::Admission {
+                effect,
+                cause: Box::new(cause),
+            })?;
         Ok((package, point))
     }
 }
@@ -418,7 +466,11 @@ mod tests {
     #[test]
     fn lazy_descriptor_counting_refuses_at_bound_without_a_serialized_copy() {
         assert_eq!(document_extent(&vec![1_u8, 2, 3], 7).unwrap(), 7);
-        assert!(document_extent(&vec![1_u8, 2, 3], 6).is_err());
+        let error = document_extent(&vec![1_u8, 2, 3], 6).unwrap_err();
+        assert_eq!(
+            error.boundary_diagnostic().class,
+            pse_model::diagnostic::BoundaryClass::ResourceLimit
+        );
         let variants = descriptor();
         let length = serde_json::to_vec(&variants).unwrap().len();
         assert_eq!(document_extent(&variants, length).unwrap(), length);
@@ -443,6 +495,10 @@ mod tests {
             alternatives: vec![SourceDelta::default(), SourceDelta::default()],
         };
         overflow.choices = vec![empty; 64];
-        assert!(overflow.validate().is_err());
+        let error = overflow.validate().unwrap_err();
+        assert_eq!(
+            error.boundary_diagnostic().class,
+            pse_model::diagnostic::BoundaryClass::ResourceLimit
+        );
     }
 }

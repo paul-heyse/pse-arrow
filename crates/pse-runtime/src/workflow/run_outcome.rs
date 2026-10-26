@@ -29,6 +29,152 @@ pub enum RunRequest<'a> {
         initial: &'a Option<Vec<f64>>,
     },
 }
+/// Kind-owned lifecycle premises. Positional sources retain distinct context cuts.
+pub(super) struct RequestFacts<'a> {
+    pub sources: Vec<&'a crate::workflow::ModelingPackage>,
+    pub identity: Result<(pse_ids::ContentHash, Option<pse_ids::ContentHash>), WorkflowError>,
+    pub provenance: Result<Vec<serde_json::Value>, WorkflowError>,
+    pub requested_steps: usize,
+    pub native_record_coverage: crate::workflow::ReplayNativeRecordCoverage,
+    pub replay: Box<
+        dyn FnOnce(
+                pse_model::generated::identities::RunId,
+            ) -> Result<super::replay::ReplayRequestFacts, WorkflowError>
+            + Send
+            + Sync
+            + 'a,
+    >,
+}
+impl<'a> RequestFacts<'a> {
+    pub(super) fn context(&self) -> Result<&'a crate::workflow::PhysicalContext, WorkflowError> {
+        let source = self
+            .sources
+            .first()
+            .ok_or_else(|| crate::workflow::contract("empty scientific request"))?;
+        Ok(&source.physical)
+    }
+    pub(super) fn inputs(&self) -> Result<Vec<pse_operations::canonical::Revision>, WorkflowError> {
+        let mut inputs = self
+            .sources
+            .iter()
+            .map(|source| source.recorded_revision().cloned())
+            .collect::<Result<Vec<_>, _>>()?;
+        inputs.sort_by(|a, b| a.key.cmp(&b.key));
+        inputs.dedup_by(|a, b| a.key == b.key);
+        Ok(inputs)
+    }
+    pub(super) fn source_selections(&self) -> Vec<crate::workflow::OperationSource> {
+        self.sources
+            .iter()
+            .map(|source| crate::workflow::OperationSource::of(source))
+            .collect()
+    }
+}
+impl<'a> RunRequest<'a> {
+    /// One exhaustive dispatch supplies all lifecycle readers with the same premises.
+    pub(super) fn facts(self) -> RequestFacts<'a> {
+        use crate::workflow::{ReplayNativeRecordCoverage as Coverage, contract};
+        let encode =
+            |value| serde_json::to_value(value).map_err(|error| contract(error.to_string()));
+        match self {
+            Self::Modeling(steps) => {
+                let identity = (|| {
+                    let mut hash =
+                        pse_ids::FramedHasher::new(pse_ids::Frame::DurableModelingRequestV3);
+                    hash.u64(steps.len() as u64);
+                    for step in steps {
+                        hash.hash(
+                            &step
+                                .solve
+                                .request_identity()
+                                .map_err(crate::math::MathRuntimeError::from)?
+                                .as_id(),
+                        );
+                    }
+                    let preparation = match steps.as_slice() {
+                        [one] => Some(
+                            one.solve
+                                .preparation_identity()
+                                .map_err(crate::math::MathRuntimeError::from)?,
+                        ),
+                        [] | [_, _, ..] => None,
+                    };
+                    Ok((hash.finish_hash(), preparation))
+                })();
+                RequestFacts {
+                    sources: steps.iter().map(|step| &step.source).collect(),
+                    identity,
+                    provenance: steps
+                        .iter()
+                        .map(|step| {
+                            serde_json::to_value((
+                                &step.starts,
+                                step.solve.numerical_strategy(),
+                                step.bound_source.as_deref().map(|bound| &**bound),
+                            ))
+                            .map_err(|error| contract(error.to_string()))
+                        })
+                        .collect(),
+                    requested_steps: steps.len(),
+                    native_record_coverage: Coverage::StrategyAttempts,
+                    replay: Box::new(move |run| super::replay::modeling_request_facts(steps, run)),
+                }
+            }
+            Self::Simulation(simulation) => RequestFacts {
+                sources: vec![&simulation.source],
+                identity: Ok((simulation.identity(), Some(simulation.identity()))),
+                provenance: encode(simulation.profile()).map(|value| vec![value]),
+                requested_steps: 1,
+                native_record_coverage: Coverage::IntegrationReportOnly,
+                replay: Box::new(move |run| {
+                    super::replay::simulation_request_facts(simulation, run)
+                }),
+            },
+            Self::Fit(fit) => RequestFacts {
+                sources: vec![&fit.source],
+                identity: Ok((fit.problem.key, Some(fit.problem.key))),
+                provenance: serde_json::to_value(fit.numerical_strategy())
+                    .map(|value| vec![value])
+                    .map_err(|error| contract(error.to_string())),
+                requested_steps: 1,
+                native_record_coverage: Coverage::StrategyAttempts,
+                replay: Box::new(move |run| super::replay::fit_request_facts(fit, run)),
+            },
+            Self::Horizon(horizon) => RequestFacts {
+                sources: horizon.sources.iter().collect(),
+                identity: Ok((horizon.identity, None)),
+                provenance: serde_json::from_slice(&horizon.provenance)
+                    .map(|value| vec![value])
+                    .map_err(|error| contract(error.to_string())),
+                requested_steps: 1,
+                native_record_coverage: Coverage::IntegrationReportOnly,
+                replay: Box::new(move |run| super::replay::horizon_request_facts(horizon, run)),
+            },
+            #[cfg(feature = "solver-diffsol")]
+            Self::Shooting { problem, initial } => RequestFacts {
+                sources: vec![&problem.simulation.source],
+                identity: Ok((
+                    problem.request_identity(initial.as_deref()).as_id(),
+                    Some(problem.request_identity(None).as_id()),
+                )),
+                provenance: problem
+                    .numerical_strategy()
+                    .map_err(crate::math::MathRuntimeError::from)
+                    .map_err(WorkflowError::from)
+                    .and_then(|strategy| {
+                        serde_json::to_value(strategy)
+                            .map(|value| vec![value])
+                            .map_err(|error| contract(error.to_string()))
+                    }),
+                requested_steps: 1,
+                native_record_coverage: Coverage::StrategyAttempts,
+                replay: Box::new(move |run| {
+                    super::replay::shooting_request_facts(problem, initial, run)
+                }),
+            },
+        }
+    }
+}
 /// Borrowed report projection derived from the paired outcome.
 #[derive(Clone, Copy, Debug)]
 pub enum RunReport<'a> {
@@ -123,7 +269,9 @@ impl RunOutcome {
     pub(super) fn original_request(&self) -> RunRequest<'_> {
         match self {
             Self::Horizon { request, .. } => RunRequest::Horizon(request),
-            _ => self.request(),
+            Self::Modeling { .. } | Self::Simulation { .. } | Self::Fit { .. } => self.request(),
+            #[cfg(feature = "solver-diffsol")]
+            Self::Shooting { .. } => self.request(),
         }
     }
     pub(super) fn report(&self) -> Result<RunReport<'_>, &Arc<WorkflowError>> {
@@ -263,5 +411,242 @@ impl PairedOperation for ShootingOperation {
             initial: self.initial,
             result,
         }
+    }
+}
+
+/// Shared retained completion projections. These observations grant no scientific permission.
+pub(super) struct CompletedFacts<'a> {
+    pub table_ids: Vec<pse_ids::SemanticId>,
+    pub traces: Vec<(usize, &'a Arc<crate::math::strategy::Trace>)>,
+    pub native_reports: Vec<(usize, &'a pse_backend_native::solve::SolveReport)>,
+    pub completed_modeling: Vec<(&'a ModelingSolvePreparation, &'a ModelingResult)>,
+    pub requested: usize,
+    pub observed: usize,
+    pub completed_time: Option<pse_model::diagnostic::Observation>,
+    pub terminal: Option<pse_model::generated::enums::NumericalAttemptObservation>,
+    pub non_modeling_accepted: Option<bool>,
+}
+impl<'a> CompletedFacts<'a> {
+    fn modeling(
+        &mut self,
+        run: &'a super::RunResult,
+        requests: &'a [ModelingSolvePreparation],
+        result: Option<&'a Vec<ModelingResult>>,
+    ) {
+        self.requested = requests.len();
+        if let Some(results) = result {
+            self.completed_modeling.extend(requests.iter().zip(results));
+        }
+        for step in 0..requests.len() {
+            if let Some(result) = run.modeling_result(step) {
+                self.observed += 1;
+                self.traces
+                    .extend(result.strategy.iter().map(|trace| (step, trace)));
+                if let crate::math::solves::Outcome::Native(native) = &result.outcome {
+                    self.native_reports.push((step, native));
+                }
+            }
+        }
+        self.terminal = result
+            .and_then(|results| results.last())
+            .map(|result| crate::math::strategy::observe(&result.outcome));
+    }
+}
+fn modeling_table_ids() -> Vec<pse_ids::SemanticId> {
+    use pse_relations::generated::runtime::*;
+    Vec::from([
+        scientific_contexts::RELATION_ID,
+        solve_runs::RELATION_ID,
+        solve_variables::RELATION_ID,
+        solve_constraints::RELATION_ID,
+        solve_metrics::RELATION_ID,
+        solution_pool::RELATION_ID,
+        infeasibility_certificates::RELATION_ID,
+        incumbents::RELATION_ID,
+        modeling_checks::RELATION_ID,
+        modeling_reports::RELATION_ID,
+        modeling_findings::RELATION_ID,
+        solve_strategy_events::RELATION_ID,
+        solve_strategy_products::RELATION_ID,
+        local_validity::RELATION_ID,
+        parametric_sensitivities::RELATION_ID,
+        reduced_hessians::RELATION_ID,
+        propagated_covariances::RELATION_ID,
+        route_decisions::RELATION_ID,
+        structural_assessments::RELATION_ID,
+    ])
+}
+impl super::RunResult {
+    /// One exhaustive kind dispatch supplies retained lifecycle observations and products.
+    pub(super) fn completed_facts(&self) -> CompletedFacts<'_> {
+        use pse_relations::generated::runtime::*;
+        let mut facts = CompletedFacts {
+            table_ids: Vec::new(),
+            traces: Vec::new(),
+            native_reports: Vec::new(),
+            completed_modeling: Vec::new(),
+            requested: 1,
+            observed: 0,
+            completed_time: None,
+            terminal: None,
+            non_modeling_accepted: None,
+        };
+        match &self.outcome {
+            RunOutcome::Horizon {
+                request,
+                execution: HorizonRunOutcome::Compact(result),
+            } => {
+                facts.requested = request.original.steps;
+                facts.observed = self
+                    .horizon
+                    .as_ref()
+                    .map_or(0, |report| report.completed_steps);
+                if let Ok(report) = result {
+                    facts.non_modeling_accepted = Some(self.usable());
+                    facts.terminal = report
+                        .summary_error()
+                        .or_else(|| report.detail_error())
+                        .map(crate::math::strategy::workflow_failure);
+                }
+                facts
+                    .table_ids
+                    .extend(super::horizon::prefix::summary_ids());
+                if let Some(report) = &self.horizon_output {
+                    facts.table_ids.extend(report.summaries.keys());
+                    facts.table_ids.extend(&report.detail_membership);
+                }
+            }
+            RunOutcome::Modeling { request, result } => {
+                facts.modeling(self, request, result.as_ref().ok());
+                facts.table_ids.extend(modeling_table_ids());
+            }
+            RunOutcome::Horizon {
+                request,
+                execution: HorizonRunOutcome::Full { requests, result },
+            } => {
+                facts.modeling(self, requests, result.as_ref().ok());
+                facts.requested = request.original.steps;
+                facts.observed = self
+                    .horizon
+                    .as_ref()
+                    .map_or(0, |report| report.completed_steps);
+                facts.table_ids.extend(modeling_table_ids());
+            }
+            RunOutcome::Simulation { request, result } => {
+                facts.requested = request.profile().samples.len();
+                if let Ok(trajectory) = result {
+                    facts.observed = trajectory.report().coverage.produced();
+                    facts.completed_time = Some(pse_model::diagnostic::Observation::number(
+                        trajectory.report().completed_time,
+                    ));
+                    facts.terminal =
+                        Some(super::replay::trajectory_observation(trajectory.report()));
+                    facts.non_modeling_accepted = Some(self.usable());
+                }
+                facts.table_ids.push(computation_runs::RELATION_ID);
+                if let Ok(trajectory) = result {
+                    facts.table_ids.extend(trajectory.table_ids());
+                }
+            }
+            RunOutcome::Fit { result, .. } => {
+                if let Ok(report) = result {
+                    facts.observed = 1;
+                    facts.non_modeling_accepted = Some(self.usable());
+                    facts
+                        .traces
+                        .extend(report.strategy.iter().map(|trace| (0, trace)));
+                    facts
+                        .native_reports
+                        .extend(report.solve.iter().map(|native| (0, native)));
+                    facts.terminal = report
+                        .validation_error
+                        .as_ref()
+                        .map(|diagnostic| crate::math::strategy::boundary_failure(diagnostic.class))
+                        .or_else(|| {
+                            report
+                                .solve
+                                .as_ref()
+                                .map(crate::math::strategy::observe_native)
+                        });
+                }
+                facts.table_ids.extend([
+                    scientific_contexts::RELATION_ID,
+                    computation_runs::RELATION_ID,
+                    fit_variables::RELATION_ID,
+                    fit_constraints::RELATION_ID,
+                    fit_parameters::RELATION_ID,
+                    fit_observations::RELATION_ID,
+                    response_sensitivities::RELATION_ID,
+                    solve_metrics::RELATION_ID,
+                    infeasibility_certificates::RELATION_ID,
+                    modeling_checks::RELATION_ID,
+                    modeling_reports::RELATION_ID,
+                    solve_strategy_events::RELATION_ID,
+                    solve_strategy_products::RELATION_ID,
+                    local_validity::RELATION_ID,
+                    parameter_covariances::RELATION_ID,
+                    parameter_intervals::RELATION_ID,
+                    profile_points::RELATION_ID,
+                    response_directions::RELATION_ID,
+                    propagated_covariances::RELATION_ID,
+                ]);
+            }
+            #[cfg(feature = "solver-diffsol")]
+            RunOutcome::Shooting { result, .. } => {
+                if let Ok(report) = result {
+                    facts.observed = 1;
+                    facts.non_modeling_accepted = Some(self.usable());
+                    facts
+                        .traces
+                        .extend(report.strategy.iter().map(|trace| (0, trace)));
+                    facts
+                        .native_reports
+                        .extend(report.solve.iter().map(|native| (0, native)));
+                    facts.terminal = report
+                        .validation_error
+                        .as_ref()
+                        .map(|diagnostic| crate::math::strategy::boundary_failure(diagnostic.class))
+                        .or_else(|| {
+                            report
+                                .trajectory
+                                .as_ref()
+                                .map(|trajectory| super::replay::trajectory_observation(trajectory))
+                        })
+                        .or_else(|| {
+                            report
+                                .solve
+                                .as_ref()
+                                .map(crate::math::strategy::observe_native)
+                        });
+                }
+                facts.table_ids.extend([
+                    computation_runs::RELATION_ID,
+                    solve_variables::RELATION_ID,
+                    solve_constraints::RELATION_ID,
+                    solve_metrics::RELATION_ID,
+                    solve_strategy_events::RELATION_ID,
+                    solve_strategy_products::RELATION_ID,
+                ]);
+                if let Ok(report) = result
+                    && report.trajectory.is_some()
+                {
+                    facts.table_ids.extend(ModelingTrajectory::relation_ids());
+                }
+            }
+        }
+
+        if let Some(error) = self.error() {
+            facts.terminal = Some(crate::math::strategy::workflow_failure(error));
+            if let Some(trace) = error.strategy_trace() {
+                facts.traces.push((
+                    self.modeling_failure
+                        .as_ref()
+                        .and_then(|failure| failure.step)
+                        .unwrap_or(0),
+                    trace,
+                ));
+            }
+        }
+        facts
     }
 }

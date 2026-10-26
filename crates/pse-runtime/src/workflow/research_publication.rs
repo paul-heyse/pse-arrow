@@ -211,7 +211,7 @@ impl Runtime {
                 }
             }
         }
-        let declarations = target.declarations().await?;
+        let declarations = target.declarations(&self.preparation_services()).await?;
         let mut delta = SourceDelta {
             parent: target.revision_id().into(),
             ..Default::default()
@@ -247,6 +247,7 @@ impl Runtime {
             };
             let model = target
                 .prepare(
+                    &self.preparation_services(),
                     mapping.root,
                     mapping.instance,
                     bindings,
@@ -311,7 +312,9 @@ impl Runtime {
             delta.replacements.push(declaration);
         }
         // Ordinary admission resolves quantities, parameter domains and retained source constraints.
-        let admitted = target.project_admit_delta(&delta, cancel).await?;
+        let admitted = target
+            .project_admit_delta(&self.source_services(), &delta, cancel)
+            .await?;
         Ok((admitted, delta, binding, reader))
     }
     /// Preview the actual authored delta after reading original protected qualified cells.

@@ -179,7 +179,7 @@ impl LocalSourceObject {
         self.lease.size()
     }
     fn from_edit(
-        runtime: &Runtime,
+        services: &crate::workflow::PreparationServices,
         edit: ObjectEdit,
         input: Option<&TypedDeclarationInput>,
         typed: Option<&(String, TypedObjectPayload)>,
@@ -211,7 +211,7 @@ impl LocalSourceObject {
         } else {
             0
         };
-        let lease = runtime.shared.math().reserve(
+        let lease = services.math().reserve(
             "modeling:owned-source-object",
             extent
                 .checked_add(declaration_extent)
@@ -244,7 +244,7 @@ impl LocalSourceObject {
             #[cfg(test)]
             CONSTRUCTION_DECODES.with(|count| count.set(count.get() + 1));
             let source = decode::<SourcePayload>(&value.payload)?;
-            let parsed = parsed_fields(runtime, &source.0, source.1.as_ref())?;
+            let parsed = parsed_fields(services, &source.0, source.1.as_ref())?;
             (Some(source), Some(parsed))
         } else {
             (None, None)
@@ -312,7 +312,6 @@ pub(crate) struct AdmittedModelRevision {
     map_bytes: usize,
     _metadata: Arc<pse_columnar::AllocationLease>,
     _receiver_metadata: Option<Arc<pse_columnar::AllocationLease>>,
-    _validation_owner: pse_engine::session::BoundModel,
     _validation_context: Arc<pse_relations::validate::ValidationContext>,
 }
 #[derive(Debug)]
@@ -339,7 +338,6 @@ impl AdmittedModelRevision {
     /// original leases remain owned, rather than transferred between pools.
     pub(super) fn rebind_for(
         &self,
-        runtime: &Runtime,
         context: Arc<pse_relations::validate::ValidationContext>,
         metadata: Arc<pse_columnar::AllocationLease>,
     ) -> Result<Arc<Self>, WorkflowError> {
@@ -349,7 +347,7 @@ impl AdmittedModelRevision {
             map_bytes: self.map_bytes,
             _metadata: self._metadata.clone(),
             _receiver_metadata: Some(metadata),
-            _validation_owner: runtime.model.clone(),
+
             _validation_context: context,
         }))
     }
@@ -372,13 +370,13 @@ impl AdmittedModelRevision {
     }
     #[cfg(test)]
     pub(super) fn apply(
-        runtime: &Runtime,
+        services: &crate::workflow::PreparationServices,
         previous: Option<&Self>,
         edits: &[ObjectEdit],
         cancel: Option<&crate::CancelSource>,
     ) -> Result<Arc<Self>, WorkflowError> {
         Self::apply_inputs(
-            runtime,
+            services,
             previous,
             edits,
             &TypedSourceInputs::default(),
@@ -386,7 +384,7 @@ impl AdmittedModelRevision {
         )
     }
     pub(super) fn apply_inputs(
-        runtime: &Runtime,
+        services: &crate::workflow::PreparationServices,
         previous: Option<&Self>,
         edits: &[ObjectEdit],
         inputs: &TypedSourceInputs,
@@ -419,7 +417,7 @@ impl AdmittedModelRevision {
         let staged_edit_bytes = edit_bytes
             .checked_mul(4)
             .ok_or_else(|| contract("indexed staging extent"))?;
-        let metadata = runtime.shared.math().reserve(
+        let metadata = services.math().reserve(
             "modeling:owned-source-inventory",
             old_bytes
                 .checked_mul(3)
@@ -478,7 +476,7 @@ impl AdmittedModelRevision {
                 continue;
             }
             let new = LocalSourceObject::from_edit(
-                runtime,
+                services,
                 edit.clone(),
                 inputs.declarations.get(&edit.logical),
                 inputs.objects.get(&edit.logical),
@@ -496,7 +494,7 @@ impl AdmittedModelRevision {
                             .map_or(0, |bucket| bucket.members.len())
                             .checked_add(*insertions.get(&query).unwrap_or(&0))
                             .ok_or_else(|| contract("source bucket capacity"))?;
-                        let lease = runtime.shared.math().reserve(
+                        let lease = services.math().reserve(
                             "modeling:source-inventory-bucket",
                             capacity
                                 .checked_mul(size_of::<Arc<LocalSourceObject>>())
@@ -588,8 +586,8 @@ impl AdmittedModelRevision {
             map_bytes,
             _metadata: metadata,
             _receiver_metadata: None,
-            _validation_owner: runtime.model.clone(),
-            _validation_context: runtime.admission_context(),
+
+            _validation_context: services.admission_context(),
         }))
     }
 }
@@ -810,14 +808,14 @@ mod tests {
         )
         .unwrap()
         .remove(0);
-        let parsed = parsed_fields(&runtime, &row, None).unwrap();
+        let parsed = parsed_fields(&runtime.preparation_services(), &row, None).unwrap();
         let mut inputs = TypedSourceInputs::default();
         let edit = inputs
             .declaration(&row, None, parsed.clone(), Vec::new())
             .unwrap();
         CONSTRUCTION_DECODES.with(|count| count.set(0));
         let typed = AdmittedModelRevision::apply_inputs(
-            &runtime,
+            &runtime.preparation_services(),
             None,
             std::slice::from_ref(&edit),
             &inputs,
@@ -825,9 +823,13 @@ mod tests {
         )
         .unwrap();
         assert_eq!(CONSTRUCTION_DECODES.with(std::cell::Cell::get), 0);
-        let imported =
-            AdmittedModelRevision::apply(&runtime, None, std::slice::from_ref(&edit), None)
-                .unwrap();
+        let imported = AdmittedModelRevision::apply(
+            &runtime.preparation_services(),
+            None,
+            std::slice::from_ref(&edit),
+            None,
+        )
+        .unwrap();
         assert_eq!(CONSTRUCTION_DECODES.with(std::cell::Cell::get), 1);
         let object = &typed.objects[&edit.logical];
         assert_eq!(object.value, imported.objects[&edit.logical].value);
@@ -841,7 +843,14 @@ mod tests {
         let mut other = edit.clone();
         other.version.as_mut().unwrap().key.push_str("-different");
         assert!(
-            AdmittedModelRevision::apply_inputs(&runtime, None, &[other], &inputs, None).is_err()
+            AdmittedModelRevision::apply_inputs(
+                &runtime.preparation_services(),
+                None,
+                &[other],
+                &inputs,
+                None
+            )
+            .is_err()
         );
     }
     #[test]
@@ -859,12 +868,15 @@ mod tests {
                 )
             })
             .collect::<Vec<_>>();
-        let old = AdmittedModelRevision::apply(&runtime, None, &edits, None).unwrap();
-        let same = AdmittedModelRevision::apply(&runtime, Some(&old), &[], None).unwrap();
+        let old = AdmittedModelRevision::apply(&runtime.preparation_services(), None, &edits, None)
+            .unwrap();
+        let same =
+            AdmittedModelRevision::apply(&runtime.preparation_services(), Some(&old), &[], None)
+                .unwrap();
         assert!(old.objects.ptr_eq(same.objects.as_ref()));
         assert!(old.inventories.ptr_eq(same.inventories.as_ref()));
         let changed = AdmittedModelRevision::apply(
-            &runtime,
+            &runtime.preparation_services(),
             Some(&old),
             &[object(
                 "object:1",
@@ -927,7 +939,9 @@ mod tests {
             object("b", "scope", "same", "beta", b"b", &[("target", "x")]),
             object("c", "scope", "c", "alpha", b"c", &[]),
         ]);
-        let first = AdmittedModelRevision::apply(&runtime, None, &edits, None).unwrap();
+        let first =
+            AdmittedModelRevision::apply(&runtime.preparation_services(), None, &edits, None)
+                .unwrap();
         let mut premises = LocalSourcePremises::default();
         for query in queries(&first) {
             assert_eq!(
@@ -936,7 +950,7 @@ mod tests {
             );
         }
         let no_op = AdmittedModelRevision::apply(
-            &runtime,
+            &runtime.preparation_services(),
             Some(&first),
             &[first.objects["a"].edit()],
             None,
@@ -958,7 +972,15 @@ mod tests {
             } else {
                 version.interpretation = "foreign".into();
             }
-            assert!(AdmittedModelRevision::apply(&runtime, Some(&first), &[forged], None).is_err());
+            assert!(
+                AdmittedModelRevision::apply(
+                    &runtime.preparation_services(),
+                    Some(&first),
+                    &[forged],
+                    None
+                )
+                .is_err()
+            );
         }
         let mut deletion = first.objects["c"].edit();
         deletion.version = None;
@@ -975,7 +997,13 @@ mod tests {
             object("d", "scope", "same", "alpha", b"near shadow", &[]),
             deletion,
         ];
-        let changed = AdmittedModelRevision::apply(&runtime, Some(&first), &changes, None).unwrap();
+        let changed = AdmittedModelRevision::apply(
+            &runtime.preparation_services(),
+            Some(&first),
+            &changes,
+            None,
+        )
+        .unwrap();
         assert!(!premises.matches(&changed));
         assert!(Arc::ptr_eq(
             &first.inventories[&LocalInventory::Scope("other".into())],
@@ -995,7 +1023,7 @@ mod tests {
     fn plan39_local_inventory_cancel_and_exact_absence_preserve_predecessor() {
         let runtime = crate::workflow::tests::runtime();
         let first = AdmittedModelRevision::apply(
-            &runtime,
+            &runtime.preparation_services(),
             None,
             &[object("a", "scope", "a", "alpha", b"original", &[])],
             None,
@@ -1012,7 +1040,7 @@ mod tests {
         assert!(observed.matches_scoped(&first, &cancelled).is_err());
         assert!(
             AdmittedModelRevision::apply(
-                &runtime,
+                &runtime.preparation_services(),
                 Some(&first),
                 &[object("a", "scope", "a", "alpha", b"replacement", &[])],
                 Some(&cancelled)
@@ -1021,7 +1049,7 @@ mod tests {
         );
         assert_eq!(first.objects["a"].payload, b"original");
         let changed = AdmittedModelRevision::apply(
-            &runtime,
+            &runtime.preparation_services(),
             Some(&first),
             &[object(
                 "missing",

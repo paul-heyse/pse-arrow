@@ -10,10 +10,13 @@ use std::time::Duration;
 async fn reference_recycle_context_reaches_original_transport_obligations()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use pse_model::generated::enums::NumericalTarget;
-    let (package, _spill, preparation) = pr_jacobian_tests::reference_seed_package().await?;
+    let (runtime, package, _spill, preparation) =
+        pr_jacobian_tests::reference_seed_package().await?;
+    let services = runtime.execution_services();
     let cancel = crate::CancelSource::new();
     let execution = package
         .declared_execution(
+            services.preparation(),
             SemanticId::parse_hex("01a0f053c2807589b9b24cf0b26a07c9")?.into(),
             preparation.compiler,
             SolverProfile {
@@ -26,7 +29,7 @@ async fn reference_recycle_context_reaches_original_transport_obligations()
         )
         .await?;
     let prepared = package
-        .prepare_analysis(&execution.analysis, &cancel)
+        .prepare_analysis(services.preparation(), &execution.analysis, &cancel)
         .await?;
     let model = &prepared.model.model.compiled().model;
     let policy = prepared.solve.numerics();
@@ -118,11 +121,14 @@ async fn reference_recycle_initialization(
     fixture: &str,
     expected_success: bool,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let (package, _spill, preparation) = pr_jacobian_tests::reference_seed_package().await?;
+    let (runtime, package, _spill, preparation) =
+        pr_jacobian_tests::reference_seed_package().await?;
+    let services = runtime.execution_services();
     let cancel = crate::CancelSource::new();
     let fixture = DeclarationId::from(SemanticId::parse_hex(fixture)?);
     let declared = package
         .declared_execution(
+            services.preparation(),
             fixture,
             preparation.compiler,
             SolverProfile {
@@ -139,7 +145,12 @@ async fn reference_recycle_initialization(
         )
         .await?;
     let initialized = package
-        .initialize_declared(&declared, InitializationOverrides::default(), &cancel)
+        .initialize_declared(
+            &services,
+            &declared,
+            InitializationOverrides::default(),
+            &cancel,
+        )
         .await?;
     if !initialized.completed {
         eprintln!(
@@ -341,7 +352,7 @@ async fn reference_recycle_initialization(
             pse_model::diagnostic::BoundaryClass::TrialRejected
         );
         let original = package
-            .prepare_analysis(&declared.analysis, &cancel)
+            .prepare_analysis(services.preparation(), &declared.analysis, &cancel)
             .await?;
         let expected = original
             .model
@@ -361,11 +372,14 @@ async fn reference_recycle_initialization(
 
 #[tokio::test]
 async fn reference_cstr_steady_precision() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let (package, _spill, preparation) = pr_jacobian_tests::reference_seed_package().await?;
+    let (runtime, package, _spill, preparation) =
+        pr_jacobian_tests::reference_seed_package().await?;
+    let services = runtime.execution_services();
     let cancel = crate::CancelSource::new();
     let fixture = DeclarationId::from(SemanticId::parse_hex("01a0ee3de15373109faad8251c7d3424")?);
     let declared = package
         .declared_execution(
+            services.preparation(),
             fixture,
             preparation.compiler,
             SolverProfile {
@@ -381,10 +395,12 @@ async fn reference_cstr_steady_precision() -> Result<(), Box<dyn std::error::Err
             &cancel,
         )
         .await?;
-    let prepared = package.prepare_declared(&declared, &cancel).await?;
+    let prepared = package
+        .prepare_declared(services.preparation(), &declared, &cancel)
+        .await?;
     eprintln!("CSTR actual profile: {:?}", prepared.profile);
     let result = package
-        .solve_case(prepared, preparation.compiler, &cancel)
+        .solve_case(&services, prepared, preparation.compiler, &cancel)
         .await?;
     eprintln!(
         "CSTR outcome={:?}, completion={:?}",

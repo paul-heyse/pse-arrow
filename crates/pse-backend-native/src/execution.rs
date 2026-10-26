@@ -678,7 +678,9 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
         self.capability_for(settings)?;
         controls.validate()?;
         if report.backend != self.backend() {
-            return Err(ProblemError::Contract("recovery observation belongs to another backend".into()));
+            return Err(ProblemError::Contract(
+                "recovery observation belongs to another backend".into(),
+            ));
         }
         Ok(Vec::new())
     }
@@ -691,7 +693,9 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
         _bounds: &[(f64, f64)],
         _perturbation: StartPerturbation,
     ) -> Result<PerturbedStart, ProblemError> {
-        Err(ProblemError::Unsupported("adapter has no replacement-start producer".into()))
+        Err(ProblemError::Unsupported(
+            "adapter has no replacement-start producer".into(),
+        ))
     }
     /// Preparation facts consumed by the selected method, independent of backend spelling.
     fn callback_demand(&self, _settings: &BackendSettings) -> CallbackDemand {

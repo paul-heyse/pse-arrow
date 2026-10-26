@@ -18,6 +18,7 @@ impl ModelingPackage {
     #[cfg(test)]
     pub(in crate::workflow) async fn bound_case(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: &ModelingPreparation,
         values: CaseValues,
         states: &BTreeMap<SemanticId, ModelingVariableState>,
@@ -25,8 +26,10 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCasePreparation, WorkflowError> {
-        self.bound_case_with_current_view(model, values, states, order, compiler, None, cancel)
-            .await
+        self.bound_case_with_current_view(
+            services, model, values, states, order, compiler, None, cancel,
+        )
+        .await
     }
     #[expect(
         clippy::too_many_arguments,
@@ -34,6 +37,7 @@ impl ModelingPackage {
     )]
     pub(in crate::workflow) async fn bound_case_with_current_view(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: &ModelingPreparation,
         values: CaseValues,
         states: &BTreeMap<SemanticId, ModelingVariableState>,
@@ -43,6 +47,7 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCasePreparation, WorkflowError> {
         self.bound_case_with_lookup_reservation(
+            services,
             model,
             values,
             states,
@@ -50,12 +55,7 @@ impl ModelingPackage {
             compiler,
             current_view,
             cancel,
-            |bytes| {
-                self.runtime
-                    .shared
-                    .math()
-                    .reserve("math:bound-lookup", bytes)
-            },
+            |bytes| services.math().reserve("math:bound-lookup", bytes),
         )
         .await
     }
@@ -65,6 +65,7 @@ impl ModelingPackage {
     )]
     async fn bound_case_with_lookup_reservation(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: &ModelingPreparation,
         values: CaseValues,
         states: &BTreeMap<SemanticId, ModelingVariableState>,
@@ -79,9 +80,9 @@ impl ModelingPackage {
             crate::math::MathRuntimeError,
         > + Send,
     ) -> Result<ModelingCasePreparation, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let product = model.compiled();
@@ -96,7 +97,7 @@ impl ModelingPackage {
                 let key = lookup.key.clone();
                 let tightenings = lookup.tightenings.clone();
                 let identity = product.occurrence_identity();
-                let service = self.runtime.shared.math();
+                let service = services.math();
                 let generation = service.modeling_cache.generation();
                 // The explicit active lane owns one current view independently of
                 // optional cross-lane lookup retention. State/domain admission above
@@ -131,7 +132,7 @@ impl ModelingPackage {
                         (
                             service
                                 .prepare_modeling_view(
-                                    self.numerical_workspace()?,
+                                    self.numerical_workspace(services)?,
                                     model.clone(),
                                     bound.structure,
                                     values.clone(),
@@ -195,6 +196,7 @@ impl ModelingPackage {
     /// the view (A6). Every declared parameter of the view's structure is admitted.
     pub(in crate::workflow) async fn parametric_program(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: &ModelingPreparation,
         prepared: &ModelingCasePreparation,
         parameters: &[SemanticId],
@@ -202,9 +204,9 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity.scope(async {
         let structure = prepared.case.compiled().plan.structure();
         let declared: BTreeSet<_> = structure.parameters().iter().map(|p| p.id).collect();
@@ -213,19 +215,17 @@ impl ModelingPackage {
                 "sensitivity parameter {unknown} is not a declared parameter of the solved case"
             )));
         }
-        let generation = self.runtime.shared.math().modeling_cache.generation();
+        let generation = services.math().modeling_cache.generation();
         let product = model.compiled();
         let view = product.view_key(structure, order, compiler, &product.consumed_physical_identity());
         let key = pse_compiler::workspace::PreparedModeling::parametric_key(&view, parameters);
-        if let Some(program) = self.runtime.shared.math().modeling_cache.program(key, true) {
+        if let Some(program) = services.math().modeling_cache.program(key, true) {
             return Ok(program);
         }
-        let program = self
-            .runtime
-            .shared
+        let program = services
             .math()
             .prepare_modeling_parametric(
-                self.numerical_workspace()?,
+                self.numerical_workspace(services, )?,
                 prepared.case.clone(),
                 parameters.to_vec(),
                 order,
@@ -233,7 +233,7 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
-        self.runtime.shared.math().modeling_cache.retain_program(
+        services.math().modeling_cache.retain_program(
             generation,
             key,
             program.clone(),
@@ -247,17 +247,18 @@ impl ModelingPackage {
     /// structure.
     pub(in crate::workflow) async fn observation_program(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: &ModelingPreparation,
         rows: &BTreeSet<SemanticId>,
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
-                let generation = self.runtime.shared.math().modeling_cache.generation();
+                let generation = services.math().modeling_cache.generation();
                 let product = model.compiled();
                 let structure = product
                     .observation_structure(rows)
@@ -268,28 +269,20 @@ impl ModelingPackage {
                     compiler,
                     &product.consumed_physical_identity(),
                 );
-                if let Some(program) = self
-                    .runtime
-                    .shared
-                    .math()
-                    .modeling_cache
-                    .program(key, false)
-                {
+                if let Some(program) = services.math().modeling_cache.program(key, false) {
                     return Ok(program);
                 }
-                let program = self
-                    .runtime
-                    .shared
+                let program = services
                     .math()
                     .prepare_modeling_observations(
-                        self.numerical_workspace()?,
+                        self.numerical_workspace(services)?,
                         model.clone(),
                         structure,
                         compiler,
                         cancel,
                     )
                     .await?;
-                self.runtime.shared.math().modeling_cache.retain_program(
+                services.math().modeling_cache.retain_program(
                     generation,
                     key,
                     program.clone(),
@@ -328,6 +321,7 @@ mod tests {
             .unwrap();
         let model = package
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -363,6 +357,7 @@ mod tests {
             service.clear_program_cache();
             let prepared = package
                 .bound_case_with_current_view(
+                    &runtime.preparation_services(),
                     &model,
                     CaseValues {
                         scalars: BTreeMap::from([(x, value)]),
@@ -398,6 +393,7 @@ mod tests {
         assert!(
             package
                 .bound_case_with_current_view(
+                    &runtime.preparation_services(),
                     &model,
                     CaseValues {
                         scalars: BTreeMap::from([(x, 4.)])
@@ -474,6 +470,7 @@ mod tests {
             let previous_key = current.as_ref().unwrap().key.clone();
             source
                 .bound_case_with_current_view(
+                    &runtime.preparation_services(),
                     product,
                     CaseValues {
                         scalars: BTreeMap::from([(member, 4.)]),
@@ -509,6 +506,7 @@ mod tests {
         let states = BTreeMap::new();
         package
             .bound_case(
+                &runtime.preparation_services(),
                 &model,
                 CaseValues {
                     scalars: BTreeMap::from([(x, 1.)]),
@@ -521,8 +519,10 @@ mod tests {
             .await
             .unwrap();
         let (mut left, mut right) = (None, None);
+        let preparation_services = runtime.preparation_services();
         let (a, b) = tokio::join!(
             package.bound_case_with_current_view(
+                &preparation_services,
                 &model,
                 CaseValues {
                     scalars: BTreeMap::from([(x, 3.)])
@@ -534,6 +534,7 @@ mod tests {
                 &cancel
             ),
             package.bound_case_with_current_view(
+                &preparation_services,
                 &model,
                 CaseValues {
                     scalars: BTreeMap::from([(x, 5.)])
@@ -576,6 +577,7 @@ mod tests {
         let mut current = None;
         let first = package
             .bound_case_with_current_view(
+                &runtime.preparation_services(),
                 &model,
                 CaseValues {
                     scalars: BTreeMap::from([(x, 3.)]),
@@ -593,6 +595,7 @@ mod tests {
         runtime.shared.math().clear_program_cache();
         let next = revised
             .bound_case_with_current_view(
+                &runtime.preparation_services(),
                 &next_model,
                 CaseValues {
                     scalars: BTreeMap::from([(next_x, 5.)]),
@@ -673,6 +676,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let model = package
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -707,6 +711,7 @@ mod tests {
         for value in [3., 5.] {
             let current = package
                 .bound_case_with_lookup_reservation(
+                    &runtime.preparation_services(),
                     &model,
                     CaseValues {
                         scalars: BTreeMap::from([(x, value)]),
@@ -737,6 +742,7 @@ mod tests {
         let mut lane = None;
         let error = package
             .bound_case_with_lookup_reservation(
+                &runtime.preparation_services(),
                 &model,
                 CaseValues {
                     scalars: BTreeMap::from([(x, 7.)]),
@@ -789,6 +795,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let model = package
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -813,6 +820,7 @@ mod tests {
             .scope(observation::scope(Some(operation.context()), async {
                 let first = package
                     .bound_case(
+                        &runtime.preparation_services(),
                         &model,
                         CaseValues {
                             scalars: BTreeMap::from([(x, 3.)]),
@@ -826,6 +834,7 @@ mod tests {
                     .unwrap();
                 let second = package
                     .bound_case(
+                        &runtime.preparation_services(),
                         &model,
                         CaseValues {
                             scalars: BTreeMap::from([(x, 5.)]),
@@ -858,6 +867,7 @@ mod tests {
                 assert!(
                     package
                         .bound_case(
+                            &runtime.preparation_services(),
                             &model,
                             second.values.clone(),
                             &invalid,
@@ -907,6 +917,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let model = package
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -931,11 +942,23 @@ mod tests {
         activity
             .scope(observation::scope(Some(operation.context()), async {
                 let first = package
-                    .observation_program(&model, &rows, compiler, &cancel)
+                    .observation_program(
+                        &runtime.preparation_services(),
+                        &model,
+                        &rows,
+                        compiler,
+                        &cancel,
+                    )
                     .await
                     .unwrap();
                 let second = package
-                    .observation_program(&model, &rows, compiler, &cancel)
+                    .observation_program(
+                        &runtime.preparation_services(),
+                        &model,
+                        &rows,
+                        compiler,
+                        &cancel,
+                    )
                     .await
                     .unwrap();
                 assert!(Arc::ptr_eq(&first, &second));
@@ -965,6 +988,7 @@ mod tests {
         for (value, expected) in [(3., 1.), (5., 3.)] {
             let observed = package
                 .observe_registered(
+                    &runtime.preparation_services(),
                     model.clone(),
                     rows.clone(),
                     CaseValues {

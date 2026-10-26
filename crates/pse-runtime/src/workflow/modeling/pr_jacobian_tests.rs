@@ -65,7 +65,7 @@ async fn package(
     settings: &Settings,
     source: &SourceRun,
     root: &Path,
-) -> TestResult<(ModelingPackage, tempfile::TempDir)> {
+) -> TestResult<(Runtime, ModelingPackage, tempfile::TempDir)> {
     let spill = tempfile::tempdir()?;
     let positive = |value| {
         NonZeroUsize::new(value)
@@ -135,16 +135,15 @@ async fn package(
     let closure = pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
         bundles, &pool, &token,
     )?;
-    Ok((
-        runtime
-            .modeling_from_documents(&closure, physical, &crate::CancelSource::new())
-            .await?,
-        spill,
-    ))
+    let package = runtime
+        .modeling_from_documents(&closure, physical, &crate::CancelSource::new())
+        .await?;
+    Ok((runtime, package, spill))
 }
 
 /// The current authored seed closure, shared with focused initialization controls.
 pub(super) async fn reference_seed_package() -> TestResult<(
+    Runtime,
     ModelingPackage,
     tempfile::TempDir,
     crate::workflow::PreparationSettings,
@@ -156,8 +155,13 @@ pub(super) async fn reference_seed_package() -> TestResult<(
         .iter()
         .find(|r| r.name == "seed")
         .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
-    let (package, spill) = package(&manifest.settings, source, &root).await?;
-    Ok((package, spill, preparation(&manifest.settings)?.clone()))
+    let (runtime, package, spill) = package(&manifest.settings, source, &root).await?;
+    Ok((
+        runtime,
+        package,
+        spill,
+        preparation(&manifest.settings)?.clone(),
+    ))
 }
 
 #[derive(Clone, Serialize)]
@@ -842,7 +846,8 @@ async fn guarded_regional_pr_product_characterization_uses_actual_stage_programs
         .iter()
         .find(|r| r.name == "seed")
         .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
-    let (package, _spill) = package(&manifest.settings, source, &root).await?;
+    let (runtime, package, _spill) = package(&manifest.settings, source, &root).await?;
+    let services = runtime.execution_services();
     let fixture = DeclarationId::from(SemanticId::parse_hex("01a0eecf2935721c9fc3aaab14032e96")?);
     let cancel = crate::CancelSource::new();
     let solver = crate::math::solves::SolverProfile {
@@ -855,6 +860,7 @@ async fn guarded_regional_pr_product_characterization_uses_actual_stage_programs
     };
     let declared = package
         .declared_execution(
+            services.preparation(),
             fixture,
             preparation(&manifest.settings)?.compiler,
             solver,
@@ -867,6 +873,7 @@ async fn guarded_regional_pr_product_characterization_uses_actual_stage_programs
     let analysis = declared.analysis;
     let resolved = package
         .resolve_case(
+            services.preparation(),
             analysis.root,
             analysis.instance,
             analysis.bindings,
@@ -892,11 +899,11 @@ async fn guarded_regional_pr_product_characterization_uses_actual_stage_programs
     assert_eq!((rows.len(), columns.len()), (DIMENSION, DIMENSION));
     let normalization = Normalization::from_policy(&resolved.numerics, &columns, &rows)?;
     let compiler = preparation(&manifest.settings)?.compiler;
-    let service = package.runtime.shared.math();
+    let service = services.preparation().math();
     let started = std::time::Instant::now();
     let executable = service
         .prepare_modeling_function_products(
-            package.numerical_workspace()?,
+            package.numerical_workspace(services.preparation())?,
             resolved.model.model.clone(),
             rows.clone(),
             columns.clone(),
@@ -970,7 +977,7 @@ async fn guarded_regional_pr_product_characterization_uses_actual_stage_programs
             population[6]
         );
     }
-    let worker_allowance = package.runtime.shared.budget().math.worker_bytes;
+    let worker_allowance = services.preparation().math().policy().worker_bytes;
     let diagnostic_owner = service.reserve(
         "math:guarded-pr-product-observation",
         compiler.evaluation.scratch_bytes,
@@ -1108,7 +1115,8 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
         .iter()
         .find(|r| r.name == "seed")
         .ok_or_else(|| std::io::Error::other("reference seed closure absent"))?;
-    let (package, _spill) = package(&manifest.settings, source, &root).await?;
+    let (runtime, package, _spill) = package(&manifest.settings, source, &root).await?;
+    let services = runtime.execution_services();
     let fixture = DeclarationId::from(SemanticId::parse_hex("01a0eecf2935721c9fc3aaab14032e96")?);
     let cancel = crate::CancelSource::new();
     let solver = crate::math::solves::SolverProfile {
@@ -1121,6 +1129,7 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
     };
     let declared = package
         .declared_execution(
+            services.preparation(),
             fixture,
             preparation(&manifest.settings)?.compiler,
             solver,
@@ -1133,6 +1142,7 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
     let analysis = declared.analysis;
     let resolved = package
         .resolve_case(
+            services.preparation(),
             analysis.root,
             analysis.instance,
             analysis.bindings,
@@ -1427,9 +1437,9 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
     }
     let base = resolved.model.values.clone();
     let controls = resolved.solver.controls.clone();
-    let service = package.runtime.shared.math();
+    let service = services.preparation().math();
     let executable = service.assemble(resolved.model.case.clone()).await?;
-    let worker_allowance = package.runtime.shared.budget().math.worker_bytes;
+    let worker_allowance = services.preparation().math().policy().worker_bytes;
     let compiler = preparation(&manifest.settings)?.compiler;
     // One ordinary assembly worker, two observed root jets, primitive programs and
     // three raw 120x120 matrices are bounded by the deployment's numeric allowance.
@@ -1941,6 +1951,7 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
     // A 16 GiB pool covers those declarations and retained source/program metadata;
     // the actual runtime/IBEX allocation owners still admit every reservation.
     let runtime = crate::workflow::tests::runtime_with(256 << 20, 16 << 20, 16 << 30);
+    let services = runtime.execution_services();
     let package = runtime
         .modeling_package(authored, crate::workflow::tests::physical())
         .await?;
@@ -1969,7 +1980,9 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
         solver,
         numerical: Default::default(),
     };
-    let prepared = package.prepare_analysis(&analysis, &cancel).await?;
+    let prepared = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await?;
     // Cubic branch predicates alone carry no admitted derivative neighborhood.
     // These bounded regime selectors require the actual runtime isolation proof;
     // their eligibility margins and boxes select the same two analytic roots.
@@ -2027,13 +2040,13 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
             expected_hessians[1][i][j] = 5. * hl[i][j] - 7. * hv[i][j] + f64::from(i != j);
         }
     }
-    let service = package.runtime.shared.math();
+    let service = services.preparation().math();
     for (row_order, column_order) in [([0, 1], [1, 0]), ([1, 0], [0, 1])] {
         let selected_rows = row_order.map(|i| row_ids[i]).to_vec();
         let selected_columns = column_order.map(|i| coordinate_ids[i]).to_vec();
         let executable = service
             .prepare_modeling_functions(
-                package.numerical_workspace()?,
+                package.numerical_workspace(services.preparation())?,
                 prepared.model.model.clone(),
                 selected_rows,
                 selected_columns,
@@ -2066,7 +2079,7 @@ async fn integrated_pr_two_root_mixed_hessian_has_independent_analytic_oracle() 
         let providers = prepared.providers.clone();
         let base = prepared.model.values.clone();
         let controls = analysis.solver.controls.clone();
-        let worker_allowance = package.runtime.shared.budget().math.worker_bytes;
+        let worker_allowance = services.preparation().math().policy().worker_bytes;
         let job_service = service.clone();
         let handle = service.submit_construction(
             1,

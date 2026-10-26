@@ -2772,7 +2772,7 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 
 Confidence intervals of a fit's free parameters (ADR-0118 item 8). A Wald end is the estimate ± z·σ with z the standard normal quantile of (1 + level)/2. A profile-likelihood end is the pinned value at which the signed root of twice the objective increase, √(2(f - f*)), reaches √χ²₁(level), found by an adaptive pin chain; with absolute deviations both use the same quantile, so they agree on a linear model. The validity of each method's intervals is in local_validity.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, parameter_id, method, end`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, parameter_id, method, end`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -2785,6 +2785,8 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, parameter_id, metho
 | `estimate` | `Float64` | false | `payload` | — | — |
 | `value` | `Float64` | true | `payload` | — | — |
 | `outcome` | `enum:IntervalOutcome` | false | `payload` | — | — |
+| `qualifiers` | `List` | false | `payload` | — | — |
+| `qualifiers.item` | `enum:CandidateQualifier` | false | `payload` | — | — |
 | `points` | `Int64` | false | `payload` | — | — |
 | `detail` | `Utf8` | true | `payload` | — | — |
 
@@ -2822,7 +2824,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `coordinate_id`.
 
 Every pinned fit of a profile-likelihood chain (ADR-0118 item 8): one chain per free parameter and end, each point pinning the parameter on the fit prepared once and seeded from its chain's latest accepted point, which is recorded as its input.
 
-Version: 2. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, point`.
+Version: 3. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, point`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -2833,6 +2835,8 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, 
 | `value` | `Float64` | false | `payload` | — | — |
 | `seed` | `Int64` | true | `payload` | — | — |
 | `qualification` | `enum:NativeQualification` | true | `payload` | — | — |
+| `qualifiers` | `List` | false | `payload` | — | — |
+| `qualifiers.item` | `enum:CandidateQualifier` | false | `payload` | — | — |
 | `termination` | `enum:NativeTermination` | true | `payload` | — | — |
 | `callback_terminal_failure` | `Boolean` | true | `payload` | — | — |
 | `failures` | `List` | false | `payload` | — | — |

@@ -18,6 +18,7 @@ impl ModelingPackage {
     /// Invalid controls, native settings and original conformance failures propagate.
     pub async fn conform_request(
         &self,
+        services: &ExecutionServices,
         preparation: &PreparationSettings,
         settings: SolveSettings,
         controls: ConformanceControls,
@@ -34,6 +35,7 @@ impl ModelingPackage {
             ..
         } = controls;
         self.conform(
+            services,
             ModelingConformancePolicy {
                 compiler: preparation.compiler,
                 solver: settings.profile()?,
@@ -58,12 +60,14 @@ impl ModelingPackage {
     /// Original settings, source, route and preparation refusals propagate unchanged.
     pub async fn admit_declared_request(
         &self,
+        services: &PreparationServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         settings: SolveSettings,
         cancel: &CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
         self.declared_execution(
+            services,
             case,
             preparation.compiler,
             settings.profile()?,
@@ -78,6 +82,7 @@ impl ModelingPackage {
     /// Shared operation admission and the original physical integration can refuse.
     pub async fn simulate_case_request(
         &self,
+        services: &ExecutionServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         request: PhysicalSimulationRequest,
@@ -85,6 +90,7 @@ impl ModelingPackage {
     ) -> Result<ModelingTrajectory, WorkflowError> {
         let prepared = self
             .prepare_operation(
+                services.preparation(),
                 &OperationSource::of(self),
                 preparation,
                 RuntimeOperationRequest::Study {
@@ -103,28 +109,30 @@ impl ModelingPackage {
         else {
             return Err(contract("simulation operation required"));
         };
-        prepared.run(cancel).await
+        prepared.run(services, cancel).await
     }
     /// Execute the actual authored solve or initialization procedure.
     /// # Errors
     /// Admission and the selected procedure retain their original typed failures.
     pub async fn execute_case_request(
         &self,
+        services: &ExecutionServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         settings: SolveSettings,
         cancel: &CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
         let execution = self
-            .admit_declared_request(case, preparation, settings, cancel)
+            .admit_declared_request(services.preparation(), case, preparation, settings, cancel)
             .await?;
-        self.execute_declared(&execution, cancel).await
+        self.execute_declared(services, &execution, cancel).await
     }
     /// Execute typed transient values using the existing bound scientific owner.
     /// # Errors
     /// Invalid physical inputs, admission and original solve failures propagate.
     pub async fn execute_bound_request(
         &self,
+        services: &ExecutionServices,
         case: DeclarationId,
         overlay: &PointOverlay,
         preparation: &PreparationSettings,
@@ -132,6 +140,7 @@ impl ModelingPackage {
         cancel: &CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
         self.solve_bound(
+            services,
             case,
             overlay,
             preparation.compiler,
@@ -147,6 +156,7 @@ impl ModelingPackage {
     /// Original contextual admission failures propagate.
     pub async fn inspect_case_request(
         &self,
+        services: &PreparationServices,
         request: &ModelingInspectionRequest,
         cancel: &CancelSource,
     ) -> Result<ModelingInspection, WorkflowError> {
@@ -155,6 +165,7 @@ impl ModelingPackage {
         }
         modeling::documents::bound_observation(
             self.admit_declared_request(
+                services,
                 request.case,
                 &request.preparation,
                 request.settings.clone(),
@@ -174,6 +185,7 @@ impl ModelingPackage {
     /// Admission and the existing flow owner's refusals propagate.
     pub async fn prepare_flow_request(
         &self,
+        services: &PreparationServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         settings: SolveSettings,
@@ -181,9 +193,9 @@ impl ModelingPackage {
         cancel: &CancelSource,
     ) -> Result<crate::math::flows::PreparedFlow, WorkflowError> {
         let execution = self
-            .admit_declared_request(case, preparation, settings, cancel)
+            .admit_declared_request(services, case, preparation, settings, cancel)
             .await?;
-        self.prepare_flow(&execution.analysis, selection, cancel)
+        self.prepare_flow(services, &execution.analysis, selection, cancel)
             .await
     }
     /// Prepare the existing fresh-session map strategy with its actual selected profile.
@@ -192,6 +204,7 @@ impl ModelingPackage {
     #[cfg(feature = "solver-kinsol")]
     pub async fn prepare_recycle_request(
         &self,
+        services: &PreparationServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         settings: SolveSettings,
@@ -200,9 +213,9 @@ impl ModelingPackage {
         cancel: &CancelSource,
     ) -> Result<PreparedRecycle, WorkflowError> {
         let execution = self
-            .admit_declared_request(case, preparation, settings, cancel)
+            .admit_declared_request(services, case, preparation, settings, cancel)
             .await?;
-        self.prepare_recycle(&execution.analysis, selection, request, cancel)
+        self.prepare_recycle(services, &execution.analysis, selection, request, cancel)
             .await
     }
     /// Prepare explicit continuation stages without replacing their original profile.
@@ -211,6 +224,7 @@ impl ModelingPackage {
     #[cfg(feature = "solver-kinsol")]
     pub async fn prepare_initialization_request(
         &self,
+        services: &PreparationServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         settings: SolveSettings,
@@ -218,9 +232,9 @@ impl ModelingPackage {
         cancel: &CancelSource,
     ) -> Result<PreparedInitializationStrategy, WorkflowError> {
         let execution = self
-            .admit_declared_request(case, preparation, settings, cancel)
+            .admit_declared_request(services, case, preparation, settings, cancel)
             .await?;
-        self.prepare_block_initialization_physical(&execution.analysis, &stages, cancel)
+        self.prepare_block_initialization_physical(services, &execution.analysis, &stages, cancel)
             .await
     }
     /// Execute the admitted authored initialization and explicit overrides.
@@ -228,6 +242,7 @@ impl ModelingPackage {
     /// Original admission, overrides and initialization failures propagate.
     pub async fn initialize_case_request(
         &self,
+        services: &ExecutionServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         settings: SolveSettings,
@@ -235,9 +250,9 @@ impl ModelingPackage {
         cancel: &CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
         let execution = self
-            .admit_declared_request(case, preparation, settings, cancel)
+            .admit_declared_request(services.preparation(), case, preparation, settings, cancel)
             .await?;
-        self.initialize_declared(&execution, overrides, cancel)
+        self.initialize_declared(services, &execution, overrides, cancel)
             .await
     }
     /// Run the existing nonlinear explanation after contextual declared admission.
@@ -245,6 +260,7 @@ impl ModelingPackage {
     /// Admission and the explanation owner's policy failures propagate.
     pub async fn explain_case_request(
         &self,
+        services: &ExecutionServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         settings: SolveSettings,
@@ -252,13 +268,14 @@ impl ModelingPackage {
         cancel: &CancelSource,
     ) -> Result<ModelingNonlinearExplanation, WorkflowError> {
         let execution = self
-            .admit_declared_request(case, preparation, settings, cancel)
+            .admit_declared_request(services.preparation(), case, preparation, settings, cancel)
             .await?;
-        self.explain_nonlinear(&execution.analysis, policy, cancel)
+        self.explain_nonlinear(services, &execution.analysis, policy, cancel)
             .await
     }
     async fn prepare_diagnostic_request(
         &self,
+        services: &PreparationServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         profile: SolverProfile,
@@ -272,6 +289,7 @@ impl ModelingPackage {
     > {
         let execution = operation
             .within(self.declared_execution(
+                services,
                 case,
                 preparation.compiler,
                 profile,
@@ -281,7 +299,7 @@ impl ModelingPackage {
             ))
             .await?;
         let prepared = operation
-            .within(self.prepare_declared_diagnostics(&execution, operation.driver()))
+            .within(self.prepare_declared_diagnostics(services, &execution, operation.driver()))
             .await?;
         Ok((prepared, execution.analysis.compiler))
     }
@@ -290,6 +308,7 @@ impl ModelingPackage {
     /// Original admission, diagnostic policy and deadline failures propagate.
     pub async fn diagnose_case_request(
         &self,
+        services: &ExecutionServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         settings: SolveSettings,
@@ -300,10 +319,16 @@ impl ModelingPackage {
         let profile = settings.profile()?;
         let operation = DiagnosticOperation::new(cancel, profile.controls.time_limit, origin)?;
         let (prepared, compiler) = self
-            .prepare_diagnostic_request(case, preparation, profile, &operation)
+            .prepare_diagnostic_request(
+                services.preparation(),
+                case,
+                preparation,
+                profile,
+                &operation,
+            )
             .await?;
         let values = prepared.model.values.clone();
-        self.diagnose_case(prepared, values, policy, compiler, &operation)
+        self.diagnose_case(services, prepared, values, policy, compiler, &operation)
             .await
     }
     /// Diagnose supplied scalar points without inventing starts or renewing clocks.
@@ -315,6 +340,7 @@ impl ModelingPackage {
     )]
     pub async fn diagnose_samples_request(
         &self,
+        services: &ExecutionServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         settings: SolveSettings,
@@ -330,7 +356,13 @@ impl ModelingPackage {
         let operation =
             DiagnosticOperation::new(cancel, profile.controls.time_limit.min(allowance), origin)?;
         let (prepared, compiler) = self
-            .prepare_diagnostic_request(case, preparation, profile, &operation)
+            .prepare_diagnostic_request(
+                services.preparation(),
+                case,
+                preparation,
+                profile,
+                &operation,
+            )
             .await?;
         let structure = prepared.model.case.compiled().plan.structure();
         let ports = structure
@@ -349,6 +381,7 @@ impl ModelingPackage {
             })
             .collect();
         self.diagnose_samples(
+            services,
             prepared,
             values,
             policy,
@@ -364,6 +397,7 @@ impl ModelingPackage {
     #[cfg(feature = "solver-highs")]
     pub async fn diagnose_linear_request(
         &self,
+        services: &ExecutionServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         settings: SolveSettings,
@@ -375,7 +409,13 @@ impl ModelingPackage {
         let operation = DiagnosticOperation::new(cancel, profile.controls.time_limit, origin)?;
         let native_controls = profile.controls.clone();
         let (prepared, _) = self
-            .prepare_diagnostic_request(case, preparation, profile, &operation)
+            .prepare_diagnostic_request(
+                services.preparation(),
+                case,
+                preparation,
+                profile,
+                &operation,
+            )
             .await?;
         let plan = &prepared.model.case.compiled().plan;
         let rows = plan
@@ -388,6 +428,7 @@ impl ModelingPackage {
         let request = controls.request(plan.columns(), &rows)?;
         let exported = self
             .diagnose_linear(
+                services,
                 prepared,
                 request,
                 native_controls,
@@ -405,6 +446,7 @@ impl ModelingPackage {
     #[cfg(feature = "solver-highs")]
     pub async fn diagnose_jacobian_request(
         &self,
+        services: &ExecutionServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         settings: SolveSettings,
@@ -416,11 +458,18 @@ impl ModelingPackage {
         let operation = DiagnosticOperation::new(cancel, profile.controls.time_limit, origin)?;
         let native_controls = profile.controls.clone();
         let (prepared, _) = self
-            .prepare_diagnostic_request(case, preparation, profile, &operation)
+            .prepare_diagnostic_request(
+                services.preparation(),
+                case,
+                preparation,
+                profile,
+                &operation,
+            )
             .await?;
         let values = prepared.model.values.clone();
         let exported = self
             .diagnose_jacobian_optimization(
+                services,
                 prepared,
                 values,
                 controls.policy(),
@@ -437,6 +486,7 @@ impl ModelingPackage {
     /// Nonpositive allowances, original admission and source-map allocation refuse.
     pub async fn source_map_request(
         &self,
+        services: &PreparationServices,
         case: DeclarationId,
         preparation: &PreparationSettings,
         settings: SolveSettings,
@@ -453,15 +503,15 @@ impl ModelingPackage {
         }
         let deadline = Instant::now()
             .checked_add(time_limit)
-            .ok_or_else(|| contract("source map deadline extent"))?;
+            .ok_or_else(|| deadline_limit("source map deadline extent"))?;
         let cancel = cancel.with_deadline(Some(deadline));
         let execution = self
-            .admit_declared_request(case, preparation, settings, &cancel)
+            .admit_declared_request(services, case, preparation, settings, &cancel)
             .await?;
         let prepared = self
-            .prepare_declared_diagnostics(&execution, &cancel)
+            .prepare_declared_diagnostics(services, &execution, &cancel)
             .await?;
-        self.modeling_diagnostic_source_map(&prepared, maximum_bytes, time_limit, &cancel)
+        self.modeling_diagnostic_source_map(services, &prepared, maximum_bytes, time_limit, &cancel)
             .await
     }
 }
@@ -487,7 +537,8 @@ impl Runtime {
                 )),
             })
             .collect::<Result<Vec<_>, _>>()?;
-        self.start_modeling(steps, controls.continue_independent, cancel)
+        self.execution_services()
+            .start_modeling(steps, controls.continue_independent, cancel)
             .await
     }
     /// Admit encoded solve settings before preparing the existing non-durable cone strategy.

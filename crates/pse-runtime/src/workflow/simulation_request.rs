@@ -36,9 +36,9 @@ impl PhysicalFitRequest {
         }
     }
     /// Own each decoded physical experiment request under the receiving deployment.
-    pub fn retain(mut self, runtime: &super::Runtime) -> Result<Self, WorkflowError> {
+    pub fn retain(mut self, services: &super::PreparationServices) -> Result<Self, WorkflowError> {
         for request in self.settings.simulations.values_mut() {
-            *request = request.clone().retain(runtime)?;
+            *request = request.clone().retain(services)?;
         }
         Ok(self)
     }
@@ -53,15 +53,14 @@ impl PhysicalSimulationRequest {
         }
     }
     /// Retain decoded/request scalar storage under the existing deployment budget.
-    pub fn retain(mut self, runtime: &super::Runtime) -> Result<Self, WorkflowError> {
+    pub fn retain(mut self, services: &super::PreparationServices) -> Result<Self, WorkflowError> {
         let extent =
-            super::replay::encoded_extent(&self, runtime.shared.budget().math.workspace_bytes)?
+            super::replay::encoded_extent(&self, services.math().policy().workspace_bytes)?
                 .checked_mul(8)
                 .and_then(|bytes| bytes.checked_add(size_of::<Self>() + 512))
                 .ok_or_else(|| contract("physical simulation request extent"))?;
         self.custody = Some(
-            runtime
-                .shared
+            services
                 .math()
                 .reserve("workflow:physical-simulation-request", extent)?,
         );

@@ -18,11 +18,12 @@ impl ModelingPackage {
     /// mathematical preparation refuses support, cancellation or a resource cap.
     pub async fn prepare_petsc_source(
         &self,
+        services: &crate::workflow::PreparationServices,
         original: &ModelingSolvePreparation,
         scope: ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<PreparedPetscSource, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity.scope(async {
         if self.revision.identity() != original.source.revision.identity()
             || self.physical.key != original.source.physical.key
@@ -35,9 +36,8 @@ impl ModelingPackage {
             .solve
             .petsc_guard_inventory()
             .map_err(crate::math::MathRuntimeError::from)?;
-        let source = self
-            .runtime
-            .native()
+        let source = services
+            .math()
             .prepare_petsc_source(original.solve.clone(), guards, scope, driver)
             .await?;
         if !source.matches_case(&original.model.case, &original.model.values) {
@@ -57,26 +57,30 @@ impl ModelingPackage {
     /// Original/profile/domain binding, scoped preparation or complete block coverage fails.
     pub async fn prepare_petsc_blocks(
         &self,
+        services: &crate::workflow::PreparationServices,
         original: &ModelingSolvePreparation,
         profile: SolverProfile,
+        settings: pse_backend_native::settings::petsc::Settings,
         declaration: ContentHash,
         scope: ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<PreparedPetsc, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
-                let source = self.prepare_petsc_source(original, scope, driver).await?;
-                Ok(self
-                    .runtime
-                    .native()
+                let source = self
+                    .prepare_petsc_source(services, original, scope, driver)
+                    .await?;
+                Ok(services
+                    .math()
                     .prepare_petsc_blocks(
                         source,
                         crate::math::solves::petsc::PetscCompiler {
-                            workspace: self.numerical_workspace()?,
+                            workspace: self.numerical_workspace(services)?,
                             profile: original.compiler,
                         },
                         profile,
+                        settings,
                         None,
                         declaration,
                         driver,
@@ -102,9 +106,10 @@ mod tests {
     };
     use std::time::{Duration, Instant};
 
-    async fn original(text: &str) -> (ModelingPackage, ModelingSolvePreparation) {
+    async fn original(text: &str) -> (Runtime, ModelingPackage, ModelingSolvePreparation) {
         use crate::workflow::tests as fixture;
         let runtime = fixture::runtime_with(256 << 20, 1 << 20, 1 << 30);
+        let services = runtime.execution_services();
         let rows = pse_authoring::language::parse(
             text,
             SemanticId::NIL,
@@ -124,13 +129,16 @@ mod tests {
         let mut profile = SolverProfile {
             intent: SolveIntent::Root,
             selection: SolverSelection::Explicit(Backend::Petsc),
-            backend: BackendSettings::Petsc(petsc::Settings::default()),
+            backend: BackendSettings::Petsc(
+                pse_backend_native::settings::petsc::DirectSettings::default(),
+            ),
             ..Default::default()
         };
         profile.numerics.native_scaling = false;
         profile.controls.foreign_bytes = Some(1 << 20);
         let prepared = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -144,25 +152,30 @@ mod tests {
             )
             .await
             .unwrap();
-        (package, prepared)
+        (runtime, package, prepared)
     }
     #[tokio::test]
     async fn actual_complete_btf_and_guard_only_slots_reach_original_correction() {
-        let (package,mut original)=original("package p { def Root { var x:Scalar; var y:Scalar; annotation start x(0); annotation start y(1); eq first:x+0*log(y)==1; eq second:y==2; } }").await;
+        let (runtime,package,mut original)=original("package p { def Root { var x:Scalar; var y:Scalar; annotation start x(0); annotation start y(1); eq first:x+0*log(y)==1; eq second:y==2; } }").await;
+        let services = runtime.execution_services();
         let scope = ExecutionScope::new(
             pse_diagnostics::Cancellation::default(),
             Some(Instant::now() + Duration::from_secs(30)),
         );
         let mut profile = original.profile.clone();
-        profile.backend = BackendSettings::Petsc(petsc::Settings {
+        profile.backend =
+            BackendSettings::Petsc(pse_backend_native::settings::petsc::DirectSettings::default());
+        let settings = petsc::Settings {
             method: petsc::Method::NonlinearAdditiveSchwarz,
             schwarz: Some(Default::default()),
             ..Default::default()
-        });
+        };
         let blocks = package
             .prepare_petsc_blocks(
+                services.preparation(),
                 &original,
                 profile,
+                settings,
                 ContentHash::from_bytes([82; 32]),
                 scope.clone(),
                 &crate::CancelSource::new(),
@@ -207,6 +220,7 @@ mod tests {
             .unwrap();
         let result = package
             .solve_case(
+                &services,
                 original,
                 crate::workflow::tests::compiler_profile(),
                 &crate::CancelSource::new(),

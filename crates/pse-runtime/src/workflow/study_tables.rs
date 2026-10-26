@@ -128,7 +128,7 @@ impl StudyReport {
                 row
             })
             .collect();
-        export::<RuntimeStudyOutcomesRow>(&self.runtime, rows)
+        export::<RuntimeStudyOutcomesRow>(self.services.preparation(), rows)
     }
     /// Detailed diagnostics are projected independently of scientific member availability.
     pub fn findings_table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
@@ -142,28 +142,31 @@ impl StudyReport {
                 })
             })
             .collect();
-        export::<pse_model::generated::runtime::modeling_findings::Row>(&self.runtime, rows)
+        export::<pse_model::generated::runtime::modeling_findings::Row>(
+            self.services.preparation(),
+            rows,
+        )
     }
 }
 pub(super) fn export<T: RelationRow + pse_model::HeapUsage>(
-    runtime: &super::Runtime,
+    services: &super::PreparationServices,
     rows: Vec<T>,
 ) -> Result<FieldCheckedBatch, WorkflowError> {
     let bytes = rows
         .iter()
         .map(pse_model::HeapUsage::owned_bytes)
         .sum::<usize>();
-    let lease = runtime.shared.math().reserve(
+    let lease = services.math().reserve(
         "study:outcome-row-copy",
         bytes
             .checked_mul(2)
             .and_then(|bytes| bytes.checked_add(4096))
             .ok_or_else(|| WorkflowError::Internal("study projection extent overflow".into()))?,
     )?;
-    let pool = runtime.shared.pool();
+    let pool = services.pool();
     let cancel = pse_columnar::CancellationToken::new();
-    let validation = runtime.validation_context();
-    let mut columns = Collection::new(runtime.registry(), &pool, &cancel, &validation);
+    let validation = services.validation_context();
+    let mut columns = Collection::new(services.registry(), &pool, &cancel, &validation);
     columns.ensure::<T>().map_err(super::relation)?;
     for row in rows {
         columns.push(row).map_err(super::relation)?;

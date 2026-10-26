@@ -17,7 +17,7 @@ pub struct ModelingLinearDiagnostics {
     pub(in crate::workflow::modeling) primal_coordinates: crate::workflow::PrimalCoordinates,
     /// Native diagnostics of that solve, in original coordinates.
     pub evidence: highs::diagnostics::Report,
-    pub(in crate::workflow::modeling) runtime: Runtime,
+    pub(in crate::workflow::modeling) services: crate::workflow::PreparationServices,
     pub(in crate::workflow::modeling) source_identity: pse_ids::ContentHash,
     pub(in crate::workflow::modeling) numerical_identity: pse_ids::ContentHash,
     pub(in crate::workflow::modeling) rows: Vec<SemanticId>,
@@ -29,19 +29,20 @@ impl ModelingPackage {
     /// affine coefficient snapshot. Nonlinear models and undisclosed domains refuse.
     pub async fn diagnose_linear(
         &self,
+        services: &crate::workflow::ExecutionServices,
         mut prepared: ModelingDiagnosticPreparation,
         request: highs::diagnostics::Request,
         controls: Controls,
         maximum_entries: usize,
         operation: &super::super::super::DiagnosticOperation,
     ) -> Result<ModelingLinearDiagnostics, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity.scope(async {
         operation.check()?;
         controls
             .validate()
             .map_err(crate::math::MathRuntimeError::from)?;
-        let service = self.runtime.shared.math();
+        let service = services.preparation().math();
         // Coefficients belong to this diagnostic consumer; general diagnostic
         // preparation leaves optional class evidence unassessed.
         prepared.model.case = crate::math::MathService::within_task(operation.scope(), operation.driver(), service
@@ -68,7 +69,7 @@ impl ModelingPackage {
             ));
         }
         let plan = product.plan.clone();
-        let primal_coordinates = crate::workflow::PrimalCoordinates::original(&self.runtime, plan.structure().variables().iter().map(|variable| variable.port.clone()).collect())?;
+        let primal_coordinates = crate::workflow::PrimalCoordinates::original(&services.preparation(), plan.structure().variables().iter().map(|variable| variable.port.clone()).collect())?;
         let source_identity = plan.structure().key();
         let numerical_identity = prepared.numerics.key;
         let columns = plan.columns().to_vec();
@@ -143,9 +144,10 @@ impl ModelingPackage {
             .await?;
         operation.check()?;
         Ok(ModelingLinearDiagnostics {
+                    services: services.preparation().clone(),
             origin: operation.origin.clone(),
             run_id: pse_operations::mint_id(),
-            runtime: self.runtime.clone(),
+
             source_identity,
             numerical_identity,
             rows,
@@ -200,7 +202,7 @@ mod tests {
                 numerical: Default::default(),
             };
             let prepared = package
-                .prepare_diagnostics(&analysis, &cancel)
+                .prepare_diagnostics(&rt.preparation_services(), &analysis, &cancel)
                 .await
                 .unwrap();
             let original_rows = prepared
@@ -215,6 +217,7 @@ mod tests {
                 .collect::<std::collections::BTreeSet<_>>();
             let result = package
                 .diagnose_linear(
+                    &rt.execution_services(),
                     prepared,
                     highs::diagnostics::Request {
                         iis: true,

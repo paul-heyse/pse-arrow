@@ -514,6 +514,17 @@
       ],
       "type": "string"
     },
+    "DerivedQuantity": {
+      "enum": [
+        "parametric_sensitivity",
+        "reduced_hessian",
+        "parameter_covariance",
+        "wald_interval",
+        "profile_interval",
+        "propagated_covariance"
+      ],
+      "type": "string"
+    },
     "DiagnosticCode": {
       "enum": [
         "authoring.parse",
@@ -955,6 +966,135 @@
       ],
       "type": "string"
     },
+    "LocalValidity": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "certified": {
+          "description": "certified",
+          "type": "boolean"
+        },
+        "condition_1norm": {
+          "description": "condition_1norm",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "conditional": {
+          "description": "conditional",
+          "type": "boolean"
+        },
+        "detail": {
+          "description": "detail",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "licq": {
+          "description": "licq",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WithheldReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "reason"
+        },
+        "residual": {
+          "description": "residual",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "root_backward_error": {
+          "description": "root_backward_error",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "root_backward_error_limit": {
+          "description": "root_backward_error_limit",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "root_neighborhood": {
+          "description": "root_neighborhood",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "root_rank": {
+          "description": "root_rank",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "root_rank_cutoff": {
+          "description": "root_rank_cutoff",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "root_rank_relative_cutoff": {
+          "description": "root_rank_relative_cutoff",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "second_order": {
+          "description": "second_order",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "strict_complementarity": {
+          "description": "strict_complementarity",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "weakly_active": {
+          "description": "weakly_active",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "certified",
+        "conditional"
+      ],
+      "type": "object"
+    },
     "ModelingApplicabilityBasis": {
       "enum": [
         "fitted",
@@ -1373,6 +1513,30 @@
         "quantity",
         "unit",
         "context"
+      ],
+      "type": "object"
+    },
+    "ProductPermission": {
+      "additionalProperties": false,
+      "description": "Local validity remains meaningful even when original permission withholds a product.",
+      "properties": {
+        "decision": {
+          "$ref": "#/$defs/CandidateUse",
+          "description": "The completed scientific product decision."
+        },
+        "quantity": {
+          "$ref": "#/$defs/DerivedQuantity",
+          "description": "Existing registry-owned derived scientific quantity."
+        },
+        "validity": {
+          "$ref": "#/$defs/LocalValidity",
+          "description": "The independent mathematical assessment, with its original qualifiers."
+        }
+      },
+      "required": [
+        "quantity",
+        "validity",
+        "decision"
       ],
       "type": "object"
     },
@@ -2330,6 +2494,63 @@
       ],
       "type": "object"
     },
+    "ScientificPermission": {
+      "additionalProperties": false,
+      "description": "One completion-owned original scope, with evidence and reasons retained together.",
+      "properties": {
+        "decision": {
+          "$ref": "#/$defs/CandidateUse",
+          "description": "Result permission; seed evidence remains on the original assessments."
+        },
+        "observed": {
+          "description": "Actually retained original observations.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "qualifiers": {
+          "description": "Original applicability/incumbent qualifiers, without strengthening.",
+          "items": {
+            "$ref": "#/$defs/CandidateQualifier"
+          },
+          "type": "array"
+        },
+        "refusals": {
+          "description": "Original refusal reasons, including incomplete coverage and report failure.",
+          "items": {
+            "$ref": "#/$defs/CandidateRefusal"
+          },
+          "type": "array"
+        },
+        "report_succeeded": {
+          "description": "Whether the original requested report succeeded.",
+          "type": "boolean"
+        },
+        "requested": {
+          "description": "Required original observations in this scope.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "step": {
+          "description": "Absent for the complete request; otherwise the original independent step.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "requested",
+        "observed",
+        "report_succeeded",
+        "decision",
+        "refusals",
+        "qualifiers"
+      ],
+      "type": "object"
+    },
     "SourceLocationBody": {
       "additionalProperties": false,
       "description": "Authored location attached by the owner that has the source map.",
@@ -2486,6 +2707,29 @@
         "members"
       ],
       "type": "object"
+    },
+    "WithheldReason": {
+      "enum": [
+        "not_feasible",
+        "structural_unavailable",
+        "neighborhood_unavailable",
+        "no_candidate",
+        "no_local_analysis",
+        "multipliers_unrecovered",
+        "complementarity_failed",
+        "not_stationary",
+        "analysis_unavailable",
+        "licq_failed",
+        "weakly_active",
+        "second_order_failed",
+        "backsolve_failed",
+        "rank_deficient",
+        "nonunit_importance",
+        "responses_unavailable",
+        "parameter_at_bound",
+        "upstream_withheld"
+      ],
+      "type": "string"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -2532,6 +2776,24 @@
       },
       "type": "array"
     },
+    "permission": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ScientificPermission"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Whole original request decision; absence never authorizes scientific reuse."
+    },
+    "products": {
+      "description": "Fit-derived mathematical validity composed with its governing original decision.",
+      "items": {
+        "$ref": "#/$defs/ProductPermission"
+      },
+      "type": "array"
+    },
     "solves": {
       "description": "Algebraic outcomes, including requested steps that were not attempted.",
       "items": {
@@ -2539,15 +2801,24 @@
       },
       "type": "array"
     },
+    "step_permissions": {
+      "description": "Independently requested original modeling steps, never whole-request promotion.",
+      "items": {
+        "$ref": "#/$defs/ScientificPermission"
+      },
+      "type": "array"
+    },
     "version": {
-      "const": 1,
-      "default": 1,
+      "const": 2,
+      "default": 2,
       "description": "Standalone completion document interpretation.",
       "type": "integer"
     }
   },
   "required": [
     "version",
+    "step_permissions",
+    "products",
     "assessments",
     "diagnostics",
     "solves",

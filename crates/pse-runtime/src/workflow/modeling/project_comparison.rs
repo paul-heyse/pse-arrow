@@ -255,6 +255,7 @@ impl ModelingPackage {
     /// Context mismatch, invalid bounds and original source failures propagate.
     pub async fn comparison_observation(
         &self,
+        services: &crate::workflow::SourceServices,
         other: &Self,
         request: &ModelingComparisonRequest,
         cancel: &CancelSource,
@@ -271,12 +272,13 @@ impl ModelingPackage {
                 "semantic comparison physical contexts differ; request source-only comparison explicitly",
             ));
         }
-        self.runtime
+        services
+            .preparation()
             .scope_activity(pse_operations::canonical::operation_scope(
                 operation_deadline(cancel),
                 async {
-                    let from = self.project_snapshot(cancel).await?;
-                    let to = other.project_snapshot(cancel).await?;
+                    let from = self.project_snapshot(services, cancel).await?;
+                    let to = other.project_snapshot(services, cancel).await?;
                     let mut changes = compare(&from.objects, &to.objects)?;
                     if request.source_only {
                         for change in &mut changes {
@@ -318,26 +320,22 @@ impl ModelingPackage {
             ))
             .await
     }
-    pub(in crate::workflow) fn runtime_store_issuer(&self) -> Result<&str, WorkflowError> {
-        Ok(self.runtime.canonical_store()?.issuing_store()?)
-    }
     fn project_comparison_selection(&self) -> Result<ProjectComparisonSelection, WorkflowError> {
         Ok(ProjectComparisonSelection {
-            issuing_store: match &self.runtime.durability() {
-                crate::workflow::Durability::Durable(_) => {
-                    Some(self.runtime.canonical_store()?.issuing_store()?.into())
-                }
-                crate::workflow::Durability::Ephemeral => None,
-            },
+            issuing_store: self.source_issuer().map(str::to_owned),
             revision: self.canonical_revision().map(|r| r.key.clone()),
             local_revision: self.revision_id().into(),
             source: self.revision.identity().to_string(),
             physical: self.physical.key.to_string(),
         })
     }
-    async fn project_snapshot(&self, cancel: &CancelSource) -> Result<Snapshot, WorkflowError> {
+    async fn project_snapshot(
+        &self,
+        services: &crate::workflow::SourceServices,
+        cancel: &CancelSource,
+    ) -> Result<Snapshot, WorkflowError> {
         checkpoint(cancel)?;
-        let parent = self.delta_parent(cancel).await?;
+        let parent = self.delta_parent(services.preparation(), cancel).await?;
         let extent = self
             .revision
             .admitted
@@ -348,9 +346,8 @@ impl ModelingPackage {
                 n.checked_add(o.retained_bytes().checked_mul(3)?)
             })
             .ok_or_else(|| contract("comparison inventory extent"))?;
-        let owner = self
-            .runtime
-            .shared
+        let owner = services
+            .preparation()
             .math()
             .reserve("project:comparison-inventory", extent)?;
         let mut objects = BTreeMap::new();
@@ -389,7 +386,7 @@ impl ModelingPackage {
             order.push(object.logical.clone());
             objects.insert(object.logical.clone(), ProjectSourceObject::Package(row));
         }
-        let fits = self.fit_declarations().await?;
+        let fits = self.fit_declarations(services.preparation()).await?;
         for row in &fits.fits {
             let key = format!("fit:{}", row.fit_id);
             order.push(key.clone());
@@ -405,35 +402,39 @@ impl ModelingPackage {
     /// Compact authored-object comparison. A physical mismatch refuses semantic interpretation.
     pub async fn project_compare(
         &self,
+        services: &crate::workflow::SourceServices,
         other: &Self,
         cancel: &CancelSource,
     ) -> Result<ProjectComparison, WorkflowError> {
-        self.runtime.scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
+        services.preparation().scope_activity(pse_operations::canonical::operation_scope(operation_deadline(cancel), async {
             if self.physical.key != other.physical.key { return Err(contract("semantic comparison physical contexts differ; request source-only comparison explicitly")); }
-            self.project_compare_mode(other, true, cancel).await
+            self.project_compare_mode(services, other, true, cancel).await
         })).await
     }
     /// Explicit source-only view across contexts, never a scientific compatibility claim.
     pub async fn project_compare_source(
         &self,
+        services: &crate::workflow::SourceServices,
         other: &Self,
         cancel: &CancelSource,
     ) -> Result<ProjectComparison, WorkflowError> {
-        self.runtime
+        services
+            .preparation()
             .scope_activity(pse_operations::canonical::operation_scope(
                 operation_deadline(cancel),
-                self.project_compare_mode(other, false, cancel),
+                self.project_compare_mode(services, other, false, cancel),
             ))
             .await
     }
     async fn project_compare_mode(
         &self,
+        services: &crate::workflow::SourceServices,
         other: &Self,
         semantic: bool,
         cancel: &CancelSource,
     ) -> Result<ProjectComparison, WorkflowError> {
-        let from = self.project_snapshot(cancel).await?;
-        let to = other.project_snapshot(cancel).await?;
+        let from = self.project_snapshot(services, cancel).await?;
+        let to = other.project_snapshot(services, cancel).await?;
         let mut changes = compare(&from.objects, &to.objects)?;
         if !semantic {
             for change in &mut changes {
@@ -450,17 +451,19 @@ impl ModelingPackage {
     /// Fetch only caller-selected typed object detail; unknown identities remain explicit absences.
     pub async fn project_source_detail(
         &self,
+        services: &crate::workflow::SourceServices,
         logical: &[String],
         cancel: &CancelSource,
     ) -> Result<Vec<ProjectSourceDetail>, WorkflowError> {
-        self.runtime
+        services
+            .preparation()
             .scope_activity(pse_operations::canonical::operation_scope(
                 operation_deadline(cancel),
                 async {
                     if logical.len() > 256 || logical.iter().any(|k| k.len() > 4096) {
                         return Err(contract("project selected detail request exceeds bounds"));
                     }
-                    let snapshot = self.project_snapshot(cancel).await?;
+                    let snapshot = self.project_snapshot(services, cancel).await?;
                     Ok(logical
                         .iter()
                         .map(|key| ProjectSourceDetail {
@@ -789,11 +792,11 @@ impl Runtime {
         physical: PhysicalContext,
         cancel: &CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let local = Self::from_shared_local(self.shared.clone(), self.model.clone())?;
-        let mut package = self
+        let mut local = self.source_services();
+        local.publication = None;
+        let package = self
             .project_boxed(local.modeling_from_documents(documents, physical, cancel))?
             .await?;
-        package.runtime = self.clone();
         Ok(package)
     }
     /// Publish a previously locally admitted proposal through the original exact source owner.
@@ -820,7 +823,11 @@ impl Runtime {
             ))?
             .await?;
         self.project_boxed(super::canonical::publish_admitted_project(
-            self, intent, &parent, admitted, cancel,
+            &self.source_services(),
+            intent,
+            &parent,
+            admitted,
+            cancel,
         ))?
         .await
     }
@@ -872,15 +879,25 @@ impl Runtime {
                     return Err(contract("merge physical contexts differ"));
                 }
                 let (b, t, p) = (
-                    base.project_snapshot(cancel).await?,
-                    target.project_snapshot(cancel).await?,
-                    proposal.project_snapshot(cancel).await?,
+                    base.project_snapshot(&self.source_services(), cancel)
+                        .await?,
+                    target
+                        .project_snapshot(&self.source_services(), cancel)
+                        .await?,
+                    proposal
+                        .project_snapshot(&self.source_services(), cancel)
+                        .await?,
                 );
                 let (merged, conflicts) = merge_objects(&b, &t, &p, resolutions)?;
                 let delta =
                     delta_to(target, &t, &merged, &p.order, &[target, proposal, base]).await?;
                 let (_, _, documents) = target
-                    .project_compose_documents(&delta, &[target, proposal, base], cancel)
+                    .project_compose_documents(
+                        &self.source_services(),
+                        &delta,
+                        &[target, proposal, base],
+                        cancel,
+                    )
                     .await?;
                 Ok(ProjectMergePreview {
                     conflicts,
@@ -969,7 +986,7 @@ impl Runtime {
             operation_deadline(cancel),
             async {
                 for package in [base, target, proposal] {
-                    if package.runtime_store_issuer()? != self.canonical_store()?.issuing_store()? {
+                    if package.source_issuer() != Some(self.canonical_store()?.issuing_store()?) {
                         return Err(contract("merge source issuing authority differs"));
                     }
                 }
@@ -1027,7 +1044,7 @@ impl Runtime {
             operation_deadline(cancel),
             async {
                 for package in [target, restore] {
-                    if package.runtime_store_issuer()? != self.canonical_store()?.issuing_store()? {
+                    if package.source_issuer() != Some(self.canonical_store()?.issuing_store()?) {
                         return Err(contract("undo source issuing authority differs"));
                     }
                 }
@@ -1087,19 +1104,19 @@ impl Runtime {
             };
             let (base,target,proposal) = (&packages[0],&packages[1],&proposal);
             if !self.project_is_ancestor(&intent.base,&intent.target,cancel).await? || !self.project_is_ancestor(&intent.base,intent.proposal.ancestor(),cancel).await? { return Err(contract("retained merge ancestry differs")); }
-            let (b,t,p) = (base.project_snapshot(cancel).await?,target.project_snapshot(cancel).await?,proposal.project_snapshot(cancel).await?);
+            let (b,t,p) = (base.project_snapshot(&self.source_services(), cancel).await?,target.project_snapshot(&self.source_services(), cancel).await?,proposal.project_snapshot(&self.source_services(), cancel).await?);
             let (merged,conflicts) = match intent.mode { ProjectMergeMode::Merge => merge_objects(&b,&t,&p,&intent.resolutions)?, ProjectMergeMode::Undo => { if !matches!(&intent.proposal,ProjectMergeProposal::Revision { revision } if revision == &intent.base) || !intent.resolutions.is_empty() { return Err(contract("undo decision shape differs")); } (p.objects.clone(),Vec::new()) } };
             if !conflicts.is_empty() { return Err(contract("retained merge has unresolved conflicts")); }
             // Package metadata changes cannot be smuggled through declaration/document merging.
             for source in [base,proposal] {
-                let source_packages=source.project_snapshot(cancel).await?.objects.into_iter().filter(|(_,object)|matches!(object,ProjectSourceObject::Package(_))).collect::<BTreeMap<_,_>>();
+                let source_packages=source.project_snapshot(&self.source_services(), cancel).await?.objects.into_iter().filter(|(_,object)|matches!(object,ProjectSourceObject::Package(_))).collect::<BTreeMap<_,_>>();
                 let target_packages=t.objects.iter().filter(|(_,object)|matches!(object,ProjectSourceObject::Package(_))).collect::<BTreeMap<_,_>>();
                 if source_packages.len()!=target_packages.len() || source_packages.iter().any(|(key,row)|!same_merge_object(Some(row),target_packages.get(key).copied())) { return Err(contract("merge package manifests differ; explicit compatible admission required")); }
             }
             let delta = delta_to(target,&t,&merged,&p.order,&[target,proposal,base]).await?;
-            let (delta,composition,_)=target.project_compose_documents(&delta,&[target,proposal,base],cancel).await?;
-            let admitted = target.project_admit_composed_delta(delta,composition,cancel).await?;
-            super::canonical::publish_admitted_project(self,&intent.publication,target,&admitted,cancel).await
+            let (delta,composition,_)=target.project_compose_documents(&self.source_services(), &delta,&[target,proposal,base],cancel).await?;
+            let admitted = target.project_admit_composed_delta(&self.source_services(), delta,composition,cancel).await?;
+            super::canonical::publish_admitted_project(&self.source_services(),&intent.publication,target,&admitted,cancel).await
         })).await
     }
 }
@@ -1240,10 +1257,13 @@ mod tests {
             .await
             .unwrap();
         let page = package
-            .declaration_page(&ModelingDeclarationRequest {
-                offset: 1,
-                limit: 1,
-            })
+            .declaration_page(
+                &runtime.preparation_services(),
+                &ModelingDeclarationRequest {
+                    offset: 1,
+                    limit: 1,
+                },
+            )
             .await
             .unwrap();
         assert_eq!(page.total, original.len());
@@ -1252,10 +1272,13 @@ mod tests {
         assert_eq!(page.next_offset, (original.len() > 2).then_some(2));
         assert!(
             package
-                .declaration_page(&ModelingDeclarationRequest {
-                    offset: 0,
-                    limit: 129
-                })
+                .declaration_page(
+                    &runtime.preparation_services(),
+                    &ModelingDeclarationRequest {
+                        offset: 0,
+                        limit: 129
+                    }
+                )
                 .await
                 .is_err()
         );
@@ -1276,13 +1299,23 @@ mod tests {
         };
         assert!(
             package
-                .comparison_observation(&other, &request, &CancelSource::new())
+                .comparison_observation(
+                    &runtime.source_services(),
+                    &other,
+                    &request,
+                    &CancelSource::new()
+                )
                 .await
                 .is_err()
         );
         request.source_only = true;
         let observed = package
-            .comparison_observation(&other, &request, &CancelSource::new())
+            .comparison_observation(
+                &runtime.source_services(),
+                &other,
+                &request,
+                &CancelSource::new(),
+            )
             .await
             .unwrap();
         assert!(!observed.comparison.semantic_context_matches);
@@ -1482,10 +1515,15 @@ mod tests {
                     && !document.original_text_retained)
         );
         let (b, t, p) = (
-            base.project_snapshot(&CancelSource::new()).await.unwrap(),
-            target.project_snapshot(&CancelSource::new()).await.unwrap(),
+            base.project_snapshot(&runtime.source_services(), &CancelSource::new())
+                .await
+                .unwrap(),
+            target
+                .project_snapshot(&runtime.source_services(), &CancelSource::new())
+                .await
+                .unwrap(),
             proposal
-                .project_snapshot(&CancelSource::new())
+                .project_snapshot(&runtime.source_services(), &CancelSource::new())
                 .await
                 .unwrap(),
         );
@@ -1495,14 +1533,27 @@ mod tests {
             .await
             .unwrap();
         let (delta, proof, _) = target
-            .project_compose_documents(&delta, &[&target, &proposal, &base], &CancelSource::new())
+            .project_compose_documents(
+                &runtime.source_services(),
+                &delta,
+                &[&target, &proposal, &base],
+                &CancelSource::new(),
+            )
             .await
             .unwrap();
         let admitted = target
-            .project_admit_composed_delta(delta, proof, &CancelSource::new())
+            .project_admit_composed_delta(
+                &runtime.source_services(),
+                delta,
+                proof,
+                &CancelSource::new(),
+            )
             .await
             .unwrap();
-        let rows = admitted.declarations().await.unwrap();
+        let rows = admitted
+            .declarations(&runtime.preparation_services())
+            .await
+            .unwrap();
         for (name, value) in [("a", "100000"), ("b", "200000")] {
             assert_eq!(
                 rows.iter()
@@ -1518,7 +1569,7 @@ mod tests {
             );
         }
         let snapshot = admitted
-            .project_snapshot(&CancelSource::new())
+            .project_snapshot(&runtime.source_services(), &CancelSource::new())
             .await
             .unwrap();
         assert!(snapshot.objects.values().any(|object|matches!(object,ProjectSourceObject::Document(document) if document.document.path=="models/a.pse"&&document.document.source_text.is_none())));
@@ -1546,9 +1597,17 @@ mod tests {
         )
         .await;
         let (b, t, p) = (
-            base.project_snapshot(&cancel).await.unwrap(),
-            target.project_snapshot(&cancel).await.unwrap(),
-            proposal.project_snapshot(&cancel).await.unwrap(),
+            base.project_snapshot(&runtime.source_services(), &cancel)
+                .await
+                .unwrap(),
+            target
+                .project_snapshot(&runtime.source_services(), &cancel)
+                .await
+                .unwrap(),
+            proposal
+                .project_snapshot(&runtime.source_services(), &cancel)
+                .await
+                .unwrap(),
         );
         let (merged, conflicts) = merge_objects(&b, &t, &p, &[]).unwrap();
         assert!(conflicts.is_empty());
@@ -1556,19 +1615,30 @@ mod tests {
             .await
             .unwrap();
         assert!(
-            target.project_admit_delta(&delta, &cancel).await.is_err(),
+            target
+                .project_admit_delta(&runtime.source_services(), &delta, &cancel)
+                .await
+                .is_err(),
             "public IR cannot assert an unparsed source preimage"
         );
         let (delta, proof, notes) = target
-            .project_compose_documents(&delta, &[&target, &proposal, &base], &cancel)
+            .project_compose_documents(
+                &runtime.source_services(),
+                &delta,
+                &[&target, &proposal, &base],
+                &cancel,
+            )
             .await
             .unwrap();
         assert!(notes.iter().all(|note| note.original_text_retained));
         let admitted = target
-            .project_admit_composed_delta(delta, proof, &cancel)
+            .project_admit_composed_delta(&runtime.source_services(), delta, proof, &cancel)
             .await
             .unwrap();
-        let snapshot = admitted.project_snapshot(&cancel).await.unwrap();
+        let snapshot = admitted
+            .project_snapshot(&runtime.source_services(), &cancel)
+            .await
+            .unwrap();
         let expected_hash =
             pse_admission::authoring_driver::document::package_checksum(&source_documents(
                 "package p {param a:Scalar=3;}",
@@ -1585,6 +1655,7 @@ mod tests {
         // can reconstruct it using the transferred admitted provenance.
         let reloaded = admitted
             .reload_from_parent(
+                &runtime.source_services(),
                 &[source_documents(
                     "package p {param a:Scalar=3;}",
                     "package q {param b:Scalar=5;}",
@@ -1595,7 +1666,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             reloaded
-                .declarations()
+                .declarations(&runtime.preparation_services(),)
                 .await
                 .unwrap()
                 .iter()
@@ -1629,7 +1700,7 @@ mod tests {
             .unwrap()
             .expression = Some("3".into());
         let target = package
-            .project_snapshot(&CancelSource::new())
+            .project_snapshot(&runtime.source_services(), &CancelSource::new())
             .await
             .unwrap();
         let proposal = snapshot(&runtime, next.clone());
@@ -1643,14 +1714,21 @@ mod tests {
         .await
         .unwrap();
         let admitted = package
-            .project_admit_delta(&delta, &CancelSource::new())
+            .project_admit_delta(&runtime.source_services(), &delta, &CancelSource::new())
             .await
             .unwrap();
-        assert_eq!(&*admitted.declarations().await.unwrap(), next.as_slice());
+        assert_eq!(
+            &*admitted
+                .declarations(&runtime.preparation_services(),)
+                .await
+                .unwrap(),
+            next.as_slice()
+        );
         assert!(admitted.canonical_revision().is_none());
         assert!(
             package
                 .project_admit_delta(
+                    &runtime.source_services(),
                     &SourceDelta {
                         parent: "unrelated".into(),
                         ..Default::default()
@@ -1688,7 +1766,7 @@ mod native_tests {
         branch_key: &str,
     ) -> ModelingPackage {
         let mut row = package
-            .declarations()
+            .declarations(&runtime.preparation_services())
             .await
             .unwrap()
             .iter()
@@ -1698,6 +1776,7 @@ mod native_tests {
         row.value.binding.as_mut().unwrap().expression = Some(value.into());
         let local = package
             .project_admit_delta(
+                &runtime.source_services(),
                 &SourceDelta {
                     parent: package.revision_id().into(),
                     replacements: vec![row],
@@ -1816,7 +1895,7 @@ mod native_tests {
         );
         assert_eq!(
             foreign_base
-                .declarations()
+                .declarations(&runtime.preparation_services(),)
                 .await
                 .unwrap()
                 .iter()
@@ -1996,7 +2075,10 @@ mod native_tests {
             .project_publish_merge(&intent, physical.clone(), &cancel)
             .await
             .unwrap();
-        let objects = merged.project_snapshot(&cancel).await.unwrap();
+        let objects = merged
+            .project_snapshot(&runtime.source_services(), &cancel)
+            .await
+            .unwrap();
         for (path, text) in [
             ("models/a.pse", "package p {param a:Scalar=3;}"),
             ("models/b.pse", "package q {param b:Scalar=4;}"),
@@ -2023,7 +2105,7 @@ mod native_tests {
             .unwrap();
         assert!(
             restored
-                .project_compare(&base, &cancel)
+                .project_compare(&runtime.source_services(), &base, &cancel)
                 .await
                 .unwrap()
                 .changes
@@ -2094,7 +2176,10 @@ mod native_tests {
             .await
             .unwrap();
         assert_eq!(merged.canonical_revision(), again.canonical_revision());
-        let merged_rows = merged.declarations().await.unwrap();
+        let merged_rows = merged
+            .declarations(&runtime.preparation_services())
+            .await
+            .unwrap();
         for (name, value) in [("a", "3"), ("b", "4")] {
             assert_eq!(
                 merged_rows
@@ -2144,8 +2229,13 @@ mod native_tests {
             Some(merged.recorded_revision().unwrap().key.clone())
         );
         assert_eq!(
-            &*restored.declarations().await.unwrap(),
-            &*a.declarations().await.unwrap()
+            &*restored
+                .declarations(&runtime.preparation_services(),)
+                .await
+                .unwrap(),
+            &*a.declarations(&runtime.preparation_services(),)
+                .await
+                .unwrap()
         );
         // The original branch and accepted merge remain independently readable after undo.
         assert_eq!(
@@ -2157,7 +2247,7 @@ mod native_tests {
                 )
                 .await
                 .unwrap()
-                .declarations()
+                .declarations(&runtime.preparation_services(),)
                 .await
                 .unwrap(),
             &*merged_rows

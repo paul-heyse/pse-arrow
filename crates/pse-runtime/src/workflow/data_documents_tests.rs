@@ -125,16 +125,22 @@ async fn refusal(rt: &Runtime, sources: &BTreeMap<String, Vec<u8>>) -> String {
         Err(error) => error.to_string(),
     }
 }
-async fn entity(package: &ModelingPackage, name: &str) -> Value {
-    let revision = package.all_revision().await.unwrap();
+async fn entity(rt: &Runtime, package: &ModelingPackage, name: &str) -> Value {
+    let revision = package
+        .all_revision(&rt.preparation_services())
+        .await
+        .unwrap();
     let p = revision.checked();
     Value::Entity {
         id: p.entry(&format!("minimal_named.{name}")).unwrap(),
         kind: p.entry("minimal_named.item").unwrap(),
     }
 }
-async fn member(package: &ModelingPackage, name: &str) -> Value {
-    let revision = package.all_revision().await.unwrap();
+async fn member(rt: &Runtime, package: &ModelingPackage, name: &str) -> Value {
+    let revision = package
+        .all_revision(&rt.preparation_services())
+        .await
+        .unwrap();
     let p = revision.checked();
     let enumeration = p.entry("minimal_named.phase").unwrap();
     Value::Enum {
@@ -159,8 +165,11 @@ fn magnitude(value: &Value) -> f64 {
         other => panic!("a quantity: {other:?}"),
     }
 }
-async fn table(package: &ModelingPackage, name: &str) -> pse_modeling::data::Table {
-    let revision = package.all_revision().await.unwrap();
+async fn table(rt: &Runtime, package: &ModelingPackage, name: &str) -> pse_modeling::data::Table {
+    let revision = package
+        .all_revision(&rt.preparation_services())
+        .await
+        .unwrap();
     let p = revision.checked();
     p.table(p.entry(&format!("minimal_named.{name}")).unwrap())
         .unwrap()
@@ -177,22 +186,28 @@ async fn parquet_dataset_admits_through_declared_relation() {
     let package = load(&rt, &sources(BANK, parquet(bank_columns())))
         .await
         .unwrap();
-    let bank = table(&package, "bank").await;
+    let bank = table(&rt, &package, "bank").await;
     assert_eq!(bank.rows.len(), 2);
     let row = &bank.rows[&vec![
-        entity(&package, "a").await,
-        member(&package, "liquid").await,
+        entity(&rt, &package, "a").await,
+        member(&rt, &package, "liquid").await,
     ]];
     assert_eq!(magnitude(&row.cells[0]), 1500.0);
     assert!((magnitude(&row.cells[1]) - 298.15).abs() < 1e-9);
     assert_eq!(row.cells[2], Value::Integer(1));
     assert_eq!(row.cells[3], Value::Text("first".into()));
     assert_eq!(row.cells[4], Value::Boolean(true));
-    let row = &bank.rows[&vec![entity(&package, "b").await, member(&package, "vapor").await]];
+    let row = &bank.rows[&vec![
+        entity(&rt, &package, "b").await,
+        member(&rt, &package, "vapor").await,
+    ]];
     assert_eq!(magnitude(&row.cells[0]), -2000.0);
     assert_eq!(row.cells[1], Value::Missing);
     // The data document is a package document: its identity is `named_id(package, path)`.
-    let revision = package.all_revision().await.unwrap();
+    let revision = package
+        .all_revision(&rt.preparation_services())
+        .await
+        .unwrap();
     let documents = revision.documents();
     let (id, document) = documents.documents.iter().next().unwrap();
     assert_eq!(document.path, DATA);
@@ -226,7 +241,10 @@ async fn worker_source_loader_preserves_binary_keyed_documents() {
         .unwrap();
     let direct = load(&rt, &documents).await.unwrap();
     assert_eq!(loaded.revision.identity(), direct.revision.identity());
-    let revision = loaded.all_revision().await.unwrap();
+    let revision = loaded
+        .all_revision(&rt.preparation_services())
+        .await
+        .unwrap();
     let inventory = revision.documents();
     let document = inventory.documents.values().next().unwrap();
     assert_eq!(
@@ -234,7 +252,10 @@ async fn worker_source_loader_preserves_binary_keyed_documents() {
         pse_ids::encoding_checksum(&bytes).content_hash()
     );
     assert_eq!(document.rows.rows(), 2);
-    let revision = loaded.all_revision().await.unwrap();
+    let revision = loaded
+        .all_revision(&rt.preparation_services())
+        .await
+        .unwrap();
     let p = revision.checked();
     let kind = p.entry("minimal_named.node").unwrap();
     let id = pse_modeling::entity::keyed_identity(kind, &[Value::Integer(2)]);
@@ -311,12 +332,12 @@ async fn parquet_reference_by_identifier_scheme_resolves() {
     let package = load(&rt, &sources(BANK, parquet(bank_columns())))
         .await
         .unwrap();
-    let a = entity(&package, "a").await;
+    let a = entity(&rt, &package, "a").await;
     assert!(
-        table(&package, "bank")
+        table(&rt, &package, "bank")
             .await
             .rows
-            .contains_key(&vec![a.clone(), member(&package, "liquid").await])
+            .contains_key(&vec![a.clone(), member(&rt, &package, "liquid").await])
     );
     let mut columns = bank_columns();
     columns[0] = (
@@ -340,7 +361,7 @@ async fn parquet_reference_by_identifier_scheme_resolves() {
         "j",
         Arc::new(
             FixedSizeBinaryArray::try_from_iter(
-                [identity(a), identity(entity(&package, "b").await)].into_iter(),
+                [identity(a), identity(entity(&rt, &package, "b").await)].into_iter(),
             )
             .unwrap(),
         ),
@@ -349,7 +370,7 @@ async fn parquet_reference_by_identifier_scheme_resolves() {
     let package = load(&rt, &sources(&by_identity, parquet(columns)))
         .await
         .unwrap();
-    assert_eq!(table(&package, "bank").await.rows.len(), 2);
+    assert_eq!(table(&rt, &package, "bank").await.rows.len(), 2);
 }
 
 /// ADR-0123 Outcome 8, ADR-0125: the bytes of a data document enter the package checksum
@@ -426,20 +447,26 @@ async fn large_table_admits_without_cell_evaluation() {
     };
     let large = load(&rt, &sources(text, document(ROWS))).await.unwrap();
     let small = load(&rt, &sources(text, document(10))).await.unwrap();
-    let level = table(&large, "level").await;
+    let level = table(&rt, &large, "level").await;
     assert_eq!(level.rows.len(), ROWS as usize);
     assert_eq!(
         magnitude(&level.rows[&vec![Value::Integer(ROWS - 1)]].cells[0]),
         (ROWS - 1) as f64 * 0.5
     );
-    assert_eq!(table(&small, "level").await.rows.len(), 10);
+    assert_eq!(table(&rt, &small, "level").await.rows.len(), 10);
     // The declarations are the same rows, cell-free, whatever the document holds.
-    let large_declarations = large.declarations().await.unwrap();
-    let small_declarations = small.declarations().await.unwrap();
+    let large_declarations = large
+        .declarations(&rt.preparation_services())
+        .await
+        .unwrap();
+    let small_declarations = small
+        .declarations(&rt.preparation_services())
+        .await
+        .unwrap();
     assert_eq!(&*large_declarations, &*small_declarations);
     assert!(
         large
-            .declarations()
+            .declarations(&rt.preparation_services())
             .await
             .unwrap()
             .iter()
@@ -458,7 +485,7 @@ async fn knowledge_projection_is_bounded_and_retains_exact_binary_source() {
         .await
         .unwrap();
     let owner = original
-        .declarations()
+        .declarations(&rt.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -467,7 +494,13 @@ async fn knowledge_projection_is_bounded_and_retains_exact_binary_source() {
         .declaration_id;
     let cancel = pse_columnar::CancellationToken::new();
     let knowledge = original
-        .knowledge(Some(owner), 20, 1 << 20, &cancel)
+        .knowledge(
+            &rt.preparation_services(),
+            Some(owner),
+            20,
+            1 << 20,
+            &cancel,
+        )
         .await
         .unwrap();
     let rows = KnowledgeRow::rows(knowledge.table()).unwrap();
@@ -490,13 +523,13 @@ async fn knowledge_projection_is_bounded_and_retains_exact_binary_source() {
     );
     assert!(
         original
-            .knowledge(Some(owner), 9, 1 << 20, &cancel)
+            .knowledge(&rt.preparation_services(), Some(owner), 9, 1 << 20, &cancel)
             .await
             .is_err()
     );
     assert!(
         original
-            .knowledge(Some(owner), 20, 128, &cancel)
+            .knowledge(&rt.preparation_services(), Some(owner), 20, 128, &cancel)
             .await
             .is_err()
     );
@@ -504,7 +537,13 @@ async fn knowledge_projection_is_bounded_and_retains_exact_binary_source() {
     columns[2].1 = Arc::new(Float64Array::from(vec![2.5, -2.]));
     let changed = load(&rt, &sources(BANK, parquet(columns))).await.unwrap();
     let current = changed
-        .knowledge(Some(owner), 20, 1 << 20, &cancel)
+        .knowledge(
+            &rt.preparation_services(),
+            Some(owner),
+            20,
+            1 << 20,
+            &cancel,
+        )
         .await
         .unwrap();
     assert_ne!(knowledge.source_revision(), current.source_revision());
@@ -515,7 +554,13 @@ async fn knowledge_projection_is_bounded_and_retains_exact_binary_source() {
     cancel.cancel();
     assert!(
         original
-            .knowledge(Some(owner), 20, 1 << 20, &cancel)
+            .knowledge(
+                &rt.preparation_services(),
+                Some(owner),
+                20,
+                1 << 20,
+                &cancel
+            )
             .await
             .is_err()
     );
@@ -549,7 +594,10 @@ async fn keyed_parquet_references_resolve_across_documents_before_value_admissio
     let mut inputs = sources(text, document(1, None));
     inputs.insert("data/second.parquet".into(), document(2, None));
     let original = load(&rt, &inputs).await.unwrap();
-    let original_revision = original.all_revision().await.unwrap();
+    let original_revision = original
+        .all_revision(&rt.preparation_services())
+        .await
+        .unwrap();
     let kind = original_revision
         .checked()
         .entry("minimal_named.node")
@@ -559,7 +607,7 @@ async fn keyed_parquet_references_resolve_across_documents_before_value_admissio
     let admitted = load(&rt, &inputs).await.unwrap();
     assert_eq!(
         admitted
-            .all_revision()
+            .all_revision(&rt.preparation_services())
             .await
             .unwrap()
             .checked()
@@ -601,7 +649,10 @@ async fn measured_parquet_attributes_use_admitted_quantities_uncertainty_and_ori
         ),
     ]);
     let package = load(&rt, &sources(text, document)).await.unwrap();
-    let revision = package.all_revision().await.unwrap();
+    let revision = package
+        .all_revision(&rt.preparation_services())
+        .await
+        .unwrap();
     let admitted = revision.checked();
     let root = admitted.entry("minimal_named.FitExperiment").unwrap();
     let kind = admitted.entry("minimal_named.reading").unwrap();
@@ -724,7 +775,10 @@ async fn research_parquet_versions_reopen_original_typed_data_and_reject_partial
         .await
         .unwrap()
         .unwrap();
-    let admitted = source.all_revision().await.unwrap();
+    let admitted = source
+        .all_revision(&rt.preparation_services())
+        .await
+        .unwrap();
     let checked = admitted.checked();
     let root = checked.entry("minimal_named.FitExperiment").unwrap();
     let kind = checked.entry("minimal_named.reading").unwrap();
@@ -752,7 +806,10 @@ async fn research_parquet_versions_reopen_original_typed_data_and_reject_partial
     let original = Box::pin(rt.research_dataset_create(&raw, &cancel))
         .await
         .unwrap();
-    let declarations = source.declarations().await.unwrap();
+    let declarations = source
+        .declarations(&rt.preparation_services())
+        .await
+        .unwrap();
     let calibration = declarations
         .iter()
         .filter(|r| ["calibrated", "calibrated_sigma"].contains(&r.name.as_str()))
@@ -774,7 +831,10 @@ async fn research_parquet_versions_reopen_original_typed_data_and_reject_partial
     let reopened = Box::pin(rt.research_dataset_open(&raw.key, &context, &cancel))
         .await
         .unwrap();
-    let selected = reopened.all_revision().await.unwrap();
+    let selected = reopened
+        .all_revision(&rt.preparation_services())
+        .await
+        .unwrap();
     let measured = selected
         .checked()
         .measurement(root, record(1), "raw", Some("sigma"))

@@ -71,18 +71,18 @@ impl ModelingPackage {
     /// evaluator construction, scientific payload hydration or recency promotion.
     pub async fn preparation_discovery(
         &self,
+        services: &crate::workflow::SourceServices,
         request: &PreparationDiscoveryRequest,
         cancel: &crate::CancelSource,
     ) -> Result<PreparationDiscoveryReport, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
-                let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
+                let deadline = services.preparation().math().preparation_deadline(cancel)?;
                 preparation::scoped(cancel, deadline, async {
-                    let selected = self.selection_request(&[request.root]);
-                    let (resident, residents_truncated) = self
-                        .runtime
-                        .shared
+                    let selected = self.selection_request(services.preparation(), &[request.root]);
+                    let (resident, residents_truncated) = services
+                        .preparation()
                         .math()
                         .modeling_cache
                         .inspect_preparations(
@@ -92,7 +92,7 @@ impl ModelingPackage {
                             cancel,
                         )?;
                     let durable = if let Some(origin) = self.canonical_revision() {
-                        let store = self.runtime.canonical_store()?;
+                        let store = services.canonical_store()?;
                         let selection = store
                             .protect(origin.clone(), std::time::Duration::from_secs(60))
                             .await?;
@@ -221,7 +221,10 @@ mod tests {
             .await
             .unwrap();
         let cancel = crate::CancelSource::new();
-        let _selected = first.checked_selection(&[root], &cancel).await.unwrap();
+        let _selected = first
+            .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+            .await
+            .unwrap();
         let request = PreparationDiscoveryRequest {
             root,
             instance: pse_modeling::specialize::root_instance(root),
@@ -232,7 +235,7 @@ mod tests {
         let effects = runtime.shared.math().preparation_effects();
         assert!(
             first
-                .preparation_discovery(&request, &cancel)
+                .preparation_discovery(&runtime.source_services(), &request, &cancel)
                 .await
                 .unwrap()
                 .resident
@@ -242,7 +245,7 @@ mod tests {
         let mut changed = first.clone();
         changed.providers = Arc::new(BTreeMap::from([("law".into(), registration(98))]));
         let report = changed
-            .preparation_discovery(&request, &cancel)
+            .preparation_discovery(&runtime.source_services(), &request, &cancel)
             .await
             .unwrap();
         assert!(
@@ -269,7 +272,7 @@ mod tests {
             .await
             .unwrap();
         let root = package
-            .declarations()
+            .declarations(&runtime.preparation_services())
             .await
             .unwrap()
             .iter()
@@ -286,6 +289,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let first = package
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 request.instance,
                 request.bindings.clone(),
@@ -306,13 +310,17 @@ mod tests {
         let original = identities(&first);
         assert!(!original.is_empty());
         let changed_value = package
-            .with_declarations(declarations(
-                "package p { def Root { param p:Scalar=2; var x:Scalar; eq a:x*x==p; } }",
-            ))
+            .with_declarations(
+                &runtime.source_services(),
+                declarations(
+                    "package p { def Root { param p:Scalar=2; var x:Scalar; eq a:x*x==p; } }",
+                ),
+            )
             .await
             .unwrap();
         let value = changed_value
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 request.instance,
                 request.bindings.clone(),
@@ -327,13 +335,17 @@ mod tests {
             "actual admitted parameter slots retain semantic bodies after a value edit"
         );
         let changed_structure = changed_value
-            .with_declarations(declarations(
-                "package p { def Root { param p:Scalar=2; var x:Scalar; eq a:x*x*x==p; } }",
-            ))
+            .with_declarations(
+                &runtime.source_services(),
+                declarations(
+                    "package p { def Root { param p:Scalar=2; var x:Scalar; eq a:x*x*x==p; } }",
+                ),
+            )
             .await
             .unwrap();
         let structure = changed_structure
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 request.instance,
                 request.bindings.clone(),
@@ -349,7 +361,7 @@ mod tests {
         );
         let effects = runtime.shared.math().preparation_effects();
         let report = changed_structure
-            .preparation_discovery(&request, &cancel)
+            .preparation_discovery(&runtime.source_services(), &request, &cancel)
             .await
             .unwrap();
         let observed = report
@@ -380,7 +392,7 @@ mod tests {
             .await
             .unwrap();
         let root = package
-            .declarations()
+            .declarations(&runtime.preparation_services())
             .await
             .unwrap()
             .iter()
@@ -398,7 +410,7 @@ mod tests {
         let math = runtime.shared.math();
         let cold_effects = math.preparation_effects();
         let cold = package
-            .preparation_discovery(&request, &cancel)
+            .preparation_discovery(&runtime.source_services(), &request, &cancel)
             .await
             .unwrap();
         assert!(cold.resident.is_empty());
@@ -407,6 +419,7 @@ mod tests {
         assert_eq!(cold_effects, math.preparation_effects());
         let _prepared = package
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 request.instance,
                 request.bindings.clone(),
@@ -419,7 +432,7 @@ mod tests {
         let before = math.modeling_cache.report(0);
         for _ in 0..3 {
             let observed = package
-                .preparation_discovery(&request, &cancel)
+                .preparation_discovery(&runtime.source_services(), &request, &cancel)
                 .await
                 .unwrap();
             assert!(
@@ -447,13 +460,14 @@ mod tests {
         );
         assert_eq!(effects, math.preparation_effects());
         let changed = package
-            .with_declarations(declarations(
-                "package p { def Root { var x:Scalar; eq a:x*x==2; } }",
-            ))
+            .with_declarations(
+                &runtime.source_services(),
+                declarations("package p { def Root { var x:Scalar; eq a:x*x==2; } }"),
+            )
             .await
             .unwrap();
         let observed = changed
-            .preparation_discovery(&request, &cancel)
+            .preparation_discovery(&runtime.source_services(), &request, &cancel)
             .await
             .unwrap();
         assert!(
@@ -466,7 +480,7 @@ mod tests {
         let mut changed_request = request.clone();
         changed_request.limits.depth += 1;
         let observed = package
-            .preparation_discovery(&changed_request, &cancel)
+            .preparation_discovery(&runtime.source_services(), &changed_request, &cancel)
             .await
             .unwrap();
         assert!(
@@ -479,7 +493,7 @@ mod tests {
         math.clear_program_cache();
         let before = math.preparation_effects();
         let cleared = package
-            .preparation_discovery(&request, &cancel)
+            .preparation_discovery(&runtime.source_services(), &request, &cancel)
             .await
             .unwrap();
         assert!(

@@ -13,15 +13,17 @@ const MATRIX_ALLOWANCE: usize = 1 << 20;
 
 #[tokio::test]
 async fn fit_covariance_owned_result_reconciles_decoded_content_and_refuses_tampering() {
-    let seed = fixture("linear", [1.0; 2]).await.unwrap();
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let seed = fixture(&runtime, "linear", [1.0; 2]).await.unwrap();
     let mut profile = seed.problem.profile.clone();
     profile.uncertainty = Some(FitUncertainty {
         level: Fraction::try_new(0.95).unwrap(),
         profile: None,
         predictions: false,
     });
-    let fit = production_profile(&seed, profile).await.unwrap();
-    let result = fit.start().unwrap().wait().await.unwrap();
+    let fit = production_profile(&services, &seed, profile).await.unwrap();
+    let result = fit.start(&services).unwrap().wait().await.unwrap();
     let original = result.parameter_covariance().unwrap().unwrap();
     let bytes = serde_json::to_vec(&original).unwrap();
     let mut decoded: crate::math::settings::ParameterCovariance =
@@ -73,6 +75,7 @@ struct ResidualProblem {
 impl ResidualProblem {
     fn new(
         problem: Arc<FitProblem>,
+        math: Arc<MathService>,
         execution: Execution,
         x: Vec<f64>,
         cap: usize,
@@ -91,7 +94,7 @@ impl ResidualProblem {
             ));
         }
         Ok(Self {
-            oracle: RefCell::new(FitOracle::new(problem, execution)?),
+            oracle: RefCell::new(FitOracle::new(problem, math, execution)?),
             x: DVector::from_vec(x),
             error: RefCell::new(None),
             evaluations: Cell::new(0),
@@ -187,24 +190,26 @@ impl LeastSquaresProblem<f64, Dyn, Dyn> for ResidualProblem {
 }
 
 pub(in crate::workflow::fitting) async fn fixture(
+    runtime: &crate::workflow::Runtime,
     kind: &str,
     scales: [f64; 2],
 ) -> FixtureResult<PreparedFit> {
-    fixture_on(kind, scales, crate::workflow::tests::runtime()).await
+    fixture_on(kind, scales, runtime).await
 }
 async fn fixture_on(
     kind: &str,
     scales: [f64; 2],
-    runtime: crate::workflow::Runtime,
+    runtime: &crate::workflow::Runtime,
 ) -> FixtureResult<PreparedFit> {
     fixture_with_physical(kind, scales, runtime, crate::workflow::tests::physical()).await
 }
 async fn fixture_with_physical(
     kind: &str,
     scales: [f64; 2],
-    runtime: crate::workflow::Runtime,
+    runtime: &crate::workflow::Runtime,
     physical: crate::workflow::PhysicalContext,
 ) -> FixtureResult<PreparedFit> {
+    let services = runtime.execution_services();
     use crate::workflow::tests::{compiler_profile, id};
     let outputs = (1..=4)
         .map(|i| {
@@ -276,9 +281,13 @@ async fn fixture_with_physical(
     Ok(runtime
         .modeling_package(rows, physical)
         .await?
-        .with_fit_declarations(FitDeclarations::from_owned_rows(vec![declaration], vec![]))
+        .with_fit_declarations(
+            &runtime.source_services(),
+            FitDeclarations::from_owned_rows(vec![declaration], vec![]),
+        )
         .await?
         .prepare_fit(
+            services.preparation(),
             id(32).into(),
             regression::profile(HessianMode::GaussNewton, None),
             compiler_profile(),
@@ -289,10 +298,11 @@ async fn fixture_with_physical(
 }
 fn fresh(
     problem: Arc<FitProblem>,
+    math: Arc<MathService>,
     execution: Execution,
     x: &[f64],
 ) -> Result<(f64, Vec<f64>), ProblemError> {
-    let mut oracle = FitOracle::new(problem, execution)?;
+    let mut oracle = FitOracle::new(problem, math, execution)?;
     let objective = oracle.objective(x)?;
     let mut gradient = vec![0.; x.len()];
     oracle.gradient(x, &mut gradient)?;
@@ -419,12 +429,14 @@ fn quadratic_witness(kind: &str, p: &FitProblem, x: &[f64], objective: f64) -> Q
 }
 #[tokio::test]
 async fn pinned_lm_actual_fit_residual_inquiry_preserves_original_weighted_objective() {
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     for (kind, scales) in [
         ("linear", [1., 2.]),
         ("linear", [0.001, 1000.]),
         ("near-collinear", [1., 2.]),
     ] {
-        let prepared = fixture(kind, scales).await.unwrap();
+        let prepared = fixture(&runtime, kind, scales).await.unwrap();
         let problem = prepared.problem.clone();
         let mut comparisons = Vec::new();
         for mode in [
@@ -436,6 +448,7 @@ async fn pinned_lm_actual_fit_residual_inquiry_preserves_original_weighted_objec
                 prepared
                     .source
                     .prepare_fit(
+                        services.preparation(),
                         prepared.declaration().fit_id,
                         regression::profile(mode, None),
                         crate::workflow::tests::compiler_profile(),
@@ -453,15 +466,16 @@ async fn pinned_lm_actual_fit_residual_inquiry_preserves_original_weighted_objec
             .max()
             .unwrap()
             + MATRIX_ALLOWANCE;
-        let service = problem.runtime.native().clone();
+        let service = services.preparation().math().clone();
+        let services = services.clone();
         service.job_scoped(1, bytes, Default::default(), None, move |flag| {
             let controls = problem.profile.solver.controls.clone();
             let execution = Execution::new(flag, &controls);
             let started = Instant::now();
-            let adapter = ResidualProblem::new(problem.clone(), execution.clone(), problem.initial.clone(), 200)?;
+            let adapter = ResidualProblem::new(problem.clone(), services.preparation().math().clone(), execution.clone(), problem.initial.clone(), 200)?;
             let (adapter, report) = LevenbergMarquardt::new().with_tol(0.001).with_patience(40).minimize(adapter);
             assert!(adapter.error.borrow().is_none(), "{:?}", adapter.error.borrow());
-            let (objective, gradient) = fresh(problem.clone(), execution.clone(), adapter.x.as_slice())?;
+            let (objective, gradient) = fresh(problem.clone(), services.preparation().math().clone(), execution.clone(), adapter.x.as_slice())?;
             assert!(objective > 0., "the inquiry must retain nonzero residuals");
             assert!((objective - report.objective_function).abs() <= 0.001 * objective.abs().max(1.));
             assert!(gradient.iter().all(|value| value.abs() <= 0.001), "{kind}: {gradient:?}");
@@ -472,10 +486,10 @@ async fn pinned_lm_actual_fit_residual_inquiry_preserves_original_weighted_objec
                 let solver = &problem.profile.solver;
                 let mode = solver.controls.hessian;
                 let started = Instant::now();
-                let native = problem.execute_profile(solver, prepared.route(), execution.scope()?,
-                    Arc::new(native::solve::Progress::new(256)), 1, None)?;
+                let (native, _) = problem.execute_profile(services.preparation().math(), solver, prepared.route(), execution.scope()?,
+                    Arc::new(native::solve::Progress::new(256)), None)?;
                 let candidate = native.candidate.as_ref().expect("current Ipopt route must retain a physical candidate");
-                let (actual, _) = fresh(problem.clone(), execution.clone(), candidate)?;
+                let (actual, _) = fresh(problem.clone(), services.preparation().math().clone(), execution.clone(), candidate)?;
                 let QuadraticWitness { best, gap, scaled, gradient } = quadratic_witness(kind, problem, candidate, actual);
                 println!("fit_quadratic kind={kind} x={candidate:?} physical_gradient={gradient:?} scaled_stationarity={scaled} analytic_best={best} exact_gap={gap}");
                 assert!((objective-best).abs() <= 0.001*(1.+best.abs()), "LM original optimum: {kind}");
@@ -492,9 +506,12 @@ async fn pinned_lm_actual_fit_residual_inquiry_preserves_original_weighted_objec
 }
 #[tokio::test]
 async fn pinned_lm_actual_fit_refusal_cancel_and_evaluation_cap_remain_typed() {
-    let prepared = fixture("domain", [1., 2.]).await.unwrap();
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let prepared = fixture(&runtime, "domain", [1., 2.]).await.unwrap();
     let problem = prepared.problem.clone();
-    let service = problem.runtime.native().clone();
+    let service = services.preparation().math().clone();
+    let services = services.clone();
     service
         .job_scoped(
             1,
@@ -512,7 +529,13 @@ async fn pinned_lm_actual_fit_refusal_cancel_and_evaluation_cap_remain_typed() {
                     }
                     let execution =
                         Execution::new(Default::default(), &problem.profile.solver.controls);
-                    let adapter = ResidualProblem::new(problem.clone(), execution.clone(), x, cap)?;
+                    let adapter = ResidualProblem::new(
+                        problem.clone(),
+                        services.preparation().math().clone(),
+                        execution.clone(),
+                        x,
+                        cap,
+                    )?;
                     if kind == "cancel" {
                         execution.cancellation_control().cancel();
                     }
@@ -548,6 +571,7 @@ async fn pinned_lm_actual_fit_refusal_cancel_and_evaluation_cap_remain_typed() {
 }
 
 async fn production_profile(
+    services: &ExecutionServices,
     prepared: &PreparedFit,
     mut profile: FitProfile,
 ) -> FixtureResult<PreparedFit> {
@@ -557,6 +581,7 @@ async fn production_profile(
     Ok(prepared
         .source
         .prepare_fit(
+            services.preparation(),
             prepared.declaration().fit_id,
             profile,
             crate::workflow::tests::compiler_profile(),
@@ -567,12 +592,14 @@ async fn production_profile(
 }
 #[tokio::test]
 async fn fitting_owned_residual_lm_uses_real_method_and_fresh_original_assessment() {
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     for (scales, native_scaling) in [
         ([1., 2.], true),
         ([0.001, 1000.], true),
         ([0.001, 1000.], false),
     ] {
-        let seed = fixture("linear", scales).await.unwrap();
+        let seed = fixture(&runtime, "linear", scales).await.unwrap();
         let mut profile = seed.problem.profile.clone();
         profile.solver.numerics.native_scaling = native_scaling;
         profile.uncertainty = Some(FitUncertainty {
@@ -580,7 +607,7 @@ async fn fitting_owned_residual_lm_uses_real_method_and_fresh_original_assessmen
             profile: Some(Default::default()),
             predictions: false,
         });
-        let prepared = production_profile(&seed, profile).await.unwrap();
+        let prepared = production_profile(&services, &seed, profile).await.unwrap();
         assert_eq!(prepared.route(), FitRoute::ResidualLm);
         assert_eq!(
             prepared.numerical_strategy().mechanisms[0]
@@ -589,7 +616,7 @@ async fn fitting_owned_residual_lm_uses_real_method_and_fresh_original_assessmen
                 .method,
             pse_model::strategy::NumericalMethod::ResidualLm
         );
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         let report = regression::report(&result);
         assert!(report.solve.is_none());
         let residual = report.residual.as_ref().unwrap();
@@ -652,7 +679,9 @@ async fn fitting_owned_residual_lm_uses_real_method_and_fresh_original_assessmen
 }
 #[tokio::test]
 async fn fitting_residual_eligibility_preserves_required_native_contracts_before_callbacks() {
-    let seed = fixture("linear", [1., 2.]).await.unwrap();
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let seed = fixture(&runtime, "linear", [1., 2.]).await.unwrap();
     let mut shared = seed.problem.profile.clone();
     shared.solver.selection = native::solve::SolverSelection::Auto;
     shared.solver.controls.hessian = HessianMode::GaussNewton;
@@ -729,6 +758,7 @@ async fn fitting_residual_eligibility_preserves_required_native_contracts_before
         let native = seed
             .source
             .prepare_fit(
+                services.preparation(),
                 seed.declaration().fit_id,
                 profile.clone(),
                 crate::workflow::tests::compiler_profile(),
@@ -742,6 +772,7 @@ async fn fitting_residual_eligibility_preserves_required_native_contracts_before
         assert!(
             seed.source
                 .prepare_fit(
+                    services.preparation(),
                     seed.declaration().fit_id,
                     profile,
                     crate::workflow::tests::compiler_profile(),
@@ -759,7 +790,9 @@ async fn fitting_residual_eligibility_preserves_required_native_contracts_before
 /// or callbacks are prepared. The execution-time check remains a separate guard.
 #[tokio::test]
 async fn fitting_residual_dense_workspace_eligibility_precedes_numerical_preparation() {
-    let seed = fixture("linear", [1., 2.]).await.unwrap();
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let seed = fixture(&runtime, "linear", [1., 2.]).await.unwrap();
     let m = seed
         .problem
         .measurements
@@ -783,6 +816,7 @@ async fn fitting_residual_dense_workspace_eligibility_precedes_numerical_prepara
         let prepared = seed
             .source
             .prepare_fit(
+                services.preparation(),
                 seed.declaration().fit_id,
                 profile.clone(),
                 crate::workflow::tests::compiler_profile(),
@@ -809,6 +843,7 @@ async fn fitting_residual_dense_workspace_eligibility_precedes_numerical_prepara
         let explicit = seed
             .source
             .prepare_fit(
+                services.preparation(),
                 seed.declaration().fit_id,
                 profile,
                 crate::workflow::tests::compiler_profile(),
@@ -833,13 +868,20 @@ async fn fitting_residual_dense_workspace_eligibility_precedes_numerical_prepara
 /// rebuilt. Only the actual callback Drop releases its numeric buffers for reuse.
 #[tokio::test]
 async fn fit_neutral_scratch_returns_after_drop_and_rebinds_current_maps_and_controls() {
-    let seed = fixture("linear", [1., 2.]).await.unwrap();
-    let prepared = production_profile(&seed, seed.problem.profile.clone())
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let seed = fixture(&runtime, "linear", [1., 2.]).await.unwrap();
+    let prepared = production_profile(&services, &seed, seed.problem.profile.clone())
         .await
         .unwrap();
     let problem = prepared.problem.clone();
-    let incompatible = fixture("domain", [1., 2.]).await.unwrap().problem.clone();
-    let service = problem.runtime.native().clone();
+    let incompatible = fixture(&runtime, "domain", [1., 2.])
+        .await
+        .unwrap()
+        .problem
+        .clone();
+    let service = services.preparation().math().clone();
+    let services = services.clone();
     service
         .job_scoped(
             1,
@@ -847,10 +889,10 @@ async fn fit_neutral_scratch_returns_after_drop_and_rebinds_current_maps_and_con
             Default::default(),
             None,
             move |_| {
-                let baseline = problem.runtime.native().test_admission_snapshot().0;
-                let bank =
-                    FitScratch::new(&problem).expect("the finite neutral population is admitted");
-                let charged = problem.runtime.native().test_admission_snapshot().0;
+                let baseline = services.preparation().math().test_admission_snapshot().0;
+                let bank = FitScratch::new(&problem, services.preparation().math())
+                    .expect("the finite neutral population is admitted");
+                let charged = services.preparation().math().test_admission_snapshot().0;
                 assert!(charged > baseline);
                 let pointer = |oracle: &mut FitOracle, x: &[f64]| -> Result<usize, ProblemError> {
                     let Experiment::Steady(steady) = &problem.experiments[0] else {
@@ -874,32 +916,49 @@ async fn fit_neutral_scratch_returns_after_drop_and_rebinds_current_maps_and_con
                     execution
                 };
                 let prior = current();
-                let mut first =
-                    FitOracle::with_scratch(problem.clone(), prior.clone(), Some(bank.clone()))?;
+                let mut first = FitOracle::with_scratch(
+                    problem.clone(),
+                    services.preparation().math().clone(),
+                    prior.clone(),
+                    Some(bank.clone()),
+                )?;
                 let value = first.objective(&[1., 2.])?;
                 assert!(value.is_finite());
                 assert_eq!(bank.steady_reuses(), 0);
                 // A second callback while the first remains live gets its own fresh worker.
-                let mut other =
-                    FitOracle::with_scratch(problem.clone(), current(), Some(bank.clone()))?;
+                let mut other = FitOracle::with_scratch(
+                    problem.clone(),
+                    services.preparation().math().clone(),
+                    current(),
+                    Some(bank.clone()),
+                )?;
                 assert_eq!(bank.steady_reuses(), 0);
                 let returned_pointer = pointer(&mut other, &[1., 2.])?;
                 drop(other);
                 drop(first);
                 prior.cancellation_control().cancel();
                 drop(prior);
-                let mut final_oracle =
-                    FitOracle::with_scratch(problem.clone(), current(), Some(bank.clone()))?;
+                let mut final_oracle = FitOracle::with_scratch(
+                    problem.clone(),
+                    services.preparation().math().clone(),
+                    current(),
+                    Some(bank.clone()),
+                )?;
                 assert_eq!(bank.steady_reuses(), 1);
                 let actual = final_oracle.objective(&[2., 0.5])?;
-                let (fresh, _) = fresh(problem.clone(), current(), &[2., 0.5])?;
+                let (fresh, _) = fresh(
+                    problem.clone(),
+                    services.preparation().math().clone(),
+                    current(),
+                    &[2., 0.5],
+                )?;
                 assert_eq!(
                     actual, fresh,
                     "no previous Point or old cancellation may survive reset"
                 );
                 assert_eq!(pointer(&mut final_oracle, &[2., 0.5])?, returned_pointer);
                 assert_eq!(
-                    problem.runtime.native().test_admission_snapshot().0,
+                    services.preparation().math().test_admission_snapshot().0,
                     charged
                 );
                 assert_ne!(actual, value);
@@ -917,6 +976,7 @@ async fn fit_neutral_scratch_returns_after_drop_and_rebinds_current_maps_and_con
                 for pin in [(0, 1.), (1, 2.)] {
                     let (evidence, candidate) = residual::solve(
                         &problem,
+                        services.preparation().math(),
                         current(),
                         &[1., 1.],
                         Some(pin),
@@ -924,29 +984,34 @@ async fn fit_neutral_scratch_returns_after_drop_and_rebinds_current_maps_and_con
                     )?;
                     assert!(evidence.failure.is_none(), "{evidence:?}");
                     assert_eq!(candidate[pin.0], pin.1);
-                    let (objective, gradient, feasible) = residual::assess_pin(
+                    let observed = observe_pin(
                         &problem,
+                        services.preparation().math(),
                         current(),
                         &candidate,
-                        pin.0,
+                        Some(pin.0),
                         Some(bank.clone()),
                     )?;
                     assert!(
-                        objective.is_finite()
-                            && feasible
-                            && gradient <= problem.accuracy.stationarity
+                        observed.objective.is_finite()
+                            && observed.quality.feasible()
+                            && observed.gradient.unwrap() <= problem.accuracy.stationarity
                     );
                 }
                 assert!(bank.steady_reuses() >= 5);
                 assert_eq!(
-                    problem.runtime.native().test_admission_snapshot().0,
+                    services.preparation().math().test_admission_snapshot().0,
                     charged,
                     "fixed physical slots must not grow with the pin population"
                 );
                 // An actual current derivative refusal discards the whole optional bank;
                 // it never makes an old numerical point available to another callback.
-                let mut failed =
-                    FitOracle::with_scratch(problem.clone(), current(), Some(bank.clone()))?;
+                let mut failed = FitOracle::with_scratch(
+                    problem.clone(),
+                    services.preparation().math().clone(),
+                    current(),
+                    Some(bank.clone()),
+                )?;
                 assert!(
                     failed
                         .evaluate_demand(&[f64::NAN, 1.], Demand::responses())
@@ -962,7 +1027,7 @@ async fn fit_neutral_scratch_returns_after_drop_and_rebinds_current_maps_and_con
                 );
                 drop(bank);
                 assert_eq!(
-                    problem.runtime.native().test_admission_snapshot().0,
+                    services.preparation().math().test_admission_snapshot().0,
                     baseline
                 );
                 Ok(())
@@ -977,13 +1042,15 @@ async fn fit_neutral_scratch_returns_after_drop_and_rebinds_current_maps_and_con
 /// observed evidence: no noisy wall-clock threshold changes scientific acceptance.
 #[tokio::test]
 async fn fitting_residual_production_matches_native_complete_operations_at_original_accuracy() {
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     for (kind, scales) in [
         ("linear", [1., 2.]),
         ("linear", [0.001, 1000.]),
         ("near-collinear", [1., 2.]),
         ("domain", [1., 2.]),
     ] {
-        let seed = fixture(kind, scales).await.unwrap();
+        let seed = fixture(&runtime, kind, scales).await.unwrap();
         let mut objectives = Vec::new();
         for round in 0..2 {
             let mut routes = vec![
@@ -1009,6 +1076,7 @@ async fn fitting_residual_production_matches_native_complete_operations_at_origi
                 let prepared = seed
                     .source
                     .prepare_fit(
+                        services.preparation(),
                         seed.declaration().fit_id,
                         profile,
                         crate::workflow::tests::compiler_profile(),
@@ -1019,7 +1087,7 @@ async fn fitting_residual_production_matches_native_complete_operations_at_origi
                     .unwrap();
                 let preparation = started.elapsed();
                 let route = prepared.route();
-                let result = prepared.start().unwrap().wait().await.unwrap();
+                let result = prepared.start(&services).unwrap().wait().await.unwrap();
                 let elapsed = started.elapsed();
                 let report = regression::report(&result);
                 assert!(
@@ -1117,12 +1185,15 @@ async fn fitting_residual_production_matches_native_complete_operations_at_origi
 
 #[tokio::test]
 async fn fit_neutral_scratch_discards_after_actual_derivative_upgrade_refusal() {
-    let seed = fixture("domain", [1., 2.]).await.unwrap();
-    let prepared = production_profile(&seed, seed.problem.profile.clone())
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let seed = fixture(&runtime, "domain", [1., 2.]).await.unwrap();
+    let prepared = production_profile(&services, &seed, seed.problem.profile.clone())
         .await
         .unwrap();
     let problem = prepared.problem.clone();
-    let service = problem.runtime.native().clone();
+    let service = services.preparation().math().clone();
+    let services = services.clone();
     service
         .job_scoped(
             1,
@@ -1130,10 +1201,11 @@ async fn fit_neutral_scratch_discards_after_actual_derivative_upgrade_refusal() 
             Default::default(),
             None,
             move |flag| {
-                let bank = FitScratch::new(&problem).unwrap();
+                let bank = FitScratch::new(&problem, services.preparation().math()).unwrap();
                 let execution = Execution::new(flag, &problem.profile.solver.controls);
                 let mut oracle = FitOracle::with_scratch(
                     problem.clone(),
+                    services.preparation().math().clone(),
                     execution.clone(),
                     Some(bank.clone()),
                 )?;
@@ -1158,8 +1230,12 @@ async fn fit_neutral_scratch_discards_after_actual_derivative_upgrade_refusal() 
                     )
                     .is_none()
                 );
-                let mut fresh =
-                    FitOracle::with_scratch(problem.clone(), execution, Some(bank.clone()))?;
+                let mut fresh = FitOracle::with_scratch(
+                    problem.clone(),
+                    services.preparation().math().clone(),
+                    execution,
+                    Some(bank.clone()),
+                )?;
                 assert!(fresh.objective(&[1., 1.])?.is_finite());
                 assert_eq!(
                     bank.steady_reuses(),
@@ -1179,12 +1255,13 @@ async fn fit_neutral_scratch_discards_after_actual_derivative_upgrade_refusal() 
 #[tokio::test]
 async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and_profile() {
     let runtime = crate::workflow::tests::durable_runtime();
+    let services = runtime.execution_services();
     let cancel = crate::CancelSource::new();
     let (documents, _) = crate::workflow::tests::sources("package p {}");
     let physical = Box::pin(runtime.physical_from_sources(&documents, &cancel))
         .await
         .unwrap();
-    let mut seed = fixture_with_physical("linear", [1., 2.], runtime.clone(), physical)
+    let mut seed = fixture_with_physical("linear", [1., 2.], &runtime, physical)
         .await
         .unwrap();
     let store = runtime.canonical_store().unwrap();
@@ -1231,7 +1308,7 @@ async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and
     seed.source = Box::pin(runtime.project_context_reopen(&selected, &cancel))
         .await
         .unwrap();
-    let prepared = production_profile(&seed, seed.problem.profile.clone())
+    let prepared = production_profile(&services, &seed, seed.problem.profile.clone())
         .await
         .unwrap();
     let strategy = prepared.numerical_strategy();
@@ -1239,7 +1316,7 @@ async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and
         strategy.mechanisms[0].profile.unwrap().method,
         pse_model::strategy::NumericalMethod::ResidualLm
     );
-    let handle = prepared.start().unwrap();
+    let handle = prepared.start(&services).unwrap();
     let result = handle.wait().await.unwrap();
     let report = regression::report(&result);
     let FitExecutionDocument::ResidualLm { report: literal } = report.execution_document() else {
@@ -1411,6 +1488,8 @@ async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and
 
 #[tokio::test]
 async fn fitting_lm_independent_stopping_preserves_original_qualification_and_covariance() {
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     for (kind, scales) in [
         ("linear", [1., 2.]),
         ("linear", [0.001, 1000.]),
@@ -1418,23 +1497,24 @@ async fn fitting_lm_independent_stopping_preserves_original_qualification_and_co
         ("domain", [1., 2.]),
         ("cosine-gap", [1., 2.]),
     ] {
-        let seed = fixture(kind, scales).await.unwrap();
-        let prepared = production_profile(&seed, seed.problem.profile.clone())
+        let seed = fixture(&runtime, kind, scales).await.unwrap();
+        let prepared = production_profile(&services, &seed, seed.problem.profile.clone())
             .await
             .unwrap();
         let problem = prepared.problem.clone();
-        let service = problem.runtime.native().clone();
+        let service = services.preparation().math().clone();
+        let services = services.clone();
         service.job_scoped(1, problem.bytes + MATRIX_ALLOWANCE, Default::default(), None, move |flag| {
             let execution = Execution::new(flag, &problem.profile.solver.controls);
             let mut baseline_qualified = false;
             let mut baseline_covariance = false;
             for (candidate, stopping) in [(false, ResidualLmCriteria::inquiry_baseline(problem.accuracy.stationarity)), (true, ResidualLmCriteria::current())] {
-                let report = problem.execute_profile_with_lm(&problem.profile.solver, ProfileAlgorithm { route: FitRoute::ResidualLm, stopping },
-                    execution.scope()?, Arc::new(native::solve::Progress::new(256)), 1, None)?;
+                let (report, _) = problem.execute_profile_with_lm(services.preparation().math(), &problem.profile.solver, ProfileAlgorithm { route: FitRoute::ResidualLm, stopping },
+                    execution.scope()?, Arc::new(native::solve::Progress::new(256)), None)?;
                 let residual = report.residual.as_ref().unwrap();
                 assert!(residual.failure.is_none(), "{kind}: {residual:?}");
                 let point = report.candidate.as_ref().unwrap();
-                let (objective, _) = fresh(problem.clone(), execution.clone(), point)?;
+                let (objective, _) = fresh(problem.clone(), services.preparation().math().clone(), execution.clone(), point)?;
                 let witness = quadratic_witness(kind, &problem, point, objective);
                 assert!((witness.scaled - residual.stationarity.unwrap()).abs() <= 1e-7 * witness.scaled.max(1.));
                 let qualified = residual.qualification == native::solve::Qualification::Stationary;
@@ -1456,12 +1536,15 @@ async fn fitting_lm_independent_stopping_preserves_original_qualification_and_co
 
 #[tokio::test]
 async fn fitting_lm_cosine_success_cannot_publish_nonstationary_covariance() {
-    let seed = fixture("cosine-gap", [1., 2.]).await.unwrap();
-    let prepared = production_profile(&seed, seed.problem.profile.clone())
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let seed = fixture(&runtime, "cosine-gap", [1., 2.]).await.unwrap();
+    let prepared = production_profile(&services, &seed, seed.problem.profile.clone())
         .await
         .unwrap();
     let problem = prepared.problem.clone();
-    let service = problem.runtime.native().clone();
+    let service = services.preparation().math().clone();
+    let services = services.clone();
     service
         .job_scoped(
             1,
@@ -1470,7 +1553,8 @@ async fn fitting_lm_cosine_success_cannot_publish_nonstationary_covariance() {
             None,
             move |flag| {
                 let execution = Execution::new(flag, &problem.profile.solver.controls);
-                let report = problem.execute_profile_with_lm(
+                let (report, _) = problem.execute_profile_with_lm(
+                    services.preparation().math(),
                     &problem.profile.solver,
                     ProfileAlgorithm {
                         route: FitRoute::ResidualLm,
@@ -1478,7 +1562,6 @@ async fn fitting_lm_cosine_success_cannot_publish_nonstationary_covariance() {
                     },
                     execution.scope()?,
                     Arc::new(native::solve::Progress::new(256)),
-                    1,
                     None,
                 )?;
                 let residual = report.residual.as_ref().unwrap();
@@ -1487,8 +1570,10 @@ async fn fitting_lm_cosine_success_cannot_publish_nonstationary_covariance() {
                 assert!(residual.stationarity.unwrap() > problem.accuracy.stationarity);
                 assert_eq!(
                     residual.qualification,
-                    native::solve::Qualification::Unqualified
+                    native::solve::Qualification::Feasible
                 );
+                assert!(report.candidate_use(&problem.numerics.policy).permits_use());
+                assert!(!report.estimate_qualified());
                 assert!(report.covariance.as_ref().unwrap().values.is_err());
                 Ok(())
             },
@@ -1499,12 +1584,15 @@ async fn fitting_lm_cosine_success_cannot_publish_nonstationary_covariance() {
 
 #[tokio::test]
 async fn fitting_lm_current_policy_limits_and_cancellation_remain_typed() {
-    let seed = fixture("linear", [1., 2.]).await.unwrap();
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let seed = fixture(&runtime, "linear", [1., 2.]).await.unwrap();
     let mut profile = seed.problem.profile.clone();
     profile.solver.controls.iterations = 1;
-    let prepared = production_profile(&seed, profile).await.unwrap();
+    let prepared = production_profile(&services, &seed, profile).await.unwrap();
     let problem = prepared.problem.clone();
-    let service = problem.runtime.native().clone();
+    let service = services.preparation().math().clone();
+    let services = services.clone();
     service
         .job_scoped(
             1,
@@ -1513,12 +1601,12 @@ async fn fitting_lm_current_policy_limits_and_cancellation_remain_typed() {
             None,
             move |flag| {
                 let execution = Execution::new(flag, &problem.profile.solver.controls);
-                let report = problem.execute_profile(
+                let (report, _) = problem.execute_profile(
+                    services.preparation().math(),
                     &problem.profile.solver,
                     FitRoute::ResidualLm,
                     execution.scope()?,
                     Arc::new(native::solve::Progress::new(256)),
-                    1,
                     None,
                 )?;
                 let residual = report.residual.as_ref().unwrap();
@@ -1542,7 +1630,14 @@ async fn fitting_lm_current_policy_limits_and_cancellation_remain_typed() {
                     Execution::new(Default::default(), &problem.profile.solver.controls);
                 cancelled.cancellation_control().cancel();
                 assert!(matches!(
-                    residual::solve(&problem, cancelled, &problem.initial, None, None),
+                    residual::solve(
+                        &problem,
+                        services.preparation().math(),
+                        cancelled,
+                        &problem.initial,
+                        None,
+                        None
+                    ),
                     Err(ProblemError::Cancelled)
                 ));
                 Ok(())
@@ -1554,8 +1649,10 @@ async fn fitting_lm_current_policy_limits_and_cancellation_remain_typed() {
 
 #[tokio::test]
 async fn fitting_lm_recorded_criteria_bind_replay_and_actual_profile_identity() {
-    let seed = fixture("linear", [1., 2.]).await.unwrap();
-    let prepared = production_profile(&seed, seed.problem.profile.clone())
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let seed = fixture(&runtime, "linear", [1., 2.]).await.unwrap();
+    let prepared = production_profile(&services, &seed, seed.problem.profile.clone())
         .await
         .unwrap();
     let current = ResidualLmCriteria::current();
@@ -1593,7 +1690,11 @@ async fn fitting_lm_recorded_criteria_bind_replay_and_actual_profile_identity() 
         preparation::profile_key(&prepared.problem.profile, baseline).unwrap()
     );
     let replayed = constructor
-        .reconstruct(&prepared.source, &crate::CancelSource::new())
+        .reconstruct(
+            services.preparation(),
+            &prepared.source,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     assert_eq!(replayed.identity(), prepared.identity());
@@ -1602,7 +1703,11 @@ async fn fitting_lm_recorded_criteria_bind_replay_and_actual_profile_identity() 
     unsupported.residual_lm_criteria = baseline;
     assert!(
         unsupported
-            .reconstruct(&prepared.source, &crate::CancelSource::new())
+            .reconstruct(
+                services.preparation(),
+                &prepared.source,
+                &crate::CancelSource::new()
+            )
             .await
             .is_err()
     );
@@ -1610,16 +1715,18 @@ async fn fitting_lm_recorded_criteria_bind_replay_and_actual_profile_identity() 
 
 #[tokio::test]
 async fn fitting_lm_profile_chains_record_actual_criteria_and_effective_caps() {
-    let seed = fixture("linear", [1., 2.]).await.unwrap();
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let seed = fixture(&runtime, "linear", [1., 2.]).await.unwrap();
     let mut profile = seed.problem.profile.clone();
     profile.uncertainty = Some(FitUncertainty {
         level: Fraction::try_new(0.95).unwrap(),
         profile: Some(Default::default()),
         predictions: false,
     });
-    let prepared = production_profile(&seed, profile).await.unwrap();
+    let prepared = production_profile(&services, &seed, profile).await.unwrap();
     let updates = prepared.problem.profile.solver.controls.iterations as usize;
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let result = prepared.start(&services).unwrap().wait().await.unwrap();
     let report = regression::report(&result);
     let estimate = report.residual.as_ref().unwrap().stopping.unwrap();
     assert_eq!(estimate.criteria, ResidualLmCriteria::current());
@@ -1663,15 +1770,15 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
         columnar::RelationRow, generated::runtime::fitted_parameter_cells as cells,
     };
     let runtime = crate::workflow::tests::durable_runtime();
+    let services = runtime.execution_services();
     let cancel = crate::CancelSource::new();
     let (documents, _) = crate::workflow::tests::sources("package p {}");
     let physical = Box::pin(runtime.physical_from_sources(&documents, &cancel))
         .await
         .unwrap_or_else(|error| panic!("{error}"));
-    let mut seed =
-        fixture_with_physical("research-calibration", [1., 2.], runtime.clone(), physical)
-            .await
-            .unwrap_or_else(|error| panic!("{error}"));
+    let mut seed = fixture_with_physical("research-calibration", [1., 2.], &runtime, physical)
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
     let store = runtime.canonical_store().unwrap();
     store
         .create_project("create", "research", "Calibration publication")
@@ -1728,7 +1835,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
         .unwrap()
         .canonical_unit;
     let rows = source
-        .declarations()
+        .declarations(services.preparation())
         .await
         .unwrap_or_else(|error| panic!("{error}"));
     let derived = rows
@@ -1845,7 +1952,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
         profile: None,
         predictions: false,
     });
-    let prepared = production_profile(&seed, profile)
+    let prepared = production_profile(&services, &seed, profile)
         .await
         .unwrap_or_else(|error| panic!("{error}"));
     for (i, measurement) in prepared.problem.measurements.iter().enumerate() {
@@ -1863,7 +1970,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
             "actual response weight retains authored importance"
         );
     }
-    let handle = prepared.start().unwrap();
+    let handle = prepared.start(&services).unwrap();
     let result = handle
         .wait()
         .await
@@ -1936,6 +2043,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     };
     let original_target = source
         .prepare(
+            services.preparation(),
             root,
             id(33).into(),
             original_bindings,
@@ -2078,6 +2186,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     };
     let downstream_model = downstream
         .prepare(
+            services.preparation(),
             root,
             id(33).into(),
             downstream_bindings,
@@ -2178,6 +2287,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
         },
     };
     let local = Box::pin(downstream.admit_study(
+        &services,
         &crate::workflow::StudyInputs::Explicit(vec![point.clone()]),
         &crate::workflow::StudyOutputDemand::Full {},
         &cancel,
@@ -2570,7 +2680,10 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
 
     // A normal exact-parent typed edit is newly admitted locally. It creates a
     // new receiving study and result; the copied terminal does not seed it.
-    let declarations = imported_source.declarations().await.unwrap();
+    let declarations = imported_source
+        .declarations(services.preparation())
+        .await
+        .unwrap();
     let mut intercept = declarations
         .iter()
         .find(|row| row.declaration_id == request.targets[0].declaration)
@@ -2630,6 +2743,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
         imported_source.revision.identity()
     );
     let edited_local = Box::pin(edited.admit_study(
+        &services,
         &crate::workflow::StudyInputs::Explicit(vec![point]),
         &crate::workflow::StudyOutputDemand::Full {},
         &cancel,
@@ -2732,25 +2846,28 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
 /// measurement/fit readers; exclusion remains an explicit retained observation.
 #[tokio::test]
 async fn research_calibration_unknown_sigma_refuses_weighting_and_preserves_exclusions() {
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     use crate::workflow::tests::{compiler_profile, id};
-    let seed = fixture("research-calibration", [1., 2.])
+    let seed = fixture(&runtime, "research-calibration", [1., 2.])
         .await
         .unwrap_or_else(|error| panic!("{error}"));
     let cancel = crate::CancelSource::new();
     let mut declarations = seed
         .source
-        .fit_declarations()
+        .fit_declarations(services.preparation())
         .await
         .unwrap_or_else(|error| panic!("{error}"));
     declarations.fits[0].observations[0].standard_deviation_attribute = None;
     let unknown = seed
         .source
         .clone()
-        .with_fit_declarations(declarations.clone())
+        .with_fit_declarations(&runtime.source_services(), declarations.clone())
         .await
         .unwrap_or_else(|error| panic!("{error}"));
     let error = unknown
         .prepare_fit(
+            services.preparation(),
             id(32).into(),
             seed.problem.profile.clone(),
             compiler_profile(),
@@ -2769,11 +2886,12 @@ async fn research_calibration_unknown_sigma_refuses_weighting_and_preserves_excl
     let excluded = seed
         .source
         .clone()
-        .with_fit_declarations(declarations)
+        .with_fit_declarations(&runtime.source_services(), declarations)
         .await
         .unwrap_or_else(|error| panic!("{error}"));
     let prepared = excluded
         .prepare_fit(
+            services.preparation(),
             id(32).into(),
             seed.problem.profile.clone(),
             compiler_profile(),
@@ -2794,7 +2912,7 @@ async fn research_calibration_unknown_sigma_refuses_weighting_and_preserves_excl
     assert_eq!(observation.sigma, None);
     let mut rows = seed
         .source
-        .declarations()
+        .declarations(services.preparation())
         .await
         .unwrap_or_else(|error| panic!("{error}"))
         .to_vec();
@@ -2812,11 +2930,16 @@ async fn research_calibration_unknown_sigma_refuses_weighting_and_preserves_excl
         .find(|a| a.name == "raw")
         .unwrap()
         .value = pse_authoring::language::parse_cell("-1.0").unwrap();
-    match seed.source.with_declarations(rows).await {
+    match seed
+        .source
+        .with_declarations(&services.source_services(), rows)
+        .await
+    {
         Err(_) => {}
         Ok(outside) => assert!(
             outside
                 .prepare_fit(
+                    services.preparation(),
                     id(32).into(),
                     seed.problem.profile.clone(),
                     compiler_profile(),

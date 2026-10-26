@@ -11,6 +11,7 @@ use pse_runtime::math::solves::{Outcome, StepReport};
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativePreparedFlow {
+    pub(super) services: native::PreparationServices,
     pub(super) owner: Arc<runtime::Runtime>,
     pub(super) math: Arc<pse_runtime::math::MathService>,
     pub(super) package: native::ModelingPackage,
@@ -48,7 +49,7 @@ impl NativePreparedFlow {
             .as_ref()
             .map(|_| {
                 self.package
-                    .auxiliary_primal_coordinates(&result.dimensionless_coordinates)
+                    .auxiliary_primal_coordinates(&self.services, &result.dimensionless_coordinates)
             })
             .transpose()
             .map_err(|error| errors::diagnostic(py, &error))?;
@@ -73,6 +74,7 @@ pub(super) enum Strategy {
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativePreparedStrategy {
+    pub(super) services: native::PreparationServices,
     pub(super) owner: Arc<runtime::Runtime>,
     pub(super) inner: Strategy,
 }
@@ -132,20 +134,22 @@ impl NativePreparedStrategy {
             StrategyResult,
             Option<pse_diagnostics::observation::OperationId>,
         ) = match &self.inner {
-            Strategy::Cone(p) => run!(p.start().map(|handle| (handle, None)), Cone),
+            Strategy::Cone(p) => run!(p.start(&self.services).map(|handle| (handle, None)), Cone),
             #[cfg(feature = "native-solvers")]
-            Strategy::Recycle(p) => run!(p.start_with_operation(), Recycle),
+            Strategy::Recycle(p) => run!(p.start_with_operation(&self.services), Recycle),
             #[cfg(feature = "native-solvers")]
-            Strategy::Initialization(p) => run!(p.start_with_operation(), Initialization),
+            Strategy::Initialization(p) => {
+                run!(p.start_with_operation(&self.services), Initialization)
+            }
         };
         // Mandatory science/event transport owns its allocation before optional
         // descriptive capture can reserve any of the remaining pool.
         let primal_coordinates = match &self.inner {
-            Strategy::Cone(prepared) => prepared.primal_coordinates(),
+            Strategy::Cone(prepared) => prepared.primal_coordinates(&self.services),
             #[cfg(feature = "native-solvers")]
-            Strategy::Recycle(prepared) => prepared.primal_coordinates(),
+            Strategy::Recycle(prepared) => prepared.primal_coordinates(&self.services),
             #[cfg(feature = "native-solvers")]
-            Strategy::Initialization(prepared) => prepared.primal_coordinates(),
+            Strategy::Initialization(prepared) => prepared.primal_coordinates(&self.services),
         }
         .map_err(|error| errors::diagnostic(py, &error))?;
         let mut result =
@@ -158,10 +162,10 @@ impl NativePreparedStrategy {
                     (
                         Strategy::Initialization(prepared),
                         StrategyResult::Initialization(report),
-                    ) => prepared.review_context(&request.0, _operation, report),
+                    ) => prepared.review_context(&self.services, &request.0, _operation, report),
                     #[cfg(feature = "native-solvers")]
                     (Strategy::Recycle(prepared), StrategyResult::Recycle(report)) => {
-                        prepared.review_context(&request.0, _operation, report)
+                        prepared.review_context(&self.services, &request.0, _operation, report)
                     }
                     _ => {
                         return Err(invalid(
@@ -251,7 +255,7 @@ impl NativeStrategyResult {
             };
         let events = native::StrategyEventExport::new(
             owner.model.clone(),
-            owner.shared.clone(),
+            owner.shared.math().clone(),
             upper,
             traces,
         )

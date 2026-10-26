@@ -26,8 +26,8 @@ impl RunResult {
         if self.horizon_tightenings.is_some() && projection.wants(modeling_findings::RELATION_ID) {
             return self.encode_horizon_findings(projection).await;
         }
-        let registry = self.runtime.registry();
-        let pool = self.runtime.shared.pool();
+        let registry = self.services.preparation().registry();
+        let pool = self.services.preparation().pool();
         let cancel = projection.cancel.clone();
         let validation = self.result_validation_context();
         let mut run_rows = crate::workflow::result_export::Rows::<runs::Row>::new(
@@ -153,7 +153,12 @@ impl RunResult {
 
                 if projection.wants(solve_strategy_events::RELATION_ID) {
                     collection
-                        .strategy_events(trace, self.run_id, original, self.runtime.shared.math())
+                        .strategy_events(
+                            trace,
+                            self.run_id,
+                            original,
+                            self.services.preparation().math(),
+                        )
                         .await?;
                 }
             }
@@ -586,6 +591,7 @@ mod tests {
         };
         let requested = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -616,6 +622,7 @@ mod tests {
         case.values.extend([("x".into(), 5.), ("p".into(), 6.)]);
         let rebound = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -631,6 +638,7 @@ mod tests {
             .unwrap();
         let completed = package
             .solve_case(
+                &runtime.execution_services(),
                 rebound,
                 fixture::compiler_profile(),
                 &crate::CancelSource::new(),
@@ -639,7 +647,7 @@ mod tests {
             .unwrap();
         let result = RunResult::joined(
             completed.run_id,
-            runtime.clone(),
+            runtime.execution_services(),
             crate::workflow::RunOutcome::Modeling {
                 request: vec![requested],
                 result: Ok(vec![completed]),
@@ -743,7 +751,10 @@ mod tests {
                 numerical: Default::default(),
             };
             let cancel = crate::CancelSource::new();
-            let requested = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+            let requested = package
+                .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+                .await
+                .unwrap();
             let symbol = |path: &str| {
                 let suffix = format!(".{path}");
                 requested
@@ -761,7 +772,10 @@ mod tests {
             // The executed step retains its rebound preparation; the submitted request
             // remains immutable, as it does for staged workflows.
             analysis.case.values.insert("p".into(), 4.);
-            let rebound = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+            let rebound = package
+                .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+                .await
+                .unwrap();
             assert_eq!(
                 rebound
                     .solve
@@ -770,7 +784,12 @@ mod tests {
                 3
             );
             let completed = package
-                .solve_case(rebound, analysis.compiler, &cancel)
+                .solve_case(
+                    &runtime.execution_services(),
+                    rebound,
+                    analysis.compiler,
+                    &cancel,
+                )
                 .await
                 .unwrap_or_else(|error| panic!("{}", error));
             assert_eq!(completed.accepted, permitted);
@@ -787,7 +806,7 @@ mod tests {
             }
             let result = RunResult::joined(
                 completed.run_id,
-                runtime.clone(),
+                runtime.execution_services(),
                 crate::workflow::RunOutcome::Modeling {
                     request: vec![requested],
                     result: Ok(vec![completed]),

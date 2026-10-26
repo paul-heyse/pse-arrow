@@ -19,7 +19,7 @@
 //!   only from a step whose decision permits it (ADR-0106, [`Start`]); a failed step seeds
 //!   nothing and does not stop independent steps.
 use super::{
-    ModelingAnalysis, ModelingPackage, ModelingResult, ModelingSolvePreparation, Runtime,
+    ExecutionServices, ModelingAnalysis, ModelingPackage, ModelingResult, ModelingSolvePreparation,
     WorkflowError,
     modeling::{assessment::Obligations, cases::CaseOverrides},
     numerics::{CandidateDecision, refused},
@@ -143,7 +143,7 @@ pub(in crate::workflow) struct StepRecord {
 /// One staged sequence over a native session.
 #[derive(Debug)]
 pub(in crate::workflow) struct Staged {
-    runtime: Runtime,
+    services: ExecutionServices,
     session: NativeSession,
     records: Vec<Record>,
     /// The actual completed original-assessment scope and profile, eligible only
@@ -159,12 +159,12 @@ impl Staged {
     /// # Errors
     /// No native job slot or pool capacity.
     pub(in crate::workflow) fn open(
-        runtime: &Runtime,
+        services: &ExecutionServices,
         progress: Option<Arc<Progress>>,
     ) -> Result<Self, WorkflowError> {
         Ok(Self {
-            runtime: runtime.clone(),
-            session: runtime.native().open_session()?,
+            services: services.clone(),
+            session: services.preparation().math().open_session()?,
             records: Vec::new(),
             independent: None,
             progress,
@@ -176,15 +176,16 @@ impl Staged {
     /// # Errors
     /// Pool capacity, or the session thread could not start.
     pub(in crate::workflow) async fn open_queued(
-        runtime: &Runtime,
+        services: &ExecutionServices,
         progress: Option<Arc<Progress>>,
         cancel: &crate::CancelSource,
         deadline: Option<Instant>,
     ) -> Result<Self, WorkflowError> {
         Ok(Self {
-            runtime: runtime.clone(),
-            session: runtime
-                .native()
+            services: services.clone(),
+            session: services
+                .preparation()
+                .math()
                 .open_session_queued(cancel, deadline)
                 .await?,
             records: Vec::new(),
@@ -302,9 +303,14 @@ impl Staged {
         self.independent = None;
         let assessment = self
             .session
-            .prepare(prepared.source.assessment(&prepared, obligations, cancel))
+            .prepare(prepared.source.assessment(
+                self.services.preparation(),
+                &prepared,
+                obligations,
+                cancel,
+            ))
             .await??;
-        let service = self.runtime.native();
+        let service = self.services.preparation().math();
         prepared.solve = prepared
             .solve
             .with_point_accuracy(service)
@@ -358,6 +364,7 @@ impl Staged {
             self.independent = Some((strategy.profile, original_scope));
         }
         Ok(ModelingResult::from_assessment(
+            self.services.preparation(),
             prepared,
             run_id,
             attempt,
@@ -429,6 +436,7 @@ impl Staged {
                         Some(model) => {
                             let resolution = package
                                 .resolve_prepared_case(
+                                    this.services.preparation(),
                                     model,
                                     step.case.clone(),
                                     step.order,
@@ -440,11 +448,18 @@ impl Staged {
                                     &child,
                                 )
                                 .await?;
-                            package.finish_case(resolution, &child).await
+                            package
+                                .finish_case(this.services.preparation(), resolution, &child)
+                                .await
                         }
                         None => {
                             package
-                                .prepare_analysis_attempt(&step, overrides, &child)
+                                .prepare_analysis_attempt(
+                                    this.services.preparation(),
+                                    &step,
+                                    overrides,
+                                    &child,
+                                )
                                 .await
                         }
                     }
@@ -493,7 +508,7 @@ impl Staged {
             super::modeling::assessment::Assessment,
             Arc<pse_columnar::AllocationLease>,
         );
-        let service = self.runtime.native();
+        let service = self.services.preparation().math();
         let mut bound: Vec<Result<Kept, WorkflowError>> = Vec::with_capacity(preparations.len());
         let mut states: Vec<Option<Assessing>> = Vec::new();
         let mut members = Vec::new();
@@ -506,7 +521,12 @@ impl Staged {
                     .map_err(crate::math::MathRuntimeError::from)?;
                 let assessment = self
                     .session
-                    .prepare(prepared.source.assessment(&prepared, obligations, cancel))
+                    .prepare(prepared.source.assessment(
+                        self.services.preparation(),
+                        &prepared,
+                        obligations,
+                        cancel,
+                    ))
                     .await??;
                 let owner =
                     service.reserve("math:solve-results", prepared.solve.result_bytes()?)?;
@@ -617,6 +637,7 @@ impl Staged {
                     Some(Ok((outcome, Some((point, completion, original_scope)), trace))) => {
                         independent = Some((trace.profile, original_scope));
                         Ok(ModelingResult::from_assessment(
+                            self.services.preparation(),
                             prepared,
                             run_id,
                             0,
@@ -676,7 +697,7 @@ impl Staged {
         cancel: &crate::CancelSource,
     ) -> Result<(), WorkflowError> {
         let Self {
-            runtime,
+            services,
             session,
             records,
             independent,
@@ -688,7 +709,7 @@ impl Staged {
             && !cancel.token().is_cancelled();
         drop(records);
         drop(progress);
-        drop(runtime);
+        drop(services);
         if let Some((affinity, original_scope)) = independent.filter(|_| healthy) {
             session
                 .park_independent(affinity, original_scope, cancel)
@@ -851,7 +872,10 @@ mod native_tests {
     use pse_compiler::workspace::ModelingCaseBindings;
     use std::time::Duration;
 
-    async fn package_on(runtime: &Runtime, source: &str) -> (ModelingPackage, ModelingAnalysis) {
+    async fn package_on(
+        runtime: &crate::workflow::Runtime,
+        source: &str,
+    ) -> (ModelingPackage, ModelingAnalysis) {
         let physical = physical();
         let rows = pse_authoring::language::parse(
             source,
@@ -920,6 +944,7 @@ mod native_tests {
                 preparations.push(
                     package
                         .prepare_solve(
+                            &runtime.preparation_services(),
                             analysis.root,
                             analysis.instance,
                             analysis.bindings.clone(),
@@ -989,7 +1014,7 @@ mod native_tests {
         let (package, analysis) = package_on(&runtime,
             "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x > 0); } }").await;
         let cancel = crate::CancelSource::new();
-        let mut staged = Staged::open(&runtime, None).unwrap();
+        let mut staged = Staged::open(&runtime.execution_services(), None).unwrap();
         let first_thread = staged
             .session
             .run(1, None, &cancel, |_, _, _| Ok(std::thread::current().id()))
@@ -1014,7 +1039,7 @@ mod native_tests {
         assert_eq!(staged.records.len(), 1);
         let parameter = symbol(&result, "t");
         staged.finish_independent(&cancel).await.unwrap();
-        let mut next = Staged::open(&runtime, None).unwrap();
+        let mut next = Staged::open(&runtime.execution_services(), None).unwrap();
         assert!(next.records.is_empty());
         assert!(next.predecessor().is_none());
         let (thread, neutral, no_advance) = next
@@ -1071,7 +1096,7 @@ mod native_tests {
             let (package, analysis) = package_on(&runtime,
                 "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x > 0); } }").await;
             let cancel = crate::CancelSource::new();
-            let mut staged = Staged::open(&runtime, None).unwrap();
+            let mut staged = Staged::open(&runtime.execution_services(), None).unwrap();
             let first_thread = staged
                 .session
                 .run(1, None, &cancel, |_, _, _| Ok(std::thread::current().id()))
@@ -1118,7 +1143,7 @@ mod native_tests {
                 assert!(!refused.accepted);
             }
             staged.finish_independent(&cancel).await.unwrap();
-            let next = Staged::open(&runtime, None).unwrap();
+            let next = Staged::open(&runtime.execution_services(), None).unwrap();
             let thread = next
                 .session
                 .run(1, None, &crate::CancelSource::new(), |_, _, _| {
@@ -1147,6 +1172,7 @@ mod native_tests {
         let before = runtime.native().preparations();
         let report = package
             .initialize_model(
+                &runtime.execution_services(),
                 &analysis,
                 ModelingInitialization {
                     stages: vec![],
@@ -1211,8 +1237,11 @@ mod native_tests {
             },
         );
         let cancel = crate::CancelSource::new();
-        let before = package.prepare_analysis(&analysis, &cancel).await.unwrap();
-        let mut staged = Staged::open(&runtime, None).unwrap();
+        let before = package
+            .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
+        let mut staged = Staged::open(&runtime.execution_services(), None).unwrap();
         // Swap the specification: free `t`, fix `x` far below zero. The step solves, but the
         // model check fails, so it is not accepted.
         let swap = Overlay {
@@ -1296,7 +1325,10 @@ mod native_tests {
             columns.contains(&symbol(&original, "x")) && !columns.contains(&symbol(&original, "t"))
         );
         // And for the package.
-        let after = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let after = package
+            .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
         assert_eq!(
             before.model.case.compiled().plan.structure().key(),
             after.model.case.compiled().plan.structure().key()

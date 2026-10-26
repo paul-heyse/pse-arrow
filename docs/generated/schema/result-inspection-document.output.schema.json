@@ -1487,7 +1487,7 @@
       "description": "Original governing permission and retained physical interpretation, independent of selected-product usability.",
       "properties": {
         "governing_permission": {
-          "description": "Producer-authored governing Assessment usable fact. Missing/error/infrastructure is unknown.",
+          "description": "Completion-owned original scientific permission. Missing original fact is unknown.",
           "type": [
             "boolean",
             "null"
@@ -2029,7 +2029,7 @@
         },
         "selection": {
           "$ref": "#/$defs/PackResultSelectionOutput",
-          "description": "Exact original source/terminal/range; usability remains Unknown."
+          "description": "Exact original source/terminal/range and available completion-owned product permission."
         }
       },
       "required": [
@@ -2129,7 +2129,7 @@
         },
         "selection": {
           "$ref": "#/$defs/PackResultSelectionOutput",
-          "description": "Exact original source/terminal/range; usability remains Unknown."
+          "description": "Exact original source/terminal/range and available completion-owned product permission."
         }
       },
       "required": [

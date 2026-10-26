@@ -199,14 +199,20 @@ async fn prepared(
     };
     analysis.bindings.demand.push("p".into());
     let cancel = crate::CancelSource::new();
-    let plain = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let plain = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     let parameter = plain.model.model.compiled().model.paths["p"];
     analysis.solver.sensitivity = Some(crate::math::settings::SensitivityRequest {
         parameters: vec![parameter],
         reduced_hessian: false,
         propagation: None,
     });
-    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let prepared = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     assert!(!prepared.solve.tolerances().rows.is_empty());
     assert_eq!(
         prepared
@@ -354,7 +360,12 @@ async fn actual_native_path_passes_fold_and_only_returns_original_physical_start
     let parameter = prepared.model.model.compiled().model.paths["p"];
     let cancel = crate::CancelSource::new();
     let base = package
-        .solve_case(prepared, analysis.compiler, &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            prepared,
+            analysis.compiler,
+            &cancel,
+        )
         .await
         .unwrap();
     let start = base.path_start(vec![-1., 0.]).unwrap();
@@ -518,7 +529,12 @@ async fn genuine_compiled_sheet_binds_prior_origin_then_certifies_actual_target_
     let parameter = prepared.model.model.compiled().model.paths["p"];
     let cancel = crate::CancelSource::new();
     let base = package
-        .solve_case(prepared.clone(), analysis.compiler, &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            prepared.clone(),
+            analysis.compiler,
+            &cancel,
+        )
         .await
         .unwrap();
     let start = base.path_start(vec![0., 1.]).unwrap();
@@ -650,7 +666,12 @@ async fn genuine_compiled_sheet_binds_prior_origin_then_certifies_actual_target_
         )
         .unwrap();
     let final_original = package
-        .solve_case(composed, analysis.compiler, &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            composed,
+            analysis.compiler,
+            &cancel,
+        )
         .await
         .unwrap();
     assert!(final_original.accepted);
@@ -719,7 +740,12 @@ async fn actual_path_rung_transfers_start_to_shared_original_correction_and_perm
     let parameter = prepared.model.model.compiled().model.paths["p"];
     let cancel = crate::CancelSource::new();
     let base = package
-        .solve_case(prepared.clone(), analysis.compiler, &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            prepared.clone(),
+            analysis.compiler,
+            &cancel,
+        )
         .await
         .unwrap();
     let start = base.path_start(vec![0., 1.]).unwrap();
@@ -789,7 +815,12 @@ async fn actual_path_rung_transfers_start_to_shared_original_correction_and_perm
         )
         .unwrap();
     let result = package
-        .solve_case(prepared, analysis.compiler, &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            prepared,
+            analysis.compiler,
+            &cancel,
+        )
         .await
         .unwrap();
     assert!(result.accepted);
@@ -912,12 +943,22 @@ async fn actual_compiled_fold_conditions_and_production_localization_keep_rank_e
     let cancel = crate::CancelSource::new();
     let task = scope();
     let base = package
-        .solve_case(prepared.clone(), analysis.compiler, &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            prepared.clone(),
+            analysis.compiler,
+            &cancel,
+        )
         .await
         .unwrap();
     let start = base.path_start(vec![-1., 0.]).unwrap();
     let curvature = package
-        .prepare_path_curvature(&prepared, task.clone(), &cancel)
+        .prepare_path_curvature(
+            &runtime.preparation_services(),
+            &prepared,
+            task.clone(),
+            &cancel,
+        )
         .await
         .unwrap();
     assert_eq!(curvature.source(), original.preparation_identity().unwrap());
@@ -1016,7 +1057,12 @@ async fn shared_driver_retains_actual_localized_event_under_original_completion(
     let cancel = crate::CancelSource::new();
     let task = scope();
     let base = package
-        .solve_case(prepared.clone(), analysis.compiler, &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            prepared.clone(),
+            analysis.compiler,
+            &cancel,
+        )
         .await
         .unwrap();
     let start = base.path_start(vec![-1., 0.]).unwrap();
@@ -1024,7 +1070,12 @@ async fn shared_driver_retains_actual_localized_event_under_original_completion(
     requested.policy.events = Some(event_policy(&original));
     requested.curvature = Some(
         package
-            .prepare_path_curvature(&prepared, task.clone(), &cancel)
+            .prepare_path_curvature(
+                &runtime.preparation_services(),
+                &prepared,
+                task.clone(),
+                &cancel,
+            )
             .await
             .unwrap(),
     );
@@ -1087,7 +1138,12 @@ async fn shared_driver_retains_actual_localized_event_under_original_completion(
         )
         .unwrap();
     let result = package
-        .solve_case(prepared, analysis.compiler, &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            prepared,
+            analysis.compiler,
+            &cancel,
+        )
         .await
         .unwrap();
     assert!(result.accepted);
@@ -1130,21 +1186,36 @@ async fn shared_driver_retains_actual_localized_event_under_original_completion(
 async fn actual_compiled_branch_singularity_is_unresolved_despite_second_curvature_and_source_mismatch_refuses()
  {
     let (runtime,package,analysis,preparation)=prepared("package p { def Root { param p:Scalar=0; var x:Scalar; annotation start x(0); eq root:x*x-p*p==0; } }").await;
-    let (_other_runtime,other_package,_other_analysis,other)=prepared("package p { def Root { param p:Scalar=0; var x:Scalar; annotation start x(0); eq root:x*x-p*p==1; } }").await;
+    let (other_runtime,other_package,_other_analysis,other)=prepared("package p { def Root { param p:Scalar=0; var x:Scalar; annotation start x(0); eq root:x*x-p*p==1; } }").await;
     let original = preparation.solve.clone();
     let parameter = preparation.model.model.compiled().model.paths["p"];
     let cancel = crate::CancelSource::new();
     let task = scope();
     let curvature = package
-        .prepare_path_curvature(&preparation, task.clone(), &cancel)
+        .prepare_path_curvature(
+            &runtime.preparation_services(),
+            &preparation,
+            task.clone(),
+            &cancel,
+        )
         .await
         .unwrap();
     let other_curvature = other_package
-        .prepare_path_curvature(&other, task.clone(), &cancel)
+        .prepare_path_curvature(
+            &other_runtime.preparation_services(),
+            &other,
+            task.clone(),
+            &cancel,
+        )
         .await
         .unwrap();
     let base = package
-        .solve_case(preparation, analysis.compiler, &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            preparation,
+            analysis.compiler,
+            &cancel,
+        )
         .await
         .unwrap();
     assert!(base.accepted);

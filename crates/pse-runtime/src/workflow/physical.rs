@@ -88,7 +88,7 @@ impl PhysicalContext {
     /// Renew only affected checks under this actual invocation, sharing immutable arrays.
     pub(super) fn readmit_context(
         &self,
-        runtime: &Runtime,
+        runtime: &super::PreparationServices,
         context: &pse_relations::validate::ValidationContext,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, WorkflowError> {

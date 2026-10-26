@@ -147,15 +147,18 @@ impl StudyMemberDemand {
 }
 
 impl StudyOutputDemand {
-    pub(super) fn validate(&self, runtime: &super::Runtime) -> Result<(), WorkflowError> {
+    pub(super) fn validate(
+        &self,
+        services: &super::PreparationServices,
+    ) -> Result<(), WorkflowError> {
         match self {
             Self::Full {} => Ok(()),
             Self::Compact {
                 detail,
                 failed_detail,
             } => {
-                detail.validate(runtime)?;
-                failed_detail.validate(runtime)
+                detail.validate(services)?;
+                failed_detail.validate(services)
             }
         }
     }
@@ -172,7 +175,7 @@ impl StudyOutputDemand {
 }
 
 impl StudyDetailDemand {
-    fn validate(&self, runtime: &super::Runtime) -> Result<(), WorkflowError> {
+    fn validate(&self, services: &super::PreparationServices) -> Result<(), WorkflowError> {
         if self.relations.is_empty() && self.members.is_empty() {
             if self.maximum_rows != 0 || self.maximum_bytes != 0 {
                 return Err(contract(
@@ -192,15 +195,14 @@ impl StudyDetailDemand {
             .checked_add(self.members.len())
             .and_then(|n| n.checked_mul(128))
             .ok_or_else(|| contract("study demand validation extent"))?;
-        let _owner = runtime
-            .shared
+        let _owner = services
             .math()
             .reserve("study:detail-key-validation", extent)?;
         let mut names = std::collections::BTreeSet::new();
         for name in &self.relations {
             if name.len() > 256
                 || !names.insert(name)
-                || runtime.registry().relation(name).is_none()
+                || services.registry().relation(name).is_none()
             {
                 return Err(contract("unknown or duplicate study detail relation"));
             }
@@ -443,7 +445,7 @@ impl CompactStudyResult {
         // Reserve the owned summary before its clone. Arrow buffers already carry
         // their original pool owners; the selection envelope also has a finite grant.
         let summary_owner = super::durable::completion_retention_owner(
-            &result.runtime.shared.pool(),
+            &result.services.preparation().pool(),
             &result.completion.as_ref().ok(),
         )?;
         let detail = capture_detail(result, demand)
@@ -470,8 +472,8 @@ async fn capture_detail(
         .and_then(|n| n.checked_add(demand.relation_names().count().checked_mul(1024)?))
         .ok_or_else(|| contract("study detail envelope extent"))?;
     let owner = result
-        .runtime
-        .shared
+        .services
+        .preparation()
         .math()
         .reserve("study:selected-detail-envelope", envelope)?;
     let mut allowance = DetailAllowance::new(demand);
@@ -486,14 +488,16 @@ async fn capture_detail(
             .table_cursor(name, 1024)
             .map_err(WorkflowError::Shared)?;
         let id = result
-            .runtime
+            .services
+            .preparation()
             .registry()
             .relation(name)
             .ok_or_else(|| contract("study detail relation disappeared"))?
             .id;
         #[cfg(test)]
         let cursor = controlled_capture_cursor(cursor, id)?;
-        let mut cursor = demand.select_cursor(name, id, cursor, result.runtime.shared.pool())?;
+        let mut cursor =
+            demand.select_cursor(name, id, cursor, result.services.preparation().pool())?;
         let mut relation = CompactRelation {
             schema: cursor.schema(),
             id,

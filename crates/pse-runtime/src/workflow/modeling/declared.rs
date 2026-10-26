@@ -221,9 +221,6 @@ impl DeclaredExecution {
         if !same_scope
             || source.revision.identity() != package.revision.identity()
             || source.revision.revision_id() != package.revision.revision_id()
-            || !Arc::ptr_eq(&source.runtime.shared, &package.runtime.shared)
-            || !Arc::ptr_eq(source.runtime.sessions(), package.runtime.sessions())
-            || !Arc::ptr_eq(source.runtime.registry(), package.runtime.registry())
             || source.physical.key != package.physical.key
             || !Arc::ptr_eq(&source.physical.quantities, &package.physical.quantities)
             || !Arc::ptr_eq(
@@ -312,6 +309,7 @@ impl ModelingPackage {
     /// Admit the authored route/procedure before any operation executes it.
     pub async fn declared_execution(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         compiler: Profile,
         solver: SolverProfile,
@@ -319,12 +317,13 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 self.declared_execution_with_demand(
+                    services,
                     root,
                     compiler,
                     solver,
@@ -346,6 +345,7 @@ impl ModelingPackage {
     )]
     pub async fn declared_execution_with_demand(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         compiler: Profile,
         solver: SolverProfile,
@@ -354,9 +354,9 @@ impl ModelingPackage {
         demand: Vec<String>,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let row = self.declaration(root).await?;
@@ -371,7 +371,7 @@ impl ModelingPackage {
                 bindings.demand.dedup();
                 let instance = pse_modeling::specialize::root_instance(root);
                 let model = self
-                    .prepare(root, instance, bindings.clone(), limits, cancel)
+                    .prepare(services, root, instance, bindings.clone(), limits, cancel)
                     .await?;
                 let fixture = model.compiled().model.fixtures.get(&instance);
                 let case = fixture.map(ModelingCaseBindings::from).unwrap_or_default();
@@ -438,9 +438,7 @@ impl ModelingPackage {
                     + self.revision.revision_id().len()
                     + self.physical.sources.len() * 256
                     + 512;
-                let owner = self
-                    .runtime
-                    .shared
+                let owner = services
                     .math()
                     .reserve("modeling:declared-preparation", bytes)?;
                 let prepared = Arc::new(pse_columnar::Leased::new(
@@ -468,10 +466,11 @@ impl ModelingPackage {
     /// Prepare only an admitted algebraic solve procedure; inspection never executes it.
     pub async fn prepare_declared(
         &self,
+        services: &crate::workflow::PreparationServices,
         execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 if !matches!(execution.procedure, DeclaredProcedure::Solve) {
@@ -483,6 +482,7 @@ impl ModelingPackage {
                 let analysis = &execution.analysis;
                 let resolution = self
                     .resolve_prepared_case(
+                        services,
                         model,
                         analysis.case.clone(),
                         analysis.order,
@@ -494,22 +494,23 @@ impl ModelingPackage {
                         cancel,
                     )
                     .await?;
-                self.finish_case(resolution, cancel).await
+                self.finish_case(services, resolution, cancel).await
             })
             .await
     }
     /// Execute the admitted algebraic procedure, including its authored initialization.
     pub async fn execute_declared(
         &self,
+        services: &crate::workflow::ExecutionServices,
         execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity.scope(async {
         match &execution.procedure {
             DeclaredProcedure::Solve => {
-                self.solve_case(
-                    self.prepare_declared(execution, cancel).await?,
+                self.solve_case(services,
+                    self.prepare_declared(services.preparation(), execution, cancel).await?,
                     execution.analysis.compiler,
                     cancel,
                 )
@@ -517,7 +518,7 @@ impl ModelingPackage {
             }
             DeclaredProcedure::Initialize(plan) => {
                 let report = self
-                    .initialize_model_with_prepared(
+                    .initialize_model_with_prepared(services,
                         &execution.analysis,
                         plan.clone(),
                         Some(execution.prepared_model(self)?),
@@ -547,15 +548,17 @@ impl ModelingPackage {
     /// Execute an explicitly admitted compatible initialization policy.
     pub async fn initialize_declared(
         &self,
+        services: &crate::workflow::ExecutionServices,
         execution: &DeclaredExecution,
         overrides: InitializationOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
                 let policy = execution.initialization(overrides)?;
                 self.initialize_model_with_prepared(
+                    services,
                     &execution.analysis,
                     policy,
                     Some(execution.prepared_model(self)?),
@@ -568,16 +571,18 @@ impl ModelingPackage {
     /// Fitting may retain an explicit route only when it agrees with the authored case.
     pub(in crate::workflow) async fn declared_case(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         route: Route,
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<(Bindings, ModelingCaseBindings), WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let execution = self
                     .declared_execution(
+                        services,
                         root,
                         Default::default(),
                         Default::default(),
@@ -619,6 +624,7 @@ mod tests {
         let compiler = crate::workflow::tests::compiler_profile();
         let mut undemanded = package
             .declared_execution(
+                &runtime.preparation_services(),
                 root,
                 compiler,
                 Default::default(),
@@ -639,13 +645,14 @@ mod tests {
         undemanded.analysis.case.values.insert("root.x".into(), 4.);
         assert!(
             package
-                .prepare_declared_diagnostics(&undemanded, &cancel)
+                .prepare_declared_diagnostics(&runtime.preparation_services(), &undemanded, &cancel)
                 .await
                 .is_err()
         );
 
         let mut execution = package
             .declared_execution_with_demand(
+                &runtime.preparation_services(),
                 root,
                 compiler,
                 Default::default(),
@@ -667,7 +674,7 @@ mod tests {
                 .values
                 .insert("root.x".into(), value);
             let prepared = package
-                .prepare_declared_diagnostics(&execution, &cancel)
+                .prepare_declared_diagnostics(&runtime.preparation_services(), &execution, &cancel)
                 .await
                 .unwrap();
             assert_eq!(prepared.model.values.scalars[&x], value);
@@ -701,7 +708,7 @@ mod tests {
             .insert("root.absent".into(), 6.);
         assert!(
             package
-                .prepare_declared_diagnostics(&execution, &cancel)
+                .prepare_declared_diagnostics(&runtime.preparation_services(), &execution, &cancel)
                 .await
                 .is_err()
         );
@@ -725,6 +732,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let execution = package
             .declared_execution_with_demand(
+                &runtime.preparation_services(),
                 root,
                 crate::workflow::tests::compiler_profile(),
                 Default::default(),
@@ -736,9 +744,14 @@ mod tests {
             .await
             .unwrap();
         assert!(matches!(execution.procedure, DeclaredProcedure::Check));
-        assert!(package.prepare_declared(&execution, &cancel).await.is_err());
+        assert!(
+            package
+                .prepare_declared(&runtime.preparation_services(), &execution, &cancel)
+                .await
+                .is_err()
+        );
         let prepared = package
-            .prepare_declared_diagnostics(&execution, &cancel)
+            .prepare_declared_diagnostics(&runtime.preparation_services(), &execution, &cancel)
             .await
             .unwrap();
         assert_eq!(
@@ -771,7 +784,7 @@ mod tests {
         let mut changed = execution.clone();
         changed.analysis.case.values.insert(path.clone(), 4.);
         let updated = package
-            .prepare_declared_diagnostics(&changed, &cancel)
+            .prepare_declared_diagnostics(&runtime.preparation_services(), &changed, &cancel)
             .await
             .unwrap();
         assert_eq!(updated.model.values.scalars[&x], 4.);
@@ -782,7 +795,7 @@ mod tests {
             .push("root.not_admitted".into());
         assert!(
             package
-                .prepare_declared_diagnostics(&changed, &cancel)
+                .prepare_declared_diagnostics(&runtime.preparation_services(), &changed, &cancel)
                 .await
                 .is_err()
         );
@@ -790,20 +803,24 @@ mod tests {
         changed.analysis.instance = InstanceId::from_id(SemanticId::NIL);
         assert!(
             package
-                .prepare_declared_diagnostics(&changed, &cancel)
+                .prepare_declared_diagnostics(&runtime.preparation_services(), &changed, &cancel)
                 .await
                 .is_err()
         );
         let foreign = runtime
             .modeling_package(
-                package.declarations().await.unwrap().to_vec(),
+                package
+                    .declarations(&runtime.preparation_services())
+                    .await
+                    .unwrap()
+                    .to_vec(),
                 crate::workflow::tests::physical(),
             )
             .await
             .unwrap();
         assert!(
             foreign
-                .prepare_declared_diagnostics(&execution, &cancel)
+                .prepare_declared_diagnostics(&runtime.preparation_services(), &execution, &cancel)
                 .await
                 .is_err()
         );
@@ -837,6 +854,7 @@ mod tests {
         let compiler = crate::workflow::tests::compiler_profile();
         let execution = package
             .admit_declared_request(
+                &runtime.preparation_services(),
                 root,
                 &crate::workflow::PreparationSettings {
                     compiler,
@@ -868,9 +886,15 @@ mod tests {
                 })
                 .is_err()
         );
-        assert!(package.prepare_declared(&execution, &cancel).await.is_err());
+        assert!(
+            package
+                .prepare_declared(&runtime.preparation_services(), &execution, &cancel)
+                .await
+                .is_err()
+        );
         let solving = package
             .declared_execution(
+                &runtime.preparation_services(),
                 solving,
                 compiler,
                 Default::default(),

@@ -8,6 +8,7 @@
 )]
 
 use super::*;
+use crate::workflow::Runtime;
 use datafusion::{
     arrow::array::{Array, FixedSizeBinaryArray, Float64Array},
     logical_expr::{col, lit},
@@ -223,7 +224,7 @@ async fn canonical_selection_reuses_one_physical_plan_for_pages_unknown_facts_an
     let observed = hub.start("selection native preparation");
     pse_diagnostics::observation::scope(Some(observed.context()), async {
         let selection = NativeResultSelection::new(
-            &runtime,
+            &runtime.source_services(),
             fit_parameters::RELATION_ID,
             snapshot.schema(),
             &snapshot.session_state(),
@@ -236,7 +237,7 @@ async fn canonical_selection_reuses_one_physical_plan_for_pages_unknown_facts_an
             let descriptor = snapshot.0.batches.get(&block.batch).unwrap();
             assert!(
                 selection
-                    .block_may_match(&runtime, block, descriptor)
+                    .block_may_match(&runtime.source_services(), block, descriptor)
                     .unwrap()
             );
         }
@@ -246,13 +247,13 @@ async fn canonical_selection_reuses_one_physical_plan_for_pages_unknown_facts_an
         unknown.statistics = None;
         assert!(
             selection
-                .block_may_match(&runtime, &unknown, descriptor)
+                .block_may_match(&runtime.source_services(), &unknown, descriptor)
                 .unwrap()
         );
         unknown.statistics = Some(vec![0xff].into());
         assert!(
             selection
-                .block_may_match(&runtime, &unknown, descriptor)
+                .block_may_match(&runtime.source_services(), &unknown, descriptor)
                 .unwrap()
         );
         let checked = snapshot
@@ -356,27 +357,27 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
     unknown.statistics = None;
     assert!(
         NativeResultSelection::new(
-            &runtime,
+            &runtime.source_services(),
             fit_parameters::RELATION_ID,
             snapshot.schema(),
             &snapshot.session_state(),
             col("value").gt(lit(1000.0)),
         )
         .unwrap()
-        .block_may_match(&runtime, &unknown, descriptor)
+        .block_may_match(&runtime.source_services(), &unknown, descriptor)
         .unwrap()
     );
     unknown.statistics = Some(vec![0xff].into());
     assert!(
         NativeResultSelection::new(
-            &runtime,
+            &runtime.source_services(),
             fit_parameters::RELATION_ID,
             snapshot.schema(),
             &snapshot.session_state(),
             col("value").gt(lit(1000.0)),
         )
         .unwrap()
-        .block_may_match(&runtime, &unknown, descriptor)
+        .block_may_match(&runtime.source_services(), &unknown, descriptor)
         .unwrap()
     );
 
@@ -398,7 +399,7 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
         snapshot.schema().metadata().clone(),
     ));
     let wrong = ProtectedResultDecode::new(
-        &runtime,
+        &runtime.source_services(),
         decode.read.clone(),
         decode.read_owner.clone(),
         fit_parameters::RELATION_ID,

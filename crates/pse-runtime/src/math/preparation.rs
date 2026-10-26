@@ -32,7 +32,7 @@ pub(crate) struct BasisKey {
     limits: Limits,
     /// Process-local bucket hint; complete fields above remain the equality authority.
     prehash: u64,
-    _validation_owner: pse_engine::session::BoundModel,
+    _validation_owner: Arc<pse_relations::validate::ValidationContext>,
     _selected_metadata: Arc<AllocationLease>,
     _owner: Arc<AllocationLease>,
 }

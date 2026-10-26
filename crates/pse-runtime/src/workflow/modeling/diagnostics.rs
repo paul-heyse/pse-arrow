@@ -116,7 +116,7 @@ pub struct ModelingDiagnostics {
     pub(super) encodings: Arc<crate::workflow::result_export::EncodingState>,
     /// Identity of this diagnostic run.
     pub run_id: RunId,
-    pub(super) runtime: Runtime,
+    pub(super) services: crate::workflow::PreparationServices,
     pub(super) source_identity: pse_ids::ContentHash,
     pub(super) numerical_identity: pse_ids::ContentHash,
     pub(super) point: CaseValues,
@@ -548,14 +548,16 @@ impl ModelingPackage {
     /// Resolve starts, specifications, source precedence and nested providers without requesting a solve.
     pub async fn prepare_diagnostics(
         &self,
+        services: &crate::workflow::PreparationServices,
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingDiagnosticPreparation, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let resolved = self
                     .resolve_case(
+                        services,
                         analysis.root,
                         analysis.instance,
                         analysis.bindings.clone(),
@@ -570,7 +572,7 @@ impl ModelingPackage {
                         cancel,
                     )
                     .await?;
-                self.finish_diagnostics(resolved)
+                self.finish_diagnostics(services, resolved)
             })
             .await
     }
@@ -578,16 +580,18 @@ impl ModelingPackage {
     /// independently of the authored execution procedure.
     pub async fn prepare_declared_diagnostics(
         &self,
+        services: &crate::workflow::PreparationServices,
         execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingDiagnosticPreparation, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let model = execution.prepared_model(self)?;
                 let analysis = &execution.analysis;
                 let resolved = self
                     .resolve_prepared_case(
+                        services,
                         model,
                         analysis.case.clone(),
                         pse_kernels::DerivativeOrder::First,
@@ -599,12 +603,13 @@ impl ModelingPackage {
                         cancel,
                     )
                     .await?;
-                self.finish_diagnostics(resolved)
+                self.finish_diagnostics(services, resolved)
             })
             .await
     }
     fn finish_diagnostics(
         &self,
+        services: &crate::workflow::PreparationServices,
         resolved: cases::ModelingCaseResolution,
     ) -> Result<ModelingDiagnosticPreparation, WorkflowError> {
         let mut route_decision = resolved.route_decision()?;
@@ -634,7 +639,7 @@ impl ModelingPackage {
             .numerical_targets(physical)
             .map_err(crate::math::MathRuntimeError::from)?;
         targets.extend(resolved.numerical.targets);
-        let numerics = self.runtime.native().policy_resolution_owner().resolve(
+        let numerics = services.math().policy_resolution_owner().resolve(
             physical.clone(),
             resolved.model.case.compiled().preconditions.clone(),
             &targets,
@@ -652,13 +657,14 @@ impl ModelingPackage {
     /// Diagnostic-only model analysis. It neither changes a candidate nor upgrades solver status.
     pub async fn diagnose_case(
         &self,
+        services: &crate::workflow::ExecutionServices,
         prepared: ModelingDiagnosticPreparation,
         values: CaseValues,
         policy: ModelingDiagnosticPolicy,
         compiler: pse_compiler::workspace::Profile,
         operation: &super::super::DiagnosticOperation,
     ) -> Result<ModelingDiagnostics, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity.scope(async {
         operation.check()?;
         policy.validate()?;
@@ -703,9 +709,7 @@ impl ModelingPackage {
             .and_then(|n| n.checked_add(policy.matrix.dense_entries.checked_mul(64)?)
             .and_then(|n| n.checked_add(operation.retained_bytes())))
             .ok_or_else(|| contract("diagnostic storage extent"))?;
-        let owner = self
-            .runtime
-            .shared
+        let owner = services.preparation()
             .math()
             .reserve("modeling:diagnostic-report", extent)?;
         let nominal = |id, kind| {
@@ -728,10 +732,11 @@ impl ModelingPackage {
         let inequality_count = assessment.equations.len() - equality_count;
         let free_count = assessment.variables.len();
         let mut report = ModelingDiagnostics {
+                    services: services.preparation().clone(),
             origin: operation.origin.clone(),
             encodings: Arc::default(),
             run_id: pse_operations::mint_id(),
-            runtime: self.runtime.clone(),
+
             source_identity: plan.structure().key(),
             numerical_identity: numerics.key,
             point: values.clone(),
@@ -987,7 +992,7 @@ impl ModelingPackage {
                 }
             }
         }
-        let service = self.runtime.shared.math();
+        let service = services.preparation().math();
         let assembly = crate::math::MathService::within_task(operation.scope(), operation.driver(), service.assemble(prepared.case.clone())).await?;
         let row_ids = structure.rows().iter().map(|r| r.id).collect::<Vec<_>>();
         let columns = plan.columns().to_vec();
@@ -1237,7 +1242,7 @@ impl ModelingPackage {
             .map(|(id, _)| *id)
             .collect();
         match self
-            .observe_registered(
+            .observe_registered(services.preparation(),
                 prepared.model.clone(),
                 terms,
                 values,
@@ -1323,6 +1328,7 @@ mod tests {
             solve::{Backend, SolveIntent, SolverSelection},
         };
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let declarations = pse_authoring::language::parse(
             "package p { def D {var x:Scalar; eq lo:x*x>=4; eq hi:x*x<=1; eq spare:x*x<=100; annotation start x(1.5);} }",
             SemanticId::from_bytes([175; 16]),
@@ -1356,7 +1362,7 @@ mod tests {
         };
         let cancel = crate::CancelSource::new();
         let prepared = package
-            .prepare_diagnostics(&analysis, &cancel)
+            .prepare_diagnostics(services.preparation(), &analysis, &cancel)
             .await
             .unwrap();
         let decision = &prepared.route_decision;
@@ -1421,6 +1427,7 @@ mod tests {
         .unwrap();
         let report = package
             .diagnose_case(
+                &services,
                 prepared.clone(),
                 values.clone(),
                 policy.clone(),
@@ -1452,7 +1459,14 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(1)).await;
         assert!(
             package
-                .diagnose_case(prepared, values, policy, analysis.compiler, &expired)
+                .diagnose_case(
+                    &services,
+                    prepared,
+                    values,
+                    policy,
+                    analysis.compiler,
+                    &expired
+                )
                 .await
                 .is_err()
         );
@@ -1463,7 +1477,12 @@ mod tests {
         assert!(report.route_decision.selected.is_none());
         assert!(
             package
-                .prepare_analysis_attempt(&analysis, Default::default(), &cancel)
+                .prepare_analysis_attempt(
+                    services.preparation(),
+                    &analysis,
+                    Default::default(),
+                    &cancel
+                )
                 .await
                 .is_err()
         );
@@ -1472,6 +1491,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_diagnostics_missing_starts_remain_missing_and_solves_stay_strict() {
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let physical = super::super::super::tests::physical();
         let declarations = pse_authoring::language::parse(
             "package p { def Root {var x:Scalar; eq e:x==2; annotation bounds x(0,1);} }",
@@ -1499,7 +1519,7 @@ mod tests {
             numerical: Default::default(),
         };
         let prepared = package
-            .prepare_diagnostics(&analysis, &cancel)
+            .prepare_diagnostics(services.preparation(), &analysis, &cancel)
             .await
             .unwrap();
         assert!(prepared.model.values.scalars.is_empty());
@@ -1512,6 +1532,7 @@ mod tests {
                 .unwrap();
         let report = package
             .diagnose_case(
+                &services,
                 prepared.clone(),
                 prepared.model.values.clone(),
                 policy.clone(),
@@ -1536,18 +1557,24 @@ mod tests {
         );
         assert!(
             package
-                .prepare_analysis_attempt(&analysis, Default::default(), &cancel)
+                .prepare_analysis_attempt(
+                    services.preparation(),
+                    &analysis,
+                    Default::default(),
+                    &cancel
+                )
                 .await
                 .is_err()
         );
         analysis.case.values.insert("x".into(), 2.);
         let prepared = package
-            .prepare_diagnostics(&analysis, &cancel)
+            .prepare_diagnostics(services.preparation(), &analysis, &cancel)
             .await
             .unwrap();
         assert_eq!(key, prepared.model.case.compiled().plan.structure().key());
         let report = package
             .diagnose_case(
+                &services,
                 prepared.clone(),
                 prepared.model.values.clone(),
                 policy,
@@ -1569,7 +1596,12 @@ mod tests {
         );
         assert!(
             package
-                .prepare_analysis_attempt(&analysis, Default::default(), &cancel)
+                .prepare_analysis_attempt(
+                    services.preparation(),
+                    &analysis,
+                    Default::default(),
+                    &cancel
+                )
                 .await
                 .is_err()
         );
@@ -1583,7 +1615,7 @@ mod tests {
         );
         assert!(
             package
-                .prepare_diagnostics(&analysis, &cancel)
+                .prepare_diagnostics(services.preparation(), &analysis, &cancel)
                 .await
                 .unwrap_err()
                 .to_string()
@@ -1593,6 +1625,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_diagnostics_name_sources_and_keep_numerical_rank_distinct_from_structure() {
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let physical = super::super::super::tests::physical();
         let rows = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; var y:Scalar; eq a:x+y==0; eq b:2*x+2*y==0; } }",
@@ -1624,7 +1657,7 @@ mod tests {
             numerical: Default::default(),
         };
         let prepared = package
-            .prepare_diagnostics(&analysis, &cancel)
+            .prepare_diagnostics(services.preparation(), &analysis, &cancel)
             .await
             .unwrap();
         assert_eq!(prepared.model.case.structure().matching.len(), 2);
@@ -1853,6 +1886,7 @@ mod tests {
         };
         let report = package
             .diagnose_case(
+                &services,
                 prepared.clone(),
                 values.clone(),
                 p.clone(),
@@ -1895,6 +1929,7 @@ mod tests {
         ];
         let samples = package
             .diagnose_samples(
+                &services,
                 prepared.clone(),
                 points.clone(),
                 p.clone(),
@@ -1916,6 +1951,7 @@ mod tests {
         assert!(samples.outcomes[2].1.as_ref().unwrap().complete);
         let samples = package
             .diagnose_samples(
+                &services,
                 prepared.clone(),
                 points.clone(),
                 p.clone(),
@@ -1936,6 +1972,7 @@ mod tests {
         stopped.cancel();
         let samples = package
             .diagnose_samples(
+                &services,
                 prepared.clone(),
                 points,
                 p.clone(),
@@ -1994,13 +2031,14 @@ mod tests {
                 ..analysis
             };
             let prepared = nested
-                .prepare_diagnostics(&analysis, &cancel)
+                .prepare_diagnostics(services.preparation(), &analysis, &cancel)
                 .await
                 .unwrap();
             assert_eq!(prepared.providers.len(), 1);
             let values = prepared.model.values.clone();
             let report = nested
                 .diagnose_case(
+                    &services,
                     prepared,
                     values,
                     p,
@@ -2036,6 +2074,7 @@ mod tests {
         {
             let native = package
                 .diagnose_jacobian_optimization(
+                    &services,
                     prepared,
                     values,
                     pse_backend_native::jacobian_diagnostics::Policy {
@@ -2078,7 +2117,7 @@ pub struct ModelingJacobianOptimization {
     /// Certificates, degenerate sets and every native attempt.
     pub evidence: pse_backend_native::jacobian_diagnostics::Report,
     pub(in crate::workflow::modeling) quantities: Arc<pse_quantity::QuantityRegistry>,
-    pub(in crate::workflow::modeling) runtime: Runtime,
+    pub(in crate::workflow::modeling) services: crate::workflow::PreparationServices,
     pub(in crate::workflow::modeling) source_identity: pse_ids::ContentHash,
     pub(in crate::workflow::modeling) numerical_identity: pse_ids::ContentHash,
     pub(in crate::workflow::modeling) point: CaseValues,
@@ -2092,13 +2131,14 @@ impl ModelingPackage {
     /// Separate bounded native analyses of a scaled Jacobian, under one admitted worker.
     pub async fn diagnose_jacobian_optimization(
         &self,
+        services: &crate::workflow::ExecutionServices,
         prepared: ModelingDiagnosticPreparation,
         values: CaseValues,
         policy: pse_backend_native::jacobian_diagnostics::Policy,
         controls: pse_backend_native::solve::Controls,
         operation: &super::super::DiagnosticOperation,
     ) -> Result<ModelingJacobianOptimization, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
                 controls
@@ -2138,7 +2178,7 @@ impl ModelingPackage {
                     .and_then(|n| n.checked_add(values.scalars.len().checked_mul(128)?))
                     .and_then(|n| n.checked_add(operation.retained_bytes()))
                     .ok_or_else(|| contract("native diagnostic extent"))?;
-                let service = self.runtime.shared.math();
+                let service = services.preparation().math();
                 let owner = service.reserve("modeling:native-diagnostics", allowance)?;
                 let point = values.clone();
                 let row_nominals = rows
@@ -2194,10 +2234,11 @@ impl ModelingPackage {
                     .await?;
                 operation.check()?;
                 Ok(ModelingJacobianOptimization {
+                    services: services.preparation().clone(),
                     quantities: self.physical.quantities.clone(),
                     origin: operation.origin.clone(),
                     run_id: pse_operations::mint_id(),
-                    runtime: self.runtime.clone(),
+
                     source_identity,
                     numerical_identity,
                     point,

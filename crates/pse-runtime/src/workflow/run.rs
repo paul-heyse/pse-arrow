@@ -8,7 +8,8 @@
 //! heartbeat lease whose durable cancellation flag stops it, streams its progress, and
 //! records its typed termination before its result is published to waiters.
 use super::{
-    RunOutcome, RunReport, RunRequest, Runtime, WorkflowError, contract,
+    ExecutionServices, RunOutcome, RunReport, RunRequest, Runtime, WorkflowError, contract,
+    deadline_limit,
     durable::{Canceller, Durability, DurableAttempt, RunDurability},
     run_outcome::PairedOperation,
 };
@@ -205,7 +206,7 @@ pub struct RunResult {
     /// The run: an execution identity, not mathematical content identity. A retried
     /// job's tries share it; each try is its own attempt.
     pub run_id: RunId,
-    pub(crate) runtime: Runtime,
+    pub(crate) services: ExecutionServices,
     pub(crate) outcome: RunOutcome,
     pub(crate) _owner: Option<Arc<pse_columnar::AllocationLease>>,
     /// Completed modeling steps retained when a later step fails.
@@ -229,13 +230,15 @@ impl RunResult {
     /// A joined result before completion capture and durable recording.
     pub(super) fn joined(
         run_id: RunId,
-        runtime: Runtime,
+        services: ExecutionServices,
         outcome: RunOutcome,
         owner: Option<Arc<pse_columnar::AllocationLease>>,
     ) -> Self {
-        let result_validation = Arc::new(runtime.validation_context().new_scope());
-        let projection_owner =
-            super::result_export::ProjectionOwner::new(&runtime, result_validation.clone());
+        let result_validation = Arc::new(services.preparation().validation_context().new_scope());
+        let projection_owner = super::result_export::ProjectionOwner::new(
+            services.preparation(),
+            result_validation.clone(),
+        );
         Self {
             invocation: crate::invocation::current(),
             invocation_cancelled: false,
@@ -252,7 +255,7 @@ impl RunResult {
             horizon_tightenings: None,
             horizon_unmerged: None,
             run_id,
-            runtime,
+            services,
             outcome,
             _owner: owner,
             modeling_failure: None,
@@ -269,9 +272,10 @@ impl RunResult {
     }
     fn reset_result_projection(&mut self) {
         self.attempt_summary.take();
-        self.result_validation = Arc::new(self.runtime.validation_context().new_scope());
+        self.result_validation =
+            Arc::new(self.services.preparation().validation_context().new_scope());
         self.projection_owner = super::result_export::ProjectionOwner::new(
-            &self.runtime,
+            self.services.preparation(),
             self.result_validation.clone(),
         );
     }
@@ -282,7 +286,9 @@ impl RunResult {
     /// Every requested candidate is a result under the requested usability policy.
     /// Seed-only and diagnostic-only candidates are never results (ADR-0106).
     pub fn usable(&self) -> bool {
-        super::completion::governing_permission(self.report().is_ok(), &self.assessments)
+        self.completion
+            .as_ref()
+            .is_ok_and(super::Completion::permits_result)
     }
     pub(super) fn modeling_result(&self, step: usize) -> Option<&super::ModelingResult> {
         match self.report() {
@@ -540,7 +546,12 @@ impl RunResult {
             });
             // Completed computation remains in the report; estimate-derived products
             // require the actual governing original qualification as well.
-            let original_permission = self.usable();
+            let product_permission = |quantity| {
+                self.completion()
+                    .ok()
+                    .and_then(|c| c.product_permission(quantity))
+                    .is_some_and(super::ProductPermission::permits_result)
+            };
             let covariance = report.and_then(|r| r.covariance.as_ref());
             products.push(InvocationProduct {
                 step: None,
@@ -553,7 +564,9 @@ impl RunResult {
                             .parameters
                             .iter()
                             .any(|p| !p.fixed),
-                    original_permission && covariance.is_some_and(|r| r.values.is_ok()),
+                    product_permission(
+                        pse_model::generated::enums::DerivedQuantity::ParameterCovariance,
+                    ),
                 ),
             });
             let uncertainty = prepared.problem.profile.uncertainty.as_ref();
@@ -562,10 +575,7 @@ impl RunResult {
                 role: "wald_intervals".into(),
                 availability: availability(
                     uncertainty.is_some(),
-                    original_permission
-                        && report
-                            .and_then(|r| r.wald.as_ref())
-                            .is_some_and(Result::is_ok),
+                    product_permission(pse_model::generated::enums::DerivedQuantity::WaldInterval),
                 ),
             });
             products.push(InvocationProduct {
@@ -573,18 +583,17 @@ impl RunResult {
                 role: "profile_intervals".into(),
                 availability: availability(
                     uncertainty.is_some_and(|u| u.profile.is_some()),
-                    original_permission
-                        && report
-                            .and_then(|r| r.profiles.as_ref())
-                            .is_some_and(Result::is_ok),
+                    product_permission(
+                        pse_model::generated::enums::DerivedQuantity::ProfileInterval,
+                    ),
                 ),
             });
         }
         match self.report() {
-            Ok(RunReport::Simulation(trajectory)) => products.push(InvocationProduct {
+            Ok(RunReport::Simulation(_)) => products.push(InvocationProduct {
                 role: "trajectory".into(),
                 step: None,
-                availability: if trajectory.accepted() {
+                availability: if self.usable() {
                     ProductAvailability::Available
                 } else {
                     ProductAvailability::Unavailable
@@ -594,7 +603,7 @@ impl RunResult {
             Ok(RunReport::Shooting(report)) => products.push(InvocationProduct {
                 role: "shooting_trajectory".into(),
                 step: None,
-                availability: if report.completion.permits_use() && report.trajectory.is_some() {
+                availability: if self.usable() && report.trajectory.is_some() {
                     ProductAvailability::Available
                 } else {
                     ProductAvailability::Unavailable
@@ -610,8 +619,11 @@ impl RunResult {
                 let result = self.modeling_result(step);
                 // Each original completion governs its own scientific products. A
                 // later refused/failed sequence member cannot erase accepted work.
-                let original_permission =
-                    result.is_some_and(|result| result.completion.permits_use());
+                let original_permission = self
+                    .completion()
+                    .ok()
+                    .and_then(|completion| completion.step_permission(step))
+                    .is_some_and(super::ScientificPermission::permits_result);
                 let native = result.and_then(|result| match &result.outcome {
                     crate::math::solves::Outcome::Native(native) => Some(native.as_ref()),
                     _ => None,
@@ -721,10 +733,10 @@ impl RunResult {
 /// The durable attempt of a run under `runtime`'s class, or none when ephemeral. A worker
 /// passes the attempt it claimed with its job, already under its lease.
 fn attempt_for(
-    runtime: &Runtime,
+    services: &ExecutionServices,
     given: Option<DurableAttempt>,
 ) -> Result<Option<DurableAttempt>, WorkflowError> {
-    match (&runtime.durability, given) {
+    match (&services.durability, given) {
         (Durability::Ephemeral, None) => Ok(None),
         (Durability::Ephemeral, Some(_)) => {
             Err(contract("a claimed job runs only on a durable runtime"))
@@ -744,6 +756,7 @@ fn progress_for(history: usize, durable: Option<&DurableAttempt>) -> Arc<Progres
 /// Register a durable attempt (planned, queued), wait for native admission, and enter
 /// running under its lease; `admission` resolves once native admission holds.
 async fn admit<T>(
+    services: &super::SourceServices,
     durable: &mut Option<DurableAttempt>,
     run_id: RunId,
     request: &RunRequest<'_>,
@@ -751,7 +764,7 @@ async fn admit<T>(
     cancel: Canceller,
 ) -> Result<T, WorkflowError> {
     if let Some(attempt) = durable.as_ref() {
-        attempt.register(run_id, request).await?;
+        attempt.register(services, run_id, request).await?;
     }
     if let Some(attempt) = durable.as_mut() {
         attempt.start(cancel).await?;
@@ -793,7 +806,7 @@ async fn admitted(signal: Option<tokio::sync::oneshot::Receiver<()>>) -> Result<
 /// One owner for execution identity, cancellation, progress and joined publication.
 /// Operation code retains its typed scientific finish, including partial prefixes.
 pub(in crate::workflow) struct RunSupervisor {
-    pub(in crate::workflow) runtime: Runtime,
+    pub(in crate::workflow) services: ExecutionServices,
     pub(in crate::workflow) run_id: RunId,
     pub(in crate::workflow) durable: Option<DurableAttempt>,
     pub(in crate::workflow) progress: Arc<Progress>,
@@ -802,19 +815,19 @@ pub(in crate::workflow) struct RunSupervisor {
 }
 impl RunSupervisor {
     pub(in crate::workflow) fn new(
-        runtime: Runtime,
+        services: ExecutionServices,
         attempt: Option<DurableAttempt>,
         parent: Option<&crate::CancelSource>,
         deadline: Option<std::time::Instant>,
         history: usize,
     ) -> Result<Self, WorkflowError> {
-        let durable = attempt_for(&runtime, attempt)?;
+        let durable = attempt_for(&services, attempt)?;
         let run_id = durable
             .as_ref()
             .and_then(DurableAttempt::claimed_run)
             .unwrap_or_else(pse_operations::mint_id);
         Ok(Self {
-            runtime,
+            services,
             run_id,
             progress: progress_for(history, durable.as_ref()),
             durable,
@@ -906,7 +919,11 @@ impl RunSupervisor {
             let registered = async {
                 if let Some(attempt) = supervisor.durable.as_mut() {
                     attempt
-                        .register(supervisor.run_id, &operation.request())
+                        .register(
+                            &supervisor.services.source_services(),
+                            supervisor.run_id,
+                            &operation.request(),
+                        )
                         .await?;
                     let checks = supervisor.checks.clone();
                     attempt.start(Arc::new(move || checks.cancel())).await?;
@@ -922,7 +939,7 @@ impl RunSupervisor {
                     }
                     return RunResult::joined(
                         supervisor.run_id,
-                        supervisor.runtime,
+                        supervisor.services,
                         operation.finish(Err(Arc::new(error))),
                         None,
                     )
@@ -942,7 +959,7 @@ impl RunSupervisor {
                 Err(error) => {
                     return RunResult::joined(
                         supervisor.run_id,
-                        supervisor.runtime,
+                        supervisor.services,
                         operation.finish(Err(Arc::new(error))),
                         None,
                     )
@@ -955,7 +972,7 @@ impl RunSupervisor {
                 let _ = handle.finish().await;
                 return RunResult::joined(
                     supervisor.run_id,
-                    supervisor.runtime,
+                    supervisor.services,
                     operation.finish(Err(Arc::new(error))),
                     None,
                 )
@@ -971,7 +988,7 @@ impl RunSupervisor {
             });
             RunResult::joined(
                 supervisor.run_id,
-                supervisor.runtime,
+                supervisor.services,
                 operation.finish(report),
                 owner,
             )
@@ -1027,17 +1044,23 @@ where
 
 impl super::ModelingSimulation {
     /// Start the authored simulation through the shared joined run and durable lifecycle.
-    pub fn start(&self) -> Result<RunHandle, WorkflowError> {
-        self.start_owned(None, self.admission_deadline()?, None)
+    pub fn start(&self, services: &ExecutionServices) -> Result<RunHandle, WorkflowError> {
+        self.start_owned(services, None, self.admission_deadline()?, None)
     }
     /// Bind a bounded live subscription before any native effect. Dropping the cursor
     /// detaches only that subscription; the run retains cancellation and drain ownership.
     pub fn start_live(
         &self,
+        services: &ExecutionServices,
         options: super::LiveSimulationOptions,
     ) -> Result<(RunHandle, super::LiveSimulationCursor), WorkflowError> {
-        let (handle, cursor) =
-            self.start_owned_live(None, self.admission_deadline()?, None, Some(options))?;
+        let (handle, cursor) = self.start_owned_live(
+            services,
+            None,
+            self.admission_deadline()?,
+            None,
+            Some(options),
+        )?;
         Ok((
             handle,
             cursor.ok_or_else(|| contract("live subscription absent"))?,
@@ -1046,6 +1069,7 @@ impl super::ModelingSimulation {
     /// Start with caller cancellation linked through pending admission and native drain.
     pub fn start_with_cancel(
         &self,
+        services: &ExecutionServices,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
         if cancel.token().is_cancelled() {
@@ -1053,6 +1077,7 @@ impl super::ModelingSimulation {
         }
         let deadline = self.admission_deadline()?;
         self.start_owned(
+            services,
             None,
             cancel
                 .deadline()
@@ -1062,14 +1087,15 @@ impl super::ModelingSimulation {
     }
     pub(crate) async fn start_attempt(
         &self,
+        services: &ExecutionServices,
         attempt: DurableAttempt,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
                 let admission = self.admission_deadline().and_then(|deadline| {
-                    if matches!(self.runtime.durability(), Durability::Ephemeral) {
+                    if matches!(services.durability(), Durability::Ephemeral) {
                         Err(contract(
                             "a claimed simulation runs only on a durable runtime",
                         ))
@@ -1085,26 +1111,28 @@ impl super::ModelingSimulation {
                         return Err(WorkflowError::Shared(error));
                     }
                 };
-                self.start_owned(Some(attempt), deadline, Some(cancel.clone()))
+                self.start_owned(services, Some(attempt), deadline, Some(cancel.clone()))
             })
             .await
     }
     fn admission_deadline(&self) -> Result<std::time::Instant, WorkflowError> {
         std::time::Instant::now()
             .checked_add(self.profile().time_limit)
-            .ok_or_else(|| contract("submitted task deadline extent"))
+            .ok_or_else(|| deadline_limit("submitted task deadline extent"))
     }
     fn start_owned(
         &self,
+        services: &ExecutionServices,
         attempt: Option<DurableAttempt>,
         deadline: std::time::Instant,
         parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
-        self.start_owned_live(attempt, deadline, parent, None)
+        self.start_owned_live(services, attempt, deadline, parent, None)
             .map(|(handle, _)| handle)
     }
     fn start_owned_live(
         &self,
+        services: &ExecutionServices,
         attempt: Option<DurableAttempt>,
         deadline: std::time::Instant,
         parent: Option<crate::CancelSource>,
@@ -1113,15 +1141,15 @@ impl super::ModelingSimulation {
         if let Some(options) = live {
             options.admit(self.profile())?;
         }
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
-            let supervisor = RunSupervisor::new(self.runtime.clone(), attempt, parent.as_ref(), Some(deadline), 256)?;
+            let supervisor = RunSupervisor::new(services.clone(), attempt, parent.as_ref(), Some(deadline), 256)?;
             let run_id = supervisor.run_id;
             let deadline = supervisor.checks.deadline().ok_or_else(|| contract("simulation deadline absent"))?;
             let cancel = supervisor.native.clone();
             let canonical_attempt = supervisor.durable.as_ref().map(|attempt| attempt.canonical_keys(run_id).1);
             let live = live.map(|options| super::live_simulation::LiveDispatch::new(
-                self.clone(), options, run_id, canonical_attempt, &cancel, deadline,
+                services.preparation(), self.clone(), options, run_id, canonical_attempt, &cancel, deadline,
             )).transpose()?;
             let (observer, mut live_channel, mut cursor) = match live {
                 Some(live) => (Some((live.retention, live.observer)), Some(live.channel), Some(live.cursor)),
@@ -1130,13 +1158,15 @@ impl super::ModelingSimulation {
             let dispatch_source = self.clone();
             let live_refusal = live_channel.as_ref().and_then(|channel| channel.projection.as_ref().err()).cloned();
             let prepared = self.clone();
+            let execution = services.clone();
+            let projection_services = services.preparation().clone();
             let handle = supervisor.start_native(
                 Box::new(self.clone()),
                 move |submission| {
                     if let Some(error) = live_refusal { return Err(WorkflowError::Shared(error)); }
                     match observer {
-                        Some((retention, observer)) => dispatch_source.submit_with_samples(run_id, submission, retention, observer),
-                        None => dispatch_source.submit(run_id, submission),
+                        Some((retention, observer)) => dispatch_source.submit_with_samples(&execution, run_id, submission, retention, observer),
+                        None => dispatch_source.submit(&execution, run_id, submission),
                     }
                 },
                 move |handle, mut durable| async move {
@@ -1157,7 +1187,7 @@ impl super::ModelingSimulation {
                                         let Some(event) = event else { break; };
                                         let encoded = channel.projection.as_ref()
                                             .map_err(|error| WorkflowError::Shared(error.clone()))
-                                            .and_then(|projection| event.encode(&prepared, projection, &cancel, deadline));
+                                            .and_then(|projection| event.encode(&projection_services, &prepared, projection, &cancel, deadline));
                                         let event = match encoded {
                                             Ok(event) => event,
                                             Err(error) => {
@@ -1200,7 +1230,7 @@ impl super::ModelingSimulation {
                         let report = match (live_encoding_error, joined) {
                             (Some(error), _) => Err(error),
                             (None, Ok(((report, checks, accuracy), owner))) => prepared
-                                .finish(run_id, report, checks, accuracy, owner)
+                                .finish(&projection_services, run_id, report, checks, accuracy, owner)
                                 .map(Box::new)
                                 .map_err(Arc::new),
                             (None, Err(error)) => Err(Arc::new(WorkflowError::Math(error))),
@@ -1217,12 +1247,16 @@ impl super::ModelingSimulation {
 #[cfg(feature = "solver-diffsol")]
 impl super::ShootingProblem {
     /// Start under the runtime's shared resource, cancellation and joined run lifecycle.
-    pub fn start(self: &Arc<Self>) -> Result<RunHandle, WorkflowError> {
-        self.start_requested(None, None)
+    pub fn start(
+        self: &Arc<Self>,
+        services: &ExecutionServices,
+    ) -> Result<RunHandle, WorkflowError> {
+        self.start_requested(services, None, None)
     }
     /// Admit an explicit original-coordinate initial vector before native dispatch.
     pub fn start_with_initial(
         self: &Arc<Self>,
+        services: &ExecutionServices,
         initial: Vec<f64>,
     ) -> Result<RunHandle, WorkflowError> {
         if initial.len() != self.initial_extent() || initial.iter().any(|v| !v.is_finite()) {
@@ -1230,11 +1264,12 @@ impl super::ShootingProblem {
                 "shooting initial coordinate extent or nonfinite value",
             ));
         }
-        self.start_requested(Some(initial), None)
+        self.start_requested(services, Some(initial), None)
     }
     /// Preserve caller cancellation through the existing shooting supervisor.
     pub fn start_replay_with_cancel(
         self: &Arc<Self>,
+        services: &ExecutionServices,
         initial: Option<Vec<f64>>,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
@@ -1248,25 +1283,21 @@ impl super::ShootingProblem {
                 "shooting initial coordinate extent or nonfinite value",
             ));
         }
-        self.start_requested(initial, Some(cancel.clone()))
+        self.start_requested(services, initial, Some(cancel.clone()))
     }
     fn start_requested(
         self: &Arc<Self>,
+        services: &ExecutionServices,
         initial: Option<Vec<f64>>,
         parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
             let deadline = std::time::Instant::now()
                 .checked_add(self.solver.controls.time_limit)
-                .ok_or_else(|| contract("submitted task deadline extent"))?;
-            let supervisor = RunSupervisor::new(
-                self.runtime.clone(),
-                None,
-                parent.as_ref(),
-                Some(deadline),
-                256,
-            )?;
+                .ok_or_else(|| deadline_limit("submitted task deadline extent"))?;
+            let supervisor =
+                RunSupervisor::new(services.clone(), None, parent.as_ref(), Some(deadline), 256)?;
             let run_id = supervisor.run_id;
             let deadline = supervisor
                 .checks
@@ -1278,8 +1309,9 @@ impl super::ShootingProblem {
                 declared_profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
             }
             let start = initial.clone();
-            let native = self.runtime.native().clone();
+            let native = services.preparation().math().clone();
             let job_bytes = self.job_bytes()?;
+            let execution = services.clone();
             let dispatch = move |submission| {
                 native
                     .submit_with_storage(
@@ -1288,6 +1320,7 @@ impl super::ShootingProblem {
                         submission,
                         move |flag, progress, storage| {
                             let report = prepared.solve(
+                                &execution,
                                 run_id,
                                 pse_kernels::ExecutionScope::new(flag, Some(deadline)),
                                 progress,
@@ -1318,12 +1351,13 @@ impl super::ShootingProblem {
 
 impl super::PreparedFit {
     /// Start one native fitting attempt under the existing joined job lifecycle.
-    pub fn start(&self) -> Result<RunHandle, WorkflowError> {
-        self.start_owned(None, self.admission_deadline()?, None)
+    pub fn start(&self, services: &ExecutionServices) -> Result<RunHandle, WorkflowError> {
+        self.start_owned(services, None, self.admission_deadline()?, None)
     }
     /// Start with caller cancellation linked through pending admission and native drain.
     pub fn start_with_cancel(
         &self,
+        services: &ExecutionServices,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
         if cancel.token().is_cancelled() {
@@ -1331,6 +1365,7 @@ impl super::PreparedFit {
         }
         let deadline = self.admission_deadline()?;
         self.start_owned(
+            services,
             None,
             cancel
                 .deadline()
@@ -1340,14 +1375,15 @@ impl super::PreparedFit {
     }
     pub(crate) async fn start_attempt(
         &self,
+        services: &ExecutionServices,
         attempt: DurableAttempt,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.problem.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
                 let admission = self.admission_deadline().and_then(|deadline| {
-                    if matches!(self.problem.runtime.durability(), Durability::Ephemeral) {
+                    if matches!(services.durability(), Durability::Ephemeral) {
                         Err(contract("a claimed fit runs only on a durable runtime"))
                     } else {
                         Ok(deadline)
@@ -1361,25 +1397,26 @@ impl super::PreparedFit {
                         return Err(WorkflowError::Shared(error));
                     }
                 };
-                self.start_owned(Some(attempt), deadline, Some(cancel.clone()))
+                self.start_owned(services, Some(attempt), deadline, Some(cancel.clone()))
             })
             .await
     }
     fn admission_deadline(&self) -> Result<std::time::Instant, WorkflowError> {
         std::time::Instant::now()
             .checked_add(self.problem.profile.solver.controls.time_limit)
-            .ok_or_else(|| contract("submitted task deadline extent"))
+            .ok_or_else(|| deadline_limit("submitted task deadline extent"))
     }
     fn start_owned(
         &self,
+        services: &ExecutionServices,
         attempt: Option<DurableAttempt>,
         deadline: std::time::Instant,
         parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.problem.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
             let supervisor = RunSupervisor::new(
-                self.problem.runtime.clone(),
+                services.clone(),
                 attempt,
                 parent.as_ref(),
                 Some(deadline),
@@ -1395,12 +1432,13 @@ impl super::PreparedFit {
             // stage after the estimate reaches the quiescent phase boundary.
             let workers = self
                 .problem
-                .profile_workers(self.problem.runtime.native().cores());
+                .profile_workers(services.preparation().math().cores());
             let cores = self.problem.profile.solver.controls.threads;
             let bytes = self.problem.bytes;
-            let native = self.problem.runtime.native().clone();
+            let native = services.preparation().math().clone();
             #[cfg(test)]
             let entry = family_worker_entry();
+            let execution = services.clone();
             let dispatch = move |submission| {
                 native
                     .submit_with_storage(
@@ -1419,6 +1457,7 @@ impl super::PreparedFit {
                                 .controls
                                 .report_allowance()?;
                             let report = prepared.execute(
+                                &execution,
                                 run_id,
                                 pse_kernels::ExecutionScope::new(flag, Some(deadline)),
                                 progress,
@@ -1455,9 +1494,10 @@ impl super::ModelingSolvePreparation {
     /// Select a complete physically typed original seed from its registered Arrow relation.
     pub fn with_primal_start(
         mut self,
+        services: &super::PreparationServices,
         batches: impl datafusion::arrow::record_batch::RecordBatchReader,
     ) -> Result<Self, WorkflowError> {
-        let snapshot = self.source.runtime.snapshot_primal_values(batches)?;
+        let snapshot = services.snapshot_primal_values(batches)?;
         let plan = &self.model.case.compiled().plan;
         let columns = plan
             .columns()
@@ -1535,14 +1575,26 @@ impl super::ModelingSolvePreparation {
         Ok(self)
     }
     /// Start one authored algebraic run: a one-step authored sequence.
-    pub fn start(&self) -> Result<RunHandle, WorkflowError> {
-        self.source
-            .runtime
-            .launch(vec![self.clone()], false, None, None)
+    pub fn start(&self, services: &ExecutionServices) -> Result<RunHandle, WorkflowError> {
+        services.launch(vec![self.clone()], false, None, None)
     }
 }
 
 impl Runtime {
+    /// Execute prepared original steps with explicitly supplied run capabilities.
+    pub async fn start_modeling(
+        &self,
+        steps: Vec<super::ModelingSolvePreparation>,
+        continue_independent: bool,
+        cancel: &crate::CancelSource,
+    ) -> Result<RunHandle, WorkflowError> {
+        self.execution_services()
+            .start_modeling(steps, continue_independent, cancel)
+            .await
+    }
+}
+
+impl ExecutionServices {
     /// Start a finite authored sequence of prepared steps.
     pub async fn start_modeling(
         &self,
@@ -1550,7 +1602,7 @@ impl Runtime {
         continue_independent: bool,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.admit_activity()?;
+        let activity = self.preparation().admit_activity()?;
         activity
             .scope(async {
                 self.check_sequence(&steps)?;
@@ -1569,7 +1621,7 @@ impl Runtime {
         attempt: DurableAttempt,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.admit_activity()?;
+        let activity = self.preparation().admit_activity()?;
         activity
             .scope(async {
                 let admission = self.check_sequence(&steps).and_then(|()| {
@@ -1592,15 +1644,8 @@ impl Runtime {
         &self,
         steps: &[super::ModelingSolvePreparation],
     ) -> Result<(), WorkflowError> {
-        if steps.is_empty()
-            || steps.len() > 4096
-            || steps
-                .iter()
-                .any(|p| !Arc::ptr_eq(&p.source.runtime.shared, &self.shared))
-        {
-            return Err(contract(
-                "empty, excessive or mixed-runtime authored sequence",
-            ));
+        if steps.is_empty() || steps.len() > 4096 {
+            return Err(contract("empty or excessive authored sequence"));
         }
         let mut declarations = BTreeMap::new();
         for step in steps {
@@ -1635,7 +1680,7 @@ impl Runtime {
         attempt: Option<DurableAttempt>,
         parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.admit_activity()?;
+        let activity = self.preparation().admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
         let history = steps
             .iter()
@@ -1648,14 +1693,14 @@ impl Runtime {
             Some(_) => None,
         };
         Ok(supervisor.spawn(move |supervisor| async move {
-            let RunSupervisor { runtime, run_id, mut durable, progress: shared, checks: cancel, .. } = supervisor;
+            let RunSupervisor { services, run_id, mut durable, progress: shared, checks: cancel, .. } = supervisor;
             let request = steps.clone();
             let stop = cancel.clone();
             let session = async {
                 match opened {
                     Some(staged) => Ok(staged),
                     None => tokio::select! {
-                        staged=super::staged::Staged::open_queued(&runtime,Some(shared), &cancel,
+                        staged=super::staged::Staged::open_queued(&services,Some(shared), &cancel,
                             steps.iter().filter_map(|step| step.solve.task_scope().and_then(|scope| scope.deadline()))
                                 .chain(cancel.deadline()).min())=>staged,
                         ()=cancel.cancelled()=>Err(MathRuntimeError::Cancelled.into()),
@@ -1663,6 +1708,7 @@ impl Runtime {
                 }
             };
             let mut staged = match admit(
+                &services.source_services(),
                 &mut durable,
                 run_id,
                 &request.request(),
@@ -1674,7 +1720,7 @@ impl Runtime {
                 Ok(staged) => staged,
                 Err(error) => {
                     let refused =
-                        RunResult::joined(run_id, runtime, request.finish(Err(Arc::new(error))), None)
+                        RunResult::joined(run_id, services, request.finish(Err(Arc::new(error))), None)
                             .with_modeling_policy(continue_independent)
                             .refused(durable)
                             .await;
@@ -1738,7 +1784,7 @@ impl Runtime {
             };
             sequence.finish(if report.is_ok() { crate::invocation::InvocationOutcome::Completed } else { crate::invocation::InvocationOutcome::Failed });
             let cancelled = cancel.token().is_cancelled();
-            let mut result = RunResult::joined(run_id, runtime, request.finish(report), None);
+            let mut result = RunResult::joined(run_id, services, request.finish(report), None);
             result.modeling_continue_independent = continue_independent;
             result.modeling_failure = modeling_failure;
             result.finished(durable, cancelled).await
@@ -1785,6 +1831,7 @@ mod modeling_failure_tests {
         solver.presolve = pse_backend_native::presolve::Policy::Off;
         let good = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -1807,6 +1854,7 @@ mod modeling_failure_tests {
         });
         let bad = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -2027,27 +2075,38 @@ mod scientific_product_tests {
             "annotation objective cost(minimize);",
             "annotation objective cost(minimize); annotation check a(a > 0);",
         );
-        let (package, root) = fixture::package(&source).await;
+        let (runtime, package, root) = fixture::package(&source).await;
         let cancel = crate::CancelSource::new();
         let mut analysis = fixture::analysis(root, SolverSelection::Explicit(Backend::Ipopt));
         analysis.bindings.demand = vec!["a".into(), "b".into()];
-        let plain = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let plain = package
+            .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
         let paths = &plain.model.model.compiled().model.paths;
         analysis.solver.sensitivity = Some(crate::math::settings::SensitivityRequest {
             parameters: vec![paths["a"], paths["b"]],
             reduced_hessian: true,
             propagation: None,
         });
-        let good = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let good = package
+            .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
         // This remains a well-posed quadratic with computable native derivatives;
         // its separate authored original-model check is deliberately false.
         analysis.case.values.insert("a".into(), -1.0);
-        let refused = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let refused = package
+            .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
         analysis.case.values.insert("a".into(), 1.0);
         analysis.solver.sensitivity = None;
-        let not_requested = package.prepare_analysis(&analysis, &cancel).await.unwrap();
-        let result = package
-            .runtime
+        let not_requested = package
+            .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
+        let result = runtime
             .start_modeling(vec![good, refused, not_requested], false, &cancel)
             .await
             .unwrap()

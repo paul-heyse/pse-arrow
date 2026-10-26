@@ -1413,9 +1413,14 @@ impl Runtime {
                 .project_boxed(local.physical_from_sources(&bundle.physical_documents()?, cancel))?
                 .await?;
             let replay = bundle.replay_source()?;
-            let admitted = replay.reconstruct(&local, physical, BTreeMap::new(), cancel)?;
+            let admitted =
+                replay.reconstruct(&local.source_services(), physical, BTreeMap::new(), cancel)?;
             let package = self
-                .project_boxed(admitted.publish_portable_import(self, intent, cancel))?
+                .project_boxed(admitted.publish_portable_import(
+                    &self.source_services(),
+                    intent,
+                    cancel,
+                ))?
                 .await?;
             package
                 .canonical_revision()

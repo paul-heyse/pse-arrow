@@ -8,8 +8,8 @@ use super::{
 };
 use crate::math::MathRuntimeError;
 use crate::workflow::{
-    ModelingAnalysis, ModelingPackage, ModelingResult, ModelingSolvePreparation, RunHandle,
-    RunResult, Runtime, WorkflowError, contract,
+    ExecutionServices, ModelingAnalysis, ModelingPackage, ModelingResult, ModelingSolvePreparation,
+    PreparationServices, RunHandle, RunResult, Runtime, WorkflowError, contract,
     durable::DurableAttempt,
     integrated::IntegratedExperiment,
     modeling::assessment::Obligations,
@@ -30,7 +30,45 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// A predicted move requires original permission, its authentic source and retained
+/// factor, and admission of a generated start. Target compatibility and screening
+/// remain independent checks at their performing owners.
+fn prediction_authorized(
+    permission: &crate::workflow::numerics::CandidateDecision,
+    retained_factor: bool,
+    source_candidate: bool,
+    start_policy: native::solve::StartPolicy,
+    start_origin: pse_model::strategy::StartOrigin,
+) -> bool {
+    permission.permits_use()
+        && retained_factor
+        && source_candidate
+        && start_policy != native::solve::StartPolicy::Explicit
+        && start_origin != pse_model::strategy::StartOrigin::Explicit
+}
+/// Original completion authorizes solved moves; a refusal always holds the inputs.
+fn solved_move(accepted: bool, fallback: bool) -> HorizonDecision {
+    match (accepted, fallback) {
+        (false, _) => HorizonDecision::Held,
+        (true, true) => HorizonDecision::Fallback,
+        (true, false) => HorizonDecision::Solved,
+    }
+}
+
 impl Runtime {
+    /// Start through the explicitly selected execution services of this runtime facade.
+    pub async fn start_horizon(
+        &self,
+        horizon: Horizon,
+        cancel: &crate::CancelSource,
+    ) -> Result<RunHandle, WorkflowError> {
+        self.execution_services()
+            .start_horizon(horizon, cancel)
+            .await
+    }
+}
+
+impl PreparationServices {
     /// Validate a reconstructed horizon through its owner before study scheduling.
     pub(in crate::workflow) async fn admit_horizon(
         &self,
@@ -48,7 +86,9 @@ impl Runtime {
             })
             .await
     }
+}
 
+impl ExecutionServices {
     /// Start a rolling horizon (Plan 22 Y5c; ADR-0110 Outcome 5): one run of closed-loop
     /// samples over one native session. Everything the loop needs is admitted before any
     /// effect: the plant, its driven inputs and measured outputs, and each stage's
@@ -65,7 +105,7 @@ impl Runtime {
         horizon: Horizon,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.admit_activity()?;
+        let activity = self.preparation().admit_activity()?;
         activity
             .scope(async { self.start_horizon_owned(horizon, cancel, None).await })
             .await
@@ -76,7 +116,7 @@ impl Runtime {
         cancel: &crate::CancelSource,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.admit_activity()?;
+        let activity = self.preparation().admit_activity()?;
         activity
             .scope(async {
                 self.start_horizon_owned(horizon, cancel, Some(attempt))
@@ -90,7 +130,7 @@ impl Runtime {
         cancel: &crate::CancelSource,
         attempt: Option<DurableAttempt>,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.admit_activity()?;
+        let activity = self.preparation().admit_activity()?;
         activity
             .scope(async {
                 let mut attempt = attempt;
@@ -111,7 +151,7 @@ impl Runtime {
                     }
                     return Err(WorkflowError::Shared(error));
                 }
-                let admitted = match Admitted::new(self, horizon, cancel).await {
+                let admitted = match Admitted::new(self.preparation(), horizon, cancel).await {
                     Ok(admitted) => Arc::new(admitted),
                     Err(error) => {
                         let error = Arc::new(error);
@@ -147,7 +187,7 @@ impl Runtime {
                 Ok(supervisor.spawn(move |supervisor| {
                     crate::invocation::scope(async move {
                         let RunSupervisor {
-                            runtime,
+                            services,
                             run_id,
                             durable,
                             progress: stream,
@@ -161,6 +201,7 @@ impl Runtime {
                             .iter()
                             .map(|source| source.scope.clone())
                             .collect::<Vec<_>>();
+                        let preparation = services.preparation().clone();
                         let mut operation = async {
                             let mut durable = durable;
                             let staged = match admit(
@@ -168,7 +209,7 @@ impl Runtime {
                                 run_id,
                                 &admitted,
                                 opened,
-                                &runtime,
+                                &services,
                                 &stream,
                                 &cancel,
                             )
@@ -178,7 +219,7 @@ impl Runtime {
                                 Err(error) => {
                                     return RunResult::joined(
                                         run_id,
-                                        runtime,
+                                        services,
                                         crate::workflow::RunOutcome::horizon_refused(
                                             admitted.request(),
                                             Arc::new(error),
@@ -190,7 +231,7 @@ impl Runtime {
                                 }
                             };
                             let original = match super::prefix::OriginalHistory::new(
-                                &runtime,
+                                services.preparation(),
                                 &admitted.output,
                             ) {
                                 Ok(original) => original,
@@ -198,7 +239,7 @@ impl Runtime {
                                     staged.close().await;
                                     return RunResult::joined(
                                         run_id,
-                                        runtime,
+                                        services,
                                         crate::workflow::RunOutcome::horizon_refused(
                                             admitted.request(),
                                             Arc::new(error),
@@ -218,7 +259,7 @@ impl Runtime {
                                 staged.close().await;
                                 return RunResult::joined(
                                     run_id,
-                                    runtime,
+                                    services,
                                     crate::workflow::RunOutcome::horizon_refused(
                                         admitted.request(),
                                         Arc::new(error),
@@ -229,6 +270,7 @@ impl Runtime {
                                 .await;
                             }
                             let mut run = Loop::new(
+                                services.clone(),
                                 admitted,
                                 staged,
                                 run_id,
@@ -238,16 +280,17 @@ impl Runtime {
                                 original,
                             );
                             let outcome = run.run().await;
-                            run.finish(runtime, outcome, cancel.token().is_cancelled())
-                                .await
+                            run.finish(outcome, cancel.token().is_cancelled()).await
                         }
                         .boxed();
                         // The same actual owners stay admitted through native teardown, progress
                         // drain, tables, seeds and final settlement, including every refusal.
                         for scope in scopes {
                             let phase = &cancel;
+                            let preparation = preparation.clone();
                             operation = async move {
-                                let (mut result, renewal) = scope.joined(phase, operation).await;
+                                let (mut result, renewal) =
+                                    scope.joined(&preparation, phase, operation).await;
                                 if let Some(error) = renewal {
                                     result.fail_report(Arc::new(error));
                                 }
@@ -299,7 +342,7 @@ async fn admit(
     run_id: RunId,
     admitted: &Admitted,
     opened: Option<Staged>,
-    runtime: &Runtime,
+    services: &ExecutionServices,
     progress: &Arc<Progress>,
     cancel: &crate::CancelSource,
 ) -> Result<Staged, WorkflowError> {
@@ -307,7 +350,7 @@ async fn admit(
         attempt
             .register_horizon(
                 run_id,
-                runtime,
+                &services.source_services(),
                 &admitted.sources,
                 admitted.identity.as_id(),
                 &admitted.provenance,
@@ -321,7 +364,7 @@ async fn admit(
     let staged = match opened {
         Some(staged) => staged,
         None => tokio::select! {
-            staged = Staged::open_queued(runtime, Some(progress.clone()), cancel, cancel.deadline()) => staged?,
+            staged = Staged::open_queued(services, Some(progress.clone()), cancel, cancel.deadline()) => staged?,
             () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled.into()),
         },
     };
@@ -346,16 +389,13 @@ struct Stage {
 impl Stage {
     /// Admit a stage whose steps bind `bound` and whose solutions the loop reads at `read`.
     async fn admit(
-        runtime: &Runtime,
+        services: &PreparationServices,
         package: &ModelingPackage,
         analysis: &ModelingAnalysis,
         bound: &[&String],
         read: &[&String],
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
-        if !Arc::ptr_eq(&package.runtime.shared, &runtime.shared) {
-            return Err(contract("a horizon stage belongs to the horizon's runtime"));
-        }
         let mut distinct = BTreeSet::new();
         for path in bound {
             if !distinct.insert(path.as_str()) {
@@ -376,7 +416,9 @@ impl Stage {
             .extend(read.iter().map(|p| (*p).clone()));
         analysis.bindings.demand.sort();
         analysis.bindings.demand.dedup();
-        let prepared = package.prepare_analysis(&analysis, cancel).await?;
+        let prepared = package
+            .prepare_analysis(services, &analysis, cancel)
+            .await?;
         let paths = &prepared.model.model.compiled().model.paths;
         let read = read
             .iter()
@@ -655,11 +697,11 @@ impl Admitted {
         }
     }
     pub(super) async fn new(
-        runtime: &Runtime,
+        services: &PreparationServices,
         mut horizon: Horizon,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
-        let owner = runtime.shared.math().reserve(
+        let owner = services.math().reserve(
             "horizon:held-source-owners",
             3 * (size_of::<HorizonSourceEngagement>() + 128),
         )?;
@@ -680,6 +722,7 @@ impl Admitted {
                     .plant
                     .source
                     .prepare(
+                        services,
                         original.root,
                         original.instance,
                         original.bindings.clone(),
@@ -688,7 +731,7 @@ impl Admitted {
                     )
                     .await?;
             }
-            let mut admitted = Self::build(runtime, horizon, cancel).await?;
+            let mut admitted = Self::build(services, horizon, cancel).await?;
             for source in &held {
                 source.scope.freeze()?;
             }
@@ -711,7 +754,7 @@ impl Admitted {
         close_horizon_sources(&self.held).await
     }
     async fn build(
-        runtime: &Runtime,
+        services: &PreparationServices,
         horizon: Horizon,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
@@ -732,7 +775,7 @@ impl Admitted {
             estimator,
             controller,
         } = horizon;
-        output.validate(runtime)?;
+        output.validate(services)?;
         if steps == 0 || steps > 4096 || !period.is_finite() || period <= 0. {
             return Err(contract(
                 "a horizon has 1 to 4096 steps of a positive, finite period",
@@ -740,9 +783,6 @@ impl Admitted {
         }
         if estimator.is_none() && controller.is_none() {
             return Err(contract("a horizon needs an estimator or a controller"));
-        }
-        if !Arc::ptr_eq(&plant.runtime.shared, &runtime.shared) {
-            return Err(contract("the plant belongs to the horizon's runtime"));
         }
         let profile = plant.profile();
         let c = plant.contract();
@@ -818,15 +858,23 @@ impl Admitted {
         }
         let estimator = match &estimator {
             Some(e) => Some(
-                Self::estimator(runtime, e, steps, &output_index, &input, &estimated, cancel)
-                    .await?,
+                Self::estimator(
+                    services,
+                    e,
+                    steps,
+                    &output_index,
+                    &input,
+                    &estimated,
+                    cancel,
+                )
+                .await?,
             ),
             None => None,
         };
         let controller = match &controller {
-            Some(c) => {
-                Some(Self::controller(runtime, c, &output_index, estimator.as_ref(), cancel).await?)
-            }
+            Some(c) => Some(
+                Self::controller(services, c, &output_index, estimator.as_ref(), cancel).await?,
+            ),
             None => None,
         };
         // The plant runs on the controller's threads, or the estimator's without one.
@@ -896,8 +944,7 @@ impl Admitted {
                 })
                 .and_then(|bytes| bytes.checked_add(16 * 1024))
                 .ok_or_else(|| contract("horizon rolling state extent"))?;
-        let history_owner = runtime
-            .shared
+        let history_owner = services
             .math()
             .reserve("horizon:rolling-role-state", history_bytes)?;
         Ok(Self {
@@ -913,7 +960,7 @@ impl Admitted {
                 experiment: IntegratedExperiment {
                     snapshot: plant.snapshot().clone(),
                     program: plant.program(),
-                    snapshots: plant.snapshot_allocator(),
+                    snapshots: plant.snapshot_allocator(services.math()),
                     profile: profile.clone(),
                     parameters: plant.parameters.clone(),
                     output_ports: Vec::new(),
@@ -937,7 +984,7 @@ impl Admitted {
         })
     }
     async fn estimator(
-        runtime: &Runtime,
+        services: &PreparationServices,
         e: &HorizonEstimator,
         steps: usize,
         output: &impl Fn(&SemanticId) -> Result<usize, WorkflowError>,
@@ -987,7 +1034,7 @@ impl Admitted {
             .map(|a| &a.next)
             .chain(estimated.iter().copied())
             .collect::<Vec<_>>();
-        let stage = Stage::admit(runtime, &e.package, &e.analysis, &bound, &read, cancel).await?;
+        let stage = Stage::admit(services, &e.package, &e.analysis, &bound, &read, cancel).await?;
         let arrival = e
             .arrival
             .iter()
@@ -1002,7 +1049,7 @@ impl Admitted {
         })
     }
     async fn controller(
-        runtime: &Runtime,
+        services: &PreparationServices,
         c: &HorizonController,
         output: &impl Fn(&SemanticId) -> Result<usize, WorkflowError>,
         estimator: Option<&Estimator>,
@@ -1041,7 +1088,7 @@ impl Admitted {
             read.extend(states.iter().copied());
         }
         let mut stage =
-            Stage::admit(runtime, &c.package, &c.analysis, &bound, &read, cancel).await?;
+            Stage::admit(services, &c.package, &c.analysis, &bound, &read, cancel).await?;
         let advanced = match &c.advanced {
             Some(a) => {
                 let parameters = states
@@ -1056,7 +1103,10 @@ impl Admitted {
                         reduced_hessian: false,
                         propagation: None,
                     });
-                let prepared = c.package.prepare_analysis(&stage.analysis, cancel).await?;
+                let prepared = c
+                    .package
+                    .prepare_analysis(services, &stage.analysis, cancel)
+                    .await?;
                 stage.identity = prepared
                     .solve
                     .request_identity()
@@ -1232,6 +1282,7 @@ fn solved(result: &ModelingResult, id: &SemanticId) -> Result<f64, WorkflowError
 
 /// One horizon run in progress.
 pub(super) struct Loop {
+    services: ExecutionServices,
     admitted: Arc<Admitted>,
     staged: Staged,
     durable: Option<DurableAttempt>,
@@ -1304,6 +1355,7 @@ impl Control {
 }
 impl Loop {
     pub(super) fn new(
+        services: ExecutionServices,
         admitted: Arc<Admitted>,
         staged: Staged,
         run_id: RunId,
@@ -1325,6 +1377,7 @@ impl Loop {
             std::num::NonZeroUsize::new(admitted.threads).unwrap_or(std::num::NonZeroUsize::MIN),
         );
         Self {
+            services,
             plant_scope,
             applied: admitted.initial.clone(),
             admitted,
@@ -1361,11 +1414,11 @@ impl Loop {
     }
     pub(super) async fn finish(
         self,
-        runtime: Runtime,
         outcome: Result<(), WorkflowError>,
         cancelled: bool,
     ) -> RunResult {
         let Loop {
+            services,
             admitted,
             staged,
             durable,
@@ -1384,20 +1437,21 @@ impl Loop {
             ..
         } = self;
         staged.close().await;
-        let usable = (outcome.is_ok() || publication_failure.is_some())
-            && !original.completion.assessments.is_empty()
-            && original
-                .completion
-                .assessments
-                .iter()
-                .all(|assessment| assessment.permits_result);
+        let permission = crate::workflow::completion::ScientificPermission::assess(
+            None,
+            outcome.is_ok(),
+            admitted.steps,
+            completed_samples,
+            &original.completion.assessments,
+        );
+        let usable = permission.permits_result();
         let final_error = if failed_solve.is_none() && publication_failure.is_none() {
             outcome.as_ref().err()
         } else {
             None
         };
         let (
-            completion,
+            mut completion,
             detail,
             summaries,
             mut owners,
@@ -1405,11 +1459,12 @@ impl Loop {
             summary_error,
             detail_membership,
         ) = original.finish(usable, final_error);
+        completion.permission = Some(permission);
         let mut result = if matches!(admitted.output, crate::workflow::StudyOutputDemand::Full {}) {
             let (report, failure) = joined_modeling(outcome, full_results, failed_solve);
             let mut result = RunResult::joined(
                 run_id,
-                runtime,
+                services,
                 crate::workflow::RunOutcome::Horizon {
                     request: admitted.request(),
                     execution: crate::workflow::HorizonRunOutcome::Full {
@@ -1432,7 +1487,7 @@ impl Loop {
             let original = outcome.map(|()| report.clone()).map_err(Arc::new);
             let mut result = RunResult::joined(
                 run_id,
-                runtime,
+                services,
                 crate::workflow::RunOutcome::Horizon {
                     request: admitted.request(),
                     execution: crate::workflow::HorizonRunOutcome::Compact(original),
@@ -1449,9 +1504,6 @@ impl Loop {
             Some(error) => Err(error),
             None => Ok(completion),
         };
-        if let Some(recorder) = &result.invocation {
-            recorder.qualified(usable && result.completion.is_ok());
-        }
         result.original_completion_captured = result.completion.is_ok();
         result.horizon_unmerged = unmerged;
         result.horizon_owners = owners;
@@ -1462,6 +1514,9 @@ impl Loop {
             steps,
             completed_steps: completed_samples,
         }));
+        if let Some(recorder) = &result.invocation {
+            recorder.qualified(result.usable());
+        }
         result.finished(durable, cancelled).await
     }
     pub(super) async fn run(&mut self) -> Result<(), WorkflowError> {
@@ -1500,7 +1555,7 @@ impl Loop {
                 crate::workflow::StudyOutputDemand::Full {}
             ) {
                 let owner = match super::prefix::step_copy_owner(
-                    &self.admitted.sources[0].runtime,
+                    self.services.preparation(),
                     self.measured
                         .back()
                         .ok_or_else(|| contract("horizon current measurement absent"))?,
@@ -1671,6 +1726,7 @@ impl Loop {
         let mut prepared = self
             .staged
             .prepare(stage.package.prepare_analysis_attempt(
+                self.services.preparation(),
                 &specification,
                 crate::workflow::modeling::cases::CaseOverrides {
                     seed,
@@ -1702,21 +1758,16 @@ impl Loop {
                 })
                 .map(|seed| crate::math::solves::Predecessor { attempt, seed })
         });
-        let copy_owners = match super::prefix::preparation_copy_owner(
-            &self.admitted.sources[0].runtime,
-            &prepared,
-        ) {
-            Ok(owners) => owners,
-            Err(error) => return Err(self.refuse_publication(error)),
-        };
+        let copy_owners =
+            match super::prefix::preparation_copy_owner(self.services.preparation(), &prepared) {
+                Ok(owners) => owners,
+                Err(error) => return Err(self.refuse_publication(error)),
+            };
         let full_owners = if matches!(
             self.admitted.output,
             crate::workflow::StudyOutputDemand::Full {}
         ) {
-            match super::prefix::preparation_copy_owner(
-                &self.admitted.sources[0].runtime,
-                &prepared,
-            ) {
+            match super::prefix::preparation_copy_owner(self.services.preparation(), &prepared) {
                 Ok(owners) => owners,
                 Err(error) => return Err(self.refuse_publication(error)),
             }
@@ -1725,7 +1776,7 @@ impl Loop {
         };
         if let Err(error) = self
             .original
-            .admit_step(&self.admitted.sources[0].runtime, &prepared)
+            .admit_step(self.services.preparation(), &prepared)
         {
             return Err(self.refuse_publication(error));
         }
@@ -1759,7 +1810,7 @@ impl Loop {
                 self.failed_solve = Some(attempt);
                 let mut original = RunResult::joined(
                     self.run_id,
-                    self.admitted.sources[0].runtime.clone(),
+                    self.services.clone(),
                     crate::workflow::RunOutcome::Modeling {
                         request: vec![request],
                         result: Err(error.clone()),
@@ -1778,7 +1829,7 @@ impl Loop {
         }
         let mut original = RunResult::joined(
             self.run_id,
-            self.admitted.sources[0].runtime.clone(),
+            self.services.clone(),
             crate::workflow::RunOutcome::Modeling {
                 request: vec![request],
                 result: Ok(vec![result.clone()]),
@@ -1826,13 +1877,22 @@ impl Loop {
                 )
                 .map_err(|error| contract(error.to_string()))?,
             );
-            let runtime = &self.admitted.sources[0].runtime;
-            let pool = runtime.shared.pool();
+            let services = self.services.preparation();
+            let pool = services.pool();
             let pressure =
                 pse_columnar::MemoryConsumer::new("test:horizon-post-science-publication-pressure")
                     .register(&pool);
             pressure
-                .try_grow(runtime.shared.budget().memory_limit_bytes.get() - pool.reserved())
+                .try_grow(match pool.memory_limit() {
+                    datafusion::execution::memory_pool::MemoryLimit::Finite(capacity) => {
+                        capacity.saturating_sub(pool.reserved())
+                    }
+                    _ => {
+                        return Err(WorkflowError::Internal(
+                            "horizon publication pressure needs a finite fixture pool".into(),
+                        ));
+                    }
+                })
                 .map_err(pse_engine::EngineError::from)?;
             Some(pressure)
         } else {
@@ -2038,12 +2098,11 @@ impl Loop {
         };
         let Some(advanced) = &c.advanced else {
             let index = self.solve(Role::Controller, values, false).await?;
-            let decision = if self.result(index)?.accepted {
+            let accepted = self.result(index)?.accepted;
+            let decision = solved_move(accepted, false);
+            if accepted {
                 self.apply_solved(c, index)?;
-                HorizonDecision::Solved
-            } else {
-                HorizonDecision::Held
-            };
+            }
             return Ok(Control {
                 controller: Some(index),
                 decision,
@@ -2055,18 +2114,19 @@ impl Loop {
             .await?;
         let deadline = Instant::now()
             .checked_add(prepared.solve.time_limit())
-            .ok_or_else(|| contract("advanced controller task deadline extent"))?;
+            .ok_or_else(|| {
+                crate::workflow::deadline_limit("advanced controller task deadline extent")
+            })?;
         let proposal_scope = prepared.solve.task_scope().unwrap_or_else(|| {
             pse_kernels::ExecutionScope::new(
                 pse_diagnostics::Cancellation::default(),
                 Some(deadline),
             )
         });
-        prepared.solve = c
-            .stage
-            .package
-            .runtime
-            .native()
+        prepared.solve = self
+            .services
+            .preparation()
+            .math()
             .admit_proposal_task(prepared.solve, proposal_scope.clone())
             .map_err(MathRuntimeError::from)?;
         let proposal_target = prepared.solve.clone();
@@ -2135,72 +2195,84 @@ impl Loop {
                         .iter()
                         .map(|(path, id)| (*id, values[path]))
                         .collect::<Vec<_>>();
-                    let outcome =
-                        self.staged
-                            .native_in_task(
-                                admitted.threads,
-                                proposal_scope.clone(),
-                                &self.cancel,
-                                move |retained, flag, _| {
-                                    let advance = retained.advance();
-                                    if let Some(context) = pse_diagnostics::observation::current() {
-                                        context.boolean(
-                                            "horizon.prediction.factor_retained",
-                                            advance.is_some(),
+                    let outcome = self
+                        .staged
+                        .native_in_task(
+                            admitted.threads,
+                            proposal_scope.clone(),
+                            &self.cancel,
+                            move |retained, flag, _| {
+                                let advance = retained.advance();
+                                if let Some(context) = pse_diagnostics::observation::current() {
+                                    context.boolean(
+                                        "horizon.prediction.factor_retained",
+                                        advance.is_some(),
+                                    );
+                                    context.boolean(
+                                        "horizon.prediction.source_candidate",
+                                        source.is_some(),
+                                    );
+                                    context.boolean(
+                                        "horizon.prediction.original_permission",
+                                        permission.permits_use(),
+                                    );
+                                    context.boolean(
+                                        "horizon.prediction.explicit_start",
+                                        target.numerical_strategy().start.policy
+                                            == native::solve::StartPolicy::Explicit
+                                            || target.entry_origin(false)
+                                                == pse_model::strategy::StartOrigin::Explicit,
+                                    );
+                                }
+                                let authorized = prediction_authorized(
+                                    &permission,
+                                    advance.is_some(),
+                                    source.is_some(),
+                                    target.numerical_strategy().start.policy,
+                                    target.entry_origin(false),
+                                );
+                                let outcome = match (advance, source) {
+                                    (Some(advance), Some(source)) if authorized => {
+                                        target.related_target_parameters(
+                                            &base,
+                                            advance.parameters(),
+                                        )?;
+                                        let binding = target.original_identity()?;
+                                        let mut execution = native::solve::Execution::within(
+                                            flag.clone(),
+                                            target.controls(),
+                                            proposal_scope.clone(),
+                                        )?;
+                                        execution.work_admission = target.task_admission().map(
+                                            |owner| -> Arc<dyn native::solve::WorkAdmission> {
+                                                owner
+                                            },
                                         );
-                                        context.boolean(
-                                            "horizon.prediction.source_candidate",
-                                            source.is_some(),
-                                        );
-                                        context.boolean(
-                                            "horizon.prediction.original_permission",
-                                            permission.permits_use(),
-                                        );
-                                        context.boolean(
-                                            "horizon.prediction.explicit_start",
-                                            target.numerical_strategy().start.policy
-                                                == native::solve::StartPolicy::Explicit
-                                                || target.entry_origin(false)
-                                                    == pse_model::strategy::StartOrigin::Explicit,
-                                        );
-                                    }
-                                    let outcome = match (advance, source) {
-                            (Some(advance), Some(source))
-                                if permission.permits_use()
-                                    && target.numerical_strategy().start.policy
-                                        != native::solve::StartPolicy::Explicit
-                                    && target.entry_origin(false)
-                                        != pse_model::strategy::StartOrigin::Explicit =>
-                            {
-                                target.related_target_parameters(&base, advance.parameters())?;
-                                let binding = target.original_identity()?;
-                                let mut execution = native::solve::Execution::within(
-                                    flag.clone(), target.controls(), proposal_scope.clone(),
-                                )?;
-                                execution.work_admission=target.task_admission()
-                                    .map(|owner| -> Arc<dyn native::solve::WorkAdmission> {owner});
-                                let segments = advance
-                                    .variables()
-                                    .len()
-                                    .saturating_add(advance.rows().len())
-                                    .saturating_add(1);
-                                let limits = native::kkt::activity::Limits {
-                                    backsolves: segments.saturating_mul(8),
-                                    refactorizations: segments.saturating_mul(2),
-                                    bytes: advance.bytes().saturating_mul(4),
-                                };
-                                // The original target can still have a minimal direct
-                                // declaration here; its authored recovery origins live
-                                // in the composition request until the operation binds.
-                                let starts = pse_model::strategy::StartRules {
-                                    policy: target.controls().start,
-                                    recovery: target.composition_request().recovery.clone(),
-                                };
-                                let activity = starts.recovery
-                                    .contains(&pse_model::strategy::StartOrigin::Predicted)
-                                    && starts.permits_entry(
-                                        pse_model::strategy::StartOrigin::Predicted, false);
-                                match crate::math::prediction::select(
+                                        let segments = advance
+                                            .variables()
+                                            .len()
+                                            .saturating_add(advance.rows().len())
+                                            .saturating_add(1);
+                                        let limits = native::kkt::activity::Limits {
+                                            backsolves: segments.saturating_mul(8),
+                                            refactorizations: segments.saturating_mul(2),
+                                            bytes: advance.bytes().saturating_mul(4),
+                                        };
+                                        // The original target can still have a minimal direct
+                                        // declaration here; its authored recovery origins live
+                                        // in the composition request until the operation binds.
+                                        let starts = pse_model::strategy::StartRules {
+                                            policy: target.controls().start,
+                                            recovery: target.composition_request().recovery.clone(),
+                                        };
+                                        let activity = starts
+                                            .recovery
+                                            .contains(&pse_model::strategy::StartOrigin::Predicted)
+                                            && starts.permits_entry(
+                                                pse_model::strategy::StartOrigin::Predicted,
+                                                false,
+                                            );
+                                        match crate::math::prediction::select(
                                     crate::math::prediction::SelectionRequest {
                                         mechanism:
                                             crate::math::prediction::ProposalMechanism::Kkt {
@@ -2248,14 +2320,14 @@ impl Loop {
                                     )) => Err(fallback),
                                     Err(error) => return Err(error.into_problem().into()),
                                 }
-                            }
-                            _ => Err(Fallback::NotRetained),
-                        };
-                                    retained.release();
-                                    Ok(outcome)
-                                },
-                            )
-                            .await?;
+                                    }
+                                    _ => Err(Fallback::NotRetained),
+                                };
+                                retained.release();
+                                Ok(outcome)
+                            },
+                        )
+                        .await?;
                     Some(outcome.map(|prediction| (from, prediction)))
                 }
             })
@@ -2263,14 +2335,10 @@ impl Loop {
         .await?;
         let (mut control, source) = match predicted {
             Some(Ok((_, (_, Some((proposal, path, fallback)), scope)))) => {
-                let screened = admitted
-                    .controller
-                    .as_ref()
-                    .ok_or_else(|| contract("activity controller missing"))?
-                    .stage
-                    .package
-                    .runtime
-                    .native()
+                let screened = self
+                    .services
+                    .preparation()
+                    .math()
                     .screen_start(
                         prepared.solve.clone(),
                         proposal,
@@ -2295,11 +2363,7 @@ impl Loop {
                 (
                     Control {
                         controller: Some(index),
-                        decision: if accepted {
-                            HorizonDecision::Fallback
-                        } else {
-                            HorizonDecision::Held
-                        },
+                        decision: solved_move(accepted, true),
                         fallback: Some(fallback),
                         activity: Some(path),
                         advanced: None,
@@ -2334,11 +2398,7 @@ impl Loop {
                 if accepted {
                     self.apply_solved(c, index)?;
                 }
-                let decision = match (accepted, fallback) {
-                    (false, _) => HorizonDecision::Held,
-                    (true, Some(_)) => HorizonDecision::Fallback,
-                    (true, None) => HorizonDecision::Solved,
-                };
+                let decision = solved_move(accepted, fallback.is_some());
                 (
                     Control {
                         controller: Some(index),
@@ -2439,5 +2499,76 @@ fn event(k: usize, step: &HorizonStep, elapsed: Duration) -> Event {
         elapsed,
         values,
         incumbent: None,
+    }
+}
+
+#[cfg(test)]
+mod decision_tests {
+    use super::*;
+    use crate::workflow::numerics::{constant_use, refused};
+    use pse_model::{
+        generated::enums::{CandidateQualifier, CandidateRefusal},
+        strategy::StartOrigin,
+    };
+    #[test]
+    fn moves_require_original_permission_and_all_prediction_start_obligations() {
+        let quality = native::quality::Quality::new(vec![], vec![], vec![]).unwrap();
+        let mut permission = constant_use(&quality);
+        permission
+            .qualifiers
+            .push(CandidateQualifier::ApplicabilityUnknownAllowed);
+        let policy = native::solve::StartPolicy::NoPriorStart;
+        let origin = StartOrigin::Predicted;
+        assert!(prediction_authorized(
+            &permission,
+            true,
+            true,
+            policy,
+            origin
+        ));
+        assert_eq!(
+            permission.qualifiers,
+            vec![CandidateQualifier::ApplicabilityUnknownAllowed]
+        );
+        assert!(!prediction_authorized(
+            &permission,
+            false,
+            true,
+            policy,
+            origin
+        ));
+        assert!(!prediction_authorized(
+            &permission,
+            true,
+            false,
+            policy,
+            origin
+        ));
+        assert!(!prediction_authorized(
+            &permission,
+            true,
+            true,
+            native::solve::StartPolicy::Explicit,
+            origin
+        ));
+        assert!(!prediction_authorized(
+            &permission,
+            true,
+            true,
+            policy,
+            StartOrigin::Explicit
+        ));
+        assert!(!prediction_authorized(
+            &refused(CandidateRefusal::ModelChecks),
+            true,
+            true,
+            policy,
+            origin
+        ));
+        for fallback in [false, true] {
+            assert_eq!(solved_move(false, fallback), HorizonDecision::Held);
+        }
+        assert_eq!(solved_move(true, false), HorizonDecision::Solved);
+        assert_eq!(solved_move(true, true), HorizonDecision::Fallback);
     }
 }

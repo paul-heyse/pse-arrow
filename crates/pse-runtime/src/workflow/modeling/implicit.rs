@@ -280,6 +280,7 @@ impl ModelingPackage {
     )]
     pub(super) async fn inner_registrations(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: ModelingPreparation,
         case: &ModelingCaseBindings,
         numerical: &NumericalInputs,
@@ -290,7 +291,7 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
         demand: ProviderDemand<'_>,
     ) -> Result<BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let product = model.compiled();
@@ -459,9 +460,7 @@ impl ModelingPackage {
                         configurations,
                     });
                 }
-                Ok(self
-                    .runtime
-                    .shared
+                Ok(services
                     .math()
                     .modeling_inner_providers(
                         inputs,
@@ -748,6 +747,7 @@ mod tests {
             prefix.0
         }
         let runtime = fixture::runtime();
+        let services = runtime.execution_services();
         for with_goal in [false, true] {
             let goal = if with_goal {
                 "annotation accuracy_goal q(selected_output, steady, resolution=0.1, required_class=estimated, use_policy=assess, refine=false);"
@@ -786,6 +786,7 @@ mod tests {
             solver.presolve = pse_backend_native::presolve::Policy::Off;
             let mut prepared = package
                 .prepare_solve(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -869,7 +870,7 @@ mod tests {
                 pse_model::strategy::MechanismKind::Direct
             );
             let result = package
-                .solve_case(prepared, compiler, &cancel)
+                .solve_case(&services, prepared, compiler, &cancel)
                 .await
                 .unwrap_or_else(|error| {
                     panic!(
@@ -1008,6 +1009,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_nested_observations_ignore_undemanded_missing_starts() {
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let physical = super::super::super::tests::physical();
         let source = "package p { def Root { var x:Scalar; implicit missing {var y:Scalar; eq root:y==2;} realize r on missing using nested; eq independent:x==1; eq dependent:missing.y==x; } }";
         let rows = pse_authoring::language::parse(
@@ -1027,6 +1029,7 @@ mod tests {
         let compiler = super::super::super::tests::compiler_profile();
         let model = package
             .prepare(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -1066,6 +1069,7 @@ mod tests {
         );
         let observed = package
             .observe(
+                services.preparation(),
                 model.clone(),
                 BTreeSet::from([independent]),
                 point.clone(),
@@ -1077,7 +1081,14 @@ mod tests {
         assert_eq!(observed[&independent], 2.);
         assert!(
             package
-                .observe(model, BTreeSet::from([dependent]), point, compiler, &cancel)
+                .observe(
+                    services.preparation(),
+                    model,
+                    BTreeSet::from([dependent]),
+                    point,
+                    compiler,
+                    &cancel
+                )
                 .await
                 .is_err()
         );
@@ -1085,6 +1096,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_nested_hints_order_siblings_before_outer_starts() {
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let physical = super::super::super::tests::physical();
         let source = "package p { def Root { implicit a {var y:Scalar; eq e:y==2; annotation start y(1);} realize ra on a using nested; implicit b {var z:Scalar; eq e:z==a.y+1; annotation start z(a.y); annotation bounds z(0,10);} realize rb on b using nested; var x:Scalar; eq pin:x==b.z; annotation start x(b.z); } }";
         for (text, succeeds) in [
@@ -1117,6 +1129,7 @@ mod tests {
             );
             let result = package
                 .prepare_solve(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -1152,7 +1165,7 @@ mod tests {
             .budget;
             assert!((prepared.model.values.scalars[&x] - 3.).abs() <= allowance);
             let result = package
-                .solve_case(prepared, compiler, &cancel)
+                .solve_case(&services, prepared, compiler, &cancel)
                 .await
                 .unwrap();
             assert!(result.accepted, "{:?}", result.validation_error);
@@ -1162,6 +1175,7 @@ mod tests {
     async fn kernel_nested_value_observation_propagates_native_demand_without_promoting_hints() {
         use pse_kernels::DerivativeOrder::{First, Second, Value};
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; implicit numerical select operational(w=1) settings(\"native.kinsol.v1\") {var w:Scalar;eq e:w*w==1;annotation bounds w(0.5,1.5);}realize n on numerical using nested;implicit outer {var y:Scalar;implicit child select branch(z>=0) {var z:Scalar;eq e:z*z==x;annotation start z(sqrt(x));annotation bounds z(0.1,10);}realize c on child using nested;eq e:y+child.z==x;annotation start y(numerical.w);annotation bounds y(0.1,10);}realize o on outer using nested;eq pin:outer.y==2;} }",
@@ -1177,6 +1191,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let model = package
             .prepare(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -1234,6 +1249,7 @@ mod tests {
         // first partials in its residual even when the original observation asks for values.
         let providers = package
             .inner_registrations(
+                services.preparation(),
                 model.clone(),
                 &ModelingCaseBindings::default(),
                 &NumericalInputs::default(),
@@ -1328,6 +1344,7 @@ mod tests {
         observed_providers.insert(key, wrapped);
         let observed = package
             .observe_registered(
+                services.preparation(),
                 model,
                 selected,
                 point,
@@ -1366,6 +1383,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_regime_selection_executes_branch_hints_and_refuses_ties() {
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
             "package p { def Root { param target:Scalar; implicit roots select minimum((y-target)*(y-target), 1e-8) { var y:Scalar; regime negative eligible(y<0) { eq root:y == -1; annotation start y(-0.5); annotation bounds y(-2,-0.1); } regime positive eligible(y>0) { eq root:y == 1; annotation start y(0.5); annotation bounds y(0.1,2); } } realize r on roots using nested; annotation report roots.y(\"selected\"); } }",
@@ -1380,6 +1398,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let model = package
             .prepare(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -1408,6 +1427,7 @@ mod tests {
         let selected = BTreeSet::from([row]);
         let providers = package
             .inner_registrations(
+                services.preparation(),
                 model.clone(),
                 &ModelingCaseBindings::default(),
                 &NumericalInputs::default(),
@@ -1426,7 +1446,7 @@ mod tests {
         let pse_math::implicit::ImplicitFactory::Regimes(factory) = source.factory() else {
             panic!("authored alternative selector expected")
         };
-        let declarations = package.declarations().await.unwrap();
+        let declarations = package.declarations(services.preparation()).await.unwrap();
         for (point, expected, branch_name) in [(-2., -1., "negative"), (2., 1., "positive")] {
             let values = CaseValues {
                 scalars: BTreeMap::from([(target, point)]),
@@ -1464,6 +1484,7 @@ mod tests {
             assert_eq!(options.variable_tolerance.len(), 1);
             let result = package
                 .observe_registered(
+                    services.preparation(),
                     model.clone(),
                     selected.clone(),
                     values,
@@ -1477,6 +1498,7 @@ mod tests {
         }
         let error = package
             .observe_registered(
+                services.preparation(),
                 model.clone(),
                 selected,
                 CaseValues {
@@ -1498,6 +1520,7 @@ mod tests {
     #[tokio::test]
     async fn nested_stage_reports_regime_crossings_per_outer_iteration() {
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
             "package p { def Root { var target:Scalar; var s:Scalar; implicit roots select minimum((y-target)*(y-target), 1e-8) { var y:Scalar; regime negative eligible(y<0) { eq root:y == -1; annotation start y(-0.5); annotation bounds y(-2,-0.1); } regime positive eligible(y>0) { eq root:y == 1; annotation start y(0.5); annotation bounds y(0.1,2); } } realize r on roots using nested; eq link:s == roots.y; eq pin:target == 2; annotation start target(-2); annotation start s(-1); } }",
@@ -1524,6 +1547,7 @@ mod tests {
         );
         let mut prepared = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -1539,7 +1563,7 @@ mod tests {
             .unwrap();
         bind_direct_provider_solve(&mut prepared);
         let result = package
-            .solve_case(prepared, compiler, &cancel)
+            .solve_case(&services, prepared, compiler, &cancel)
             .await
             .unwrap();
         let crate::math::solves::Outcome::Native(report) = &result.outcome else {
@@ -1585,6 +1609,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_nested_stage_composes_child_residuals_and_second_derivatives() {
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
             "package p { def Root { var x: Scalar; implicit outer { var y: Scalar; implicit child select branch(z>=0) { var z: Scalar; eq residual: z*z == x; annotation start z(sqrt(x)); annotation bounds z(sqrt(x)-0.01,sqrt(x)+0.01); annotation nominal z(sqrt(x)); annotation scale residual(inverseSum); } realize c on child using nested; eq residual: y+child.z == x; annotation start y(1); annotation bounds y(0.1,100); } realize p on outer using nested; eq pin: outer.y == 2; annotation start x(3); annotation report outer.y(\"outer\"); annotation report outer.child.z(\"child\"); } }",
@@ -1605,6 +1630,7 @@ mod tests {
         );
         let mut prepared = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -1663,7 +1689,7 @@ mod tests {
         assert!((jacobian[0] - 0.75).abs() < 1e-6, "{jacobian:?}");
         assert!((hessian[0] - 0.03125).abs() < 1e-6, "{hessian:?}");
         let result = package
-            .solve_case(prepared, compiler, &cancel)
+            .solve_case(&services, prepared, compiler, &cancel)
             .await
             .unwrap();
         assert!(result.accepted, "{:?}", result.validation_error);
@@ -1712,6 +1738,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_nested_stage_runs_on_outer_worker_and_uses_authored_hints() {
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
             "package p { def Root { var x: Scalar; implicit root select branch(y>=0) { var y: Scalar; eq residual: y*y == x; annotation scale residual(inverseSum); annotation start y(1); annotation bounds y(0.5,3); annotation valid y(0.5,3); annotation nominal y(2); } realize policy on root using nested; eq pin: root.y == 2; annotation start x(2); annotation report root.y(\"root\"); } }",
@@ -1730,6 +1757,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let prepared = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -1752,6 +1780,7 @@ mod tests {
         case.values.insert("root.y".into(), 1.5);
         let changed = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -1840,12 +1869,12 @@ mod tests {
             "shared instructions do not share resolved starts"
         );
         let changed_result = package
-            .solve_case(changed, compiler, &cancel)
+            .solve_case(&services, changed, compiler, &cancel)
             .await
             .unwrap();
         assert!(changed_result.accepted, "{changed_result:?}");
         let result = package
-            .solve_case(prepared, compiler, &cancel)
+            .solve_case(&services, prepared, compiler, &cancel)
             .await
             .unwrap();
         assert!(result.accepted, "{result:?}");
@@ -1896,6 +1925,7 @@ mod tests {
         assert!(
             package
                 .prepare_solve(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),

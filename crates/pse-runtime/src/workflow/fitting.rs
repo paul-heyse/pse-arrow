@@ -5,6 +5,8 @@ mod covariance;
 pub(in crate::workflow) mod documents;
 mod experiments;
 mod foreign;
+use super::{ExecutionServices, PreparationServices};
+use crate::math::MathService;
 pub use documents::{FitExecutionDocument, FitPreparationDocument, FitProfileDocument};
 mod modeling;
 mod oracle;
@@ -12,15 +14,13 @@ mod preparation;
 mod residual_policy;
 pub use residual_policy::{ResidualLmCriteria, ResidualLmStopping};
 mod profile;
+pub use super::modeling::{FitDeclaration, FitDeclarations};
 pub use covariance::{Covariance, FitWithheld, Interval, IntervalBound};
-pub use modeling::FitDeclarations;
 pub use profile::{ProfileChain, ProfileFailure, ProfilePoint, ProfileWorkerFailure};
 #[cfg(test)]
 pub(in crate::workflow) mod regression;
 mod results;
 mod sparse;
-/// Exact fitting declaration from the schema registry.
-pub type FitDeclaration = pse_relations::generated::authored::fit_cases::Row;
 use super::integrated::{Binding, IntegratedExperiment};
 use super::{WorkflowError, contract, math};
 use crate::math::{ExecutableCase, solves::SolverProfile};
@@ -379,7 +379,6 @@ pub(crate) struct FitProblem {
     snapshot: native::execution::Snapshot,
     structure: native::routing::Structure,
     structural_assessment: Option<native::structural::Assessment>,
-    pub(crate) runtime: super::Runtime,
     pub(crate) quantities: Arc<pse_quantity::QuantityRegistry>,
     pub(crate) source_identity: ContentHash,
     pub(crate) declaration: FitDeclaration,
@@ -566,7 +565,9 @@ impl FitReport {
         &self,
         policy: &pse_model::numerics::NumericalPolicy,
     ) -> super::numerics::CandidateDecision {
-        use super::numerics::{constant_use, native_use, refused};
+        use super::numerics::{
+            NativeEvidence, constant_use, native_evidence_use, native_use, refused,
+        };
         use pse_model::generated::enums::CandidateRefusal;
         if self.candidate.is_none() {
             return refused(CandidateRefusal::NoCandidate);
@@ -576,13 +577,14 @@ impl FitReport {
             .as_ref()
             .map_or(refused(CandidateRefusal::Infeasible), constant_use);
         if let Some(residual) = &self.residual {
-            if residual.failure.is_some() || !residual.termination.successful() {
-                return refused(CandidateRefusal::NativeOutcome);
-            }
-            if residual.qualification != native::solve::Qualification::Stationary {
-                return refused(CandidateRefusal::Unqualified);
-            }
-            return fresh;
+            return native_evidence_use(
+                NativeEvidence::residual(
+                    residual,
+                    self.candidate.as_deref(),
+                    self.quality.as_ref(),
+                ),
+                policy,
+            );
         }
         match self.solve.as_ref().map(|report| native_use(report, policy)) {
             Some(mut native) => {

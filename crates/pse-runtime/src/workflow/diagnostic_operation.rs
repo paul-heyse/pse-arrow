@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One diagnostic caller clock and cancellation owner, from preparation through publication.
-use super::{WorkflowError, contract};
+use super::{WorkflowError, contract, deadline_limit};
 use crate::{CancelSource, math::MathService};
 use pse_diagnostics::observation::OperationId;
 use pse_model::{
@@ -58,7 +58,7 @@ impl DiagnosticOperation {
         }
         let deadline = Instant::now()
             .checked_add(allowance)
-            .ok_or_else(|| contract("diagnostic deadline extent"))?;
+            .ok_or_else(|| deadline_limit("diagnostic deadline extent"))?;
         let driver = parent.child_with_deadline(Some(deadline));
         let scope = pse_kernels::ExecutionScope::new(
             pse_diagnostics::Cancellation::default(),

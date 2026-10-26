@@ -16545,14 +16545,6 @@ pub enum NativePetscMethod {
     #[serde(rename = "newton_trust_region")]
     #[strum(serialize = "newton_trust_region")]
     NewtonTrustRegion,
-    ///nonlinear_additive_schwarz
-    #[serde(rename = "nonlinear_additive_schwarz")]
-    #[strum(serialize = "nonlinear_additive_schwarz")]
-    NonlinearAdditiveSchwarz,
-    ///pseudo_transient
-    #[serde(rename = "pseudo_transient")]
-    #[strum(serialize = "pseudo_transient")]
-    PseudoTransient,
 }
 impl crate::SemanticEq for NativePetscMethod {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -16561,8 +16553,8 @@ impl crate::SemanticEq for NativePetscMethod {
 }
 impl NativePetscMethod {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+    pub const ALL: [Self; 1usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<1usize>() {
             Some(members) => *members,
             None => panic!("strum variant count disagrees with registry"),
         }
@@ -16575,8 +16567,6 @@ impl NativePetscMethod {
     pub const fn ordinal(self) -> usize {
         match self {
             Self::NewtonTrustRegion => 0usize,
-            Self::NonlinearAdditiveSchwarz => 1usize,
-            Self::PseudoTransient => 2usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -16588,8 +16578,6 @@ impl NativePetscMethod {
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
             Self::NewtonTrustRegion => None,
-            Self::NonlinearAdditiveSchwarz => None,
-            Self::PseudoTransient => None,
         }
     }
 }
@@ -16603,10 +16591,7 @@ impl schemars::JsonSchema for NativePetscMethod {
         std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NativePetscMethod)))
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        schemars::json_schema!(
-            { "type" : "string", "enum" : ["newton_trust_region",
-            "nonlinear_additive_schwarz", "pseudo_transient"] }
-        )
+        schemars::json_schema!({ "type" : "string", "enum" : ["newton_trust_region"] })
     }
 }
 impl NativePetscMethod {

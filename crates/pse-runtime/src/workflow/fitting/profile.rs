@@ -25,6 +25,7 @@
 //! fit whose objective falls below the estimate's (`stopped`).
 use super::*;
 use super::{covariance::IntervalBound, oracle::FitOracle};
+use crate::workflow::numerics::{CandidateDecision, CompletionEvidence, NativeEvidence};
 #[cfg(test)]
 use native::solve::Backend;
 use native::{
@@ -33,6 +34,8 @@ use native::{
     solve::{Compatibility, Execution, Qualification, Termination},
 };
 use pse_model::diagnostic::{BoundaryDiagnostic, DiagnosticProjection};
+use pse_model::generated::enums::{CandidateQualifier, CandidateRefusal};
+use pse_model::{HeapUsage, generated::identities::RunId};
 use pse_relations::generated::enums::{IntervalEnd, IntervalOutcome};
 use statrs::distribution::{ChiSquared, ContinuousCDF};
 use std::sync::{
@@ -44,6 +47,8 @@ use std::sync::{
 #[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProfilePoint {
+    /// Applicability and closure limitations of this independently checked pin.
+    pub qualifiers: Vec<CandidateQualifier>,
     /// Actual residual-native evidence for this pin; absent for a native NLP pin.
     pub residual: Option<FitResidualReport>,
     /// The pinned parameter value, in the parameter's unit.
@@ -134,6 +139,8 @@ pub enum ProfileWorkerFailure {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProfileChain {
+    /// Limitations retained from the estimate and accepted pins through this interval end.
+    pub qualifiers: Vec<CandidateQualifier>,
     /// Typed worker failure, separate from the scientific interval outcome.
     pub worker_failure: Option<ProfileWorkerFailure>,
     /// Worker start or environment failures for this execution, including partial starts.
@@ -276,6 +283,7 @@ impl ProfileChain {
     /// Retained bytes.
     pub(super) fn bytes(&self) -> usize {
         size_of::<Self>()
+            + self.qualifiers.capacity() * size_of::<CandidateQualifier>()
             + self.detail.as_ref().map_or(0, String::capacity)
             + match &self.worker_failure {
                 Some(ProfileWorkerFailure::Scheduling(detail)) => detail.capacity(),
@@ -297,7 +305,8 @@ impl ProfileChain {
                 .points
                 .iter()
                 .map(|p| {
-                    p.detail.as_ref().map_or(0, String::capacity)
+                    p.qualifiers.capacity() * size_of::<CandidateQualifier>()
+                        + p.detail.as_ref().map_or(0, String::capacity)
                         + p.failures.capacity() * size_of::<ProfileFailure>()
                         + p.failures.iter().map(ProfileFailure::bytes).sum::<usize>()
                 })
@@ -314,6 +323,50 @@ struct Task {
     end: IntervalEnd,
     step: f64,
 }
+/// Profile statistics require successful stationary pins in addition to every declared
+/// original check. Accepting a limited feasible incumbent for ordinary use does not
+/// establish a likelihood statistic.
+fn pin_acceptance(
+    native: NativeEvidence<'_>,
+    original: CompletionEvidence<'_>,
+    policy: &pse_model::numerics::NumericalPolicy,
+) -> CandidateDecision {
+    let mut decision = crate::workflow::numerics::original_completion(
+        crate::workflow::numerics::native_evidence_use(native, policy),
+        original,
+        policy,
+    )
+    .decision;
+    if !matches!(
+        native.termination,
+        Termination::Success | Termination::Acceptable | Termination::FeasibleOnly
+    ) {
+        decision.refuse(CandidateRefusal::NativeOutcome);
+    }
+    if !matches!(
+        native.qualification,
+        Qualification::Stationary
+            | Qualification::OptimalWithinTolerance
+            | Qualification::GapQualified
+    ) {
+        decision.refuse(CandidateRefusal::Unqualified);
+    }
+    decision
+}
+fn original_failure(error: WorkflowError) -> PinFailure {
+    match error {
+        WorkflowError::Math(error) => error.into_problem().into(),
+        other => {
+            let diagnostic = other.boundary_diagnostic();
+            let retained = size_of::<BoundaryDiagnostic>() + diagnostic.heap_bytes();
+            ProblemError::Math(pse_math::MathError::Typed {
+                retained,
+                cause: pse_model::diagnostic::DiagnosticCause::new(diagnostic),
+            })
+            .into()
+        }
+    }
+}
 /// An accepted pinned fit.
 struct Solution {
     residual: Option<FitResidualReport>,
@@ -321,6 +374,7 @@ struct Solution {
     primal: Vec<f64>,
     qualification: Qualification,
     termination: Termination,
+    qualifiers: Vec<CandidateQualifier>,
 }
 /// A failed pinned solve retains report state independently from its original causes.
 struct PinFailure {
@@ -342,6 +396,18 @@ impl From<ProblemError> for PinFailure {
     }
 }
 impl PinFailure {
+    fn with_residual(mut self, report: &FitResidualReport) -> Self {
+        self.qualification = Some(report.qualification);
+        self.termination = Some(report.termination_category());
+        self.residual = Some(Box::new(report.clone()));
+        self
+    }
+    fn with_native(mut self, report: &native::solve::SolveReport) -> Self {
+        self.qualification = Some(report.qualification);
+        self.termination = Some(report.termination.category);
+        self.callback_terminal_failure = report.evidence.callback.terminal_failure;
+        self
+    }
     fn subdivides(&self) -> bool {
         !self.callback_terminal_failure
             && !self.failures.is_empty()
@@ -355,7 +421,11 @@ impl PinFailure {
             .join("; ")
     }
     /// Extract the original callback/validation witnesses before any statistical decision.
-    fn assess(report: native::solve::SolveReport) -> Result<Solution, Self> {
+    fn assess(
+        report: native::solve::SolveReport,
+        original: CompletionEvidence<'_>,
+        policy: &pse_model::numerics::NumericalPolicy,
+    ) -> Result<Solution, Self> {
         let qualification = report.qualification;
         let termination = report.termination.category;
         let mut failure = Self {
@@ -378,21 +448,8 @@ impl PinFailure {
                     .into(),
             );
         }
-        // A native operational stop stays terminal even if its incumbent is stationary.
-        if !matches!(
-            termination,
-            Termination::Success | Termination::Acceptable | Termination::FeasibleOnly
-        ) || failure.failures.is_empty()
-            && (!matches!(
-                qualification,
-                Qualification::Stationary
-                    | Qualification::OptimalWithinTolerance
-                    | Qualification::GapQualified
-            ) || !report
-                .quality
-                .as_ref()
-                .is_some_and(native::quality::Quality::feasible))
-        {
+        let decision = pin_acceptance(NativeEvidence::nlp(&report), original, policy);
+        if !decision.permits_use() && failure.failures.is_empty() {
             failure
                 .failures
                 .push(ProfileFailure(Arc::new(ProblemError::native(
@@ -403,9 +460,10 @@ impl PinFailure {
                     },
                     termination,
                     format!(
-                        "the pinned fit is qualified {} ({})",
+                        "the pinned fit is qualified {} ({}): {}",
                         qualification.as_str(),
-                        report.termination.name
+                        report.termination.name,
+                        decision.reason()
                     ),
                 ))));
         }
@@ -420,6 +478,7 @@ impl PinFailure {
         match (report.candidate, objective) {
             (Some(candidate), Some(objective)) => Ok(Solution {
                 residual: None,
+                qualifiers: decision.qualifiers,
                 objective,
                 primal: candidate.primal,
                 qualification,
@@ -440,6 +499,10 @@ impl PinFailure {
 #[derive(Clone, Copy)]
 struct Chains<'a> {
     problem: &'a Arc<FitProblem>,
+    math: &'a Arc<MathService>,
+    prepared: &'a PreparedFit,
+    run_id: RunId,
+    qualifiers: &'a [CandidateQualifier],
     route: FitRoute,
     execution: &'a Execution,
     estimate: &'a [f64],
@@ -467,6 +530,7 @@ impl Chains<'_> {
         if self.route == FitRoute::ResidualLm {
             let (mut evidence, candidate) = oracle::residual::solve(
                 p,
+                self.math,
                 self.execution.clone(),
                 seed,
                 Some((column.get(), value)),
@@ -498,31 +562,49 @@ impl Chains<'_> {
                     callback_terminal_failure: terminal,
                 });
             }
-            let (objective, gradient, feasible) = match oracle::residual::assess_pin(
+            let observed = oracle::observe_pin(
                 p,
+                self.math,
                 self.execution.clone(),
                 &candidate,
-                column.get(),
+                Some(column.get()),
                 scratch.clone(),
-            ) {
-                Ok(assessment) => assessment,
-                Err(cause) => {
-                    return Err(PinFailure {
-                        qualification: Some(Qualification::Unqualified),
-                        termination: Some(evidence.termination_category()),
-                        residual: Some(Box::new(evidence)),
-                        failures: vec![cause.into()],
-                        callback_terminal_failure: false,
-                    });
-                }
+            )
+            .map_err(|error| PinFailure::from(error).with_residual(&evidence))?;
+            let gradient = observed.gradient.unwrap_or(f64::INFINITY);
+            evidence.stationarity = Some(gradient);
+            evidence.qualification = if observed.quality.feasible()
+                && gradient.is_finite()
+                && gradient <= p.accuracy.stationarity
+            {
+                Qualification::Stationary
+            } else if observed.quality.feasible() {
+                Qualification::Feasible
+            } else {
+                Qualification::Unqualified
             };
-            if !feasible || gradient > p.accuracy.stationarity || !gradient.is_finite() {
+            let (checks, _) = self
+                .prepared
+                .assess_candidate(
+                    self.run_id,
+                    &candidate,
+                    &observed.trajectories,
+                    &self.execution.scope().map_err(PinFailure::from)?,
+                )
+                .map_err(|error| original_failure(error).with_residual(&evidence))?;
+            let decision = pin_acceptance(
+                NativeEvidence::residual(&evidence, Some(&candidate), Some(&observed.quality)),
+                CompletionEvidence::point(&checks, true, self.prepared.required_closure_checks()),
+                &p.numerics.policy,
+            );
+            if !decision.permits_use() {
                 let failure = ProfileFailure::from(ProblemError::numerical(format!(
-                    "residual LM pin {:?} did not qualify its original gradient/quality",
-                    evidence.termination
+                    "residual LM pin {:?}: {}",
+                    evidence.termination,
+                    decision.reason()
                 )));
                 return Err(PinFailure {
-                    qualification: Some(Qualification::Unqualified),
+                    qualification: Some(evidence.qualification),
                     termination: Some(evidence.termination_category()),
                     residual: Some(Box::new(evidence)),
                     failures: vec![failure],
@@ -532,7 +614,8 @@ impl Chains<'_> {
             evidence.stationarity = Some(gradient);
             evidence.qualification = Qualification::Stationary;
             return Ok(Solution {
-                objective,
+                objective: observed.objective,
+                qualifiers: decision.qualifiers,
                 primal: candidate,
                 qualification: Qualification::Stationary,
                 termination: evidence.termination_category(),
@@ -550,8 +633,13 @@ impl Chains<'_> {
             .time_limit
             .saturating_sub(self.execution.started.elapsed());
         let failed = PinFailure::from;
-        let oracle =
-            FitOracle::with_scratch(p.clone(), self.execution.clone(), scratch).map_err(failed)?;
+        let oracle = FitOracle::with_scratch(
+            p.clone(),
+            self.math.clone(),
+            self.execution.clone(),
+            scratch.clone(),
+        )
+        .map_err(failed)?;
         let pinned = native::transform::Pinned::new(Box::new(oracle), &[(column.get(), value)])
             .map_err(failed)?;
         let mut initial = seed.to_vec();
@@ -594,7 +682,62 @@ impl Chains<'_> {
                 return Err(failure);
             }
         };
-        let assessed = PinFailure::assess(report);
+        let native = NativeEvidence::nlp(&report);
+        if !pin_acceptance(
+            native,
+            CompletionEvidence::point(&[], true, 0),
+            &p.numerics.policy,
+        )
+        .permits_use()
+        {
+            retained.clear();
+            return PinFailure::assess(
+                report,
+                CompletionEvidence::point(&[], false, self.prepared.required_closure_checks()),
+                &p.numerics.policy,
+            );
+        }
+        let assessed = (|| {
+            let original = if let Some(candidate) = &report.candidate {
+                let observed = oracle::observe_pin(
+                    p,
+                    self.math,
+                    self.execution.clone(),
+                    &candidate.primal,
+                    None,
+                    scratch,
+                )
+                .map_err(|error| PinFailure::from(error).with_native(&report))?;
+                if !observed.quality.feasible() {
+                    retained.clear();
+                    return Err(PinFailure::from(ProblemError::numerical(
+                        "fresh original pin is infeasible",
+                    ))
+                    .with_native(&report));
+                }
+                let (checks, _) = self
+                    .prepared
+                    .assess_candidate(
+                        self.run_id,
+                        &candidate.primal,
+                        &observed.trajectories,
+                        &self.execution.scope().map_err(PinFailure::from)?,
+                    )
+                    .map_err(|error| original_failure(error).with_native(&report))?;
+                Some(checks)
+            } else {
+                None
+            };
+            PinFailure::assess(
+                report,
+                CompletionEvidence::point(
+                    original.as_deref().unwrap_or(&[]),
+                    original.is_some(),
+                    self.prepared.required_closure_checks(),
+                ),
+                &p.numerics.policy,
+            )
+        })();
         if assessed.is_err() {
             retained.clear();
         }
@@ -602,6 +745,7 @@ impl Chains<'_> {
     }
     fn failed(&self, task: Task, failure: ProfileWorkerFailure) -> ProfileChain {
         ProfileChain {
+            qualifiers: self.qualifiers.to_vec(),
             parameter: self.problem.declaration.parameters[task.parameter].symbol_id,
             end: task.end,
             estimate: self.estimate[task.column.get()],
@@ -628,10 +772,10 @@ impl Chains<'_> {
         let p = self.problem;
         // Construct/drop this neutral population on the actual chain owner, including
         // width-one inline dispatch. No provider or numerical point crosses pins.
-        let scratch = oracle::neutral::FitScratch::new(p);
+        let scratch = oracle::neutral::FitScratch::new(p, self.math);
         let column = task.column.get();
         let variable = &p.contract.variables[column];
-        ChainPolicy {
+        let mut chain = ChainPolicy {
             parameter: p.declaration.parameters[task.parameter].symbol_id,
             column,
             end: task.end,
@@ -658,7 +802,13 @@ impl Chains<'_> {
                 scratch.discard();
             }
             result
-        })
+        });
+        for qualifier in self.qualifiers {
+            if !chain.qualifiers.contains(qualifier) {
+                chain.qualifiers.push(*qualifier);
+            }
+        }
+        chain
     }
 }
 /// Statistical target and bracketing policy, independent of problem/native startup.
@@ -710,6 +860,7 @@ impl ChainPolicy<'_> {
         let estimate = self.estimate[self.column];
         let smallest = 1e-9 * self.scale.max(estimate.abs());
         let mut chain = ProfileChain {
+            qualifiers: Vec::new(),
             worker_failure: None,
             scheduling_failures: Vec::new(),
             actual_parallelism: 1,
@@ -801,6 +952,7 @@ impl ChainPolicy<'_> {
                     }
                     let detail = failure.detail();
                     chain.points.push(ProfilePoint {
+                        qualifiers: Vec::new(),
                         residual: failure.residual.map(|residual| *residual),
                         value,
                         seed,
@@ -832,6 +984,7 @@ impl ChainPolicy<'_> {
                         context.boolean("profile.point_accepted", !below);
                     }
                     chain.points.push(ProfilePoint {
+                        qualifiers: solution.qualifiers.clone(),
                         residual: solution.residual.clone(),
                         value,
                         seed,
@@ -845,6 +998,13 @@ impl ChainPolicy<'_> {
                         detail: below
                             .then(|| "the pinned fit's objective is below the estimate's".into()),
                     });
+                    if !below {
+                        for qualifier in &solution.qualifiers {
+                            if !chain.qualifiers.contains(qualifier) {
+                                chain.qualifiers.push(*qualifier);
+                            }
+                        }
+                    }
                     if below {
                         let detail = format!(
                             "a pinned fit at {value} reached an objective {} below the estimate's",
@@ -881,19 +1041,22 @@ impl ChainPolicy<'_> {
     }
 }
 
-impl FitProblem {
+impl PreparedFit {
     /// The two profile-likelihood chains of every free parameter, or why they are withheld:
     /// they need the estimate's own conditions, not full rank, which a flat profile shows.
     pub(super) fn profiles(
-        self: &Arc<Self>,
+        &self,
+        math: &Arc<MathService>,
+        run_id: RunId,
         report: &FitReport,
         level: f64,
         controls: &ProfileControls,
         (route, workers): (FitRoute, usize),
         execution: &Execution,
     ) -> Result<Vec<ProfileChain>, FitWithheld> {
+        let p = &self.problem;
         crate::workflow::dynamics::analysis("fit.profile_likelihood_analysis", || {
-            self.estimate_valid(report)?;
+            p.estimate_valid(report)?;
             let (Some(estimate), Some(optimum)) = (report.candidate.as_deref(), report.objective)
             else {
                 return Err(FitWithheld::Local(Withheld::NoCandidate));
@@ -914,11 +1077,11 @@ impl FitProblem {
                 .covariance
                 .as_ref()
                 .and_then(Covariance::standard_errors);
-            let tasks: Vec<Task> = self
+            let tasks: Vec<Task> = p
                 .free()
                 .enumerate()
                 .flat_map(|(j, (parameter, column))| {
-                    let scale = self.declaration.parameters[parameter].scale;
+                    let scale = p.declaration.parameters[parameter].scale;
                     let step = errors
                         .as_ref()
                         .map(|e| 0.5 * threshold * e[j])
@@ -932,22 +1095,29 @@ impl FitProblem {
                     })
                 })
                 .collect();
-            let threads = self.profile.solver.controls.threads;
-            let experiment_cores = self
+            let threads = p.profile.solver.controls.threads;
+            let experiment_cores = p
                 .profile
                 .experiment_workers
                 .into_inner()
-                .min(self.experiments.len())
-                .min(self.runtime.native().cores());
+                .min(p.experiments.len())
+                .min(math.cores());
             // Native fitting and its mutable callback execute in phases. A chain's
             // admitted envelope covers either its NLP team or its experiment lanes.
             let chain_cores = threads.max(experiment_cores);
             let workers = workers
                 .min(tasks.len())
-                .min(self.runtime.native().cores() / chain_cores)
+                .min(math.cores() / chain_cores)
                 .max(1);
             let chains = Chains {
-                problem: self,
+                problem: p,
+                math,
+                prepared: self,
+                run_id,
+                qualifiers: report
+                    .completion
+                    .as_ref()
+                    .map_or(&[], |completion| completion.decision.qualifiers.as_slice()),
                 route,
                 execution,
                 estimate,
@@ -956,7 +1126,7 @@ impl FitProblem {
                 tolerance: controls.tolerance.into_inner(),
                 points: controls.points.into_inner(),
             };
-            let stack = self.runtime.native().stack_bytes();
+            let stack = math.stack_bytes();
             let core_extent = |workers: usize| {
                 chain_cores.checked_mul(workers).ok_or_else(|| {
                     FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
@@ -971,7 +1141,7 @@ impl FitProblem {
                     FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(error)))
                 })?;
             let byte_extent = |workers: usize| {
-                self.bytes
+                p.bytes
                     .checked_mul(workers.saturating_sub(1))
                     .and_then(|bytes| {
                         stack
@@ -1002,12 +1172,12 @@ impl FitProblem {
                 execution.check().map_err(|error| {
                     FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(error)))
                 })?;
-                let attempted = self.runtime.native().quiescent_phase(
+                let attempted = math.quiescent_phase(
                     core_extent(actual)?,
                     byte_extent(actual)?,
                     execution,
                     || {
-                        let Some(chain_executions) = foreign::chains(self, execution, actual)?
+                        let Some(chain_executions) = foreign::chains(p, math, execution, actual)?
                         else {
                             return Ok(None);
                         };
@@ -1118,6 +1288,7 @@ mod worker_tests {
             primal: vec![value],
             qualification: Qualification::Stationary,
             termination: Termination::Success,
+            qualifiers: Vec::new(),
         }
     }
     fn report(termination: Termination, execution: &Execution) -> native::solve::SolveReport {
@@ -1139,6 +1310,134 @@ mod worker_tests {
             },
             execution,
         )
+    }
+    fn check(
+        kind: pse_model::generated::enums::ModelingCheckKind,
+        satisfied: bool,
+    ) -> crate::workflow::ModelingCheck {
+        crate::workflow::ModelingCheck {
+            run_id: RunId::from_bytes([1; 16]),
+            step: 0,
+            sample_index: 0,
+            time: None,
+            target_id: SemanticId::from_bytes([4; 16]),
+            source_id: pse_modeling::DeclarationId::from_bytes([3; 16]),
+            kind,
+            value: 0.0,
+            tolerance: None,
+            satisfied,
+            within_validity: None,
+            extrapolation_allowed: None,
+            basis: pse_model::generated::enums::ModelingCheckBasis::Point,
+            layer: None,
+            claim_id: None,
+            claim_owner: None,
+            claim_owner_lineage: Vec::new(),
+            coverage_id: None,
+            evidence_id: None,
+            form_id: None,
+            call_id: None,
+            selected_records: Vec::new(),
+            dependencies: Vec::new(),
+            input_values: Vec::new(),
+            applicability_outcome: None,
+            applicability_basis: None,
+            permission_ids: Vec::new(),
+            unknown_allowed: None,
+            observation_instance: None,
+            applicability_required: None,
+            applicability_reason: None,
+            applicability_permissions: Vec::new(),
+        }
+    }
+    #[test]
+    fn pure_pin_policy_requires_original_checks_and_preserves_interval_qualifiers() {
+        use pse_model::generated::enums::{
+            ModelingApplicabilityOutcome as A, ModelingCheckKind as K,
+        };
+        let quality = native::quality::Quality::new(vec![], vec![], vec![]).unwrap();
+        let evidence = NativeEvidence {
+            candidate: Some(&[0.]),
+            termination: Termination::Success,
+            quality: Some(&quality),
+            callback_failure: None,
+            validation_failure: None,
+            qualification: Qualification::Stationary,
+            bound: None,
+            relaxed_incumbent: false,
+        };
+        let policy = pse_model::numerics::NumericalPolicy::default();
+        let mut applicability = check(K::Applicability, true);
+        applicability.applicability_outcome = Some(A::UnknownEvidence);
+        applicability.unknown_allowed = Some(true);
+        applicability.applicability_required = Some(true);
+        let checks = [check(K::Closure, true), applicability];
+        let original = CompletionEvidence::point(&checks, true, 1);
+        let decision = pin_acceptance(evidence, original, &policy);
+        assert!(decision.permits_use());
+        assert_eq!(
+            decision.qualifiers,
+            vec![CandidateQualifier::ApplicabilityUnknownAllowed]
+        );
+        let execution = execution();
+        let chain = self::policy(&execution).run(|value, _| {
+            let mut point = solution(value);
+            point.qualifiers = decision.qualifiers.clone();
+            Ok(point)
+        });
+        assert_eq!(chain.bound.outcome, IntervalOutcome::Threshold);
+        assert!(chain.bound.value.is_some());
+        assert_eq!(chain.qualifiers, decision.qualifiers);
+        assert!(
+            chain
+                .points
+                .iter()
+                .all(|point| point.qualifiers == chain.qualifiers)
+        );
+        for original in [
+            CompletionEvidence::point(&checks, false, 1),
+            CompletionEvidence::point(&checks, true, 2),
+        ] {
+            assert!(!pin_acceptance(evidence, original, &policy).permits_use());
+        }
+        let mut denied = checks.clone();
+        denied[1].satisfied = false;
+        assert!(
+            !pin_acceptance(
+                evidence,
+                CompletionEvidence::point(&denied, true, 1),
+                &policy
+            )
+            .permits_use()
+        );
+        let mut extrapolated = checks.clone();
+        extrapolated[1].applicability_outcome = Some(A::OutsideRegion);
+        extrapolated[1].extrapolation_allowed = Some(true);
+        let decision = pin_acceptance(
+            evidence,
+            CompletionEvidence::point(&extrapolated, true, 1),
+            &policy,
+        );
+        assert!(decision.permits_use());
+        assert!(
+            decision
+                .qualifiers
+                .contains(&CandidateQualifier::ApplicabilityExtrapolationAllowed)
+        );
+        let limited = NativeEvidence {
+            termination: Termination::IterationLimit,
+            qualification: Qualification::Feasible,
+            ..evidence
+        };
+        let policy = pse_model::numerics::NumericalPolicy {
+            incumbent: pse_model::generated::enums::IncumbentPolicy::AcceptFeasible,
+            ..policy
+        };
+        assert!(crate::workflow::numerics::native_evidence_use(limited, &policy).permits_use());
+        let pin = pin_acceptance(limited, original, &policy);
+        assert!(!pin.permits_use());
+        assert!(pin.refusals.contains(&CandidateRefusal::Unqualified));
+        assert!(pin.refusals.contains(&CandidateRefusal::NativeOutcome));
     }
     #[test]
     fn numerical_failure_subdivides_then_brackets_without_replacing_statistical_policy() {
@@ -1269,7 +1568,11 @@ mod worker_tests {
         let mut pins = Vec::new();
         let chain = policy(&execution).run(|value, _| {
             pins.push(value);
-            PinFailure::assess(latched.take().expect("terminal report must never repeat"))
+            PinFailure::assess(
+                latched.take().expect("terminal report must never repeat"),
+                CompletionEvidence::point(&[], true, 0),
+                &Default::default(),
+            )
         });
         assert_eq!(pins, vec![1.0]);
         assert!(chain.points[0].callback_terminal_failure);
@@ -1292,7 +1595,11 @@ mod worker_tests {
             let mut attempts = 0;
             let chain = policy(&execution).run(|_, _| {
                 attempts += 1;
-                PinFailure::assess(observed.take().expect("native stop must never repeat"))
+                PinFailure::assess(
+                    observed.take().expect("native stop must never repeat"),
+                    CompletionEvidence::point(&[], true, 0),
+                    &Default::default(),
+                )
             });
             assert_eq!(attempts, 1);
             assert_eq!(
@@ -1307,7 +1614,13 @@ mod worker_tests {
             pse_kernels::ProviderError::Terminal("validation provider".into()),
         ));
         let original = observed.shared_validation_failure().unwrap();
-        let failed = PinFailure::assess(observed).err().unwrap();
+        let failed = PinFailure::assess(
+            observed,
+            CompletionEvidence::point(&[], true, 0),
+            &Default::default(),
+        )
+        .err()
+        .unwrap();
         assert!(!failed.subdivides());
         assert!(Arc::ptr_eq(&original, &failed.failures[0].0));
     }
@@ -1412,6 +1725,7 @@ mod worker_tests {
         let mut detail = String::with_capacity(1024);
         detail.push_str("refused");
         let chain = ProfileChain {
+            qualifiers: Vec::new(),
             parameter: SemanticId::NIL,
             end: IntervalEnd::Lower,
             estimate: 0.0,
@@ -1539,7 +1853,9 @@ mod worker_tests {
 #[cfg(all(test, feature = "solver-ipopt"))]
 #[tokio::test]
 async fn residual_profile_pin_preserves_literal_callback_failure_before_independent_assessment() {
-    let seed = oracle::lm_inquiry::fixture("domain", [1., 2.])
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let seed = oracle::lm_inquiry::fixture(&runtime, "domain", [1., 2.])
         .await
         .unwrap();
     let mut profile = seed.problem.profile.clone();
@@ -1549,6 +1865,7 @@ async fn residual_profile_pin_preserves_literal_callback_failure_before_independ
     let prepared = seed
         .source
         .prepare_fit(
+            services.preparation(),
             seed.declaration().fit_id,
             profile,
             crate::workflow::tests::compiler_profile(),
@@ -1558,15 +1875,17 @@ async fn residual_profile_pin_preserves_literal_callback_failure_before_independ
         .await
         .unwrap();
     let problem = prepared.problem.clone();
-    let service = problem.runtime.native().clone();
+    let math = services.preparation().math().clone();
+    let service = math.clone();
     service.job_scoped(1,problem.bytes+(1<<20),Default::default(),None,move |flag| {
         let mut execution=Execution::new(flag,&problem.profile.solver.controls);
         execution.memory=Some(1<<20);
         let estimate=problem.initial.clone();
-        let chains=Chains { problem:&problem,route:FitRoute::ResidualLm,execution:&execution,
+        let chains=Chains { problem:&problem,math:&math,prepared:&prepared,
+            run_id:RunId::from_bytes([71;16]),qualifiers:&[],route:FitRoute::ResidualLm,execution:&execution,
             estimate:&estimate,optimum:0.,threshold:1.,tolerance:0.001,points:4 };
         let Err(failed)=chains.solve(&mut native::execution::Retained::default(),OriginalCol::new(0),-1.,
-            &estimate,oracle::neutral::FitScratch::new(&problem)) else {panic!("invalid current pin unexpectedly succeeded");};
+            &estimate,oracle::neutral::FitScratch::new(&problem,&math)) else {panic!("invalid current pin unexpectedly succeeded");};
         assert!(failed.callback_terminal_failure);
         assert!(!failed.subdivides(),"a latched callback owner cannot masquerade as an unlatched numerical trial");
         let literal=failed.residual.as_ref().unwrap();

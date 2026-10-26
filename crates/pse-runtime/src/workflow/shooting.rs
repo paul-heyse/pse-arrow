@@ -137,7 +137,6 @@ pub struct ShootingProblem {
     pub(super) simulation: super::ModelingSimulation,
     experiment: IntegratedExperiment,
     method: ShootingMethod,
-    pub(super) runtime: super::Runtime,
     pub(super) solver: SolverProfile,
     /// The windows in time order and, for every horizon sample, its window and index there.
     windows: Vec<Window>,
@@ -212,6 +211,7 @@ impl super::ModelingPackage {
     /// level, minimized. A given `profile` replaces the fixture's integration controls.
     pub async fn declared_shooting(
         &self,
+        services: &super::PreparationServices,
         root: pse_modeling::DeclarationId,
         compiler: pse_compiler::workspace::Profile,
         profile: Option<native::dynamics::Profile>,
@@ -219,13 +219,21 @@ impl super::ModelingPackage {
         limits: pse_modeling::Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ShootingProblem, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let execution = self
-                    .declared_execution(root, compiler, solver, Default::default(), limits, cancel)
+                    .declared_execution(
+                        services,
+                        root,
+                        compiler,
+                        solver,
+                        Default::default(),
+                        limits,
+                        cancel,
+                    )
                     .await?;
-                self.shooting_for_declared(&execution, profile, cancel)
+                self.shooting_for_declared(services, &execution, profile, cancel)
                     .await
             })
             .await
@@ -233,11 +241,12 @@ impl super::ModelingPackage {
     /// Prepare shooting from the operation's already admitted authored execution.
     pub(in crate::workflow) async fn shooting_for_declared(
         &self,
+        services: &super::PreparationServices,
         execution: &super::modeling::DeclaredExecution,
         profile: Option<native::dynamics::Profile>,
         cancel: &crate::CancelSource,
     ) -> Result<ShootingProblem, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 if !matches!(
@@ -249,20 +258,22 @@ impl super::ModelingPackage {
                     ));
                 }
                 let simulation = self
-                    .simulation_for_declared(execution, profile, cancel)
+                    .simulation_for_declared(services, execution, profile, cancel)
                     .await?;
                 let request = simulation.authored_shooting(
                     execution.analysis.instance,
                     execution.analysis.solver.clone(),
                 )?;
                 let control = pse_diagnostics::Cancellation::default();
-                let operation =
-                    self.runtime
-                        .shared
-                        .math()
-                        .job(1, 0, control.clone(), move |flag| {
-                            Ok(ShootingProblem::new(&simulation, request, &flag.flag()))
-                        });
+                let preparing = services.clone();
+                let operation = services.math().job(1, 0, control.clone(), move |flag| {
+                    Ok(ShootingProblem::new(
+                        &simulation,
+                        &preparing,
+                        request,
+                        &flag.flag(),
+                    ))
+                });
                 tokio::pin!(operation);
                 tokio::select! {
                     result = &mut operation => result.map_err(WorkflowError::from)?,
@@ -281,14 +292,19 @@ impl super::ModelingSimulation {
     /// Prepare single or multiple shooting over this simulation (ADR-0110 Outcome 5). The
     /// controls are scheduled inputs of the simulation's profile; path bounds and terminal
     /// weights name outputs; integral weights name declared quadratures.
-    pub fn shooting(&self, request: ShootingProfile) -> Result<ShootingProblem, WorkflowError> {
-        ShootingProblem::new(self, request, &AtomicBool::new(false))
+    pub fn shooting(
+        &self,
+        services: &super::PreparationServices,
+        request: ShootingProfile,
+    ) -> Result<ShootingProblem, WorkflowError> {
+        ShootingProblem::new(self, services, request, &AtomicBool::new(false))
     }
 }
 
 impl ShootingProblem {
     fn new(
         simulation: &super::ModelingSimulation,
+        services: &super::PreparationServices,
         mut request: ShootingProfile,
         cancel: &AtomicBool,
     ) -> Result<Self, WorkflowError> {
@@ -301,9 +317,7 @@ impl ShootingProblem {
                 (request.objective.terminal.len() + request.objective.integral.len())
                     .saturating_mul(192),
             );
-        let original_owner = simulation
-            .runtime
-            .shared
+        let original_owner = services
             .math()
             .reserve("replay:original-shooting-constructor", original_extent)?;
         let original_inputs = Arc::new(request.clone());
@@ -437,7 +451,7 @@ impl ShootingProblem {
         let experiment = IntegratedExperiment {
             snapshot: simulation.snapshot().clone(),
             program: simulation.program(),
-            snapshots: simulation.snapshot_allocator(),
+            snapshots: simulation.snapshot_allocator(services.math()),
             profile: profile.clone(),
             parameters: simulation.parameters.clone(),
             output_ports,
@@ -485,10 +499,13 @@ impl ShootingProblem {
         let start = {
             use native::dynamics::Oracle;
             let mut worker = simulation
-                .worker(pse_kernels::ExecutionScope::new(
-                    pse_diagnostics::Cancellation::new(false),
-                    None,
-                ))
+                .worker(
+                    services.math(),
+                    pse_kernels::ExecutionScope::new(
+                        pse_diagnostics::Cancellation::new(false),
+                        None,
+                    ),
+                )
                 .map_err(|e| WorkflowError::Math(e.into()))?;
             let initial = worker
                 .evaluate(
@@ -671,7 +688,6 @@ impl ShootingProblem {
             simulation: simulation.clone(),
             experiment,
             method: request.method,
-            runtime: simulation.runtime.clone(),
             solver: request.solver,
             windows,
             samples,
@@ -705,14 +721,14 @@ impl ShootingProblem {
             problem.windows[k].profile.forward_axes = Some(axes);
         }
         problem.pattern = problem.jacobian_structure()?;
-        problem.admit_windows(simulation)?;
+        problem.admit_windows(simulation, services.math())?;
         if !problem.contract.variables.is_empty() {
             let structural_extent =
                 native::structural::construction_bytes(&problem.contract, problem.pattern.as_ref())
                     .map_err(crate::math::MathRuntimeError::from)?;
             let reservation =
                 datafusion::execution::memory_pool::MemoryConsumer::new("shooting:structure")
-                    .register(&problem.runtime.shared.pool());
+                    .register(&services.pool());
             reservation
                 .try_grow(structural_extent)
                 .map_err(crate::math::MathRuntimeError::from)?;
@@ -894,6 +910,7 @@ impl ShootingProblem {
     fn admit_windows(
         &mut self,
         simulation: &super::ModelingSimulation,
+        math: &Arc<crate::math::MathService>,
     ) -> Result<(), WorkflowError> {
         let n = self.contract.variables.len();
         let forward = n > 0 && (!self.rows.is_empty() || !self.terminal.is_empty());
@@ -909,10 +926,13 @@ impl ShootingProblem {
         let problem = |e: ProblemError| WorkflowError::Math(e.into());
         let worker = |observed| {
             native::dynamics::Anchored::new(
-                simulation.worker(pse_kernels::ExecutionScope::new(
-                    pse_diagnostics::Cancellation::new(false),
-                    None,
-                ))?,
+                simulation.worker(
+                    math,
+                    pse_kernels::ExecutionScope::new(
+                        pse_diagnostics::Cancellation::new(false),
+                        None,
+                    ),
+                )?,
                 observed,
             )
         };
@@ -939,12 +959,7 @@ impl ShootingProblem {
                 .map_err(problem)?;
             #[cfg(feature = "solver-idas")]
             if forward_quadratures {
-                let memory = self
-                    .runtime
-                    .shared
-                    .budget()
-                    .math
-                    .foreign_allowance(&self.solver.controls);
+                let memory = math.policy().foreign_allowance(&self.solver.controls);
                 let admitted = native::dynamics::Oracle::prepared_layout(&plain, memory)
                     .and_then(|layout| {
                         profile.forward_quadrature_bytes(
@@ -1153,6 +1168,7 @@ impl Point {
 /// The shooting NLP oracle over one attempt.
 #[derive(Debug)]
 struct ShootingOracle {
+    math: Arc<crate::math::MathService>,
     observation: Option<pse_diagnostics::observation::Producer>,
     purpose: crate::invocation::IntegrationPurpose,
     problem: Arc<ShootingProblem>,
@@ -1197,6 +1213,7 @@ impl ShootingOracle {
             // standalone/original assessment uses its current owner's width-one lane.
             self.worker = Some(WindowTeam::inline(
                 self.problem.clone(),
+                self.math.clone(),
                 self.execution.clone(),
             )?);
         } else if let Some(context) = pse_diagnostics::observation::current() {
@@ -1587,6 +1604,7 @@ impl ShootingProblem {
     /// objective, continuity residual and stitched trajectory.
     pub(crate) fn solve(
         self: &Arc<Self>,
+        services: &super::ExecutionServices,
         run_id: RunId,
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
@@ -1617,7 +1635,7 @@ impl ShootingProblem {
             source.profile_projection = Some(&projection);
             let (mut report, trace) = crate::math::strategy::target::callable(
                 crate::math::strategy::target::CallContext {
-                    service: self.runtime.shared.math(),
+                    service: services.preparation().math(),
                     scope: &scope,
                     storage,
                 },
@@ -1627,9 +1645,10 @@ impl ShootingProblem {
                     native::execution::scoped(
                         &adapters,
                         profile.controls.threads,
-                        self.runtime.native().stack_bytes(),
+                        services.preparation().math().stack_bytes(),
                         || {
                             self.solve_inner(
+                                services,
                                 run_id,
                                 scope.clone(),
                                 progress.clone(),
@@ -1680,6 +1699,7 @@ impl ShootingProblem {
     }
     fn solve_inner(
         self: &Arc<Self>,
+        services: &super::ExecutionServices,
         run_id: RunId,
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
@@ -1696,10 +1716,10 @@ impl ShootingProblem {
         execution.progress = progress;
         execution.work_admission = Some(admission);
         execution.memory = Some(
-            self.runtime
-                .shared
-                .budget()
-                .math
+            services
+                .preparation()
+                .math()
+                .policy()
                 .foreign_allowance(&solver.controls),
         );
         let mut worker = self.experiment.worker(&execution)?;
@@ -1715,6 +1735,7 @@ impl ShootingProblem {
         } else {
             Some(WindowTeam::new(
                 self.clone(),
+                services.preparation().math().clone(),
                 execution.clone(),
                 Some(worker),
             )?)
@@ -1747,6 +1768,7 @@ impl ShootingProblem {
                 &mut native::execution::Retained::default(),
                 native::execution::Nlp {
                     oracle: Box::new(ShootingOracle {
+                        math: services.preparation().math().clone(),
                         observation: pse_diagnostics::observation::current().map(|context| {
                             context.producer(
                                 pse_diagnostics::observation::ProducerRole::Workflow,
@@ -1803,6 +1825,7 @@ impl ShootingProblem {
             let assessed: Result<(), crate::math::MathRuntimeError> = (|| {
                 // A fresh evaluation, independent of the native callbacks' cache.
                 let mut oracle = ShootingOracle {
+                    math: services.preparation().math().clone(),
                     observation: pse_diagnostics::observation::current().map(|context| {
                         context.producer(
                             pse_diagnostics::observation::ProducerRole::Workflow,

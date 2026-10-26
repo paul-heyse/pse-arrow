@@ -1854,6 +1854,7 @@ mod tests {
             .unwrap();
         let prepared = package
             .prepare_simulation(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 pse_modeling::Bindings::default(),
@@ -1874,7 +1875,7 @@ mod tests {
             .unwrap();
         let scope =
             pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
-        let mut worker = prepared.worker(scope).unwrap();
+        let mut worker = prepared.worker(runtime.native(), scope).unwrap();
         let first = worker
             .evaluate(
                 0,
@@ -2036,6 +2037,7 @@ mod tests {
             .unwrap();
         let prepared = package
             .prepare_simulation(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 pse_modeling::Bindings::default(),
@@ -2050,7 +2052,7 @@ mod tests {
             .unwrap();
         let scope =
             pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
-        let mut worker = prepared.worker(scope).unwrap();
+        let mut worker = prepared.worker(runtime.native(), scope).unwrap();
         let rhs = &worker.functions[&(0, Function::Rhs)];
         assert_eq!(
             rhs.program.case.assembly.order(),
@@ -2153,6 +2155,7 @@ mod tests {
         reference_profile.idas.linear = native::IdasLinear::Klu;
         let reference = package
             .prepare_simulation(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 pse_modeling::Bindings::default(),
@@ -2166,10 +2169,10 @@ mod tests {
             .await
             .unwrap();
         let mut reference_worker = reference
-            .worker(pse_kernels::ExecutionScope::new(
-                pse_diagnostics::Cancellation::default(),
-                None,
-            ))
+            .worker(
+                runtime.native(),
+                pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            )
             .unwrap();
         assert_eq!(worker.coordinates.state, reference_worker.coordinates.state);
         let reference_report = native::integrate(
@@ -2339,6 +2342,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let base = package
             .prepare_simulation(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -2385,6 +2389,7 @@ mod tests {
         });
         let requested = package
             .prepare_simulation(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -2433,7 +2438,10 @@ mod tests {
         .unwrap()
         .budget;
         assert_eq!(budget, 0.001);
-        let result = requested.run(&cancel).await.unwrap();
+        let result = requested
+            .run(&runtime.execution_services(), &cancel)
+            .await
+            .unwrap();
         assert_eq!(
             result.report().termination,
             native::Termination::Completed,
@@ -2499,6 +2507,7 @@ mod tests {
             .unwrap();
         let prepared = package
             .prepare_simulation(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 pse_modeling::Bindings::default(),
@@ -2609,7 +2618,7 @@ mod tests {
             .unwrap();
         let scope =
             pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
-        let mut worker = prepared.worker(scope).unwrap();
+        let mut worker = prepared.worker(runtime.native(), scope).unwrap();
         let mut diagonal = [42.; 2];
         assert!(matches!(
             worker

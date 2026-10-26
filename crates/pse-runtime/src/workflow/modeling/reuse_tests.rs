@@ -16,9 +16,12 @@ fn declarations(source: &str) -> Vec<Declaration> {
     )
     .unwrap()
 }
-async fn prepared(package: &ModelingPackage) -> ModelingPreparation {
+async fn prepared(
+    services: &crate::workflow::PreparationServices,
+    package: &ModelingPackage,
+) -> ModelingPreparation {
     let root = package
-        .declarations()
+        .declarations(services)
         .await
         .unwrap()
         .iter()
@@ -27,6 +30,7 @@ async fn prepared(package: &ModelingPackage) -> ModelingPreparation {
         .declaration_id;
     package
         .prepare(
+            services,
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -47,7 +51,7 @@ async fn shared_bodies_escape_fresh_workspaces_and_cache_invalidation_with_owned
         .modeling_package(declarations(source), super::super::tests::physical())
         .await
         .unwrap();
-    let a = prepared(&first).await;
+    let a = prepared(&runtime.preparation_services(), &first).await;
     let second = runtime
         .modeling_package(
             declarations(&format!("\n\n{source}")),
@@ -55,7 +59,7 @@ async fn shared_bodies_escape_fresh_workspaces_and_cache_invalidation_with_owned
         )
         .await
         .unwrap();
-    let b = prepared(&second).await;
+    let b = prepared(&runtime.preparation_services(), &second).await;
     assert_ne!(a.compiled().occurrences(), b.compiled().occurrences());
     for (key, body) in &a.compiled().admitted.bodies {
         assert!(Arc::ptr_eq(
@@ -107,7 +111,7 @@ async fn refused_allocation_leaves_the_same_admitted_package_retryable() {
         .await
         .unwrap();
     let root = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -122,6 +126,7 @@ async fn refused_allocation_leaves_the_same_admitted_package_retryable() {
         .unwrap();
     let refusal = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -134,7 +139,7 @@ async fn refused_allocation_leaves_the_same_admitted_package_retryable() {
         "a live allocation exhausts the actual bounded pool"
     );
     drop(pressure);
-    let retry = prepared(&package).await;
+    let retry = prepared(&runtime.preparation_services(), &package).await;
     assert!(!retry.compiled().admitted.bodies.is_empty());
     service.clear_program_cache();
     drop(retry);
@@ -152,7 +157,7 @@ async fn escaped_nested_body_retains_its_admission_owner_after_eviction() {
     let pool = runtime.shared.pool();
     let baseline = pool.reserved();
     let package=runtime.modeling_package(declarations("package p { def Root { implicit inner {var y:Scalar; eq root:y==2; annotation start y(1);} realize r on inner using nested; eq pin:inner.y==2; } }"),super::super::tests::physical()).await.unwrap();
-    let model = prepared(&package).await;
+    let model = prepared(&runtime.preparation_services(), &package).await;
     let attached = model.compiled().clone().with_owner(Arc::new(()));
     assert!(
         pse_math::SharedAllocation::ptr_eq(&attached.admitted, &model.compiled().admitted),
@@ -196,12 +201,12 @@ async fn shared_body_cache_preserves_unconsumed_context_and_fresh_receiving_owne
         .modeling_package(declarations(source), original)
         .await
         .unwrap();
-    let a = prepared(&first).await;
+    let a = prepared(&runtime.preparation_services(), &first).await;
     let second = runtime
         .modeling_package(declarations(source), changed)
         .await
         .unwrap();
-    let b = prepared(&second).await;
+    let b = prepared(&runtime.preparation_services(), &second).await;
     assert!(!a.compiled().admitted.bodies.is_empty());
     for (key, body) in &a.compiled().admitted.bodies {
         let current = &b.compiled().admitted.bodies[key];
@@ -232,23 +237,23 @@ async fn local_edits_preserve_unchanged_products_parent_and_true_noops() {
         .await
         .unwrap();
     assert!(first.canonical_revision().is_none());
-    let before = prepared(&first).await;
+    let before = prepared(&runtime.preparation_services(), &first).await;
     let noop = first
-        .with_declarations(declarations(original))
+        .with_declarations(&runtime.source_services(), declarations(original))
         .await
         .unwrap();
     assert_eq!(first.revision_id(), noop.revision_id());
     let effects = runtime.shared.math().preparation_effects();
-    let again = prepared(&noop).await;
+    let again = prepared(&runtime.preparation_services(), &noop).await;
     let effects = runtime.shared.math().preparation_effects().since(effects);
     assert_eq!(effects.workspaces, 0);
     assert!(pse_math::SharedAllocation::ptr_eq(
         &before.compiled().admitted,
         &again.compiled().admitted
     ));
-    let changed = first.with_declarations(declarations("package p { def Root { var x: Scalar; eq a:x*x==1; } def Other { var z:Scalar; eq b:z==3; } }")).await.unwrap();
+    let changed = first.with_declarations(&runtime.source_services(), declarations("package p { def Root { var x: Scalar; eq a:x*x==1; } def Other { var z:Scalar; eq b:z==3; } }")).await.unwrap();
     assert_ne!(first.revision_id(), changed.revision_id());
-    let after = prepared(&changed).await;
+    let after = prepared(&runtime.preparation_services(), &changed).await;
     for (key, body) in &before.compiled().admitted.bodies {
         assert!(Arc::ptr_eq(
             body.math(),
@@ -256,14 +261,15 @@ async fn local_edits_preserve_unchanged_products_parent_and_true_noops() {
         ));
     }
     let removed = changed
-        .with_declarations(declarations(
-            "package p { def Root { var x: Scalar; eq a:x*x==1; } }",
-        ))
+        .with_declarations(
+            &runtime.source_services(),
+            declarations("package p { def Root { var x: Scalar; eq a:x*x==1; } }"),
+        )
         .await
         .unwrap();
     assert!(
         !removed
-            .declarations()
+            .declarations(&runtime.preparation_services())
             .await
             .unwrap()
             .iter()
@@ -271,13 +277,13 @@ async fn local_edits_preserve_unchanged_products_parent_and_true_noops() {
     );
     assert!(
         first
-            .declarations()
+            .declarations(&runtime.preparation_services())
             .await
             .unwrap()
             .iter()
             .any(|row| row.name == "Other")
     );
-    let historical = prepared(&first).await;
+    let historical = prepared(&runtime.preparation_services(), &first).await;
     assert_eq!(before.solved(), historical.solved());
     runtime.shared.math().clear_program_cache();
 }
@@ -339,7 +345,10 @@ async fn local_package_admission_preserves_source_identity_and_accelerators_on_e
         scoped.revision_id(),
         "exact validation context owns ingress reuse"
     );
-    let edited = first.with_declarations(declarations(source)).await.unwrap();
+    let edited = first
+        .with_declarations(&runtime.source_services(), declarations(source))
+        .await
+        .unwrap();
     assert!(Arc::ptr_eq(&first.accelerators, &edited.accelerators));
     runtime.shared.math().clear_program_cache();
     let fresh = runtime
@@ -367,7 +376,7 @@ async fn solver_view_rebinds_share_plan_storage_and_charge_fresh_wrappers() {
         )
         .await
         .unwrap();
-    let model = prepared(&package).await;
+    let model = prepared(&runtime.preparation_services(), &package).await;
     let symbol = |name: &str| {
         model
             .compiled()
@@ -389,6 +398,7 @@ async fn solver_view_rebinds_share_plan_storage_and_charge_fresh_wrappers() {
     let cancel = crate::CancelSource::new();
     let first = package
         .bound_case(
+            &runtime.preparation_services(),
             &model,
             values.clone(),
             &BTreeMap::new(),
@@ -401,6 +411,7 @@ async fn solver_view_rebinds_share_plan_storage_and_charge_fresh_wrappers() {
     let before = pool.reserved();
     let second = package
         .bound_case(
+            &runtime.preparation_services(),
             &model,
             pse_math::binding::CaseValues {
                 scalars: BTreeMap::from([(x, 1.0), (p, 2.0)]),
@@ -435,9 +446,10 @@ package p { def Root { param p:Scalar; var x: Scalar; eq a:x*p==1; } }",
         )
         .await
         .unwrap();
-    let shifted_model = prepared(&shifted_package).await;
+    let shifted_model = prepared(&runtime.preparation_services(), &shifted_package).await;
     let shifted = shifted_package
         .bound_case(
+            &runtime.preparation_services(),
             &shifted_model,
             pse_math::binding::CaseValues {
                 scalars: BTreeMap::from([(x, 1.0), (p, 2.0)]),
@@ -525,33 +537,51 @@ async fn checked_local_admission_rechecks_exact_premises_and_retains_a_b_a() {
         .unwrap()
         .declaration_id;
     let cancel = crate::CancelSource::new();
-    let a = first.checked_selection(&[root], &cancel).await.unwrap();
+    let a = first
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     let held = a.admission.revision.clone();
-    let hit = first.checked_selection(&[root], &cancel).await.unwrap();
+    let hit = first
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert!(held.same_admission(&hit.admission.revision));
-    let unrelated = first.with_declarations(declarations("package p { def Root { var x:Scalar; eq a:x*x==1; } def Other { var z:Scalar; eq b:z==3; } }")).await.unwrap();
-    let unchanged = unrelated.checked_selection(&[root], &cancel).await.unwrap();
+    let unrelated = first.with_declarations(&runtime.source_services(), declarations("package p { def Root { var x:Scalar; eq a:x*x==1; } def Other { var z:Scalar; eq b:z==3; } }")).await.unwrap();
+    let unchanged = unrelated
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert!(
         held.same_admission(&unchanged.admission.revision),
         "a changed unconsumed body preserves checked selected input"
     );
-    let changed = unrelated.with_declarations(declarations("package p { def Root { var x:Scalar; eq a:x*x==2; } def Other { var z:Scalar; eq b:z==3; } }")).await.unwrap();
-    let b = changed.checked_selection(&[root], &cancel).await.unwrap();
+    let changed = unrelated.with_declarations(&runtime.source_services(), declarations("package p { def Root { var x:Scalar; eq a:x*x==2; } def Other { var z:Scalar; eq b:z==3; } }")).await.unwrap();
+    let b = changed
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert!(
         !held.same_admission(&b.admission.revision),
         "structural literal changes must re-admit"
     );
     let restored = changed
-        .with_declarations(declarations(source))
+        .with_declarations(&runtime.source_services(), declarations(source))
         .await
         .unwrap();
-    let again = restored.checked_selection(&[root], &cancel).await.unwrap();
+    let again = restored
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert!(
         held.same_admission(&again.admission.revision),
         "A/B/A retains complete eligible candidates"
     );
     runtime.shared.math().clear_program_cache();
-    let fresh = restored.checked_selection(&[root], &cancel).await.unwrap();
+    let fresh = restored
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert!(
         !held.same_admission(&fresh.admission.revision),
         "clear forces current admission without invalidating escaped immutable owners"
@@ -573,17 +603,26 @@ async fn checked_selected_admission_finds_oldest_after_more_than_one_candidate_w
         .await
         .unwrap();
     let cancel = crate::CancelSource::new();
-    let first = package.checked_selection(&[root], &cancel).await.unwrap();
+    let first = package
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     let original = first.admission.revision.clone();
     let request = first.admission.request.clone();
     for literal in 2..=10 {
         package = package
-            .with_declarations(declarations(&format!(
-                "package p {{ def Root {{ var x:Scalar; eq a:x*x=={literal}; }} }}"
-            )))
+            .with_declarations(
+                &runtime.source_services(),
+                declarations(&format!(
+                    "package p {{ def Root {{ var x:Scalar; eq a:x*x=={literal}; }} }}"
+                )),
+            )
             .await
             .unwrap();
-        let selected = package.checked_selection(&[root], &cancel).await.unwrap();
+        let selected = package
+            .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+            .await
+            .unwrap();
         assert!(!original.same_admission(&selected.admission.revision));
     }
     assert!(
@@ -598,11 +637,14 @@ async fn checked_selected_admission_finds_oldest_after_more_than_one_candidate_w
         "the fixture retains history beyond one bounded lookup window"
     );
     package = package
-        .with_declarations(declarations(source))
+        .with_declarations(&runtime.source_services(), declarations(source))
         .await
         .unwrap();
     let before = runtime.shared.math().preparation_effects();
-    let restored = package.checked_selection(&[root], &cancel).await.unwrap();
+    let restored = package
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert!(
         original.same_admission(&restored.admission.revision),
         "lookup must continue beyond the newest eight rejected admissions"
@@ -647,7 +689,10 @@ async fn checked_selected_admission_invalidates_absent_package_rule_inventory() 
         .await
         .unwrap();
     let cancel = crate::CancelSource::new();
-    let before = first.checked_selection(&[root], &cancel).await.unwrap();
+    let before = first
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert!(
         !before
             .admission
@@ -656,8 +701,14 @@ async fn checked_selected_admission_invalidates_absent_package_rule_inventory() 
             .iter()
             .any(|row| row.declaration_id == marker)
     );
-    let changed = first.with_declarations(rows).await.unwrap();
-    let after = changed.checked_selection(&[root], &cancel).await.unwrap();
+    let changed = first
+        .with_declarations(&runtime.source_services(), rows)
+        .await
+        .unwrap();
+    let after = changed
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert_eq!(before.admission.request, after.admission.request);
     assert!(
         !before
@@ -673,7 +724,7 @@ async fn checked_selected_admission_invalidates_absent_package_rule_inventory() 
             .iter()
             .any(|row| row.declaration_id == marker)
     );
-    let model = prepared(&changed).await;
+    let model = prepared(&runtime.preparation_services(), &changed).await;
     assert_eq!(model.compiled().model.engineering_rules.len(), 1);
     assert_eq!(model.compiled().model.engineering_rules[0].marker, marker);
 }
@@ -709,13 +760,22 @@ async fn checked_selected_admission_invalidates_nearer_name_shadowing() {
         .await
         .unwrap();
     let cancel = crate::CancelSource::new();
-    let before = first.checked_selection(&[root], &cancel).await.unwrap();
+    let before = first
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert_eq!(
         before.admission.revision.checked().resolve(root, "ambient"),
         Some(outer)
     );
-    let shadowed = first.with_declarations(rows).await.unwrap();
-    let after = shadowed.checked_selection(&[root], &cancel).await.unwrap();
+    let shadowed = first
+        .with_declarations(&runtime.source_services(), rows)
+        .await
+        .unwrap();
+    let after = shadowed
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert_eq!(before.admission.request, after.admission.request);
     assert!(
         !before
@@ -727,8 +787,14 @@ async fn checked_selected_admission_invalidates_nearer_name_shadowing() {
         after.admission.revision.checked().resolve(root, "ambient"),
         Some(inner)
     );
-    let restored = shadowed.with_declarations(unshadowed).await.unwrap();
-    let again = restored.checked_selection(&[root], &cancel).await.unwrap();
+    let restored = shadowed
+        .with_declarations(&runtime.source_services(), unshadowed)
+        .await
+        .unwrap();
+    let again = restored
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert!(
         before
             .admission
@@ -835,8 +901,14 @@ async fn checked_selected_admission_separates_provider_configuration_and_root_re
     assert_eq!(first.revision_id(), changed.revision_id());
     assert!(changed.canonical_revision().is_none());
     let cancel = crate::CancelSource::new();
-    let a = first.checked_selection(&[root], &cancel).await.unwrap();
-    let b = changed.checked_selection(&[root], &cancel).await.unwrap();
+    let a = first
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
+    let b = changed
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert_ne!(a.admission.request, b.admission.request);
     assert!(!Arc::ptr_eq(&a.admission, &b.admission));
     assert!(
@@ -873,9 +945,10 @@ async fn checked_selected_admission_separates_provider_configuration_and_root_re
         provider_b.configuration_key()
     );
     for (package, expected) in [(&first, &provider_a), (&changed, &provider_b)] {
-        let model = prepared(package).await;
+        let model = prepared(&runtime.preparation_services(), package).await;
         let registrations = package
             .inner_registrations(
+                &runtime.preparation_services(),
                 model,
                 &pse_compiler::workspace::ModelingCaseBindings::default(),
                 &crate::math::solves::NumericalInputs::default(),
@@ -895,7 +968,7 @@ async fn checked_selected_admission_separates_provider_configuration_and_root_re
         );
     }
     let wider = first
-        .checked_selection(&[root, other], &cancel)
+        .checked_selection(&runtime.preparation_services(), &[root, other], &cancel)
         .await
         .unwrap();
     assert_ne!(a.admission.request, wider.admission.request);
@@ -912,7 +985,10 @@ async fn checked_selected_admission_separates_provider_configuration_and_root_re
             .iter()
             .any(|row| row.declaration_id == other)
     );
-    let again = first.checked_selection(&[root], &cancel).await.unwrap();
+    let again = first
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert!(
         a.admission
             .revision
@@ -937,7 +1013,7 @@ async fn checked_selected_admission_evicts_candidates_at_the_byte_limit() {
         .await
         .unwrap();
     let probe = probe_package
-        .checked_selection(&[root], &cancel)
+        .checked_selection(&probe_runtime.preparation_services(), &[root], &cancel)
         .await
         .unwrap();
     // Allow the key and entry overhead as well as one actual admitted payload;
@@ -965,7 +1041,10 @@ async fn checked_selected_admission_evicts_candidates_at_the_byte_limit() {
         .modeling_package(rows, super::super::tests::physical())
         .await
         .unwrap();
-    let a = first.checked_selection(&[root], &cancel).await.unwrap();
+    let a = first
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     let held = a.admission.revision.clone();
     let request = a.admission.request.clone();
     assert_eq!(
@@ -980,12 +1059,16 @@ async fn checked_selected_admission_evicts_candidates_at_the_byte_limit() {
     );
     drop(a);
     let changed = first
-        .with_declarations(declarations(
-            "package p {def Root {var x:Scalar; eq e:x*x==2;}}",
-        ))
+        .with_declarations(
+            &runtime.source_services(),
+            declarations("package p {def Root {var x:Scalar; eq e:x*x==2;}}"),
+        )
         .await
         .unwrap();
-    let b = changed.checked_selection(&[root], &cancel).await.unwrap();
+    let b = changed
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     let retained = runtime
         .shared
         .math()
@@ -1002,10 +1085,13 @@ async fn checked_selected_admission_evicts_candidates_at_the_byte_limit() {
     drop(retained);
     drop(b);
     let restored = changed
-        .with_declarations(declarations(source))
+        .with_declarations(&runtime.source_services(), declarations(source))
         .await
         .unwrap();
-    let fresh = restored.checked_selection(&[root], &cancel).await.unwrap();
+    let fresh = restored
+        .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+        .await
+        .unwrap();
     assert!(
         !held.same_admission(&fresh.admission.revision),
         "evicted A requires a fresh admission even though its escaped immutable owner remains live"
@@ -1065,14 +1151,22 @@ async fn checked_selection_cancellation_keeps_retention(initialized: bool, borro
     let initial = if initialized {
         Some(
             package
-                .checked_selection(&[root], &crate::CancelSource::new())
+                .checked_selection(
+                    &runtime.preparation_services(),
+                    &[root],
+                    &crate::CancelSource::new(),
+                )
                 .await
                 .unwrap(),
         )
     } else {
         None
     };
-    let held_workspace = borrowed.then(|| package.pure_workspace().unwrap());
+    let held_workspace = borrowed.then(|| {
+        package
+            .pure_workspace(&runtime.preparation_services())
+            .unwrap()
+    });
     let workspaces = service.preparation_effects().workspaces;
     let (admitted, admission) = tokio::sync::oneshot::channel();
     let (exit, gate) = std::sync::mpsc::channel::<()>();
@@ -1096,7 +1190,8 @@ async fn checked_selection_cancellation_keeps_retention(initialized: bool, borro
     } else {
         vec![root]
     };
-    let mut selection = Box::pin(package.checked_selection(&roots, &cancel));
+    let preparation_services = runtime.preparation_services();
+    let mut selection = Box::pin(package.checked_selection(&preparation_services, &roots, &cancel));
     // The timeout is a deadlock watchdog; the gate and actual flight table, rather
     // than elapsed time or a delay, establish that native entry is unavailable.
     tokio::time::timeout(std::time::Duration::from_secs(10), async {
@@ -1153,7 +1248,11 @@ async fn checked_selection_cancellation_keeps_retention(initialized: bool, borro
     exit.send(()).unwrap();
     blocker.finish().await.unwrap();
     let retry = package
-        .checked_selection(&roots, &crate::CancelSource::new())
+        .checked_selection(
+            &runtime.preparation_services(),
+            &roots,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     assert!(!retry.admission.revision.declarations().is_empty());
@@ -1173,6 +1272,7 @@ async fn checked_selection_cancellation_keeps_retention(initialized: bool, borro
 }
 
 async fn retained_preparation_basis(
+    services: &crate::workflow::PreparationServices,
     package: &ModelingPackage,
     root: DeclarationId,
     instance: InstanceId,
@@ -1180,10 +1280,10 @@ async fn retained_preparation_basis(
     limits: Limits,
 ) -> Option<Arc<crate::math::modeling::PreparedBasis>> {
     let selected = package
-        .checked_selection(&[root], &crate::CancelSource::new())
+        .checked_selection(services, &[root], &crate::CancelSource::new())
         .await
         .unwrap();
-    let math = package.runtime.shared.math();
+    let math = services.math();
     let key = math
         .basis_key(&selected.admission, root, instance, bindings, limits)
         .unwrap();
@@ -1206,9 +1306,13 @@ async fn ordinary_preparation_basis_separates_actual_instance_and_complete_bindi
         .modeling_package(rows, super::super::tests::physical())
         .await
         .unwrap();
-    let first = prepared(&package).await;
+    let first = prepared(&runtime.preparation_services(), &package).await;
     let selected = package
-        .checked_selection(&[root], &crate::CancelSource::new())
+        .checked_selection(
+            &runtime.preparation_services(),
+            &[root],
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     let math = runtime.shared.math();
@@ -1312,12 +1416,20 @@ async fn ordinary_preparation_basis_separates_actual_instance_and_complete_bindi
     drop(selected);
     let other_instance = InstanceId::from_id(SemanticId::from_bytes([92; 16]));
     assert!(
-        retained_preparation_basis(&package, root, other_instance, Bindings::default(), default)
-            .await
-            .is_none()
+        retained_preparation_basis(
+            &runtime.preparation_services(),
+            &package,
+            root,
+            other_instance,
+            Bindings::default(),
+            default
+        )
+        .await
+        .is_none()
     );
     let other = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             other_instance,
             Bindings::default(),
@@ -1334,6 +1446,7 @@ async fn ordinary_preparation_basis_separates_actual_instance_and_complete_bindi
     ));
     let demanded = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             instance,
             demand.clone(),
@@ -1342,21 +1455,35 @@ async fn ordinary_preparation_basis_separates_actual_instance_and_complete_bindi
         )
         .await
         .unwrap();
-    let demanded_basis = retained_preparation_basis(&package, root, instance, demand, default)
-        .await
-        .unwrap();
+    let demanded_basis = retained_preparation_basis(
+        &runtime.preparation_services(),
+        &package,
+        root,
+        instance,
+        demand,
+        default,
+    )
+    .await
+    .unwrap();
     let original_basis = math.modeling_cache.basis(&original).unwrap();
     assert!(
         !Arc::ptr_eq(&demanded_basis, &original_basis),
         "an existing-symbol observation still selects a distinct projection-bearing basis"
     );
     assert_eq!(demanded.solved(), first.solved());
-    let returned = prepared(&package).await;
+    let returned = prepared(&runtime.preparation_services(), &package).await;
     assert!(
         Arc::ptr_eq(
-            &retained_preparation_basis(&package, root, instance, Bindings::default(), default)
-                .await
-                .unwrap(),
+            &retained_preparation_basis(
+                &runtime.preparation_services(),
+                &package,
+                root,
+                instance,
+                Bindings::default(),
+                default
+            )
+            .await
+            .unwrap(),
             &original_basis,
         ),
         "A/B/A observation selection returns the original complete basis"
@@ -1369,6 +1496,7 @@ async fn ordinary_preparation_basis_separates_actual_instance_and_complete_bindi
     }
     let bounded = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             instance,
             Bindings::default(),
@@ -1379,12 +1507,20 @@ async fn ordinary_preparation_basis_separates_actual_instance_and_complete_bindi
         .unwrap();
     assert_eq!(bounded.solved(), first.solved());
     assert!(
-        retained_preparation_basis(&package, root, instance, Bindings::default(), limits[1])
-            .await
-            .is_some()
+        retained_preparation_basis(
+            &runtime.preparation_services(),
+            &package,
+            root,
+            instance,
+            Bindings::default(),
+            limits[1]
+        )
+        .await
+        .is_some()
     );
     let refused = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             instance,
             Bindings::default(),
@@ -1417,13 +1553,17 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
         .modeling_package(rows, super::super::tests::physical())
         .await
         .unwrap();
-    let first = prepared(&package).await;
+    let first = prepared(&runtime.preparation_services(), &package).await;
     let shifted = package
-        .with_declarations(declarations(&format!("\n\n{source}")))
+        .with_declarations(
+            &runtime.source_services(),
+            declarations(&format!("\n\n{source}")),
+        )
         .await
         .unwrap();
     assert!(
         retained_preparation_basis(
+            &runtime.preparation_services(),
             &shifted,
             root,
             instance,
@@ -1433,7 +1573,7 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
         .await
         .is_none()
     );
-    let rebound = prepared(&shifted).await;
+    let rebound = prepared(&runtime.preparation_services(), &shifted).await;
     assert!(!pse_math::SharedAllocation::ptr_eq(
         &first.compiled().admitted,
         &rebound.compiled().admitted
@@ -1453,13 +1593,15 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
         );
     }
     let changed = shifted
-        .with_declarations(declarations(
-            "\n\npackage p {def Root {var x:Scalar; eq e:x*x==2;}}",
-        ))
+        .with_declarations(
+            &runtime.source_services(),
+            declarations("\n\npackage p {def Root {var x:Scalar; eq e:x*x==2;}}"),
+        )
         .await
         .unwrap();
     assert!(
         retained_preparation_basis(
+            &runtime.preparation_services(),
             &changed,
             root,
             instance,
@@ -1469,7 +1611,7 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
         .await
         .is_none()
     );
-    let actual = prepared(&changed).await;
+    let actual = prepared(&runtime.preparation_services(), &changed).await;
     assert!(!pse_math::SharedAllocation::ptr_eq(
         &rebound.compiled().admitted,
         &actual.compiled().admitted
@@ -1558,6 +1700,7 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
     assert_eq!(actual.compiled().admitted.term_outputs[&row][0].1, 1.0);
     let old_value = shifted
         .observe(
+            &runtime.preparation_services(),
             rebound.clone(),
             BTreeSet::from([row, old_term]),
             values.clone(),
@@ -1568,6 +1711,7 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
         .unwrap();
     let new_value = changed
         .observe(
+            &runtime.preparation_services(),
             actual.clone(),
             BTreeSet::from([row, new_term]),
             values.clone(),
@@ -1597,13 +1741,14 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
         )
         .await
         .unwrap();
-    let fresh_model = prepared(&fresh).await;
+    let fresh_model = prepared(&runtime.preparation_services(), &fresh).await;
     assert!(
         !Arc::ptr_eq(new_residual.math(), body_for_row(&fresh_model, row).math()),
         "the oracle uses a separate runtime and independently admitted body"
     );
     let fresh_value = fresh
         .observe(
+            &runtime.preparation_services(),
             fresh_model,
             BTreeSet::from([row, new_term]),
             values,
@@ -1615,7 +1760,11 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
     assert_eq!(&*new_value, &*fresh_value);
     fresh_runtime.shared.math().clear_program_cache();
     let selected = changed
-        .checked_selection(&[root], &crate::CancelSource::new())
+        .checked_selection(
+            &runtime.preparation_services(),
+            &[root],
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     assert_eq!(
@@ -1659,8 +1808,9 @@ async fn ordinary_preparation_basis_prehash_preserves_exact_identity_under_force
         .modeling_package(original_rows, super::super::tests::physical())
         .await
         .unwrap();
-    let first = prepared(&package).await;
+    let first = prepared(&runtime.preparation_services(), &package).await;
     let first_basis = retained_preparation_basis(
+        &runtime.preparation_services(),
         &package,
         root,
         instance,
@@ -1670,13 +1820,15 @@ async fn ordinary_preparation_basis_prehash_preserves_exact_identity_under_force
     .await
     .unwrap();
     let changed = package
-        .with_declarations(declarations(
-            "package p {def Root {var x:Scalar; eq e:x*x==2;}}",
-        ))
+        .with_declarations(
+            &runtime.source_services(),
+            declarations("package p {def Root {var x:Scalar; eq e:x*x==2;}}"),
+        )
         .await
         .unwrap();
-    let second = prepared(&changed).await;
+    let second = prepared(&runtime.preparation_services(), &changed).await;
     let second_basis = retained_preparation_basis(
+        &runtime.preparation_services(),
         &changed,
         root,
         instance,
@@ -1690,11 +1842,19 @@ async fn ordinary_preparation_basis_prehash_preserves_exact_identity_under_force
         "the collision control must use two distinct prepared products"
     );
     let selected = package
-        .checked_selection(&[root], &crate::CancelSource::new())
+        .checked_selection(
+            &runtime.preparation_services(),
+            &[root],
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     let different = changed
-        .checked_selection(&[root], &crate::CancelSource::new())
+        .checked_selection(
+            &runtime.preparation_services(),
+            &[root],
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     let service = runtime.shared.math();
@@ -1924,7 +2084,10 @@ async fn shared_frontier_and_completion_keep_each_waiters_clock_in_both_arrival_
             .await
             .unwrap();
         let driver = crate::CancelSource::new();
-        let selected = package.checked_selection(&[root], &driver).await.unwrap();
+        let selected = package
+            .checked_selection(&runtime.preparation_services(), &[root], &driver)
+            .await
+            .unwrap();
         let key = service
             .basis_key(
                 &selected.admission,
@@ -1934,7 +2097,9 @@ async fn shared_frontier_and_completion_keep_each_waiters_clock_in_both_arrival_
                 Limits::default(),
             )
             .unwrap();
-        let workspace = package.pure_workspace().unwrap();
+        let workspace = package
+            .pure_workspace(&runtime.preparation_services())
+            .unwrap();
         let before = service.preparation_effects();
         exercise_preparation_waiter_clocks(service, short_first, |caller, deadline| {
             let service = service.clone();
@@ -2087,7 +2252,10 @@ async fn shared_preparation_producer_expiry_is_typed_and_retries_only_after_drai
         .await
         .unwrap();
     let driver = crate::CancelSource::new();
-    let selected = package.checked_selection(&[root], &driver).await.unwrap();
+    let selected = package
+        .checked_selection(&runtime.preparation_services(), &[root], &driver)
+        .await
+        .unwrap();
     let key = service
         .basis_key(
             &selected.admission,
@@ -2097,7 +2265,9 @@ async fn shared_preparation_producer_expiry_is_typed_and_retries_only_after_drai
             Limits::default(),
         )
         .unwrap();
-    let workspace = package.pure_workspace().unwrap();
+    let workspace = package
+        .pure_workspace(&runtime.preparation_services())
+        .unwrap();
     let before = service.preparation_effects();
     let (release, blocker) = hold_preparation_cpu(service).await;
     let caller_deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);

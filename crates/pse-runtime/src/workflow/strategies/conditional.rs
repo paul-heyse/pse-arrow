@@ -22,7 +22,6 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Clone, Debug)]
 pub struct PreparedInitializationStrategy {
     pub(crate) review_source: ModelingPackage,
-    pub(crate) runtime: Runtime,
     pub(crate) values: CaseValues,
     pub(crate) providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     pub(crate) prepared: PreparedInitialization,
@@ -30,9 +29,12 @@ pub struct PreparedInitializationStrategy {
 }
 impl PreparedInitializationStrategy {
     /// Conditional blocks retain their actual original physical ports.
-    pub fn primal_coordinates(&self) -> Result<crate::workflow::PrimalCoordinates, WorkflowError> {
+    pub fn primal_coordinates(
+        &self,
+        services: &crate::workflow::PreparationServices,
+    ) -> Result<crate::workflow::PrimalCoordinates, WorkflowError> {
         crate::workflow::PrimalCoordinates::original(
-            &self.runtime,
+            services,
             self.prepared.original_primal_ports(),
         )
     }
@@ -40,12 +42,13 @@ impl PreparedInitializationStrategy {
     /// Copy an explicitly selected original initialization and its actual joined stages.
     pub fn review_context(
         &self,
+        services: &crate::workflow::PreparationServices,
         request: &crate::workflow::ReviewContextRequest,
         operation: Option<pse_diagnostics::observation::OperationId>,
         report: &InitializationReport,
     ) -> Result<crate::workflow::ReviewContext, WorkflowError> {
         crate::workflow::review_context::initialization_context(
-            &self.runtime,
+            services,
             &self.review_source,
             &self.profile,
             request,
@@ -65,12 +68,17 @@ impl PreparedInitializationStrategy {
             .map_err(WorkflowError::from)
     }
     /// Execute with this revision's original values and provider bindings.
-    pub fn start(&self) -> Result<SolveHandle<InitializationReport>, WorkflowError> {
-        self.start_with_operation().map(|(handle, _)| handle)
+    pub fn start(
+        &self,
+        services: &crate::workflow::PreparationServices,
+    ) -> Result<SolveHandle<InitializationReport>, WorkflowError> {
+        self.start_with_operation(services)
+            .map(|(handle, _)| handle)
     }
     /// Start with the actual admitted observation identity, without retaining a new invocation.
     pub fn start_with_operation(
         &self,
+        services: &crate::workflow::PreparationServices,
     ) -> Result<
         (
             SolveHandle<InitializationReport>,
@@ -78,11 +86,11 @@ impl PreparedInitializationStrategy {
         ),
         WorkflowError,
     > {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity.sync_scope(|| {
             let operation = pse_diagnostics::observation::current().map(|context| context.id());
             Ok((
-                self.runtime.native().initialize(
+                services.math().initialize(
                     self.prepared.clone(),
                     self.values.clone(),
                     self.providers.clone(),
@@ -274,6 +282,7 @@ struct RecycleSource {
 }
 #[derive(Debug)]
 struct AutomaticRecycle {
+    preparation: crate::workflow::PreparationServices,
     package: ModelingPackage,
     source: RecycleSource,
     profile: SolverProfile,
@@ -329,6 +338,7 @@ impl crate::math::solves::causal::CausalSupplier for AutomaticRecycle {
                 .into());
             }
             let prepare = self.package.finish_recycle(
+                &self.preparation,
                 self.source.clone(),
                 self.profile.clone(),
                 self.compiler,
@@ -393,7 +403,6 @@ fn causal_preparation_error(error: WorkflowError) -> MathRuntimeError {
 #[derive(Clone, Debug)]
 pub struct PreparedRecycle {
     review_source: ModelingPackage,
-    runtime: Runtime,
     providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     _source: crate::math::modeling::ModelingCasePreparation,
     original: Arc<ExecutableCase>,
@@ -417,7 +426,10 @@ pub struct PreparedRecycle {
 }
 impl PreparedRecycle {
     /// Actual tear-port meanings retained by the admitted physical flow graph.
-    pub fn primal_coordinates(&self) -> Result<crate::workflow::PrimalCoordinates, WorkflowError> {
+    pub fn primal_coordinates(
+        &self,
+        services: &crate::workflow::PreparationServices,
+    ) -> Result<crate::workflow::PrimalCoordinates, WorkflowError> {
         let ports: BTreeMap<_, _> = self
             .graph
             .declaration()
@@ -436,7 +448,7 @@ impl PreparedRecycle {
                     .ok_or_else(|| contract("recycle tear lacks admitted physical port meaning"))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        crate::workflow::PrimalCoordinates::original(&self.runtime, original)
+        crate::workflow::PrimalCoordinates::original(services, original)
     }
 
     /// The selected, linked declared-map route, consumed by runtime and language inspection.
@@ -446,6 +458,7 @@ impl PreparedRecycle {
     /// Copy explicitly selected original request and joined outcomes without evaluation.
     pub fn review_context(
         &self,
+        services: &crate::workflow::PreparationServices,
         request: &crate::workflow::ReviewContextRequest,
         operation: Option<pse_diagnostics::observation::OperationId>,
         report: &DeclaredRootReport,
@@ -558,7 +571,7 @@ impl PreparedRecycle {
             numerics: numerics(&self.numerics),
         };
         crate::workflow::review_context::recycle_context(
-            &self.runtime,
+            services,
             &self.review_source,
             &self.request,
             &self.initial,
@@ -672,12 +685,17 @@ impl PreparedRecycle {
         Ok(Some(bytes))
     }
     /// Execute only the explicitly requested map strategy; no automatic fallback follows failure.
-    pub fn start(&self) -> Result<SolveHandle<DeclaredRootReport>, WorkflowError> {
-        self.start_with_operation().map(|(handle, _)| handle)
+    pub fn start(
+        &self,
+        services: &crate::workflow::PreparationServices,
+    ) -> Result<SolveHandle<DeclaredRootReport>, WorkflowError> {
+        self.start_with_operation(services)
+            .map(|(handle, _)| handle)
     }
     /// Start with the actual admitted observation identity; no synthetic run is constructed.
     pub fn start_with_operation(
         &self,
+        services: &crate::workflow::PreparationServices,
     ) -> Result<
         (
             SolveHandle<DeclaredRootReport>,
@@ -685,15 +703,16 @@ impl PreparedRecycle {
         ),
         WorkflowError,
     > {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity.sync_scope(|| {
             let factory_bytes = self.factory_allocation_bound()?;
             let prepared = self.clone();
+            let service = services.math().clone();
             let candidate = Arc::new(std::sync::Mutex::new(None));
             let observed = candidate.clone();
             let operation = pse_diagnostics::observation::current().map(|context| context.id());
             Ok((
-                self.runtime.native().solve_declared_root(
+                services.math().solve_declared_root(
                     self.contract.clone(),
                     self.initial.clone(),
                     self.settings.clone(),
@@ -707,7 +726,9 @@ impl PreparedRecycle {
                     factory_bytes,
                     self.native_backends.clone(),
                     self.resident_foreign_bytes,
-                    move |execution, budget| prepared.function(execution, budget, observed),
+                    move |execution, budget| {
+                        prepared.function(&service, execution, budget, observed)
+                    },
                 )?,
                 operation,
             ))
@@ -751,6 +772,7 @@ impl PreparedRecycle {
     }
     fn function(
         self,
+        service: &crate::math::MathService,
         execution: Execution,
         budget: Arc<crate::math::WorkerBudget>,
         observed: Arc<std::sync::Mutex<Option<CaseValues>>>,
@@ -760,16 +782,14 @@ impl PreparedRecycle {
         for program in self.programs {
             let unit = UnitWorker::new(
                 program,
-                self.runtime.native(),
+                service,
                 &self.providers,
                 &execution,
                 budget.clone(),
             )?;
             units.insert(unit.id(), Box::new(unit));
         }
-        let mut original_worker = self
-            .runtime
-            .native()
+        let mut original_worker = service
             .worker(
                 self.original.clone(),
                 &self.providers,
@@ -934,9 +954,12 @@ impl crate::math::solves::causal::CausalExecution for PreparedRecycle {
         )?;
         let _charge = budget.charge(clone_bytes)?;
         let candidate = Arc::new(std::sync::Mutex::new(None));
-        let function =
-            self.clone()
-                .function(execution.clone(), budget.clone(), candidate.clone())?;
+        let function = self.clone().function(
+            service,
+            execution.clone(),
+            budget.clone(),
+            candidate.clone(),
+        )?;
         let stamp = Compatibility {
             layout: self.contract.identity,
             profile: self.profile_key,
@@ -976,6 +999,7 @@ impl crate::math::solves::causal::CausalExecution for PreparedRecycle {
 impl ModelingPackage {
     pub(in crate::workflow) fn automatic_causal_supplier(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: &crate::math::modeling::ModelingCasePreparation,
         providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         numerics: &pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
@@ -1041,11 +1065,9 @@ impl ModelingPackage {
             })
             .and_then(|bytes| bytes.checked_add(size_of::<AutomaticRecycle>()))
             .ok_or(MathRuntimeError::Limit("causal supplier metadata"))?;
-        let owner = self
-            .runtime
-            .native()
-            .reserve("math:causal-supplier", bytes)?;
+        let owner = services.math().reserve("math:causal-supplier", bytes)?;
         Ok(Some(Arc::new(AutomaticRecycle {
+            preparation: services.clone(),
             package: self.clone(),
             source: RecycleSource {
                 model: model.clone(),
@@ -1063,12 +1085,13 @@ impl ModelingPackage {
     /// Admit explicitly directed units from this revision, retaining physical port conversions.
     pub async fn prepare_recycle(
         &self,
+        services: &crate::workflow::PreparationServices,
         analysis: &ModelingAnalysis,
         selection: ModelingFlowSelection,
         request: RecycleRequest,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedRecycle, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity.scope(async {
         let profile = analysis.solver.clone();
         let compiler = analysis.compiler;
@@ -1098,6 +1121,7 @@ impl ModelingPackage {
             .map_err(MathRuntimeError::from)?;
         let resolved = self
             .resolve_case(
+                services,
                 analysis.root,
                 analysis.instance,
                 analysis.bindings.clone(),
@@ -1113,6 +1137,7 @@ impl ModelingPackage {
             )
             .await?;
         self.finish_recycle(
+            services,
             RecycleSource {
                 model: resolved.model,
                 providers: resolved.providers,
@@ -1130,6 +1155,7 @@ impl ModelingPackage {
     }
     async fn finish_recycle(
         &self,
+        services: &crate::workflow::PreparationServices,
         resolved: RecycleSource,
         profile: SolverProfile,
         compiler: pse_compiler::workspace::Profile,
@@ -1137,9 +1163,8 @@ impl ModelingPackage {
         request: RecycleRequest,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedRecycle, WorkflowError> {
-        let flow = self
-            .runtime
-            .native()
+        let flow = services
+            .math()
             .prepare_modeling_flow(
                 resolved.model.model.compiled().semantic(),
                 self.quantities.clone(),
@@ -1215,11 +1240,10 @@ impl ModelingPackage {
             let mut inputs = Vec::new();
             let mut initial_boundary = Vec::new();
             let source_ports = &resolved.model.model.compiled().model.ports;
-            let input_program = self
-                .runtime
-                .native()
+            let input_program = services
+                .math()
                 .prepare_modeling_functions(
-                    self.numerical_workspace()?,
+                    self.numerical_workspace(services)?,
                     resolved.model.model.clone(),
                     unit.inputs
                         .iter()
@@ -1233,9 +1257,8 @@ impl ModelingPackage {
                 .await
                 .map_err(|cause| unit_preparation_error(unit, &request, cause))?;
             let initial_values = resolved.model.values.clone();
-            let initial_inputs = self
-                .runtime
-                .native()
+            let initial_inputs = services
+                .math()
                 .with_owned_worker(
                     input_program.clone(),
                     resolved.providers.clone(),
@@ -1342,10 +1365,10 @@ impl ModelingPackage {
                         unknowns,
                         solver,
                     } => Some(
-                        self.runtime
-                            .native()
+                        services
+                            .math()
                             .prepare_conditional_unit(
-                                self.numerical_workspace()?,
+                                self.numerical_workspace(services)?,
                                 resolved.model.model.clone(),
                                 resolved.model.case.clone(),
                                 unit.node,
@@ -1365,11 +1388,10 @@ impl ModelingPackage {
                             .map_err(|cause| conditional_admission(unit, &request, cause))?,
                     ),
                 };
-            let program = self
-                .runtime
-                .native()
+            let program = services
+                .math()
                 .prepare_modeling_functions(
-                    self.numerical_workspace()?,
+                    self.numerical_workspace(services)?,
                     resolved.model.model.clone(),
                     outputs,
                     Vec::new(),
@@ -1507,9 +1529,8 @@ impl ModelingPackage {
             derivatives: DerivativeOrder::Value,
             smoothness: DerivativeOrder::Value,
         };
-        let derivation = self
-            .runtime
-            .native()
+        let derivation = services
+            .math()
             .policy_resolution_owner()
             .derivation(&resolved.numerics, tears.len().saturating_mul(3))?;
         let mut projection_source = resolved.numerics.as_ref().clone();
@@ -1660,9 +1681,8 @@ impl ModelingPackage {
         pse_ids::document::frame(&mut profile_identity, &request.restarts)
             .map_err(|error| MathRuntimeError::Infrastructure(error.to_string()))?;
         let profile_key = profile_identity.finish_hash();
-        let original = self
-            .runtime
-            .native()
+        let original = services
+            .math()
             .assemble(resolved.model.case.clone())
             .await?;
         let mut native_backends = vec![Backend::Kinsol];
@@ -1680,7 +1700,6 @@ impl ModelingPackage {
         }
         Ok(PreparedRecycle {
             review_source: self.clone(),
-            runtime: self.runtime.clone(),
             providers: resolved.providers,
             _source: resolved.model,
             original,

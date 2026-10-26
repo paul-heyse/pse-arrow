@@ -38,6 +38,8 @@ fn declaration(value: Identity<DeclarationId>) -> DeclarationId {
 /// Recover it only from the retained actual fit, checking the complete document.
 fn covariance_source(
     py: Python<'_>,
+    owner: &Arc<runtime::Runtime>,
+    services: &native::ExecutionServices,
     settings: &mut pse_runtime::math::settings::SolveSettings,
     source: Option<&NativeRunResult>,
 ) -> PyResult<()> {
@@ -57,6 +59,22 @@ fn covariance_source(
             .inner
             .reconcile_parameter_covariance(covariance)
             .map_err(|error| errors::diagnostic(py, &error))?;
+    }
+    if let Some(covariance) = settings
+        .sensitivity
+        .as_mut()
+        .and_then(|request| request.propagation.as_mut())
+        .map(|propagation| &mut propagation.covariance)
+    {
+        let cancel = CancelSource::new();
+        blocking(
+            py,
+            owner,
+            services
+                .source_services()
+                .reconcile_covariance(covariance, &cancel.token()),
+            || cancel.cancel(),
+        )?;
     }
     Ok(())
 }
@@ -135,6 +153,7 @@ pub(super) fn from_documents(
         || cancel.cancel(),
     )?;
     Ok(NativeModelingPackage {
+        services: runtime.inner.execution_services(),
         owner: runtime.owner.clone(),
         inner,
         limits: Default::default(),
@@ -143,6 +162,7 @@ pub(super) fn from_documents(
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativeModelingPackage {
+    pub(super) services: native::ExecutionServices,
     owner: Arc<runtime::Runtime>,
     pub(super) inner: native::ModelingPackage,
     limits: pse_modeling::Limits,
@@ -150,9 +170,11 @@ pub(crate) struct NativeModelingPackage {
 impl NativeModelingPackage {
     pub(super) fn from_revision(
         owner: Arc<runtime::Runtime>,
+        services: native::ExecutionServices,
         inner: native::ModelingPackage,
     ) -> Self {
         Self {
+            services,
             owner,
             inner,
             limits: Default::default(),
@@ -255,11 +277,13 @@ impl NativeModelingPackage {
         let inner = source_settlement::blocking_source(
             py,
             &self.owner,
-            self.inner.with_declarations(edit.declarations),
+            self.inner
+                .with_declarations(&self.services.source_services(), edit.declarations),
             || {},
         )?;
         // The changed declarations now have their own immutable canonical revision.
         Ok(Self {
+            services: self.services.clone(),
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
@@ -276,10 +300,12 @@ impl NativeModelingPackage {
         let inner = source_settlement::blocking_source(
             py,
             &self.owner,
-            self.inner.with_delta(delta, &cancel),
+            self.inner
+                .with_delta(&self.services.source_services(), delta, &cancel),
             || cancel.cancel(),
         )?;
         Ok(Self {
+            services: self.services.clone(),
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
@@ -298,10 +324,12 @@ impl NativeModelingPackage {
         let inner = source_settlement::blocking_source(
             py,
             &self.owner,
-            self.inner.reload_from_parent(&documents, &cancel),
+            self.inner
+                .reload_from_parent(&self.services.source_services(), &documents, &cancel),
             || cancel.cancel(),
         )?;
         Ok(Self {
+            services: self.services.clone(),
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
@@ -320,10 +348,13 @@ impl NativeModelingPackage {
         let inner = source_settlement::blocking_source(
             py,
             &self.owner,
-            self.inner.clone().with_fit_declarations(data),
+            self.inner
+                .clone()
+                .with_fit_declarations(&self.services.source_services(), data),
             || {},
         )?;
         Ok(Self {
+            services: self.services.clone(),
             owner: self.owner.clone(),
             inner,
             limits: self.limits,
@@ -344,6 +375,7 @@ impl NativeModelingPackage {
             py,
             &self.owner,
             self.inner.prepare_operation(
+                self.services.preparation(),
                 &native::OperationSource::of(&self.inner),
                 &preparation,
                 native::RuntimeOperationRequest::Study {
@@ -360,6 +392,7 @@ impl NativeModelingPackage {
             || cancel.cancel(),
         )?;
         Ok(NativePreparedOperation {
+            services: self.services.clone(),
             owner: self.owner.clone(),
             inner,
         })
@@ -368,6 +401,7 @@ impl NativeModelingPackage {
     fn with_limits(&self, limits: &ModelingLimits) -> Self {
         // Workers apply default limits: a package with its own limits runs no durable study.
         Self {
+            services: self.services.clone(),
             owner: self.owner.clone(),
             inner: self.inner.clone(),
             limits: limits.limits,
@@ -395,8 +429,14 @@ impl NativeModelingPackage {
         let inner = blocking(
             py,
             &self.owner,
-            self.inner
-                .explain_case_request(root, &preparation, settings, policy, &cancel),
+            self.inner.explain_case_request(
+                &self.services,
+                root,
+                &preparation,
+                settings,
+                policy,
+                &cancel,
+            ),
             || cancel.cancel(),
         )?;
         Ok(NativeModelingNonlinearExplanation {
@@ -430,12 +470,13 @@ impl NativeModelingPackage {
         )?;
         let samples = self
             .inner
-            .snapshot_diagnostic_samples(samples.0.into_reader()?)
+            .snapshot_diagnostic_samples(self.services.preparation(), samples.0.into_reader()?)
             .map_err(|error| errors::diagnostic(py, &error))?;
         let inner = blocking(
             py,
             &self.owner,
             self.inner.diagnose_samples_request(
+                &self.services,
                 root,
                 &preparation,
                 settings,
@@ -465,6 +506,7 @@ impl NativeModelingPackage {
             py,
             &self.owner,
             self.inner.prepare_operation(
+                self.services.preparation(),
                 &native::OperationSource::of(&self.inner),
                 &preparation,
                 native::RuntimeOperationRequest::Study {
@@ -483,6 +525,7 @@ impl NativeModelingPackage {
             || cancel.cancel(),
         )?;
         Ok(NativePreparedOperation {
+            services: self.services.clone(),
             owner: self.owner.clone(),
             inner,
         })
@@ -499,8 +542,13 @@ impl NativeModelingPackage {
         let inner = blocking(
             py,
             &self.owner,
-            self.inner
-                .simulate_case_request(root, &preparation, settings.request.clone(), &cancel),
+            self.inner.simulate_case_request(
+                &self.services,
+                root,
+                &preparation,
+                settings.request.clone(),
+                &cancel,
+            ),
             || cancel.cancel(),
         )?;
         Ok(NativeModelingTrajectory {
@@ -523,6 +571,7 @@ impl NativeModelingPackage {
             py,
             &self.owner,
             self.inner.source_map_request(
+                self.services.preparation(),
                 root,
                 &preparation,
                 settings,
@@ -551,6 +600,7 @@ impl NativeModelingPackage {
             py,
             &self.owner,
             self.inner.diagnose_case_request(
+                &self.services,
                 root,
                 &preparation,
                 settings,
@@ -594,6 +644,7 @@ impl NativeModelingPackage {
                 py,
                 &self.owner,
                 self.inner.diagnose_linear_request(
+                    &self.services,
                     root,
                     &preparation,
                     settings,
@@ -638,6 +689,7 @@ impl NativeModelingPackage {
                 py,
                 &self.owner,
                 self.inner.diagnose_jacobian_request(
+                    &self.services,
                     root,
                     &preparation,
                     settings,
@@ -673,8 +725,14 @@ impl NativeModelingPackage {
         let inner = blocking(
             py,
             &self.owner,
-            self.inner
-                .initialize_case_request(root, &preparation, settings, overrides, &cancel),
+            self.inner.initialize_case_request(
+                &self.services,
+                root,
+                &preparation,
+                settings,
+                overrides,
+                &cancel,
+            ),
             || cancel.cancel(),
         )?;
         Ok(NativeModelingInitialization {
@@ -694,10 +752,11 @@ impl NativeModelingPackage {
             py,
             &self.owner,
             self.inner
-                .admit_study(&request.inputs, &request.output, &cancel),
+                .admit_study(&self.services, &request.inputs, &request.output, &cancel),
             || cancel.cancel(),
         )?;
         Ok(NativeLocalStudy {
+            services: self.services.clone(),
             inner,
             owner: self.owner.clone(),
         })
@@ -720,7 +779,8 @@ impl NativeModelingPackage {
         let inner = blocking(
             py,
             &self.owner,
-            self.inner.study(&local.inner, maximum_points, &cancel),
+            self.inner
+                .study(&self.services, &local.inner, maximum_points, &cancel),
             || cancel.cancel(),
         )?;
         Ok(NativeStudyReport {
@@ -737,7 +797,8 @@ impl NativeModelingPackage {
         let report = blocking(
             py,
             &self.owner,
-            self.inner.preparation_discovery(&request.0, &cancel),
+            self.inner
+                .preparation_discovery(&self.services.source_services(), &request.0, &cancel),
             || cancel.cancel(),
         )?;
         Ok(documents::DocumentValue(report))
@@ -752,7 +813,8 @@ impl NativeModelingPackage {
         let inspection = blocking(
             py,
             &self.owner,
-            self.inner.inspect_case_request(&request.0, &cancel),
+            self.inner
+                .inspect_case_request(self.services.preparation(), &request.0, &cancel),
             || cancel.cancel(),
         )?;
         Ok(documents::DocumentValue(inspection))
@@ -777,11 +839,18 @@ impl NativeModelingPackage {
         let inner = blocking(
             py,
             &self.owner,
-            self.inner
-                .prepare_flow_request(root, &preparation, settings, selection, &cancel),
+            self.inner.prepare_flow_request(
+                self.services.preparation(),
+                root,
+                &preparation,
+                settings,
+                selection,
+                &cancel,
+            ),
             || cancel.cancel(),
         )?;
         Ok(NativePreparedFlow {
+            services: self.services.preparation().clone(),
             owner: self.owner.clone(),
             math: self.owner.shared.math().clone(),
             package: self.inner.clone(),
@@ -817,6 +886,7 @@ impl NativeModelingPackage {
                 py,
                 &self.owner,
                 self.inner.prepare_recycle_request(
+                    self.services.preparation(),
                     root,
                     &preparation,
                     settings,
@@ -827,6 +897,7 @@ impl NativeModelingPackage {
                 || cancel.cancel(),
             )?;
             Ok(NativePreparedStrategy {
+                services: self.services.preparation().clone(),
                 owner: self.owner.clone(),
                 inner: strategies::Strategy::Recycle(Box::new(inner)),
             })
@@ -851,13 +922,17 @@ impl NativeModelingPackage {
             let preparation = native::PreparationSettings::with_limits(self.limits);
             let stages = self
                 .inner
-                .snapshot_initialization_stages(stages.0.into_reader()?)
+                .snapshot_initialization_stages(
+                    self.services.preparation(),
+                    stages.0.into_reader()?,
+                )
                 .map_err(|error| errors::diagnostic(py, &error))?;
             let cancel = CancelSource::new();
             let inner = blocking(
                 py,
                 &self.owner,
                 self.inner.prepare_initialization_request(
+                    self.services.preparation(),
                     root,
                     &preparation,
                     settings,
@@ -867,6 +942,7 @@ impl NativeModelingPackage {
                 || cancel.cancel(),
             )?;
             Ok(NativePreparedStrategy {
+                services: self.services.preparation().clone(),
                 owner: self.owner.clone(),
                 inner: strategies::Strategy::Initialization(Box::new(inner)),
             })
@@ -885,7 +961,8 @@ impl NativeModelingPackage {
         Ok(documents::DocumentValue(blocking(
             py,
             &self.owner,
-            self.inner.declaration_page(&request.0),
+            self.inner
+                .declaration_page(self.services.preparation(), &request.0),
             || {},
         )?))
     }
@@ -894,7 +971,12 @@ impl NativeModelingPackage {
         py: Python<'_>,
     ) -> PyResult<documents::DocumentValue<DeclarationExport>> {
         use pse_model::HeapUsage;
-        let declarations = blocking(py, &self.owner, self.inner.declarations(), || {})?;
+        let declarations = blocking(
+            py,
+            &self.owner,
+            self.inner.declarations(self.services.preparation()),
+            || {},
+        )?;
         let bytes = declarations
             .iter()
             .try_fold(4096usize, |bytes, row| bytes.checked_add(row.owned_bytes()))
@@ -925,8 +1007,12 @@ impl NativeModelingPackage {
         Ok(documents::DocumentValue(blocking(
             py,
             &self.owner,
-            self.inner
-                .comparison_observation(&other.inner, &request.0, &cancel),
+            self.inner.comparison_observation(
+                &self.services.source_services(),
+                &other.inner,
+                &request.0,
+                &cancel,
+            ),
             || cancel.cancel(),
         )?))
     }
@@ -943,14 +1029,19 @@ impl NativeModelingPackage {
             blocking(
                 py,
                 &self.owner,
-                self.inner.project_compare_source(&other.inner, &cancel),
+                self.inner.project_compare_source(
+                    &self.services.source_services(),
+                    &other.inner,
+                    &cancel,
+                ),
                 || cancel.cancel(),
             )?
         } else {
             blocking(
                 py,
                 &self.owner,
-                self.inner.project_compare(&other.inner, &cancel),
+                self.inner
+                    .project_compare(&self.services.source_services(), &other.inner, &cancel),
                 || cancel.cancel(),
             )?
         };
@@ -966,7 +1057,8 @@ impl NativeModelingPackage {
         let result = blocking(
             py,
             &self.owner,
-            self.inner.project_source_detail(&logical, &cancel),
+            self.inner
+                .project_source_detail(&self.services.source_services(), &logical, &cancel),
             || cancel.cancel(),
         )?;
         Ok(result.into_iter().map(documents::DocumentValue).collect())
@@ -976,7 +1068,12 @@ impl NativeModelingPackage {
         &self,
         py: Python<'_>,
     ) -> PyResult<BTreeMap<Identity<SemanticId>, inspection::TableStream>> {
-        let tables = blocking(py, &self.owner, self.inner.source_tables(), || {})?;
+        let tables = blocking(
+            py,
+            &self.owner,
+            self.inner.source_tables(self.services.preparation()),
+            || {},
+        )?;
         tables
             .into_iter()
             .map(|(relation, batch)| {
@@ -1007,8 +1104,13 @@ impl NativeModelingPackage {
         let inner = blocking(
             py,
             &self.owner,
-            self.inner
-                .knowledge(selected, maximum_cells, maximum_bytes, &cancel),
+            self.inner.knowledge(
+                self.services.preparation(),
+                selected,
+                maximum_cells,
+                maximum_bytes,
+                &cancel,
+            ),
             || cancel.cancel(),
         )?;
         Ok(NativeModelingKnowledge {
@@ -1036,7 +1138,7 @@ impl NativeModelingPackage {
             py,
             &self.owner,
             self.inner
-                .conform_request(&preparation, settings, controls, &cancel),
+                .conform_request(&self.services, &preparation, settings, controls, &cancel),
             || cancel.cancel(),
         )?;
         Ok(NativeModelingConformance {
@@ -1054,13 +1156,20 @@ impl NativeModelingPackage {
     ) -> PyResult<NativePreparedOperation> {
         let preparation = preparation_settings(preparation, self.limits);
         let mut settings = settings.0;
-        self::covariance_source(py, &mut settings, covariance_source)?;
+        self::covariance_source(
+            py,
+            &self.owner,
+            &self.services,
+            &mut settings,
+            covariance_source,
+        )?;
         let root = declaration(case_id);
         let cancel = CancelSource::new();
         let inner = blocking(
             py,
             &self.owner,
             self.inner.prepare_operation(
+                self.services.preparation(),
                 &native::OperationSource::of(&self.inner),
                 &preparation,
                 native::RuntimeOperationRequest::DeclaredCase {
@@ -1073,6 +1182,7 @@ impl NativeModelingPackage {
             || cancel.cancel(),
         )?;
         Ok(NativePreparedOperation {
+            services: self.services.clone(),
             owner: self.owner.clone(),
             inner,
         })
@@ -1093,14 +1203,26 @@ impl NativeModelingPackage {
         let overlay: native::PointOverlay =
             documents::decode(py, "point overlay", overlay, allowance / 4)?;
         let mut settings = settings.0;
-        self::covariance_source(py, &mut settings, covariance_source)?;
+        self::covariance_source(
+            py,
+            &self.owner,
+            &self.services,
+            &mut settings,
+            covariance_source,
+        )?;
         let root = declaration(case_id);
         let cancel = CancelSource::new();
         let inner = blocking(
             py,
             &self.owner,
-            self.inner
-                .execute_bound_request(root, &overlay, &preparation, settings, &cancel),
+            self.inner.execute_bound_request(
+                &self.services,
+                root,
+                &overlay,
+                &preparation,
+                settings,
+                &cancel,
+            ),
             || cancel.cancel(),
         )?;
         Ok(NativeModelingResult {
@@ -1118,14 +1240,20 @@ impl NativeModelingPackage {
     ) -> PyResult<NativeModelingResult> {
         let preparation = preparation_settings(preparation, self.limits);
         let mut settings = settings.0;
-        self::covariance_source(py, &mut settings, covariance_source)?;
+        self::covariance_source(
+            py,
+            &self.owner,
+            &self.services,
+            &mut settings,
+            covariance_source,
+        )?;
         let root = declaration(case_id);
         let cancel = CancelSource::new();
         let inner = blocking(
             py,
             &self.owner,
             self.inner
-                .execute_case_request(root, &preparation, settings, &cancel),
+                .execute_case_request(&self.services, root, &preparation, settings, &cancel),
             || cancel.cancel(),
         )?;
         Ok(NativeModelingResult {
@@ -1597,6 +1725,7 @@ impl NativeModelingInitializationAttempt {
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativeLocalStudy {
+    pub(super) services: native::ExecutionServices,
     pub(super) inner: native::LocalStudy,
     pub(super) owner: Arc<runtime::Runtime>,
 }
@@ -1614,7 +1743,7 @@ impl NativeLocalStudy {
         let inner = blocking(
             py,
             &self.owner,
-            self.inner.execute(maximum_points, &cancel),
+            self.inner.execute(&self.services, maximum_points, &cancel),
             || cancel.cancel(),
         )?;
         Ok(NativeStudyReport {
@@ -1793,7 +1922,7 @@ impl NativeStudyReport {
             result
                 .stored_keys()
                 .map(|(run, attempt)| NativeStoredResult {
-                    inner: self.inner.runtime().clone(),
+                    inner: self.inner.services().source_services(),
                     owner: self.owner.clone(),
                     run_id: result.run_id(),
                     run: run.into(),
@@ -2031,7 +2160,6 @@ impl NativeModelingResult {
                 inner: report.as_ref().clone(),
                 primal_coordinates: Some(
                     self.inner
-                        .prepared
                         .primal_coordinates()
                         .map_err(|error| errors::diagnostic(py, &error))?,
                 ),

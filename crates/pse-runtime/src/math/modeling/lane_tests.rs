@@ -93,7 +93,9 @@ async fn native_admission_evicts_idle_compiler_workspace_under_pool_pressure() {
         .unwrap();
     let service = runtime.shared.math();
     let baseline = service.pool.reserved();
-    let workspace = package.pure_workspace().unwrap();
+    let workspace = package
+        .pure_workspace(&runtime.preparation_services())
+        .unwrap();
     let retained = service.pool.reserved() - baseline;
     assert!(retained >= service.policy.workspace_bytes);
     service.trim_compiler_lanes();
@@ -197,7 +199,9 @@ async fn historical_preparation_reuses_one_exact_bounded_lane_and_trim_releases_
         .await
         .unwrap();
     let service = runtime.shared.math();
-    let workspace = package.pure_workspace().unwrap();
+    let workspace = package
+        .pure_workspace(&runtime.preparation_services())
+        .unwrap();
     let head = admit(service, &workspace, 2, "current", 2);
     let historical = admit(service, &workspace, 1, "historical", 1);
     let before = service
@@ -299,7 +303,9 @@ async fn historical_acceleration_respects_one_lane_capacity_and_busy_writer_isol
             .modeling_package(source(1), fixture::physical())
             .await
             .unwrap();
-        let workspace = package.pure_workspace().unwrap();
+        let workspace = package
+            .pure_workspace(&runtime.preparation_services())
+            .unwrap();
         let head = admit(service, &workspace, 2, "head", 2);
         let historical = admit(service, &workspace, 1, "old", 1);
         let before = service
@@ -621,7 +627,10 @@ async fn local_package_reload_reuses_live_lane_and_keeps_historical_source_maps(
         .await
         .unwrap();
     drop(documents);
-    let rows = package.declarations().await.unwrap();
+    let rows = package
+        .declarations(&runtime.preparation_services())
+        .await
+        .unwrap();
     let root = rows
         .iter()
         .find(|row| row.name == "Root")
@@ -636,6 +645,7 @@ async fn local_package_reload_reuses_live_lane_and_keeps_historical_source_maps(
     let instance = pse_modeling::specialize::root_instance(root);
     let cold = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             instance,
             Bindings::default(),
@@ -644,11 +654,16 @@ async fn local_package_reload_reuses_live_lane_and_keeps_historical_source_maps(
         )
         .await
         .unwrap();
-    let lane = |package: &crate::workflow::ModelingPackage| package.pure_workspace().unwrap();
+    let lane = |package: &crate::workflow::ModelingPackage| {
+        package
+            .pure_workspace(&runtime.preparation_services())
+            .unwrap()
+    };
     let workspace = lane(&package);
     let workspaces = service.preparation_effects().workspaces;
     let warm = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             instance,
             Bindings::default(),
@@ -664,12 +679,17 @@ async fn local_package_reload_reuses_live_lane_and_keeps_historical_source_maps(
     );
     let revised_text = format!("\n\n{}", text.replace("x==1", "x==2"));
     let changed = package
-        .reload_from_parent(&[sources(&revised_text)], &cancel)
+        .reload_from_parent(
+            &runtime.source_services(),
+            &[sources(&revised_text)],
+            &cancel,
+        )
         .await
         .unwrap();
     let before_prepare = service.preparation_effects().workspaces;
     let current = changed
         .prepare(
+            &runtime.preparation_services(),
             root,
             instance,
             Bindings::default(),
@@ -701,6 +721,7 @@ async fn local_package_reload_reuses_live_lane_and_keeps_historical_source_maps(
     );
     let historical = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             instance,
             Bindings::default(),

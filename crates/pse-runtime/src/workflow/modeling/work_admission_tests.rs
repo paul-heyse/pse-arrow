@@ -48,6 +48,7 @@ async fn solve_source(
         .ok_or("fixture Root declaration absent")?
         .declaration_id;
     let runtime = fixture::runtime_with(64 << 20, 16 << 20, 1 << 30);
+    let services = runtime.execution_services();
     let package = runtime.modeling_package(rows, fixture::physical()).await?;
     let mut solver = fixture::profile();
     solver.selection = SolverSelection::Explicit(Backend::Pounce);
@@ -74,13 +75,15 @@ async fn solve_source(
         numerical: Default::default(),
     };
     let cancel = crate::CancelSource::new();
-    let prepared = package.prepare_analysis(&analysis, &cancel).await?;
+    let prepared = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await?;
     assert_eq!(
         prepared.solve.required_order(),
         pse_kernels::DerivativeOrder::First
     );
     Ok(package
-        .solve_case(prepared, analysis.compiler, &cancel)
+        .solve_case(&services, prepared, analysis.compiler, &cancel)
         .await?)
 }
 

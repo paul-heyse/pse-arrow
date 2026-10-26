@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Public finite modeling packages are immutable inputs to the existing compiler service.
 mod bound;
+mod fit_declarations;
+pub use fit_declarations::{FitDeclaration, FitDeclarations};
 mod canonical;
 pub(crate) use canonical::reload::RetainedIngress;
 pub(crate) use canonical::{AdmittedModelRevision, LocalSourcePremises};
@@ -142,8 +144,10 @@ pub struct ModelingPackage {
         Option<pse_operations::canonical_contexts::ContextSelection>,
     /// Escaped positional replay metadata retains its receiving allocation owner.
     pub(in crate::workflow) replay_owner: Option<Arc<pse_columnar::AllocationLease>>,
+    /// Protection/admission lease over exact immutable views and allocations; no execution services.
+    /// Preparation and joined effects still receive their explicit caller capabilities.
     pub(in crate::workflow) held_preparation: Option<Arc<engagement::HeldPreparationScope>>,
-    pub(in crate::workflow) runtime: Runtime,
+
     pub(in crate::workflow) revision: canonical::SourceRevision,
     accelerators: Arc<pse_math::implicit::accelerators::Accelerators>,
     providers: Arc<BTreeMap<String, pse_kernels::Registration>>,
@@ -182,7 +186,7 @@ pub(crate) struct SelectedAdmission {
     pub(crate) dependencies: Arc<LocalSourcePremises>,
     pub(crate) versions: Arc<BTreeMap<String, String>>,
     pub(crate) metadata: Arc<pse_columnar::AllocationLease>,
-    pub(crate) _validation_owner: pse_engine::session::BoundModel,
+    pub(crate) _validation_owner: Arc<pse_relations::validate::ValidationContext>,
 }
 impl SelectedAdmission {
     pub(crate) fn retained_bytes(&self) -> usize {
@@ -219,7 +223,7 @@ pub(crate) struct PackageAdmission {
     accelerators: Arc<pse_math::implicit::accelerators::Accelerators>,
     providers: Arc<BTreeMap<String, pse_kernels::Registration>>,
     _lease: Arc<pse_columnar::AllocationLease>,
-    _validation_owner: pse_engine::session::BoundModel,
+    _validation_owner: Arc<pse_relations::validate::ValidationContext>,
 }
 impl PackageAdmission {
     pub(crate) fn retained_bytes(&self) -> usize {
@@ -235,12 +239,15 @@ impl ModelingPackage {
         &self.physical
     }
 
-    pub(crate) fn admission(&self) -> Result<PackageAdmission, WorkflowError> {
+    pub(crate) fn admission(
+        &self,
+        services: &crate::workflow::PreparationServices,
+    ) -> Result<PackageAdmission, WorkflowError> {
         Ok(PackageAdmission {
             revision: self.revision.clone(),
             accelerators: self.accelerators.clone(),
             providers: self.providers.clone(),
-            _lease: self.runtime.shared.math().reserve(
+            _lease: services.math().reserve(
                 "modeling:package-admission",
                 size_of::<PackageAdmission>()
                     + 2 * size_of::<usize>()
@@ -251,11 +258,11 @@ impl ModelingPackage {
                         .map(|name| name.capacity() + size_of::<pse_kernels::Registration>() + 128)
                         .sum::<usize>(),
             )?,
-            _validation_owner: self.runtime.model.clone(),
+            _validation_owner: services.validation_context(),
         })
     }
 }
-impl Runtime {
+impl crate::workflow::SourceServices {
     pub(crate) fn package_from_admission(
         &self,
         admitted: Arc<PackageAdmission>,
@@ -266,7 +273,7 @@ impl Runtime {
             project_context: None,
             replay_owner: None,
             held_preparation: None,
-            runtime: self.clone(),
+
             revision: admitted.revision.clone(),
             accelerators: admitted.accelerators.clone(),
             providers: admitted.providers.clone(),
@@ -302,7 +309,7 @@ fn compiler_context(
 type DocumentCompilerContext = (
     Vec<Declaration>,
     PhysicalScope,
-    super::FitDeclarations,
+    FitDeclarations,
     pse_admission::authoring_driver::document::Batches,
     Arc<pse_modeling::document::DocumentInventory>,
     Arc<pse_columnar::AllocationLease>,
@@ -433,13 +440,13 @@ fn document_inputs_bundles(
     Ok((
         rows,
         scope,
-        super::FitDeclarations::from_batches(&batches)?,
+        FitDeclarations::from_batches(&batches)?,
         context,
         Arc::new(data_documents(bundles)),
         lease,
     ))
 }
-impl Runtime {
+impl crate::workflow::SourceServices {
     /// Persist native-admitted authored source once; later preparations select immutable records.
     pub async fn modeling_from_documents(
         &self,
@@ -447,25 +454,25 @@ impl Runtime {
         physical: PhysicalContext,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let activity = self.admit_activity()?;
+        let activity = self.preparation().admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("modeling.prepare");
                 let token = cancel.token();
                 token.checkpoint().map_err(pse_engine::EngineError::from)?;
-                let validation = self.admission_context();
+                let validation = self.preparation().admission_context();
                 documents.validate_context(
-                    self.registry(),
+                    self.preparation().registry(),
                     &validation,
-                    &self.shared.pool(),
+                    &self.preparation().pool(),
                     &token,
                 )?;
                 let (rows, scope, fits, sources, inventory, _input_lease) = document_inputs(
                     documents,
-                    self.registry(),
+                    self.preparation().registry(),
                     &physical,
-                    self.shared.budget().math.workspace_bytes,
-                    &self.shared.pool(),
+                    self.preparation().math().policy().workspace_bytes,
+                    &self.preparation().pool(),
                     &token,
                 )?;
                 token.checkpoint().map_err(pse_engine::EngineError::from)?;
@@ -484,7 +491,7 @@ impl Runtime {
                         cancel,
                     )
                     .await?;
-                let _ = canonical::reload::retain_initial(&package, documents);
+                let _ = canonical::reload::retain_initial(self.preparation(), &package, documents);
                 // An acknowledged source effect is the outcome even if cancellation
                 // arrived during publication. The Python recovery callback retains it.
                 Ok(package)
@@ -500,11 +507,16 @@ impl Runtime {
         operation: &str,
         source: &ModelingPackage,
     ) -> Result<pse_operations::canonical::Revision, WorkflowError> {
-        let activity = self.admit_activity()?;
+        let activity = self.preparation().admit_activity()?;
         activity
             .scope(async {
                 let store = self.canonical_store()?;
                 let origin = source.recorded_revision()?;
+                if source.source_issuer() != Some(store.issuing_store()?) {
+                    return Err(contract(
+                        "project fork issuer differs from its original admitted source",
+                    ));
+                }
                 // Authenticate this runtime's exact source before trusting local payload/edge copies.
                 let actual = store
                     .revision(&origin.key)
@@ -561,7 +573,7 @@ impl Runtime {
         rows: Vec<Declaration>,
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let activity = self.admit_activity()?;
+        let activity = self.preparation().admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("modeling.prepare");
@@ -577,7 +589,7 @@ impl Runtime {
         physical: PhysicalContext,
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let activity = self.admit_activity()?;
+        let activity = self.preparation().admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("modeling.prepare");
@@ -611,7 +623,7 @@ impl Runtime {
         scope: PhysicalScope,
         documents: Arc<pse_modeling::document::DocumentInventory>,
         sources: pse_admission::authoring_driver::document::Batches,
-        fits: super::fitting::FitDeclarations,
+        fits: FitDeclarations,
         providers: BTreeMap<String, pse_kernels::Registration>,
         loader: Option<&pse_admission::authoring_driver::document::OwnedDocumentSet>,
         cancel: &crate::CancelSource,
@@ -644,7 +656,7 @@ impl Runtime {
             project_context: None,
             replay_owner: None,
             held_preparation: None,
-            runtime: self.clone(),
+
             revision,
             accelerators: Arc::new(pse_math::implicit::accelerators::Accelerators::standard()),
             providers: Arc::new(providers),
@@ -659,13 +671,15 @@ impl Runtime {
         physical: PhysicalContext,
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let activity = self.admit_activity()?;
+        let activity = self.preparation().admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("modeling.prepare");
                 let source = canonical::SourceRevision::open(self, revision).await?;
                 let package = self.package_from_revision(source, physical, providers)?;
-                package.delta_parent(&crate::CancelSource::new()).await?;
+                package
+                    .delta_parent(self.preparation(), &crate::CancelSource::new())
+                    .await?;
                 Ok(package)
             })
             .await
@@ -777,23 +791,32 @@ impl ModelingPackage {
     /// Immutable mathematical artifacts remain shared through the service cache.
     pub(in crate::workflow) fn numerical_workspace(
         &self,
+        services: &crate::workflow::PreparationServices,
     ) -> Result<Workspace, crate::math::MathRuntimeError> {
-        self.runtime.shared.math().workspace(
+        services.math().workspace(
             compiler_context(&self.physical, &self.providers),
             WorkspaceLimits::default(),
         )
     }
 
     /// Explicit full source inventory; ordinary preparation reads only its dependency closure.
-    pub async fn declarations(&self) -> Result<OwnedDeclarations, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+    pub async fn declarations(
+        &self,
+        services: &crate::workflow::PreparationServices,
+    ) -> Result<OwnedDeclarations, WorkflowError> {
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("modeling.prepare");
-                self.declaration_inventory().await
+                self.declaration_inventory(services).await
             })
             .await
     }
+    /// Immutable issuer of the original admitted canonical source, independent of selected services.
+    pub fn source_issuer(&self) -> Option<&str> {
+        self.revision.issuer.as_deref()
+    }
+
     /// Exact immutable canonical revision, independent of semantic compiler source hashes.
     pub fn canonical_revision(
         &self,
@@ -817,25 +840,28 @@ impl ModelingPackage {
     /// Generate full source tables only for an explicit export/publication request.
     pub async fn source_tables(
         &self,
+        services: &crate::workflow::PreparationServices,
     ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
     {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("modeling.prepare");
-                self.encode_source_tables().await
+                self.encode_source_tables(services).await
             })
             .await
     }
     async fn encode_source_tables(
         &self,
+        services: &crate::workflow::PreparationServices,
     ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
     {
         use pse_model::HeapUsage;
         use pse_relations::generated::authored::modeling_declarations as wire;
-        let (source_rows, _, _, document_sources, _source_owners) = self.full_source().await?;
-        let registry = self.runtime.registry();
-        let validation = self.runtime.admission_context();
+        let (source_rows, _, _, document_sources, _source_owners) =
+            self.full_source(services).await?;
+        let registry = services.registry();
+        let validation = services.admission_context();
         let bytes = source_rows
             .iter()
             .map(HeapUsage::owned_bytes)
@@ -850,11 +876,7 @@ impl ModelingPackage {
                     })
             })
             .ok_or_else(|| contract("source export extent"))?;
-        let _scratch = self
-            .runtime
-            .shared
-            .math()
-            .reserve("modeling:source-export", bytes)?;
+        let _scratch = services.math().reserve("modeling:source-export", bytes)?;
         let mut tables = document_sources.clone();
         let mut physical = Vec::new();
         macro_rules! merge_context {
@@ -929,10 +951,7 @@ impl ModelingPackage {
             declarations
                 .finish()
                 .map_err(relation)?
-                .retained(
-                    &self.runtime.shared.pool(),
-                    &pse_columnar::CancellationToken::new(),
-                )
+                .retained(&services.pool(), &pse_columnar::CancellationToken::new())
                 .map_err(relation)?,
         );
         Ok(tables)
@@ -943,23 +962,35 @@ impl ModelingPackage {
     #[cfg(all(test, feature = "solver-kinsol"))]
     pub(in crate::workflow) async fn prepare_block_initialization(
         &self,
+        services: &crate::workflow::PreparationServices,
         a: &ModelingAnalysis,
         stages: Vec<BTreeMap<SemanticId, f64>>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
-        self.prepare_initialization_stages(a, InitializationStageValues::Canonical(stages), cancel)
-            .await
+        self.prepare_initialization_stages(
+            services,
+            a,
+            InitializationStageValues::Canonical(stages),
+            cancel,
+        )
+        .await
     }
     /// Admit sparse physical stage coordinates against the actual resolved case.
     #[cfg(feature = "solver-kinsol")]
     pub async fn prepare_block_initialization_physical(
         &self,
+        services: &crate::workflow::PreparationServices,
         a: &ModelingAnalysis,
         stages: &super::InitializationStages,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
         let mut prepared = self
-            .prepare_initialization_stages(a, InitializationStageValues::Physical(stages), cancel)
+            .prepare_initialization_stages(
+                services,
+                a,
+                InitializationStageValues::Physical(stages),
+                cancel,
+            )
             .await?;
         prepared
             .prepared
@@ -969,18 +1000,20 @@ impl ModelingPackage {
     #[cfg(feature = "solver-kinsol")]
     async fn prepare_initialization_stages(
         &self,
+        services: &crate::workflow::PreparationServices,
         a: &ModelingAnalysis,
         stages: InitializationStageValues<'_>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("modeling.prepare");
                 let resolved = self
                     .resolve_case(
+                        services,
                         a.root,
                         a.instance,
                         a.bindings.clone(),
@@ -1013,11 +1046,10 @@ impl ModelingPackage {
                     solver: a.solver.clone(),
                     stages,
                 };
-                let prepared = self
-                    .runtime
-                    .native()
+                let prepared = services
+                    .math()
                     .prepare_modeling_initialization(
-                        self.numerical_workspace()?,
+                        self.numerical_workspace(services)?,
                         resolved.model.case,
                         a.compiler,
                         resolved.numerical,
@@ -1027,7 +1059,7 @@ impl ModelingPackage {
                 prepared.validate_profile(&resolved.model.values, &profile)?;
                 Ok(super::PreparedInitializationStrategy {
                     review_source: self.clone(),
-                    runtime: self.runtime.clone(),
+
                     values: resolved.model.values,
                     providers: resolved.providers,
                     prepared,
@@ -1039,29 +1071,28 @@ impl ModelingPackage {
     /// Prepare declared topology independently of the selected case's numerical incidence.
     pub async fn prepare_flow(
         &self,
+        services: &crate::workflow::PreparationServices,
         analysis: &ModelingAnalysis,
         selection: pse_compiler::workspace::ModelingFlowSelection,
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::flows::PreparedFlow, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("modeling.prepare");
-                let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
+                let deadline = services.math().preparation_deadline(cancel)?;
                 let scoped_driver = cancel.with_deadline(Some(deadline));
                 let cancel = &scoped_driver;
                 let selected = self
-                    .checked_selection_scoped(&[analysis.root], cancel, deadline)
+                    .checked_selection_scoped(services, &[analysis.root], cancel, deadline)
                     .await?;
                 let prepared = (|| {
-                    let workspace = self.pure_workspace()?;
+                    let workspace = self.pure_workspace(services)?;
                     let revision = selected.admission.revision.clone();
                     Ok::<_, WorkflowError>((workspace, revision))
                 })();
                 let (workspace, revision) = prepared?;
-                let result = self
-                    .runtime
-                    .shared
+                let result = services
                     .math()
                     .prepare_semantic_modeling_revision(
                         workspace,
@@ -1074,9 +1105,8 @@ impl ModelingPackage {
                     )
                     .await;
                 let model = result?;
-                Ok(self
-                    .runtime
-                    .native()
+                Ok(services
+                    .math()
                     .prepare_modeling_flow(model, self.quantities.clone(), selection, cancel)
                     .await?)
             })
@@ -1085,13 +1115,17 @@ impl ModelingPackage {
     /// Replace source declarations while preserving which documents see the physical
     /// names and the package data documents. No old document text is retained as the source
     /// of the edited IR.
-    pub async fn with_declarations(&self, rows: Vec<Declaration>) -> Result<Self, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+    pub async fn with_declarations(
+        &self,
+        services: &crate::workflow::SourceServices,
+        rows: Vec<Declaration>,
+    ) -> Result<Self, WorkflowError> {
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("modeling.prepare");
                 let cancel = crate::CancelSource::new();
-                let parent = self.delta_parent(&cancel).await?;
+                let parent = self.delta_parent(services.preparation(), &cancel).await?;
                 let old = parent
                     .rows
                     .iter()
@@ -1124,6 +1158,7 @@ impl ModelingPackage {
                     ..Default::default()
                 };
                 self.apply_delta_parent_ordered(
+                    services,
                     delta,
                     parent,
                     &cancel,
@@ -1137,31 +1172,32 @@ impl ModelingPackage {
     /// Finite K3 admission and inspection; solver orchestration belongs to the subsequent lowering packets.
     pub async fn prepare(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPreparation, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("modeling.prepare");
-                let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
+                let deadline = services.math().preparation_deadline(cancel)?;
                 let phase = cancel.child_with_deadline(Some(deadline));
                 preparation::scoped(&phase, deadline, async {
                     let original = engagement::OriginalPreparationInputs::capture(
-                        self, root, instance, &bindings, limits,
+                        services, root, instance, &bindings, limits,
                     )?;
                     if let Some(scope) = &self.held_preparation {
                         let mut model = scope
-                            .prepare(self, root, instance, bindings, limits, &phase)
+                            .prepare(services, self, root, instance, bindings, limits, &phase)
                             .await?;
                         model.original = Some(original);
                         return Ok(model);
                     }
                     let engagement = self
-                        .engage(root, instance, bindings, limits, &phase)
+                        .engage(services, root, instance, bindings, limits, &phase)
                         .await?;
                     let mut model = engagement.model().clone();
                     model.original = Some(original);
@@ -1176,6 +1212,8 @@ impl ModelingPackage {
 
 #[cfg(test)]
 mod reuse_tests;
+#[cfg(test)]
+mod service_tests;
 
 #[cfg(test)]
 mod tests {
@@ -1197,7 +1235,10 @@ mod tests {
             .modeling_package(rows, super::super::tests::physical())
             .await
             .unwrap();
-        let tables = package.source_tables().await.unwrap();
+        let tables = package
+            .source_tables(&runtime.preparation_services())
+            .await
+            .unwrap();
         let escaped = tables[&wire::RELATION_ID].clone();
         let map_bytes = source_map_extent(tables.len()).unwrap();
         drop(tables);
@@ -1269,7 +1310,10 @@ mod tests {
                 .physical
                 .sources
                 .insert(spec.key, table(physical.clone()));
-            let exported = package.source_tables().await.unwrap();
+            let exported = package
+                .source_tables(&runtime.preparation_services())
+                .await
+                .unwrap();
             let retained = wire::Row::rows(&exported[&wire::RELATION_ID]).unwrap();
             let expected = rows
                 .iter()
@@ -1287,7 +1331,12 @@ mod tests {
         let mut conflict = rows.clone();
         conflict[0].name = "conflicting_name".into();
         package.physical.sources.insert(spec.key, table(conflict));
-        assert!(package.source_tables().await.is_err());
+        assert!(
+            package
+                .source_tables(&runtime.preparation_services(),)
+                .await
+                .is_err()
+        );
     }
     #[tokio::test]
     async fn generic_documents_prepare_revisions_and_cancel_without_poisoning() {
@@ -1381,6 +1430,7 @@ mod tests {
             .unwrap();
         let original = package
             .prepare(
+                &rt.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -1400,9 +1450,13 @@ mod tests {
             .as_mut()
             .unwrap()
             .expression = Some("3".into());
-        let revised = package.with_declarations(updated).await.unwrap();
+        let revised = package
+            .with_declarations(&rt.source_services(), updated)
+            .await
+            .unwrap();
         let changed = revised
             .prepare(
+                &rt.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -1444,6 +1498,7 @@ mod tests {
         assert!(
             revised
                 .prepare(
+                    &rt.preparation_services(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -1455,6 +1510,7 @@ mod tests {
         );
         let restored = package
             .prepare(
+                &rt.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -1682,14 +1738,18 @@ mod import_tests {
                     )
                     .await?;
                 let root = package
-                    .declarations()
+                    .declarations(&rt.preparation_services())
                     .await?
                     .iter()
                     .find(|row| row.name == "Root")
                     .unwrap()
                     .declaration_id;
                 package
-                    .selected_revision(root, &crate::CancelSource::new())
+                    .selected_revision(
+                        &rt.preparation_services(),
+                        root,
+                        &crate::CancelSource::new(),
+                    )
                     .await
             };
             assert!(selected(&dependent).await.is_ok(), "{source}");
@@ -1750,13 +1810,17 @@ mod import_tests {
                 .await?;
             // Draft persistence is structural; these controls demand the authored
             // importing scope/function before checking its scientific obligations.
-            let declarations = package.declarations().await?;
+            let declarations = package.declarations(&rt.preparation_services()).await?;
             for declaration in declarations
                 .iter()
                 .filter(|row| row.name == "Root" || row.name == "f" || row.value.import.is_some())
             {
                 package
-                    .selected_revision(declaration.declaration_id, &crate::CancelSource::new())
+                    .selected_revision(
+                        &rt.preparation_services(),
+                        declaration.declaration_id,
+                        &crate::CancelSource::new(),
+                    )
                     .await?;
             }
             Ok::<_, WorkflowError>(package)
@@ -1937,3 +2001,72 @@ mod import_tests {
 
 #[cfg(test)]
 mod applicability_tests;
+
+impl Runtime {
+    /// Supply the composition root's explicit source capabilities.
+    pub(crate) fn package_from_admission(
+        &self,
+        admitted: Arc<PackageAdmission>,
+        physical: PhysicalContext,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        self.source_services()
+            .package_from_admission(admitted, physical)
+    }
+    /// Supply the composition root's explicit source capabilities.
+    pub async fn modeling_from_documents(
+        &self,
+        documents: &pse_admission::authoring_driver::document::OwnedDocumentSet,
+        physical: PhysicalContext,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        self.source_services()
+            .modeling_from_documents(documents, physical, cancel)
+            .await
+    }
+    /// Supply the composition root's explicit source capabilities.
+    pub async fn project_fork(
+        &self,
+        project: &pse_operations::canonical_projects::Project,
+        branch: &str,
+        problem: &str,
+        operation: &str,
+        source: &ModelingPackage,
+    ) -> Result<pse_operations::canonical::Revision, WorkflowError> {
+        self.source_services()
+            .project_fork(project, branch, problem, operation, source)
+            .await
+    }
+    /// Supply the composition root's explicit source capabilities.
+    pub async fn modeling_package(
+        &self,
+        rows: Vec<Declaration>,
+        physical: PhysicalContext,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        self.source_services()
+            .modeling_package(rows, physical)
+            .await
+    }
+    /// Supply the composition root's explicit source capabilities.
+    pub async fn modeling_package_registered(
+        &self,
+        rows: Vec<Declaration>,
+        physical: PhysicalContext,
+        providers: BTreeMap<String, pse_kernels::Registration>,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        self.source_services()
+            .modeling_package_registered(rows, physical, providers)
+            .await
+    }
+
+    /// Supply the composition root's explicit source capabilities.
+    pub async fn modeling_revision(
+        &self,
+        revision: pse_model::generated::runtime::canonical_revisions::Row,
+        physical: PhysicalContext,
+        providers: BTreeMap<String, pse_kernels::Registration>,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        self.source_services()
+            .modeling_revision(revision, physical, providers)
+            .await
+    }
+}

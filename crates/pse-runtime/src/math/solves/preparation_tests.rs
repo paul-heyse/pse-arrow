@@ -8,10 +8,6 @@ use pse_ids::SemanticId;
 use pse_kernels::DerivativeOrder;
 use pse_modeling::{Bindings, DeclarationId, Limits};
 
-async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
-    let (package, root, _) = package_and_runtime(text).await;
-    (package, root)
-}
 async fn package_and_runtime(
     text: &str,
 ) -> (ModelingPackage, DeclarationId, crate::workflow::Runtime) {
@@ -45,9 +41,10 @@ async fn prepare(
     intent: SolveIntent,
     selection: SolverSelection,
 ) -> ModelingSolvePreparation {
-    let (package, root) = package(text).await;
+    let (package, root, runtime) = package_and_runtime(text).await;
     package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -109,6 +106,7 @@ async fn capped_original_kinsol_root_uses_actual_evaluation_hooks_and_refuses_op
     let cancel = crate::CancelSource::new();
     let mut prepared = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -172,7 +170,12 @@ async fn capped_original_kinsol_root_uses_actual_evaluation_hooks_and_refuses_op
         .within_admitted_task(scope, admission.clone())
         .unwrap();
     let result = package
-        .solve_case(prepared, fixture::compiler_profile(), &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            prepared,
+            fixture::compiler_profile(),
+            &cancel,
+        )
         .await
         .unwrap();
     assert!(result.accepted, "diagnostic={:?}", result.diagnostic());
@@ -217,6 +220,7 @@ async fn compiled_factorable_pricing_retains_separate_demanded_callbacks() {
         let driver = crate::CancelSource::new();
         let prepared = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -304,6 +308,7 @@ async fn demanded_krylov_route_prepares_actions_from_value_under_a_narrow_jet_bu
     compiler.evaluation.derivative_components = 2;
     let prepared = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -394,6 +399,7 @@ async fn compiled_preconditioned_krylov_prepares_first_and_actions_for_main_and_
         };
         let original = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -631,6 +637,7 @@ async fn explicit_ipopt_auto_demands_independent_affine_rows_and_off_preserves_b
         let requested = !matches!(policy, native::presolve::Policy::Off);
         let prepared = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -749,6 +756,7 @@ async fn explicit_coefficient_cone_retains_representation_and_paired_proof() {
     .await;
     let prepared = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -940,14 +948,16 @@ async fn actual_convex_advice_selects_equivalent_original_profile_before_first_s
     use pse_model::strategy::advice::{
         AdviceMetric, AdviceObservation, AdviceOutcome, FrozenAdvice,
     };
-    let (package, root, _) = package_and_runtime(LINEAR).await;
+    let (package, root, runtime) = package_and_runtime(LINEAR).await;
     async fn bound(
+        services: &crate::workflow::PreparationServices,
         package: &ModelingPackage,
         root: DeclarationId,
         profile: SolverProfile,
     ) -> ModelingSolvePreparation {
         package
             .prepare_solve(
+                services,
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -974,7 +984,13 @@ async fn actual_convex_advice_selects_equivalent_original_profile_before_first_s
         factorizations: None,
         proof_steps: None,
     });
-    let mut prepared = bound(&package, root, profile.clone()).await;
+    let mut prepared = bound(
+        &runtime.preparation_services(),
+        &package,
+        root,
+        profile.clone(),
+    )
+    .await;
     let mut leaves = Vec::new();
     for method in [Method::Simplex, Method::Ipm] {
         let mut leaf = profile.clone();
@@ -983,7 +999,11 @@ async fn actual_convex_advice_selects_equivalent_original_profile_before_first_s
             method,
             ..Default::default()
         });
-        leaves.push(bound(&package, root, leaf).await.solve);
+        leaves.push(
+            bound(&runtime.preparation_services(), &package, root, leaf)
+                .await
+                .solve,
+        );
     }
     prepared.solve = prepared
         .solve
@@ -1035,7 +1055,12 @@ async fn actual_convex_advice_selects_equivalent_original_profile_before_first_s
         "binding the original task scope cannot disable otherwise applicable advice"
     );
     let effective_request = prepared.solve.request_identity().unwrap();
-    let joined = prepared.start().unwrap().wait().await.unwrap();
+    let joined = prepared
+        .start(&runtime.execution_services())
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
     assert!(
         joined.usable(),
         "the advised original profile must pass independent original scientific acceptance"

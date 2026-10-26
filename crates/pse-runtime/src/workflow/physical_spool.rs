@@ -7,8 +7,9 @@ use bytes::Bytes;
 use datafusion::error::DataFusionError;
 use datafusion_execution::{
     SpillFile, SpillWriter,
+    disk_manager::DiskManager,
+    memory_pool::MemoryPool,
     memory_pool::{MemoryConsumer, MemoryReservation},
-    runtime_env::RuntimeEnv,
 };
 use futures_util::{StreamExt, stream::BoxStream};
 use std::{io::Write, sync::Arc};
@@ -35,21 +36,25 @@ enum Storage {
 }
 
 pub(super) struct PhysicalSpool {
-    env: Arc<RuntimeEnv>,
+    spill: Arc<DiskManager>,
     storage: Storage,
     memory_limit: usize,
     owner: MemoryReservation,
 }
 impl PhysicalSpool {
-    pub(super) fn new(env: Arc<RuntimeEnv>, memory_limit: usize) -> Result<Self, WorkflowError> {
-        let owner = MemoryConsumer::new("physical:encoding-spool").register(&env.memory_pool);
+    pub(super) fn new(
+        pool: Arc<dyn MemoryPool>,
+        spill: Arc<DiskManager>,
+        memory_limit: usize,
+    ) -> Result<Self, WorkflowError> {
+        let owner = MemoryConsumer::new("physical:encoding-spool").register(&pool);
         let bytes = memory_limit
             .checked_mul(2)
             .and_then(|n| n.checked_add(PAYLOAD_LIMIT + READ_BUFFERS + 4096))
             .ok_or_else(|| contract("physical spool memory extent"))?;
         owner.try_grow(bytes).map_err(engine)?;
         Ok(Self {
-            env,
+            spill,
             storage: Storage::Memory(Vec::new()),
             memory_limit,
             owner,
@@ -77,8 +82,7 @@ impl PhysicalSpool {
         }
         if let Storage::Memory(bytes) = &self.storage {
             let file = self
-                .env
-                .disk_manager
+                .spill
                 .create_tmp_file("physical source encoding")
                 .map_err(engine)?;
             let mut writer = file.open_writer().map_err(engine)?;
@@ -171,14 +175,14 @@ pub(super) struct PhysicalGroups {
     reader: PhysicalSpoolReader,
     pending: Option<Vec<u8>>,
     ordinal: u64,
-    pool: Arc<dyn datafusion_execution::memory_pool::MemoryPool>,
+    pool: Arc<dyn MemoryPool>,
     first_owner: Option<Arc<pse_columnar::AllocationLease>>,
     _lookahead: Arc<pse_columnar::AllocationLease>,
 }
 impl PhysicalGroups {
     pub(super) fn new(
         reader: PhysicalSpoolReader,
-        pool: &Arc<dyn datafusion_execution::memory_pool::MemoryPool>,
+        pool: &Arc<dyn MemoryPool>,
     ) -> Result<Self, WorkflowError> {
         let lookahead = MemoryConsumer::new("physical:grouped-v2-lookahead").register(pool);
         lookahead.try_grow(PAYLOAD_LIMIT + 4096).map_err(engine)?;
@@ -193,7 +197,7 @@ impl PhysicalGroups {
         })
     }
     fn grant(
-        pool: &Arc<dyn datafusion_execution::memory_pool::MemoryPool>,
+        pool: &Arc<dyn MemoryPool>,
     ) -> Result<Arc<pse_columnar::AllocationLease>, WorkflowError> {
         let owner = MemoryConsumer::new("physical:grouped-v2-payload-and-plan").register(pool);
         owner
@@ -279,7 +283,12 @@ mod tests {
             let before = env.memory_pool.reserved();
             let mut observed = Vec::new();
             for memory_limit in [0, payloads.iter().map(|p| p.len() + 8).sum()] {
-                let mut spool = PhysicalSpool::new(env.clone(), memory_limit).unwrap();
+                let mut spool = PhysicalSpool::new(
+                    env.memory_pool.clone(),
+                    env.disk_manager.clone(),
+                    memory_limit,
+                )
+                .unwrap();
                 for payload in &payloads {
                     spool.push(payload).unwrap();
                 }
@@ -320,12 +329,14 @@ mod tests {
         let pressure =
             MemoryConsumer::new("test:physical-group-pressure").register(&env.memory_pool);
         pressure.try_grow(5 << 20).unwrap();
-        let mut spool = PhysicalSpool::new(env.clone(), 0).unwrap();
+        let mut spool =
+            PhysicalSpool::new(env.memory_pool.clone(), env.disk_manager.clone(), 0).unwrap();
         spool.push(&[1; 17]).unwrap();
         assert!(PhysicalGroups::new(spool.finish().unwrap(), &env.memory_pool).is_err());
         assert_eq!(env.memory_pool.reserved(), pressure.size());
         drop(pressure);
-        let mut spool = PhysicalSpool::new(env.clone(), 0).unwrap();
+        let mut spool =
+            PhysicalSpool::new(env.memory_pool.clone(), env.disk_manager.clone(), 0).unwrap();
         spool.push(&[1; 17]).unwrap();
         let mut groups = PhysicalGroups::new(spool.finish().unwrap(), &env.memory_pool).unwrap();
         let group = groups.next().await.unwrap().unwrap();
@@ -344,7 +355,8 @@ mod tests {
             ))
             .build_arc()
             .unwrap();
-        let mut spool = PhysicalSpool::new(env.clone(), 0).unwrap();
+        let mut spool =
+            PhysicalSpool::new(env.memory_pool.clone(), env.disk_manager.clone(), 0).unwrap();
         for byte in 0..5 {
             spool.push(&[byte; 17]).unwrap();
         }
@@ -370,7 +382,12 @@ mod tests {
             let runtime = crate::workflow::tests::runtime();
             let env = runtime.shared.runtime_env();
             let before = env.memory_pool.reserved();
-            let mut spool = PhysicalSpool::new(env.clone(), memory_limit).unwrap();
+            let mut spool = PhysicalSpool::new(
+                env.memory_pool.clone(),
+                env.disk_manager.clone(),
+                memory_limit,
+            )
+            .unwrap();
             let expected = [vec![0, 255, 0, 2], vec![9; 100], Vec::new()];
             for bytes in &expected {
                 spool.push(bytes).unwrap();
@@ -401,9 +418,16 @@ mod tests {
             ))
             .build_arc()
             .unwrap();
-        assert!(PhysicalSpool::new(env.clone(), 32).is_err());
+        assert!(PhysicalSpool::new(env.memory_pool.clone(), env.disk_manager.clone(), 32).is_err());
         assert_eq!(env.memory_pool.reserved(), 0);
-        assert!(PhysicalSpool::new(env, usize::MAX).is_err());
+        assert!(
+            PhysicalSpool::new(
+                env.memory_pool.clone(),
+                env.disk_manager.clone(),
+                usize::MAX
+            )
+            .is_err()
+        );
     }
     #[test]
     fn physical_spool_disk_refusal_and_unfinished_drop_release_owned_scratch() {
@@ -411,12 +435,14 @@ mod tests {
             .with_max_temp_directory_size(16)
             .build_arc()
             .unwrap();
-        let mut refused = PhysicalSpool::new(env.clone(), 0).unwrap();
+        let mut refused =
+            PhysicalSpool::new(env.memory_pool.clone(), env.disk_manager.clone(), 0).unwrap();
         assert!(refused.push(&[7; 32]).is_err());
         drop(refused);
         assert_eq!(env.memory_pool.reserved(), 0);
         // A refused write returns its disk charge, so another owned spill fits.
-        let mut short = PhysicalSpool::new(env.clone(), 0).unwrap();
+        let mut short =
+            PhysicalSpool::new(env.memory_pool.clone(), env.disk_manager.clone(), 0).unwrap();
         short.push(&[1; 4]).unwrap();
         let path = match &short.storage {
             Storage::Spill(file, _) => file.path().unwrap().to_owned(),

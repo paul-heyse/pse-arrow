@@ -128,6 +128,7 @@ impl super::ModelingPackage {
     /// Native source admission or invalid page bounds propagate.
     pub async fn declaration_page(
         &self,
+        services: &crate::workflow::PreparationServices,
         request: &ModelingDeclarationRequest,
     ) -> Result<ModelingDeclarationPage, super::super::WorkflowError> {
         if request.limit == 0 || request.limit > 128 {
@@ -135,11 +136,11 @@ impl super::ModelingPackage {
                 "declaration page limit must be between one and128",
             ));
         }
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let (total, declarations) =
-                    self.declaration_window(request.offset, request.limit)?;
+                    self.declaration_window(services, request.offset, request.limit)?;
                 let next = request.offset.saturating_add(request.limit);
                 bound_observation(ModelingDeclarationPage {
                     source: super::super::OperationSource::of(self),

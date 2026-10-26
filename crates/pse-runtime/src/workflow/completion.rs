@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Completion owns qualification and lineage. Exporters only copy this product.
-use super::{RunReport, RunResult, WorkflowError};
+use super::{RunResult, WorkflowError};
 use crate::math::solves::Outcome;
 use pse_ids::{ContentHash, FramedHasher};
 use pse_model::generated::{
@@ -14,7 +14,13 @@ use pse_model::generated::{
 #[serde(deny_unknown_fields)]
 pub struct Completion {
     /// Standalone completion document interpretation.
-    pub version: pse_model::document::Version<1>,
+    pub version: pse_model::document::Version<2>,
+    /// Whole original request decision; absence never authorizes scientific reuse.
+    pub permission: Option<ScientificPermission>,
+    /// Independently requested original modeling steps, never whole-request promotion.
+    pub step_permissions: Vec<ScientificPermission>,
+    /// Fit-derived mathematical validity composed with its governing original decision.
+    pub products: Vec<ProductPermission>,
     /// Final physical closure and usability decisions, never recomputed by an exporter.
     pub assessments: Vec<pse_model::generated::runtime::candidate_assessments::Row>,
     /// Retained engineering outcomes; historical no-goal products have an empty collection.
@@ -30,17 +36,209 @@ pub struct Completion {
     pub lineage: Vec<run_lineage::Row>,
 }
 
-/// Governing original request permission. Publication and physical readability do not grant it.
-pub(super) fn governing_permission(
-    original_report_succeeded: bool,
-    assessments: &[pse_model::generated::runtime::candidate_assessments::Row],
-) -> bool {
-    original_report_succeeded
-        && !assessments.is_empty()
-        && assessments.iter().all(|a| a.permits_result)
+/// One completion-owned original scope, with evidence and reasons retained together.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ScientificPermission {
+    /// Absent for the complete request; otherwise the original independent step.
+    pub step: Option<i64>,
+    /// Required original observations in this scope.
+    pub requested: usize,
+    /// Actually retained original observations.
+    pub observed: usize,
+    /// Whether the original requested report succeeded.
+    pub report_succeeded: bool,
+    /// Result permission; seed evidence remains on the original assessments.
+    pub decision: CandidateUse,
+    /// Original refusal reasons, including incomplete coverage and report failure.
+    pub refusals: Vec<CandidateRefusal>,
+    /// Original applicability/incumbent qualifiers, without strengthening.
+    pub qualifiers: Vec<CandidateQualifier>,
+}
+impl ScientificPermission {
+    /// This exact scope supplies scientific result permission.
+    pub fn permits_result(&self) -> bool {
+        matches!(
+            self.decision,
+            CandidateUse::Usable | CandidateUse::QualifiedUnclosed
+        )
+    }
+    pub(in crate::workflow) fn assess(
+        step: Option<i64>,
+        succeeded: bool,
+        requested: usize,
+        observed: usize,
+        assessments: &[pse_model::generated::runtime::candidate_assessments::Row],
+    ) -> Self {
+        let mut refusals = assessments
+            .iter()
+            .flat_map(|a| a.refusals.iter().copied())
+            .collect::<Vec<_>>();
+        let qualifiers = assessments
+            .iter()
+            .flat_map(|a| a.qualifiers.iter().copied())
+            .collect();
+        if !succeeded {
+            refusals.push(CandidateRefusal::NativeOutcome);
+        }
+        if requested == 0 || observed < requested {
+            refusals.push(CandidateRefusal::CoverageUnavailable);
+        }
+        if assessments.is_empty() {
+            refusals.push(CandidateRefusal::NoCandidate);
+        }
+        if assessments.iter().any(|a| !a.permits_result) && refusals.is_empty() {
+            refusals.push(CandidateRefusal::Unqualified);
+        }
+        let permitted = succeeded
+            && requested > 0
+            && observed >= requested
+            && !assessments.is_empty()
+            && assessments.iter().all(|a| a.permits_result);
+        Self {
+            step,
+            requested,
+            observed,
+            report_succeeded: succeeded,
+            decision: if !permitted {
+                CandidateUse::Unusable
+            } else if assessments
+                .iter()
+                .any(|a| a.usability == CandidateUse::QualifiedUnclosed)
+            {
+                CandidateUse::QualifiedUnclosed
+            } else {
+                CandidateUse::Usable
+            },
+            refusals,
+            qualifiers,
+        }
+    }
+}
+/// Local validity remains meaningful even when original permission withholds a product.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProductPermission {
+    /// Existing registry-owned derived scientific quantity.
+    pub quantity: DerivedQuantity,
+    /// The independent mathematical assessment, with its original qualifiers.
+    pub validity: pse_model::generated::structures::LocalValidity,
+    /// The completed scientific product decision.
+    pub decision: CandidateUse,
+}
+impl ProductPermission {
+    /// Both the original governing request and local mathematics permit this product.
+    pub fn permits_result(&self) -> bool {
+        matches!(
+            self.decision,
+            CandidateUse::Usable | CandidateUse::QualifiedUnclosed
+        )
+    }
+}
+impl Completion {
+    /// Whole-request result permission, unavailable when no original fact was captured.
+    pub fn governing_permission(&self) -> Option<bool> {
+        self.permission
+            .as_ref()
+            .map(ScientificPermission::permits_result)
+    }
+    /// Missing original permission is never success.
+    pub fn permits_result(&self) -> bool {
+        self.governing_permission() == Some(true)
+    }
+    /// Governing original step fact, or the aggregate scope when no independent steps were requested.
+    pub fn step_permission(&self, step: usize) -> Option<&ScientificPermission> {
+        if self.step_permissions.is_empty() {
+            self.permission.as_ref()
+        } else {
+            i64::try_from(step).ok().and_then(|step| {
+                self.step_permissions
+                    .iter()
+                    .find(|permission| permission.step == Some(step))
+            })
+        }
+    }
+    /// The recorded product fact; consumers never reconstruct its conjunction.
+    pub fn product_permission(&self, quantity: DerivedQuantity) -> Option<&ProductPermission> {
+        self.products.iter().find(|p| p.quantity == quantity)
+    }
+    /// Compose a later derived owner's actual mathematical assessment with original permission.
+    pub fn derive_permission(
+        &self,
+        quantity: DerivedQuantity,
+        validity: pse_model::generated::structures::LocalValidity,
+    ) -> ProductPermission {
+        let decision = if validity.certified {
+            self.permission
+                .as_ref()
+                .filter(|p| p.permits_result())
+                .map_or(CandidateUse::Unusable, |p| p.decision)
+        } else {
+            CandidateUse::Unusable
+        };
+        ProductPermission {
+            quantity,
+            validity,
+            decision,
+        }
+    }
 }
 
 impl RunResult {
+    fn capture_product_permissions(&self, completion: &mut Completion) {
+        let super::RunOutcome::Fit {
+            result: Ok(report), ..
+        } = &self.outcome
+        else {
+            return;
+        };
+        let point = report
+            .solve
+            .as_ref()
+            .and_then(|s| s.evidence.local.as_ref())
+            .and_then(|p| p.as_ref().ok());
+        let mut add = |quantity, outcome: Result<(), (WithheldReason, String)>, point| {
+            let validity = super::local_analysis::record(
+                outcome.as_ref().map_err(|(r, s)| (*r, s.clone())),
+                point,
+                false,
+            );
+            let fact = completion.derive_permission(quantity, validity);
+            completion.products.push(fact);
+        };
+        if let Some(covariance) = &report.covariance {
+            add(
+                DerivedQuantity::ParameterCovariance,
+                covariance
+                    .values
+                    .as_ref()
+                    .map(|_| ())
+                    .map_err(|e| (e.reason(), e.to_string())),
+                (covariance.approximation == CovarianceApproximation::Exact)
+                    .then_some(point)
+                    .flatten(),
+            );
+        }
+        if let Some(wald) = &report.wald {
+            add(
+                DerivedQuantity::WaldInterval,
+                wald.as_ref()
+                    .map(|_| ())
+                    .map_err(|e| (e.reason(), e.to_string())),
+                None,
+            );
+        }
+        if let Some(profiles) = &report.profiles {
+            add(
+                DerivedQuantity::ProfileInterval,
+                profiles
+                    .as_ref()
+                    .map(|_| ())
+                    .map_err(|e| (e.reason(), e.to_string())),
+                None,
+            );
+        }
+    }
     /// The joined projection; observing it performs no mathematical work.
     pub fn completion(&self) -> Result<&Completion, &WorkflowError> {
         self.completion.as_ref().map_err(AsRef::as_ref)
@@ -53,6 +251,29 @@ impl RunResult {
             diagnostics: self.capture_diagnostics(),
             ..Default::default()
         };
+        let facts = self.completed_facts();
+        product.permission = Some(ScientificPermission::assess(
+            None,
+            self.report().is_ok(),
+            facts.requested,
+            facts.observed,
+            &self.assessments,
+        ));
+        if matches!(self.original_request(), super::RunRequest::Modeling(_)) {
+            product.step_permissions = self
+                .assessments
+                .iter()
+                .map(|a| {
+                    ScientificPermission::assess(
+                        Some(a.step),
+                        a.permits_result,
+                        1,
+                        1,
+                        std::slice::from_ref(a),
+                    )
+                })
+                .collect();
+        }
         let environment = pse_math::context()
             .map_err(super::math)?
             .environment
@@ -218,7 +439,7 @@ impl RunResult {
                     let mut actual_environment =
                         FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                     actual_environment.hash(&environment).str(
-                        &self.runtime.outer_attestation().map_or_else(
+                        &self.services.outer_attestation().map_or_else(
                             || "local-unattested".into(),
                             |attestation| attestation.build.to_hex(),
                         ),
@@ -282,16 +503,17 @@ impl RunResult {
                         p.source.revision.identity().as_id(),
                         profile_identity,
                     );
-                    row.backend = p.profile().resolved_method().ok().map(|m| match m {
-                        pse_backend_native::dynamics::Method::Idas => NativeBackend::Idas,
-                        _ => NativeBackend::Diffsol,
-                    });
+                    row.backend = p
+                        .profile()
+                        .resolved_method()
+                        .ok()
+                        .and_then(|method| pse_backend_native::dynamics::backend(method).ok());
                     row
                 });
                 let mut actual_environment =
                     FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                 actual_environment.hash(&environment).str(
-                    &self.runtime.outer_attestation().map_or_else(
+                    &self.services.outer_attestation().map_or_else(
                         || "local-unattested".into(),
                         |attestation| attestation.build.to_hex(),
                     ),
@@ -390,7 +612,7 @@ impl RunResult {
                     FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                 actual_environment
                     .hash(&environment)
-                    .str(&self.runtime.outer_attestation().map_or_else(
+                    .str(&self.services.outer_attestation().map_or_else(
                         || "local-unattested".into(),
                         |attestation| attestation.build.to_hex(),
                     ))
@@ -497,7 +719,7 @@ impl RunResult {
                 let mut actual_environment =
                     FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                 actual_environment.hash(&environment).str(
-                    &self.runtime.outer_attestation().map_or_else(
+                    &self.services.outer_attestation().map_or_else(
                         || "local-unattested".into(),
                         |attestation| attestation.build.to_hex(),
                     ),
@@ -531,6 +753,7 @@ impl RunResult {
                 });
             }
         }
+        self.capture_product_permissions(&mut product);
         Ok(product)
     }
 }
@@ -580,10 +803,11 @@ pub(super) fn simulation_header(
     );
     row.state = NativeRunState::Native;
     row.trajectory_termination = Some(report.termination);
-    row.backend = prepared.profile().resolved_method().ok().map(|m| match m {
-        pse_backend_native::dynamics::Method::Idas => NativeBackend::Idas,
-        _ => NativeBackend::Diffsol,
-    });
+    row.backend = prepared
+        .profile()
+        .resolved_method()
+        .ok()
+        .and_then(|method| pse_backend_native::dynamics::backend(method).ok());
     row.candidate_available = report.endpoint.is_some();
     row.completed_time = report
         .completed_time
@@ -657,14 +881,14 @@ impl RunResult {
         step: Option<usize>,
     ) -> Option<pse_backend_native::solve::WarmStart> {
         let step = step.unwrap_or_default();
-        match self.report().ok()? {
-            RunReport::Modeling(reports) => match &reports.get(step)?.outcome {
-                Outcome::Native(report) => report.warm_start.clone(),
-                _ => None,
-            },
-            RunReport::Fit(report) if step == 0 => report.solve.as_ref()?.warm_start.clone(),
-            _ => None,
-        }
+        self.completed_facts()
+            .native_reports
+            .into_iter()
+            .find_map(|(ordinal, report)| {
+                (ordinal == step)
+                    .then(|| report.warm_start.clone())
+                    .flatten()
+            })
     }
 }
 
@@ -680,6 +904,127 @@ mod tests {
     };
     use pse_ids::SemanticId;
     use pse_model::diagnostic::BoundaryClass;
+
+    fn assessment(permitted: bool) -> pse_model::generated::runtime::candidate_assessments::Row {
+        pse_model::generated::runtime::candidate_assessments::Row {
+            run_id: pse_model::generated::identities::RunId::from_bytes([3; 16]),
+            step: 0,
+            native_termination: None,
+            numerically_feasible: Some(true),
+            closure: ClosureAssessment::Closed,
+            policy: ClosurePolicy::RequireClosed,
+            usability: if permitted {
+                CandidateUse::Usable
+            } else {
+                CandidateUse::Unusable
+            },
+            reason: "independent permission fixture".into(),
+            incumbent_policy: IncumbentPolicy::Refuse,
+            candidate_kind: None,
+            qualification: None,
+            validated: None,
+            bound_origin: None,
+            bound: None,
+            absolute_gap: None,
+            relative_gap: None,
+            qualifiers: vec![CandidateQualifier::ApplicabilityExtrapolationAllowed],
+            refusals: vec![],
+            permits_result: permitted,
+            permits_seed: false,
+        }
+    }
+
+    #[test]
+    fn completion_permission_requires_original_report_coverage_and_every_assessment() {
+        let accepted = assessment(true);
+        let allowed =
+            ScientificPermission::assess(None, true, 1, 1, std::slice::from_ref(&accepted));
+        assert!(allowed.permits_result());
+        assert_eq!(
+            allowed.qualifiers,
+            vec![CandidateQualifier::ApplicabilityExtrapolationAllowed]
+        );
+        for fact in [
+            ScientificPermission::assess(None, false, 1, 1, std::slice::from_ref(&accepted)),
+            ScientificPermission::assess(None, true, 2, 1, std::slice::from_ref(&accepted)),
+            ScientificPermission::assess(None, true, 0, 0, &[]),
+            ScientificPermission::assess(None, true, 1, 1, &[]),
+            ScientificPermission::assess(None, true, 2, 2, &[accepted, assessment(false)]),
+        ] {
+            assert!(!fact.permits_result());
+            assert!(!fact.refusals.is_empty());
+        }
+    }
+
+    #[test]
+    fn completion_and_product_permission_preserve_qualified_unclosed_scope() {
+        let mut original = assessment(true);
+        original.usability = CandidateUse::QualifiedUnclosed;
+        original.closure = ClosureAssessment::Unclosed;
+        original.qualifiers = vec![CandidateQualifier::ClosureAllowed];
+        let fact = ScientificPermission::assess(None, true, 1, 1, &[original]);
+        assert!(fact.permits_result());
+        assert_eq!(fact.decision, CandidateUse::QualifiedUnclosed);
+        let completion = Completion {
+            permission: Some(fact),
+            ..Default::default()
+        };
+        let product = completion.derive_permission(
+            DerivedQuantity::ParameterCovariance,
+            super::super::local_analysis::record(Ok(&()), None, false),
+        );
+        assert!(product.permits_result());
+        assert_eq!(product.decision, CandidateUse::QualifiedUnclosed);
+    }
+
+    #[test]
+    fn local_validity_cannot_grant_permission_without_original_scope() {
+        let validity = super::super::local_analysis::record(Ok(&()), None, false);
+        let mut completion = Completion::default();
+        assert!(
+            !completion
+                .derive_permission(DerivedQuantity::ParameterCovariance, validity.clone())
+                .permits_result()
+        );
+        completion.permission = Some(ScientificPermission::assess(
+            None,
+            true,
+            1,
+            1,
+            &[assessment(true)],
+        ));
+        assert!(
+            completion
+                .derive_permission(DerivedQuantity::ParameterCovariance, validity)
+                .permits_result()
+        );
+        let withheld = super::super::local_analysis::record::<()>(
+            Err((
+                WithheldReason::NoCandidate,
+                "absent mathematical candidate".into(),
+            )),
+            None,
+            false,
+        );
+        assert!(
+            !completion
+                .derive_permission(DerivedQuantity::ParameterCovariance, withheld)
+                .permits_result()
+        );
+    }
+
+    #[test]
+    fn completion_current_version_requires_product_structure_and_never_defaults_permission_to_success()
+     {
+        let mut value = serde_json::to_value(Completion::default()).unwrap();
+        assert!(serde_json::from_value::<Completion>(value.clone()).is_ok());
+        value.as_object_mut().unwrap().remove("permission");
+        // An optional field alone is not sufficient proof; absent original permission still refuses.
+        let decoded = serde_json::from_value::<Completion>(value.clone()).unwrap();
+        assert!(!decoded.permits_result());
+        value.as_object_mut().unwrap().remove("products");
+        assert!(serde_json::from_value::<Completion>(value).is_err());
+    }
 
     #[tokio::test]
     async fn validation_failure_keeps_solve_projection_nullable_and_unqualified() {
@@ -702,6 +1047,7 @@ mod tests {
             .unwrap();
         let prepared = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -785,6 +1131,7 @@ mod tests {
             };
             let completion = point.completion(&outcome, &prepared.solve.numerics().policy);
             let step = super::super::ModelingResult::from_assessment(
+                &runtime.preparation_services(),
                 prepared.clone(),
                 run_id,
                 0,
@@ -796,7 +1143,7 @@ mod tests {
             );
             let mut result = RunResult::joined(
                 run_id,
-                runtime.clone(),
+                runtime.execution_services(),
                 crate::workflow::RunOutcome::Modeling {
                     request: vec![prepared.clone()],
                     result: Ok(vec![step]),

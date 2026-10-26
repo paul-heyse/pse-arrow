@@ -294,9 +294,10 @@ impl StudyHandle {
     pub async fn diagnostic_selection(
         &self,
     ) -> Result<ManagedStudyDiagnosticsDocument, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = self.services.preparation().admit_activity()?;
         activity.scope(async {
-            let store = self.runtime.canonical_store()?;
+            let source_services = self.services.source_services();
+            let store = source_services.canonical_store()?;
             let study = store.canonical_study(&self.study_id.to_string()).await?.ok_or_else(|| contract("canonical study absent"))?;
             let metadata: super::study::StudyMetadata = serde_json::from_slice(study.metadata.as_slice()).map_err(|error| contract(format!("study execution metadata: {error}")))?;
             let mut references = Vec::new();
@@ -942,9 +943,10 @@ impl StudyHandle {
         if request.maximum_members == 0 || request.maximum_members > 4096 {
             return Err(contract("review inventory requires 1 through 4096 members"));
         }
-        let activity = self.runtime.admit_activity()?;
+        let activity = self.services.preparation().admit_activity()?;
         activity.scope(async {
-            let store = self.runtime.canonical_store()?;
+            let source_services = self.services.source_services();
+            let store = source_services.canonical_store()?;
             let study = store.canonical_study(&self.study_id.to_string()).await?.ok_or_else(|| contract("canonical study absent"))?;
             let mut members = Vec::new(); let mut gaps = Vec::new(); let mut after = None; let mut scanned = 0_u64;
             let mut truncated = false;

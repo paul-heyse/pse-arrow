@@ -29,6 +29,14 @@ async fn wide_fixture_receipt(
     retained_physical: bool,
     receipt_fault: Option<&str>,
 ) -> (Runtime, AttemptFence, RecordBatch) {
+    wide_fixture_with_completion(nested, retained_physical, receipt_fault, None).await
+}
+async fn wide_fixture_with_completion(
+    nested: bool,
+    retained_physical: bool,
+    receipt_fault: Option<&str>,
+    original_completion: Option<super::super::Completion>,
+) -> (Runtime, AttemptFence, RecordBatch) {
     // This fixture exercises canonical storage and protected reads, not a native
     // scientific execution receiver. Keep its isolated store and attestation real.
     let store = pse_operations::testing::canonical_fixture_store().unwrap();
@@ -145,7 +153,7 @@ async fn wide_fixture_receipt(
         let mut rows = runtime
             .operations()
             .unwrap()
-            .put_physical_rows(&runtime, &physical)
+            .put_physical_rows(&runtime.preparation_services(), &physical)
             .await
             .unwrap();
         if let Some(fault) = receipt_fault {
@@ -226,9 +234,9 @@ async fn wide_fixture_receipt(
     let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
     let completion =
         super::super::durable::inspection_fixture_completion(super::super::StoredCompletion {
-            version: 2,
+            version: 3,
             attempt_id: pse_operations::mint_id(),
-            completion: None,
+            completion: original_completion,
             termination: super::super::TerminationDetail {
                 version: pse_model::document::Version,
                 cause: super::super::TerminationCause::Infrastructure {
@@ -1120,4 +1128,74 @@ async fn canonical_readable_wide_result_retains_physical_context_protection_and_
         "released results must not be silently reopened or replaced"
     );
     store.remove_isolated_fixture().await.unwrap();
+}
+
+#[tokio::test]
+async fn canonical_protected_permission_retains_original_refusal_despite_valid_diagnostic_product()
+{
+    use pse_model::generated::enums::{CandidateRefusal, CandidateUse, DerivedQuantity};
+    let validity = super::super::local_analysis::record(Ok(&()), None, false);
+    let completion = super::super::Completion {
+        permission: Some(super::super::ScientificPermission {
+            step: None,
+            requested: 1,
+            observed: 1,
+            report_succeeded: false,
+            decision: CandidateUse::Unusable,
+            refusals: vec![CandidateRefusal::NativeOutcome],
+            qualifiers: vec![],
+        }),
+        products: vec![super::super::ProductPermission {
+            quantity: DerivedQuantity::ParameterCovariance,
+            validity,
+            decision: CandidateUse::Unusable,
+        }],
+        ..Default::default()
+    };
+    let (runtime, fence, _) =
+        wide_fixture_with_completion(false, false, None, Some(completion)).await;
+    let mut reader = runtime
+        .results(
+            "readable-fixture",
+            fence.attempt(),
+            "runtime.solve_variables",
+            0,
+            3,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        runtime
+            .operations()
+            .unwrap()
+            .result_governing_permission(reader.selection())
+            .await
+            .unwrap(),
+        Some(false)
+    );
+    assert_eq!(
+        runtime
+            .operations()
+            .unwrap()
+            .result_product_permission(reader.selection(), DerivedQuantity::ParameterCovariance)
+            .await
+            .unwrap(),
+        Some(false)
+    );
+    assert_eq!(
+        runtime
+            .operations()
+            .unwrap()
+            .result_product_permission(reader.selection(), DerivedQuantity::WaldInterval)
+            .await
+            .unwrap(),
+        None
+    );
+    let mut diagnostic_rows = 0;
+    while let Some(batch) = reader.next_relation_batch().await.unwrap() {
+        diagnostic_rows += batch.batch().num_rows();
+    }
+    assert_eq!(diagnostic_rows, 3);
+    reader.close();
 }

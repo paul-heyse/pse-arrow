@@ -398,6 +398,20 @@ impl RunResult {
             return None;
         };
         report.covariance.as_ref().map(|covariance| {
+            if !self
+                .completion()
+                .ok()
+                .and_then(|completion| {
+                    completion.product_permission(DerivedQuantity::ParameterCovariance)
+                })
+                .is_some_and(super::ProductPermission::permits_result)
+            {
+                return Err(Upstream {
+                    quantity: DerivedQuantity::ParameterCovariance,
+                    reason: WithheldReason::UpstreamWithheld,
+                    detail: "the original fit completion withholds covariance reuse".into(),
+                });
+            }
             let record = match &self.durability {
                 super::RunDurability::Durable(record) => record
                     .run
@@ -431,7 +445,7 @@ impl RunResult {
                 request.problem.source_identity,
                 request.source.physical.identity(),
                 validity,
-                &self.runtime.shared.pool(),
+                &self.services.preparation().pool(),
             )
         })
     }

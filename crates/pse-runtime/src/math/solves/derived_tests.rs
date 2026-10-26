@@ -63,6 +63,7 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
     let cancel = crate::CancelSource::new();
     let prepared = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             pse_modeling::Bindings::default(),
@@ -537,6 +538,7 @@ async fn original_order_on(
         .unwrap();
     let prepared = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             pse_modeling::Bindings::default(),
@@ -1506,6 +1508,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
     let cancel = crate::CancelSource::new();
     let mut prepared = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             pse_modeling::Bindings::default(),
@@ -1869,7 +1872,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         .with_strategy(declaration, vec![auxiliary.into(), original.clone().into()])
         .unwrap();
     let result = package
-        .solve_case(prepared, compiler, &cancel)
+        .solve_case(&runtime.execution_services(), prepared, compiler, &cancel)
         .await
         .unwrap();
     let anchor = result.prediction_anchor(0.0);
@@ -1957,7 +1960,9 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
                 vec![output_producer.clone().into(), original.clone().into()],
             )
             .unwrap();
-        let rejected = package.solve_case(rejected, compiler, &cancel).await;
+        let rejected = package
+            .solve_case(&runtime.execution_services(), rejected, compiler, &cancel)
+            .await;
         let trace = match &rejected {
             Ok(result) => {
                 assert!(
@@ -2150,7 +2155,10 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         .clone()
         .with_strategy(declaration, vec![auxiliary.into(), original.into()])
         .unwrap();
-    let recovered = package.solve_case(retry, compiler, &cancel).await.unwrap();
+    let recovered = package
+        .solve_case(&runtime.execution_services(), retry, compiler, &cancel)
+        .await
+        .unwrap();
     assert!(
         recovered.prediction_anchor(0.0).is_ok(),
         "{:?}",
@@ -2332,6 +2340,7 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
     let cancel = crate::CancelSource::new();
     let initial = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             pse_modeling::Bindings::default(),
@@ -2420,6 +2429,7 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
         if observable {
             original = package
                 .prepare_solve(
+                    &runtime.preparation_services(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     pse_modeling::Bindings::default(),
@@ -2964,7 +2974,7 @@ async fn reference_flash_completed_blocks_discharge_reporting_allowance() {
         .await
         .unwrap();
     let root = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -2974,6 +2984,7 @@ async fn reference_flash_completed_blocks_discharge_reporting_allowance() {
     let cancel = crate::CancelSource::new();
     let mut declared = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             Default::default(),
             SolverProfile {
@@ -2992,7 +3003,10 @@ async fn reference_flash_completed_blocks_discharge_reporting_allowance() {
         .case
         .values
         .insert("root.inlet.T".into(), 360.);
-    let prepared = package.prepare_declared(&declared, &cancel).await.unwrap();
+    let prepared = package
+        .prepare_declared(&runtime.preparation_services(), &declared, &cancel)
+        .await
+        .unwrap();
     let service = runtime.native();
     let scope = ExecutionScope::new(
         Cancellation::new(false),
@@ -3004,7 +3018,12 @@ async fn reference_flash_completed_blocks_discharge_reporting_allowance() {
         .unwrap();
     let admitted = blocks.result_bytes().unwrap();
     let completed = package
-        .solve_case(prepared, declared.analysis.compiler, &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            prepared,
+            declared.analysis.compiler,
+            &cancel,
+        )
         .await
         .unwrap();
     assert!(completed.accepted);

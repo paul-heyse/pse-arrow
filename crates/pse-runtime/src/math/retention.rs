@@ -810,7 +810,7 @@ mod pressure_tests {
             .modeling_package(rows, physical.clone())
             .await
             .unwrap();
-        let admission = package.admission().unwrap();
+        let admission = package.admission(&runtime.preparation_services()).unwrap();
         let payload = admission.retained_bytes();
         service.clear_program_cache();
         let generation = service.modeling_cache.generation();
@@ -842,7 +842,14 @@ mod pressure_tests {
         let rebuilt = runtime
             .package_from_admission(escaped.clone(), physical)
             .unwrap();
-        assert_eq!(rebuilt.declarations().await.unwrap().len(), count);
+        assert_eq!(
+            rebuilt
+                .declarations(&runtime.preparation_services())
+                .await
+                .unwrap()
+                .len(),
+            count
+        );
         drop(rebuilt);
         service.clear_program_cache();
         let held = pool.reserved();

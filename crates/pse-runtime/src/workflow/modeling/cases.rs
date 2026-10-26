@@ -278,19 +278,21 @@ impl ModelingPackage {
     /// Evaluate exactly the selected source observations through shared compiler artifacts.
     pub async fn observe(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: ModelingPreparation,
         rows: BTreeSet<SemanticId>,
         values: CaseValues,
         profile: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let providers = self
                     .inner_registrations(
+                        services,
                         model.clone(),
                         &ModelingCaseBindings::default(),
                         &NumericalInputs::default(),
@@ -302,13 +304,14 @@ impl ModelingPackage {
                         implicit::ProviderDemand::Observations(Some(&rows)),
                     )
                     .await?;
-                self.observe_registered(model, rows, values, profile, providers, cancel)
+                self.observe_registered(services, model, rows, values, profile, providers, cancel)
                     .await
             })
             .await
     }
     pub(in crate::workflow) async fn observe_registered(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: ModelingPreparation,
         rows: BTreeSet<SemanticId>,
         values: CaseValues,
@@ -316,16 +319,16 @@ impl ModelingPackage {
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let scope = pse_kernels::ExecutionScope::new(
             pse_diagnostics::Cancellation::default(),
             cancel.deadline(),
         );
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
-                let service = self.runtime.shared.math();
+                let service = services.math();
                 let bytes = rows
                     .len()
                     .checked_mul(128)
@@ -342,7 +345,7 @@ impl ModelingPackage {
                 let assembly = crate::math::MathService::within_task(
                     &scope,
                     cancel,
-                    self.observation_program(&model, &rows, profile, cancel),
+                    self.observation_program(services, &model, &rows, profile, cancel),
                 )
                 .await?;
                 let ids = assembly
@@ -397,6 +400,7 @@ impl ModelingPackage {
     }
     pub(in crate::workflow) async fn resolve_starts(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: &ModelingPreparation,
         case: &ModelingCaseBindings,
         overrides: &CaseOverrides,
@@ -404,7 +408,7 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<(CaseValues, BTreeMap<SemanticId, StartSource>), WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let product = model.compiled();
@@ -546,6 +550,7 @@ impl ModelingPackage {
                     }
                     let observed = self
                         .observe(
+                            services,
                             model.clone(),
                             ready
                                 .iter()
@@ -591,12 +596,13 @@ impl ModelingPackage {
     /// when each step binds. Empty under [`DiscreteInitialization::Refuse`].
     pub(in crate::workflow) async fn discrete_assignment(
         &self,
+        services: &crate::workflow::PreparationServices,
         analysis: &ModelingAnalysis,
         prepared: &ModelingPreparation,
         policy: &DiscreteInitialization,
         cancel: &crate::CancelSource,
     ) -> Result<BTreeMap<SemanticId, f64>, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity.scope(async {
         use DiscreteInitialization as Policy;
         use pse_modeling::DomainRefusal;
@@ -625,7 +631,7 @@ impl ModelingPackage {
         {
             prepared.clone()
         } else {
-            self.prepare(
+            self.prepare(services,
                 analysis.root,
                 analysis.instance,
                 bindings,
@@ -657,7 +663,7 @@ impl ModelingPackage {
         }
         let values: BTreeMap<SemanticId, f64> = match declared {
             None => {
-                self.resolve_starts(
+                self.resolve_starts(services,
                     &model,
                     case,
                     &CaseOverrides::default(),
@@ -716,6 +722,7 @@ impl ModelingPackage {
     )]
     pub async fn prepare_solve(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         instance: InstanceId,
         bindings: Bindings,
@@ -727,12 +734,13 @@ impl ModelingPackage {
         numerical: NumericalInputs,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 self.prepare_solve_seed(
+                    services,
                     root,
                     instance,
                     bindings,
@@ -755,6 +763,7 @@ impl ModelingPackage {
     )]
     pub(in crate::workflow) async fn prepare_solve_seed(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         instance: InstanceId,
         bindings: Bindings,
@@ -767,29 +776,30 @@ impl ModelingPackage {
         overrides: CaseOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let resolution = self
                     .resolve_case(
-                        root, instance, bindings, limits, case, order, compiler, solver, numerical,
-                        overrides, false, cancel,
+                        services, root, instance, bindings, limits, case, order, compiler, solver,
+                        numerical, overrides, false, cancel,
                     )
                     .await?;
-                self.finish_case(resolution, cancel).await
+                self.finish_case(services, resolution, cancel).await
             })
             .await
     }
     pub(in crate::workflow) async fn finish_case(
         &self,
+        services: &crate::workflow::PreparationServices,
         resolution: ModelingCaseResolution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity.scope(async {
         let ModelingCaseResolution {
             original_inputs,
@@ -804,7 +814,7 @@ impl ModelingPackage {
             parametric,
             ..
         } = resolution;
-        let preparation = self.runtime.shared.math().prepare_solve(
+        let preparation = services.math().prepare_solve(
             model.case.clone(),
             model.values.clone(),
             providers.clone(),
@@ -841,7 +851,7 @@ impl ModelingPackage {
             });
             let order = solve.required_order().max(plan.order());
             providers = self
-                .inner_registrations(
+                .inner_registrations(services,
                     model.model.clone(),
                     &case_bindings,
                     &numerical,
@@ -897,12 +907,10 @@ impl ModelingPackage {
                 selected.insert(goal.target_id, row_id);
             }
             if !selected.is_empty() {
-                let executable = self
-                    .runtime
-                    .shared
+                let executable = services
                     .math()
                     .prepare_modeling_functions(
-                        self.numerical_workspace()?,
+                        self.numerical_workspace(services, )?,
                         model.model.clone(),
                         selected.values().copied().collect(),
                         model.case.compiled().plan.columns().to_vec(),
@@ -921,7 +929,7 @@ impl ModelingPackage {
                     {
                         solve = solve.with_selected_outputs(
                             crate::math::solves::output_program::SelectedOutputProgram::new(
-                                self.runtime.shared.math(),
+                                services.math(),
                                 executable,
                                 selected,
                             )?,
@@ -935,7 +943,7 @@ impl ModelingPackage {
         }
         #[cfg(feature = "solver-kinsol")]
         if let Some(supplier) = self
-            .automatic_causal_supplier(&model, &providers, &numerics, &solver, compiler, &solve)?
+            .automatic_causal_supplier(services, &model, &providers, &numerics, &solver, compiler, &solve)?
         {
             solve = solve.with_causal_supplier(supplier);
         }
@@ -966,6 +974,7 @@ impl ModelingPackage {
     )]
     pub(in crate::workflow) async fn resolve_case(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         instance: InstanceId,
         mut bindings: Bindings,
@@ -979,13 +988,13 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let original = engagement::OriginalPreparationInputs::capture(
-                    self, root, instance, &bindings, limits,
+                    services, root, instance, &bindings, limits,
                 )?;
                 bindings
                     .demand
@@ -993,10 +1002,11 @@ impl ModelingPackage {
                 bindings.demand.sort();
                 bindings.demand.dedup();
                 let mut model = self
-                    .prepare(root, instance, bindings, limits, cancel)
+                    .prepare(services, root, instance, bindings, limits, cancel)
                     .await?;
                 model.original = Some(original);
                 self.resolve_prepared_case(
+                    services,
                     model,
                     case,
                     order,
@@ -1018,6 +1028,7 @@ impl ModelingPackage {
     )]
     pub(in crate::workflow) async fn resolve_prepared_case(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: ModelingPreparation,
         case: ModelingCaseBindings,
         order: DerivativeOrder,
@@ -1029,6 +1040,7 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
         self.resolve_prepared_case_with_current_view(
+            services,
             model,
             case,
             order,
@@ -1049,6 +1061,7 @@ impl ModelingPackage {
     )]
     pub(in crate::workflow) async fn resolve_prepared_case_with_current_view(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: ModelingPreparation,
         case: ModelingCaseBindings,
         order: DerivativeOrder,
@@ -1060,12 +1073,12 @@ impl ModelingPackage {
         current_view: Option<&mut crate::workflow::study_operations::CurrentNumericalView>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let original_inputs = crate::workflow::replay::OriginalCaseInputs::capture(
-            self, &model, &case, order, compiler, &solver, &numerical, &overrides,
+            services, &model, &case, order, compiler, &solver, &numerical, &overrides,
         )?;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity.scope(async {
         let view_policy = pse_compiler::workspace::ViewPolicy {
             automatic_composition: solver.composition.policy == pse_model::strategy::CompositionPolicy::Auto,
@@ -1077,7 +1090,7 @@ impl ModelingPackage {
         let roles = view_policy.roles(&model.compiled().admitted, None);
         let inner = roles.clone();
         let (values, starts) = self
-            .resolve_starts(
+            .resolve_starts(services,
                 &model,
                 &case,
                 &overrides,
@@ -1092,7 +1105,7 @@ impl ModelingPackage {
         // Starts and fixed-state hints consume values before the bound case owns its
         // derivative coordinates. Authored partials retain their independent demand.
         let mut providers = self
-            .inner_registrations(
+            .inner_registrations(services,
                 model.clone(),
                 &case,
                 &numerical,
@@ -1115,7 +1128,7 @@ impl ModelingPackage {
             .requirements
             .retain(|r| roles.admits_outer(r.target_id));
         let mut states = self
-            .variable_states(
+            .variable_states(services,
                 &model,
                 &inner,
                 &case,
@@ -1130,13 +1143,13 @@ impl ModelingPackage {
             states.entry(*id).or_default().fixed = Some(true);
         }
         let prepared = self
-            .bound_case_with_current_view(&model, values.clone(), &states, order, compiler, current_view, cancel)
+            .bound_case_with_current_view(services, &model, values.clone(), &states, order, compiler, current_view, cancel)
             .await?;
         // Upgrade from the actual bound output/coordinate maps, not every formal
         // input of the original source. Native inner residual minima remain separate.
         if order > DerivativeOrder::Value {
             providers = self
-                .inner_registrations(
+                .inner_registrations(services,
                     model.clone(),
                     &case,
                     &numerical,
@@ -1151,7 +1164,8 @@ impl ModelingPackage {
         }
         let roles = view_policy.roles(&model.compiled().admitted, Some(&prepared.case.compiled().plan));
         if let Some(propagation) = solver.sensitivity.as_mut().and_then(|request| request.propagation.as_mut()) {
-            self.runtime.reconcile_covariance(&mut propagation.covariance, &cancel.token()).await?;
+            propagation.covariance.admit().map_err(crate::math::MathRuntimeError::from)?;
+            propagation.covariance.verified_fit().map_err(crate::math::MathRuntimeError::from)?;
             let covariance = &propagation.covariance;
             let structure = prepared.case.compiled().plan.structure();
             for (index, id) in covariance.parameters.iter().enumerate() {
@@ -1204,7 +1218,7 @@ impl ModelingPackage {
                         DerivativeOrder::Second
                     };
                 let result = self
-                    .parametric_program(
+                    .parametric_program(services,
                         &model,
                         &prepared,
                         &request.parameters,
@@ -1216,7 +1230,7 @@ impl ModelingPackage {
                 let preparation = match result {
                     Ok(program) => {
                         providers = self
-                            .inner_registrations(
+                            .inner_registrations(services,
                                 model.clone(),
                                 &case,
                                 &numerical,
@@ -1270,7 +1284,7 @@ impl ModelingPackage {
             _ => Vec::new(),
         };
         let numerics = self
-            .resolve_numerics(
+            .resolve_numerics(services,
                 &model,
                 &inner,
                 &prepared,
@@ -1305,6 +1319,7 @@ impl ModelingPackage {
     )]
     async fn variable_states(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: &ModelingPreparation,
         inner: &Inner,
         case: &ModelingCaseBindings,
@@ -1331,6 +1346,7 @@ impl ModelingPackage {
             .collect::<Result<BTreeSet<_>, _>>()?;
         let observed = self
             .observe_registered(
+                services,
                 model.clone(),
                 bound_rows,
                 values.clone(),
@@ -1417,6 +1433,7 @@ impl ModelingPackage {
     )]
     async fn resolve_numerics(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: &ModelingPreparation,
         inner: &Inner,
         prepared: &ModelingCasePreparation,
@@ -1491,6 +1508,7 @@ impl ModelingPackage {
                 .collect::<Result<_, _>>()?;
             let observed = self
                 .observe_registered(
+                    services,
                     model.clone(),
                     rows,
                     prepared.values.clone(),
@@ -1647,7 +1665,7 @@ impl ModelingPackage {
         numerical.declarations.extend(reconstruction_requirements);
         numerical.declarations.extend(conservation_requirements);
         numerical.declarations.extend(closure_requirements);
-        let resolved = self.runtime.native().policy_resolution_owner().resolve(
+        let resolved = services.math().policy_resolution_owner().resolve(
             physical.clone(),
             preconditions.clone(),
             &targets,
@@ -1693,6 +1711,7 @@ impl ModelingPackage {
         if !schemes.is_empty() {
             let terms = self
                 .observe_registered(
+                    services,
                     model.clone(),
                     term_rows,
                     nominal_point,
@@ -1724,7 +1743,7 @@ impl ModelingPackage {
                 ));
             }
         }
-        Ok(self.runtime.native().policy_resolution_owner().resolve(
+        Ok(services.math().policy_resolution_owner().resolve(
             physical,
             preconditions,
             &targets,
@@ -2835,6 +2854,7 @@ mod tests {
             .unwrap()
             .declaration_id;
         let runtime = fixture::runtime();
+        let services = runtime.execution_services();
         let package = runtime
             .modeling_package(declarations, fixture::physical())
             .await
@@ -2843,6 +2863,7 @@ mod tests {
         profile.intent = pse_backend_native::solve::SolveIntent::Optimize;
         let error = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -2895,6 +2916,7 @@ mod tests {
                 ..Default::default()
             },
         );
+        let services = runtime.execution_services();
         let declarations = pse_authoring::language::parse(
             "package p {def Root {param p:Scalar=1;var x:Scalar;annotation start x(1.5);annotation bounds x(0.5,3);implicit a {var y:Scalar;eq ey:y==2*x+p;annotation start y(4);annotation bounds y(1,8);}realize ra on a using nested;implicit b {var z:Scalar;eq ez:z==3*x-p;annotation start z(3.5);annotation bounds z(0.1,9);}realize rb on b using nested;eq floor:a.y+b.z>=3;let cost:Scalar=(x-2)*(x-2);annotation objective cost(minimize);annotation report cost(\"cost\");annotation report a.y(\"y\");annotation report b.z(\"z\");}}",
             SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
@@ -2921,6 +2943,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let prepared = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -2994,7 +3017,7 @@ mod tests {
         assert!(jacobian.iter().any(|v| *v == -3.0));
         assert!((objective - 0.25).abs() < 1e-12);
         let result = package
-            .solve_case(prepared, fixture::compiler_profile(), &cancel)
+            .solve_case(&services, prepared, fixture::compiler_profile(), &cancel)
             .await
             .unwrap();
         assert!(result.accepted, "diagnostic={:?}", result.diagnostic());
@@ -3112,6 +3135,7 @@ mod tests {
                 ..Default::default()
             },
         );
+        let services = runtime.execution_services();
         let declarations = pse_authoring::language::parse(
             "package p {def Root {param p:Scalar=2;implicit a {var y:Scalar;eq ey:y==p+1;annotation start y(2.5);annotation bounds y(1,8);}realize ra on a using nested;implicit b {var z:Scalar;eq ez:z==2*p;annotation start z(3.5);annotation bounds z(1,9);}realize rb on b using nested;}}",
             SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
@@ -3137,6 +3161,7 @@ mod tests {
             let cancel = crate::CancelSource::new();
             let prepared = package
                 .prepare_solve(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -3194,7 +3219,7 @@ mod tests {
                 );
             }
             let result = package
-                .solve_case(prepared, fixture::compiler_profile(), &cancel)
+                .solve_case(&services, prepared, fixture::compiler_profile(), &cancel)
                 .await
                 .unwrap();
             assert!(result.accepted, "{result:?}");
@@ -3236,6 +3261,8 @@ mod tests {
     #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
     #[tokio::test]
     async fn automatic_complete_authored_reconstruction_refuses_eliminated_original_bounds() {
+        let runtime = fixture::runtime();
+        let services = runtime.execution_services();
         use super::super::super::tests as fixture;
         let declarations = pse_authoring::language::parse(
             "package p {def Root {param p:Scalar=2;implicit a {var y:Scalar;eq ey:y==p+1;annotation start y(1);annotation bounds y(0,2);}realize ra on a using nested;}}",
@@ -3246,7 +3273,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = fixture::runtime()
+        let package = runtime
             .modeling_package(declarations, fixture::physical())
             .await
             .unwrap();
@@ -3255,6 +3282,7 @@ mod tests {
         solver.presolve = pse_backend_native::presolve::Policy::Off;
         let prepared = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -3281,7 +3309,7 @@ mod tests {
             .unwrap();
         assert_eq!(variable.upper, Some(2.0));
         match package
-            .solve_case(prepared, fixture::compiler_profile(), &cancel)
+            .solve_case(&services, prepared, fixture::compiler_profile(), &cancel)
             .await
         {
             Err(_) => {}
@@ -3329,6 +3357,7 @@ mod tests {
                     ..Default::default()
                 },
             );
+            let services = runtime.execution_services();
             let package = runtime
                 .modeling_package(declarations, fixture::physical())
                 .await
@@ -3342,6 +3371,7 @@ mod tests {
             solver.controls.time_limit = std::time::Duration::from_secs(30);
             let prepared = package
                 .prepare_solve(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -3377,7 +3407,7 @@ mod tests {
                 "every original row is supplied; only the original objective and coordinate bounds remain"
             );
             let result = package
-                .solve_case(prepared, fixture::compiler_profile(), &cancel)
+                .solve_case(&services, prepared, fixture::compiler_profile(), &cancel)
                 .await
                 .unwrap();
             assert!(result.accepted, "{result:?}");
@@ -3438,6 +3468,7 @@ mod tests {
                 ..Default::default()
             },
         );
+        let services = runtime.execution_services();
         let declarations = pse_authoring::language::parse(
             "package p {def Root {param p:Scalar=2;var z:Scalar;annotation start z(1);implicit a {var y:Scalar;eq ey:y==2*p;annotation start y(3);annotation bounds y(1,8);}realize ra on a using nested;implicit restricted select branch(y>0) {var y:Scalar;eq ey:y*y==p;annotation start y(1);annotation bounds y(-3,3);}realize rb on restricted using nested;eq pin:z==restricted.y;}}",
             SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
@@ -3456,6 +3487,7 @@ mod tests {
         solver.presolve = pse_backend_native::presolve::Policy::Off;
         let prepared = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -3505,6 +3537,7 @@ mod tests {
         };
         let forced = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -3520,7 +3553,7 @@ mod tests {
         match forced {
             Err(_) => {}
             Ok(prepared) => match package
-                .solve_case(prepared, fixture::compiler_profile(), &cancel)
+                .solve_case(&services, prepared, fixture::compiler_profile(), &cancel)
                 .await
             {
                 Err(_) => {}
@@ -3544,6 +3577,7 @@ mod tests {
                 ..Default::default()
             },
         );
+        let services = runtime.execution_services();
         let declarations = pse_authoring::language::parse(
             "package p {def Root {param target:Scalar=2;var z:Scalar;annotation start z(0.5);implicit a {var y:Scalar;eq ey:y==2*target;annotation start y(3);annotation bounds y(1,8);}realize ra on a using nested;implicit roots select minimum((y-target)*(y-target),1e-8) {var y:Scalar;regime negative eligible(y<0) {eq ey:y==-1;annotation start y(-0.5);annotation bounds y(-2,-0.1);}regime positive eligible(y>0) {eq ey:y==1;annotation start y(0.5);annotation bounds y(0.1,2);}}realize rb on roots using nested;eq pin:z==roots.y;annotation report roots.y(\"selected\");}}",
             SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
@@ -3562,6 +3596,7 @@ mod tests {
         solver.presolve = pse_backend_native::presolve::Policy::Off;
         let prepared = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -3602,7 +3637,7 @@ mod tests {
                 .any(|supplier| supplier.residuals.len() == 2)
         );
         let result = package
-            .solve_case(prepared, fixture::compiler_profile(), &cancel)
+            .solve_case(&services, prepared, fixture::compiler_profile(), &cancel)
             .await
             .unwrap();
         assert!(result.accepted, "{result:?}");
@@ -3621,6 +3656,8 @@ mod tests {
     #[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
     #[tokio::test]
     async fn automatic_authored_suppliers_refuse_positive_dimensional_root_remainder() {
+        let runtime = fixture::runtime();
+        let services = runtime.execution_services();
         use super::super::super::tests as fixture;
         let declarations = pse_authoring::language::parse(
             "package p {def Root {param p:Scalar=2;var x:Scalar;annotation start x(1);implicit a {var y:Scalar;eq ey:y==p;annotation start y(1);annotation bounds y(0,4);}realize ra on a using nested;}}",
@@ -3631,12 +3668,13 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = fixture::runtime()
+        let package = runtime
             .modeling_package(declarations, fixture::physical())
             .await
             .unwrap();
         let result = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -3661,6 +3699,7 @@ mod tests {
         use pse_backend_native::{NlpOracle, quality::Tolerances};
         use pse_model::generated::enums::NumericalProvenanceField;
         let rt = fixture::runtime();
+        let services = rt.execution_services();
         let mut physical = fixture::physical();
         let mut centimetre = physical
             .quantities
@@ -3695,6 +3734,7 @@ mod tests {
         );
         let resolved = package
             .resolve_case(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -3835,6 +3875,7 @@ mod tests {
         );
         let second = package
             .resolve_case(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -3864,7 +3905,10 @@ mod tests {
             .values()
             .next()
             .unwrap();
-        let prepared = package.finish_case(resolved, &cancel).await.unwrap();
+        let prepared = package
+            .finish_case(services.preparation(), resolved, &cancel)
+            .await
+            .unwrap();
         let frozen = prepared.solve.numerics();
         let actual = frozen
             .targets
@@ -3880,9 +3924,9 @@ mod tests {
                     && source.selected
                     && source.field == NumericalProvenanceField::AbsoluteTolerance)
         );
-        let executable = package
-            .runtime
-            .native()
+        let executable = services
+            .preparation()
+            .math()
             .assemble(prepared.model.case.clone())
             .await
             .unwrap();
@@ -3917,7 +3961,7 @@ mod tests {
         );
         assert!(prepared.solve.accuracy().feasibility <= 1e-7 / normalization.rows[row]);
         let budget =
-            crate::math::WorkerBudget::new(package.runtime.shared.budget().math.worker_bytes);
+            crate::math::WorkerBudget::new(services.preparation().math().policy().worker_bytes);
         let _charge = budget
             .charge(executable.assembly.numeric_worker_bytes())
             .unwrap();
@@ -3976,6 +4020,7 @@ mod tests {
             .unwrap()
             .declaration_id;
         let rt = fixture::runtime_with(128 << 20, 16 << 20, 1 << 30);
+        let services = rt.execution_services();
         let package = rt
             .modeling_package(rows, fixture::physical())
             .await
@@ -4003,7 +4048,10 @@ mod tests {
         };
         analysis.solver.selection = SolverSelection::Explicit(Backend::Kinsol);
         let cancel = crate::CancelSource::new();
-        let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let prepared = package
+            .prepare_analysis(services.preparation(), &analysis, &cancel)
+            .await
+            .unwrap();
         let product = prepared.model.model.compiled();
         let inner = product.admitted.implicit_systems().next().unwrap();
         assert_eq!(inner.descriptor.spec().derivatives, DerivativeOrder::Value);
@@ -4049,6 +4097,7 @@ mod tests {
         );
         let refused = package
             .inner_registrations(
+                services.preparation(),
                 prepared.model.model.clone(),
                 &analysis.case,
                 &analysis.numerical,
@@ -4069,7 +4118,7 @@ mod tests {
         );
 
         let result = package
-            .solve_case(prepared, analysis.compiler, &cancel)
+            .solve_case(&services, prepared, analysis.compiler, &cancel)
             .await
             .unwrap();
         assert!(result.completion.decision.permits_use());
@@ -4082,7 +4131,7 @@ mod tests {
         // callback's Value admission to qualify a derivative request.
         analysis.case.variables.get_mut("p").unwrap().fixed = Some(false);
         let refused = package
-            .prepare_analysis(&analysis, &cancel)
+            .prepare_analysis(services.preparation(), &analysis, &cancel)
             .await
             .unwrap_err();
         let diagnostic = refused.boundary_diagnostic();
@@ -4106,6 +4155,7 @@ mod tests {
         use pse_backend_native::{NlpOracle, quality::Tolerances, solve::ResolvedAccuracy};
         use pse_model::generated::enums::NumericalProvenanceField;
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let mut physical = super::super::super::tests::physical();
         let mut centimetre = physical
             .quantities
@@ -4140,6 +4190,7 @@ mod tests {
         );
         let resolved = package
             .resolve_case(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -4232,11 +4283,11 @@ mod tests {
                 .unwrap()
         );
         assert!(accuracy.feasibility <= 1e-9 / normalization.rows[scalar_row]);
-        let service = package.runtime.native();
+        let service = services.preparation().math();
         let executable = service.assemble(resolved.model.case.clone()).await.unwrap();
         assert!(resolved.providers.is_empty());
         let budget =
-            crate::math::WorkerBudget::new(package.runtime.shared.budget().math.worker_bytes);
+            crate::math::WorkerBudget::new(services.preparation().math().policy().worker_bytes);
         let _charge = budget
             .charge(executable.assembly.numeric_worker_bytes())
             .unwrap();
@@ -4338,6 +4389,7 @@ mod tests {
         // Reusing returned inputs must not multiply this producer's declarations.
         let second_resolution = package
             .resolve_case(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -4358,7 +4410,10 @@ mod tests {
             resolved.numerical.declarations.len()
         );
         let target_id = target.id;
-        let prepared = package.finish_case(resolved, &cancel).await.unwrap();
+        let prepared = package
+            .finish_case(services.preparation(), resolved, &cancel)
+            .await
+            .unwrap();
         let actual = prepared
             .solve
             .numerics()
@@ -4381,6 +4436,7 @@ mod tests {
     #[tokio::test]
     async fn supplied_state_consistency_does_not_create_a_phantom_row_requirement() {
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let physical = super::super::super::tests::physical();
         let declarations = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; annotation start x(1); eq other:x==1; state s supplied(true) { coordinate amount=x; reconstruct normalization:x==1 tolerance 1e-9; transport amount=x tolerance 1e-8; } } }",
@@ -4395,6 +4451,7 @@ mod tests {
         let package = rt.modeling_package(declarations, physical).await.unwrap();
         let resolved = package
             .resolve_case(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -4459,6 +4516,8 @@ mod tests {
     }
     #[tokio::test]
     async fn sensitivity_parameter_variable_goal_uses_the_compiler_operation_role() {
+        let runtime = fixture::runtime();
+        let services = runtime.execution_services();
         use super::super::super::tests as fixture;
         use pse_model::generated::enums::{
             AccuracyGoalSubject, AccuracyGoalUse, AccuracyObservation, NumericalAccuracyClass,
@@ -4475,7 +4534,7 @@ mod tests {
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = fixture::runtime()
+        let package = runtime
             .modeling_package(rows, fixture::physical())
             .await
             .unwrap();
@@ -4486,7 +4545,14 @@ mod tests {
         };
         let cancel = crate::CancelSource::new();
         let source = package
-            .prepare(root, instance, bindings.clone(), Limits::default(), &cancel)
+            .prepare(
+                services.preparation(),
+                root,
+                instance,
+                bindings.clone(),
+                Limits::default(),
+                &cancel,
+            )
             .await
             .unwrap();
         let parameter = source.compiled().model.paths["p"];
@@ -4535,6 +4601,7 @@ mod tests {
             });
         let resolved = package
             .resolve_case(
+                services.preparation(),
                 root,
                 instance,
                 bindings,
@@ -4566,6 +4633,7 @@ mod tests {
     async fn nominal_row_characterization_preserves_equality_bound_coordinates() {
         use super::super::super::tests as fixture;
         let rt = fixture::runtime();
+        let services = rt.execution_services();
         let rows = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; var y:Scalar; annotation start x(2); annotation start y(3); annotation bounds x(2,2); annotation nominal x(100); annotation nominal y(3); eq pinned:x==2; eq balance:x*y==6; annotation scale balance(inverseSum); } }",
             SemanticId::from_bytes([175; 16]),
@@ -4583,6 +4651,7 @@ mod tests {
             .unwrap();
         let prepared = package
             .resolve_case(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings {
@@ -4634,6 +4703,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_starts_numerics_and_constant_solver_share_the_existing_pipeline() {
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let physical = super::super::super::tests::physical();
         let rows=pse_authoring::language::parse(
             "package p { def Root { param p: Scalar = 2; var x: Scalar; var y: Scalar; let bad: Scalar = log(-1); eq balance: x+y == 6; annotation start x(p); annotation start y(2*x); annotation bounds x(0,10); annotation nominal x(2); annotation nominal y(4); annotation scale balance(inverseSum); annotation check x(x > 2.5); annotation report y(\"computed y\"); } }",
@@ -4668,6 +4738,7 @@ mod tests {
         };
         let p = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 bindings,
@@ -4714,7 +4785,7 @@ mod tests {
                 .any(|p| p.source == NumericalSource::DerivedNominal && p.selected)
         );
         let admission_identity = p.admission_identity().unwrap();
-        let run = p.start().unwrap().wait().await.unwrap();
+        let run = p.start(&services).unwrap().wait().await.unwrap();
         let super::super::super::RunReport::Modeling(reports) = run.report().unwrap() else {
             panic!("modeling result expected");
         };
@@ -4759,6 +4830,7 @@ mod tests {
         override_case.values.insert("x".into(), 3.);
         let p = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -4777,6 +4849,8 @@ mod tests {
     }
     #[tokio::test]
     async fn root_refuses_free_integer() {
+        let runtime = fixture::runtime();
+        let services = runtime.execution_services();
         use super::super::super::tests as fixture;
         let rows = pse_authoring::language::parse(
             "package p { def Root { var n: Count in integer; eq e: n == 2{1}; annotation start n(0{1}); annotation bounds n(0{1}, 5{1}); } }",
@@ -4790,12 +4864,13 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = fixture::runtime()
+        let package = runtime
             .modeling_package(rows, fixture::physical())
             .await
             .unwrap();
         let error = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -4828,6 +4903,7 @@ mod tests {
         };
         let prepared = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -4847,6 +4923,8 @@ mod tests {
     /// identity (ADR-0124): the composed literal, the canonical unit and the report agree.
     #[tokio::test]
     async fn report_in_a_composite_unit_carries_its_identity() {
+        let runtime = fixture::runtime();
+        let services = runtime.execution_services();
         use super::super::super::tests as fixture;
         let physical = fixture::physical();
         let quantities = Arc::clone(&physical.quantities);
@@ -4865,10 +4943,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = fixture::runtime()
-            .modeling_package(rows, physical)
-            .await
-            .unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let fixed = ModelingCaseBindings {
             members: BTreeMap::new(),
             values: BTreeMap::new(),
@@ -4882,6 +4957,7 @@ mod tests {
         };
         let prepared = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -4897,6 +4973,7 @@ mod tests {
             .unwrap();
         let result = package
             .solve_case(
+                &services,
                 prepared,
                 fixture::compiler_profile(),
                 &crate::CancelSource::new(),
@@ -4959,6 +5036,7 @@ mod native_tests {
     #[tokio::test]
     async fn kernel_native_root_solves_and_qualifies_the_authored_model() {
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let physical = super::super::super::tests::physical();
         let allowance = pse_model::numerics::DEFAULT_ENGINEERING_ACCURACY;
         let source = format!(
@@ -4986,6 +5064,7 @@ mod native_tests {
         assert!(
             package
                 .prepare_solve(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -5014,6 +5093,7 @@ mod native_tests {
         };
         let prepared = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -5028,7 +5108,7 @@ mod native_tests {
             .await
             .unwrap();
         let result = package
-            .solve_case(prepared, compiler, &cancel)
+            .solve_case(&services, prepared, compiler, &cancel)
             .await
             .unwrap();
         assert!(
@@ -5100,9 +5180,11 @@ mod root_unavailable_tests {
     };
 
     async fn fixed_guard() -> Result<
-        (ModelingPackage, ModelingAnalysis, SemanticId),
+        (Runtime, ModelingPackage, ModelingAnalysis, SemanticId),
         Box<dyn std::error::Error + Send + Sync>,
     > {
+        let runtime = fixture::runtime_with(16 << 20, 1 << 20, 1 << 30);
+        let services = runtime.execution_services();
         let text = "package p { def Root { param p: Scalar=0; var x: Scalar; eq root: x==(if p>0 then 1 else -1); annotation start x(-1); } }";
         let rows = pse_authoring::language::parse(
             text,
@@ -5115,9 +5197,7 @@ mod root_unavailable_tests {
             .find(|row| row.name == "Root")
             .ok_or_else(|| std::io::Error::other("Root declaration absent"))?
             .declaration_id;
-        let package = fixture::runtime_with(16 << 20, 1 << 20, 1 << 30)
-            .modeling_package(rows, fixture::physical())
-            .await?;
+        let package = runtime.modeling_package(rows, fixture::physical()).await?;
         let mut solver = fixture::profile();
         solver.intent = SolveIntent::Root;
         solver.selection = SolverSelection::Explicit(Backend::Kinsol);
@@ -5134,13 +5214,16 @@ mod root_unavailable_tests {
         };
         analysis.bindings.demand.push("p".into());
         let cancel = crate::CancelSource::new();
-        let prepared = package.prepare_analysis(&analysis, &cancel).await?;
+        let prepared = package
+            .prepare_analysis(services.preparation(), &analysis, &cancel)
+            .await?;
         let parameter = prepared.model.model.compiled().model.paths["p"];
         // A fixed parameter guard is valid for the base x derivative. Making p a
         // derivative coordinate crosses a discontinuous selector and refuses compilation.
         assert!(
             package
                 .parametric_program(
+                    services.preparation(),
                     &prepared.model.model,
                     &prepared.model,
                     &[parameter],
@@ -5151,21 +5234,26 @@ mod root_unavailable_tests {
                 .await
                 .is_err()
         );
-        Ok((package, analysis, parameter))
+        Ok((runtime, package, analysis, parameter))
     }
     #[tokio::test]
     async fn unavailable_parametric_guard_keeps_public_base_root() {
-        let (package, mut analysis, parameter) = fixed_guard().await.unwrap();
+        let (runtime, package, mut analysis, parameter) = fixed_guard().await.unwrap();
+        let services = runtime.execution_services();
         analysis.solver.sensitivity = Some(SensitivityRequest {
             parameters: vec![parameter],
             reduced_hessian: false,
             propagation: None,
         });
         let result = package
-            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .prepare_analysis(
+                services.preparation(),
+                &analysis,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap()
-            .start()
+            .start(&services)
             .unwrap()
             .wait()
             .await
@@ -5194,14 +5282,19 @@ mod root_unavailable_tests {
     }
     #[tokio::test]
     async fn unavailable_response_memory_keeps_public_base_root() {
-        let (package, mut analysis, parameter) = fixed_guard().await.unwrap();
+        let (runtime, package, mut analysis, parameter) = fixed_guard().await.unwrap();
+        let services = runtime.execution_services();
         analysis.solver.sensitivity = Some(SensitivityRequest {
             parameters: vec![parameter],
             reduced_hessian: false,
             propagation: None,
         });
         let mut prepared = package
-            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .prepare_analysis(
+                services.preparation(),
+                &analysis,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         // The common attachment also transports a typed resource refusal, rather than
@@ -5212,7 +5305,7 @@ mod root_unavailable_tests {
                 pse_backend_native::square_response::Withheld::Memory,
             ))
             .unwrap();
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         let validity =
             local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
         assert_eq!(
@@ -5229,7 +5322,8 @@ mod root_unavailable_tests {
     }
     #[tokio::test]
     async fn malformed_root_parameter_request_still_refuses_preparation() {
-        let (package, mut analysis, parameter) = fixed_guard().await.unwrap();
+        let (runtime, package, mut analysis, parameter) = fixed_guard().await.unwrap();
+        let services = runtime.execution_services();
         for parameters in [vec![SemanticId::NIL], vec![parameter, parameter]] {
             analysis.solver.sensitivity = Some(SensitivityRequest {
                 parameters,
@@ -5238,7 +5332,11 @@ mod root_unavailable_tests {
             });
             assert!(
                 package
-                    .prepare_analysis(&analysis, &crate::CancelSource::new())
+                    .prepare_analysis(
+                        services.preparation(),
+                        &analysis,
+                        &crate::CancelSource::new()
+                    )
                     .await
                     .is_err()
             );
@@ -5269,6 +5367,8 @@ mod root_unavailable_tests {
     async fn contextual_closure_model(
         source: &str,
     ) -> (ModelingPreparation, Arc<pse_quantity::QuantityRegistry>) {
+        let runtime = fixture::runtime();
+        let services = runtime.execution_services();
         use super::super::super::tests as fixture;
         let physical = fixture::physical();
         let quantities = physical.quantities.clone();
@@ -5284,12 +5384,13 @@ mod root_unavailable_tests {
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = fixture::runtime()
+        let package = runtime
             .modeling_package(declarations, physical)
             .await
             .unwrap();
         let model = package
             .prepare(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),

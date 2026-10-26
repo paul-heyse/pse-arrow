@@ -66,7 +66,6 @@ impl PreparedSolve {
     pub fn with_screened_start(self, start: &Screened) -> Result<Self, ProblemError> {
         self.bind_screened_start(start, false, None)
     }
-    #[cfg(feature = "solver-pounce")]
     pub(crate) fn with_recovery_start(self, start: &Screened) -> Result<Self, ProblemError> {
         if !self
             .task_admission

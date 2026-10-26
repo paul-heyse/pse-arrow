@@ -163,7 +163,11 @@ impl CacheValue for RetainedProduct {
         }
     }
 }
-fn row_key(runtime: &Runtime, operations: &Operations, physical: &PhysicalContext) -> RetainedKey {
+fn row_key(
+    runtime: &super::PreparationServices,
+    operations: &Operations,
+    physical: &PhysicalContext,
+) -> RetainedKey {
     let source = PhysicalSource {
         revision: String::new(),
         identity: physical.identity(),
@@ -186,7 +190,7 @@ struct PhysicalAdmissionKey {
 }
 impl PhysicalAdmissionKey {
     fn new(
-        runtime: &Runtime,
+        runtime: &super::PreparationServices,
         operations: &Operations,
         source: &PhysicalSource,
         epoch: u64,
@@ -233,7 +237,7 @@ impl PhysicalCache {
     }
     fn admission(
         &self,
-        runtime: &Runtime,
+        runtime: &super::PreparationServices,
         operations: &Operations,
         source: &PhysicalSource,
     ) -> Option<Arc<PhysicalContext>> {
@@ -258,7 +262,7 @@ impl PhysicalCache {
     }
     pub(super) fn rows(
         &self,
-        runtime: &Runtime,
+        runtime: &super::PreparationServices,
         operations: &Operations,
         physical: &PhysicalContext,
     ) -> Option<Arc<Rows>> {
@@ -297,7 +301,7 @@ impl PhysicalCache {
     pub(super) fn retain_rows(
         &self,
         generation: u64,
-        runtime: &Runtime,
+        runtime: &super::PreparationServices,
         operations: &Operations,
         physical: &PhysicalContext,
         rows: &PhysicalRows,
@@ -360,7 +364,7 @@ impl PhysicalCache {
     pub(super) async fn protected_rows(
         &self,
         generation: u64,
-        runtime: &Runtime,
+        runtime: &super::PreparationServices,
         operations: &Operations,
         physical: &PhysicalContext,
         revisions: &[Revision],
@@ -470,8 +474,8 @@ impl Runtime {
                 "physical admission epoch exhausted",
             )));
         }
-        let flight_key = PhysicalAdmissionKey::new(self, operations, source, generation);
-        let cached = self.physical_cache.admission(self, operations, source);
+        let flight_key = PhysicalAdmissionKey::new(&self.preparation_services(), operations, source, generation);
+        let cached = self.physical_cache.admission(&self.preparation_services(), operations, source);
         // Capture before the first asynchronous source/guard lookup. Distinct
         // exact sources coexist within one weighted budget; explicit clear alone
         // fences an old load and cannot become that load's new epoch.
@@ -611,7 +615,7 @@ impl Runtime {
             };
             self.physical_cache.admission_fence.admit(generation, || {
                 self.physical_cache.retained.put(
-                    RetainedKey::Admission(PhysicalAdmissionKey::new(self, operations, source, 0)),
+                    RetainedKey::Admission(PhysicalAdmissionKey::new(&self.preparation_services(), operations, source, 0)),
                     RetainedProduct::Admission(Arc::new(entry)),
                 )
             });
@@ -695,12 +699,12 @@ mod physical_admission_cache_unit {
         physical.sources.retain(|key, _| *key == selected);
         let before = operations.pool.reserved();
         let first = operations
-            .put_physical_rows(&runtime, &physical)
+            .put_physical_rows(&runtime.preparation_services(), &physical)
             .await
             .unwrap();
         let hits = runtime.physical_cache.hits.load(Ordering::Relaxed);
         let second = operations
-            .put_physical_rows(&runtime, &physical)
+            .put_physical_rows(&runtime.preparation_services(), &physical)
             .await
             .unwrap();
         assert_eq!(first.revisions, second.revisions);
@@ -710,11 +714,11 @@ mod physical_admission_cache_unit {
         );
         let held = runtime
             .physical_cache
-            .rows(&runtime, operations, &physical)
+            .rows(&runtime.preparation_services(), operations, &physical)
             .unwrap();
         let again = runtime
             .physical_cache
-            .rows(&runtime, operations, &physical)
+            .rows(&runtime.preparation_services(), operations, &physical)
             .unwrap();
         assert!(
             Arc::ptr_eq(&held, &again),
@@ -744,7 +748,7 @@ mod physical_admission_cache_unit {
             .unwrap();
         assert!(super::super::result_projection::projection_memory_refusal(
             &operations
-                .put_physical_rows(&runtime, &physical)
+                .put_physical_rows(&runtime.preparation_services(), &physical)
                 .await
                 .unwrap_err()
         ));
@@ -755,7 +759,7 @@ mod physical_admission_cache_unit {
         );
         drop(pressure);
         let retried = operations
-            .put_physical_rows(&runtime, &physical)
+            .put_physical_rows(&runtime.preparation_services(), &physical)
             .await
             .unwrap();
         assert_eq!(retried.revisions, first.revisions);
@@ -791,12 +795,12 @@ mod physical_admission_cache_unit {
         );
         let operations = runtime.operations().unwrap();
         let first_rows = operations
-            .put_physical_rows(&runtime, &first)
+            .put_physical_rows(&runtime.preparation_services(), &first)
             .await
             .unwrap();
         let hits = runtime.physical_cache.hits.load(Ordering::Relaxed);
         let second_rows = operations
-            .put_physical_rows(&runtime, &second)
+            .put_physical_rows(&runtime.preparation_services(), &second)
             .await
             .unwrap();
         assert_eq!(first_rows.revisions, second_rows.revisions);
@@ -809,12 +813,12 @@ mod physical_admission_cache_unit {
         assert!(
             runtime
                 .physical_cache
-                .rows(&runtime, operations, &first)
+                .rows(&runtime.preparation_services(), operations, &first)
                 .is_some()
         );
         let retained = runtime
             .physical_cache
-            .rows(&runtime, operations, &first)
+            .rows(&runtime.preparation_services(), operations, &first)
             .unwrap();
         assert!(retained.physical._source_owner.is_none());
         assert!(!Arc::ptr_eq(&first_rows._owner, &second_rows._owner));
@@ -842,20 +846,20 @@ mod physical_admission_cache_unit {
         assert!(
             runtime
                 .physical_cache
-                .rows(&runtime, operations, &changed)
+                .rows(&runtime.preparation_services(), operations, &changed)
                 .is_none()
         );
         // Exercise actual cold/replayed publication after changing the exact row
         // support. This is a transport-owner control, not permission to compile
         // the intentionally altered physical context as a scientific model.
         let changed_rows = operations
-            .put_physical_rows(&runtime, &changed)
+            .put_physical_rows(&runtime.preparation_services(), &changed)
             .await
             .unwrap();
         assert_ne!(first_rows.revisions, changed_rows.revisions);
         let changed_hits = runtime.physical_cache.hits.load(Ordering::Relaxed);
         let changed_again = operations
-            .put_physical_rows(&runtime, &changed)
+            .put_physical_rows(&runtime.preparation_services(), &changed)
             .await
             .unwrap();
         assert_eq!(changed_rows.revisions, changed_again.revisions);
@@ -867,7 +871,7 @@ mod physical_admission_cache_unit {
         assert!(
             runtime
                 .physical_cache
-                .rows(&runtime, operations, &changed)
+                .rows(&runtime.preparation_services(), operations, &changed)
                 .is_some()
         );
         // The optional cache may replace an entry at the same coarse key.
@@ -899,7 +903,11 @@ mod physical_admission_cache_unit {
         assert!(
             runtime
                 .physical_cache
-                .rows(&runtime, operations, &package_changed)
+                .rows(
+                    &runtime.preparation_services(),
+                    operations,
+                    &package_changed
+                )
                 .is_none()
         );
         runtime.clear_program_cache();
@@ -919,7 +927,7 @@ mod physical_admission_cache_unit {
             .unwrap();
         let operations = runtime.operations().unwrap();
         let rows = operations
-            .put_physical_rows(&runtime, &physical)
+            .put_physical_rows(&runtime.preparation_services(), &physical)
             .await
             .unwrap();
         let alias = physical.clone();
@@ -1051,7 +1059,11 @@ mod physical_admission_cache_unit {
         assert!(
             runtime
                 .physical_cache
-                .admission(&runtime, runtime.operations().unwrap(), &source)
+                .admission(
+                    &runtime.preparation_services(),
+                    runtime.operations().unwrap(),
+                    &source
+                )
                 .is_some_and(|cached| Arc::ptr_eq(&cached.quantities, &fresh.quantities)),
             "pre-clear flight cannot overwrite the fresh admitted cache entry"
         );
@@ -1098,7 +1110,7 @@ mod physical_admission_cache_unit {
         assert!(
             runtime
                 .physical_cache
-                .admission(&other, operations, &source)
+                .admission(&other.preparation_services(), operations, &source)
                 .is_none()
         );
         other.model = runtime
@@ -1108,7 +1120,7 @@ mod physical_admission_cache_unit {
         assert!(
             runtime
                 .physical_cache
-                .admission(&other, operations, &source)
+                .admission(&other.preparation_services(), operations, &source)
                 .is_none()
         );
         let new_operations = Operations::from_store(
@@ -1120,7 +1132,7 @@ mod physical_admission_cache_unit {
         assert!(
             runtime
                 .physical_cache
-                .admission(&runtime, &new_operations, &source)
+                .admission(&runtime.preparation_services(), &new_operations, &source)
                 .is_none()
         );
         other.durability = Durability::Durable(Box::new(new_operations));
@@ -1134,7 +1146,7 @@ mod physical_admission_cache_unit {
         assert!(
             runtime
                 .physical_cache
-                .admission(&runtime, &foreign, &source)
+                .admission(&runtime.preparation_services(), &foreign, &source)
                 .is_none()
         );
         other_store.remove_isolated_fixture().await.unwrap();
@@ -1143,7 +1155,7 @@ mod physical_admission_cache_unit {
         assert!(
             runtime
                 .physical_cache
-                .admission(&runtime, operations, &wrong)
+                .admission(&runtime.preparation_services(), operations, &wrong)
                 .is_none()
         );
         assert!(runtime.physical_source(&wrong, &cancel).await.is_err());
@@ -1190,7 +1202,7 @@ mod physical_admission_cache_unit {
         assert!(
             runtime
                 .physical_cache
-                .admission(&runtime, operations, &source)
+                .admission(&runtime.preparation_services(), operations, &source)
                 .is_some()
         );
         assert!(
@@ -1233,7 +1245,7 @@ mod physical_admission_cache_unit {
         assert!(
             runtime
                 .physical_cache
-                .admission(&runtime, operations, &source)
+                .admission(&runtime.preparation_services(), operations, &source)
                 .is_some()
         );
         let third = runtime.physical_source(&source, &cancel).await.unwrap();
@@ -1254,17 +1266,17 @@ mod physical_admission_cache_unit {
             "distinct exact revisions coexist under the weighted allowance"
         );
         let first_rows = operations
-            .put_physical_rows(&runtime, &first)
+            .put_physical_rows(&runtime.preparation_services(), &first)
             .await
             .unwrap();
         let second_rows = operations
-            .put_physical_rows(&runtime, &second)
+            .put_physical_rows(&runtime.preparation_services(), &second)
             .await
             .unwrap();
         assert_eq!(
             runtime
                 .physical_cache
-                .rows(&runtime, operations, &first)
+                .rows(&runtime.preparation_services(), operations, &first)
                 .as_ref()
                 .map(|rows| rows.revisions()),
             Some(first_rows.revisions.as_slice()),
@@ -1273,7 +1285,7 @@ mod physical_admission_cache_unit {
         assert_eq!(
             runtime
                 .physical_cache
-                .rows(&runtime, operations, &second)
+                .rows(&runtime.preparation_services(), operations, &second)
                 .as_ref()
                 .map(|rows| rows.revisions()),
             Some(second_rows.revisions.as_slice())
@@ -1293,17 +1305,17 @@ mod physical_admission_cache_unit {
         let mut small_second = second.clone();
         small_second.sources.retain(|key, _| *key == selected);
         let small_first_rows = operations
-            .put_physical_rows(&runtime, &small_first)
+            .put_physical_rows(&runtime.preparation_services(), &small_first)
             .await
             .unwrap();
         let small_second_rows = operations
-            .put_physical_rows(&runtime, &small_second)
+            .put_physical_rows(&runtime.preparation_services(), &small_second)
             .await
             .unwrap();
         assert_eq!(
             runtime
                 .physical_cache
-                .rows(&runtime, operations, &small_first)
+                .rows(&runtime.preparation_services(), operations, &small_first)
                 .unwrap()
                 .revisions(),
             small_first_rows.revisions.as_slice()
@@ -1311,7 +1323,7 @@ mod physical_admission_cache_unit {
         assert_eq!(
             runtime
                 .physical_cache
-                .rows(&runtime, operations, &small_second)
+                .rows(&runtime.preparation_services(), operations, &small_second)
                 .unwrap()
                 .revisions(),
             small_second_rows.revisions.as_slice()

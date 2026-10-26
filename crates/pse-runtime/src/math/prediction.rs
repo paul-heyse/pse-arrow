@@ -98,7 +98,6 @@ impl Proposal {
             owner: None,
         })
     }
-    #[cfg(any(feature = "solver-pounce", test))]
     pub(crate) fn auxiliary(
         coordinates: Vec<SemanticId>,
         values: Vec<f64>,

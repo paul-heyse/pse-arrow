@@ -188,6 +188,7 @@ impl Runtime {
                 operation.check()?;
                 let execution = model
                     .declared_execution(
+                        &self.preparation_services(),
                         request.case_id.into(),
                         Default::default(),
                         profile,
@@ -197,11 +198,16 @@ impl Runtime {
                     )
                     .await?;
                 let prepared = model
-                    .prepare_declared_diagnostics(&execution, operation.driver())
+                    .prepare_declared_diagnostics(
+                        &self.preparation_services(),
+                        &execution,
+                        operation.driver(),
+                    )
                     .await?;
                 let values = prepared.model.values.clone();
                 model
                     .diagnose_case(
+                        &self.execution_services(),
                         prepared,
                         values,
                         request.diagnostics,

@@ -1975,9 +1975,14 @@ pub(crate) fn runtime_failure(error: &super::MathRuntimeError) -> Observation {
         }
         E::Solve(cause) => failure(cause),
         E::Cancelled => Observation::Cancelled,
-        E::Limit(_) | E::PreparationExpired | E::Pool(_) => Observation::ResourceExhausted,
+        E::Limit(_) | E::PreparationExpired => Observation::ResourceExhausted,
+        E::Pool(_) => boundary_failure(
+            error
+                .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
+                .class,
+        ),
         E::Panic(_) => Observation::Panic,
-        E::Infrastructure(_) | E::Retiring => Observation::OperationalFailure,
+        E::Infrastructure(_) | E::Internal(_) | E::Retiring => Observation::OperationalFailure,
         E::Math(cause) => boundary_failure(
             cause
                 .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)

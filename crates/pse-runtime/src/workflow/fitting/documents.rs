@@ -198,6 +198,7 @@ mod boundary_unit {
     fn profile_transport_preserves_worker_failure_and_scientific_state() {
         let document = FitProfileDocument::Available {
             chains: vec![ProfileChain {
+                qualifiers: Vec::new(),
                 scheduling_failures: Vec::new(),
                 worker_failure: Some(ProfileWorkerFailure::Scheduling("pool unavailable".into())),
                 actual_parallelism: 0,
@@ -233,6 +234,7 @@ mod boundary_unit {
         use pse_backend_native::{ProblemError, solve::Termination};
         let failure = |cause| ProfileFailure::from(cause);
         let chain = ProfileChain {
+            qualifiers: Vec::new(),
             scheduling_failures: Vec::new(),
             worker_failure: Some(ProfileWorkerFailure::Environment(failure(
                 ProblemError::memory("worker native scope"),
@@ -248,6 +250,7 @@ mod boundary_unit {
             detail: Some("stopped after terminal failure".into()),
             points: vec![
                 ProfilePoint {
+                    qualifiers: Vec::new(),
                     residual: None,
                     value: 1.,
                     seed: None,
@@ -261,6 +264,7 @@ mod boundary_unit {
                     detail: Some("trial trajectory".into()),
                 },
                 ProfilePoint {
+                    qualifiers: Vec::new(),
                     residual: None,
                     value: 1.5,
                     seed: None,

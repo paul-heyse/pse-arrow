@@ -104,6 +104,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         .unwrap()
         .declaration_id;
     let runtime = fixture::runtime_with(256 << 20, 16 << 20, 1 << 30);
+    let services = runtime.execution_services();
     let physical = fixture::physical();
     let package = runtime.modeling_package(rows, physical).await.unwrap();
     let mut solver = fixture::profile();
@@ -135,23 +136,32 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         },
     );
     let cancel = crate::CancelSource::new();
-    let plain = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let plain = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
+        .unwrap();
     let parameter = plain.model.model.compiled().model.paths["p"];
     analysis.solver.sensitivity = Some(SensitivityRequest {
         parameters: vec![parameter],
         reduced_hessian: false,
         propagation: None,
     });
-    let mut prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let mut prepared = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
+        .unwrap();
     prepared.solve = prepared.solve.retaining_factor().unwrap();
     let base = package
-        .solve_case(prepared, analysis.compiler, &cancel)
+        .solve_case(&services, prepared, analysis.compiler, &cancel)
         .await
         .unwrap();
     assert!(base.completion.decision.permits_use());
     let predictor = base.root_predictor().unwrap();
     analysis.case.values.insert("p".into(), 4.4);
-    let mut target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let mut target = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
+        .unwrap();
     assert_eq!(
         target.solve.numerics().policy.engineering_relative_fraction,
         base.prepared
@@ -220,7 +230,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
     );
     let retained = PredictionSample {
         prepared: base.prepared.clone(),
-        runtime: runtime.clone(),
+        services: runtime.preparation_services(),
         point: Arc::new(pse_columnar::Leased::new(
             Arc::new(portable),
             runtime
@@ -275,7 +285,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         .unwrap();
     target.solve = target.solve.with_screened_start(&screened).unwrap();
     let corrected = package
-        .solve_case(target, analysis.compiler, &cancel)
+        .solve_case(&services, target, analysis.compiler, &cancel)
         .await
         .unwrap();
     assert!(corrected.completion.decision.permits_use());
@@ -296,14 +306,20 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
     assert_eq!(predictor.factor().point(), [2.]);
     let mut changed = analysis.clone();
     changed.case.variables.get_mut("x").unwrap().lower = Some(Some(1.));
-    let different = package.prepare_analysis(&changed, &cancel).await.unwrap();
+    let different = package
+        .prepare_analysis(services.preparation(), &changed, &cancel)
+        .await
+        .unwrap();
     assert!(
         base.root_prediction(&different.solve, BranchPolicy::any_qualified(), &execution)
             .is_err()
     );
     // Two independently accepted original points produce a bounded secant proposal.
     analysis.case.values.insert("p".into(), 4.8);
-    let mut secant_target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let mut secant_target = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
+        .unwrap();
     let proposal = corrected
         .secant_prediction(
             &base,
@@ -332,7 +348,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         .unwrap();
     secant_target.solve = secant_target.solve.with_screened_start(&screened).unwrap();
     let secant_corrected = package
-        .solve_case(secant_target, analysis.compiler, &cancel)
+        .solve_case(&services, secant_target, analysis.compiler, &cancel)
         .await
         .unwrap();
     assert!(secant_corrected.completion.decision.permits_use());
@@ -358,7 +374,10 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
             Ok(())
         }
     }
-    let mut target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let mut target = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
+        .unwrap();
     let identity = target.solve.original_identity().unwrap();
     assert_eq!(
         target.solve.numerics().policy.engineering_relative_fraction,
@@ -442,7 +461,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
     drop(handle);
     // Run the screened proposal through the actual joined workflow owner. The
     // original scientific corrector assertions below still qualify acceptance.
-    let corrected_run = target.start().unwrap().wait().await.unwrap();
+    let corrected_run = target.start(&services).unwrap().wait().await.unwrap();
     review_qualification_tests::assert_review_transport(
         &corrected_run,
         &[
@@ -493,6 +512,7 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
         .unwrap()
         .declaration_id;
     let runtime = fixture::runtime_with(128 << 20, 1 << 20, 512 << 20);
+    let services = runtime.execution_services();
     let package = runtime
         .modeling_package(rows, fixture::physical())
         .await
@@ -512,7 +532,10 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
         numerical: NumericalInputs::default(),
     };
     let cancel = crate::CancelSource::new();
-    let mut prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let mut prepared = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
+        .unwrap();
     let scope = pse_kernels::ExecutionScope::new(
         pse_diagnostics::Cancellation::default(),
         Some(std::time::Instant::now() + std::time::Duration::from_secs(20)),
@@ -564,7 +587,7 @@ async fn derived_preparation_corrects_original_with_declared_recovery_and_truthf
         )
         .unwrap();
     let result = package
-        .solve_case(prepared, analysis.compiler, &cancel)
+        .solve_case(&services, prepared, analysis.compiler, &cancel)
         .await
         .unwrap();
     assert!(
@@ -674,6 +697,8 @@ async fn solve_with_backend(
     boundary: bool,
     backend: Backend,
 ) -> TestResult<Arc<crate::workflow::RunResult>> {
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     let text = "package p { def Root { param p: Scalar=4; var x: Scalar; eq root: x*x==p; annotation start x(2); } }";
     let rows = pse_authoring::language::parse(
         text,
@@ -718,7 +743,9 @@ async fn solve_with_backend(
         },
     );
     let cancel = crate::CancelSource::new();
-    let plain = package.prepare_analysis(&analysis, &cancel).await?;
+    let plain = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await?;
     let p = plain.model.model.compiled().model.paths["p"];
     analysis.solver.sensitivity = Some(SensitivityRequest {
         parameters: vec![p],
@@ -726,9 +753,9 @@ async fn solve_with_backend(
         propagation: None,
     });
     Ok(package
-        .prepare_analysis(&analysis, &cancel)
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
         .await?
-        .start()?
+        .start(&services)?
         .wait()
         .await?)
 }
@@ -785,6 +812,8 @@ async fn root_response_withheld_at_active_bound_keeps_base_solution() {
 
 #[tokio::test]
 async fn root_response_rank_loss_withholds_sensitivity_and_keeps_feasible_base() {
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     let rows = pse_authoring::language::parse(
         "package p { def Root { param p:Scalar=0; var x:Scalar; eq root:x*x*x==p; annotation start x(0); } }",
         SemanticId::from_bytes([177; 16]),
@@ -817,7 +846,10 @@ async fn root_response_rank_loss_withholds_sensitivity_and_keeps_feasible_base()
     };
     analysis.bindings.demand.push("p".into());
     let cancel = crate::CancelSource::new();
-    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let prepared = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
+        .unwrap();
     let parameter = prepared.model.model.compiled().model.paths["p"];
     analysis.solver.sensitivity = Some(SensitivityRequest {
         parameters: vec![parameter],
@@ -825,10 +857,10 @@ async fn root_response_rank_loss_withholds_sensitivity_and_keeps_feasible_base()
         propagation: None,
     });
     let result = package
-        .prepare_analysis(&analysis, &cancel)
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
         .await
         .unwrap()
-        .start()
+        .start(&services)
         .unwrap()
         .wait()
         .await
@@ -1001,6 +1033,7 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
         SemanticId::from_bytes([177; 16]), pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
     let root = rows.iter().find(|r| r.name == "Qp").unwrap().declaration_id;
     let runtime = fixture::runtime_with(256 << 20, 16 << 20, 1 << 30);
+    let services = runtime.execution_services();
     let package = runtime
         .modeling_package(rows, fixture::physical())
         .await
@@ -1020,11 +1053,20 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
         numerical: NumericalInputs::default(),
     };
     let prepared = package
-        .prepare_analysis(&analysis, &crate::CancelSource::new())
+        .prepare_analysis(
+            services.preparation(),
+            &analysis,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     let base = package
-        .solve_case(prepared, analysis.compiler, &crate::CancelSource::new())
+        .solve_case(
+            &services,
+            prepared,
+            analysis.compiler,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     assert!(base.completion.decision.permits_use());
@@ -1116,7 +1158,10 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
         .recovery
         .push(pse_model::strategy::StartOrigin::Predicted);
     let cancel = crate::CancelSource::new();
-    let mut target = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let mut target = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
+        .unwrap();
     let mut execution = Execution::new(
         pse_diagnostics::Cancellation::default(),
         &Controls::default(),
@@ -1292,7 +1337,7 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
     unrelated_analysis.root = unrelated_root;
     unrelated_analysis.instance = pse_modeling::specialize::root_instance(unrelated_root);
     let unrelated = unrelated_package
-        .prepare_analysis(&unrelated_analysis, &cancel)
+        .prepare_analysis(services.preparation(), &unrelated_analysis, &cancel)
         .await
         .unwrap();
     assert!(
@@ -1343,7 +1388,7 @@ async fn demanded_qp_prediction_screens_and_original_corrector_qualifies() {
         .unwrap();
     target.solve = target.solve.with_screened_start(&screened).unwrap();
     let corrected = package
-        .solve_case(target, analysis.compiler, &cancel)
+        .solve_case(&services, target, analysis.compiler, &cancel)
         .await
         .unwrap();
     assert!(corrected.completion.decision.permits_use());

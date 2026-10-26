@@ -852,15 +852,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
     );
     enumeration(b, "NativeUnoMethod", ["sqp", "slp"]);
-    enumeration(
-        b,
-        "NativePetscMethod",
-        [
-            "newton_trust_region",
-            "nonlinear_additive_schwarz",
-            "pseudo_transient",
-        ],
-    );
+    enumeration(b, "NativePetscMethod", ["newton_trust_region"]);
     enumeration(
         b,
         "NativePetscLinear",
@@ -2128,10 +2120,11 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
         ],
         "The covariance of a fit's free parameters at a certified estimate (ADR-0118 item 8), under the declared statistical model: weighted least squares with a declared standard deviation and unit importance for every included observation, the deviations taken as absolute, so no residual variance rescales it. One covariance per fit; the validity is in local_validity.",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "parameter_intervals",
+        2,
         S::Derived,
         &["run_id", "parameter_id", "method", "end"],
         vec![
@@ -2150,6 +2143,11 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
             .optional(),
             column("outcome", T::enumeration("IntervalOutcome")),
             documented(
+                "qualifiers",
+                T::list(T::enumeration("CandidateQualifier")),
+                "Original estimate and accepted pin applicability/incumbent qualifiers retained at this exact end.",
+            ),
+            documented(
                 "points",
                 ordinal(),
                 "Pinned fits the end's profile chain solved; zero for a Wald end.",
@@ -2167,7 +2165,7 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "profile_points",
-        2,
+        3,
         S::Derived,
         &["run_id", "parameter_id", "end", "point"],
         vec![
@@ -2191,6 +2189,7 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
             )
             .optional(),
             column("qualification", T::enumeration("NativeQualification")).optional(),
+            documented("qualifiers", T::list(T::enumeration("CandidateQualifier")), "The original pin completion qualifiers, without stronger certification."),
             column("termination", T::enumeration("NativeTermination")).optional(),
             documented("callback_terminal_failure", flag(), "An actual terminal callback latch, absent in historical records that did not observe it.").optional(),
             column("failures", T::list(T::structure(super::modeling_analysis::diagnostic_fields_with_causes()))),

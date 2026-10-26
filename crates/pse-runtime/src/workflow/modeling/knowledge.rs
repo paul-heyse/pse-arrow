@@ -44,12 +44,13 @@ impl ModelingPackage {
     /// projection before owned growth; inspection does not authorize a production read.
     pub async fn knowledge(
         &self,
+        services: &crate::workflow::PreparationServices,
         owner: Option<DeclarationId>,
         maximum_cells: usize,
         maximum_bytes: usize,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<ModelingKnowledge, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity.scope(async {
         if maximum_cells == 0 || maximum_cells > 1_000_000 || maximum_bytes == 0 {
             return Err(contract("bounded knowledge projection policy"));
@@ -60,10 +61,10 @@ impl ModelingPackage {
             .map_err(relation)?;
         let revision = match owner {
             Some(owner) => {
-                self.selected_revision(owner, &crate::CancelSource::new())
+                self.selected_revision(services, owner, &crate::CancelSource::new())
                     .await?
             }
-            None => self.all_revision().await?,
+            None => self.all_revision(services, ).await?,
         };
         let view = revision.checked().knowledge();
         let visit = |consumer: &mut dyn FnMut(Cell<'_>) -> Result<(), WorkflowError>| -> Result<(),WorkflowError> {
@@ -132,14 +133,12 @@ impl ModelingPackage {
         if owner.is_some() && cells == 0 {
             return Err(contract("knowledge owner has no admitted cells"));
         }
-        let _scratch = self
-            .runtime
-            .shared
+        let _scratch = services
             .math()
             .reserve("modeling:knowledge-projection", bytes)?;
-        let pool = self.runtime.shared.pool();
-        let validation = self.runtime.validation_context();
-        let mut columns = Collection::new(self.runtime.registry(), &pool, cancel, &validation);
+        let pool = services.pool();
+        let validation = services.validation_context();
+        let mut columns = Collection::new(services.registry(), &pool, cancel, &validation);
         columns.ensure::<Row>().map_err(relation)?;
         visit(&mut |cell| {
             let mut keys = Vec::new();

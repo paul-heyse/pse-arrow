@@ -477,7 +477,10 @@
     }
   },
   "event_ended_trajectory": {
-    "version": 1,
+    "version": 2,
+    "permission": null,
+    "step_permissions": [],
+    "products": [],
     "assessments": [],
     "accuracy_goals": [],
     "diagnostics": [],
@@ -606,7 +609,10 @@
     "applicability": []
   },
   "qualified_incumbent": {
-    "version": 1,
+    "version": 2,
+    "permission": null,
+    "step_permissions": [],
+    "products": [],
     "assessments": [],
     "accuracy_goals": [],
     "diagnostics": [],

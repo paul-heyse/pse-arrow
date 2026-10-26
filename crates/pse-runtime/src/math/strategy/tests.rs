@@ -289,6 +289,7 @@ async fn automatic_refusal_only_trace_publishes_without_admitting_empty_executio
         .unwrap();
     let prepared = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Default::default(),

@@ -6,6 +6,7 @@ use super::super::regression::*;
 use super::*;
 use crate::workflow::tests::{compiler_profile, id};
 use pse_model::{
+    generated::identities::RunId,
     scalar,
     scalars::{Fraction, PositiveCount},
 };
@@ -28,8 +29,10 @@ use pse_relations::{
 )]
 #[tokio::test]
 async fn linear_regression_covariance_analytic() {
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     let (_, estimate) = analytic();
-    let package = package(declared(), [1.0; 4]).await;
+    let package = package(&runtime, declared(), [1.0; 4]).await;
     for (hessian, approximation) in [
         (HessianMode::Exact, CovarianceApproximation::Exact),
         (
@@ -43,6 +46,7 @@ async fn linear_regression_covariance_analytic() {
     ] {
         let prepared = package
             .prepare_fit(
+                services.preparation(),
                 id(32).into(),
                 profile(hessian, None),
                 compiler_profile(),
@@ -52,7 +56,7 @@ async fn linear_regression_covariance_analytic() {
             .await
             .unwrap();
         let frozen = prepared.problem.clone();
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         if hessian == HessianMode::Exact {
             crate::workflow::review_qualification_tests::assert_review_transport(
                 &result,
@@ -154,9 +158,12 @@ async fn linear_regression_covariance_analytic() {
 )]
 #[tokio::test]
 async fn covariance_withheld_for_missing_or_malformed_bound_multipliers() {
-    let package = package(declared(), [1.; 4]).await;
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let package = package(&runtime, declared(), [1.; 4]).await;
     let prepared = package
         .prepare_fit(
+            services.preparation(),
             id(32).into(),
             profile(HessianMode::GaussNewton, None),
             compiler_profile(),
@@ -166,8 +173,9 @@ async fn covariance_withheld_for_missing_or_malformed_bound_multipliers() {
         .await
         .unwrap();
     let problem = &prepared.problem;
-    let mut report = problem
+    let (mut report, _) = problem
         .execute_profile(
+            services.preparation().math(),
             &problem.profile.solver,
             prepared.route(),
             pse_kernels::ExecutionScope::new(
@@ -175,7 +183,6 @@ async fn covariance_withheld_for_missing_or_malformed_bound_multipliers() {
                 std::time::Instant::now().checked_add(problem.profile.solver.controls.time_limit),
             ),
             Arc::new(native::solve::Progress::new(16)),
-            1,
             None,
         )
         .unwrap();
@@ -236,11 +243,14 @@ async fn covariance_withheld_for_missing_or_malformed_bound_multipliers() {
 /// lack it.
 #[tokio::test]
 async fn covariance_withheld_without_declared_sigma() {
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     let mut sigma = declared();
     sigma[1] = None;
-    let error = package(sigma, [1.0; 4])
+    let error = package(&runtime, sigma, [1.0; 4])
         .await
         .prepare_fit(
+            services.preparation(),
             id(32).into(),
             profile(HessianMode::Exact, None),
             compiler_profile(),
@@ -261,8 +271,11 @@ async fn covariance_withheld_without_declared_sigma() {
 )]
 #[tokio::test]
 async fn covariance_withheld_with_nonunit_importance() {
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     let result = fit(
-        &package(declared(), [1.0, 1.0, 2.0, 1.0]).await,
+        &services,
+        &package(&runtime, declared(), [1.0, 1.0, 2.0, 1.0]).await,
         profile(
             HessianMode::Exact,
             Some(FitUncertainty {
@@ -323,9 +336,12 @@ async fn covariance_withheld_with_nonunit_importance() {
 )]
 #[tokio::test]
 async fn covariance_withheld_without_responses() {
-    let mut prepared = package(declared(), [1.0; 4])
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let mut prepared = package(&runtime, declared(), [1.0; 4])
         .await
         .prepare_fit(
+            services.preparation(),
             id(32).into(),
             profile(HessianMode::LimitedMemory, None),
             compiler_profile(),
@@ -338,7 +354,7 @@ async fn covariance_withheld_without_responses() {
         .unwrap()
         .profile
         .max_cells = 7;
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let result = prepared.start(&services).unwrap().wait().await.unwrap();
     crate::workflow::review_qualification_tests::assert_review_transport(
         &result,
         &[("/fit/context", "scientific-context.v1")],
@@ -398,11 +414,13 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
         },
         4,
     );
+    let services = runtime.execution_services();
     assert_eq!(runtime.shared.math().cores(), 4);
-    let package = package_on(runtime, false, declared(), [1.0; 4]).await;
+    let package = package_on(&runtime, false, declared(), [1.0; 4]).await;
     // The chains do not depend on how many run at once.
     let prepared = package
         .prepare_fit(
+            services.preparation(),
             id(32).into(),
             profile.clone(),
             compiler_profile(),
@@ -414,8 +432,9 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
     assert_eq!(prepared.problem.profile.solver.controls.threads, 1);
     let chains = |workers| {
         let prepared = prepared.clone();
+        let services = services.clone();
         async move {
-            let service = prepared.problem.runtime.native().clone();
+            let service = services.preparation().math().clone();
             let threads = prepared.problem.profile.solver.controls.threads;
             let bytes = prepared.problem.bytes;
             service
@@ -424,9 +443,9 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
                     bytes,
                     pse_diagnostics::Cancellation::default(),
                     move |flag| {
-                        prepared.problem.execute_profile(
-                            &prepared.problem.profile.solver,
-                            prepared.route(),
+                        prepared.execute(
+                            &services,
+                            RunId::from_id(id(83)),
                             pse_kernels::ExecutionScope::new(
                                 flag,
                                 std::time::Instant::now().checked_add(
@@ -502,7 +521,7 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
             );
         }
     }
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let result = prepared.start(&services).unwrap().wait().await.unwrap();
     let report = report(&result);
     assert!(result.usable(), "{report:?}");
     assert!(
@@ -631,6 +650,8 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
 )]
 #[tokio::test]
 async fn profile_chain_seeds_from_predecessor() {
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     let uncertainty = || {
         Some(FitUncertainty {
             level: scalar!(Fraction(0.95)),
@@ -639,7 +660,8 @@ async fn profile_chain_seeds_from_predecessor() {
         })
     };
     let result = fit(
-        &package_with(true, declared(), [2.0, 1.0, 1.0, 1.0]).await,
+        &services,
+        &package_with(&runtime, true, declared(), [2.0, 1.0, 1.0, 1.0]).await,
         profile(HessianMode::LimitedMemory, uncertainty()),
     )
     .await;
@@ -648,9 +670,10 @@ async fn profile_chain_seeds_from_predecessor() {
         report(&result).profiles,
         Some(Err(FitWithheld::NonunitImportance(_)))
     ));
-    let package = package_with(true, declared(), [1.0; 4]).await;
+    let package = package_with(&runtime, true, declared(), [1.0; 4]).await;
     let prepared = package
         .prepare_fit(
+            services.preparation(),
             id(32).into(),
             profile(HessianMode::LimitedMemory, uncertainty()),
             compiler_profile(),
@@ -666,7 +689,7 @@ async fn profile_chain_seeds_from_predecessor() {
         .unwrap()
         .inverse_cdf(uncertainty.level.into_inner())
         .sqrt();
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let result = prepared.start(&services).unwrap().wait().await.unwrap();
     let report = report(&result);
     assert!(
         matches!(
@@ -777,12 +800,16 @@ async fn profile_chain_seeds_from_predecessor() {
 /// Admission: a level and profile controls in range, and no parametric sensitivity request.
 #[tokio::test]
 async fn fit_uncertainty_admission() {
-    let package = package(declared(), [1.0; 4]).await;
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
+    let package = package(&runtime, declared(), [1.0; 4]).await;
     let prepare = |profile| {
         let package = package.clone();
+        let services = services.clone();
         async move {
             package
                 .prepare_fit_problem(
+                    services.preparation(),
                     id(32).into(),
                     profile,
                     compiler_profile(),
@@ -835,7 +862,8 @@ async fn fit_uncertainty_admission() {
 async fn review_qualification_durable_fit_preserves_original_response_and_rows() {
     use pse_relations::generated::runtime::fit_observations;
     let runtime = crate::workflow::durable_tests::durable_runtime();
-    let package = package_on(runtime.clone(), false, declared(), [1.; 4]).await;
+    let services = runtime.execution_services();
+    let package = package_on(&runtime, false, declared(), [1.; 4]).await;
     let controls = profile(HessianMode::LimitedMemory, None);
     assert_eq!(
         controls.solver.numerics.engineering_relative_fraction,
@@ -843,6 +871,7 @@ async fn review_qualification_durable_fit_preserves_original_response_and_rows()
     );
     let prepared = package
         .prepare_fit(
+            services.preparation(),
             id(32).into(),
             controls,
             compiler_profile(),
@@ -851,7 +880,7 @@ async fn review_qualification_durable_fit_preserves_original_response_and_rows()
         )
         .await
         .unwrap();
-    let handle = prepared.start().unwrap();
+    let handle = prepared.start(&services).unwrap();
     let run = handle.canonical_run_key().unwrap().to_owned();
     let attempt = handle.canonical_attempt_key().unwrap().to_owned();
     let result = handle.wait().await.unwrap();
@@ -1155,7 +1184,7 @@ async fn nonlinear_state_fit_package(
         .modeling_package(source, physical)
         .await
         .unwrap()
-        .with_fit_declarations(declarations)
+        .with_fit_declarations(&runtime.source_services(), declarations)
         .await
         .unwrap()
 }
@@ -1171,6 +1200,7 @@ async fn nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen() {
         fit_constraints, fit_observations, fit_parameters, fit_variables, local_validity,
     };
     let runtime = crate::workflow::durable_tests::durable_runtime();
+    let services = runtime.execution_services();
     for (observed_x, s) in [(3., 1.), (18., 2.)] {
         let package = nonlinear_state_fit_package(runtime.clone(), observed_x).await;
         for (hessian, approximation, information) in [
@@ -1193,6 +1223,7 @@ async fn nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen() {
             controls.solver.numerics.engineering_relative_fraction = 1e-7;
             let prepared = package
                 .prepare_fit(
+                    services.preparation(),
                     id(32).into(),
                     controls,
                     compiler_profile(),
@@ -1231,7 +1262,7 @@ async fn nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen() {
                     .iter()
                     .any(|v| v.port.id == state_id && !v.fixed)
             );
-            let result = prepared.start().unwrap().wait().await.unwrap();
+            let result = prepared.start(&services).unwrap().wait().await.unwrap();
             assert!(result.usable(), "{:?}", result.report());
             let fitted = report(&result);
             assert!(fitted.estimate_qualified(), "{fitted:?}");

@@ -25,6 +25,7 @@ from pse.contracts.enums import (
     MuStrategy,
     NativeBackend,
     NativeIneligibility,
+    NativePetscMethod,
     NativeProblemClass,
     NativeRunState,
     NativeSolveIntent,
@@ -592,3 +593,20 @@ def test_route_and_eligibility_are_typed(
     assert isinstance(qualification, documents.ObservationText)
     assert termination.value == "iteration_limit"
     assert qualification.value == "unqualified"
+
+
+@pytest.mark.unit
+def test_petsc_direct_settings_expose_only_executable_root_controls() -> None:
+    assert list(NativePetscMethod) == [NativePetscMethod.NEWTON_TRUST_REGION]
+    assert pse.PetscSettings is documents.PetscSettings
+    settings = pse.PetscSettings()
+    encoded = msgspec.json.encode(settings)
+    assert msgspec.json.decode(encoded, type=documents.PetscSettings) == settings
+    for payload in [
+        b'{"backend":"petsc","method":"pseudo_transient"}',
+        b'{"backend":"petsc","method":"nonlinear_additive_schwarz"}',
+        b'{"backend":"petsc","pseudo":{}}',
+        b'{"backend":"petsc","schwarz":{}}',
+    ]:
+        with pytest.raises(msgspec.ValidationError):
+            msgspec.json.decode(payload, type=documents.PetscSettings)

@@ -47,7 +47,7 @@ pub(in crate::workflow) const LINEAR: &str = "package p {
       annotation bounds x(-10, 10);
       annotation start x(0); } }";
 
-pub(in crate::workflow) async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+pub(in crate::workflow) async fn package(text: &str) -> (Runtime, ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
         text,
@@ -61,11 +61,9 @@ pub(in crate::workflow) async fn package(text: &str) -> (ModelingPackage, Declar
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = fixture::runtime_with(16 << 20, 1 << 20, 1 << 30)
-        .modeling_package(rows, physical)
-        .await
-        .unwrap();
-    (package, root)
+    let runtime = fixture::runtime_with(16 << 20, 1 << 20, 1 << 30);
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
+    (runtime, package, root)
 }
 pub(in crate::workflow) fn analysis(
     root: DeclarationId,
@@ -108,7 +106,8 @@ pub(in crate::workflow) async fn solve_propagating(
         &[pse_kernels::Port],
     ) -> Option<crate::math::settings::Propagation>,
 ) -> (Arc<crate::workflow::RunResult>, Vec<SemanticId>) {
-    let (package, root) = package(text).await;
+    let (runtime, package, root) = package(text).await;
+    let services = runtime.execution_services();
     let cancel = crate::CancelSource::new();
     let mut analysis = analysis(root, selection);
     analysis.bindings.demand = ["a", "b"]
@@ -116,7 +115,10 @@ pub(in crate::workflow) async fn solve_propagating(
         .chain(outputs)
         .map(|p| (*p).into())
         .collect();
-    let plain = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let plain = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
+        .unwrap();
     let paths = &plain.model.model.compiled().model.paths;
     let ids: Vec<SemanticId> = ["a", "b"]
         .iter()
@@ -132,8 +134,11 @@ pub(in crate::workflow) async fn solve_propagating(
             plain.model.case.compiled().plan.structure().parameters(),
         ),
     });
-    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let prepared = package
+        .prepare_analysis(services.preparation(), &analysis, &cancel)
+        .await
+        .unwrap();
+    let result = prepared.start(&services).unwrap().wait().await.unwrap();
     (result, ids)
 }
 pub(in crate::workflow) fn rows<R: RelationRow>(
@@ -432,13 +437,17 @@ pub(in crate::workflow) async fn reopened_rows<R: RelationRow>(
 #[tokio::test]
 async fn nonlinear_constraint_curvature_sensitivity_and_value_hessian_reopen() {
     let runtime = crate::workflow::durable_tests::durable_runtime();
+    let services = runtime.execution_services();
     let (package, mut request) =
         crate::workflow::durable_tests::package_on(&runtime, NONLINEAR_CURVATURE).await;
     request.solver.intent = SolveIntent::Optimize;
     request.solver.selection = SolverSelection::Explicit(Backend::Ipopt);
     request.bindings.demand = ["a", "b", "x", "y"].map(String::from).to_vec();
     let cancel = crate::CancelSource::new();
-    let plain = package.prepare_analysis(&request, &cancel).await.unwrap();
+    let plain = package
+        .prepare_analysis(services.preparation(), &request, &cancel)
+        .await
+        .unwrap();
     let model = &plain.model.model.compiled().model;
     let [a, b, x, y] = ["a", "b", "x", "y"].map(|path| model.paths[path]);
     let coupling = model
@@ -468,8 +477,11 @@ async fn nonlinear_constraint_curvature_sensitivity_and_value_hessian_reopen() {
             reduced_hessian: true,
             propagation: None,
         });
-        let prepared = package.prepare_analysis(&request, &cancel).await.unwrap();
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let prepared = package
+            .prepare_analysis(services.preparation(), &request, &cancel)
+            .await
+            .unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         assert!(result.usable(), "{:?}", result.report());
         let variables: Vec<solve_variables::Row> = rows(&result, "runtime.solve_variables");
         for (target, expected) in [(x, s), (y, s * s)] {

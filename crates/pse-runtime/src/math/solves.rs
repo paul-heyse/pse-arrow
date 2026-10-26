@@ -358,11 +358,10 @@ enum AutomaticBinding {
         original: Box<PreparedSolve>,
         backend: Backend,
     },
-    #[cfg(feature = "solver-pounce")]
     NativeProfile {
         original: Box<PreparedSolve>,
         profile: Box<SolverProfile>,
-        perturbation: Option<native::pounce::StartPerturbation>,
+        perturbation: Option<execution::StartPerturbation>,
     },
     Reduced {
         original: Box<PreparedSolve>,
@@ -705,29 +704,34 @@ impl PreparedSolve {
         let count = count
             .checked_add(self.automatic_backend_alternatives().len())
             .ok_or_else(|| ProblemError::memory("automatic backend catalog extent"))?;
-        #[cfg(feature = "solver-pounce")]
-        let count = if let Some(profile) = self.pounce_recovery_baseline()? {
-            count
+        let mut count = count;
+        for backend in self
+            .backend()
+            .into_iter()
+            .chain(self.automatic_backend_alternatives())
+        {
+            let Some(profile) = self.recovery_baseline(backend)? else {
+                continue;
+            };
+            let capacity = execution::adapter(backend).recovery_capacity(
+                &profile.controls,
+                &profile.backend,
+                execution::RecoveryPermission {
+                    replacement_start: self
+                        .profile
+                        .composition
+                        .recovery
+                        .contains(&pse_model::strategy::StartOrigin::Auxiliary),
+                },
+            )?;
+            count = count
                 .checked_add(
-                    execution::adapter(Backend::Pounce)
-                        .recovery_capacity(
-                            &profile.controls,
-                            &profile.backend,
-                            execution::RecoveryPermission {
-                                replacement_start: self
-                                    .profile
-                                    .composition
-                                    .recovery
-                                    .contains(&pse_model::strategy::StartOrigin::Auxiliary),
-                            },
-                        )?
+                    capacity
                         .checked_mul(2)
                         .ok_or_else(|| ProblemError::memory("automatic recovery catalog extent"))?,
                 )
-                .ok_or_else(|| ProblemError::memory("automatic recovery catalog extent"))?
-        } else {
-            count
-        };
+                .ok_or_else(|| ProblemError::memory("automatic recovery catalog extent"))?;
+        }
         u64::try_from(count).map_err(|_| ProblemError::memory("automatic catalog extent"))
     }
     /// Exclude only optional advice from comparison identities, avoiding a recursive
@@ -1127,21 +1131,18 @@ impl PreparedSolve {
             return Ok(operations);
         }
         let mut operations = Vec::new();
-        #[cfg(feature = "solver-pounce")]
-        if last.is_some_and(|report| report.backend == Backend::Pounce)
-            && let Some(baseline) = self.pounce_recovery_baseline()?
+        if let Some(report) = last
+            && let Some(baseline) = self.recovery_baseline(report.backend)?
         {
             let allow_replacement = self
                 .profile
                 .composition
                 .recovery
                 .contains(&StartOrigin::Auxiliary);
-            let descriptions = execution::adapter(Backend::Pounce).recovery_profiles(
+            let descriptions = execution::adapter(report.backend).recovery_profiles(
                 &baseline.controls,
                 &baseline.backend,
-                last.ok_or_else(|| {
-                    ProblemError::Internal("missing actual native observation".into())
-                })?,
+                report,
                 execution::RecoveryPermission {
                     replacement_start: allow_replacement,
                 },
@@ -1284,15 +1285,11 @@ impl PreparedSolve {
         Ok(profile)
     }
 
-    #[cfg(feature = "solver-pounce")]
-    fn pounce_recovery_baseline(&self) -> Result<Option<SolverProfile>, ProblemError> {
-        let profile = if self.backend() == Some(Backend::Pounce) {
+    fn recovery_baseline(&self, backend: Backend) -> Result<Option<SolverProfile>, ProblemError> {
+        let profile = if self.backend() == Some(backend) {
             self.profile.clone()
-        } else if self
-            .automatic_backend_alternatives()
-            .contains(&Backend::Pounce)
-        {
-            self.profile_for_automatic_backend(Backend::Pounce)?
+        } else if self.automatic_backend_alternatives().contains(&backend) {
+            self.profile_for_automatic_backend(backend)?
         } else {
             return Ok(None);
         };
@@ -1349,7 +1346,6 @@ impl MathService {
                 self.prepare_automatic_native_profile(&original, profile, scope)
                     .await?
             }
-            #[cfg(feature = "solver-pounce")]
             AutomaticBinding::NativeProfile {
                 original,
                 profile,
@@ -1388,7 +1384,16 @@ impl MathService {
                                 })
                         })
                         .collect::<Result<Vec<_>, _>>()?;
-                    let produced = native::pounce::perturb_start(&point, &bounds, perturbation)?;
+                    let backend = rebound.backend().ok_or_else(|| {
+                        ProblemError::Internal(
+                            "native recovery profile has no executing adapter".into(),
+                        )
+                    })?;
+                    let produced = execution::adapter(backend).recovery_start(
+                        &point,
+                        &bounds,
+                        perturbation,
+                    )?;
                     let mut identity = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
                     identity
                         .hash(&original.request_identity()?.as_id())
@@ -4330,7 +4335,10 @@ impl MathService {
         let step = if step.task_scope.is_none() {
             let deadline = std::time::Instant::now()
                 .checked_add(step.time_limit())
-                .ok_or_else(|| ProblemError::Contract("submitted solve deadline extent".into()))?;
+                .ok_or_else(|| ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    detail: "submitted solve deadline extent".into(),
+                })?;
             step.within_task(pse_kernels::ExecutionScope::new(
                 Cancellation::default(),
                 Some(deadline),

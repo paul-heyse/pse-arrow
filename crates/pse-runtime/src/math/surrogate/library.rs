@@ -372,10 +372,22 @@ impl<E: FidelityEvaluator> CostFunction for Evaluated<E> {
         reason = "argmin 0.11 CostFunction requires this Error alias; it only stops the library while the original typed failure remains in Callback::terminal"
     )]
     fn cost(&self, x: &Self::Param) -> Result<Self::Output, argmin::core::Error> {
-        let mut cb = self
-            .0
-            .lock()
-            .map_err(|_| argmin::core::Error::msg("surrogate callback lock poisoned"))?;
+        let mut cb = match self.0.lock() {
+            Ok(callback) => callback,
+            Err(poisoned) => {
+                let mut callback = poisoned.into_inner();
+                callback.disabled = true;
+                if callback.terminal.is_none() {
+                    callback.terminal = Some(SurrogateFailure::Math(
+                        crate::math::MathRuntimeError::Internal(
+                            "surrogate callback lock poisoned".into(),
+                        )
+                        .into_math(),
+                    ));
+                }
+                return Err(argmin::core::Error::msg("surrogate terminal latch"));
+            }
+        };
         let observation = cb.observation.clone();
         let _entered = observation
             .as_ref()
@@ -634,10 +646,10 @@ impl<E: FidelityEvaluator> Worker<E> {
         }
         let initialize = self.state.is_none();
         {
-            let mut cb = self
-                .callback
-                .lock()
-                .map_err(|_| MathError::Library("surrogate callback lock poisoned".into()))?;
+            let mut cb = self.callback.lock().map_err(|_| {
+                crate::math::MathRuntimeError::Internal("surrogate callback lock poisoned".into())
+                    .into_math()
+            })?;
             cb.scope.check().map_err(scope_math)?;
             if cb
                 .abort
@@ -670,7 +682,10 @@ impl<E: FidelityEvaluator> Worker<E> {
         let terminal = self
             .callback
             .lock()
-            .map_err(|_| MathError::Library("surrogate callback lock poisoned".into()))?
+            .map_err(|_| {
+                crate::math::MathRuntimeError::Internal("surrogate callback lock poisoned".into())
+                    .into_math()
+            })?
             .terminal
             .take();
         if let Some(e) = terminal {
@@ -696,7 +711,10 @@ impl<E: FidelityEvaluator> Worker<E> {
         if let Err(e) = self
             .callback
             .lock()
-            .map_err(|_| MathError::Library("surrogate callback lock poisoned".into()))?
+            .map_err(|_| {
+                crate::math::MathRuntimeError::Internal("surrogate callback lock poisoned".into())
+                    .into_math()
+            })?
             .scope
             .check()
         {
@@ -929,7 +947,10 @@ impl<E: FidelityEvaluator> RetainedSurrogate<E> {
                         let result = catch_unwind(AssertUnwindSafe(|| {
                             let proposal = worker.advance()?;
                             let callback = worker.callback.lock().map_err(|_| {
-                                MathError::Library("surrogate callback lock poisoned".into())
+                                crate::math::MathRuntimeError::Internal(
+                                    "surrogate callback lock poisoned".into(),
+                                )
+                                .into_math()
                             })?;
                             Ok(SurrogateAdvance {
                                 state: SurrogateStateSummary {
@@ -965,7 +986,10 @@ impl<E: FidelityEvaluator> RetainedSurrogate<E> {
                             let check = || -> Result<(), SurrogateFailure<E::Error>> {
                                 cancel.checkpoint().map_err(|_| MathError::Cancelled)?;
                                 let callback = worker.callback.lock().map_err(|_| {
-                                    MathError::Library("surrogate callback lock poisoned".into())
+                                    crate::math::MathRuntimeError::Internal(
+                                        "surrogate callback lock poisoned".into(),
+                                    )
+                                    .into_math()
                                 })?;
                                 callback.scope.check().map_err(scope_math)?;
                                 if callback.abort.as_ref().is_some_and(|flag| {
@@ -1016,10 +1040,10 @@ impl<E: FidelityEvaluator> RetainedSurrogate<E> {
         &mut self,
         flag: Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<(), MathError> {
-        let mut cb = self
-            .callback
-            .lock()
-            .map_err(|_| MathError::Library("surrogate callback lock poisoned".into()))?;
+        let mut cb = self.callback.lock().map_err(|_| {
+            crate::math::MathRuntimeError::Internal("surrogate callback lock poisoned".into())
+                .into_math()
+        })?;
         if cb
             .abort
             .as_ref()
@@ -1038,10 +1062,10 @@ impl<E: FidelityEvaluator> RetainedSurrogate<E> {
     }
     /// Inclusive actual work, including failure, readable without replaying any proposal.
     pub(super) fn work(&self) -> Result<SurrogateWork, MathError> {
-        self.callback
-            .lock()
-            .map(|cb| cb.work)
-            .map_err(|_| MathError::Library("surrogate callback lock poisoned".into()))
+        self.callback.lock().map(|cb| cb.work).map_err(|_| {
+            crate::math::MathRuntimeError::Internal("surrogate callback lock poisoned".into())
+                .into_math()
+        })
     }
     /// Compact actual library state, without copying retained history arrays.
     pub(super) fn summary(&self) -> &SurrogateStateSummary {
@@ -1122,10 +1146,10 @@ impl<E: FidelityEvaluator> RetainedSurrogate<E> {
         scope: ExecutionScope,
     ) -> Result<SurrogateAdvance, SurrogateFailure<E::Error>> {
         let prior = {
-            let mut callback = self
-                .callback
-                .lock()
-                .map_err(|_| MathError::Library("surrogate callback lock poisoned".into()))?;
+            let mut callback = self.callback.lock().map_err(|_| {
+                crate::math::MathRuntimeError::Internal("surrogate callback lock poisoned".into())
+                    .into_math()
+            })?;
             if !Arc::ptr_eq(callback.scope.cancellation(), scope.cancellation()) {
                 return Err(MathError::Contract(
                     "surrogate phase cancellation owner mismatch".into(),
@@ -1147,7 +1171,10 @@ impl<E: FidelityEvaluator> RetainedSurrogate<E> {
         let result = self.advance();
         self.callback
             .lock()
-            .map_err(|_| MathError::Library("surrogate callback lock poisoned".into()))?
+            .map_err(|_| {
+                crate::math::MathRuntimeError::Internal("surrogate callback lock poisoned".into())
+                    .into_math()
+            })?
             .scope = prior;
         result
     }

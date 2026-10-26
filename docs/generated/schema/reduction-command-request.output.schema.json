@@ -1632,7 +1632,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile.",
+          "description": "Serial PETSc direct trust-region root profile.",
           "properties": {
             "backend": {
               "const": "petsc",
@@ -1646,36 +1646,12 @@
             "method": {
               "$ref": "#/$defs/NativePetscMethod",
               "default": "newton_trust_region",
-              "description": "Selected native nonlinear method."
+              "description": "Selected direct nonlinear method."
             },
             "preconditioner": {
               "$ref": "#/$defs/NativePetscPreconditioner",
               "default": "ilu",
               "description": "Selected native PC method."
-            },
-            "pseudo": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/PseudoTimeOutput"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "description": "Required precisely for the pseudo-transient profile."
-            },
-            "schwarz": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/SchwarzOutput"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "description": "Required precisely for nonlinear additive Schwarz."
             },
             "trust": {
               "$ref": "#/$defs/TrustRegionOutput",
@@ -1684,7 +1660,7 @@
                 "maximum": 100000000.0,
                 "minimum": 1e-12
               },
-              "description": "Inner trust-region profile used by SNES and TSPSEUDO correction."
+              "description": "Normalized trust-region controls."
             }
           },
           "required": [
@@ -1692,9 +1668,7 @@
             "method",
             "linear",
             "preconditioner",
-            "trust",
-            "pseudo",
-            "schwarz"
+            "trust"
           ],
           "title": "PetscSettingsOutput",
           "type": "object"
@@ -3657,9 +3631,7 @@
     },
     "NativePetscMethod": {
       "enum": [
-        "newton_trust_region",
-        "nonlinear_additive_schwarz",
-        "pseudo_transient"
+        "newton_trust_region"
       ],
       "type": "string"
     },
@@ -4468,66 +4440,6 @@
       ],
       "type": "object"
     },
-    "PseudoTimeOutput": {
-      "additionalProperties": false,
-      "description": "Finite step growth and rejection controls for artificial pseudo-time.",
-      "properties": {
-        "failed_scale": {
-          "default": 0.5,
-          "description": "Failed-stage shrink strictly between zero and one.",
-          "format": "double",
-          "type": "number"
-        },
-        "growth": {
-          "default": 1.1,
-          "description": "Successful-step growth greater than one.",
-          "format": "double",
-          "type": "number"
-        },
-        "initial": {
-          "default": 0.01,
-          "description": "Positive artificial initial time step.",
-          "format": "double",
-          "type": "number"
-        },
-        "maximum": {
-          "default": 1000000.0,
-          "description": "Finite maximum time step.",
-          "format": "double",
-          "type": "number"
-        },
-        "minimum": {
-          "default": 1e-12,
-          "description": "Explicit rejection floor; a step below this ends the attempt.",
-          "format": "double",
-          "type": "number"
-        },
-        "nonlinear_failures": {
-          "default": 20,
-          "description": "Finite allowed nonlinear failures.",
-          "format": "uint32",
-          "minimum": 0,
-          "type": "integer"
-        },
-        "rejections": {
-          "default": 20,
-          "description": "Finite allowed rejected steps.",
-          "format": "uint32",
-          "minimum": 0,
-          "type": "integer"
-        }
-      },
-      "required": [
-        "initial",
-        "minimum",
-        "maximum",
-        "growth",
-        "failed_scale",
-        "rejections",
-        "nonlinear_failures"
-      ],
-      "type": "object"
-    },
     "ReconstructionAccuracy": {
       "additionalProperties": false,
       "description": "Consumer-issued normalized allowances. Each actual point/action creates its own\nfully scoped demand; no default tolerance or default certificate is supplied.",
@@ -4751,28 +4663,6 @@
         "require_reuse"
       ],
       "type": "string"
-    },
-    "SchwarzOutput": {
-      "additionalProperties": false,
-      "description": "Explicit correction damping and overlap extension for nonlinear Schwarz.",
-      "properties": {
-        "damping": {
-          "default": 1.0,
-          "description": "Native nonlinear correction damping in (0,1].",
-          "format": "double",
-          "type": "number"
-        },
-        "restricted": {
-          "default": true,
-          "description": "Restrict the extension to each block's declared interior.",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "damping",
-        "restricted"
-      ],
-      "type": "object"
     },
     "SensitivityRequestOutput": {
       "additionalProperties": false,

@@ -7,16 +7,14 @@ use pse_relations::generated::authored::{documents, fit_cases, modeling_declarat
 #[tracing::instrument(name = "pse.math.rebind", skip_all)]
 pub(super) fn rebind(
     source: &ModelingPackage,
-    runtime: &Runtime,
+    services: &crate::workflow::PreparationServices,
 ) -> Result<ModelingPackage, WorkflowError> {
-    let context = runtime.admission_context();
-    if !Arc::ptr_eq(&source.runtime.shared, &runtime.shared)
-        || !source
-            .revision
-            .admitted
-            .validation_context()
-            .same_bindings(&context)
-        || !Arc::ptr_eq(source.runtime.registry(), runtime.registry())
+    let context = services.admission_context();
+    if !source
+        .revision
+        .admitted
+        .validation_context()
+        .same_bindings(&context)
     {
         return Err(contract(
             "retained replay receiver requires the same actual deployment, registry and native validation bindings",
@@ -27,27 +25,27 @@ pub(super) fn rebind(
         .metadata_bytes()
         .checked_add(4096 + size_of::<ModelingPackage>() + size_of::<SourceRevision>())
         .ok_or_else(|| contract("retained receiver metadata extent"))?;
-    let receiver_metadata = runtime
-        .shared
+    let receiver_metadata = services
         .math()
         .reserve("modeling:receiver-source-view", receiver_extent)?;
     let cancel = crate::CancelSource::new();
     // Source objects retain immutable parser/reference validity, but not every successful
     // generated row product. Admit those owned rows directly in this receiver scope.
-    admit_rows(source, runtime, &context, &cancel)?;
+    admit_rows(source, services, &context, &cancel)?;
     let physical = source
         .physical
-        .readmit_context(runtime, &context, &cancel.token())?;
+        .readmit_context(services, &context, &cancel.token())?;
     let admitted = source
         .revision
         .admitted
-        .rebind_for(runtime, context, receiver_metadata)?;
-    let revision = SourceRevision::admitted(admitted, source.revision.identity(), None, None)?;
+        .rebind_for(context, receiver_metadata)?;
+    let revision =
+        SourceRevision::admitted(admitted, source.revision.identity(), None, None, None)?;
     // Preserve original executable and physical owners; do not borrow mutable engagement.
     Ok(ModelingPackage {
         research_source: source.research_source.clone(),
         project_context: source.project_context.clone(),
-        runtime: runtime.clone(),
+
         revision,
         held_preparation: None,
         replay_owner: None,
@@ -60,7 +58,7 @@ pub(super) fn rebind(
 
 pub(super) fn admit_rows(
     source: &ModelingPackage,
-    runtime: &Runtime,
+    services: &crate::workflow::PreparationServices,
     context: &pse_relations::validate::ValidationContext,
     cancel: &crate::CancelSource,
 ) -> Result<(), WorkflowError> {
@@ -82,18 +80,17 @@ pub(super) fn admit_rows(
             n.checked_add(bytes.checked_mul(32)?.checked_add(1024)?)
         })
         .ok_or_else(|| contract("retained replay row admission extent overflow"))?;
-    let _scratch = runtime
-        .shared
+    let _scratch = services
         .math()
         .reserve("replay:receiver-source-rows", extent)?;
     let mut declarations =
-        modeling_declarations::Builder::with_registry(runtime.registry(), 0, context)
+        modeling_declarations::Builder::with_registry(services.registry(), 0, context)
             .map_err(super::super::super::relation)?;
-    let mut package_rows = packages::Builder::with_registry(runtime.registry(), 0, context)
+    let mut package_rows = packages::Builder::with_registry(services.registry(), 0, context)
         .map_err(super::super::super::relation)?;
-    let mut document_rows = documents::Builder::with_registry(runtime.registry(), 0, context)
+    let mut document_rows = documents::Builder::with_registry(services.registry(), 0, context)
         .map_err(super::super::super::relation)?;
-    let mut fit_rows = fit_cases::Builder::with_registry(runtime.registry(), 0, context)
+    let mut fit_rows = fit_cases::Builder::with_registry(services.registry(), 0, context)
         .map_err(super::super::super::relation)?;
     for object in source.revision.admitted.objects.values() {
         checkpoint(cancel)?;
@@ -176,9 +173,12 @@ mod tests {
         )
         .unwrap()
     }
-    fn bind(source: &ModelingPackage, runtime: &Runtime) -> Result<ModelingPackage, WorkflowError> {
-        let activity = runtime.admit_activity()?;
-        activity.sync_scope(|| rebind(source, runtime))
+    fn bind(
+        source: &ModelingPackage,
+        services: &crate::workflow::PreparationServices,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        let activity = services.admit_activity()?;
+        activity.sync_scope(|| rebind(source, services))
     }
     #[tokio::test]
     async fn retained_receiver_shares_exact_source_and_parser_but_has_an_independent_head() {
@@ -190,7 +190,7 @@ mod tests {
         let receiver =
             Runtime::from_shared_local(runtime.shared.clone(), runtime.model.clone()).unwrap();
         runtime.close();
-        let rebound = bind(&source, &receiver).unwrap();
+        let rebound = bind(&source, &receiver.preparation_services()).unwrap();
         assert_ne!(source.revision_id(), rebound.revision_id());
         assert_ne!(source.revision.lineage_id(), rebound.revision.lineage_id());
         assert!(rebound.canonical_revision().is_none());
@@ -212,13 +212,16 @@ mod tests {
             Default::default(),
         )
         .unwrap();
-        let next = rebound.with_declarations(changed).await.unwrap();
+        let next = rebound
+            .with_declarations(&runtime.source_services(), changed)
+            .await
+            .unwrap();
         assert_eq!(source.revision.head.lock().unwrap().revision, original_head);
         assert_ne!(next.revision.identity(), source.revision.identity());
         assert_eq!(next.revision.lineage_id(), rebound.revision.lineage_id());
         receiver.close();
         assert!(matches!(
-            bind(&source, &receiver),
+            bind(&source, &receiver.preparation_services()),
             Err(WorkflowError::CallerClosed)
         ));
     }
@@ -298,7 +301,7 @@ mod tests {
         let activity = runtime.admit_activity().unwrap();
         activity.sync_scope(|| {
             let receiving_context = runtime.admission_context();
-            let rebound = rebind(&past_source, &runtime).unwrap();
+            let rebound = rebind(&past_source, &runtime.preparation_services()).unwrap();
             assert!(
                 rebound.physical.sources[&spec.key]
                     .local_admission()
@@ -324,29 +327,36 @@ mod tests {
             .unwrap()
             .declaration_id;
         runtime
-            .scope_activity(past_source.checked_selection(&[root], &crate::CancelSource::new()))
+            .scope_activity(past_source.checked_selection(
+                &runtime.preparation_services(),
+                &[root],
+                &crate::CancelSource::new(),
+            ))
             .await
             .unwrap();
         assert!(
             runtime
-                .shared
-                .math()
+                .native()
                 .modeling_cache
-                .selected(&future_source.selection_request(&[root]))
+                .selected(
+                    &future_source.selection_request(&runtime.preparation_services(), &[root])
+                )
                 .is_some(),
             "the negative control reaches a populated warm candidate"
         );
         assert!(
             runtime
-                .scope_activity(
-                    future_source.checked_selection(&[root], &crate::CancelSource::new())
-                )
+                .scope_activity(future_source.checked_selection(
+                    &runtime.preparation_services(),
+                    &[root],
+                    &crate::CancelSource::new()
+                ))
                 .await
                 .is_err(),
             "warm selection must renew physical scope checks before carrying eligibility"
         );
         assert!(
-            bind(&future_source, &runtime).is_err(),
+            bind(&future_source, &runtime.preparation_services()).is_err(),
             "a successful future-clock source admission cannot authorize the receiving current scope"
         );
         assert!(
@@ -354,7 +364,7 @@ mod tests {
                 .replay_source()
                 .unwrap()
                 .reconstruct(
-                    &runtime,
+                    &runtime.source_services(),
                     future_source.physical.clone(),
                     BTreeMap::new(),
                     &crate::CancelSource::new()
@@ -371,7 +381,7 @@ mod tests {
             .await
             .unwrap();
         let foreign = crate::workflow::tests::runtime();
-        assert!(bind(&source, &foreign).is_err());
+        assert!(bind(&source, &foreign.preparation_services()).is_err());
         let unrecognized = edit(
             "opaque:foreign".into(),
             "opaque".into(),
@@ -381,20 +391,21 @@ mod tests {
             Vec::new(),
         );
         let admitted = AdmittedModelRevision::apply(
-            &runtime,
+            &runtime.preparation_services(),
             Some(&source.revision.admitted),
             &[unrecognized],
             None,
         )
         .unwrap();
         let revision =
-            SourceRevision::admitted(admitted, source.revision.identity(), None, None).unwrap();
+            SourceRevision::admitted(admitted, source.revision.identity(), None, None, None)
+                .unwrap();
         let unsupported = ModelingPackage {
             revision,
             ..source.clone()
         };
         assert!(
-            bind(&unsupported, &runtime)
+            bind(&unsupported, &runtime.preparation_services())
                 .unwrap_err()
                 .to_string()
                 .contains("unsupported validation coverage")

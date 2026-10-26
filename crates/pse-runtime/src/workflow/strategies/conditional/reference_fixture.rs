@@ -9,6 +9,7 @@ use pse_structural::flowsheet::{Decision, Policy};
 mod source_fixture;
 
 pub(in crate::workflow) struct ReferenceRecycleFixture {
+    pub runtime: Runtime,
     pub package: ModelingPackage,
     pub analysis: ModelingAnalysis,
     pub selection: ModelingFlowSelection,
@@ -61,6 +62,7 @@ pub(in crate::workflow) async fn actual_reference_recycle_fixture(
     let package = runtime.modeling_package(rows, physical).await?;
     let analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler_profile(),
             super::super::tests::profile(SolveIntent::Root),
@@ -73,6 +75,7 @@ pub(in crate::workflow) async fn actual_reference_recycle_fixture(
     // declared_execution admits the authored fixture's original fresh-feed fixes.
     let resolved = package
         .resolve_case(
+            &runtime.preparation_services(),
             analysis.root,
             analysis.instance,
             analysis.bindings.clone(),
@@ -190,6 +193,7 @@ pub(in crate::workflow) async fn actual_reference_recycle_fixture(
             .collect(),
     };
     Ok(ReferenceRecycleFixture {
+        runtime,
         package,
         analysis,
         selection,
@@ -232,7 +236,13 @@ async fn conditional_unit_reference_request_declares_original_inventories_and_ro
     let request: RecycleRequest = serde_json::from_value(encoded).unwrap();
     let error = fixture
         .package
-        .prepare_recycle(&fixture.analysis, fixture.selection, request, &cancel)
+        .prepare_recycle(
+            &fixture.runtime.preparation_services(),
+            &fixture.analysis,
+            fixture.selection,
+            request,
+            &cancel,
+        )
         .await
         .unwrap_err();
     let WorkflowError::ConditionalAdmission { diagnostic, .. } = error else {

@@ -37,14 +37,20 @@ async fn explicit_entry_then_screened_native_recovery_dispatches_and_retains_ori
         numerical: Default::default(),
     };
     analysis.bindings.demand.push("p".into());
-    let initial = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let initial = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     let parameter = initial.model.model.compiled().model.paths["p"];
     analysis.solver.sensitivity = Some(super::super::settings::SensitivityRequest {
         parameters: vec![parameter],
         reduced_hessian: false,
         propagation: None,
     });
-    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let prepared = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     let original = prepared.solve.retaining_factor().unwrap();
     let source = original.source_start(None).unwrap();
     let ids = match &original.representation {

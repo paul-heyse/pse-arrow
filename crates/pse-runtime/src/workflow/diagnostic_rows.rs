@@ -428,6 +428,7 @@ mod tests {
             termination: Some(NativeTermination::Evaluation),
             callback_terminal_failure: Some(true),
             failures: vec![profile_failure(&diagnostic)],
+            qualifiers: vec![],
             objective: None,
             statistic: None,
             accepted: false,

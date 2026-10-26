@@ -394,17 +394,18 @@ impl ModelingPackage {
     /// Invalid allowance/clock, cancellation or actual construction admission refuses.
     pub async fn modeling_diagnostic_source_map(
         &self,
+        services: &crate::workflow::PreparationServices,
         prepared: &ModelingDiagnosticPreparation,
         maximum_bytes: usize,
         time_limit: std::time::Duration,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSourceMap, WorkflowError> {
-        self.runtime
+        services
             .modeling_diagnostic_source_map(prepared, maximum_bytes, time_limit, cancel)
             .await
     }
 }
-impl Runtime {
+impl crate::workflow::PreparationServices {
     /// Inspect already admitted compiled artifacts under a separate explicit finite
     /// clock/allocation. This never evaluates equations or initiates a native solve.
     ///
@@ -425,7 +426,7 @@ impl Runtime {
         }
         let local_deadline = std::time::Instant::now()
             .checked_add(time_limit)
-            .ok_or_else(|| contract("source map deadline extent"))?;
+            .ok_or_else(|| crate::workflow::deadline_limit("source map deadline extent"))?;
         let deadline = cancel
             .deadline()
             .map_or(local_deadline, |outer| outer.min(local_deadline));
@@ -446,7 +447,7 @@ impl Runtime {
         check()?;
         let activity = self.admit_activity()?;
         activity.scope(async {
-            let service = self.shared.math();
+            let service = self.math();
             // The selected construction has its own declared finite permission;
             // loader artifacts retain their independent existing owners.
             let lease = service.reserve("modeling:source-map", maximum_bytes)?;
@@ -557,3 +558,18 @@ impl Runtime {
 #[cfg(test)]
 #[path = "diagnostic_source_map_tests.rs"]
 mod tests;
+
+impl Runtime {
+    /// Supply explicit compiler/allocation services to retained diagnostic inspection.
+    pub async fn modeling_diagnostic_source_map(
+        &self,
+        prepared: &ModelingDiagnosticPreparation,
+        maximum_bytes: usize,
+        time_limit: std::time::Duration,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingSourceMap, WorkflowError> {
+        self.preparation_services()
+            .modeling_diagnostic_source_map(prepared, maximum_bytes, time_limit, cancel)
+            .await
+    }
+}

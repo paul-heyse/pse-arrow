@@ -99,7 +99,9 @@ impl Runtime {
         self.scope_activity(pse_operations::canonical::operation_scope(
             deadline,
             async {
-                if package.runtime.canonical_store()?.issuing_store()?
+                if package
+                    .source_issuer()
+                    .ok_or_else(|| contract("context source has no original issuing authority"))?
                     != self.canonical_store()?.issuing_store()?
                 {
                     return Err(contract("context source issuing authority differs"));

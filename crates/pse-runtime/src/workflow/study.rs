@@ -59,6 +59,7 @@ struct StudyPrediction {
 /// its only changes are admitted parameter bindings. All value-dependent numerical
 /// producers and optional solve adapters remain on the complete reconstruction path.
 pub(in crate::workflow) async fn rebind_prediction_source(
+    services: &super::PreparationServices,
     package: &super::ModelingPackage,
     template: &super::ModelingSolvePreparation,
     binding: &AdmittedBinding,
@@ -147,9 +148,7 @@ pub(in crate::workflow) async fn rebind_prediction_source(
                 .and_then(|tightenings| bytes.checked_add(tightenings))
         })
         .ok_or_else(|| contract("prediction source projection extent"))?;
-    let projection_owner = package
-        .runtime
-        .shared
+    let projection_owner = services
         .math()
         .reserve("study:prediction-source-view", projection_bytes)?;
     cancel
@@ -164,7 +163,7 @@ pub(in crate::workflow) async fn rebind_prediction_source(
     for (member, entry) in &binding.entries {
         values.scalars.insert(*member, entry.canonical.into_inner());
     }
-    let service = package.runtime.shared.math();
+    let service = services.math();
     let case = match service
         .rebind(&template.model.case, values.clone(), cancel)
         .await
@@ -226,7 +225,7 @@ pub(in crate::workflow) async fn rebind_prediction_source(
     let prepared = super::ModelingSolvePreparation {
         original_inputs: template.original_inputs.clone(),
         stored_seed_owner: None,
-        bound_source: Some(package.retain_bound_source(binding)?),
+        bound_source: Some(package.retain_bound_source(services, binding)?),
         model,
         solve,
         starts,
@@ -237,7 +236,7 @@ pub(in crate::workflow) async fn rebind_prediction_source(
     };
     Ok(Some(super::modeling::results::PredictionSample {
         prepared,
-        runtime: package.runtime.clone(),
+        services: services.clone(),
         point: portable,
         root: Err(pse_backend_native::square_response::Withheld::Neighborhood(
             "no retained original root factor".into(),
@@ -392,8 +391,7 @@ fn stored_scientific_facts(
                 _ => None,
             };
             pse_model::study::ScientificFacts {
-                usable: !completion.assessments.is_empty()
-                    && completion.assessments.iter().all(|row| row.permits_result),
+                usable: completion.permits_result(),
                 candidate_use: single.map(|row| row.usability),
                 seed_permission: single.is_some_and(|row| row.permits_seed),
             }
@@ -568,7 +566,12 @@ impl Runtime {
                 .await?;
                 let definition = creation_effect(
                     cancel,
-                    package.admit_study(&plan.inputs, &plan.output, cancel),
+                    package.admit_study(
+                        &self.execution_services(),
+                        &plan.inputs,
+                        &plan.output,
+                        cancel,
+                    ),
                 )
                 .await?;
                 let definition = self.record_study(&definition, cancel).await?;
@@ -641,6 +644,7 @@ impl Runtime {
                     if creation_effect(
                         cancel,
                         point.operation.admit_binding_seed_need(
+                            &self.preparation_services(),
                             &package,
                             &point.binding,
                             &mut admission,
@@ -673,6 +677,7 @@ impl Runtime {
                             let target = creation_effect(
                                 cancel,
                                 seed_lane.prepare(
+                                    &self.preparation_services(),
                                     &package,
                                     &point.operation,
                                     &point.binding,
@@ -861,10 +866,7 @@ impl Runtime {
 
     /// Exact handle; equal bindings never merge study identities or occurrences.
     pub fn study(&self, study_id: StudyId) -> StudyHandle {
-        StudyHandle {
-            runtime: self.clone(),
-            study_id,
-        }
+        self.execution_services().study(study_id)
     }
 
     pub(in crate::workflow) async fn retained_study_admissions(
@@ -945,14 +947,16 @@ impl Runtime {
         let point = store
             .canonical_study_point(&scope.point().key)
             .await?
-            .ok_or_else(|| contract("lazy occurrence absent"))?;
+            .ok_or_else(|| WorkflowError::Integrity("lazy occurrence absent".into()))?;
         if point.admission.is_some() || point.settled {
             return Ok(false);
         }
         let selected: VariantOccurrence = serde_json::from_slice(point.descriptor.as_slice())
-            .map_err(|e| contract(e.to_string()))?;
+            .map_err(|e| WorkflowError::Integrity(e.to_string()))?;
         if selected.variant as u64 != point.ordinal {
-            return Err(contract("lazy selected occurrence ordinal differs"));
+            return Err(WorkflowError::Integrity(
+                "lazy selected occurrence ordinal differs".into(),
+            ));
         }
         if !lane
             .input
@@ -962,29 +966,29 @@ impl Runtime {
             let study = store
                 .canonical_study(&point.study)
                 .await?
-                .ok_or_else(|| contract("lazy study absent"))?;
+                .ok_or_else(|| WorkflowError::Integrity("lazy study absent".into()))?;
             let extent = study
                 .metadata
                 .len()
                 .checked_mul(4)
                 .and_then(|n| n.checked_add(4096))
                 .filter(|_| study.metadata.len() <= pse_operations::canonical::PAYLOAD_BYTES)
-                .ok_or_else(|| contract("lazy descriptor extent"))?;
+                .ok_or_else(|| WorkflowError::Resource("lazy descriptor extent".into()))?;
             let owner = self
                 .shared
                 .math()
                 .reserve("study:lazy-input-owner", extent)?;
             let metadata: StudyMetadata = serde_json::from_slice(study.metadata.as_slice())
-                .map_err(|e| contract(e.to_string()))?;
+                .map_err(|e| WorkflowError::Integrity(e.to_string()))?;
             let lazy = metadata
                 .variants
-                .ok_or_else(|| contract("lazy descriptor absent"))?;
+                .ok_or_else(|| WorkflowError::Integrity("lazy descriptor absent".into()))?;
             lazy.variants.check_retained_parent(&study.revision)?;
             let physical = self.physical_source(&metadata.physical, cancel).await?;
             let base_revision = store
                 .revision(&study.revision)
                 .await?
-                .ok_or_else(|| contract("lazy base revision absent"))?;
+                .ok_or_else(|| WorkflowError::Integrity("lazy base revision absent".into()))?;
             let mut package = self
                 .modeling_revision(base_revision, physical, BTreeMap::new())
                 .await?;
@@ -1004,17 +1008,23 @@ impl Runtime {
         let input = lane
             .input
             .as_ref()
-            .ok_or_else(|| contract("lazy input owner absent"))?;
+            .ok_or_else(|| WorkflowError::Internal("lazy input owner absent".into()))?;
         if input.lazy.variants.selected_policy(selected.variant)? != point_policy(&point)? {
-            return Err(contract(
-                "lazy selected policy differs from the immutable occurrence",
+            return Err(WorkflowError::Integrity(
+                "lazy selected policy differs from the immutable occurrence".into(),
             ));
         }
         let authority =
             pse_operations::canonical_studies::StudyAdmissionAuthority::new(scope, fence)?;
         let admitted = input
             .lazy
-            .admit_selected(&input.package, selected.variant, Some(&authority), cancel)
+            .admit_selected(
+                &self.source_services(),
+                &input.package,
+                selected.variant,
+                Some(&authority),
+                cancel,
+            )
             .await;
         let (admission, seed_need, diagnostic) = match admitted {
             Ok((package, definition)) => {
@@ -1022,7 +1032,9 @@ impl Runtime {
                 let physical_revision = store
                     .revision(&input.physical.revision)
                     .await?
-                    .ok_or_else(|| contract("lazy physical receipt absent"))?;
+                    .ok_or_else(|| {
+                        WorkflowError::Integrity("lazy physical receipt absent".into())
+                    })?;
                 let admitted = StudyAdmission {
                     version: Version,
                     definition: Some(definition.clone()),
@@ -1032,7 +1044,7 @@ impl Runtime {
                 let input_run = store
                     .canonical_run(fence.run())
                     .await?
-                    .ok_or_else(|| contract("lazy admission run absent"))?;
+                    .ok_or_else(|| WorkflowError::Integrity("lazy admission run absent".into()))?;
                 let request = StoredRequest {
                     key: point.run.clone(),
                     revision,
@@ -1043,7 +1055,7 @@ impl Runtime {
                         &point.study,
                         definition.policy.key,
                         pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition)
-                            .map_err(|e| contract(e.to_string()))?,
+                            .map_err(|e| WorkflowError::Integrity(e.to_string()))?,
                     ))?,
                     source_selection: document(&(
                         4_u8,
@@ -1062,12 +1074,9 @@ impl Runtime {
             }
             Err(error) => {
                 let diagnostic = error.boundary_diagnostic();
-                if matches!(
-                    diagnostic.class,
-                    pse_model::diagnostic::BoundaryClass::Infrastructure
-                        | pse_model::diagnostic::BoundaryClass::Internal
-                        | pse_model::diagnostic::BoundaryClass::Cancelled
-                ) {
+                if super::diagnostics::admission_disposition(&error)
+                    != super::diagnostics::AdmissionDisposition::ScientificRefusal
+                {
                     return Err(error);
                 }
                 (
@@ -1192,7 +1201,13 @@ impl Runtime {
                     .clone();
                 let mut operation = lane
                     .preparation
-                    .prepare(&package, &definition.operation, &definition.binding, cancel)
+                    .prepare(
+                        &self.preparation_services(),
+                        &package,
+                        &definition.operation,
+                        &definition.binding,
+                        cancel,
+                    )
                     .await?;
                 if operation.seed_need() != definition.policy.seed_need {
                     return Err(contract(
@@ -1382,7 +1397,7 @@ impl Runtime {
                 };
                 let deadline = std::time::Instant::now()
                     .checked_add(input.original.solve.time_limit())
-                    .ok_or_else(|| contract("prediction deadline extent"))?;
+                    .ok_or_else(|| crate::workflow::deadline_limit("prediction deadline extent"))?;
                 let scope = input.original.solve.task_scope().unwrap_or_else(|| {
                     pse_kernels::ExecutionScope::new(
                         pse_diagnostics::Cancellation::default(),
@@ -1537,6 +1552,7 @@ impl Runtime {
         .0;
         if descriptor == template.operation
             && let Some(sample) = rebind_prediction_source(
+                &self.preparation_services(),
                 package,
                 &template.original,
                 &definition.binding,
@@ -1556,7 +1572,12 @@ impl Runtime {
             return Ok(Some(sample));
         }
         let operation = package
-            .prepare_bound_operation(&definition.operation, &definition.binding, cancel)
+            .prepare_bound_operation(
+                &self.preparation_services(),
+                &definition.operation,
+                &definition.binding,
+                cancel,
+            )
             .await?;
         let super::PreparedStudyOperation::DeclaredCase(source) = operation else {
             return Err(contract("prediction source is not an original case"));
@@ -1574,7 +1595,7 @@ impl Runtime {
         }
         Ok(Some(super::modeling::results::PredictionSample {
             prepared: *source,
-            runtime: self.clone(),
+            services: self.preparation_services(),
             point: portable,
             _projection_owner: None,
             root: Err(pse_backend_native::square_response::Withheld::Neighborhood(
@@ -1838,7 +1859,7 @@ impl Runtime {
                     }
                     let batch = super::study_tables::export::<
                         pse_model::generated::runtime::study_outcomes::Row,
-                    >(self, rows)?;
+                    >(&self.preparation_services(), rows)?;
                     let columns = batch.batch().num_columns() as u64;
                     let base = offset;
                     offset += batch.batch().num_rows() as u64;
@@ -2135,8 +2156,17 @@ tokio::task_local! {
 /// A durable study's exact canonical selection.
 #[derive(Clone, Debug)]
 pub struct StudyHandle {
-    pub(super) runtime: Runtime,
+    pub(super) services: super::ExecutionServices,
     pub(super) study_id: StudyId,
+}
+impl super::ExecutionServices {
+    /// Select one original canonical study under these explicit execution services.
+    pub fn study(&self, study_id: StudyId) -> StudyHandle {
+        StudyHandle {
+            services: self.clone(),
+            study_id,
+        }
+    }
 }
 impl StudyHandle {
     /// Stable requested study identity.
@@ -2145,11 +2175,15 @@ impl StudyHandle {
     }
     /// Metadata and compact occurrence outcomes, fetched only on explicit request.
     pub async fn status(&self) -> Result<StudyStatus, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = self.services.preparation().admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("study.request");
-                let store = self.runtime.canonical_store()?;
+                let store = self
+                    .services
+                    .publication()
+                    .ok_or(WorkflowError::RecordingUnavailable)?
+                    .store();
                 let study = store
                     .canonical_study(&self.study_id.to_string())
                     .await?
@@ -2197,11 +2231,15 @@ impl StudyHandle {
     /// Revoke study claims and every assigned writer through one guarded header;
     /// native renewal and ingestion observe this cancellation immediately.
     pub async fn cancel(&self) -> Result<StudyCancel, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = self.services.preparation().admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("study.request");
-                let store = self.runtime.canonical_store()?;
+                let store = self
+                    .services
+                    .publication()
+                    .ok_or(WorkflowError::RecordingUnavailable)?
+                    .store();
                 let key = self.study_id.to_string();
                 let old = store
                     .canonical_study(&key)
@@ -2227,11 +2265,15 @@ impl StudyHandle {
     pub(in crate::workflow) async fn terminal_inventory(
         &self,
     ) -> Result<Option<TerminalStudyInventory>, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = self.services.preparation().admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("study.request");
-                let store = self.runtime.canonical_store()?;
+                let store = self
+                    .services
+                    .publication()
+                    .ok_or(WorkflowError::RecordingUnavailable)?
+                    .store();
                 let study = store
                     .canonical_study_summary(&self.study_id.to_string())
                     .await?
@@ -2269,14 +2311,14 @@ impl StudyHandle {
                     })
                     .ok_or_else(|| contract("study point extent"))?;
                 let base_owner = self
-                    .runtime
-                    .shared
+                    .services
+                    .preparation()
                     .math()
                     .reserve("study:retained-occurrence-summaries", bytes)?;
                 let mut owners = Vec::with_capacity(owner_count);
                 owners.push(base_owner);
                 // A response and its decoded page coexist only during this realization.
-                let _page_owner = self.runtime.shared.math().reserve(
+                let _page_owner = self.services.preparation().math().reserve(
                     "study:occurrence-page",
                     pse_operations::canonical::MESSAGE_BYTES * 4,
                 )?;
@@ -2308,8 +2350,8 @@ impl StudyHandle {
                         .ok_or_else(|| contract("study point extent"))
                     })?;
                     owners.push(
-                        self.runtime
-                            .shared
+                        self.services
+                            .preparation()
                             .math()
                             .reserve("study:retained-occurrence-page", extent)?,
                     );
@@ -2373,7 +2415,7 @@ impl StudyHandle {
     }
     /// Sealed canonical handles; incomplete private staging is never returned as a result.
     pub async fn result(&self) -> Result<Option<StudyResults>, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = self.services.preparation().admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("study.request");
@@ -2390,8 +2432,8 @@ impl StudyHandle {
                     .checked_mul(size_of::<(u32, String, Option<String>)>())
                     .ok_or_else(|| contract("study result extent"))?;
                 let projection_owner = self
-                    .runtime
-                    .shared
+                    .services
+                    .preparation()
                     .math()
                     .reserve("study:terminal-results", projection_bytes)?;
                 let owners: Vec<Arc<dyn pse_columnar::PayloadOwner>> =
@@ -2411,7 +2453,7 @@ impl StudyHandle {
     }
     /// Wait for retained finalization, with optional managed workers continuing dispatch.
     pub async fn wait(&self, poll: Duration) -> Result<StudyResults, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = self.services.preparation().admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("study.request");
@@ -2538,10 +2580,13 @@ impl LocalStudy {
     /// Execute with the retained model and physical context, independent of store setup.
     pub async fn execute(
         &self,
+        services: &super::ExecutionServices,
         maximum_points: usize,
         cancel: &crate::CancelSource,
     ) -> Result<super::StudyReport, WorkflowError> {
-        self.package.study(self, maximum_points, cancel).await
+        self.package
+            .study(services, self, maximum_points, cancel)
+            .await
     }
 }
 
@@ -2677,28 +2722,24 @@ impl super::ModelingPackage {
     /// No canonical store is initialized or contacted.
     pub async fn admit_study(
         &self,
+        services: &super::ExecutionServices,
         inputs: &super::StudyInputs,
         output: &super::StudyOutputDemand,
         cancel: &crate::CancelSource,
     ) -> Result<LocalStudy, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
-                // Local admission owns execution placement as well as scientific inputs.
-                // Family preparations embed this Runtime, so projecting only at dispatch
-                // would still let simulations/fitting/horizons create durable attempts.
-                let mut package = self.clone();
-                package.runtime = package
-                    .runtime
-                    .clone()
-                    .with_durability(super::DurabilitySelection::Ephemeral)?;
+                let package = self.clone();
                 let science = match inputs {
                     super::StudyInputs::Explicit(points) => {
-                        package.admit_study_points(points, output, cancel).await?
+                        package
+                            .admit_study_points(services.preparation(), points, output, cancel)
+                            .await?
                     }
                     super::StudyInputs::Lazy(variants) => {
                         creation_checkpoint(cancel)?;
-                        output.validate(&package.runtime)?;
+                        output.validate(services.preparation())?;
                         variants.check_parent(&package)?;
                         let mut retained = variants.as_ref().clone();
                         retained.retain_parent(package.source_attribution());
@@ -2718,15 +2759,17 @@ impl super::ModelingPackage {
     }
     pub(in crate::workflow) async fn admit_one_study_point(
         &self,
+        services: &super::PreparationServices,
         point: &StudyPoint,
         output: &super::StudyOutputDemand,
         cancel: &crate::CancelSource,
     ) -> Result<StudyPointDefinition, WorkflowError> {
-        self.admit_one_study_point_reusing(point, output, &mut None, cancel)
+        self.admit_one_study_point_reusing(services, point, output, &mut None, cancel)
             .await
     }
     async fn admit_one_study_point_reusing(
         &self,
+        services: &super::PreparationServices,
         point: &StudyPoint,
         output: &super::StudyOutputDemand,
         admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
@@ -2752,9 +2795,11 @@ impl super::ModelingPackage {
             }
             pse_model::study::StartPolicy::Fresh => {}
         }
-        operation.admit_horizon_values(self, cancel).await?;
+        operation
+            .admit_horizon_values(services, self, cancel)
+            .await?;
         let (binding, seed_need) = self
-            .admit_operation_overlay(&operation, &point.overlay, admission, cancel)
+            .admit_operation_overlay(services, &operation, &point.overlay, admission, cancel)
             .await?;
         let policy = PointPolicy {
             key: point.policy.key,
@@ -2773,15 +2818,16 @@ impl super::ModelingPackage {
     /// Admit operations and physical bindings before either executor schedules an occurrence.
     pub(in crate::workflow) async fn admit_study_points(
         &self,
+        services: &super::PreparationServices,
         points: &[StudyPoint],
         output: &super::StudyOutputDemand,
         cancel: &crate::CancelSource,
     ) -> Result<AdmittedStudy, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("study.request");
-                output.validate(&self.runtime)?;
+                output.validate(services)?;
                 if points.is_empty() {
                     return Err(WorkflowError::Typed(
                         pse_model::diagnostic::DiagnosticCause::new(
@@ -2812,8 +2858,14 @@ impl super::ModelingPackage {
                 let mut admission = None;
                 for point in points {
                     admitted.push(
-                        self.admit_one_study_point_reusing(point, output, &mut admission, cancel)
-                            .await?,
+                        self.admit_one_study_point_reusing(
+                            services,
+                            point,
+                            output,
+                            &mut admission,
+                            cancel,
+                        )
+                        .await?,
                     );
                 }
                 drop(admission);

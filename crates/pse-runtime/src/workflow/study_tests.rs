@@ -83,7 +83,10 @@ async fn admitted(
         )
         .await
         .unwrap();
-    let declarations = package.declarations().await.unwrap();
+    let declarations = package
+        .declarations(&runtime.preparation_services())
+        .await
+        .unwrap();
     let find = |name: &str| {
         declarations
             .iter()
@@ -94,6 +97,7 @@ async fn admitted(
     let points = points(find("Root"), find("Failed"), find("Fixed"));
     let definition = package
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Explicit(points.to_vec()),
             &StudyOutputDemand::Full {},
             &cancel,
@@ -242,7 +246,7 @@ async fn canonical_same_runtime_concurrent_claims_preserve_distinct_native_publi
         .await
         .unwrap();
     let root = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -258,6 +262,7 @@ async fn canonical_same_runtime_concurrent_claims_preserve_distinct_native_publi
         operation.settings.intent = pse_backend_native::solve::SolveIntent::Optimize;
         let local = package
             .admit_study(
+                &runtime.execution_services(),
                 &StudyInputs::Explicit(vec![requested]),
                 &StudyOutputDemand::Full {},
                 &cancel,
@@ -1292,7 +1297,12 @@ async fn related_case_study_uses_secant_then_original_correction() {
     let runtime = tests::runtime_with_workspace(64 << 20);
     let (package, definition) = related_definition(&runtime).await;
     let study = package
-        .study(&definition, 3, &crate::CancelSource::new())
+        .study(
+            &runtime.execution_services(),
+            &definition,
+            3,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     assert!(
@@ -1391,7 +1401,7 @@ async fn related_definition_with_primal_accuracy(
         .await
         .unwrap();
     let root = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -1408,6 +1418,7 @@ async fn related_definition_with_primal_accuracy(
         let before_views = runtime.shared.math().preparations().views;
         let model = package
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -1533,6 +1544,7 @@ async fn related_definition_with_primal_accuracy(
     }
     let definition = package
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Explicit(points.to_vec()),
             &StudyOutputDemand::Full {},
             &cancel,
@@ -1733,6 +1745,7 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
     let mut lane = study_operations::StudyPreparationLane::new();
     let prepared = lane
         .prepare(
+            &runtime.preparation_services(),
             &package,
             &definition.points[0].operation,
             &definition.points[0].binding,
@@ -1741,7 +1754,7 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
         .await
         .unwrap();
     let original = prepared
-        .start(&runtime, &cancel)
+        .start(&runtime.execution_services(), &cancel)
         .await
         .unwrap()
         .wait()
@@ -1828,6 +1841,7 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
         };
         definition = package
             .admit_study(
+                &runtime.execution_services(),
                 &StudyInputs::Lazy(Box::new(StudyVariants {
                     version: pse_model::document::Version,
                     source: OperationSource::of(&package),
@@ -2486,6 +2500,7 @@ async fn explicit_recording_preserves_exact_retained_sources_and_lazy_selection_
     };
     let local = package
         .admit_study(
+            &local_runtime.execution_services(),
             &StudyInputs::Lazy(Box::new(StudyVariants {
                 version: pse_model::document::Version,
                 source: OperationSource::of(&package),
@@ -2867,7 +2882,10 @@ async fn parallel_study_definition(
         )
         .await
         .unwrap();
-    let rows = package.declarations().await.unwrap();
+    let rows = package
+        .declarations(&runtime.preparation_services())
+        .await
+        .unwrap();
     let root = rows
         .iter()
         .find(|row| row.name == "Root")
@@ -2898,6 +2916,7 @@ async fn parallel_study_definition(
         .collect::<Vec<_>>();
     let definition = package
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Explicit(points.to_vec()),
             &StudyOutputDemand::Full {},
             &cancel,
@@ -3012,9 +3031,10 @@ async fn ephemeral_study_sixteen_native_lanes_reuse_capacity_and_keep_equal_occu
     let _drain = StudyProbeDrain(probe.clone());
     let observer = probe.clone();
     let cancel = crate::CancelSource::new();
+    let services = runtime.execution_services();
     let run = crate::math::observed_native_task_entry(
         Arc::new(move |flag| observer.enter(flag)),
-        package.study(&definition, 20, &cancel),
+        package.study(&services, &definition, 20, &cancel),
     );
     let controls = async {
         probe
@@ -3081,9 +3101,10 @@ async fn ephemeral_study_cancellation_drains_sixteen_issued_lanes_without_starti
     let _drain = StudyProbeDrain(probe.clone());
     let observer = probe.clone();
     let cancel = crate::CancelSource::new();
+    let services = runtime.execution_services();
     let run = crate::math::observed_native_task_entry(
         Arc::new(move |flag| observer.enter(flag)),
-        package.study(&definition, 20, &cancel),
+        package.study(&services, &definition, 20, &cancel),
     );
     let controls = async {
         probe
@@ -3121,7 +3142,12 @@ async fn ephemeral_study_numerical_failpoint_preserves_independent_scientific_re
     let runtime = parallel_study_runtime();
     let (package, definition) = parallel_study_definition(&runtime, 17, Some(5)).await;
     let report = package
-        .study(&definition, 17, &crate::CancelSource::new())
+        .study(
+            &runtime.execution_services(),
+            &definition,
+            17,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     assert!(!report.outcomes[5].scientific.usable);
@@ -3159,7 +3185,12 @@ async fn ephemeral_study_continuation_reuses_one_private_native_session() {
         Arc::new(move |_| {
             observed.lock().unwrap().insert(std::thread::current().id());
         }),
-        package.study(&definition, 3, &crate::CancelSource::new()),
+        package.study(
+            &runtime.execution_services(),
+            &definition,
+            3,
+            &crate::CancelSource::new(),
+        ),
     )
     .await
     .unwrap();
@@ -3242,6 +3273,7 @@ async fn ephemeral_study_continuation_reuses_one_private_native_session() {
         "the point must carry the same resolved numeric policy"
     );
     let rebound = study::rebind_prediction_source(
+        &runtime.preparation_services(),
         &package,
         target,
         &definition.points[0].binding,
@@ -3378,7 +3410,12 @@ async fn ephemeral_study_single_population_slot_lends_preparation_and_completes(
             Arc::new(move |_| {
                 observer.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }),
-            package.study(&definition, 3, &crate::CancelSource::new()),
+            package.study(
+                &runtime.execution_services(),
+                &definition,
+                3,
+                &crate::CancelSource::new(),
+            ),
         )),
     )
     .await
@@ -5107,7 +5144,10 @@ async fn ephemeral_study_complete_kinsol_blocks_seed_original_eight_point_contin
         )
         .await
         .unwrap();
-    let declarations = package.declarations().await.unwrap();
+    let declarations = package
+        .declarations(&runtime.preparation_services())
+        .await
+        .unwrap();
     let root = declarations
         .iter()
         .find(|row| row.name == "Root")
@@ -5171,13 +5211,17 @@ async fn ephemeral_study_complete_kinsol_blocks_seed_original_eight_point_contin
     }
     let definition = package
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Explicit(points.to_vec()),
             &StudyOutputDemand::Full {},
             &cancel,
         )
         .await
         .unwrap();
-    let study = package.study(&definition, 8, &cancel).await.unwrap();
+    let study = package
+        .study(&runtime.execution_services(), &definition, 8, &cancel)
+        .await
+        .unwrap();
     let mut identities = std::collections::BTreeSet::new();
     for (index, (outcome, expected)) in study.outcomes.iter().zip(VALUES).enumerate() {
         assert_eq!(outcome.key, OccurrenceKey(index as u32));
@@ -5244,13 +5288,17 @@ async fn ephemeral_study_complete_kinsol_blocks_seed_original_eight_point_contin
     operation.settings.backend = Some(pse_backend_native::solve::Backend::Kinsol);
     let fixed_definition = package
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Explicit([fixed_point].to_vec()),
             &StudyOutputDemand::Full {},
             &cancel,
         )
         .await
         .unwrap();
-    let fixed = package.study(&fixed_definition, 1, &cancel).await.unwrap();
+    let fixed = package
+        .study(&runtime.execution_services(), &fixed_definition, 1, &cancel)
+        .await
+        .unwrap();
     assert!(fixed.outcomes[0].scientific.usable);
     let RunReport::Modeling(reports) = fixed.results[0].as_ref().unwrap().report().unwrap() else {
         panic!("modeling")
@@ -5284,7 +5332,7 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
         .await
         .unwrap();
     let root = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -5299,6 +5347,7 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     operation.settings.presolve = pse_backend_native::presolve::PolicyKind::Off;
     let definition = package
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Explicit([requested].to_vec()),
             &StudyOutputDemand::Full {},
             &cancel,
@@ -5307,13 +5356,13 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
         .unwrap();
     let PreparedStudyOperation::DeclaredCase(prepared) = definition.points[0]
         .operation
-        .prepare(&package, &cancel)
+        .prepare(&runtime.preparation_services(), &package, &cancel)
         .await
         .unwrap()
     else {
         panic!("declared root")
     };
-    let mut staged = staged::Staged::open(&runtime, None).unwrap();
+    let mut staged = staged::Staged::open(&runtime.execution_services(), None).unwrap();
     let run_id = pse_operations::mint_id();
     // Actual completion-owner attempt3, with64 native components. Neither the
     // study occurrence ordinal0 nor any component position defines provenance.
@@ -5380,7 +5429,7 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
 
     let previous = RunResult::joined(
         run_id,
-        runtime.clone(),
+        runtime.execution_services(),
         RunOutcome::Modeling {
             request: vec![*prepared.clone()],
             result: Ok(vec![completed.clone()]),
@@ -5403,10 +5452,15 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     let before = pool.reserved();
     let refused =
         study_execution::minimal_continuation(&previous, continuation_owner.clone()).unwrap();
-    let error =
-        study_execution::continuation_start(&package, &mut target, Some(&refused), None, &cancel)
-            .await
-            .unwrap_err();
+    let error = study_execution::continuation_start(
+        &runtime.preparation_services(),
+        &mut target,
+        Some(&refused),
+        None,
+        &cancel,
+    )
+    .await
+    .unwrap_err();
     drop(refused);
     assert_eq!(
         error.boundary_diagnostic().rule,
@@ -5422,9 +5476,15 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     let before = pool.reserved();
     let admitted =
         study_execution::minimal_continuation(&previous, continuation_owner.clone()).unwrap();
-    study_execution::continuation_start(&package, &mut target, Some(&admitted), None, &cancel)
-        .await
-        .unwrap();
+    study_execution::continuation_start(
+        &runtime.preparation_services(),
+        &mut target,
+        Some(&admitted),
+        None,
+        &cancel,
+    )
+    .await
+    .unwrap();
     drop(admitted);
     assert!(
         target.stored_seed_owner.is_some(),
@@ -5492,7 +5552,7 @@ async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head()
     let runtime = durable_runtime();
     let (package, _) = related_definition(&runtime).await;
     let fixed = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -5538,6 +5598,7 @@ async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head()
     let before = runtime.shared.math().preparations().views;
     let definition = package
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Lazy(Box::new(variants)),
             &StudyOutputDemand::Full {},
             &cancel,
@@ -5711,6 +5772,7 @@ async fn lazy_study_cancellation_and_summary_do_not_construct_unattempted_scienc
     let cancel = crate::CancelSource::new();
     let definition = package
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Lazy(Box::new(variants)),
             &StudyOutputDemand::Full {},
             &cancel,
@@ -5809,7 +5871,7 @@ async fn project_context_recorded_study_keeps_original_source_after_backdated_co
         .await
         .unwrap();
     let fixed = selected
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -5822,6 +5884,7 @@ async fn project_context_recorded_study_keeps_original_source_after_backdated_co
     }
     let local = selected
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Explicit(vec![requested.clone()]),
             &StudyOutputDemand::Full {},
             &cancel,
@@ -5881,6 +5944,7 @@ async fn project_context_recorded_study_keeps_original_source_after_backdated_co
         .unwrap();
     let other_local = other_package
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Explicit(vec![requested]),
             &StudyOutputDemand::Full {},
             &cancel,

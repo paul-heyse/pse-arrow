@@ -252,9 +252,10 @@ class DiagnosticTests(unittest.TestCase):
         self.assertNotIn("recovery", native_worker.scientific_error(cycle))
 
 
-
 class NativeFailureRemedyTests(unittest.TestCase):
-    def test_remedies_follow_typed_boundary_class_instead_of_exception_prose(self) -> None:
+    def test_remedies_follow_typed_boundary_class_instead_of_exception_prose(
+        self,
+    ) -> None:
         for boundary_class, expected in [
             ("resource_limit", "resource, effort and deadline"),
             ("cancelled", "work has drained"),
@@ -271,7 +272,9 @@ class NativeFailureRemedyTests(unittest.TestCase):
             self.assertNotIn("secret", json.dumps(value))
             self.assertNotIn("forged-operation", json.dumps(value))
 
-    def test_typed_effects_and_integrity_are_allowlisted_without_private_observation_text(self) -> None:
+    def test_typed_effects_and_integrity_are_allowlisted_without_private_observation_text(
+        self,
+    ) -> None:
         report = DiagnosticTests.report(
             boundary_class="infrastructure",
             source_problem="original-problem",
@@ -285,11 +288,18 @@ class NativeFailureRemedyTests(unittest.TestCase):
         value = native_worker.scientific_error(DiagnosticTests.error(report))
         self.assertEqual(value["admission_effect"], "unresolved_publication")
         self.assertTrue(value["integrity_failure"])
-        self.assertIn("Read back the original publication occurrence", text(value["remedy"]))
+        self.assertIn(
+            "Read back the original publication occurrence", text(value["remedy"])
+        )
         self.assertIn("original-operation", json.dumps(value["recovery"]))
         self.assertNotIn("secret", json.dumps(value))
-        report.observations["admission_effect"] = SimpleNamespace(value="secret forged effect")
-        self.assertNotIn("admission_effect", native_worker.scientific_error(DiagnosticTests.error(report)))
+        report.observations["admission_effect"] = SimpleNamespace(
+            value="secret forged effect"
+        )
+        self.assertNotIn(
+            "admission_effect",
+            native_worker.scientific_error(DiagnosticTests.error(report)),
+        )
 
 
 if __name__ == "__main__":

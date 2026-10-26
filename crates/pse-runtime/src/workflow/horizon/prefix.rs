@@ -3,7 +3,7 @@
 //! Original completion accumulation and bounded, conditional detail retention.
 #[cfg(feature = "solver-diffsol")]
 use crate::workflow::{
-    self, Completion, ModelingSolvePreparation, RunResult, Runtime, StudyOutputDemand,
+    self, Completion, ModelingSolvePreparation, PreparationServices, RunResult, StudyOutputDemand,
     WorkflowError, contract,
 };
 use pse_ids::SemanticId;
@@ -38,18 +38,18 @@ struct SelectedDetail {
 }
 #[cfg(feature = "solver-diffsol")]
 impl SelectedDetail {
-    fn new(runtime: &Runtime, demand: &workflow::StudyDetailDemand) -> Result<Self, WorkflowError> {
+    fn new(
+        services: &PreparationServices,
+        demand: &workflow::StudyDetailDemand,
+    ) -> Result<Self, WorkflowError> {
         let bytes = (demand.maximum_rows as usize)
             .checked_mul(size_of::<FieldCheckedBatch>() + 128)
             .and_then(|bytes| bytes.checked_add(demand.relation_names().count().checked_mul(1024)?))
             .ok_or_else(|| contract("horizon selected detail envelope extent"))?;
-        let owner = runtime
-            .shared
-            .math()
-            .reserve("horizon:selected-detail", bytes)?;
+        let owner = services.math().reserve("horizon:selected-detail", bytes)?;
         let mut chunks = BTreeMap::new();
         for name in demand.relation_names().collect::<BTreeSet<_>>() {
-            let id = runtime
+            let id = services
                 .registry()
                 .relation(name)
                 .ok_or_else(|| contract("horizon detail relation absent"))?
@@ -66,7 +66,8 @@ impl SelectedDetail {
     async fn append(&mut self, result: &RunResult) -> Result<(), WorkflowError> {
         for name in self.demand.relation_names().collect::<BTreeSet<_>>() {
             let id = result
-                .runtime
+                .services
+                .preparation()
                 .registry()
                 .relation(name)
                 .ok_or_else(|| contract("horizon detail relation absent"))?
@@ -74,9 +75,12 @@ impl SelectedDetail {
             let cursor = result
                 .cursor_by_id(id, 1024, workflow::ResultOrder::Canonical)
                 .map_err(WorkflowError::Shared)?;
-            let mut cursor =
-                self.demand
-                    .select_cursor(name, id, cursor, result.runtime.shared.pool())?;
+            let mut cursor = self.demand.select_cursor(
+                name,
+                id,
+                cursor,
+                result.services.preparation().pool(),
+            )?;
             while let Some(batch) = cursor.next_batch().await.map_err(WorkflowError::Shared)? {
                 if batch.batch().num_rows() == 0 {
                     continue;
@@ -142,7 +146,7 @@ pub(super) struct OriginalHistory {
 #[cfg(feature = "solver-diffsol")]
 impl OriginalHistory {
     pub(super) fn new(
-        runtime: &Runtime,
+        services: &PreparationServices,
         demand: &StudyOutputDemand,
     ) -> Result<Self, WorkflowError> {
         let (success, failed) = match demand {
@@ -151,12 +155,11 @@ impl OriginalHistory {
                 detail,
                 failed_detail,
             } => (
-                Some(SelectedDetail::new(runtime, detail)?),
-                Some(SelectedDetail::new(runtime, failed_detail)?),
+                Some(SelectedDetail::new(services, detail)?),
+                Some(SelectedDetail::new(services, failed_detail)?),
             ),
         };
-        let owner = runtime
-            .shared
+        let owner = services
             .math()
             .reserve("horizon:summary-membership", 64 * 1024)?;
         let summaries = summary_ids()
@@ -185,7 +188,7 @@ impl OriginalHistory {
     /// report envelope BEFORE dispatch. Post-science ingestion moves rows only.
     pub(super) fn admit_step(
         &mut self,
-        runtime: &Runtime,
+        services: &PreparationServices,
         prepared: &ModelingSolvePreparation,
     ) -> Result<(), WorkflowError> {
         if self.admitted_goals.is_some() {
@@ -226,12 +229,10 @@ impl OriginalHistory {
                         )
                         .ok_or_else(|| contract("horizon original tightening extent"))
                 })?;
-        let owner = runtime
-            .shared
+        let owner = services
             .math()
             .reserve("horizon:original-completion-before-science", bytes)?;
-        let descriptor_owner = runtime
-            .shared
+        let descriptor_owner = services
             .math()
             .reserve("horizon:original-tightening-descriptors", descriptor_bytes)?;
         let capacity_before = self.capacity_bytes()?;
@@ -336,8 +337,8 @@ impl OriginalHistory {
                             .checked_add(size_of::<FieldCheckedBatch>() + 128)
                             .ok_or_else(|| contract("horizon summary retention extent"))?;
                         let owner = result
-                            .runtime
-                            .shared
+                            .services
+                            .preparation()
                             .math()
                             .reserve("horizon:original-summary", bytes)?;
                         entry.push(batch.with_export_owner(owner));
@@ -573,12 +574,12 @@ fn completion_retained_extent(
 /// Shared mathematical/native owners continue carrying their original allocations.
 #[cfg(feature = "solver-diffsol")]
 pub(super) fn preparation_copy_owner(
-    runtime: &Runtime,
+    services: &PreparationServices,
     prepared: &ModelingSolvePreparation,
 ) -> Result<Vec<Arc<pse_columnar::AllocationLease>>, WorkflowError> {
     let mut owners = Vec::with_capacity(prepared.providers.len() + 2);
     owners.push(workflow::durable::completion_retention_owner(
-        &runtime.shared.pool(),
+        &services.pool(),
         &(
             &prepared.starts,
             &prepared.model.values.scalars,
@@ -601,7 +602,7 @@ pub(super) fn preparation_copy_owner(
                     )
                     .ok_or_else(|| contract("horizon tightening copy extent"))
             })?;
-    owners.push(runtime.shared.math().reserve(
+    owners.push(services.math().reserve(
         "horizon:preparation-copy-envelope",
         size_of::<ModelingSolvePreparation>()
             + prepared.providers.len() * (size_of::<pse_kernels::Registration>() + 128)
@@ -627,19 +628,14 @@ pub(super) fn preparation_copy_owner(
                 )
                 .ok_or_else(|| contract("horizon provider shape copy extent"))?;
         }
-        owners.push(
-            runtime
-                .shared
-                .math()
-                .reserve("horizon:provider-copy", bytes)?,
-        );
+        owners.push(services.math().reserve("horizon:provider-copy", bytes)?);
     }
     Ok(owners)
 }
 
 #[cfg(feature = "solver-diffsol")]
 pub(super) fn step_copy_owner(
-    runtime: &Runtime,
+    services: &PreparationServices,
     measured: &[f64],
     applied: &[f64],
     reached: &[f64],
@@ -656,7 +652,7 @@ pub(super) fn step_copy_owner(
                 + activity.prediction.step.len())
                 * size_of::<f64>()
     });
-    Ok(runtime.shared.math().reserve(
+    Ok(services.math().reserve(
         "horizon:full-sample-history",
         bytes
             .checked_add(activity)

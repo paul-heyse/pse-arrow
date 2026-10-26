@@ -706,7 +706,7 @@ async fn submit_single(
 ) {
     let (package, _) = package(shared, local, &physical, &modeling).await;
     let case = package
-        .declarations()
+        .declarations(&local.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -825,7 +825,7 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
     };
     let (package, _) = package(&shared, &local, &physical, &modeling).await;
     let case = package
-        .declarations()
+        .declarations(&local.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -1023,7 +1023,8 @@ async fn worker_runs_authored_case_end_to_end() {
         .expect("actual managed worker publishes its own attempt-linked checkpoint");
     // drain_worker has reaped this exact child; this is its owned diagnostic file only.
     std::fs::remove_file(owned).unwrap();
-    stored_seed_reused_across_processes(&operations, &package, case, &point.run, attempt).await;
+    stored_seed_reused_across_processes(&local, &operations, &package, case, &point.run, attempt)
+        .await;
     drop(progress);
     drop(handle);
     drop(package);
@@ -1209,6 +1210,7 @@ async fn durable_worker_round_trips_a_package_with_a_data_document() {
 }
 
 async fn stored_seed_reused_across_processes(
+    local: &Runtime,
     operations: &Operations,
     package: &ModelingPackage,
     case: pse_model::generated::identities::DeclarationId,
@@ -1229,6 +1231,7 @@ async fn stored_seed_reused_across_processes(
     assert_eq!(stored.run, run);
     let analysis = package
         .declared_execution(
+            &local.preparation_services(),
             case,
             Default::default(),
             settings().profile().unwrap(),
@@ -1238,7 +1241,10 @@ async fn stored_seed_reused_across_processes(
         )
         .await
         .unwrap();
-    let prepared = package.prepare_declared(&analysis, &cancel).await.unwrap();
+    let prepared = package
+        .prepare_declared(&local.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     let seeded = prepared
         .with_stored_start(operations, StoredStart::Solution(solution))
         .await
@@ -1246,7 +1252,12 @@ async fn stored_seed_reused_across_processes(
     assert!(seeded.starts.values().any(
         |source| matches!(source,StartSource::Stored{solution:actual} if *actual==solution.as_id())
     ));
-    let result = seeded.start().unwrap().wait().await.unwrap();
+    let result = seeded
+        .start(&local.execution_services())
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
     assert!(result.usable());
     let RunReport::Modeling(steps) = result.report().unwrap() else {
         panic!("original model expected")
@@ -1267,10 +1278,10 @@ async fn stored_seed_reused_across_processes(
         stored.layout
     );
     let plain = package
-        .prepare_declared(&analysis, &cancel)
+        .prepare_declared(&local.preparation_services(), &analysis, &cancel)
         .await
         .unwrap()
-        .start()
+        .start(&local.execution_services())
         .unwrap()
         .wait()
         .await
@@ -1551,7 +1562,7 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
     let (physical, modeling) = sources_of(PARAMETRIC);
     let (package, context) = package(&shared, &local, &physical, &modeling).await;
     let case = package
-        .declarations()
+        .declarations(&local.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -1573,8 +1584,8 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
                         ((index + 2) * (index + 2)) as f64,
                     )
                     .unwrap(),
-                    quantity: scalar.id.as_id(),
-                    unit: scalar.canonical_unit.as_id(),
+                    quantity: scalar.id,
+                    unit: scalar.canonical_unit,
                 },
             });
             point

@@ -36,13 +36,14 @@ async fn original(text: &str) -> (crate::workflow::Runtime, PreparedSolve) {
     let mut profile = SolverProfile {
         intent: SolveIntent::Root,
         selection: SolverSelection::Explicit(Backend::Petsc),
-        backend: BackendSettings::Petsc(native_petsc::Settings::default()),
+        backend: BackendSettings::Petsc(native::settings::petsc::DirectSettings::default()),
         ..Default::default()
     };
     profile.numerics.native_scaling = false;
     profile.controls.foreign_bytes = Some(1 << 20);
     let prepared = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             pse_modeling::Bindings::default(),
@@ -79,11 +80,7 @@ fn mass(source: &PreparedPetscSource) -> Arc<dyn PetscMassFactory> {
 }
 fn flow_profile(source: &PreparedPetscSource) -> SolverProfile {
     let mut profile = source.original.profile.clone();
-    profile.backend = BackendSettings::Petsc(native_petsc::Settings {
-        method: native_petsc::Method::PseudoTransient,
-        pseudo: Some(Default::default()),
-        ..Default::default()
-    });
+    profile.backend = BackendSettings::Petsc(native::settings::petsc::DirectSettings::default());
     profile
 }
 fn execute(service: &Arc<MathService>, prepared: &PreparedPetsc, point: &[f64]) -> DerivedAttempt {
@@ -148,6 +145,11 @@ async fn compiled_flow_keeps_original_offsets_scope_and_auxiliary_role() {
         .prepare_petsc_flow(
             source,
             profile,
+            native_petsc::Settings {
+                method: native_petsc::Method::PseudoTransient,
+                pseudo: Some(Default::default()),
+                ..Default::default()
+            },
             PetscFlowDefinition {
                 domain: None,
                 mass: actions,
@@ -219,6 +221,11 @@ async fn compiled_original_guard_refuses_invalid_flow_initial_without_proposal()
         .prepare_petsc_flow(
             source.clone(),
             flow_profile(&source),
+            native_petsc::Settings {
+                method: native_petsc::Method::PseudoTransient,
+                pseudo: Some(Default::default()),
+                ..Default::default()
+            },
             PetscFlowDefinition {
                 domain: None,
                 mass: mass(&source),
@@ -302,5 +309,34 @@ async fn actual_compiled_guard_inventory_and_deadline_are_mandatory() {
             .prepare_petsc_source(original, guards, task, &crate::CancelSource::new())
             .await
             .is_err()
+    );
+}
+
+#[test]
+fn scientific_petsc_composition_identity_retains_internal_method_controls() {
+    let profile = SolverProfile {
+        backend: BackendSettings::Petsc(native::settings::petsc::DirectSettings::default()),
+        ..Default::default()
+    };
+    let mut settings = native_petsc::Settings {
+        method: native_petsc::Method::PseudoTransient,
+        pseudo: Some(Default::default()),
+        ..Default::default()
+    };
+    let baseline = composition_profile_key(&profile, &settings).unwrap();
+    settings.pseudo.as_mut().unwrap().growth = 1.25;
+    assert_ne!(
+        baseline,
+        composition_profile_key(&profile, &settings).unwrap()
+    );
+    settings.method = native_petsc::Method::NonlinearAdditiveSchwarz;
+    settings.pseudo = None;
+    settings.schwarz = Some(Default::default());
+    let schwarz = composition_profile_key(&profile, &settings).unwrap();
+    assert_ne!(baseline, schwarz);
+    settings.schwarz.as_mut().unwrap().damping = 0.5;
+    assert_ne!(
+        schwarz,
+        composition_profile_key(&profile, &settings).unwrap()
     );
 }

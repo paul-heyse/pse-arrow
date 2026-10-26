@@ -1731,11 +1731,16 @@ fn default_inventory_and_configured_capabilities_follow_selected_methods() {
     for adapter in LINKED.adapters().filter(|adapter| adapter.linked()) {
         assert_eq!(
             adapter.capability().row(adapter.backend()),
-            LINKED.capability_for(adapter.backend(), &BackendSettings::Default).unwrap(),
+            LINKED
+                .capability_for(adapter.backend(), &BackendSettings::Default)
+                .unwrap(),
             "default inventory must describe the default admitted method"
         );
     }
-    assert_eq!(adapter(Backend::Kinsol).capability().classes, &[ProblemClass::SquareRoot]);
+    assert_eq!(
+        adapter(Backend::Kinsol).capability().classes,
+        &[ProblemClass::SquareRoot]
+    );
     assert!(!adapter(Backend::Clarabel).capability().parallel);
     assert!(!adapter(Backend::Ipopt).capability().parallel);
     let clarabel = adapter(Backend::Clarabel);
@@ -1749,24 +1754,42 @@ fn default_inventory_and_configured_capabilities_follow_selected_methods() {
         assert!(clarabel.capability_for(&pardiso).is_err());
     }
     let scip = adapter(Backend::Scip);
-    for (exact, reoptimize, parallel) in [(false, false, true), (true, false, false), (false, true, false)] {
-        let settings = BackendSettings::Scip(ScipSettings { exact, reoptimize, ..Default::default() });
+    for (exact, reoptimize, parallel) in [
+        (false, false, true),
+        (true, false, false),
+        (false, true, false),
+    ] {
+        let settings = BackendSettings::Scip(ScipSettings {
+            exact,
+            reoptimize,
+            ..Default::default()
+        });
         assert_eq!(scip.capability_for(&settings).unwrap().parallel, parallel);
     }
-    assert!(scip.capability_for(&BackendSettings::Kinsol(Default::default())).is_err());
-    assert!(scip.capability_for(&BackendSettings::Scip(ScipSettings {
-        exact: true, reoptimize: true, ..Default::default()
-    })).is_err());
+    assert!(
+        scip.capability_for(&BackendSettings::Kinsol(Default::default()))
+            .is_err()
+    );
+    assert!(
+        scip.capability_for(&BackendSettings::Scip(ScipSettings {
+            exact: true,
+            reoptimize: true,
+            ..Default::default()
+        }))
+        .is_err()
+    );
 }
 
 #[test]
 fn dynamics_backend_attribution_requires_a_concrete_method() {
     use crate::dynamics::{Method, backend};
-    assert!(matches!(backend(Method::Auto), Err(ProblemError::Contract(_))));
+    assert!(matches!(
+        backend(Method::Auto),
+        Err(ProblemError::Contract(_))
+    ));
     assert_eq!(backend(Method::Diffsol).unwrap(), Backend::Diffsol);
     assert_eq!(backend(Method::Idas).unwrap(), Backend::Idas);
 }
-
 
 #[test]
 fn petsc_direct_document_refuses_composition_only_controls() {

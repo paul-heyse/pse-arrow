@@ -91,10 +91,14 @@ async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_retired_acquis
     let runtime = durable_runtime();
     let (package, analysis) = package_on(&runtime, LINEAR).await;
     let prepared = package
-        .prepare_analysis(&analysis, &crate::CancelSource::new())
+        .prepare_analysis(
+            &runtime.preparation_services(),
+            &analysis,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
-    let handle = prepared.start().unwrap();
+    let handle = prepared.start(&runtime.execution_services()).unwrap();
     let result = handle.wait().await.unwrap();
     assert!(result.usable(), "{:?}", result.report());
     let operations = runtime.operations().unwrap();
@@ -187,7 +191,7 @@ async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_retired_acquis
     let reused = target_preparation
         .with_admitted_start(&copied)
         .unwrap()
-        .start()
+        .start(&runtime.execution_services())
         .unwrap()
         .wait()
         .await
@@ -218,10 +222,14 @@ async fn canonical_durable_constant_completion_reopens_exact_manifest() {
     let runtime = durable_runtime();
     let (package,analysis)=package_on(&runtime,"package p { def Root { param x:Scalar=3; annotation report x(\"constant\"); annotation check x(x>0); } }").await;
     let prepared = package
-        .prepare_analysis(&analysis, &crate::CancelSource::new())
+        .prepare_analysis(
+            &runtime.preparation_services(),
+            &analysis,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
-    let handle = prepared.start().unwrap();
+    let handle = prepared.start(&runtime.execution_services()).unwrap();
     let run = handle.canonical_run_key().unwrap().to_owned();
     let attempt = handle.canonical_attempt_key().unwrap().to_owned();
     assert_eq!(attempt.len(), 64);
@@ -329,7 +337,11 @@ async fn canonical_registration_refusal_never_returns_success_or_fabricates_head
     )
     .await;
     let prepared = package
-        .prepare_analysis(&analysis, &crate::CancelSource::new())
+        .prepare_analysis(
+            &runtime.preparation_services(),
+            &analysis,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     // Refuse registration on the actual installed store, without bypassing composition.
@@ -339,7 +351,7 @@ async fn canonical_registration_refusal_never_returns_success_or_fabricates_head
     )
     .await
     .unwrap();
-    let handle = prepared.start().unwrap();
+    let handle = prepared.start(&runtime.execution_services()).unwrap();
     let run = handle.canonical_run_key().unwrap().to_owned();
     let result = handle.wait().await.unwrap();
     assert!(!result.usable());

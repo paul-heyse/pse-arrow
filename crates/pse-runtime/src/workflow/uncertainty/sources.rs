@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Hydration uses exact protected fit products, never a caller's run-id assertion.
 use super::{CovarianceOrigin, FitCovarianceRecord, ParameterCovariance};
-use crate::workflow::{Runtime, WorkflowError, contract, relation};
+use crate::workflow::{Runtime, SourceServices, WorkflowError, contract, relation};
 use pse_columnar::{AllocationLease, CancellationToken};
 use pse_model::scalars::FiniteBound;
 use pse_relations::{
@@ -14,7 +14,7 @@ use pse_relations::{
 };
 use std::sync::Arc;
 
-impl Runtime {
+impl SourceServices {
     async fn covariance_rows<T: RelationRow + Send + Sync>(
         &self,
         record: &FitCovarianceRecord,
@@ -44,7 +44,7 @@ impl Runtime {
                 .map_err(relation)?;
             let bytes = batch.batch().get_array_memory_size();
             let reservation = super::super::result_export::working(
-                &self.shared.pool(),
+                &self.preparation().pool(),
                 "uncertainty:fit-hydration-copy",
                 &[(bytes, 2), (batch.batch().num_rows(), 1024)],
             )?;
@@ -71,6 +71,19 @@ impl Runtime {
         record: FitCovarianceRecord,
         cancel: &CancellationToken,
     ) -> Result<ParameterCovariance, WorkflowError> {
+        let original = self.stored_completion(&record.run, &record.attempt).await?;
+        if !original
+            .completion
+            .as_ref()
+            .and_then(|completion| {
+                completion.product_permission(DerivedQuantity::ParameterCovariance)
+            })
+            .is_some_and(crate::workflow::ProductPermission::permits_result)
+        {
+            return Err(contract(
+                "the original fit completion withholds qualified covariance reuse",
+            ));
+        }
         let (mut covariance, covariance_owner) = self
             .covariance_rows::<parameter_covariances::Row>(
                 &record,
@@ -149,7 +162,12 @@ impl Runtime {
         Ok(input)
     }
 
-    pub(in crate::workflow) async fn reconcile_covariance(
+    /// Reconcile a decoded qualified-fit reference against its exact protected producer.
+    /// External covariance and existing content-verified local evidence keep their own admission.
+    ///
+    /// # Errors
+    /// Missing references, withheld producer permission, changed content and protected read failures refuse.
+    pub async fn reconcile_covariance(
         &self,
         input: &mut ParameterCovariance,
         cancel: &CancellationToken,
@@ -184,5 +202,26 @@ impl Runtime {
         }
         input.verified = actual.verified;
         Ok(())
+    }
+}
+
+impl Runtime {
+    /// Hydrate one exact canonical fit covariance through explicit source-read capabilities.
+    pub async fn fit_covariance(
+        &self,
+        record: FitCovarianceRecord,
+        cancel: &CancellationToken,
+    ) -> Result<ParameterCovariance, WorkflowError> {
+        self.source_services().fit_covariance(record, cancel).await
+    }
+    /// Reconcile decoded covariance against its exact protected original producer.
+    pub async fn reconcile_covariance(
+        &self,
+        input: &mut ParameterCovariance,
+        cancel: &CancellationToken,
+    ) -> Result<(), WorkflowError> {
+        self.source_services()
+            .reconcile_covariance(input, cancel)
+            .await
     }
 }

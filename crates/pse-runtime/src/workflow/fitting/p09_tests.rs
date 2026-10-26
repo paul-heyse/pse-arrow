@@ -37,17 +37,19 @@ fn objective_scale(problem: &FitProblem) -> f64 {
 /// until the evaluator and native thread have been destroyed and joined.
 pub(super) async fn with_admitted_fit_oracle(
     problem: Arc<FitProblem>,
+    math: Arc<MathService>,
     check: impl FnOnce(&mut FitOracle) + Send + 'static,
 ) {
-    with_admitted_fit_oracle_outcome(problem, check)
+    with_admitted_fit_oracle_outcome(problem, math, check)
         .await
         .unwrap();
 }
 async fn with_admitted_fit_oracle_outcome(
     problem: Arc<FitProblem>,
+    math: Arc<MathService>,
     check: impl FnOnce(&mut FitOracle) + Send + 'static,
 ) -> Result<(), crate::math::MathRuntimeError> {
-    let service = problem.runtime.native().clone();
+    let service = math.clone();
     let controls = problem.profile.solver.controls.clone();
     let deadline = std::time::Instant::now()
         .checked_add(controls.time_limit)
@@ -61,15 +63,8 @@ async fn with_admitted_fit_oracle_outcome(
             move |flag| {
                 let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
                 let mut execution = Execution::within(flag, &controls, scope)?;
-                execution.memory = Some(
-                    problem
-                        .runtime
-                        .shared
-                        .budget()
-                        .math
-                        .foreign_allowance(&controls),
-                );
-                let mut oracle = FitOracle::new(problem, execution)?;
+                execution.memory = Some(math.policy().foreign_allowance(&controls));
+                let mut oracle = FitOracle::new(problem, math.clone(), execution)?;
                 check(&mut oracle);
                 Ok(())
             },
@@ -238,39 +233,39 @@ fn assert_diffsol_exact_hessian_refused(error: WorkflowError) {
         ProblemError::Unsupported(reason) if reason.contains("exact transient Hessians need IDAS")
     )), "{decision:?}");
 }
-async fn source(mixed: bool, expected: f64) -> (crate::workflow::ModelingPackage, FitProfile) {
-    source_case(mixed, expected, "Dynamic").await
+async fn source(
+    runtime: &crate::workflow::Runtime,
+    mixed: bool,
+    expected: f64,
+) -> (crate::workflow::ModelingPackage, FitProfile) {
+    source_case(runtime, mixed, expected, "Dynamic").await
 }
 /// The fit over the transient experiment `case`: `Dynamic`, or `DynamicReset`, whose
 /// fixture declares a reset event between two modes (ADR-0119 Outcome 3).
 async fn source_case(
+    runtime: &crate::workflow::Runtime,
     mixed: bool,
     expected: f64,
     case: &str,
 ) -> (crate::workflow::ModelingPackage, FitProfile) {
-    source_case_on(
-        crate::workflow::tests::runtime_with_workspace(32 << 20),
-        mixed,
-        expected,
-        case,
-    )
-    .await
+    source_case_on(&runtime, mixed, expected, case).await
 }
 async fn source_case_on(
-    runtime: crate::workflow::Runtime,
+    runtime: &crate::workflow::Runtime,
     mixed: bool,
     expected: f64,
     case: &str,
 ) -> (crate::workflow::ModelingPackage, FitProfile) {
-    source_case_on_with_fixed_parameter(runtime, mixed, expected, case, false).await
+    source_case_on_with_fixed_parameter(&runtime, mixed, expected, case, false).await
 }
 async fn source_case_on_with_fixed_parameter(
-    runtime: crate::workflow::Runtime,
+    runtime: &crate::workflow::Runtime,
     mixed: bool,
     expected: f64,
     case: &str,
     fixed_parameter: bool,
 ) -> (crate::workflow::ModelingPackage, FitProfile) {
+    let services = runtime.execution_services();
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -359,11 +354,12 @@ async fn source_case_on_with_fixed_parameter(
         .modeling_package(rows, physical)
         .await
         .unwrap()
-        .with_fit_declarations(data)
+        .with_fit_declarations(&runtime.source_services(), data)
         .await
         .unwrap();
     let simulation = package
         .declared_simulation(
+            services.preparation(),
             case_id,
             compiler_profile(),
             None,
@@ -379,7 +375,9 @@ async fn source_case_on_with_fixed_parameter(
 }
 #[tokio::test]
 async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
-    let (package, profile) = source(true, 73.).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let (package, profile) = source(&runtime, true, 73.).await;
     let cancel = crate::CancelSource::new();
     let mut exact = profile.clone();
     exact.solver.controls.hessian = HessianMode::Exact;
@@ -389,6 +387,7 @@ async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
     assert_diffsol_exact_hessian_refused(
         package
             .prepare_fit_problem(
+                services.preparation(),
                 FitId::from(id(73)),
                 exact,
                 compiler_profile(),
@@ -400,6 +399,7 @@ async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
     );
     let (problem, assessments) = package
         .prepare_fit_problem(
+            services.preparation(),
             FitId::from(id(73)),
             profile,
             compiler_profile(),
@@ -413,7 +413,8 @@ async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
         pse_diagnostics::Cancellation::new(false),
         &problem.profile.solver.controls,
     );
-    let mut oracle = FitOracle::new(problem, execution).unwrap();
+    let mut oracle =
+        FitOracle::new(problem, services.preparation().math().clone(), execution).unwrap();
     let problem = oracle.prepared.clone();
     let allowance = crate::workflow::tests::engineering_target(
         &problem.numerics,
@@ -438,7 +439,9 @@ async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
 /// result records its source (PS-07).
 #[tokio::test]
 async fn gauss_newton_fit_admits_transient() {
-    let (package, mut profile) = source(true, 73.).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let (package, mut profile) = source(&runtime, true, 73.).await;
     let cancel = crate::CancelSource::new();
     profile.solver.controls.hessian = HessianMode::GaussNewton;
     for integration in profile.simulations.values_mut() {
@@ -446,6 +449,7 @@ async fn gauss_newton_fit_admits_transient() {
     }
     let (problem, assessments) = package
         .prepare_fit_problem(
+            services.preparation(),
             FitId::from(id(73)),
             profile.clone(),
             compiler_profile(),
@@ -459,7 +463,8 @@ async fn gauss_newton_fit_admits_transient() {
         pse_diagnostics::Cancellation::new(false),
         &problem.profile.solver.controls,
     );
-    let mut oracle = FitOracle::new(problem, execution).unwrap();
+    let mut oracle =
+        FitOracle::new(problem, services.preparation().math().clone(), execution).unwrap();
     let mut hessian = vec![0.; oracle.hessian_pattern().unwrap().row_idx().len()];
     let allowances = affine_output_allowances(&oracle.prepared, &assessments);
     let hessian_allowance =
@@ -478,6 +483,7 @@ async fn gauss_newton_fit_admits_transient() {
     {
         let prepared = package
             .prepare_fit(
+                services.preparation(),
                 FitId::from(id(73)),
                 profile,
                 compiler_profile(),
@@ -488,7 +494,7 @@ async fn gauss_newton_fit_admits_transient() {
             .unwrap();
         let frozen = prepared.problem.clone();
         let output_allowances = affine_output_allowances(&frozen, &prepared.assessments);
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
         };
@@ -518,13 +524,15 @@ async fn gauss_newton_fit_admits_transient() {
 /// forward sensitivities once for rank at its candidate (PS-12).
 #[tokio::test]
 async fn adjoint_gradient_equals_forward_on_transient_fit() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     let methods = [
         native::dynamics::Method::Diffsol,
         #[cfg(feature = "solver-idas")]
         native::dynamics::Method::Idas,
     ];
     for (method, scheduled) in methods.into_iter().flat_map(|m| [(m, false), (m, true)]) {
-        let (package, mut profile) = source(true, 73.).await;
+        let (package, mut profile) = source(&runtime, true, 73.).await;
         profile
             .simulations
             .get_mut(&InstanceId::from(id(74)))
@@ -547,6 +555,7 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
             selected.derivatives = derivatives;
             let (problem, assessments) = package
                 .prepare_fit_problem(
+                    services.preparation(),
                     FitId::from(id(73)),
                     selected,
                     compiler_profile(),
@@ -555,81 +564,85 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
                 )
                 .await
                 .unwrap();
-            with_admitted_fit_oracle(problem.into(), move |oracle| {
-                let Experiment::Transient(s) = &oracle.prepared.experiments[0] else {
-                    panic!("transient experiment")
-                };
-                assert_eq!(
-                    s.profile.sensitivity,
-                    if derivatives == FitDerivatives::Responses {
-                        native::dynamics::DynamicSensitivity::Forward
-                    } else {
-                        native::dynamics::DynamicSensitivity::Adjoint
-                    }
-                );
-                for x in [2.5, 0.7] {
-                    let mut g = [0.];
-                    oracle.gradient(&[x], &mut g).unwrap();
-                    assert!(g[0].abs() > 0.1, "a nonzero gradient at {x}: {g:?}");
-                    let expected = if scheduled {
-                        1.25 * x - 1.5
-                    } else {
-                        2. * x - 3.
+            with_admitted_fit_oracle(
+                problem.into(),
+                services.preparation().math().clone(),
+                move |oracle| {
+                    let Experiment::Transient(s) = &oracle.prepared.experiments[0] else {
+                        panic!("transient experiment")
                     };
-                    let action = 0.5 / objective_scale(&oracle.prepared);
-                    let slopes = [if scheduled { 0.5 } else { 1. }, 1.];
-                    let intercepts = [if scheduled { 72. } else { 71. }, 0.];
-                    let allowances = affine_output_allowances(&oracle.prepared, &assessments);
-                    assert_action(
-                        g[0] * action,
-                        expected * action,
-                        affine_gradient_allowance(
-                            &oracle.prepared,
-                            &allowances,
-                            x,
-                            &slopes,
-                            &intercepts,
-                        ),
+                    assert_eq!(
+                        s.profile.sensitivity,
+                        if derivatives == FitDerivatives::Responses {
+                            native::dynamics::DynamicSensitivity::Forward
+                        } else {
+                            native::dynamics::DynamicSensitivity::Adjoint
+                        }
                     );
-                    // Inspect the adjoint result before requesting a response upgrade.
-                    if derivatives == FitDerivatives::Gradient {
-                        let point = oracle.point.as_ref().unwrap();
-                        assert!(point.achieved.adjoint && !point.achieved.responses);
-                        assert!(point.adjoint.is_some());
-                        assert!(!point.trajectories.is_empty());
-                        assert!(point.trajectories.values().all(|report| {
-                            !report.samples.is_empty()
-                                && report.samples.iter().all(|sample| {
-                                    sample.state_sensitivities.is_empty()
-                                        && sample.output_sensitivities.is_empty()
-                                })
-                        }));
-                        // An explicit response request independently reruns forward sensitivities.
-                        let point = oracle.evaluate(&[x]).unwrap();
-                        assert!(point.achieved.responses && !point.achieved.adjoint);
-                        assert!(point.adjoint.is_none());
-                        assert!(!point.trajectories.is_empty());
-                        assert!(point.trajectories.values().all(|report| {
-                            !report.samples.is_empty()
-                                && report
-                                    .samples
-                                    .iter()
-                                    .all(|sample| !sample.output_sensitivities.is_empty())
-                        }));
+                    for x in [2.5, 0.7] {
+                        let mut g = [0.];
+                        oracle.gradient(&[x], &mut g).unwrap();
+                        assert!(g[0].abs() > 0.1, "a nonzero gradient at {x}: {g:?}");
+                        let expected = if scheduled {
+                            1.25 * x - 1.5
+                        } else {
+                            2. * x - 3.
+                        };
+                        let action = 0.5 / objective_scale(&oracle.prepared);
+                        let slopes = [if scheduled { 0.5 } else { 1. }, 1.];
+                        let intercepts = [if scheduled { 72. } else { 71. }, 0.];
+                        let allowances = affine_output_allowances(&oracle.prepared, &assessments);
+                        assert_action(
+                            g[0] * action,
+                            expected * action,
+                            affine_gradient_allowance(
+                                &oracle.prepared,
+                                &allowances,
+                                x,
+                                &slopes,
+                                &intercepts,
+                            ),
+                        );
+                        // Inspect the adjoint result before requesting a response upgrade.
+                        if derivatives == FitDerivatives::Gradient {
+                            let point = oracle.point.as_ref().unwrap();
+                            assert!(point.achieved.adjoint && !point.achieved.responses);
+                            assert!(point.adjoint.is_some());
+                            assert!(!point.trajectories.is_empty());
+                            assert!(point.trajectories.values().all(|report| {
+                                !report.samples.is_empty()
+                                    && report.samples.iter().all(|sample| {
+                                        sample.state_sensitivities.is_empty()
+                                            && sample.output_sensitivities.is_empty()
+                                    })
+                            }));
+                            // An explicit response request independently reruns forward sensitivities.
+                            let point = oracle.evaluate(&[x]).unwrap();
+                            assert!(point.achieved.responses && !point.achieved.adjoint);
+                            assert!(point.adjoint.is_none());
+                            assert!(!point.trajectories.is_empty());
+                            assert!(point.trajectories.values().all(|report| {
+                                !report.samples.is_empty()
+                                    && report
+                                        .samples
+                                        .iter()
+                                        .all(|sample| !sample.output_sensitivities.is_empty())
+                            }));
+                        }
                     }
-                }
-                // The rank rerun forms the response Jacobian with forward sensitivities.
-                if derivatives == FitDerivatives::Gradient {
-                    let expected = if scheduled { 0.5 } else { 1. };
-                    assert_affine_responses(
-                        oracle,
-                        2.,
-                        &[expected, 1.],
-                        &[if scheduled { 72. } else { 71. }, 0.],
-                        &assessments,
-                    );
-                }
-            })
+                    // The rank rerun forms the response Jacobian with forward sensitivities.
+                    if derivatives == FitDerivatives::Gradient {
+                        let expected = if scheduled { 0.5 } else { 1. };
+                        assert_affine_responses(
+                            oracle,
+                            2.,
+                            &[expected, 1.],
+                            &[if scheduled { 72. } else { 71. }, 0.],
+                            &assessments,
+                        );
+                    }
+                },
+            )
             .await;
         }
         // No response Jacobian means no supplied Hessian.
@@ -639,6 +652,7 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
         assert!(
             package
                 .prepare_fit_problem(
+                    services.preparation(),
                     FitId::from(id(73)),
                     gauss_newton,
                     compiler_profile(),
@@ -653,11 +667,12 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
     {
         // The complete gradient-only fit reaches the forward fit's estimate, records its
         // derivative source and qualifies its rank from the rerun.
-        let (package, mut profile) = source(true, 73.).await;
+        let (package, mut profile) = source(&runtime, true, 73.).await;
         profile.derivatives = FitDerivatives::Gradient;
         let cancel = crate::CancelSource::new();
         let prepared = package
             .prepare_fit(
+                services.preparation(),
                 FitId::from(id(73)),
                 profile,
                 compiler_profile(),
@@ -668,7 +683,7 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
             .unwrap();
         let frozen = prepared.problem.clone();
         let output_allowances = affine_output_allowances(&frozen, &prepared.assessments);
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
         };
@@ -694,6 +709,8 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_contract() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     use pse_relations::columnar::RelationRow;
 
     for mode in 0..3 {
@@ -705,9 +722,9 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
             _ => 83.,
         };
         let (package, mut profile) = if mode == 2 {
-            source_case(false, expected, "DynamicReset").await
+            source_case(&runtime, false, expected, "DynamicReset").await
         } else {
-            source(false, expected).await
+            source(&runtime, false, expected).await
         };
         if mode == 1 {
             profile
@@ -723,6 +740,7 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
         let cancel = crate::CancelSource::new();
         let (problem, assessments) = package
             .prepare_fit_problem(
+                services.preparation(),
                 FitId::from(id(73)),
                 profile.clone(),
                 compiler_profile(),
@@ -737,7 +755,8 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
             pse_diagnostics::Cancellation::new(false),
             &problem.profile.solver.controls,
         );
-        let mut oracle = FitOracle::new(problem, execution).unwrap();
+        let mut oracle =
+            FitOracle::new(problem, services.preparation().math().clone(), execution).unwrap();
         assert_affine_responses(
             &mut oracle,
             2.,
@@ -752,6 +771,7 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
         drop(oracle);
         let prepared = package
             .prepare_fit(
+                services.preparation(),
                 FitId::from(id(73)),
                 profile,
                 compiler_profile(),
@@ -774,7 +794,7 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
             simulation.contract().states[0],
         )
         .budget;
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
         };
@@ -836,10 +856,13 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn authored_integration_controls_bind_to_the_experiment_instance() {
-    let (package, mut profile) = source(false, 74.).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let (package, mut profile) = source(&runtime, false, 74.).await;
     profile.simulations.clear();
     let prepared = package
         .prepare_fit(
+            services.preparation(),
             FitId::from(id(73)),
             profile,
             compiler_profile(),
@@ -849,7 +872,7 @@ async fn authored_integration_controls_bind_to_the_experiment_instance() {
         .await
         .unwrap();
     let frozen = prepared.problem.clone();
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let result = prepared.start(&services).unwrap().wait().await.unwrap();
     let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing fit")
     };
@@ -862,6 +885,8 @@ async fn authored_integration_controls_bind_to_the_experiment_instance() {
 
 #[tokio::test]
 async fn contextual_closure_fit_factory_controls_preserve_explicit_experiment_profiles() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     let source = r#"package p {
         entity kind source provenance {attribute title:Text;}
         enum role {given}
@@ -904,7 +929,7 @@ async fn contextual_closure_fit_factory_controls_preserve_explicit_experiment_pr
         .modeling_package(rows, crate::workflow::tests::physical())
         .await
         .unwrap()
-        .with_fit_declarations(data)
+        .with_fit_declarations(&runtime.source_services(), data)
         .await
         .unwrap();
     let mut profile = FitProfile {
@@ -936,6 +961,7 @@ async fn contextual_closure_fit_factory_controls_preserve_explicit_experiment_pr
     let cancel = crate::CancelSource::new();
     let (_, assessments) = package
         .prepare_fit_problem(
+            services.preparation(),
             FitId::from(id(73)),
             profile.clone(),
             compiler_profile(),
@@ -962,6 +988,7 @@ async fn contextual_closure_fit_factory_controls_preserve_explicit_experiment_pr
         .insert(InstanceId::from(id(74)), explicit);
     let (_, assessments) = package
         .prepare_fit_problem(
+            services.preparation(),
             FitId::from(id(73)),
             profile,
             compiler_profile(),
@@ -984,7 +1011,9 @@ async fn contextual_closure_fit_factory_controls_preserve_explicit_experiment_pr
 }
 #[tokio::test]
 async fn transient_fit_deadline_is_time_limit() {
-    let (package, mut profile) = source(false, 74.).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let (package, mut profile) = source(&runtime, false, 74.).await;
     profile
         .simulations
         .get_mut(&InstanceId::from(id(74)))
@@ -993,6 +1022,7 @@ async fn transient_fit_deadline_is_time_limit() {
     let cancel = crate::CancelSource::new();
     let (problem, _) = package
         .prepare_fit_problem(
+            services.preparation(),
             FitId::from(id(73)),
             profile,
             compiler_profile(),
@@ -1006,7 +1036,12 @@ async fn transient_fit_deadline_is_time_limit() {
         pse_diagnostics::Cancellation::new(false),
         &problem.profile.solver.controls,
     );
-    let mut oracle = FitOracle::new(problem.clone(), execution.clone()).unwrap();
+    let mut oracle = FitOracle::new(
+        problem.clone(),
+        services.preparation().math().clone(),
+        execution.clone(),
+    )
+    .unwrap();
     // The Diffsol deadline stays a typed time limit, never an evaluation failure.
     let error = oracle.objective(&[2.]).unwrap_err();
     assert!(
@@ -1042,7 +1077,11 @@ async fn transient_fit_deadline_is_time_limit() {
         pse_diagnostics::Cancellation::new(true),
         &problem.profile.solver.controls,
     );
-    let error = match FitOracle::new(problem.clone(), cancelled) {
+    let error = match FitOracle::new(
+        problem.clone(),
+        services.preparation().math().clone(),
+        cancelled,
+    ) {
         Err(error) => error,
         Ok(_) => panic!("pre-cancelled fit must refuse worker construction"),
     };
@@ -1054,7 +1093,8 @@ async fn transient_fit_deadline_is_time_limit() {
     // Cancellation after construction still stops evaluation as a cancellation.
     let flag = pse_diagnostics::Cancellation::default();
     let active = Execution::new(flag.clone(), &problem.profile.solver.controls);
-    let mut oracle = FitOracle::new(problem, active).unwrap();
+    let mut oracle =
+        FitOracle::new(problem, services.preparation().math().clone(), active).unwrap();
     flag.cancel();
     let error = oracle.objective(&[2.]).unwrap_err();
     assert!(matches!(error, ProblemError::Cancelled), "{error:?}");
@@ -1070,6 +1110,8 @@ async fn transient_fit_deadline_is_time_limit() {
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn gauss_newton_covariance_labelled() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     use pse_relations::{
         columnar::RelationRow,
         generated::{
@@ -1078,10 +1120,11 @@ async fn gauss_newton_covariance_labelled() {
         },
     };
     for hessian in [HessianMode::LimitedMemory, HessianMode::GaussNewton] {
-        let (package, mut profile) = source(false, 73.).await;
+        let (package, mut profile) = source(&runtime, false, 73.).await;
         profile.solver.controls.hessian = hessian;
         let prepared = package
             .prepare_fit(
+                services.preparation(),
                 FitId::from(id(73)),
                 profile,
                 compiler_profile(),
@@ -1092,7 +1135,7 @@ async fn gauss_newton_covariance_labelled() {
             .unwrap();
         let frozen = prepared.problem.clone();
         let output_allowances = affine_output_allowances(&frozen, &prepared.assessments);
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
         };
@@ -1133,11 +1176,13 @@ async fn gauss_newton_covariance_labelled() {
 /// Runs the transient fit of [`source`] to its report.
 #[cfg(feature = "solver-ipopt")]
 async fn transient_fit(
+    services: &ExecutionServices,
     package: &crate::workflow::ModelingPackage,
     profile: FitProfile,
 ) -> (Arc<FitProblem>, Vec<f64>, Arc<crate::workflow::RunResult>) {
     let prepared = package
         .prepare_fit(
+            services.preparation(),
             FitId::from(id(73)),
             profile,
             compiler_profile(),
@@ -1152,7 +1197,7 @@ async fn transient_fit(
     (
         frozen,
         output_allowances,
-        prepared.start().unwrap().wait().await.unwrap(),
+        prepared.start(&services).unwrap().wait().await.unwrap(),
     )
 }
 
@@ -1198,6 +1243,8 @@ fn assert_bound_dynamic_provider_demands(problem: &FitProblem) -> usize {
 #[cfg(all(feature = "solver-ipopt", feature = "solver-idas"))]
 #[tokio::test]
 async fn exact_transient_covariance_matches_gauss_newton() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     use pse_relations::{
         columnar::RelationRow,
         generated::{
@@ -1205,12 +1252,12 @@ async fn exact_transient_covariance_matches_gauss_newton() {
             runtime::local_validity,
         },
     };
-    let (package, mut profile) = source(false, 73.).await;
+    let (package, mut profile) = source(&runtime, false, 73.).await;
     profile.solver.controls.hessian = HessianMode::Exact;
     for simulation in profile.simulations.values_mut() {
         simulation.method = native::dynamics::Method::Idas;
     }
-    let (frozen, output_allowances, result) = transient_fit(&package, profile).await;
+    let (frozen, output_allowances, result) = transient_fit(&services, &package, profile).await;
     let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing fit")
     };
@@ -1241,6 +1288,8 @@ async fn exact_transient_covariance_matches_gauss_newton() {
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn covariance_withheld_at_bound() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     use pse_relations::{
         columnar::RelationRow,
         generated::{
@@ -1248,8 +1297,8 @@ async fn covariance_withheld_at_bound() {
             runtime::local_validity,
         },
     };
-    let (package, profile) = source(false, 71.).await;
-    let (frozen, _, result) = transient_fit(&package, profile).await;
+    let (package, profile) = source(&runtime, false, 71.).await;
+    let (frozen, _, result) = transient_fit(&services, &package, profile).await;
     let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing fit")
     };
@@ -1291,8 +1340,10 @@ async fn covariance_withheld_at_bound() {
 /// `a = 1.8` (`x = a/(1 + a·k·t)`, t in seconds).
 #[cfg(feature = "solver-idas")]
 async fn curved_source(
+    runtime: &crate::workflow::Runtime,
     method: native::dynamics::Method,
 ) -> (crate::workflow::ModelingPackage, FitProfile) {
+    let services = runtime.execution_services();
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -1358,16 +1409,16 @@ async fn curved_source(
         experiment_workers: pse_model::scalar!(PositiveCount(1)),
         uncertainty: None,
     };
-    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
     let package = runtime
         .modeling_package(rows, physical)
         .await
         .unwrap()
-        .with_fit_declarations(data)
+        .with_fit_declarations(&runtime.source_services(), data)
         .await
         .unwrap();
     let simulation = package
         .declared_simulation(
+            services.preparation(),
             root,
             compiler_profile(),
             None,
@@ -1536,10 +1587,13 @@ fn curved_loss_derivatives(
 #[cfg(feature = "solver-idas")]
 #[tokio::test]
 async fn exact_transient_fit_hessian_satisfies_production_action_basis() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     let cancel = crate::CancelSource::new();
-    let (package, profile) = curved_source(native::dynamics::Method::Diffsol).await;
+    let (package, profile) = curved_source(&runtime, native::dynamics::Method::Diffsol).await;
     let refused = package
         .prepare_fit_problem(
+            services.preparation(),
             FitId::from(id(80)),
             profile,
             compiler_profile(),
@@ -1549,9 +1603,10 @@ async fn exact_transient_fit_hessian_satisfies_production_action_basis() {
         .await
         .unwrap_err();
     assert_diffsol_exact_hessian_refused(refused);
-    let (package, profile) = curved_source(native::dynamics::Method::Idas).await;
+    let (package, profile) = curved_source(&runtime, native::dynamics::Method::Idas).await;
     let (problem, assessments) = package
         .prepare_fit_problem(
+            services.preparation(),
             FitId::from(id(80)),
             profile.clone(),
             compiler_profile(),
@@ -1566,113 +1621,119 @@ async fn exact_transient_fit_hessian_satisfies_production_action_basis() {
     assert_eq!(s.program.contract.derivatives, DerivativeOrder::Second);
     assert!(assert_bound_dynamic_provider_demands(&problem) > 0);
     let output_allowances = curved_output_allowances(&problem, &assessments);
-    with_admitted_fit_oracle(problem.into(), move |oracle| {
-        let pattern = oracle.hessian_pattern().unwrap().to_owned().unwrap();
-        for (point_index, x) in [[1., 2.], [1.6, 1.5]].into_iter().enumerate() {
-            for sigma in [1., 0.5] {
-                let mut values = vec![0.; pattern.row_idx().len()];
-                oracle.hessian(&x, sigma, &[], &mut values).unwrap();
-                // Changing the native objective multiplier changes assembly only:
-                // the exact residual-curvature integration runs once per point.
-                assert_eq!(oracle.transient_curvature_passes, point_index + 1);
-                assert!(oracle.point.as_ref().unwrap().curvatures.is_some());
-                let h = SparseColMat::new(pattern.clone(), values).to_dense();
-                let problem = oracle.prepared.clone();
-                let analytic = curved_loss_derivatives(&problem, x, &output_allowances);
-                let mut gradient = [0.; 2];
-                oracle.gradient(&x, &mut gradient).unwrap();
-                let responses = oracle.response_rank(&x).unwrap().responses;
-                let actual_point = oracle.evaluate(&x).unwrap();
-                for row in 0..problem.measurements.len() {
-                    assert!(
-                        (actual_point.predictions[row] - analytic.values[row]).abs()
-                            <= output_allowances[row]
-                    );
-                }
-                let loss_allowance = problem
-                    .measurements
-                    .iter()
-                    .enumerate()
-                    .map(|(row, observation)| {
-                        let residual = analytic.values[row] - observation.value.unwrap();
-                        let e = output_allowances[row];
-                        observation.importance / observation.sigma.unwrap_or(1.).powi(2)
-                            * (residual.abs() * e + 0.5 * e * e)
-                    })
-                    .sum::<f64>();
-                assert!(
-                    (oracle.objective(&x).unwrap() - analytic.objective).abs() <= loss_allowance
-                );
-                for i in 0..2 {
-                    let scale_i = problem.declaration.parameters[i].scale;
-                    assert!(
-                        0.25 * scale_i
-                            > parameter_allowance(
-                                &problem,
-                                problem.declaration.parameters[i].symbol_id
-                            )
-                    );
+    with_admitted_fit_oracle(
+        problem.into(),
+        services.preparation().math().clone(),
+        move |oracle| {
+            let pattern = oracle.hessian_pattern().unwrap().to_owned().unwrap();
+            for (point_index, x) in [[1., 2.], [1.6, 1.5]].into_iter().enumerate() {
+                for sigma in [1., 0.5] {
+                    let mut values = vec![0.; pattern.row_idx().len()];
+                    oracle.hessian(&x, sigma, &[], &mut values).unwrap();
+                    // Changing the native objective multiplier changes assembly only:
+                    // the exact residual-curvature integration runs once per point.
+                    assert_eq!(oracle.transient_curvature_passes, point_index + 1);
+                    assert!(oracle.point.as_ref().unwrap().curvatures.is_some());
+                    let h = SparseColMat::new(pattern.clone(), values).to_dense();
+                    let problem = oracle.prepared.clone();
+                    let analytic = curved_loss_derivatives(&problem, x, &output_allowances);
+                    let mut gradient = [0.; 2];
+                    oracle.gradient(&x, &mut gradient).unwrap();
+                    let responses = oracle.response_rank(&x).unwrap().responses;
+                    let actual_point = oracle.evaluate(&x).unwrap();
                     for row in 0..problem.measurements.len() {
-                        assert_action(
-                            responses[(row, i)] * 0.25 * scale_i,
-                            analytic.first[row][i] * 0.25 * scale_i,
-                            output_allowances[row],
+                        assert!(
+                            (actual_point.predictions[row] - analytic.values[row]).abs()
+                                <= output_allowances[row]
                         );
                     }
-                    assert_action(
-                        gradient[i] * 0.25 * scale_i / objective_scale(&problem),
-                        analytic.gradient[i] * 0.25 * scale_i / objective_scale(&problem),
-                        analytic.gradient_allowance[i],
+                    let loss_allowance = problem
+                        .measurements
+                        .iter()
+                        .enumerate()
+                        .map(|(row, observation)| {
+                            let residual = analytic.values[row] - observation.value.unwrap();
+                            let e = output_allowances[row];
+                            observation.importance / observation.sigma.unwrap_or(1.).powi(2)
+                                * (residual.abs() * e + 0.5 * e * e)
+                        })
+                        .sum::<f64>();
+                    assert!(
+                        (oracle.objective(&x).unwrap() - analytic.objective).abs()
+                            <= loss_allowance
                     );
-                    for j in 0..=i {
-                        let action =
-                            0.25 * scale_i * 0.25 * problem.declaration.parameters[j].scale
-                                / objective_scale(&problem);
-                        assert_action(
-                            h[(i, j)] * action,
-                            sigma * analytic.hessian[i][j] * action,
-                            sigma * analytic.hessian_allowance[i][j],
+                    for i in 0..2 {
+                        let scale_i = problem.declaration.parameters[i].scale;
+                        assert!(
+                            0.25 * scale_i
+                                > parameter_allowance(
+                                    &problem,
+                                    problem.declaration.parameters[i].symbol_id
+                                )
                         );
+                        for row in 0..problem.measurements.len() {
+                            assert_action(
+                                responses[(row, i)] * 0.25 * scale_i,
+                                analytic.first[row][i] * 0.25 * scale_i,
+                                output_allowances[row],
+                            );
+                        }
+                        assert_action(
+                            gradient[i] * 0.25 * scale_i / objective_scale(&problem),
+                            analytic.gradient[i] * 0.25 * scale_i / objective_scale(&problem),
+                            analytic.gradient_allowance[i],
+                        );
+                        for j in 0..=i {
+                            let action =
+                                0.25 * scale_i * 0.25 * problem.declaration.parameters[j].scale
+                                    / objective_scale(&problem);
+                            assert_action(
+                                h[(i, j)] * action,
+                                sigma * analytic.hessian[i][j] * action,
+                                sigma * analytic.hessian_allowance[i][j],
+                            );
+                        }
                     }
                 }
             }
-        }
-        let mut values = vec![0.; pattern.row_idx().len()];
-        // The actual transient owner has its own current finite allowance. Removing
-        // that requirement from the outer coordinator cannot revoke the child's
-        // admitted coverage. Refuse fresh Second work at the consumed child owner.
-        oracle.evaluate(&[1.2, 1.8]).unwrap();
-        assert!(oracle.point.as_ref().unwrap().curvatures.is_none());
-        assert!(oracle.execution.memory.is_some());
-        let memory = oracle.transient_execution[0].memory.take();
-        assert!(memory.is_some());
-        values.fill(12345.);
-        assert!(oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).is_err());
-        assert!(values.iter().all(|value| *value == 12345.));
-        assert!(oracle.point.as_ref().unwrap().curvatures.is_none());
-        oracle.transient_execution[0].memory = memory;
-        let attempted = oracle.transient_curvature_passes;
-        oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).unwrap();
-        assert_eq!(oracle.transient_curvature_passes, attempted + 1);
-        oracle.hessian(&[1.2, 1.8], 0.25, &[], &mut values).unwrap();
-        assert_eq!(oracle.transient_curvature_passes, attempted + 1);
-        // Cancellation invalidates the point before any cached scientific product
-        // can be served. The original completed block is not retained for retry.
-        let original_execution = oracle.execution.clone();
-        oracle.execution.cancellation = pse_diagnostics::Cancellation::new(true);
-        oracle.execution.cancel = oracle.execution.cancellation.flag();
-        oracle.execution.enclosing_scope = None;
-        assert!(oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).is_err());
-        assert!(oracle.point.is_none());
-        oracle.execution = original_execution;
-        oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).unwrap();
-        assert_eq!(oracle.transient_curvature_passes, attempted + 2);
-    })
+            let mut values = vec![0.; pattern.row_idx().len()];
+            // The actual transient owner has its own current finite allowance. Removing
+            // that requirement from the outer coordinator cannot revoke the child's
+            // admitted coverage. Refuse fresh Second work at the consumed child owner.
+            oracle.evaluate(&[1.2, 1.8]).unwrap();
+            assert!(oracle.point.as_ref().unwrap().curvatures.is_none());
+            assert!(oracle.execution.memory.is_some());
+            let memory = oracle.transient_execution[0].memory.take();
+            assert!(memory.is_some());
+            values.fill(12345.);
+            assert!(oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).is_err());
+            assert!(values.iter().all(|value| *value == 12345.));
+            assert!(oracle.point.as_ref().unwrap().curvatures.is_none());
+            oracle.transient_execution[0].memory = memory;
+            let attempted = oracle.transient_curvature_passes;
+            oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).unwrap();
+            assert_eq!(oracle.transient_curvature_passes, attempted + 1);
+            oracle.hessian(&[1.2, 1.8], 0.25, &[], &mut values).unwrap();
+            assert_eq!(oracle.transient_curvature_passes, attempted + 1);
+            // Cancellation invalidates the point before any cached scientific product
+            // can be served. The original completed block is not retained for retry.
+            let original_execution = oracle.execution.clone();
+            oracle.execution.cancellation = pse_diagnostics::Cancellation::new(true);
+            oracle.execution.cancel = oracle.execution.cancellation.flag();
+            oracle.execution.enclosing_scope = None;
+            assert!(oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).is_err());
+            assert!(oracle.point.is_none());
+            oracle.execution = original_execution;
+            oracle.hessian(&[1.2, 1.8], 1., &[], &mut values).unwrap();
+            assert_eq!(oracle.transient_curvature_passes, attempted + 2);
+        },
+    )
     .await;
     #[cfg(feature = "solver-ipopt")]
     {
         let prepared = package
             .prepare_fit(
+                services.preparation(),
                 FitId::from(id(80)),
                 profile,
                 compiler_profile(),
@@ -1683,7 +1744,7 @@ async fn exact_transient_fit_hessian_satisfies_production_action_basis() {
             .unwrap();
         let frozen = prepared.problem.clone();
         let output_allowances = curved_output_allowances(&frozen, &prepared.assessments);
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
         };
@@ -1726,32 +1787,36 @@ async fn exact_transient_fit_hessian_satisfies_production_action_basis() {
                 );
             }
         }
-        with_admitted_fit_oracle(frozen, move |actual| {
-            let frozen = actual.prepared.clone();
-            let pattern = actual.hessian_pattern().unwrap().to_owned().unwrap();
-            let mut gradient = [0.; 2];
-            actual.gradient(&point, &mut gradient).unwrap();
-            let mut values = vec![0.; pattern.row_idx().len()];
-            actual.hessian(&point, 1., &[], &mut values).unwrap();
-            let h = SparseColMat::new(pattern.clone(), values).to_dense();
-            for i in 0..2 {
-                let scale_i = frozen.declaration.parameters[i].scale;
-                assert_action(
-                    gradient[i] * 0.25 * scale_i / objective_scale(&frozen),
-                    analytic.gradient[i] * 0.25 * scale_i / objective_scale(&frozen),
-                    analytic.gradient_allowance[i],
-                );
-                for j in 0..=i {
-                    let action = 0.25 * scale_i * 0.25 * frozen.declaration.parameters[j].scale
-                        / objective_scale(&frozen);
+        with_admitted_fit_oracle(
+            frozen,
+            services.preparation().math().clone(),
+            move |actual| {
+                let frozen = actual.prepared.clone();
+                let pattern = actual.hessian_pattern().unwrap().to_owned().unwrap();
+                let mut gradient = [0.; 2];
+                actual.gradient(&point, &mut gradient).unwrap();
+                let mut values = vec![0.; pattern.row_idx().len()];
+                actual.hessian(&point, 1., &[], &mut values).unwrap();
+                let h = SparseColMat::new(pattern.clone(), values).to_dense();
+                for i in 0..2 {
+                    let scale_i = frozen.declaration.parameters[i].scale;
                     assert_action(
-                        h[(i, j)] * action,
-                        analytic.hessian[i][j] * action,
-                        analytic.hessian_allowance[i][j],
+                        gradient[i] * 0.25 * scale_i / objective_scale(&frozen),
+                        analytic.gradient[i] * 0.25 * scale_i / objective_scale(&frozen),
+                        analytic.gradient_allowance[i],
                     );
+                    for j in 0..=i {
+                        let action = 0.25 * scale_i * 0.25 * frozen.declaration.parameters[j].scale
+                            / objective_scale(&frozen);
+                        assert_action(
+                            h[(i, j)] * action,
+                            analytic.hessian[i][j] * action,
+                            analytic.hessian_allowance[i][j],
+                        );
+                    }
                 }
-            }
-        })
+            },
+        )
         .await;
         let table = result.table("runtime.solve_metrics").unwrap();
         let rows = pse_relations::generated::runtime::solve_metrics::RuntimeSolveMetricsView::from_checked(&table)
@@ -1809,12 +1874,15 @@ fn integration_field<'a>(
 #[tokio::test]
 async fn fitting_original_final_assessment_shares_one_fresh_integration_and_preserves_rank_refusal()
 {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     use pse_diagnostics::observation::{self, ObservationHub, Outcome, Value};
     for rank_admitted in [true, false] {
-        let (package, mut profile) = source(true, 73.).await;
+        let (package, mut profile) = source(&runtime, true, 73.).await;
         profile.derivatives = FitDerivatives::Gradient;
         let (mut problem, assessments) = package
             .prepare_fit_problem(
+                services.preparation(),
                 id(73).into(),
                 profile,
                 compiler_profile(),
@@ -1833,73 +1901,82 @@ async fn fitting_original_final_assessment_shares_one_fresh_integration_and_pres
         let operation = hub.start("fit.final_assessment.control");
         observation::scope(
             Some(operation.context()),
-            with_admitted_fit_oracle(problem.into(), move |callback| {
-                let problem = callback.prepared.clone();
-                callback.objective(&[2.5]).unwrap();
-                let callback_trajectory = callback
-                    .point
-                    .as_ref()
-                    .unwrap()
-                    .trajectories
-                    .values()
-                    .next()
-                    .unwrap()
-                    .clone();
-                let callback_passes = callback.transient_passes;
-                // Production joins and destroys the optimizer's mutable workers before
-                // constructing the final oracle. Retain only the immutable report.
-                callback.point = None;
-                callback.workers.clear();
-                callback.transient_workers.clear();
-                drop(callback.team.take());
-                let mut report = candidate_fit_report(&problem, vec![2.5]);
-                problem
-                    .observe(&mut report, callback.execution.clone(), None)
-                    .unwrap();
-                assert_eq!(
-                    callback.transient_passes, callback_passes,
-                    "final assessment never consumes the optimizer callback cache"
-                );
-                let final_trajectory = report.trajectories.values().next().unwrap();
-                assert!(!Arc::ptr_eq(final_trajectory, &callback_trajectory));
-                assert!(report.quality.as_ref().unwrap().feasible());
-                assert_action(report.predictions[0].unwrap(), 73.5, allowances[0]);
-                assert_eq!(report.predictions[1], Some(2.5));
-                assert_action(
-                    report.objective.unwrap(),
-                    1.25,
-                    0.5 * allowances[0] + 0.5 * allowances[0].powi(2),
-                );
-                if rank_admitted {
-                    assert!(report.diagnostic.is_none(), "{:?}", report.diagnostic);
-                    assert_eq!(report.rank, Some(1));
-                    let responses = report.responses.as_ref().unwrap();
-                    assert_eq!((responses.nrows(), responses.ncols()), (2, 1));
-                    assert_action(responses[(0, 0)] * 0.5, 0.5, allowances[0]);
-                    assert_eq!(responses[(1, 0)], 1.);
-                    let Experiment::Transient(experiment) = &problem.experiments[0] else {
-                        panic!()
-                    };
-                    let axes: Vec<_> = problem.layout.mappings[0]
-                        .free_bindings
-                        .iter()
-                        .map(|&binding| experiment.bindings[binding].local)
-                        .collect::<BTreeSet<_>>()
-                        .into_iter()
-                        .collect();
-                    assert_eq!(final_trajectory.forward_axes, axes);
-                } else {
-                    assert!(matches!(
-                        report.diagnostic.as_ref(),
-                        Some(FitDiagnostic {
-                            rule: FitRule::ResponseRank,
-                            ..
-                        })
-                    ));
-                    assert!(report.responses.is_none() && report.rank.is_none());
-                    assert!(final_trajectory.forward_axes.is_empty());
-                }
-            }),
+            with_admitted_fit_oracle(
+                problem.into(),
+                services.preparation().math().clone(),
+                move |callback| {
+                    let problem = callback.prepared.clone();
+                    callback.objective(&[2.5]).unwrap();
+                    let callback_trajectory = callback
+                        .point
+                        .as_ref()
+                        .unwrap()
+                        .trajectories
+                        .values()
+                        .next()
+                        .unwrap()
+                        .clone();
+                    let callback_passes = callback.transient_passes;
+                    // Production joins and destroys the optimizer's mutable workers before
+                    // constructing the final oracle. Retain only the immutable report.
+                    callback.point = None;
+                    callback.workers.clear();
+                    callback.transient_workers.clear();
+                    drop(callback.team.take());
+                    let mut report = candidate_fit_report(&problem, vec![2.5]);
+                    problem
+                        .observe(
+                            &callback.math,
+                            &mut report,
+                            callback.execution.clone(),
+                            None,
+                        )
+                        .unwrap();
+                    assert_eq!(
+                        callback.transient_passes, callback_passes,
+                        "final assessment never consumes the optimizer callback cache"
+                    );
+                    let final_trajectory = report.trajectories.values().next().unwrap();
+                    assert!(!Arc::ptr_eq(final_trajectory, &callback_trajectory));
+                    assert!(report.quality.as_ref().unwrap().feasible());
+                    assert_action(report.predictions[0].unwrap(), 73.5, allowances[0]);
+                    assert_eq!(report.predictions[1], Some(2.5));
+                    assert_action(
+                        report.objective.unwrap(),
+                        1.25,
+                        0.5 * allowances[0] + 0.5 * allowances[0].powi(2),
+                    );
+                    if rank_admitted {
+                        assert!(report.diagnostic.is_none(), "{:?}", report.diagnostic);
+                        assert_eq!(report.rank, Some(1));
+                        let responses = report.responses.as_ref().unwrap();
+                        assert_eq!((responses.nrows(), responses.ncols()), (2, 1));
+                        assert_action(responses[(0, 0)] * 0.5, 0.5, allowances[0]);
+                        assert_eq!(responses[(1, 0)], 1.);
+                        let Experiment::Transient(experiment) = &problem.experiments[0] else {
+                            panic!()
+                        };
+                        let axes: Vec<_> = problem.layout.mappings[0]
+                            .free_bindings
+                            .iter()
+                            .map(|&binding| experiment.bindings[binding].local)
+                            .collect::<BTreeSet<_>>()
+                            .into_iter()
+                            .collect();
+                        assert_eq!(final_trajectory.forward_axes, axes);
+                    } else {
+                        assert!(matches!(
+                            report.diagnostic.as_ref(),
+                            Some(FitDiagnostic {
+                                rule: FitRule::ResponseRank,
+                                ..
+                            })
+                        ));
+                        assert!(report.responses.is_none() && report.rank.is_none());
+                        assert!(final_trajectory.forward_axes.is_empty());
+                    }
+                },
+            ),
         )
         .await;
         let mut final_integrations = 0;
@@ -1967,6 +2044,8 @@ async fn fitting_original_final_assessment_shares_one_fresh_integration_and_pres
 /// A cancelled assessment must never issue a second value-only fallback demand.
 #[tokio::test]
 async fn fitting_original_final_assessment_cancellation_never_falls_back() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     use pse_diagnostics::observation::{
         self, CoherentRecord, ObservationHub, Outcome, RecordTap, Value,
     };
@@ -1991,9 +2070,10 @@ async fn fitting_original_final_assessment_cancellation_never_falls_back() {
         }
         fn observe(&self, _: &CoherentRecord) {}
     }
-    let (package, profile) = source(false, 73.).await;
+    let (package, profile) = source(&runtime, false, 73.).await;
     let (problem, _) = package
         .prepare_fit_problem(
+            services.preparation(),
             id(73).into(),
             profile,
             compiler_profile(),
@@ -2006,28 +2086,32 @@ async fn fitting_original_final_assessment_cancellation_never_falls_back() {
     let operation = hub.start("fit.cancelled_final_assessment.control");
     let outcome = observation::scope(
         Some(operation.context()),
-        with_admitted_fit_oracle_outcome(problem.into(), move |owner| {
-            let tap = Arc::new(CancelAtFinalEntry {
-                cancellation: owner.execution.cancellation_control().clone(),
-                starts: std::sync::atomic::AtomicUsize::new(0),
-            });
-            let context = observation::current().unwrap().with_record_tap(tap.clone());
-            let _entered = context.enter();
-            owner.workers.clear();
-            owner.transient_workers.clear();
-            drop(owner.team.take());
-            let mut report = candidate_fit_report(&owner.prepared, vec![2.5]);
-            owner
-                .prepared
-                .observe(&mut report, owner.execution.clone(), None)
-                .unwrap();
-            assert_eq!(tap.starts.load(std::sync::atomic::Ordering::Relaxed), 1);
-            let diagnostic = report.diagnostic.as_ref().unwrap();
-            assert_eq!(diagnostic.rule, FitRule::FinalEvaluation);
-            assert!(matches!(diagnostic.cause.as_ref(), ProblemError::Cancelled));
-            assert!(report.objective.is_none() && report.responses.is_none());
-            assert!(report.trajectories.is_empty());
-        }),
+        with_admitted_fit_oracle_outcome(
+            problem.into(),
+            services.preparation().math().clone(),
+            move |owner| {
+                let tap = Arc::new(CancelAtFinalEntry {
+                    cancellation: owner.execution.cancellation_control().clone(),
+                    starts: std::sync::atomic::AtomicUsize::new(0),
+                });
+                let context = observation::current().unwrap().with_record_tap(tap.clone());
+                let _entered = context.enter();
+                owner.workers.clear();
+                owner.transient_workers.clear();
+                drop(owner.team.take());
+                let mut report = candidate_fit_report(&owner.prepared, vec![2.5]);
+                owner
+                    .prepared
+                    .observe(&owner.math, &mut report, owner.execution.clone(), None)
+                    .unwrap();
+                assert_eq!(tap.starts.load(std::sync::atomic::Ordering::Relaxed), 1);
+                let diagnostic = report.diagnostic.as_ref().unwrap();
+                assert_eq!(diagnostic.rule, FitRule::FinalEvaluation);
+                assert!(matches!(diagnostic.cause.as_ref(), ProblemError::Cancelled));
+                assert!(report.objective.is_none() && report.responses.is_none());
+                assert!(report.trajectories.is_empty());
+            },
+        ),
     )
     .await;
     assert!(
@@ -2077,17 +2161,14 @@ async fn fitting_original_final_assessment_cancellation_never_falls_back() {
 
 #[tokio::test]
 async fn fitting_selected_forward_preparation_uses_free_axes_and_preserves_replay() {
-    let (package, mut profile) = source_case_on_with_fixed_parameter(
-        crate::workflow::tests::runtime_with_workspace(32 << 20),
-        true,
-        73.,
-        "Dynamic",
-        true,
-    )
-    .await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let (package, mut profile) =
+        source_case_on_with_fixed_parameter(&runtime, true, 73., "Dynamic", true).await;
     profile.derivatives = FitDerivatives::Responses;
     let (problem, assessments) = package
         .prepare_fit_problem(
+            services.preparation(),
             id(73).into(),
             profile,
             compiler_profile(),
@@ -2157,7 +2238,11 @@ async fn fitting_selected_forward_preparation_uses_free_axes_and_preserves_repla
         Some(crate::workflow::replay::ReplayForwardSelection::SemanticParameters(_))
     ));
     let restored = constructor
-        .reconstruct(&package, &crate::CancelSource::new())
+        .reconstruct(
+            services.preparation(),
+            &package,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     assert_eq!(restored.profile().forward_axes.as_ref(), Some(axes));
@@ -2168,17 +2253,14 @@ async fn fitting_selected_forward_preparation_uses_free_axes_and_preserves_repla
 /// The actual callback demand drives native passes and exact-bit point installation.
 #[tokio::test]
 async fn transient_fit_demand_cache_and_coherent_upgrade() {
-    let (package, mut selected) = source_case_on_with_fixed_parameter(
-        crate::workflow::tests::runtime_with_workspace(32 << 20),
-        true,
-        73.,
-        "Dynamic",
-        true,
-    )
-    .await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let (package, mut selected) =
+        source_case_on_with_fixed_parameter(&runtime, true, 73., "Dynamic", true).await;
     selected.derivatives = FitDerivatives::Gradient;
     let (problem, assessments) = package
         .prepare_fit_problem(
+            services.preparation(),
             FitId::from(id(73)),
             selected,
             compiler_profile(),
@@ -2204,41 +2286,14 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
     let fixed_axis = transient.bindings[0].local;
     assert_eq!(selected_axes.len(), 1);
     assert!(!selected_axes.contains(&fixed_axis));
-    with_admitted_fit_oracle(problem.into(), move |oracle| {
-        let mut first = [0.];
-        oracle.gradient(&[2.5], &mut first).unwrap();
-        assert_eq!(oracle.transient_passes, (1, 1));
-        let report = oracle
-            .point
-            .as_ref()
-            .unwrap()
-            .trajectories
-            .values()
-            .next()
-            .unwrap()
-            .clone();
-        let native_adjoint = report
-            .statistics
-            .iter()
-            .find_map(|s| s.get("adjoint"))
-            .unwrap();
-        if let Some(width) = native_adjoint.get("parameter_product_width") {
-            assert_eq!(
-                *width, 1,
-                "fixed physical values must not add Diffsol parameter products"
-            );
-        } else {
-            for backward in native_adjoint["backward"].as_array().unwrap() {
-                assert_eq!(backward["parameter_quadrature_width"], 1);
-            }
-        }
-        let mut repeated = [0.];
-        oracle.gradient(&[2.5], &mut repeated).unwrap();
-        assert_eq!(first, repeated);
-        assert_eq!(oracle.transient_passes, (1, 1));
-        assert!(Arc::ptr_eq(
-            &report,
-            oracle
+    with_admitted_fit_oracle(
+        problem.into(),
+        services.preparation().math().clone(),
+        move |oracle| {
+            let mut first = [0.];
+            oracle.gradient(&[2.5], &mut first).unwrap();
+            assert_eq!(oracle.transient_passes, (1, 1));
+            let report = oracle
                 .point
                 .as_ref()
                 .unwrap()
@@ -2246,180 +2301,213 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
                 .values()
                 .next()
                 .unwrap()
-        ));
-        let earlier = oracle.objective(&[0.7]).unwrap();
-        assert_eq!(oracle.transient_passes, (2, 1));
-        assert!(oracle.point.as_ref().unwrap().adjoint.is_none());
-        assert!(
-            oracle
-                .point
-                .as_ref()
-                .unwrap()
-                .trajectories
-                .values()
-                .all(|r| {
-                    r.samples.iter().all(|s| {
-                        s.state_sensitivities.is_empty() && s.output_sensitivities.is_empty()
-                    })
-                })
-        );
-        let prior = oracle
-            .point
-            .as_ref()
-            .unwrap()
-            .trajectories
-            .values()
-            .next()
-            .unwrap()
-            .clone();
-        oracle.gradient(&[0.7], &mut repeated).unwrap();
-        assert_eq!(oracle.transient_passes, (3, 2));
-        assert!(!Arc::ptr_eq(
-            &prior,
-            oracle
-                .point
-                .as_ref()
-                .unwrap()
-                .trajectories
-                .values()
-                .next()
-                .unwrap()
-        ));
-        assert!(earlier.is_finite());
-        assert!(oracle.point.as_ref().unwrap().adjoint.is_some());
-        oracle.gradient(&[0.7], &mut first).unwrap();
-        assert_eq!(oracle.transient_passes, (3, 2));
-        // A materially inconsistent prior observation refuses the upgrade and leaves
-        // no derivative or mixed prediction cache installed.
-        oracle.objective(&[2.]).unwrap();
-        let old = oracle
-            .point
-            .as_mut()
-            .unwrap()
-            .trajectories
-            .values_mut()
-            .next()
-            .unwrap();
-        for sample in &mut Arc::get_mut(old)
-            .expect("the actual cached report has one owner")
-            .samples
-        {
-            for value in &mut sample.outputs {
-                *value += 100.;
-            }
-        }
-        assert!(oracle.gradient(&[2.], &mut first).is_err());
-        assert!(oracle.point.is_none());
-        oracle.gradient(&[2.], &mut first).unwrap();
-        assert!(oracle.point.as_ref().unwrap().adjoint.is_some());
-        // A nonfinite prediction in the actual earlier report also refuses atomically.
-        oracle.objective(&[1.5]).unwrap();
-        let old = oracle
-            .point
-            .as_mut()
-            .unwrap()
-            .trajectories
-            .values_mut()
-            .next()
-            .unwrap();
-        for sample in &mut Arc::get_mut(old)
-            .expect("the actual cached report has one owner")
-            .samples
-        {
-            sample.outputs.fill(f64::NAN);
-        }
-        assert!(oracle.gradient(&[1.5], &mut first).is_err());
-        assert!(oracle.point.is_none());
-        let memory = oracle.execution.memory.take();
-        let complete_lower = oracle.objective(&[1.3]).unwrap();
-        let trajectory = oracle
-            .point
-            .as_ref()
-            .unwrap()
-            .trajectories
-            .values()
-            .next()
-            .unwrap()
-            .clone();
-        assert!(oracle.gradient(&[1.3], &mut first).is_err());
-        // Missing admission for a richer product is not contradictory scientific
-        // evidence. The exact complete primal product remains reusable.
-        assert!(oracle.point.as_ref().is_some_and(|p| p.adjoint.is_none()));
-        let passes = oracle.transient_passes;
-        assert_eq!(
-            oracle.objective(&[1.3]).unwrap().to_bits(),
-            complete_lower.to_bits()
-        );
-        assert_eq!(oracle.transient_passes, passes);
-        assert!(Arc::ptr_eq(
-            &trajectory,
-            oracle
-                .point
-                .as_ref()
-                .unwrap()
-                .trajectories
-                .values()
-                .next()
-                .unwrap()
-        ));
-        oracle.execution.memory = memory;
-        oracle.gradient(&[1.3], &mut first).unwrap();
-        // Signed zero has a distinct candidate key even with equal numerical values.
-        oracle.objective(&[0.]).unwrap();
-        let passes = oracle.transient_passes;
-        oracle.objective(&[-0.]).unwrap();
-        assert_eq!(oracle.transient_passes, (passes.0 + 1, passes.1));
-        let original_execution = oracle.execution.clone();
-        oracle.execution.cancellation = pse_diagnostics::Cancellation::new(true);
-        oracle.execution.cancel = oracle.execution.cancellation.flag();
-        oracle.execution.enclosing_scope = None;
-        assert!(oracle.gradient(&[-0.], &mut first).is_err());
-        assert!(oracle.point.is_none());
-        oracle.execution = original_execution;
-        // Candidate bits participate in the key; invalid values retire the cache.
-        assert!(oracle.gradient(&[f64::NAN], &mut first).is_err());
-        assert!(oracle.point.is_none());
-        // The free parameter is tied across the transient and steady experiments.
-        // Its final response upgrade retains only its physical integration axis;
-        // the distinct fixed q axis is absent, rather than a stored zero column.
-        oracle.objective(&[2.5]).unwrap();
-        let passes = oracle.transient_passes;
-        let rank = oracle.response_rank(&[2.5]).unwrap();
-        assert_eq!(rank.rank, 1);
-        assert_eq!(oracle.transient_passes, (passes.0 + 1, passes.1));
-        let point = oracle.point.as_ref().unwrap();
-        let trajectory = point.trajectories.values().next().unwrap();
-        assert_eq!(trajectory.forward_axes, selected_axes);
-        assert!(trajectory.sensitivity_column(fixed_axis).is_err());
-        let outputs = match &oracle.prepared.experiments[0] {
-            Experiment::Transient(experiment) => experiment.output_ports.len(),
-            Experiment::Steady(_) => panic!(),
-        };
-        assert!(
-            trajectory
-                .samples
+                .clone();
+            let native_adjoint = report
+                .statistics
                 .iter()
-                .all(|sample| sample.output_sensitivities.len() == outputs * selected_axes.len())
-        );
-        assert_action(rank.responses[(0, 0)] * 0.5, 0.5, allowances[0]);
-        assert_eq!(rank.responses[(1, 0)], 1.);
-    })
+                .find_map(|s| s.get("adjoint"))
+                .unwrap();
+            if let Some(width) = native_adjoint.get("parameter_product_width") {
+                assert_eq!(
+                    *width, 1,
+                    "fixed physical values must not add Diffsol parameter products"
+                );
+            } else {
+                for backward in native_adjoint["backward"].as_array().unwrap() {
+                    assert_eq!(backward["parameter_quadrature_width"], 1);
+                }
+            }
+            let mut repeated = [0.];
+            oracle.gradient(&[2.5], &mut repeated).unwrap();
+            assert_eq!(first, repeated);
+            assert_eq!(oracle.transient_passes, (1, 1));
+            assert!(Arc::ptr_eq(
+                &report,
+                oracle
+                    .point
+                    .as_ref()
+                    .unwrap()
+                    .trajectories
+                    .values()
+                    .next()
+                    .unwrap()
+            ));
+            let earlier = oracle.objective(&[0.7]).unwrap();
+            assert_eq!(oracle.transient_passes, (2, 1));
+            assert!(oracle.point.as_ref().unwrap().adjoint.is_none());
+            assert!(
+                oracle
+                    .point
+                    .as_ref()
+                    .unwrap()
+                    .trajectories
+                    .values()
+                    .all(|r| {
+                        r.samples.iter().all(|s| {
+                            s.state_sensitivities.is_empty() && s.output_sensitivities.is_empty()
+                        })
+                    })
+            );
+            let prior = oracle
+                .point
+                .as_ref()
+                .unwrap()
+                .trajectories
+                .values()
+                .next()
+                .unwrap()
+                .clone();
+            oracle.gradient(&[0.7], &mut repeated).unwrap();
+            assert_eq!(oracle.transient_passes, (3, 2));
+            assert!(!Arc::ptr_eq(
+                &prior,
+                oracle
+                    .point
+                    .as_ref()
+                    .unwrap()
+                    .trajectories
+                    .values()
+                    .next()
+                    .unwrap()
+            ));
+            assert!(earlier.is_finite());
+            assert!(oracle.point.as_ref().unwrap().adjoint.is_some());
+            oracle.gradient(&[0.7], &mut first).unwrap();
+            assert_eq!(oracle.transient_passes, (3, 2));
+            // A materially inconsistent prior observation refuses the upgrade and leaves
+            // no derivative or mixed prediction cache installed.
+            oracle.objective(&[2.]).unwrap();
+            let old = oracle
+                .point
+                .as_mut()
+                .unwrap()
+                .trajectories
+                .values_mut()
+                .next()
+                .unwrap();
+            for sample in &mut Arc::get_mut(old)
+                .expect("the actual cached report has one owner")
+                .samples
+            {
+                for value in &mut sample.outputs {
+                    *value += 100.;
+                }
+            }
+            assert!(oracle.gradient(&[2.], &mut first).is_err());
+            assert!(oracle.point.is_none());
+            oracle.gradient(&[2.], &mut first).unwrap();
+            assert!(oracle.point.as_ref().unwrap().adjoint.is_some());
+            // A nonfinite prediction in the actual earlier report also refuses atomically.
+            oracle.objective(&[1.5]).unwrap();
+            let old = oracle
+                .point
+                .as_mut()
+                .unwrap()
+                .trajectories
+                .values_mut()
+                .next()
+                .unwrap();
+            for sample in &mut Arc::get_mut(old)
+                .expect("the actual cached report has one owner")
+                .samples
+            {
+                sample.outputs.fill(f64::NAN);
+            }
+            assert!(oracle.gradient(&[1.5], &mut first).is_err());
+            assert!(oracle.point.is_none());
+            let memory = oracle.execution.memory.take();
+            let complete_lower = oracle.objective(&[1.3]).unwrap();
+            let trajectory = oracle
+                .point
+                .as_ref()
+                .unwrap()
+                .trajectories
+                .values()
+                .next()
+                .unwrap()
+                .clone();
+            assert!(oracle.gradient(&[1.3], &mut first).is_err());
+            // Missing admission for a richer product is not contradictory scientific
+            // evidence. The exact complete primal product remains reusable.
+            assert!(oracle.point.as_ref().is_some_and(|p| p.adjoint.is_none()));
+            let passes = oracle.transient_passes;
+            assert_eq!(
+                oracle.objective(&[1.3]).unwrap().to_bits(),
+                complete_lower.to_bits()
+            );
+            assert_eq!(oracle.transient_passes, passes);
+            assert!(Arc::ptr_eq(
+                &trajectory,
+                oracle
+                    .point
+                    .as_ref()
+                    .unwrap()
+                    .trajectories
+                    .values()
+                    .next()
+                    .unwrap()
+            ));
+            oracle.execution.memory = memory;
+            oracle.gradient(&[1.3], &mut first).unwrap();
+            // Signed zero has a distinct candidate key even with equal numerical values.
+            oracle.objective(&[0.]).unwrap();
+            let passes = oracle.transient_passes;
+            oracle.objective(&[-0.]).unwrap();
+            assert_eq!(oracle.transient_passes, (passes.0 + 1, passes.1));
+            let original_execution = oracle.execution.clone();
+            oracle.execution.cancellation = pse_diagnostics::Cancellation::new(true);
+            oracle.execution.cancel = oracle.execution.cancellation.flag();
+            oracle.execution.enclosing_scope = None;
+            assert!(oracle.gradient(&[-0.], &mut first).is_err());
+            assert!(oracle.point.is_none());
+            oracle.execution = original_execution;
+            // Candidate bits participate in the key; invalid values retire the cache.
+            assert!(oracle.gradient(&[f64::NAN], &mut first).is_err());
+            assert!(oracle.point.is_none());
+            // The free parameter is tied across the transient and steady experiments.
+            // Its final response upgrade retains only its physical integration axis;
+            // the distinct fixed q axis is absent, rather than a stored zero column.
+            oracle.objective(&[2.5]).unwrap();
+            let passes = oracle.transient_passes;
+            let rank = oracle.response_rank(&[2.5]).unwrap();
+            assert_eq!(rank.rank, 1);
+            assert_eq!(oracle.transient_passes, (passes.0 + 1, passes.1));
+            let point = oracle.point.as_ref().unwrap();
+            let trajectory = point.trajectories.values().next().unwrap();
+            assert_eq!(trajectory.forward_axes, selected_axes);
+            assert!(trajectory.sensitivity_column(fixed_axis).is_err());
+            let outputs = match &oracle.prepared.experiments[0] {
+                Experiment::Transient(experiment) => experiment.output_ports.len(),
+                Experiment::Steady(_) => panic!(),
+            };
+            assert!(
+                trajectory.samples.iter().all(
+                    |sample| sample.output_sensitivities.len() == outputs * selected_axes.len()
+                )
+            );
+            assert_action(rank.responses[(0, 0)] * 0.5, 0.5, allowances[0]);
+            assert_eq!(rank.responses[(1, 0)], 1.);
+        },
+    )
     .await;
 }
 
 #[tokio::test]
 async fn fitting_and_dynamic_diagnostic_construction_use_source_under_generous_ceilings() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     use native::dynamics::{Function, Oracle};
     // Retain the original source fixture runtime: its control/provider artifacts
     // use conservative entry admission. The generous cell ceilings below exercise
     // the known sparse-layout and numeric diagnostic producers independently.
-    let (package, mut profile) = source(true, 73.).await;
+    let (package, mut profile) = source(&runtime, true, 73.).await;
     profile.solver.controls.hessian = HessianMode::GaussNewton;
     for integration in profile.simulations.values_mut() {
         integration.method = native::dynamics::Method::Diffsol;
     }
     let (problem, _) = package
         .prepare_fit_problem(
+            services.preparation(),
             FitId::from(id(73)),
             profile,
             compiler_profile(),
@@ -2573,7 +2661,7 @@ async fn fitting_and_dynamic_diagnostic_construction_use_source_under_generous_c
         .construction_allocation_bound(coordinates, p.contract.outputs.len())
         .unwrap();
     assert!(workers + diagnostics < 8 << 20);
-    let service = problem.runtime.native().clone();
+    let service = services.preparation().math().clone();
     let observed = Arc::new(problem);
     // Original whole-program diagnostic: conservative 8 MiB source fixture entry,
     // including diagnostic arrays; no claim that it qualifies for source entry.
@@ -2668,15 +2756,18 @@ async fn fitting_and_dynamic_diagnostic_construction_use_source_under_generous_c
 /// and the same free parameter accumulates transient and steady objective addends.
 #[tokio::test]
 async fn prepared_fitting_relationships_preserve_mixed_gradients_and_rank_upgrade() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     for repeats in [1, 7, 31] {
         for derivatives in [FitDerivatives::Responses, FitDerivatives::Gradient] {
-            let (package, mut profile) = source(true, 73.).await;
+            let (package, mut profile) = source(&runtime, true, 73.).await;
             profile.derivatives = derivatives;
             for simulation in profile.simulations.values_mut() {
                 simulation.method = native::dynamics::Method::Diffsol;
             }
             let (mut problem, assessments) = package
                 .prepare_fit_problem(
+                    services.preparation(),
                     FitId::from(id(73)),
                     profile,
                     compiler_profile(),
@@ -2735,79 +2826,83 @@ async fn prepared_fitting_relationships_preserve_mixed_gradients_and_rank_upgrad
             );
             assert_eq!(problem.layout.mappings[0].responses.len(), 2 * repeats);
             let allowances = affine_output_allowances(&problem, &assessments);
-            with_admitted_fit_oracle(problem.into(), move |oracle| {
-                let x = 2.5;
-                let mut expected_objective = 0.;
-                let mut expected_gradient = 0.;
-                let mut objective_allowance = 0.;
-                let mut gradient_allowance = 0.;
-                let problem = oracle.prepared.clone();
-                let expected = |i: usize| match i % 4 {
-                    0 => (71. + x, 1.),
-                    1 => (x, 1.),
-                    2 => (0., 0.),
-                    _ => (70., 0.),
-                };
-                for (i, observation) in problem.measurements.iter().enumerate() {
-                    if !observation.included {
-                        continue;
+            with_admitted_fit_oracle(
+                problem.into(),
+                services.preparation().math().clone(),
+                move |oracle| {
+                    let x = 2.5;
+                    let mut expected_objective = 0.;
+                    let mut expected_gradient = 0.;
+                    let mut objective_allowance = 0.;
+                    let mut gradient_allowance = 0.;
+                    let problem = oracle.prepared.clone();
+                    let expected = |i: usize| match i % 4 {
+                        0 => (71. + x, 1.),
+                        1 => (x, 1.),
+                        2 => (0., 0.),
+                        _ => (70., 0.),
+                    };
+                    for (i, observation) in problem.measurements.iter().enumerate() {
+                        if !observation.included {
+                            continue;
+                        }
+                        let (prediction, slope) = expected(i);
+                        let residual = prediction - observation.value.unwrap();
+                        let weight = observation.importance / observation.sigma.unwrap().powi(2);
+                        let allowance = allowances[i];
+                        expected_objective += 0.5 * weight * residual.powi(2);
+                        expected_gradient += weight * residual * slope;
+                        objective_allowance +=
+                            weight * (residual.abs() * allowance + 0.5 * allowance.powi(2));
+                        gradient_allowance += weight
+                            * (residual.abs() * allowance + slope * allowance + allowance.powi(2));
                     }
-                    let (prediction, slope) = expected(i);
-                    let residual = prediction - observation.value.unwrap();
-                    let weight = observation.importance / observation.sigma.unwrap().powi(2);
-                    let allowance = allowances[i];
-                    expected_objective += 0.5 * weight * residual.powi(2);
-                    expected_gradient += weight * residual * slope;
-                    objective_allowance +=
-                        weight * (residual.abs() * allowance + 0.5 * allowance.powi(2));
-                    gradient_allowance += weight
-                        * (residual.abs() * allowance + slope * allowance + allowance.powi(2));
-                }
-                assert_action(
-                    oracle.objective(&[x]).unwrap(),
-                    expected_objective,
-                    objective_allowance,
-                );
-                let mut gradient = [0.];
-                oracle.gradient(&[x], &mut gradient).unwrap();
-                assert_action(gradient[0], expected_gradient, gradient_allowance);
-                let passes = oracle.transient_passes;
-                // Rank must upgrade a gradient-only fit and independently re-evaluate
-                // forward responses at the same candidate, rather than retaining zeros.
-                let diagnostic = oracle.response_rank(&[x]).unwrap();
-                assert_eq!(diagnostic.rank, 1);
-                assert_eq!(oracle.derivatives, FitDerivatives::Responses);
-                assert_eq!(
-                    oracle.transient_passes.0,
-                    passes.0 + usize::from(derivatives == FitDerivatives::Gradient)
-                );
-                let point = oracle.point.as_ref().unwrap();
-                for (i, observation) in problem.measurements.iter().enumerate() {
-                    let (prediction, slope) = expected(i);
-                    assert_action(point.predictions[i], prediction, allowances[i]);
                     assert_action(
-                        diagnostic.responses[(i, 0)] * 0.5,
-                        slope * 0.5,
-                        allowances[i],
+                        oracle.objective(&[x]).unwrap(),
+                        expected_objective,
+                        objective_allowance,
                     );
-                    assert_action(
-                        point.responses.matrix().get(i, 0).copied().unwrap_or(0.) * 0.5,
-                        slope * 0.5,
-                        allowances[i],
+                    let mut gradient = [0.];
+                    oracle.gradient(&[x], &mut gradient).unwrap();
+                    assert_action(gradient[0], expected_gradient, gradient_allowance);
+                    let passes = oracle.transient_passes;
+                    // Rank must upgrade a gradient-only fit and independently re-evaluate
+                    // forward responses at the same candidate, rather than retaining zeros.
+                    let diagnostic = oracle.response_rank(&[x]).unwrap();
+                    assert_eq!(diagnostic.rank, 1);
+                    assert_eq!(oracle.derivatives, FitDerivatives::Responses);
+                    assert_eq!(
+                        oracle.transient_passes.0,
+                        passes.0 + usize::from(derivatives == FitDerivatives::Gradient)
                     );
-                    if !observation.included {
-                        assert_eq!(diagnostic.responses[(i, 0)], 0.);
+                    let point = oracle.point.as_ref().unwrap();
+                    for (i, observation) in problem.measurements.iter().enumerate() {
+                        let (prediction, slope) = expected(i);
+                        assert_action(point.predictions[i], prediction, allowances[i]);
+                        assert_action(
+                            diagnostic.responses[(i, 0)] * 0.5,
+                            slope * 0.5,
+                            allowances[i],
+                        );
+                        assert_action(
+                            point.responses.matrix().get(i, 0).copied().unwrap_or(0.) * 0.5,
+                            slope * 0.5,
+                            allowances[i],
+                        );
+                        if !observation.included {
+                            assert_eq!(diagnostic.responses[(i, 0)], 0.);
+                        }
                     }
-                }
-                assert_action(
-                    diagnostic.singular_values[0],
-                    (1.5 * repeats as f64).sqrt(),
-                    allowances.iter().sum::<f64>(),
-                );
-                // The response-based gradient includes every shared-parameter addend too.
-                oracle.gradient(&[x], &mut gradient).unwrap();
-                assert_action(gradient[0], expected_gradient, gradient_allowance);
-            })
+                    assert_action(
+                        diagnostic.singular_values[0],
+                        (1.5 * repeats as f64).sqrt(),
+                        allowances.iter().sum::<f64>(),
+                    );
+                    // The response-based gradient includes every shared-parameter addend too.
+                    oracle.gradient(&[x], &mut gradient).unwrap();
+                    assert_action(gradient[0], expected_gradient, gradient_allowance);
+                },
+            )
             .await;
         }
     }
@@ -2818,9 +2913,12 @@ async fn prepared_fitting_relationships_preserve_mixed_gradients_and_rank_upgrad
 /// and a fit column; a fixed binding in front must not shift the free-binding selection.
 #[tokio::test]
 async fn prepared_fitting_relationships_refill_direct_binding_addends() {
-    let (package, profile) = source(false, 73.).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let (package, profile) = source(&runtime, false, 73.).await;
     let (problem, _) = package
         .prepare_fit_problem(
+            services.preparation(),
             FitId::from(id(73)),
             profile,
             compiler_profile(),
@@ -2943,14 +3041,17 @@ async fn prepared_fitting_relationships_refill_direct_binding_addends() {
 
 #[tokio::test]
 async fn prepared_fitting_relationships_keep_empty_experiments_and_rank_deficiency() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     for transient_included in [false, true] {
-        let (package, mut profile) = source(true, 73.).await;
+        let (package, mut profile) = source(&runtime, true, 73.).await;
         profile.derivatives = FitDerivatives::Gradient;
         for simulation in profile.simulations.values_mut() {
             simulation.method = native::dynamics::Method::Diffsol;
         }
         let (mut problem, _) = package
             .prepare_fit_problem(
+                services.preparation(),
                 FitId::from(id(73)),
                 profile,
                 compiler_profile(),
@@ -2985,22 +3086,26 @@ async fn prepared_fitting_relationships_keep_empty_experiments_and_rank_deficien
             )
             .unwrap(),
         );
-        with_admitted_fit_oracle(problem.into(), move |oracle| {
-            let mut gradient = [0.];
-            oracle.gradient(&[2.5], &mut gradient).unwrap();
-            assert_eq!(gradient, [if transient_included { 0. } else { 1.5 }]);
-            let rank = oracle.response_rank(&[2.5]).unwrap();
-            assert_eq!(rank.rank, usize::from(!transient_included));
-            assert_eq!(rank.responses[(0, 0)], 0.);
-            assert_eq!(
-                rank.responses[(1, 0)],
-                if transient_included { 0. } else { 1. }
-            );
-            if !transient_included {
-                assert_eq!(oracle.transient_passes, (0, 0));
-                assert!(oracle.point.as_ref().unwrap().trajectories.is_empty());
-            }
-        })
+        with_admitted_fit_oracle(
+            problem.into(),
+            services.preparation().math().clone(),
+            move |oracle| {
+                let mut gradient = [0.];
+                oracle.gradient(&[2.5], &mut gradient).unwrap();
+                assert_eq!(gradient, [if transient_included { 0. } else { 1.5 }]);
+                let rank = oracle.response_rank(&[2.5]).unwrap();
+                assert_eq!(rank.rank, usize::from(!transient_included));
+                assert_eq!(rank.responses[(0, 0)], 0.);
+                assert_eq!(
+                    rank.responses[(1, 0)],
+                    if transient_included { 0. } else { 1. }
+                );
+                if !transient_included {
+                    assert_eq!(oracle.transient_passes, (0, 0));
+                    assert!(oracle.point.as_ref().unwrap().trajectories.is_empty());
+                }
+            },
+        )
         .await;
     }
 }
@@ -3009,10 +3114,13 @@ async fn prepared_fitting_relationships_keep_empty_experiments_and_rank_deficien
 /// science checks value/gradient order, then changed IVPs reuse their original workers.
 #[tokio::test]
 async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
-    let (package, mut profile) = source(true, 73.).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let (package, mut profile) = source(&runtime, true, 73.).await;
     profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
     let (problem, _) = package
         .prepare_fit_problem(
+            services.preparation(),
             id(73).into(),
             profile,
             compiler_profile(),
@@ -3035,44 +3143,48 @@ async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
     let operation = hub.start("parallel experiment attribution");
     let outcome = pse_diagnostics::observation::scope(
         Some(operation.context()),
-        with_admitted_fit_oracle_outcome(problem.into(), |oracle| {
-            let team = oracle
-                .team
-                .as_mut()
-                .expect("fixture admits two independent lanes");
-            team.require_concurrent_test_wave();
-            assert_eq!(
-                oracle.team.as_ref().unwrap().test_constructions(),
-                vec![1, 1],
-                "assigned experiment owners are prepared before the first callback"
-            );
-            let value = oracle.objective(&[2.5]).unwrap();
-            assert!((value - 1.25).abs() < 1e-6);
-            assert_eq!(
-                oracle.team.as_ref().unwrap().test_constructions(),
-                vec![1, 1]
-            );
-            let mut gradient = [0.];
-            oracle.gradient(&[2.5], &mut gradient).unwrap();
-            assert!((gradient[0] - 2.).abs() < 1e-6);
-            let predictions = &oracle.point.as_ref().unwrap().predictions;
-            assert!((predictions[0] - 73.5).abs() < 1e-6);
-            assert_eq!(predictions[1], 2.5);
-            assert_eq!(
-                oracle.team.as_ref().unwrap().test_constructions(),
-                vec![1, 1]
-            );
-            assert!((oracle.objective(&[0.7]).unwrap() - 0.89).abs() < 1e-6);
-            oracle.gradient(&[0.7], &mut gradient).unwrap();
-            assert!((gradient[0] + 1.6).abs() < 1e-6);
-            assert_eq!(
-                oracle.team.as_ref().unwrap().test_constructions(),
-                vec![1, 1]
-            );
-            oracle.execution.cancellation_control().cancel();
-            assert!(oracle.objective(&[1.0]).is_err());
-            assert!(oracle.point.is_none());
-        }),
+        with_admitted_fit_oracle_outcome(
+            problem.into(),
+            services.preparation().math().clone(),
+            |oracle| {
+                let team = oracle
+                    .team
+                    .as_mut()
+                    .expect("fixture admits two independent lanes");
+                team.require_concurrent_test_wave();
+                assert_eq!(
+                    oracle.team.as_ref().unwrap().test_constructions(),
+                    vec![1, 1],
+                    "assigned experiment owners are prepared before the first callback"
+                );
+                let value = oracle.objective(&[2.5]).unwrap();
+                assert!((value - 1.25).abs() < 1e-6);
+                assert_eq!(
+                    oracle.team.as_ref().unwrap().test_constructions(),
+                    vec![1, 1]
+                );
+                let mut gradient = [0.];
+                oracle.gradient(&[2.5], &mut gradient).unwrap();
+                assert!((gradient[0] - 2.).abs() < 1e-6);
+                let predictions = &oracle.point.as_ref().unwrap().predictions;
+                assert!((predictions[0] - 73.5).abs() < 1e-6);
+                assert_eq!(predictions[1], 2.5);
+                assert_eq!(
+                    oracle.team.as_ref().unwrap().test_constructions(),
+                    vec![1, 1]
+                );
+                assert!((oracle.objective(&[0.7]).unwrap() - 0.89).abs() < 1e-6);
+                oracle.gradient(&[0.7], &mut gradient).unwrap();
+                assert!((gradient[0] + 1.6).abs() < 1e-6);
+                assert_eq!(
+                    oracle.team.as_ref().unwrap().test_constructions(),
+                    vec![1, 1]
+                );
+                oracle.execution.cancellation_control().cancel();
+                assert!(oracle.objective(&[1.0]).is_err());
+                assert!(oracle.point.is_none());
+            },
+        ),
     )
     .await;
     use pse_diagnostics::observation::Value;
@@ -3149,7 +3261,8 @@ async fn fitting_profile_chains_borrow_parallel_experiment_capacity() {
             },
             4,
         );
-        let (package, mut profile) = source_case_on(runtime, true, 73., "Dynamic").await;
+        let services = runtime.execution_services();
+        let (package, mut profile) = source_case_on(&runtime, true, 73., "Dynamic").await;
         profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
         for simulation in profile.simulations.values_mut() {
             simulation.method = method;
@@ -3165,6 +3278,7 @@ async fn fitting_profile_chains_borrow_parallel_experiment_capacity() {
         });
         let prepared = package
             .prepare_fit(
+                services.preparation(),
                 id(73).into(),
                 profile,
                 compiler_profile(),
@@ -3174,7 +3288,7 @@ async fn fitting_profile_chains_borrow_parallel_experiment_capacity() {
             .await
             .unwrap();
         assert_eq!(prepared.problem.profile_workers(4), 2);
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         let report = regression::report(&result);
         let chains = report.profiles.as_ref().unwrap().as_ref().unwrap();
         assert_eq!(chains.len(), 2, "{report:#?}");
@@ -3202,18 +3316,15 @@ async fn fitting_profile_chains_borrow_parallel_experiment_capacity() {
 /// fits keep their current native product demand, and upgrade only the accepted point.
 #[tokio::test]
 async fn transient_fit_trial_scheduling_keeps_rejected_values_lazy_for_both_derivative_routes() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     for derivatives in [FitDerivatives::Responses, FitDerivatives::Gradient] {
-        let (package, mut selected) = source_case_on_with_fixed_parameter(
-            crate::workflow::tests::runtime_with_workspace(32 << 20),
-            true,
-            73.,
-            "Dynamic",
-            true,
-        )
-        .await;
+        let (package, mut selected) =
+            source_case_on_with_fixed_parameter(&runtime, true, 73., "Dynamic", true).await;
         selected.derivatives = derivatives;
         let (problem, _) = package
             .prepare_fit_problem(
+                services.preparation(),
                 FitId::from(id(73)),
                 selected,
                 compiler_profile(),
@@ -3222,30 +3333,34 @@ async fn transient_fit_trial_scheduling_keeps_rejected_values_lazy_for_both_deri
             )
             .await
             .unwrap();
-        with_admitted_fit_oracle(problem.into(), move |oracle| {
-            for x in [0.7, 1.1, 2.5] {
-                oracle.objective(&[x]).unwrap();
-                let point = oracle.point.as_ref().unwrap();
-                assert!(point.adjoint.is_none());
-                assert!(
-                    point
-                        .trajectories
-                        .values()
-                        .flat_map(|r| &r.samples)
-                        .all(|sample| sample.state_sensitivities.is_empty()
-                            && sample.output_sensitivities.is_empty())
-                );
-            }
-            assert_eq!(oracle.transient_passes, (3, 0));
-            let mut gradient = [0.];
-            oracle.gradient(&[2.5], &mut gradient).unwrap();
-            let expected = (4, usize::from(derivatives == FitDerivatives::Gradient));
-            assert_eq!(oracle.transient_passes, expected);
-            let before = gradient;
-            oracle.gradient(&[2.5], &mut gradient).unwrap();
-            assert_eq!(gradient, before);
-            assert_eq!(oracle.transient_passes, expected);
-        })
+        with_admitted_fit_oracle(
+            problem.into(),
+            services.preparation().math().clone(),
+            move |oracle| {
+                for x in [0.7, 1.1, 2.5] {
+                    oracle.objective(&[x]).unwrap();
+                    let point = oracle.point.as_ref().unwrap();
+                    assert!(point.adjoint.is_none());
+                    assert!(
+                        point
+                            .trajectories
+                            .values()
+                            .flat_map(|r| &r.samples)
+                            .all(|sample| sample.state_sensitivities.is_empty()
+                                && sample.output_sensitivities.is_empty())
+                    );
+                }
+                assert_eq!(oracle.transient_passes, (3, 0));
+                let mut gradient = [0.];
+                oracle.gradient(&[2.5], &mut gradient).unwrap();
+                let expected = (4, usize::from(derivatives == FitDerivatives::Gradient));
+                assert_eq!(oracle.transient_passes, expected);
+                let before = gradient;
+                oracle.gradient(&[2.5], &mut gradient).unwrap();
+                assert_eq!(gradient, before);
+                assert_eq!(oracle.transient_passes, expected);
+            },
+        )
         .await;
     }
 }
@@ -3254,17 +3369,14 @@ async fn transient_fit_trial_scheduling_keeps_rejected_values_lazy_for_both_deri
 /// contain unique physical axes. Both backends see the same complete nonzero values.
 #[tokio::test]
 async fn selected_adjoint_tied_scaled_bindings_use_unique_physical_axes() {
-    let (package, mut profile) = source_case_on_with_fixed_parameter(
-        crate::workflow::tests::runtime_with_workspace(32 << 20),
-        false,
-        73.,
-        "Dynamic",
-        true,
-    )
-    .await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let (package, mut profile) =
+        source_case_on_with_fixed_parameter(&runtime, false, 73., "Dynamic", true).await;
     profile.derivatives = FitDerivatives::Gradient;
     let (problem, assessments) = package
         .prepare_fit_problem(
+            services.preparation(),
             FitId::from(id(73)),
             profile,
             compiler_profile(),
@@ -3274,81 +3386,90 @@ async fn selected_adjoint_tied_scaled_bindings_use_unique_physical_axes() {
         .await
         .unwrap();
     let allowance = affine_output_allowances(&problem, &assessments)[0];
-    with_admitted_fit_oracle(problem.into(), move |oracle| {
-        let Experiment::Transient(base) = &oracle.prepared.experiments[0] else {
-            panic!()
-        };
-        let base = base.clone();
-        for method in [
-            native::dynamics::Method::Diffsol,
-            #[cfg(feature = "solver-idas")]
-            native::dynamics::Method::Idas,
-        ] {
-            let mut experiment = base.clone();
-            experiment.profile.method = method;
-            for (binding, (scale, offset)) in
-                experiment.bindings.iter_mut().zip([(2., 5.), (3., 7.)])
-            {
-                binding.parameter = 0;
-                binding.conversion.scale = scale;
-                binding.conversion.offset = offset;
-            }
-            let mut worker = experiment.worker(&oracle.execution).unwrap();
-            let mut cotangent = |report: &native::dynamics::Report| {
-                let outputs = experiment.program.contract.outputs.len();
-                let row = oracle.prepared.measurements[0].row;
-                let mut weights = vec![0.; report.samples.len() * outputs];
-                weights[(report.samples.len() - 1) * outputs + row] = 1.;
-                Ok(weights)
+    with_admitted_fit_oracle(
+        problem.into(),
+        services.preparation().math().clone(),
+        move |oracle| {
+            let Experiment::Transient(base) = &oracle.prepared.experiments[0] else {
+                panic!()
             };
-            let (report, contributions) = experiment
-                .gradient(
-                    &mut worker,
-                    &|_| 1.,
-                    &oracle.execution,
-                    &[1, 0],
-                    &mut cotangent,
-                )
-                .unwrap();
-            assert_eq!(contributions.len(), 2);
-            assert_eq!(
-                contributions
+            let base = base.clone();
+            for method in [
+                native::dynamics::Method::Diffsol,
+                #[cfg(feature = "solver-idas")]
+                native::dynamics::Method::Idas,
+            ] {
+                let mut experiment = base.clone();
+                experiment.profile.method = method;
+                for (binding, (scale, offset)) in
+                    experiment.bindings.iter_mut().zip([(2., 5.), (3., 7.)])
+                {
+                    binding.parameter = 0;
+                    binding.conversion.scale = scale;
+                    binding.conversion.offset = offset;
+                }
+                let mut worker = experiment.worker(&oracle.execution).unwrap();
+                let mut cotangent = |report: &native::dynamics::Report| {
+                    let outputs = experiment.program.contract.outputs.len();
+                    let row = oracle.prepared.measurements[0].row;
+                    let mut weights = vec![0.; report.samples.len() * outputs];
+                    weights[(report.samples.len() - 1) * outputs + row] = 1.;
+                    Ok(weights)
+                };
+                let (report, contributions) = experiment
+                    .gradient(
+                        &mut worker,
+                        &|_| 1.,
+                        &oracle.execution,
+                        &[1, 0],
+                        &mut cotangent,
+                    )
+                    .unwrap();
+                assert_eq!(contributions.len(), 2);
+                assert_eq!(
+                    contributions
+                        .iter()
+                        .map(|(parameter, _)| *parameter)
+                        .collect::<Vec<_>>(),
+                    [0, 0]
+                );
+                assert_action(
+                    contributions.iter().map(|(_, value)| value).sum::<f64>() * 0.5,
+                    2.5,
+                    allowance,
+                );
+                assert_action(
+                    report.samples.last().unwrap().outputs[oracle.prepared.measurements[0].row],
+                    88.,
+                    allowance,
+                );
+                let adjoint = report
+                    .statistics
                     .iter()
-                    .map(|(parameter, _)| *parameter)
-                    .collect::<Vec<_>>(),
-                [0, 0]
-            );
-            assert_action(
-                contributions.iter().map(|(_, value)| value).sum::<f64>() * 0.5,
-                2.5,
-                allowance,
-            );
-            assert_action(
-                report.samples.last().unwrap().outputs[oracle.prepared.measurements[0].row],
-                88.,
-                allowance,
-            );
-            let adjoint = report
-                .statistics
-                .iter()
-                .find_map(|s| s.get("adjoint"))
-                .unwrap();
-            if method == native::dynamics::Method::Diffsol {
-                assert_eq!(adjoint["parameter_product_width"], 2);
-            } else {
-                for backward in adjoint["backward"].as_array().unwrap() {
-                    assert_eq!(backward["parameter_quadrature_width"], 2);
+                    .find_map(|s| s.get("adjoint"))
+                    .unwrap();
+                if method == native::dynamics::Method::Diffsol {
+                    assert_eq!(adjoint["parameter_product_width"], 2);
+                } else {
+                    for backward in adjoint["backward"].as_array().unwrap() {
+                        assert_eq!(backward["parameter_quadrature_width"], 2);
+                    }
                 }
             }
-        }
-    })
+        },
+    )
     .await;
 }
 
 #[tokio::test]
 async fn fitting_parallel_affine_exact_hessian_prepares_second_contract_and_retains_gram() {
-    let (package, mut profile) = source(true, 73.).await;
-    let mut declarations = package.fit_declarations().await.unwrap();
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let (package, mut profile) = source(&runtime, true, 73.).await;
+    let mut declarations = package
+        .fit_declarations(services.preparation())
+        .await
+        .unwrap();
     let fit = &mut declarations.fits[0];
     let steady = fit.experiments[1].clone();
     let mut other = steady.clone();
@@ -3356,12 +3477,16 @@ async fn fitting_parallel_affine_exact_hessian_prepares_second_contract_and_reta
     fit.experiments = vec![steady, other];
     fit.observations
         .retain(|observation| observation.experiment_id == id(75).into());
-    let package = package.with_fit_declarations(declarations).await.unwrap();
+    let package = package
+        .with_fit_declarations(&runtime.source_services(), declarations)
+        .await
+        .unwrap();
     profile.simulations.clear();
     profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
     profile.solver.controls.hessian = HessianMode::Exact;
     let (problem, _) = package
         .prepare_fit_problem(
+            services.preparation(),
             id(73).into(),
             profile,
             compiler_profile(),
@@ -3377,20 +3502,24 @@ async fn fitting_parallel_affine_exact_hessian_prepares_second_contract_and_reta
             .iter()
             .all(|mapping| mapping.hessian.is_empty())
     );
-    with_admitted_fit_oracle_outcome(problem.into(), |oracle| {
-        assert!(oracle.team.is_some());
-        assert!(
-            oracle.workers.iter().all(Option::is_some),
-            "the actual Exact Second contract retains guards even with empty local curvature"
-        );
-        let mut hessian = vec![f64::NAN; oracle.hessian_pattern().unwrap().row_idx().len()];
-        oracle.hessian(&[2.5], 1., &[], &mut hessian).unwrap();
-        assert_eq!(
-            hessian,
-            [1.],
-            "the independently nonzero affine response Gram term remains"
-        );
-    })
+    with_admitted_fit_oracle_outcome(
+        problem.into(),
+        services.preparation().math().clone(),
+        |oracle| {
+            assert!(oracle.team.is_some());
+            assert!(
+                oracle.workers.iter().all(Option::is_some),
+                "the actual Exact Second contract retains guards even with empty local curvature"
+            );
+            let mut hessian = vec![f64::NAN; oracle.hessian_pattern().unwrap().row_idx().len()];
+            oracle.hessian(&[2.5], 1., &[], &mut hessian).unwrap();
+            assert_eq!(
+                hessian,
+                [1.],
+                "the independently nonzero affine response Gram term remains"
+            );
+        },
+    )
     .await
     .unwrap();
 }
@@ -3400,13 +3529,16 @@ async fn fitting_parallel_affine_exact_hessian_prepares_second_contract_and_reta
 /// retains stride until a qualified source cost/ownership contract supports selection.
 #[tokio::test]
 async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
-    let (package, mut profile) = source(true, 73.).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let (package, mut profile) = source(&runtime, true, 73.).await;
     profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
     for simulation in profile.simulations.values_mut() {
         simulation.method = native::dynamics::Method::Diffsol;
     }
     let (mut problem, _) = package
         .prepare_fit_problem(
+            services.preparation(),
             id(73).into(),
             profile,
             compiler_profile(),
@@ -3442,18 +3574,18 @@ async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
     );
     problem.bytes *= 2;
     let problem = Arc::new(problem);
-    let outcome = with_admitted_fit_oracle_outcome(problem, |oracle| {
+    let outcome = with_admitted_fit_oracle_outcome(problem, services.preparation().math().clone(), |oracle| {
         let mut measured = Vec::new();
         for stride in [true, false] {
             oracle.point = None;
             oracle.team.take(); // Actual prior owners drain before constructing the comparison.
-            let resident_before = oracle.prepared.runtime.shared.pool().reserved();
+            let resident_before = oracle.math.pool().reserved();
             let started = std::time::Instant::now();
             oracle.team = if stride {
-                experiments::ExperimentTeam::new(oracle.prepared.clone(), oracle.execution.clone()).unwrap()
-            } else { Some(experiments::ExperimentTeam::fixed_affinity_for_test(oracle.prepared.clone(), oracle.execution.clone()).unwrap()) };
+                experiments::ExperimentTeam::new(oracle.prepared.clone(), oracle.math.clone(), oracle.execution.clone()).unwrap()
+            } else { Some(experiments::ExperimentTeam::fixed_affinity_for_test(oracle.prepared.clone(), oracle.math.clone(), oracle.execution.clone()).unwrap()) };
             let construction = started.elapsed();
-            let resident = oracle.prepared.runtime.shared.pool().reserved() - resident_before;
+            let resident = oracle.math.pool().reserved() - resident_before;
             let started = std::time::Instant::now();
             let mut completion = Vec::new();
             for x in [2.5, 0.7, 2.5] {
@@ -3486,11 +3618,14 @@ async fn fitting_uneven_experiment_affinity_compares_stride_without_replay() {
 
 #[tokio::test]
 async fn transient_fit_neutral_case_scratch_rebinds_current_frames_and_original_values() {
-    let (package, mut profile) = source(false, 73.).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let (package, mut profile) = source(&runtime, false, 73.).await;
     profile.solver.controls.hessian = HessianMode::GaussNewton;
     profile.derivatives = FitDerivatives::Responses;
     let (problem, _) = package
         .prepare_fit_problem(
+            services.preparation(),
             FitId::from(id(73)),
             profile,
             compiler_profile(),
@@ -3499,59 +3634,64 @@ async fn transient_fit_neutral_case_scratch_rebinds_current_frames_and_original_
         )
         .await
         .unwrap();
-    with_admitted_fit_oracle(problem.into(), |baseline| {
-        let problem = baseline.prepared.clone();
-        let bank = FitScratch::new(&problem).unwrap();
-        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
-        let operation = hub.start("neutral dynamic case handoff");
-        let context = operation.context();
-        let _entered = context.enter();
-        let mut previous = None;
-        for value in [2., 3., 1.5] {
-            let mut current = FitOracle::with_scratch(
-                problem.clone(),
-                baseline.execution.clone(),
-                Some(bank.clone()),
-            )
-            .unwrap();
-            let objective = current.objective(&[value]).unwrap();
-            let expected = baseline.objective(&[value]).unwrap();
-            assert_eq!(objective, expected);
-            let point = current.point.as_ref().unwrap();
-            let prediction = point.predictions[0];
-            if let Some(previous) = previous {
-                assert_ne!(
-                    prediction, previous,
-                    "current frames cannot reuse a previous parameter's output"
+    with_admitted_fit_oracle(
+        problem.into(),
+        services.preparation().math().clone(),
+        |baseline| {
+            let problem = baseline.prepared.clone();
+            let bank = FitScratch::new(&problem, &baseline.math).unwrap();
+            let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+            let operation = hub.start("neutral dynamic case handoff");
+            let context = operation.context();
+            let _entered = context.enter();
+            let mut previous = None;
+            for value in [2., 3., 1.5] {
+                let mut current = FitOracle::with_scratch(
+                    problem.clone(),
+                    baseline.math.clone(),
+                    baseline.execution.clone(),
+                    Some(bank.clone()),
+                )
+                .unwrap();
+                let objective = current.objective(&[value]).unwrap();
+                let expected = baseline.objective(&[value]).unwrap();
+                assert_eq!(objective, expected);
+                let point = current.point.as_ref().unwrap();
+                let prediction = point.predictions[0];
+                if let Some(previous) = previous {
+                    assert_ne!(
+                        prediction, previous,
+                        "current frames cannot reuse a previous parameter's output"
+                    );
+                }
+                previous = Some(prediction);
+                assert_eq!(prediction, baseline.point.as_ref().unwrap().predictions[0]);
+                drop(current);
+            }
+            let mut pending = vec![operation.reader()];
+            let mut reuses = 0;
+            while let Some(reader) = pending.pop() {
+                let snapshot = reader.snapshot(std::time::Duration::from_secs(60));
+                for metric in snapshot.metrics {
+                    if metric.name == "fit.neutral_case_reuses"
+                        && let pse_diagnostics::observation::Value::Count(count) = metric.cumulative
+                    {
+                        reuses += count;
+                    }
+                }
+                pending.extend(
+                    snapshot
+                        .children
+                        .iter()
+                        .filter_map(|child| hub.reader(child.id)),
                 );
             }
-            previous = Some(prediction);
-            assert_eq!(prediction, baseline.point.as_ref().unwrap().predictions[0]);
-            drop(current);
-        }
-        let mut pending = vec![operation.reader()];
-        let mut reuses = 0;
-        while let Some(reader) = pending.pop() {
-            let snapshot = reader.snapshot(std::time::Duration::from_secs(60));
-            for metric in snapshot.metrics {
-                if metric.name == "fit.neutral_case_reuses"
-                    && let pse_diagnostics::observation::Value::Count(count) = metric.cumulative
-                {
-                    reuses += count;
-                }
-            }
-            pending.extend(
-                snapshot
-                    .children
-                    .iter()
-                    .filter_map(|child| hub.reader(child.id)),
+            assert!(
+                reuses > 0,
+                "actual transient function workers must consume compatible returned CaseScratch"
             );
-        }
-        assert!(
-            reuses > 0,
-            "actual transient function workers must consume compatible returned CaseScratch"
-        );
-    })
+        },
+    )
     .await;
 }
 
@@ -3596,13 +3736,15 @@ async fn fitting_native_foreign_population_covers_every_actual_owner_and_discard
         },
         2,
     );
-    let (package, mut profile) = source_case_on(runtime, false, 73., "Dynamic").await;
+    let services = runtime.execution_services();
+    let (package, mut profile) = source_case_on(&runtime, false, 73., "Dynamic").await;
     profile.solver.controls.hessian = HessianMode::GaussNewton;
     for simulation in profile.simulations.values_mut() {
         simulation.method = native::dynamics::Method::Idas;
     }
     let (mut problem, _) = package
         .prepare_fit_problem(
+            services.preparation(),
             FitId::from(id(73)),
             profile,
             compiler_profile(),
@@ -3635,7 +3777,7 @@ async fn fitting_native_foreign_population_covers_every_actual_owner_and_discard
         .unwrap(),
     );
     problem.bytes *= 3;
-    let service = problem.runtime.native().clone();
+    let service = services.preparation().math().clone();
     // Reserve pressure only after the service's normal idle compiler/native
     // reclamation has run. Otherwise an optional envelope can lawfully fit by
     // evicting cache population that was included in the old free-space figure.
@@ -3668,7 +3810,7 @@ async fn fitting_native_foreign_population_covers_every_actual_owner_and_discard
         // three parent plus three child owners, independently of native callbacks.
         problem.profile.solver.controls.hessian = HessianMode::Exact;
         let assignment = [vec![0,2], vec![1]];
-        let population = foreign::Population::prepare(&problem, &execution, Some(&assignment))?.unwrap();
+        let population = foreign::Population::prepare(&problem, &inner, &execution, Some(&assignment))?.unwrap();
         let mut tokens = Vec::new(); let mut identities = Vec::new();
         for current in population.parent.iter().chain(&population.child) {
             let identity = Arc::new(());
@@ -3684,10 +3826,10 @@ async fn fitting_native_foreign_population_covers_every_actual_owner_and_discard
             "passive native tokens preserve the original exclusive claim after current facades drop");
         drop(tokens); drop(identities);
         assert_eq!(inner.test_admission_snapshot().0,before);
-        let roots=foreign::chains(&problem,&execution,2)?.unwrap();
+        let roots=foreign::chains(&problem,&inner,&execution,2)?.unwrap();
         let mut nested=Vec::new(); let mut nested_identities=Vec::new();
         for root in &roots {
-            let population=foreign::Population::prepare(&problem,root,Some(&assignment))?.unwrap();
+            let population=foreign::Population::prepare(&problem, &inner,root,Some(&assignment))?.unwrap();
             for current in population.parent.iter().chain(&population.child) {
                 let identity=Arc::new(());
                 let token=current.work_admission.as_ref().unwrap().prepaid_storage(&identity,foreign)?.unwrap();
@@ -3707,7 +3849,7 @@ async fn fitting_native_foreign_population_covers_every_actual_owner_and_discard
         // active lane fits. No provider/native construction has happened yet.
         let free = (8 << 30) - inner.test_admission_snapshot().0;
         let pressure = inner.reserve("test:fit-native-resident-pressure", free - foreign - foreign/2)?;
-        let fresh = foreign::Population::prepare(&problem, &execution, Some(&assignment))?.unwrap();
+        let fresh = foreign::Population::prepare(&problem, &inner, &execution, Some(&assignment))?.unwrap();
         for current in fresh.parent.iter().chain(&fresh.child) {
             assert!(current.work_admission.as_ref().unwrap().prepaid_storage(&Arc::new(()),foreign)?.is_none());
         }
@@ -3715,10 +3857,10 @@ async fn fitting_native_foreign_population_covers_every_actual_owner_and_discard
         drop(fresh);
         let tighter = inner.reserve("test:fit-active-width-pressure", foreign)?;
         let squeezed = inner.test_admission_snapshot().0;
-        assert!(foreign::Population::prepare(&problem, &execution, Some(&assignment))?.is_none(),
+        assert!(foreign::Population::prepare(&problem, &inner, &execution, Some(&assignment))?.is_none(),
             "a wider active population refuses before any worker construction");
         assert_eq!(inner.test_admission_snapshot().0,squeezed);
-        let serial = foreign::Population::prepare(&problem, &execution, None)?.unwrap();
+        let serial = foreign::Population::prepare(&problem, &inner, &execution, None)?.unwrap();
         for current in &serial.parent {
             assert!(current.work_admission.as_ref().unwrap().prepaid_storage(&Arc::new(()),foreign)?.is_none());
         }
@@ -3734,8 +3876,8 @@ async fn fitting_native_foreign_population_covers_every_actual_owner_and_discard
             for exact in [false,true] {
                 problem.profile.experiment_workers = PositiveCount::try_new(width).unwrap();
                 problem.profile.solver.controls.hessian = if exact { HessianMode::Exact } else { HessianMode::GaussNewton };
-                let pool_before=format!("{:?}",problem.runtime.shared.pool());
-                let mut oracle = FitOracle::new(Arc::new(problem), execution.clone())?;
+                let pool_before=format!("{:?}",services.preparation().math().pool());
+                let mut oracle = FitOracle::new(Arc::new(problem), inner.clone(), execution.clone())?;
                 assert_eq!(oracle.team.is_some(), width == 2);
                 for value in [2.5,0.7,1.5] {
                     let mut gradient = [0.]; oracle.gradient(&[value], &mut gradient)?;
@@ -3753,14 +3895,14 @@ async fn fitting_native_foreign_population_covers_every_actual_owner_and_discard
                 // native allocation's immediate resident-claim lifetime.
                 let growth=constructors.accepted.load(Ordering::SeqCst);
                 assert!(problem.bytes.checked_add(growth).unwrap()
-                    <= problem.runtime.shared.budget().math.worker_bytes);
+                    <= services.preparation().math().policy().worker_bytes);
                 let expected=before.checked_add(growth).unwrap();
                 let retained = inner.test_admission_snapshot().0;
                 eprintln!("fit native constructor width={width} exact={exact} accepted_bytes={growth} current_pool={retained}");
                 if retained != expected {
                     eprintln!("fit native drop width={width} exact={exact} before={before} retained={retained} consumers={:?}",
-                        problem.runtime.shared.report().unwrap());
-                    eprintln!("fit native pool before={pool_before}\nafter={:?}",problem.runtime.shared.pool());
+                        services.preparation().math().test_admission_snapshot());
+                    eprintln!("fit native pool before={pool_before}\nafter={:?}",services.preparation().math().pool());
                     let exhausted=inner.reserve("test:fit-post-native-reclamation",8<<30).unwrap_err();
                     assert!(matches!(exhausted,crate::math::MathRuntimeError::Pool(
                         datafusion::common::DataFusionError::ResourcesExhausted(_))));
@@ -3770,7 +3912,7 @@ async fn fitting_native_foreign_population_covers_every_actual_owner_and_discard
             }
         }
         execution.cancellation_control().cancel();
-        assert!(foreign::Population::prepare(&problem,&execution,Some(&assignment)).is_err());
+        assert!(foreign::Population::prepare(&problem, &inner,&execution,Some(&assignment)).is_err());
         assert_eq!(inner.test_admission_snapshot().0,
             before.checked_add(constructors.accepted.load(Ordering::SeqCst)).unwrap(),
             "cancelled preflight retains no candidate coverage beyond the existing job constructor charge");

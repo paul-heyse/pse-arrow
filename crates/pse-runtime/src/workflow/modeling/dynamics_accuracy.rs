@@ -155,13 +155,16 @@ mod tests {
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = fixture::runtime()
+        let runtime = fixture::runtime();
+        let services = runtime.execution_services();
+        let package = runtime
             .modeling_package(rows, fixture::physical())
             .await
             .unwrap();
         let cancel = crate::CancelSource::new();
         let prepared = package
             .prepare_simulation(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -201,7 +204,7 @@ mod tests {
         selected.target_kind = target.kind;
         selected.quantity_id = target.quantity.as_id();
         selected.unit_id = target.unit.as_id();
-        let result = prepared.run(&cancel).await.unwrap();
+        let result = prepared.run(&services, &cancel).await.unwrap();
         let point = &result.report().endpoint.as_ref().unwrap().point;
         let (bound, value) = prepared.dynamic_goal(&selected, point).unwrap();
         assert_eq!(value, 2.0);
@@ -1193,6 +1196,7 @@ fn point_arithmetic_inputs(
 impl ModelingSimulation {
     fn point_uncertainty(
         &self,
+        math: &Arc<crate::math::MathService>,
         request: PointUncertaintyRequest<'_>,
     ) -> Result<Option<(f64, ContentHash)>, ProblemError> {
         // The no-isolation backend has no point enclosure capability, so this request
@@ -1249,6 +1253,7 @@ impl ModelingSimulation {
     /// report accumulated callback and arithmetic uncertainty.
     fn point_uncertainty(
         &self,
+        math: &Arc<crate::math::MathService>,
         request: PointUncertaintyRequest<'_>,
     ) -> Result<Option<(f64, ContentHash)>, ProblemError> {
         use pse_backend_native::root_isolation::{Ibex, PointArithmeticEvidence};
@@ -1275,10 +1280,7 @@ impl ModelingSimulation {
         let available = budget.capacity().saturating_sub(budget.used());
         // Acquire the existing math-pool lease before provider and dependency inspection
         // allocate selected maps or the library's semantic dependency projection.
-        let _pool_reservation = self
-            .runtime
-            .shared
-            .math()
+        let _pool_reservation = math
             .reserve("math:dynamic-point-arithmetic", available)
             .map_err(|_| ProblemError::memory("dynamic point arithmetic reservation"))?;
         let source_bytes = source_inspection_bytes(&self.programs, point.mode);
@@ -1717,6 +1719,7 @@ fn refinement_ratio(results: &[GoalResult]) -> Result<Option<f64>, Unavailable> 
 impl ModelingSimulation {
     fn optional_accuracy_failure(
         &self,
+        math: &Arc<crate::math::MathService>,
         error: ProblemError,
     ) -> Result<Vec<GoalResult>, crate::math::MathRuntimeError> {
         if !crate::math::solves::engineering_accuracy::optional_failure(&error) {
@@ -1727,11 +1730,7 @@ impl ModelingSimulation {
         let bytes = retained
             .saturating_add(cause.allocation_overhead())
             .saturating_add(size_of::<pse_model::diagnostic::DiagnosticCause>());
-        let owner = self
-            .runtime
-            .shared
-            .math()
-            .reserve("math:dynamic-accuracy-failure", bytes)?;
+        let owner = math.reserve("math:dynamic-accuracy-failure", bytes)?;
         let failure =
             pse_math::engineering_accuracy::GoalFailure::new(cause, bytes).with_owner(owner);
         Ok(self
@@ -1964,6 +1963,7 @@ impl ModelingSimulation {
 
     fn capture_dynamic_goals(
         &self,
+        math: &Arc<crate::math::MathService>,
         report: &native::Report,
         profile: &native::Profile,
         occurrence: u64,
@@ -1976,8 +1976,9 @@ impl ModelingSimulation {
             let captured = (|| -> Result<GoalPoint, GoalBuildError> {
                 let point = observation(goal, report)?;
                 let (bound, value) = self.dynamic_goal(goal, point)?;
-                let Some((uncertainty, arithmetic)) =
-                    self.point_uncertainty(PointUncertaintyRequest {
+                let Some((uncertainty, arithmetic)) = self.point_uncertainty(
+                    math,
+                    PointUncertaintyRequest {
                         goal,
                         goal_index,
                         report,
@@ -1987,7 +1988,8 @@ impl ModelingSimulation {
                         scope,
                         budget,
                         charges,
-                    })?
+                    },
+                )?
                 else {
                     return Err(Unavailable::EvaluatorUncertainty.into());
                 };
@@ -2047,6 +2049,7 @@ impl ModelingSimulation {
 
     pub(super) fn assess_dynamic_accuracy(
         &self,
+        math: &Arc<crate::math::MathService>,
         report: native::Report,
         checks: checks::SampleChecks,
         mut context: DynamicAttemptContext<'_>,
@@ -2059,7 +2062,7 @@ impl ModelingSimulation {
         }
         crate::workflow::dynamics::analysis("dynamic.output_accuracy_and_refinement", || {
             let (mut report, checks, accuracy) =
-                self.assess_dynamic_accuracy_inner(report, checks, &mut context)?;
+                self.assess_dynamic_accuracy_inner(math, report, checks, &mut context)?;
             if !context.charges.is_empty() {
                 report
                     .statistics
@@ -2071,6 +2074,7 @@ impl ModelingSimulation {
 
     fn assess_dynamic_accuracy_inner(
         &self,
+        math: &Arc<crate::math::MathService>,
         mut report: native::Report,
         mut checks: checks::SampleChecks,
         context: &mut DynamicAttemptContext<'_>,
@@ -2108,17 +2112,22 @@ impl ModelingSimulation {
         let attempt_bytes = self.admission_bytes(*retention)?;
         let budget =
             crate::math::WorkerBudget::new(attempt_bytes).with_admission(admission.clone());
-        let base_capture =
-            match self.capture_dynamic_goals(&report, &self.profile, 0, scope, &budget, charges) {
-                Ok(captured) => captured,
-                Err(error)
-                    if crate::math::solves::engineering_accuracy::optional_failure(&error) =>
-                {
-                    let rows = self.optional_accuracy_failure(error)?;
-                    return Ok((report, checks, rows));
-                }
-                Err(error) => return Err(error.into()),
-            };
+        let base_capture = match self.capture_dynamic_goals(
+            math,
+            &report,
+            &self.profile,
+            0,
+            scope,
+            &budget,
+            charges,
+        ) {
+            Ok(captured) => captured,
+            Err(error) if crate::math::solves::engineering_accuracy::optional_failure(&error) => {
+                let rows = self.optional_accuracy_failure(math, error)?;
+                return Ok((report, checks, rows));
+            }
+            Err(error) => return Err(error.into()),
+        };
         if base_capture.goals.iter().all(Result::is_err) {
             let rows = goals
                 .iter()
@@ -2142,11 +2151,7 @@ impl ModelingSimulation {
         };
         // Reserve transient native/report/check storage before constructing another worker.
         // One lease serves all goals. It is dropped before the final report escapes.
-        let _comparator = self
-            .runtime
-            .shared
-            .math()
-            .reserve("math:dynamic-goal-comparator", attempt_bytes)?;
+        let _comparator = math.reserve("math:dynamic-goal-comparator", attempt_bytes)?;
         let started = std::time::Instant::now();
         let mut integrate = |profile: &native::Profile,
                              occurrence: i64,
@@ -2170,6 +2175,7 @@ impl ModelingSimulation {
             });
             admission.reserve_attempt()?;
             let outcome = self.integrate_sample_attempt(
+                math,
                 run_id,
                 profile,
                 occurrence as u64,
@@ -2189,7 +2195,7 @@ impl ModelingSimulation {
         } = match integrate(&contrast, 1, 0.5) {
             Ok(result) => result,
             Err(error) => {
-                let rows = self.optional_accuracy_failure(error)?;
+                let rows = self.optional_accuracy_failure(math, error)?;
                 return Ok((report, checks, rows));
             }
         };
@@ -2197,7 +2203,7 @@ impl ModelingSimulation {
         let (mut other, other_checks) = match other_outcome {
             Ok(result) => result,
             Err(error) => {
-                let rows = self.optional_accuracy_failure(error)?;
+                let rows = self.optional_accuracy_failure(math, error)?;
                 return Ok((report, checks, rows));
             }
         };
@@ -2205,7 +2211,7 @@ impl ModelingSimulation {
         let comparator_reason = match comparator_result {
             Ok(reason) => reason,
             Err(error) if crate::math::solves::engineering_accuracy::optional_failure(&error) => {
-                let rows = self.optional_accuracy_failure(error)?;
+                let rows = self.optional_accuracy_failure(math, error)?;
                 return Ok((report, checks, rows));
             }
             Err(error) => return Err(error.into()),
@@ -2219,11 +2225,11 @@ impl ModelingSimulation {
         let base_controls = controls_identity(&self.profile);
         let contrast_controls = controls_identity(&contrast);
         let contrast_capture = match self
-            .capture_dynamic_goals(&other, &contrast, 1, scope, &budget, charges)
+            .capture_dynamic_goals(math, &other, &contrast, 1, scope, &budget, charges)
         {
             Ok(captured) => captured,
             Err(error) if crate::math::solves::engineering_accuracy::optional_failure(&error) => {
-                let rows = self.optional_accuracy_failure(error)?;
+                let rows = self.optional_accuracy_failure(math, error)?;
                 return Ok((report, checks, rows));
             }
             Err(error) => return Err(error.into()),
@@ -2270,7 +2276,7 @@ impl ModelingSimulation {
         } = match integrate(&refined_controls, 2, ratio) {
             Ok(result) => result,
             Err(error) => {
-                let rows = self.optional_accuracy_failure(error)?;
+                let rows = self.optional_accuracy_failure(math, error)?;
                 return Ok((report, checks, rows));
             }
         };
@@ -2278,7 +2284,7 @@ impl ModelingSimulation {
         let (mut refined, refined_checks) = match refined_outcome {
             Ok(result) => result,
             Err(error) => {
-                let rows = self.optional_accuracy_failure(error)?;
+                let rows = self.optional_accuracy_failure(math, error)?;
                 return Ok((report, checks, rows));
             }
         };
@@ -2286,7 +2292,7 @@ impl ModelingSimulation {
         let comparator_reason = match comparator_result {
             Ok(reason) => reason,
             Err(error) if crate::math::solves::engineering_accuracy::optional_failure(&error) => {
-                let rows = self.optional_accuracy_failure(error)?;
+                let rows = self.optional_accuracy_failure(math, error)?;
                 return Ok((report, checks, rows));
             }
             Err(error) => return Err(error.into()),
@@ -2308,6 +2314,7 @@ impl ModelingSimulation {
             return Ok((report, checks, results));
         }
         let refined_capture = match self.capture_dynamic_goals(
+            math,
             &refined,
             &refined_controls,
             2,
@@ -2317,7 +2324,7 @@ impl ModelingSimulation {
         ) {
             Ok(captured) => captured,
             Err(error) if crate::math::solves::engineering_accuracy::optional_failure(&error) => {
-                let rows = self.optional_accuracy_failure(error)?;
+                let rows = self.optional_accuracy_failure(math, error)?;
                 return Ok((report, checks, rows));
             }
             Err(error) => return Err(error.into()),

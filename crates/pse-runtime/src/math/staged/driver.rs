@@ -112,7 +112,10 @@ impl<D: Dispatch> StepDriver<'_, D> {
             .map_err(|e| ProblemError::Contract(e.to_string()))?;
         let deadline = std::time::Instant::now()
             .checked_add(step.time_limit())
-            .ok_or_else(|| ProblemError::Contract("accuracy task deadline extent".into()))?;
+            .ok_or_else(|| ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                detail: "accuracy task deadline extent".into(),
+            })?;
         let scope = step.task_scope().unwrap_or_else(|| {
             pse_kernels::ExecutionScope::new(
                 pse_diagnostics::Cancellation::default(),
@@ -442,7 +445,10 @@ impl<D: Dispatch> StepDriver<'_, D> {
         }
         let deadline = std::time::Instant::now()
             .checked_add(step.time_limit())
-            .ok_or_else(|| ProblemError::Contract("automatic task deadline extent".into()))?;
+            .ok_or_else(|| ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                detail: "automatic task deadline extent".into(),
+            })?;
         let scope = step.task_scope().unwrap_or_else(|| {
             pse_kernels::ExecutionScope::new(
                 pse_diagnostics::Cancellation::default(),
@@ -944,7 +950,10 @@ impl<D: Dispatch> StepDriver<'_, D> {
         let (threads, backend) = (step.threads(), step.backend());
         let deadline = std::time::Instant::now()
             .checked_add(step.time_limit())
-            .ok_or_else(|| ProblemError::Contract("task deadline extent".into()))?;
+            .ok_or_else(|| ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                detail: "task deadline extent".into(),
+            })?;
         let mut declaration = step.numerical_strategy();
         if let Some(mechanism) = mechanism {
             declaration.limits = mechanism.limits;

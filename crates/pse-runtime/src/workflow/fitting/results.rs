@@ -31,9 +31,9 @@ impl RunResult {
         if let Some(report) = report {
             observe_report(report);
         }
-        let registry = self.runtime.registry();
+        let registry = self.services.preparation().registry();
         let validation = self.result_validation_context();
-        let pool = self.runtime.shared.pool();
+        let pool = self.services.preparation().pool();
         let cancel = request.cancel.clone();
         let mut context = crate::workflow::result_export::Rows::<
             pse_model::generated::runtime::scientific_contexts::Row,
@@ -568,6 +568,8 @@ impl RunResult {
                 p,
                 prepared.source.physical.identity(),
                 report.map(|r| &**r),
+                self.completion()
+                    .map_err(|error| contract(error.to_string()))?,
             )
             .await?;
         }
@@ -637,7 +639,7 @@ impl RunResult {
             && request.wants(solve_strategy_events::RELATION_ID)
         {
             strategy_events
-                .strategy_events(trace, self.run_id, 0, self.runtime.shared.math())
+                .strategy_events(trace, self.run_id, 0, self.services.preparation().math())
                 .await?;
         }
         strategy_events.finish().await.map_err(relation)?;
@@ -678,6 +680,7 @@ async fn uncertainty(
     p: &FitProblem,
     physical: ContentHash,
     report: Option<&FitReport>,
+    completion: &crate::workflow::Completion,
 ) -> Result<(), WorkflowError> {
     let _phase = pse_diagnostics::observation::phase("fit.uncertainty_projection");
     let mut validity = crate::workflow::result_export::Rows::<local_validity::Row>::new(
@@ -728,13 +731,18 @@ async fn uncertainty(
                 run_id,
                 step: 0,
                 quantity,
-                validity: crate::workflow::local_analysis::record(
-                    outcome
-                        .map(|()| &())
-                        .map_err(|w| (w.reason(), w.to_string())),
-                    point,
-                    false,
-                ),
+                validity: completion
+                    .product_permission(quantity)
+                    .map(|fact| fact.validity.clone())
+                    .unwrap_or_else(|| {
+                        crate::workflow::local_analysis::record(
+                            outcome
+                                .map(|()| &())
+                                .map_err(|w| (w.reason(), w.to_string())),
+                            point,
+                            false,
+                        )
+                    }),
             })
             .await
             .map_err(relation)
@@ -811,33 +819,36 @@ async fn uncertainty(
         .uncertainty
         .as_ref()
         .map_or(0.0, |u| u.level.into_inner());
-    let mut interval = async |parameter: SemanticId,
-                              method,
-                              end,
-                              estimate,
-                              bound: &IntervalBound,
-                              count: usize,
-                              detail: Option<String>| {
-        if !intervals.wanted() || intervals.skip_next() {
-            return Ok(());
-        }
-        intervals
-            .push(parameter_intervals::Row {
-                run_id,
-                parameter_id: parameter,
-                method,
-                end,
-                unit_id: unit(parameter)?,
-                level,
-                estimate,
-                value: bound.value,
-                outcome: bound.outcome,
-                points: i64::try_from(count).map_err(|_| contract("profile chain length"))?,
-                detail,
-            })
-            .await
-            .map_err(relation)
-    };
+    let mut interval =
+        async |parameter: SemanticId,
+               method,
+               end,
+               estimate,
+               bound: &IntervalBound,
+               count: usize,
+               detail: Option<String>,
+               qualifiers: Vec<pse_model::generated::enums::CandidateQualifier>| {
+            if !intervals.wanted() || intervals.skip_next() {
+                return Ok(());
+            }
+            intervals
+                .push(parameter_intervals::Row {
+                    run_id,
+                    parameter_id: parameter,
+                    method,
+                    end,
+                    unit_id: unit(parameter)?,
+                    level,
+                    estimate,
+                    value: bound.value,
+                    outcome: bound.outcome,
+                    points: i64::try_from(count).map_err(|_| contract("profile chain length"))?,
+                    detail,
+                    qualifiers,
+                })
+                .await
+                .map_err(relation)
+        };
     if let Some(wald) = &report.wald {
         row(
             DerivedQuantity::WaldInterval,
@@ -858,6 +869,10 @@ async fn uncertainty(
                     bound,
                     0,
                     None,
+                    completion
+                        .permission
+                        .as_ref()
+                        .map_or_else(Vec::new, |permission| permission.qualifiers.clone()),
                 )
                 .await?;
             }
@@ -879,6 +894,7 @@ async fn uncertainty(
                 &chain.bound,
                 chain.points.len(),
                 chain.detail.clone(),
+                chain.qualifiers.clone(),
             )
             .await?;
             if request.wants(profile_points::RELATION_ID) {
@@ -899,6 +915,7 @@ async fn uncertainty(
                             value: point.value,
                             seed: point.seed.map(ordinal).transpose()?,
                             qualification: point.qualification,
+                            qualifiers: point.qualifiers.clone(),
                             termination: point.termination,
                             callback_terminal_failure: Some(point.callback_terminal_failure),
                             failures: point
@@ -981,24 +998,35 @@ async fn uncertainty(
             .as_ref()
             .and_then(|solve| solve.evidence.local.as_ref())
             .and_then(|point| point.as_ref().ok());
-        let input = covariance.propagation_input(
-            crate::math::settings::CovarianceOrigin::QualifiedFit {
-                run_id,
-                record: None,
-            },
-            p.source_identity,
-            physical,
-            crate::workflow::local_analysis::record(
-                covariance
-                    .values
-                    .as_ref()
-                    .map(|_| &())
-                    .map_err(|withheld| (withheld.reason(), withheld.to_string())),
-                point,
-                false,
-            ),
-            pool,
-        );
+        let input = if !completion
+            .product_permission(DerivedQuantity::ParameterCovariance)
+            .is_some_and(crate::workflow::ProductPermission::permits_result)
+        {
+            Err(crate::workflow::uncertainty::Upstream {
+                quantity: DerivedQuantity::ParameterCovariance,
+                reason: pse_relations::generated::enums::WithheldReason::UpstreamWithheld,
+                detail: "original fit completion withholds own-prediction covariance".into(),
+            })
+        } else {
+            covariance.propagation_input(
+                crate::math::settings::CovarianceOrigin::QualifiedFit {
+                    run_id,
+                    record: None,
+                },
+                p.source_identity,
+                physical,
+                crate::workflow::local_analysis::record(
+                    covariance
+                        .values
+                        .as_ref()
+                        .map(|_| &())
+                        .map_err(|withheld| (withheld.reason(), withheld.to_string())),
+                    point,
+                    false,
+                ),
+                pool,
+            )
+        };
         let (result, _derived) = crate::workflow::uncertainty::propagate(
             input.as_ref().map_err(Clone::clone),
             jacobian.as_ref().map_err(Clone::clone),
@@ -1096,7 +1124,7 @@ impl RunResult {
         use pse_relations::generated::runtime::fitted_parameter_cells as cells;
         crate::workflow::result_export::collect(
             self.export_fit_parameters_cursor(1024)?,
-            &self.runtime,
+            self.services.preparation(),
             cells::RELATION_ID,
         )
         .map_err(WorkflowError::Shared)
@@ -1112,13 +1140,15 @@ impl RunResult {
             return Err(WorkflowError::Shared(error));
         }
         let spec = self
-            .runtime
+            .services
+            .preparation()
             .registry()
             .relation_by_id(cells::RELATION_ID)
             .ok_or_else(|| contract("fitted parameter declaration absent"))?;
-        let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
-            .map_err(pse_relations::RelationError::from)
-            .map_err(relation)?;
+        let schema =
+            pse_schema::arrow::relation_schema_ref(self.services.preparation().registry(), spec)
+                .map_err(pse_relations::RelationError::from)
+                .map_err(relation)?;
         crate::workflow::ResultCursor::new(
             schema,
             cells::RELATION_ID,
@@ -1142,13 +1172,15 @@ impl RunResult {
             return Err(WorkflowError::Shared(error));
         }
         let spec = self
-            .runtime
+            .services
+            .preparation()
             .registry()
             .relation_by_id(cells::RELATION_ID)
             .ok_or_else(|| contract("fitted parameter declaration absent"))?;
-        let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
-            .map_err(pse_relations::RelationError::from)
-            .map_err(relation)?;
+        let schema =
+            pse_schema::arrow::relation_schema_ref(self.services.preparation().registry(), spec)
+                .map_err(pse_relations::RelationError::from)
+                .map_err(relation)?;
         crate::workflow::ResultCursor::new(
             schema,
             cells::RELATION_ID,
@@ -1189,12 +1221,12 @@ impl RunResult {
             ));
         }
         let problem = &prepared.problem;
-        let pool = self.runtime.shared.pool();
+        let pool = self.services.preparation().pool();
         let cancel = request.cancel.clone();
         let validation = self.result_validation_context();
         let mut builder = crate::workflow::result_export::SelectedCollection::new(
             request,
-            self.runtime.registry(),
+            self.services.preparation().registry(),
             &pool,
             &cancel,
             &validation,

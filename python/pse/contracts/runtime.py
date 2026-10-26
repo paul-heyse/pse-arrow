@@ -3293,11 +3293,12 @@ class RuntimeParameterIntervalsRow:
     estimate: b.float = attrs.field(validator=v.finite_float)
     value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     outcome: e.IntervalOutcome = attrs.field(validator=attrs.validators.instance_of(e.IntervalOutcome))
+    qualifiers: b.tuple[e.CandidateQualifier, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.CandidateQualifier), iterable_validator=attrs.validators.instance_of(b.tuple)))
     points: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
     detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.parameter_id), v.scalar_key(self.method), v.scalar_key(self.end), v.scalar_key(self.unit_id), v.scalar_key(self.level), v.scalar_key(self.estimate), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.outcome), v.scalar_key(self.points), v.optional_key(v.scalar_key)(self.detail),))
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.parameter_id), v.scalar_key(self.method), v.scalar_key(self.end), v.scalar_key(self.unit_id), v.scalar_key(self.level), v.scalar_key(self.estimate), v.optional_key(v.scalar_key)(self.value), v.scalar_key(self.outcome), v.sequence_key(v.scalar_key)(self.qualifiers), v.scalar_key(self.points), v.optional_key(v.scalar_key)(self.detail),))
 
 
 @attrs.frozen(kw_only=True)
@@ -3667,6 +3668,7 @@ class RuntimeProfilePointsRow:
     value: b.float = attrs.field(validator=v.finite_float)
     seed: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 4294967295)))
     qualification: e.NativeQualification | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeQualification)))
+    qualifiers: b.tuple[e.CandidateQualifier, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.CandidateQualifier), iterable_validator=attrs.validators.instance_of(b.tuple)))
     termination: e.NativeTermination | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeTermination)))
     callback_terminal_failure: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
     failures: b.tuple[RuntimeProfilePointsFieldFailuresItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeProfilePointsFieldFailuresItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
@@ -3676,7 +3678,7 @@ class RuntimeProfilePointsRow:
     detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.parameter_id), v.scalar_key(self.end), v.scalar_key(self.point), v.scalar_key(self.value), v.optional_key(v.scalar_key)(self.seed), v.optional_key(v.scalar_key)(self.qualification), v.optional_key(v.scalar_key)(self.termination), v.optional_key(v.scalar_key)(self.callback_terminal_failure), v.sequence_key(v.record_key)(self.failures), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.statistic), v.scalar_key(self.accepted), v.optional_key(v.scalar_key)(self.detail),))
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.parameter_id), v.scalar_key(self.end), v.scalar_key(self.point), v.scalar_key(self.value), v.optional_key(v.scalar_key)(self.seed), v.optional_key(v.scalar_key)(self.qualification), v.sequence_key(v.scalar_key)(self.qualifiers), v.optional_key(v.scalar_key)(self.termination), v.optional_key(v.scalar_key)(self.callback_terminal_failure), v.sequence_key(v.record_key)(self.failures), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.statistic), v.scalar_key(self.accepted), v.optional_key(v.scalar_key)(self.detail),))
 
 
 @attrs.frozen(kw_only=True)

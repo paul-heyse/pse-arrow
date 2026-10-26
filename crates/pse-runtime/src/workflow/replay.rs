@@ -2,8 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Immutable scientific replay levels. Reruns are new executions, never occurrence recovery.
 use super::{
-    ModelingPackage, PhysicalContext, RunHandle, RunReport, RunRequest, RunResult, Runtime,
-    WorkflowError, contract,
+    ModelingPackage, PhysicalContext, RunHandle, RunRequest, RunResult, WorkflowError, contract,
 };
 use pse_backend_native::{
     execution::BackendSettings,
@@ -22,9 +21,9 @@ use std::{
 
 fn rebind_retained_sources<'a>(
     sources: impl Iterator<Item = &'a ModelingPackage>,
-    runtime: &Runtime,
+    services: &crate::workflow::SourceServices,
 ) -> Result<Vec<ModelingPackage>, WorkflowError> {
-    let activity = runtime.admit_activity()?;
+    let activity = services.preparation().admit_activity()?;
     activity.sync_scope(|| {
         let count = sources
             .size_hint()
@@ -34,8 +33,8 @@ fn rebind_retained_sources<'a>(
             .checked_mul(size_of::<&ModelingPackage>() + 1024)
             .and_then(|bytes| bytes.checked_add(256))
             .ok_or_else(|| contract("retained replay source view extent"))?;
-        let _sources_owner = runtime
-            .shared
+        let _sources_owner = services
+            .preparation()
             .math()
             .reserve("replay:receiver-source-view", source_extent)?;
         let sources = sources.collect::<Vec<_>>();
@@ -64,12 +63,12 @@ fn rebind_retained_sources<'a>(
             })
             .ok_or_else(|| contract("retained replay positional extent overflow"))?;
         drop(seen);
-        let owner = runtime
-            .shared
+        let owner = services
+            .preparation()
             .math()
             .reserve("replay:receiver-positions", bytes)?;
         let mut packages = map_retained_sources(sources.into_iter(), |source| {
-            source.reconstruct_replay_source(runtime)
+            source.reconstruct_replay_source(services)
         })?;
         for package in &mut packages {
             package.replay_owner = Some(owner.clone());
@@ -265,13 +264,13 @@ impl ReplaySourceDocument {
     /// Re-admit actual source bytes through the production pipeline, without a store/history lookup.
     pub fn reconstruct(
         &self,
-        runtime: &Runtime,
+        services: &crate::workflow::SourceServices,
         physical: PhysicalContext,
         providers: BTreeMap<String, pse_kernels::Registration>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let activity = runtime.admit_activity()?;
-        activity.sync_scope(|| runtime.admit_replay_source(self, physical, providers, cancel))
+        let activity = services.preparation().admit_activity()?;
+        activity.sync_scope(|| services.admit_replay_source(self, physical, providers, cancel))
     }
 }
 /// Stream the modeling owner's exact JSON codec as bytes without an unadmitted
@@ -434,12 +433,44 @@ pub struct ReplayCoverage {
     /// Actual terminal cause projection, when retained.
     pub terminal: Option<pse_model::generated::enums::NumericalAttemptObservation>,
 }
+/// Mutually exclusive original scientific inputs. Auxiliary constructors stay in their family.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ReplayConstructor {
+    /// Original finite authored sequence.
+    Modeling {
+        /// Original cases in their exact requested order.
+        cases: Vec<ReplayCaseConstructor>,
+    },
+    /// Original physical integration.
+    Simulation {
+        /// Complete immutable integration constructor.
+        simulation: ReplaySimulationConstructor,
+    },
+    /// Original shared-parameter fit.
+    Fit {
+        /// Complete immutable fitting constructor.
+        fit: ReplayFitConstructor,
+    },
+    /// Original requested horizon, independently of retained full or compact history.
+    Horizon {
+        /// Complete original plant and stage constructors.
+        horizon: ReplayHorizonConstructor,
+        /// Exact original horizon provenance bytes.
+        provenance: Vec<u8>,
+    },
+    /// Host-only composed shooting; this does not admit persisted study shooting.
+    Shooting {
+        /// Original shooting with its original simulation constructor.
+        shooting: ReplayShootingConstructor,
+    },
+}
 /// Complete export of available scientific premises. Compiled products/factories remain in-process capabilities.
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayDocument {
     /// Explicit current document version.
-    pub version: pse_model::document::Version<4>,
+    pub version: pse_model::document::Version<5>,
     /// Historical source execution; a numerical rerun always gets another identity.
     pub source_run: RunId,
     /// Exact original independent-sequence failure policy.
@@ -452,20 +483,10 @@ pub struct ReplayDocument {
     pub sources: Vec<ReplaySourceDocument>,
     /// Full actual solver settings for all original solver owners.
     pub solver_settings: Vec<ReplaySolverSettings>,
-    /// Original portable case constructors, retaining all supplied structural and numerical inputs.
-    pub case_constructors: Vec<ReplayCaseConstructor>,
-    /// Complete original simulation constructors across all linked methods.
-    pub simulation_constructors: Vec<ReplaySimulationConstructor>,
-    /// Complete original fit and experiment constructor.
-    pub fit_constructor: Option<ReplayFitConstructor>,
-    /// Complete original closed-loop plant and stage constructors.
-    pub horizon_constructor: Option<ReplayHorizonConstructor>,
-    /// Complete original shooting and simulation constructor.
-    pub shooting_constructor: Option<ReplayShootingConstructor>,
-    /// Original physical mappings and full constructor configurations, using existing producer documents.
+    /// Exactly one original operation constructor, with its family-owned payloads.
+    pub constructor: ReplayConstructor,
+    /// Original physical mappings and full constructor configurations.
     pub contexts: Vec<pse_model::generated::runtime::scientific_contexts::Row>,
-    /// Full original horizon provenance, including output demand, period, stages and mappings.
-    pub horizon: Option<Vec<u8>>,
     /// Full retained decisions with their actual effective declaration.
     pub decisions: Vec<ReplayDecisions>,
     /// Full actual retained adapter settings, submitted starts and original coordinate witnesses.
@@ -479,6 +500,182 @@ pub struct ReplayDocument {
     #[serde(skip)]
     #[schemars(skip)]
     _owner: Arc<pse_columnar::AllocationLease>,
+}
+/// Lazily constructed export premises supplied by one original operation owner.
+pub(super) struct ReplayRequestFacts {
+    pub runtime_premises: Vec<pse_backend_native::execution::Snapshot>,
+    pub solver_settings: Vec<ReplaySolverSettings>,
+    pub contexts: Vec<pse_model::generated::runtime::scientific_contexts::Row>,
+    pub constructor: ReplayConstructor,
+}
+pub(super) fn modeling_request_facts(
+    steps: &Vec<super::ModelingSolvePreparation>,
+    run_id: RunId,
+) -> Result<ReplayRequestFacts, WorkflowError> {
+    let mut runtime_premises = Vec::new();
+    let mut solver_settings = Vec::new();
+    let mut contexts = Vec::new();
+
+    let mut cases = Vec::with_capacity(steps.len());
+    for (index, step) in steps.iter().enumerate() {
+        runtime_premises.push(step.solve.execution_snapshot().clone());
+        solver_settings.push(ReplaySolverSettings::from_profile(&step.profile));
+        let mut constructor = step.original_inputs.document(index)?;
+        constructor.prepared_graph = Some(ReplayPreparedGraph::new(&step.solve)?);
+        constructor.requested_start = step
+            .solve
+            .requested_start()
+            .map(pse_backend_native::solve::WarmStart::snapshot);
+        constructor.requested_screened_start = step
+            .solve
+            .requested_screened_start()
+            .map(ReplayScreenedStart::new);
+        cases.push(constructor);
+        contexts.push(super::artifacts::solve_context(
+            step,
+            run_id,
+            i64::try_from(index).map_err(|_| contract("replay step ordinal"))?,
+        )?);
+    }
+
+    let constructor = ReplayConstructor::Modeling { cases };
+    Ok(ReplayRequestFacts {
+        runtime_premises,
+        solver_settings,
+        contexts,
+        constructor,
+    })
+}
+pub(super) fn simulation_request_facts(
+    simulation: &super::ModelingSimulation,
+    run_id: RunId,
+) -> Result<ReplayRequestFacts, WorkflowError> {
+    let mut runtime_premises = Vec::new();
+    let solver_settings = Vec::new();
+    let mut contexts = Vec::new();
+
+    runtime_premises.push(simulation.snapshot().clone());
+    let original = simulation
+        .original_inputs
+        .as_ref()
+        .ok_or_else(|| contract("original simulation constructor absent"))?
+        .document(0);
+    contexts.push(
+        simulation.scientific_context(
+            run_id,
+            super::dynamics::profile_identity(simulation.profile())
+                .map_err(crate::math::MathRuntimeError::from)?
+                .as_id(),
+        )?,
+    );
+
+    let constructor = ReplayConstructor::Simulation {
+        simulation: original,
+    };
+    Ok(ReplayRequestFacts {
+        runtime_premises,
+        solver_settings,
+        contexts,
+        constructor,
+    })
+}
+pub(super) fn fit_request_facts(
+    fit: &super::PreparedFit,
+    run_id: RunId,
+) -> Result<ReplayRequestFacts, WorkflowError> {
+    let mut runtime_premises = Vec::new();
+    let mut solver_settings = Vec::new();
+    let mut contexts = Vec::new();
+
+    runtime_premises.push(fit.execution_snapshot().clone());
+    let original = fit.original_inputs.document(0);
+    solver_settings.push(ReplaySolverSettings::from_profile(
+        &fit.problem.profile.solver,
+    ));
+    contexts.push(fit.scientific_context(run_id)?);
+
+    let constructor = ReplayConstructor::Fit { fit: original };
+    Ok(ReplayRequestFacts {
+        runtime_premises,
+        solver_settings,
+        contexts,
+        constructor,
+    })
+}
+pub(super) fn horizon_request_facts(
+    request: &super::HorizonRequest,
+    run_id: RunId,
+) -> Result<ReplayRequestFacts, WorkflowError> {
+    let mut runtime_premises = Vec::new();
+    let mut solver_settings = Vec::new();
+    let mut contexts = Vec::new();
+
+    let original = &request.original;
+    runtime_premises.push(original.plant.snapshot().clone());
+
+    contexts.push(
+        original.plant.scientific_context(
+            run_id,
+            super::dynamics::profile_identity(original.plant.profile())
+                .map_err(crate::math::MathRuntimeError::from)?
+                .as_id(),
+        )?,
+    );
+    if let Some(estimator) = &original.estimator {
+        solver_settings.push(ReplaySolverSettings::from_profile(
+            &estimator.analysis.solver,
+        ));
+    }
+    if let Some(controller) = &original.controller {
+        solver_settings.push(ReplaySolverSettings::from_profile(
+            &controller.analysis.solver,
+        ));
+    }
+
+    let constructor = ReplayConstructor::Horizon {
+        horizon: ReplayHorizonConstructor::new(original)?,
+        provenance: request.provenance.clone(),
+    };
+    Ok(ReplayRequestFacts {
+        runtime_premises,
+        solver_settings,
+        contexts,
+        constructor,
+    })
+}
+#[cfg(feature = "solver-diffsol")]
+pub(super) fn shooting_request_facts(
+    problem: &Arc<super::ShootingProblem>,
+    initial: &Option<Vec<f64>>,
+    run_id: RunId,
+) -> Result<ReplayRequestFacts, WorkflowError> {
+    let mut runtime_premises = Vec::new();
+    let mut solver_settings = Vec::new();
+    let mut contexts = Vec::new();
+
+    runtime_premises.push(problem.execution_snapshot().clone());
+
+    solver_settings.push(ReplaySolverSettings::from_profile(&problem.solver));
+    let mut context = problem
+        .simulation
+        .scientific_context(run_id, problem.profile_key.as_id())?;
+    // The exact caller initial is part of input reconstruction, not a native checkpoint.
+    context.binding = Some(
+        serde_json::to_vec(initial)
+            .map_err(|error| contract(error.to_string()))?
+            .into(),
+    );
+    contexts.push(context);
+
+    let constructor = ReplayConstructor::Shooting {
+        shooting: ReplayShootingConstructor::new(problem, initial)?,
+    };
+    Ok(ReplayRequestFacts {
+        runtime_premises,
+        solver_settings,
+        contexts,
+        constructor,
+    })
 }
 /// Actual immutable input closure, independent of mutable history and occurrence recovery.
 #[derive(Clone, Debug)]
@@ -523,8 +720,8 @@ impl ScientificReplay {
         }
         let owner = self
             .result
-            .runtime
-            .shared
+            .services
+            .preparation()
             .math()
             .reserve("replay:recorded-decisions", bytes)?;
         Ok(ReplayDecisionDocument {
@@ -532,24 +729,15 @@ impl ScientificReplay {
             _owner: owner,
         })
     }
-    fn sources(&self) -> Box<dyn Iterator<Item = &ModelingPackage> + '_> {
-        match self.inputs() {
-            RunRequest::Modeling(steps) => Box::new(steps.iter().map(|step| &step.source)),
-            RunRequest::Simulation(simulation) => Box::new(std::iter::once(&simulation.source)),
-            RunRequest::Fit(fit) => Box::new(std::iter::once(&fit.source)),
-            RunRequest::Horizon(horizon) => Box::new(horizon.sources.iter()),
-            #[cfg(feature = "solver-diffsol")]
-            RunRequest::Shooting { problem, .. } => {
-                Box::new(std::iter::once(&problem.simulation.source))
-            }
-        }
+    fn sources(&self) -> impl Iterator<Item = &ModelingPackage> {
+        self.inputs().facts().sources.into_iter()
     }
     /// Reconstruct actual locally usable source packages into a receiving runtime.
     pub fn reconstruct_sources(
         &self,
-        runtime: &Runtime,
+        services: &crate::workflow::SourceServices,
     ) -> Result<Vec<ModelingPackage>, WorkflowError> {
-        rebind_retained_sources(self.sources(), runtime)
+        rebind_retained_sources(self.sources(), services)
     }
     /// Default bounded complete export. Oversized closure refuses instead of truncating required inputs.
     pub fn document(&self) -> Result<ReplayDocument, WorkflowError> {
@@ -589,115 +777,21 @@ impl ScientificReplay {
         }
         let owner = self
             .result
-            .runtime
-            .shared
+            .services
+            .preparation()
             .math()
             .reserve("replay:complete-export", bytes)?;
         // Wire positions and every final duplicate byte remain part of the unchanged
         // format and extent. Only repeated conversion of the same retained input is skipped.
         let sources = map_retained_sources(self.sources(), ModelingPackage::replay_source)?;
-        let mut runtime_premises = Vec::new();
-        let mut solver_settings = Vec::new();
-        let mut case_constructors = Vec::new();
-        let mut simulation_constructors = Vec::new();
-        let mut fit_constructor = None;
-        let mut horizon_constructor = None;
-        #[cfg(feature = "solver-diffsol")]
-        let mut shooting_constructor = None;
-        #[cfg(not(feature = "solver-diffsol"))]
-        let shooting_constructor = None;
-        let mut contexts = Vec::new();
-        let mut horizon = None;
-        match self.inputs() {
-            RunRequest::Modeling(steps) => {
-                for (index, step) in steps.iter().enumerate() {
-                    runtime_premises.push(step.solve.execution_snapshot().clone());
-                    solver_settings.push(ReplaySolverSettings::from_profile(&step.profile));
-                    let mut constructor = step.original_inputs.document(index)?;
-                    constructor.prepared_graph = Some(ReplayPreparedGraph::new(&step.solve)?);
-                    constructor.requested_start = step
-                        .solve
-                        .requested_start()
-                        .map(pse_backend_native::solve::WarmStart::snapshot);
-                    constructor.requested_screened_start = step
-                        .solve
-                        .requested_screened_start()
-                        .map(ReplayScreenedStart::new);
-                    case_constructors.push(constructor);
-                    contexts.push(super::artifacts::solve_context(
-                        step,
-                        self.source_run,
-                        i64::try_from(index).map_err(|_| contract("replay step ordinal"))?,
-                    )?);
-                }
-            }
-            RunRequest::Simulation(simulation) => {
-                runtime_premises.push(simulation.snapshot().clone());
-                simulation_constructors.push(
-                    simulation
-                        .original_inputs
-                        .as_ref()
-                        .ok_or_else(|| contract("original simulation constructor absent"))?
-                        .document(0),
-                );
-                contexts.push(
-                    simulation.scientific_context(
-                        self.source_run,
-                        super::dynamics::profile_identity(simulation.profile())
-                            .map_err(crate::math::MathRuntimeError::from)?
-                            .as_id(),
-                    )?,
-                );
-            }
-            RunRequest::Fit(fit) => {
-                runtime_premises.push(fit.execution_snapshot().clone());
-                fit_constructor = Some(fit.original_inputs.document(0));
-                solver_settings.push(ReplaySolverSettings::from_profile(
-                    &fit.problem.profile.solver,
-                ));
-                contexts.push(fit.scientific_context(self.source_run)?);
-            }
-            RunRequest::Horizon(request) => {
-                horizon = Some(request.provenance.clone());
-                let original = &request.original;
-                runtime_premises.push(original.plant.snapshot().clone());
-                horizon_constructor = Some(ReplayHorizonConstructor::new(original)?);
-                contexts.push(
-                    original.plant.scientific_context(
-                        self.source_run,
-                        super::dynamics::profile_identity(original.plant.profile())
-                            .map_err(crate::math::MathRuntimeError::from)?
-                            .as_id(),
-                    )?,
-                );
-                if let Some(estimator) = &original.estimator {
-                    solver_settings.push(ReplaySolverSettings::from_profile(
-                        &estimator.analysis.solver,
-                    ));
-                }
-                if let Some(controller) = &original.controller {
-                    solver_settings.push(ReplaySolverSettings::from_profile(
-                        &controller.analysis.solver,
-                    ));
-                }
-            }
-            #[cfg(feature = "solver-diffsol")]
-            RunRequest::Shooting { problem, initial } => {
-                runtime_premises.push(problem.execution_snapshot().clone());
-                shooting_constructor = Some(ReplayShootingConstructor::new(problem, initial)?);
-                solver_settings.push(ReplaySolverSettings::from_profile(&problem.solver));
-                let mut context = problem
-                    .simulation
-                    .scientific_context(self.source_run, problem.profile_key.as_id())?;
-                // The exact caller initial is part of input reconstruction, not a native checkpoint.
-                context.binding = Some(
-                    serde_json::to_vec(initial)
-                        .map_err(|error| contract(error.to_string()))?
-                        .into(),
-                );
-                contexts.push(context);
-            }
-        }
+        let request = self.inputs().facts();
+        let native_record_coverage = request.native_record_coverage;
+        let ReplayRequestFacts {
+            runtime_premises,
+            solver_settings,
+            contexts,
+            constructor,
+        } = (request.replay)(self.source_run)?;
         let document = ReplayDocument {
             version: pse_model::document::Version,
             source_run: self.source_run,
@@ -706,13 +800,8 @@ impl ScientificReplay {
             build: pse_backend_native::execution::LINKED.build_identity(),
             sources,
             solver_settings,
-            case_constructors,
-            simulation_constructors,
-            fit_constructor,
-            horizon_constructor,
-            shooting_constructor,
+            constructor,
             contexts,
-            horizon,
             decisions: self.decision_rows(),
             native_attempts: self
                 .native_attempts()
@@ -723,12 +812,7 @@ impl ScientificReplay {
                     record: native.clone(),
                 })
                 .collect(),
-            native_record_coverage: match self.inputs() {
-                RunRequest::Simulation(_) | RunRequest::Horizon(_) => {
-                    ReplayNativeRecordCoverage::IntegrationReportOnly
-                }
-                _ => ReplayNativeRecordCoverage::StrategyAttempts,
-            },
+            native_record_coverage,
             coverage: self.coverage.clone(),
             native_continuation: false,
             _owner: owner,
@@ -757,7 +841,7 @@ impl ScientificReplay {
                     source.held_preparation = None;
                     let mut prepared = step
                         .original_inputs
-                        .reconstruct_in_process(&source, cancel)
+                        .reconstruct_in_process(self.result.services.preparation(), &source, cancel)
                         .await?;
                     // Postconstructor declarations are scientific input. Original-only graphs
                     // can detach recursively; scoped opaque products require their producer.
@@ -775,8 +859,8 @@ impl ScientificReplay {
                             .ok_or_else(|| contract("fresh replay original graph copy extent"))?;
                         let owner = self
                             .result
-                            .runtime
-                            .shared
+                            .services
+                            .preparation()
                             .math()
                             .reserve("replay:fresh-original-graph", bytes)?;
                         prepared.solve = step
@@ -793,8 +877,8 @@ impl ScientificReplay {
                     if let Some(start) = step.solve.requested_start() {
                         let owner = self
                             .result
-                            .runtime
-                            .shared
+                            .services
+                            .preparation()
                             .math()
                             .reserve("replay:requested-start", warm_start_extent(start))?;
                         prepared.solve = prepared
@@ -807,12 +891,14 @@ impl ScientificReplay {
                     fresh.push(prepared);
                 }
                 self.result
-                    .runtime
+                    .services
                     .start_modeling(fresh, self.result.modeling_continue_independent, cancel)
                     .await
             }
-            RunRequest::Simulation(simulation) => simulation.start_with_cancel(cancel),
-            RunRequest::Fit(fit) => fit.start_with_cancel(cancel),
+            RunRequest::Simulation(simulation) => {
+                simulation.start_with_cancel(&self.result.services, cancel)
+            }
+            RunRequest::Fit(fit) => fit.start_with_cancel(&self.result.services, cancel),
             #[cfg(feature = "solver-diffsol")]
             RunRequest::Horizon(request) => {
                 let mut horizon = request.original.as_ref().clone();
@@ -825,7 +911,7 @@ impl ScientificReplay {
                 if let Some(controller) = &mut horizon.controller {
                     controller.package.held_preparation = None;
                 }
-                self.result.runtime.start_horizon(horizon, cancel).await
+                self.result.services.start_horizon(horizon, cancel).await
             }
             #[cfg(not(feature = "solver-diffsol"))]
             RunRequest::Horizon(_) => Err(contract(
@@ -833,7 +919,7 @@ impl ScientificReplay {
             )),
             #[cfg(feature = "solver-diffsol")]
             RunRequest::Shooting { problem, initial } => {
-                problem.start_replay_with_cancel(initial.clone(), cancel)
+                problem.start_replay_with_cancel(&self.result.services, initial.clone(), cancel)
             }
         }
     }
@@ -851,38 +937,7 @@ impl RunResult {
     pub(super) fn replay_traces(
         &self,
     ) -> Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> {
-        let retained: Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> =
-            match self.request() {
-                RunRequest::Modeling(steps) => Box::new((0..steps.len()).filter_map(|index| {
-                    self.modeling_result(index)?
-                        .strategy
-                        .as_ref()
-                        .map(|trace| (index, trace))
-                })),
-                _ => match self.report() {
-                    Ok(RunReport::Fit(report)) => {
-                        Box::new(report.strategy.iter().map(|trace| (0, trace)))
-                    }
-                    #[cfg(feature = "solver-diffsol")]
-                    Ok(RunReport::Shooting(report)) => {
-                        Box::new(report.strategy.iter().map(|trace| (0, trace)))
-                    }
-                    _ => Box::new(std::iter::empty()),
-                },
-            };
-        let failed = self
-            .error()
-            .and_then(|error| error.strategy_trace())
-            .map(|trace| {
-                (
-                    self.modeling_failure
-                        .as_ref()
-                        .and_then(|failure| failure.step)
-                        .unwrap_or(0),
-                    trace,
-                )
-            });
-        Box::new(retained.chain(failed))
+        Box::new(self.completed_facts().traces.into_iter())
     }
     /// Borrow retained compact native facts without cloning a request or constructing replay.
     pub(super) fn native_attempt_records(
@@ -927,85 +982,13 @@ impl RunResult {
     }
     /// Shared retained factual coverage; construction confers no rerun admission.
     pub(super) fn recorded_coverage(&self) -> ReplayCoverage {
-        let (requested, observed, completed_time) = match self.replay_request() {
-            RunRequest::Modeling(steps) => {
-                let mut count = 0;
-                for index in 0..steps.len() {
-                    if self.modeling_result(index).is_some() {
-                        count += 1;
-                    }
-                }
-                (steps.len(), count, None)
-            }
-            RunRequest::Simulation(simulation) => match self.report() {
-                Ok(RunReport::Simulation(trajectory)) => (
-                    simulation.profile().samples.len(),
-                    trajectory.report().coverage.produced(),
-                    Some(Observation::number(trajectory.report().completed_time)),
-                ),
-                _ => (simulation.profile().samples.len(), 0, None),
-            },
-            RunRequest::Fit(_) => (1, usize::from(self.report().is_ok()), None),
-            RunRequest::Horizon(request) => (
-                request.original.steps,
-                self.horizon
-                    .as_ref()
-                    .map_or(0, |report| report.completed_steps),
-                None,
-            ),
-            #[cfg(feature = "solver-diffsol")]
-            RunRequest::Shooting { .. } => (1, usize::from(self.report().is_ok()), None),
-        };
-        let terminal = match self.report() {
-            Err(error) => Some(crate::math::strategy::workflow_failure(error)),
-            Ok(RunReport::Simulation(trajectory)) => {
-                Some(trajectory_observation(trajectory.report()))
-            }
-            Ok(RunReport::Fit(report)) => report
-                .validation_error
-                .as_ref()
-                .map(|diagnostic| crate::math::strategy::boundary_failure(diagnostic.class))
-                .or_else(|| {
-                    report
-                        .solve
-                        .as_ref()
-                        .map(crate::math::strategy::observe_native)
-                }),
-            #[cfg(feature = "solver-diffsol")]
-            Ok(RunReport::Shooting(report)) => report
-                .validation_error
-                .as_ref()
-                .map(|diagnostic| crate::math::strategy::boundary_failure(diagnostic.class))
-                .or_else(|| {
-                    report
-                        .trajectory
-                        .as_ref()
-                        .map(|trajectory| trajectory_observation(trajectory))
-                })
-                .or_else(|| {
-                    report
-                        .solve
-                        .as_ref()
-                        .map(crate::math::strategy::observe_native)
-                }),
-            Ok(RunReport::Modeling(results)) => results
-                .last()
-                .map(|result| crate::math::strategy::observe(&result.outcome)),
-            Ok(RunReport::Horizon(report)) => report
-                .summary_error()
-                .map(crate::math::strategy::workflow_failure)
-                .or_else(|| {
-                    report
-                        .detail_error()
-                        .map(crate::math::strategy::workflow_failure)
-                }),
-        };
+        let facts = self.completed_facts();
         ReplayCoverage {
-            requested,
-            observed,
-            completed_time,
+            requested: facts.requested,
+            observed: facts.observed,
+            completed_time: facts.completed_time,
             usable: self.usable(),
-            terminal,
+            terminal: facts.terminal,
         }
     }
 }
@@ -1028,7 +1011,7 @@ impl OriginalCaseInputs {
         reason = "retain the existing actual constructor arguments without inventing another request language"
     )]
     pub(in crate::workflow) fn capture(
-        source: &ModelingPackage,
+        services: &crate::workflow::PreparationServices,
         model: &crate::math::modeling::ModelingPreparation,
         case: &pse_compiler::workspace::ModelingCaseBindings,
         order: pse_kernels::DerivativeOrder,
@@ -1080,9 +1063,7 @@ impl OriginalCaseInputs {
                 (overrides.seed.len() + overrides.parameters.len() + overrides.fixes.len())
                     .saturating_mul(192),
             );
-        let owner = source
-            .runtime
-            .shared
+        let owner = services
             .math()
             .reserve("replay:original-case-constructor", bytes)?;
         Ok(Arc::new(Self {
@@ -1098,6 +1079,7 @@ impl OriginalCaseInputs {
     }
     async fn reconstruct_in_process(
         &self,
+        services: &crate::workflow::PreparationServices,
         source: &ModelingPackage,
         cancel: &crate::CancelSource,
     ) -> Result<super::ModelingSolvePreparation, WorkflowError> {
@@ -1107,6 +1089,7 @@ impl OriginalCaseInputs {
             .ok_or_else(|| contract("original specialization constructor was not retained"))?;
         source
             .prepare_solve_seed(
+                services,
                 original.root,
                 original.instance,
                 original.bindings.clone(),
@@ -1714,12 +1697,14 @@ impl ReplayCaseConstructor {
     /// Prepare the original typed request through its actual source/numerical admission pipeline.
     pub async fn reconstruct(
         &self,
+        services: &crate::workflow::PreparationServices,
         package: &ModelingPackage,
         cancel: &crate::CancelSource,
     ) -> Result<super::ModelingSolvePreparation, WorkflowError> {
         let Some(graph) = &self.prepared_graph else {
             return self
                 .reconstruct_body(
+                    services,
                     package,
                     &self.settings,
                     self.requested_start.as_ref(),
@@ -1734,7 +1719,7 @@ impl ReplayCaseConstructor {
                 "replay original graph has an invalid root/node allowance",
             ));
         }
-        let _shape_owner = package.runtime.shared.math().reserve(
+        let _shape_owner = services.math().reserve(
             "replay:graph-structural-validation",
             graph
                 .nodes
@@ -1769,15 +1754,14 @@ impl ReplayCaseConstructor {
                 ));
             }
         }
-        let owner = package
-            .runtime
-            .shared
+        let owner = services
             .math()
             .reserve("replay:original-graph-reconstruction", expanded_extent)?;
         let mut built: Vec<super::ModelingSolvePreparation> = Vec::with_capacity(graph.nodes.len());
         for node in &graph.nodes {
             let mut prepared = self
                 .reconstruct_body(
+                    services,
                     package,
                     &node.settings,
                     node.requested_start.as_ref(),
@@ -1795,7 +1779,7 @@ impl ReplayCaseConstructor {
                     let extent = input.replay_metadata_extent().map_err(crate::math::MathRuntimeError::from)?
                         .checked_add(ReplayPreparedGraph::extent(input, 0, &mut 0)?)
                         .filter(|bytes| *bytes <= EXPORT_MAX).ok_or_else(|| contract("replay original metadata copy exceeds finite capacity"))?;
-                    let owner = package.runtime.shared.math().reserve("replay:retained-original-metadata-copy", extent)?;
+                    let owner = services.math().reserve("replay:retained-original-metadata-copy", extent)?;
                     Ok(input.clone().retaining_replay_metadata(owner).into())
                 }).collect()
             };
@@ -1853,6 +1837,7 @@ impl ReplayCaseConstructor {
     }
     async fn reconstruct_body(
         &self,
+        services: &crate::workflow::PreparationServices,
         package: &ModelingPackage,
         settings: &ReplaySolverSettings,
         start: Option<&pse_backend_native::solve::WarmStartSnapshot>,
@@ -1879,9 +1864,7 @@ impl ReplayCaseConstructor {
                 let bytes = start
                     .restore_extent()
                     .map_err(crate::math::MathRuntimeError::from)?;
-                package
-                    .runtime
-                    .shared
+                services
                     .math()
                     .reserve("replay:restored-requested-start", bytes)
                     .map_err(WorkflowError::from)
@@ -1889,6 +1872,7 @@ impl ReplayCaseConstructor {
             .transpose()?;
         let mut prepared = package
             .prepare_solve_seed(
+                services,
                 self.root,
                 self.instance,
                 self.bindings.clone(),
@@ -1965,6 +1949,99 @@ impl ReplaySolverSettings {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn replay_constructor_tag_is_exclusive_and_round_trips() {
+        use super::ReplayConstructor;
+        let constructor = ReplayConstructor::Modeling { cases: Vec::new() };
+        let encoded = serde_json::to_value(&constructor).unwrap();
+        assert_eq!(encoded, serde_json::json!({"kind":"modeling", "cases":[]}));
+        let restored: ReplayConstructor = serde_json::from_value(encoded.clone()).unwrap();
+        assert_eq!(serde_json::to_value(restored).unwrap(), encoded);
+        for malformed in [
+            serde_json::json!({"cases":[]}),
+            serde_json::json!({"kind":"unknown", "cases":[]}),
+            serde_json::json!({"kind":"modeling"}),
+            serde_json::json!({"kind":"modeling", "cases":[], "fit":null}),
+            serde_json::json!({"kind":"modeling", "cases":[], "horizon":null}),
+            serde_json::json!({"kind":"modeling", "cases":[], "provenance":[]}),
+        ] {
+            assert!(serde_json::from_value::<ReplayConstructor>(malformed).is_err());
+        }
+    }
+
+    #[test]
+    fn replay_constructor_all_families_preserve_their_owned_payloads() {
+        use super::*;
+        let simulation = ReplaySimulationConstructor {
+            source: 2,
+            root: SemanticId::from_bytes([3; 16]).into(),
+            instance: SemanticId::from_bytes([4; 16]).into(),
+            bindings: Default::default(),
+            preparation: Default::default(),
+            case: ReplayCaseInputs::new(&Default::default()),
+            profile: Default::default(),
+            order: 1,
+            exact_parameters: BTreeSet::new(),
+            forward_selection: Some(ReplayForwardSelection::PhysicalAxes(vec![1, 3])),
+            provisional_quadratures: BTreeSet::new(),
+            binding: None,
+        };
+        let solver = ReplaySolverSettings::from_profile(&Default::default());
+        let fit = ReplayFitConstructor {
+            residual_lm_criteria: super::super::ResidualLmCriteria::current(),
+            optimizer: Default::default(),
+            source: 1,
+            id: SemanticId::from_bytes([5; 16]).into(),
+            preparation: Default::default(),
+            solver: solver.clone(),
+            simulations: BTreeMap::new(),
+            rank_tolerance: 1e-8,
+            max_cells: 512,
+            derivatives: super::super::FitDerivatives::Responses,
+            experiment_workers: pse_model::scalars::PositiveCount::try_new(1).unwrap(),
+            uncertainty: None,
+            binding: None,
+        };
+        let horizon = ReplayHorizonConstructor {
+            output: super::super::StudyOutputDemand::Full {},
+            plant: simulation.clone(),
+            period: 0.125f64.to_bits(),
+            steps: 7,
+            inputs: vec![(SemanticId::from_bytes([8; 16]), (-0.0f64).to_bits())],
+            estimator: None,
+            controller: None,
+        };
+        let shooting = ReplayShootingConstructor {
+            simulation: simulation.clone(),
+            method: pse_model::generated::enums::ShootingMethod::Single,
+            nodes: vec![0.0f64.to_bits(), 0.5f64.to_bits()],
+            controls: vec![],
+            path: vec![],
+            terminal: BTreeMap::new(),
+            integral: BTreeMap::new(),
+            eager_first: true,
+            solver,
+            initial: Some(vec![(-0.0f64).to_bits()]),
+        };
+        for constructor in [
+            ReplayConstructor::Modeling { cases: vec![] },
+            ReplayConstructor::Simulation { simulation },
+            ReplayConstructor::Fit { fit },
+            ReplayConstructor::Horizon {
+                horizon,
+                provenance: vec![0, 128, 255],
+            },
+            ReplayConstructor::Shooting { shooting },
+        ] {
+            let encoded = serde_json::to_value(&constructor).unwrap();
+            let restored: ReplayConstructor = serde_json::from_value(encoded.clone()).unwrap();
+            assert_eq!(serde_json::to_value(restored).unwrap(), encoded);
+            let mut malformed = encoded;
+            malformed["unexpected_constructor"] = serde_json::json!({});
+            assert!(serde_json::from_value::<ReplayConstructor>(malformed).is_err());
+        }
+    }
+
     #[test]
     fn replay_bindings_transport_preserves_modeling_owner_codec() {
         #[derive(serde::Serialize)]
@@ -2043,15 +2120,20 @@ mod tests {
             serde_json::to_value(&wire[0]).unwrap(),
             serde_json::to_value(&wire[3]).unwrap()
         );
-        let receiver =
-            Runtime::from_shared_local(runtime.shared.clone(), runtime.model.clone()).unwrap();
-        let result = rebind_retained_sources(positions.into_iter(), &receiver).unwrap();
+        let receiver = crate::workflow::Runtime::from_shared_local(
+            runtime.shared.clone(),
+            runtime.model.clone(),
+        )
+        .unwrap();
+        let result =
+            rebind_retained_sources(positions.into_iter(), &receiver.source_services()).unwrap();
         assert_eq!(result.len(), 4);
         assert_eq!(result[0].revision_id(), result[1].revision_id());
         assert_eq!(result[0].revision_id(), result[3].revision_id());
         assert_ne!(result[0].revision_id(), result[2].revision_id());
         assert_ne!(result[0].revision_id(), a.revision_id());
-        let again = rebind_retained_sources(positions.into_iter(), &receiver).unwrap();
+        let again =
+            rebind_retained_sources(positions.into_iter(), &receiver.source_services()).unwrap();
         assert_ne!(result[0].revision_id(), again[0].revision_id());
         let retained = Arc::downgrade(result[0].replay_owner.as_ref().unwrap());
         let borrower = result[3].clone();
@@ -2061,7 +2143,7 @@ mod tests {
         assert!(retained.upgrade().is_none());
         receiver.close();
         assert!(matches!(
-            rebind_retained_sources(positions.into_iter(), &receiver),
+            rebind_retained_sources(positions.into_iter(), &receiver.source_services()),
             Err(WorkflowError::CallerClosed)
         ));
     }
@@ -2078,7 +2160,7 @@ mod tests {
         assert!(
             document
                 .reconstruct(
-                    &runtime,
+                    &runtime.source_services(),
                     physical.clone(),
                     BTreeMap::new(),
                     &crate::CancelSource::new()
@@ -2090,7 +2172,7 @@ mod tests {
         runtime.close();
         assert!(matches!(
             document.reconstruct(
-                &runtime,
+                &runtime.source_services(),
                 physical,
                 BTreeMap::new(),
                 &crate::CancelSource::new()
@@ -2117,14 +2199,17 @@ mod tests {
             serde_json::from_slice(&serde_json::to_vec(&document).unwrap()).unwrap();
         let reconstructed = restored
             .reconstruct(
-                &runtime,
+                &runtime.source_services(),
                 physical,
                 BTreeMap::new(),
                 &crate::CancelSource::new(),
             )
             .unwrap();
         assert_eq!(
-            &*reconstructed.declarations().await.unwrap(),
+            &*reconstructed
+                .declarations(&runtime.preparation_services(),)
+                .await
+                .unwrap(),
             rows.as_slice()
         );
         assert_ne!(reconstructed.revision_id(), package.revision_id());
@@ -2132,6 +2217,7 @@ mod tests {
         bindings.demand.push("a".into());
         let model = reconstructed
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 bindings,
@@ -2157,7 +2243,7 @@ mod tests {
         assert!(
             document
                 .reconstruct(
-                    &runtime,
+                    &runtime.source_services(),
                     physical.clone(),
                     BTreeMap::new(),
                     &crate::CancelSource::new()
@@ -2169,7 +2255,7 @@ mod tests {
         assert!(
             document
                 .reconstruct(
-                    &runtime,
+                    &runtime.source_services(),
                     physical.clone(),
                     BTreeMap::new(),
                     &crate::CancelSource::new()
@@ -2186,7 +2272,7 @@ mod tests {
         assert!(
             document
                 .reconstruct(
-                    &runtime,
+                    &runtime.source_services(),
                     physical.clone(),
                     BTreeMap::new(),
                     &crate::CancelSource::new()
@@ -2211,7 +2297,7 @@ mod tests {
         assert!(
             document
                 .reconstruct(
-                    &runtime,
+                    &runtime.source_services(),
                     physical.clone(),
                     BTreeMap::new(),
                     &crate::CancelSource::new()
@@ -2224,7 +2310,7 @@ mod tests {
         assert!(
             document
                 .reconstruct(
-                    &runtime,
+                    &runtime.source_services(),
                     physical.clone(),
                     BTreeMap::new(),
                     &crate::CancelSource::new()
@@ -2244,7 +2330,7 @@ mod tests {
         assert!(
             document
                 .reconstruct(
-                    &runtime,
+                    &runtime.source_services(),
                     physical,
                     BTreeMap::new(),
                     &crate::CancelSource::new()
@@ -2271,6 +2357,7 @@ mod tests {
             .unwrap();
         let prepared = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -2302,7 +2389,11 @@ mod tests {
         let mut alternate_input = prepared.original_inputs.document(0).unwrap();
         alternate_input.settings.controls.iterations = 17;
         let alternate = alternate_input
-            .reconstruct(&package, &crate::CancelSource::new())
+            .reconstruct(
+                &runtime.preparation_services(),
+                &package,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap()
             .with_start(prepared.solve.requested_start().unwrap().clone())
@@ -2354,7 +2445,10 @@ mod tests {
             document.native_attempts.is_empty(),
             "no native report was dispatched while all CPU permits were held"
         );
-        let constructor = &document.case_constructors[0];
+        let ReplayConstructor::Modeling { cases } = &document.constructor else {
+            panic!("modeling constructor required")
+        };
+        let constructor = &cases[0];
         let graph = constructor.prepared_graph.as_ref().unwrap();
         assert_eq!(graph.nodes.len(), 3);
         assert_eq!(
@@ -2376,7 +2470,11 @@ mod tests {
         malformed.prepared_graph.as_mut().unwrap().root = usize::MAX;
         assert!(
             malformed
-                .reconstruct(&package, &crate::CancelSource::new())
+                .reconstruct(
+                    &runtime.preparation_services(),
+                    &package,
+                    &crate::CancelSource::new()
+                )
                 .await
                 .is_err()
         );
@@ -2386,7 +2484,11 @@ mod tests {
             Some(ReplayProducerPremise::Derived);
         assert!(
             missing
-                .reconstruct(&package, &crate::CancelSource::new())
+                .reconstruct(
+                    &runtime.preparation_services(),
+                    &package,
+                    &crate::CancelSource::new()
+                )
                 .await
                 .is_err()
         );
@@ -2415,7 +2517,11 @@ mod tests {
             excessive_graph.root = length - 1;
             let before = runtime.native().preparation_effects();
             let refusal = excessive
-                .reconstruct(&package, &crate::CancelSource::new())
+                .reconstruct(
+                    &runtime.preparation_services(),
+                    &package,
+                    &crate::CancelSource::new(),
+                )
                 .await
                 .unwrap_err();
             let effects = runtime.native().preparation_effects().since(before);
@@ -2433,7 +2539,9 @@ mod tests {
             );
         }
         drop(held);
-        let sources = replay.reconstruct_sources(&runtime).unwrap();
+        let sources = replay
+            .reconstruct_sources(&runtime.source_services())
+            .unwrap();
         let mut alternate_compiler = alternate_input.clone();
         alternate_compiler
             .preparation
@@ -2441,7 +2549,11 @@ mod tests {
             .optimization
             .horner_iterations += 1;
         let different = alternate_compiler
-            .reconstruct(&sources[0], &crate::CancelSource::new())
+            .reconstruct(
+                &runtime.preparation_services(),
+                &sources[0],
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap()
             .with_start(
@@ -2469,7 +2581,11 @@ mod tests {
         wrong_compiler.prepared_graph.as_mut().unwrap().nodes[1].preparation =
             different.solve.preparation_identity().unwrap();
         let refusal = wrong_compiler
-            .reconstruct(&sources[0], &crate::CancelSource::new())
+            .reconstruct(
+                &runtime.preparation_services(),
+                &sources[0],
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap_err();
         assert!(
@@ -2479,7 +2595,11 @@ mod tests {
             "{refusal}"
         );
         let restored = constructor
-            .reconstruct(&sources[0], &crate::CancelSource::new())
+            .reconstruct(
+                &runtime.preparation_services(),
+                &sources[0],
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         assert_eq!(
@@ -2527,14 +2647,16 @@ mod tests {
     #[tokio::test]
     async fn plan38b_fit_replay_reconstructs_original_constructor_and_new_allowance() {
         use crate::workflow::fitting::regression;
-        let package = regression::package(regression::declared(), [1.; 4]).await;
+        let runtime = crate::workflow::tests::runtime();
+        let package = regression::package(&runtime, regression::declared(), [1.; 4]).await;
         let profile =
             regression::profile(pse_backend_native::solve::HessianMode::LimitedMemory, None);
-        let original = regression::fit(&package, profile.clone()).await;
+        let original =
+            regression::fit(&runtime.execution_services(), &package, profile.clone()).await;
         assert!(original.report().is_ok());
         let replay = original.replay();
         let document = replay.document_with_limit(128 << 20).unwrap();
-        let permits = package.runtime.shared.compiler_cpu();
+        let permits = runtime.shared.compiler_cpu();
         let width = permits.available_permits();
         assert!(width > 0);
         let held = permits.acquire_many_owned(width as u32).await.unwrap();
@@ -2551,19 +2673,18 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(stopped.report().is_err());
-        assert_eq!(
-            stopped
-                .replay()
-                .document_with_limit(128 << 20)
-                .unwrap()
-                .fit_constructor
-                .as_ref()
-                .unwrap()
-                .max_cells,
-            profile.max_cells
-        );
+        let stopped_document = stopped.replay().document_with_limit(128 << 20).unwrap();
+        let ReplayConstructor::Fit {
+            fit: stopped_constructor,
+        } = &stopped_document.constructor
+        else {
+            panic!("fit constructor required")
+        };
+        assert_eq!(stopped_constructor.max_cells, profile.max_cells);
         drop(held);
-        let constructor = document.fit_constructor.as_ref().unwrap();
+        let ReplayConstructor::Fit { fit: constructor } = &document.constructor else {
+            panic!("fit constructor required")
+        };
         assert_eq!(constructor.max_cells, profile.max_cells);
         assert_eq!(constructor.derivatives, profile.derivatives);
         assert_eq!(
@@ -2574,12 +2695,23 @@ mod tests {
             crate::math::solves::profile_key(&constructor.solver.profile().unwrap()).unwrap(),
             crate::math::solves::profile_key(&profile.solver).unwrap()
         );
-        let sources = replay.reconstruct_sources(&package.runtime).unwrap();
+        let sources = replay
+            .reconstruct_sources(&runtime.source_services())
+            .unwrap();
         let reconstructed = constructor
-            .reconstruct(&sources[0], &crate::CancelSource::new())
+            .reconstruct(
+                &runtime.preparation_services(),
+                &sources[0],
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
-        let restored = reconstructed.start().unwrap().wait().await.unwrap();
+        let restored = reconstructed
+            .start(&runtime.execution_services())
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
         assert!(restored.report().is_ok());
         let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
         assert_ne!(fresh.run_id, original.run_id);
@@ -2610,15 +2742,15 @@ mod tests {
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime
+        // Keep the original source allocation alive while input capture competes for headroom.
+        let _package = runtime
             .modeling_package(rows, crate::workflow::tests::physical())
             .await
             .unwrap();
         let pool = runtime.shared.pool();
         let remaining = runtime.shared.budget().memory_limit_bytes.get() - pool.reserved();
         let held = runtime
-            .shared
-            .math()
+            .native()
             .reserve("test:replay-input-headroom", remaining - (128 << 10))
             .unwrap();
         let baseline = pool.reserved();
@@ -2628,7 +2760,7 @@ mod tests {
                        exact: &BTreeSet<SemanticId>,
                        quadratures: &BTreeSet<SemanticId>| {
             OriginalSimulationInputs::capture(
-                &package,
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 &Default::default(),
@@ -2723,6 +2855,7 @@ mod tests {
         solver.controls.iterations = 17;
         let mut prepared = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -2787,7 +2920,7 @@ mod tests {
         let expected_starts = serde_json::to_vec(&prepared.starts).unwrap();
         let result = Arc::new(RunResult::joined(
             RunId::from_bytes([91; 16]),
-            runtime,
+            runtime.execution_services(),
             crate::workflow::RunOutcome::Modeling {
                 request: vec![prepared],
                 result: Err(Arc::new(contract("failed before dispatch"))),
@@ -2849,7 +2982,7 @@ impl OriginalSimulationInputs {
         reason = "retain the actual integrated constructor without changing its scientific request contract"
     )]
     pub(in crate::workflow) fn capture(
-        package: &ModelingPackage,
+        services: &crate::workflow::PreparationServices,
         root: pse_modeling::DeclarationId,
         instance: pse_modeling::InstanceId,
         bindings: &pse_modeling::Bindings,
@@ -2896,9 +3029,7 @@ impl OriginalSimulationInputs {
                     .as_ref()
                     .map_or(0, |axes| axes.len().saturating_mul(size_of::<usize>())),
             );
-        let owner = package
-            .runtime
-            .shared
+        let owner = services
             .math()
             .reserve("replay:original-simulation-constructor", bytes)?;
         let mut original = profile.clone();
@@ -2942,7 +3073,7 @@ impl OriginalSimulationInputs {
 }
 /// Replay retains the original internal request without teaching Profile's public
 /// serialization a general selection API. Exactly one coordinate form is authoritative.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
     tag = "kind",
     content = "coordinates",
@@ -2956,7 +3087,7 @@ pub enum ReplayForwardSelection {
     PhysicalAxes(Vec<usize>),
 }
 /// Portable original integrated constructor; all methods still enter the existing supervisor.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplaySimulationConstructor {
     /// Source closure index.
@@ -2966,7 +3097,10 @@ pub struct ReplaySimulationConstructor {
     /// Original instance identity.
     pub instance: pse_modeling::InstanceId,
     /// Full structural arguments, facts and demand.
-    #[serde(serialize_with = "serialize_bindings")]
+    #[serde(
+        serialize_with = "serialize_bindings",
+        deserialize_with = "deserialize_bindings"
+    )]
     #[schemars(with = "Vec<u8>")]
     pub bindings: pse_modeling::Bindings,
     /// Original compiler and specialization allowances.
@@ -2991,6 +3125,7 @@ impl ReplaySimulationConstructor {
     /// Reconstruct original dynamics from source through actual compiler/physical admission.
     pub async fn reconstruct(
         &self,
+        services: &crate::workflow::PreparationServices,
         package: &ModelingPackage,
         cancel: &crate::CancelSource,
     ) -> Result<super::ModelingSimulation, WorkflowError> {
@@ -3016,6 +3151,7 @@ impl ReplaySimulationConstructor {
         };
         package
             .prepare_simulation_with_controls(
+                services,
                 self.root,
                 self.instance,
                 self.bindings.clone(),
@@ -3043,7 +3179,7 @@ pub(crate) struct OriginalFitInputs {
 }
 impl OriginalFitInputs {
     pub(in crate::workflow) fn capture(
-        package: &ModelingPackage,
+        services: &crate::workflow::PreparationServices,
         id: pse_model::generated::identities::FitId,
         profile: &super::FitProfile,
         compiler: pse_compiler::workspace::Profile,
@@ -3059,9 +3195,7 @@ impl OriginalFitInputs {
                 encoded_extent(&(&profile.simulations, &profile.uncertainty), EXPORT_MAX)?
                     .saturating_mul(8),
             );
-        let owner = package
-            .runtime
-            .shared
+        let owner = services
             .math()
             .reserve("replay:original-fit-constructor", extent)?;
         Ok(Arc::new(Self {
@@ -3094,7 +3228,7 @@ impl OriginalFitInputs {
     }
 }
 /// Portable fit constructor. Exact fit/experiment declarations are in its source objects.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayFitConstructor {
     /// Exact original residual algorithm policy, independent of physical stationarity.
@@ -3132,6 +3266,7 @@ impl ReplayFitConstructor {
     /// Rebuild the authored fit/experiments through existing production admission.
     pub async fn reconstruct(
         &self,
+        services: &crate::workflow::PreparationServices,
         package: &ModelingPackage,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedFit, WorkflowError> {
@@ -3142,6 +3277,7 @@ impl ReplayFitConstructor {
         }
         package
             .prepare_fit_bound(
+                services,
                 self.id,
                 super::FitProfile {
                     optimizer: self.optimizer,
@@ -3162,7 +3298,7 @@ impl ReplayFitConstructor {
     }
 }
 /// Original source-bound output/control bound in exact IEEE bits.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayShootingBound {
     /// Exact contract coordinate.
@@ -3173,7 +3309,7 @@ pub struct ReplayShootingBound {
     pub upper: Option<u64>,
 }
 /// Original shooting request over its complete original simulation constructor.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayShootingConstructor {
     /// Complete original integrated constructor.
@@ -3245,43 +3381,50 @@ impl ReplayShootingConstructor {
     /// Rebuild original shooting through the existing simulation and shooting admission owners.
     pub async fn reconstruct(
         &self,
+        services: &crate::workflow::PreparationServices,
         package: &ModelingPackage,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<super::ShootingProblem>, WorkflowError> {
-        let simulation = self.simulation.reconstruct(package, cancel).await?;
+        let simulation = self
+            .simulation
+            .reconstruct(services, package, cancel)
+            .await?;
         Ok(Arc::new(
-            simulation.shooting(super::ShootingProfile {
-                method: self.method,
-                nodes: self.nodes.iter().map(|v| f64::from_bits(*v)).collect(),
-                controls: self
-                    .controls
-                    .iter()
-                    .map(|v| super::ShootingControl {
-                        input: v.id,
-                        lower: v.lower.map(f64::from_bits),
-                        upper: v.upper.map(f64::from_bits),
-                    })
-                    .collect(),
-                path: self
-                    .path
-                    .iter()
-                    .map(|v| super::PathBound {
-                        output: v.id,
-                        lower: v.lower.map(f64::from_bits),
-                        upper: v.upper.map(f64::from_bits),
-                    })
-                    .collect(),
-                objective: super::ShootingObjective {
-                    terminal: unbits(&self.terminal),
-                    integral: unbits(&self.integral),
+            simulation.shooting(
+                services,
+                super::ShootingProfile {
+                    method: self.method,
+                    nodes: self.nodes.iter().map(|v| f64::from_bits(*v)).collect(),
+                    controls: self
+                        .controls
+                        .iter()
+                        .map(|v| super::ShootingControl {
+                            input: v.id,
+                            lower: v.lower.map(f64::from_bits),
+                            upper: v.upper.map(f64::from_bits),
+                        })
+                        .collect(),
+                    path: self
+                        .path
+                        .iter()
+                        .map(|v| super::PathBound {
+                            output: v.id,
+                            lower: v.lower.map(f64::from_bits),
+                            upper: v.upper.map(f64::from_bits),
+                        })
+                        .collect(),
+                    objective: super::ShootingObjective {
+                        terminal: unbits(&self.terminal),
+                        integral: unbits(&self.integral),
+                    },
+                    evaluation: if self.eager_first {
+                        super::ShootingEvaluationPolicy::EagerFirst
+                    } else {
+                        super::ShootingEvaluationPolicy::Demanded
+                    },
+                    solver: self.solver.profile()?,
                 },
-                evaluation: if self.eager_first {
-                    super::ShootingEvaluationPolicy::EagerFirst
-                } else {
-                    super::ShootingEvaluationPolicy::Demanded
-                },
-                solver: self.solver.profile()?,
-            })?,
+            )?,
         ))
     }
 }
@@ -3349,7 +3492,7 @@ impl ReplayCaseConstructor {
     }
 }
 /// Exact original horizon signal, preserving all trajectory value bits.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
     tag = "kind",
     content = "value",
@@ -3389,7 +3532,7 @@ impl ReplayHorizonSignal {
     }
 }
 /// Original NMPC stage, including its complete source, analysis and mapping.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayHorizonController {
     /// Full source-qualified original analysis.
@@ -3402,7 +3545,7 @@ pub struct ReplayHorizonController {
     pub predictions: Option<Vec<(String, String)>>,
 }
 /// Original MHE stage, including exact window and prior meaning.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayHorizonEstimator {
     /// Full source-qualified original analysis.
@@ -3417,7 +3560,7 @@ pub struct ReplayHorizonEstimator {
     pub arrival: Vec<(String, String, u64)>,
 }
 /// Full original horizon constructor; an interrupted observation never replaces its requested horizon.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReplayHorizonConstructor {
     /// Original output demand, separate from observed coverage.
@@ -3511,6 +3654,7 @@ impl ReplayHorizonConstructor {
     /// Rebuild the exact original plant and stages from admitted source packages.
     pub async fn reconstruct(
         &self,
+        services: &crate::workflow::PreparationServices,
         sources: &[ModelingPackage],
         cancel: &crate::CancelSource,
     ) -> Result<super::Horizon, WorkflowError> {
@@ -3521,7 +3665,7 @@ impl ReplayHorizonConstructor {
         };
         let plant = self
             .plant
-            .reconstruct(source(self.plant.source)?, cancel)
+            .reconstruct(services, source(self.plant.source)?, cancel)
             .await?;
         let estimator = if let Some(estimator) = &self.estimator {
             let mut inputs = Vec::new();
@@ -3656,7 +3800,7 @@ pub(in crate::workflow) fn profile_extent(
     })
 }
 
-fn trajectory_observation(
+pub(super) fn trajectory_observation(
     report: &pse_backend_native::dynamics::Report,
 ) -> pse_model::generated::enums::NumericalAttemptObservation {
     use pse_backend_native::dynamics::Termination as T;

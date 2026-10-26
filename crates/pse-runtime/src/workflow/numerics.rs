@@ -142,50 +142,101 @@ fn global_bound(report: &SolveReport) -> Option<BoundEvidence> {
         within_gap: absolute_gap <= absolute || relative_gap.is_some_and(|gap| gap <= relative),
     })
 }
+/// Borrowed route evidence. LM supplies its own candidate and gradient qualification;
+/// this view neither creates NLP dual/KKT evidence nor infers native success.
+#[derive(Clone, Copy)]
+pub(crate) struct NativeEvidence<'a> {
+    pub(crate) candidate: Option<&'a [f64]>,
+    pub(crate) termination: NativeTermination,
+    pub(crate) quality: Option<&'a pse_backend_native::quality::Quality>,
+    pub(crate) callback_failure: Option<&'a pse_backend_native::ProblemError>,
+    pub(crate) validation_failure: Option<&'a pse_backend_native::ProblemError>,
+    pub(crate) qualification: pse_backend_native::solve::Qualification,
+    pub(crate) bound: Option<BoundEvidence>,
+    pub(crate) relaxed_incumbent: bool,
+}
+impl<'a> NativeEvidence<'a> {
+    pub(crate) fn nlp(report: &'a SolveReport) -> Self {
+        Self {
+            candidate: report
+                .candidate
+                .as_ref()
+                .map(|candidate| candidate.primal.as_slice()),
+            termination: report.termination.category,
+            quality: report.quality.as_ref(),
+            callback_failure: report.callback_failure(),
+            validation_failure: report.validation_failure(),
+            qualification: report.qualification,
+            bound: global_bound(report),
+            relaxed_incumbent: report.evidence.global.is_some_and(|global| {
+                global.primal == pse_backend_native::solve::PrimalSource::RelaxedIncumbent
+            }),
+        }
+    }
+    pub(crate) fn residual(
+        report: &'a super::fitting::FitResidualReport,
+        candidate: Option<&'a [f64]>,
+        quality: Option<&'a pse_backend_native::quality::Quality>,
+    ) -> Self {
+        Self {
+            candidate,
+            termination: report.termination_category(),
+            quality,
+            callback_failure: report.failure.as_ref().map(|failure| failure.cause()),
+            validation_failure: None,
+            qualification: report.qualification,
+            bound: None,
+            relaxed_incumbent: false,
+        }
+    }
+}
 /// Native termination remains independent from validated original quality and policy.
 pub(crate) fn native_use(
     report: &SolveReport,
     policy: &pse_model::numerics::NumericalPolicy,
 ) -> CandidateDecision {
+    native_evidence_use(NativeEvidence::nlp(report), policy)
+}
+/// One candidate policy for equivalent native evidence, regardless of route.
+pub(crate) fn native_evidence_use(
+    evidence: NativeEvidence<'_>,
+    policy: &pse_model::numerics::NumericalPolicy,
+) -> CandidateDecision {
     use CandidateRefusal as R;
     use NativeTermination as T;
     let mut decision = CandidateDecision::new(CandidateUse::Usable);
-    decision.bound = global_bound(report);
-    if report.candidate.is_none() {
+    decision.bound = evidence.bound;
+    if evidence.candidate.is_none() {
         decision.refuse(R::NoCandidate);
     }
-    if report.validation_failure().is_some() || report.callback_failure().is_some() {
+    if evidence.validation_failure.is_some() || evidence.callback_failure.is_some() {
         decision.refuse(R::ValidationFailed);
     }
-    match report.quality.as_ref() {
+    match evidence.quality {
         None => decision.refuse(R::FeasibilityUnavailable),
         Some(quality) if !quality.feasible() => decision.refuse(R::Infeasible),
         Some(_) => {}
     }
-    if report.qualification == pse_backend_native::solve::Qualification::Unqualified {
+    if evidence.qualification == pse_backend_native::solve::Qualification::Unqualified {
         decision.refuse(R::Unqualified);
     }
-    let diagnostic = if report
-        .evidence
-        .global
-        .is_some_and(|g| g.primal == pse_backend_native::solve::PrimalSource::RelaxedIncumbent)
-    {
+    let diagnostic = if evidence.relaxed_incumbent {
         Some(R::RelaxedIncumbent)
-    } else if report.termination.category == T::Infeasible {
+    } else if evidence.termination == T::Infeasible {
         Some(R::LeastInfeasible)
     } else {
         None
     };
     if let Some(reason) = diagnostic {
         decision.refusals.push(reason);
-        decision.usability = if report.candidate.is_some() {
+        decision.usability = if evidence.candidate.is_some() {
             CandidateUse::DiagnosticOnly
         } else {
             CandidateUse::Unusable
         };
         return decision;
     }
-    match report.termination.category {
+    match evidence.termination {
         T::Success | T::Acceptable | T::FeasibleOnly => {}
         T::TimeLimit | T::NodeLimit | T::IterationLimit | T::SolutionLimit => {
             if decision.permits_use() {
@@ -707,8 +758,8 @@ impl RunResult {
         &self,
         request: &super::result_export::Projection,
     ) -> Result<(), WorkflowError> {
-        let registry = self.runtime.registry();
-        let pool = self.runtime.shared.pool();
+        let registry = self.services.preparation().registry();
+        let pool = self.services.preparation().pool();
         let cancel = request.cancel.clone();
         let validation = self.result_validation_context();
         if request.wants(assessments::RELATION_ID) {
@@ -1030,6 +1081,121 @@ mod tests {
             &ResolvedAccuracy::from_policy(&Default::default(), 1e-8).unwrap(),
         );
         report
+    }
+    #[test]
+    fn residual_and_nlp_share_candidate_policy_without_inventing_stationarity_or_bounds() {
+        use super::super::fitting::{FitResidualReport, FitResidualTermination};
+        use pse_backend_native::solve::Qualification;
+        let cases = [
+            (
+                FitResidualTermination::Orthogonal,
+                NativeTermination::Success,
+            ),
+            (
+                FitResidualTermination::EvaluationLimit,
+                NativeTermination::IterationLimit,
+            ),
+            (
+                FitResidualTermination::Numerical {
+                    detail: "arithmetic".into(),
+                },
+                NativeTermination::Numerical,
+            ),
+            (
+                FitResidualTermination::User {
+                    detail: "callback".into(),
+                },
+                NativeTermination::Evaluation,
+            ),
+        ];
+        let infeasible = pse_backend_native::quality::Quality::new(
+            vec![],
+            vec![pse_backend_native::quality::Violation {
+                id: SemanticId::from_bytes([1; 16]),
+                physical: 2.,
+                tolerance: 1.,
+            }],
+            vec![],
+        )
+        .unwrap();
+        for (termination, category) in cases {
+            let mut nlp = report(category);
+            nlp.qualification = Qualification::Feasible;
+            let mut residual = FitResidualReport {
+                stopping: None,
+                termination,
+                residual_evaluations: 1,
+                jacobian_evaluations: 1,
+                parameter_updates: 1,
+                failure: None,
+                stationarity: Some(1.),
+                qualification: Qualification::Feasible,
+            };
+            for incumbent in [
+                IncumbentPolicy::Refuse,
+                IncumbentPolicy::AcceptFeasible,
+                IncumbentPolicy::AcceptWithinGap,
+            ] {
+                let policy = pse_model::numerics::NumericalPolicy {
+                    incumbent,
+                    ..Default::default()
+                };
+                let residual_view = NativeEvidence::residual(
+                    &residual,
+                    nlp.candidate
+                        .as_ref()
+                        .map(|candidate| candidate.primal.as_slice()),
+                    nlp.quality.as_ref(),
+                );
+                let actual = native_evidence_use(residual_view, &policy);
+                assert_eq!(actual, native_use(&nlp, &policy));
+                assert_eq!(residual.qualification, Qualification::Feasible);
+                assert!(actual.bound.is_none());
+                if category == NativeTermination::IterationLimit {
+                    assert_eq!(
+                        actual.permits_use(),
+                        incumbent == IncumbentPolicy::AcceptFeasible
+                    );
+                    assert!(actual.permits_seed());
+                }
+                for quality in [None, Some(&infeasible)] {
+                    let mut evidence = residual_view;
+                    evidence.quality = quality;
+                    let decision = native_evidence_use(evidence, &policy);
+                    assert!(!decision.permits_use());
+                    assert!(decision.refusals.contains(&if quality.is_none() {
+                        CandidateRefusal::FeasibilityUnavailable
+                    } else {
+                        CandidateRefusal::Infeasible
+                    }));
+                }
+                let missing = native_evidence_use(
+                    NativeEvidence {
+                        candidate: None,
+                        ..residual_view
+                    },
+                    &policy,
+                );
+                assert!(!missing.permits_use());
+                assert!(missing.refusals.contains(&CandidateRefusal::NoCandidate));
+            }
+            residual.failure = Some(
+                pse_backend_native::ProblemError::Provider(pse_kernels::ProviderError::Terminal(
+                    "callback witness".into(),
+                ))
+                .into(),
+            );
+            let decision = native_evidence_use(
+                NativeEvidence::residual(&residual, Some(&[2.]), nlp.quality.as_ref()),
+                &Default::default(),
+            );
+            assert!(!decision.permits_use());
+            assert!(
+                decision
+                    .refusals
+                    .contains(&CandidateRefusal::ValidationFailed)
+            );
+        }
     }
     #[test]
     fn absent_feasibility_is_unavailable_and_never_a_feasibility_conclusion() {

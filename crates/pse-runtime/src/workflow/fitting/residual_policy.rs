@@ -4,7 +4,9 @@
 
 /// Exact algorithm stopping criteria used by residual LM.
 /// These relative/cosine values do not represent original physical stationarity.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct ResidualLmCriteria {
     /// Encoding of these distinct algorithm criteria.
@@ -61,7 +63,9 @@ impl ResidualLmCriteria {
 }
 
 /// Actual algorithm criteria and finite allowances for one executed LM invocation.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct ResidualLmStopping {
     /// The actual distinct algorithm stopping criteria.

@@ -2,9 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Shared operation admission; hosts supply transport and their original cancellation owner.
 use super::{
-    AdmittedBinding, AdmittedHorizonValues, DeclaredExecution, DeclaredProcedure, ModelingPackage,
-    ModelingSolvePreparation, OperationRequest, OperationSource, PreparationSettings,
-    PreparedStudyOperation, RunHandle, Runtime, WorkflowError, contract,
+    AdmittedBinding, AdmittedHorizonValues, DeclaredExecution, DeclaredProcedure,
+    ExecutionServices, ModelingPackage, ModelingSolvePreparation, OperationRequest,
+    OperationSource, PreparationServices, PreparationSettings, PreparedStudyOperation, RunHandle,
+    WorkflowError, contract,
 };
 use crate::{CancelSource, math::settings::SolveSettings};
 use pse_model::generated::{enums::ModelingAnalysisRoute, identities::DeclarationId};
@@ -105,14 +106,6 @@ impl PreparedOperation {
             }
         }
     }
-    /// Runtime already retained by the actual prepared scientific owner.
-    pub fn runtime(&self) -> &Runtime {
-        match self {
-            Self::Study(prepared) => prepared.runtime(),
-            #[cfg(feature = "solver-diffsol")]
-            Self::Shooting { problem, .. } => &problem.runtime,
-        }
-    }
     /// Keep study admission a typed subset of actual prepared capabilities.
     /// # Errors
     /// Shooting cannot enter the persisted Version<8> operation set.
@@ -130,14 +123,14 @@ impl PreparedOperation {
     /// Original operation admission and execution refusals retain their causes.
     pub async fn start(
         &self,
-        runtime: &Runtime,
+        services: &ExecutionServices,
         cancel: &CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
         match self {
-            Self::Study(prepared) => prepared.start(runtime, cancel).await,
+            Self::Study(prepared) => prepared.start(services, cancel).await,
             #[cfg(feature = "solver-diffsol")]
             Self::Shooting { problem, initial } => {
-                problem.start_replay_with_cancel(initial.clone(), cancel)
+                problem.start_replay_with_cancel(services, initial.clone(), cancel)
             }
         }
     }
@@ -149,6 +142,7 @@ impl ModelingPackage {
     /// Invalid context, unsupported bindings or the selected scientific owner's refusal.
     pub async fn prepare_operation(
         &self,
+        services: &PreparationServices,
         source: &OperationSource,
         preparation: &PreparationSettings,
         request: RuntimeOperationRequest,
@@ -156,11 +150,12 @@ impl ModelingPackage {
         cancel: &CancelSource,
     ) -> Result<PreparedOperation, WorkflowError> {
         source.check(self)?;
-        let driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let driver = services.math().preparation_driver(cancel)?;
         match request {
             RuntimeOperationRequest::DeclaredCase { case, settings } => Ok(
                 PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(Box::new(
                     self.prepare_case_operation(
+                        services,
                         case,
                         &settings,
                         preparation,
@@ -180,6 +175,7 @@ impl ModelingPackage {
                     Some(values) => Some(values),
                     None => {
                         super::study_operations::admit_horizon_values(
+                            services,
                             self,
                             source,
                             preparation,
@@ -197,18 +193,15 @@ impl ModelingPackage {
                     admitted_horizon: admitted_horizon.as_ref(),
                     binding,
                 }
-                .prepare(self, &driver)
+                .prepare(services, self, &driver)
                 .await
                 .map(PreparedOperation::Study)
             }
             #[cfg(feature = "solver-diffsol")]
             RuntimeOperationRequest::Shooting { problem, initial } => {
-                if binding.is_some_and(|binding| !binding.entries.is_empty())
-                    || !std::sync::Arc::ptr_eq(&self.runtime.shared, &problem.runtime.shared)
-                {
-                    return Err(contract(
-                        "shooting request has unsupported bindings or another runtime",
-                    ));
+                OperationSource::of(&problem.simulation.source).check(self)?;
+                if binding.is_some_and(|binding| !binding.entries.is_empty()) {
+                    return Err(contract("shooting request has unsupported bindings"));
                 }
                 Ok(PreparedOperation::Shooting { problem, initial })
             }
@@ -217,6 +210,7 @@ impl ModelingPackage {
 
     pub(in crate::workflow) async fn prepare_case_operation(
         &self,
+        services: &PreparationServices,
         case: DeclarationId,
         settings: &SolveSettings,
         preparation: &PreparationSettings,
@@ -227,7 +221,7 @@ impl ModelingPackage {
         #[cfg(test)]
         super::study_operations::count_declared_admission();
         let execution = self
-            .admit_declared_request(case, preparation, settings.clone(), cancel)
+            .admit_declared_request(services, case, preparation, settings.clone(), cancel)
             .await?;
         if !matches!(execution.procedure, DeclaredProcedure::Solve)
             || expected_route.is_some_and(|route| execution.route != route)
@@ -242,28 +236,30 @@ impl ModelingPackage {
         }
         #[cfg(test)]
         super::study_operations::observe_declared_admission();
-        self.prepare_operation_execution(execution, binding, None, cancel)
+        self.prepare_operation_execution(services, execution, binding, None, cancel)
             .await
     }
 
     /// Existing lane admissions and immediate requests share the same binding lowering.
     pub(in crate::workflow) async fn prepare_operation_execution(
         &self,
+        services: &PreparationServices,
         mut execution: DeclaredExecution,
         binding: Option<&AdmittedBinding>,
         current_view: Option<&mut super::study_operations::CurrentNumericalView>,
         cancel: &CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
         let Some(binding) = binding else {
-            return self.prepare_declared(&execution, cancel).await;
+            return self.prepare_declared(services, &execution, cancel).await;
         };
         execution.prepared_model(self)?;
         self.validate_binding(execution.model.compiled(), binding)?;
-        let bound_source = self.retain_bound_source(binding)?;
+        let bound_source = self.retain_bound_source(services, binding)?;
         execution.analysis.case.members = binding.values();
         let analysis = execution.analysis;
         let resolution = self
             .resolve_prepared_case_with_current_view(
+                services,
                 execution.model,
                 analysis.case,
                 analysis.order,
@@ -276,7 +272,7 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
-        let mut prepared = self.finish_case(resolution, cancel).await?;
+        let mut prepared = self.finish_case(services, resolution, cancel).await?;
         prepared.bound_source = Some(bound_source);
         Ok(prepared)
     }

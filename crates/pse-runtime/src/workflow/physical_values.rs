@@ -40,6 +40,47 @@ pub struct DiagnosticSamples(Arc<Snapshot<diagnostic_samples::Row>>);
 pub struct StateTolerances(Arc<Snapshot<state_tolerances::Row>>);
 
 impl Runtime {
+    /// Registry-owned physical input schema from the explicit preparation boundary.
+    pub fn physical_input_schema(
+        &self,
+        kind: PhysicalInputKind,
+    ) -> Result<datafusion::arrow::datatypes::SchemaRef, WorkflowError> {
+        self.preparation_services().physical_input_schema(kind)
+    }
+    /// Copy typed original primal input under the selected allocation owner.
+    pub fn snapshot_primal_values(
+        &self,
+        batches: impl RecordBatchReader,
+    ) -> Result<PrimalValues, WorkflowError> {
+        self.preparation_services().snapshot_primal_values(batches)
+    }
+    /// Copy typed initialization stages under the selected allocation owner.
+    pub fn snapshot_initialization_stages(
+        &self,
+        batches: impl RecordBatchReader,
+    ) -> Result<InitializationStages, WorkflowError> {
+        self.preparation_services()
+            .snapshot_initialization_stages(batches)
+    }
+    /// Copy typed diagnostic samples under the selected allocation owner.
+    pub fn snapshot_diagnostic_samples(
+        &self,
+        batches: impl RecordBatchReader,
+    ) -> Result<DiagnosticSamples, WorkflowError> {
+        self.preparation_services()
+            .snapshot_diagnostic_samples(batches)
+    }
+    /// Copy typed physical tolerances under the selected allocation owner.
+    pub fn snapshot_state_tolerances(
+        &self,
+        batches: impl RecordBatchReader,
+    ) -> Result<StateTolerances, WorkflowError> {
+        self.preparation_services()
+            .snapshot_state_tolerances(batches)
+    }
+}
+
+impl super::PreparationServices {
     /// Full registry-owned Arrow schema, including relation identity and extension metadata.
     pub fn physical_input_schema(
         &self,
@@ -75,7 +116,7 @@ impl Runtime {
         pse_relations::validate::validate_schema(registry, spec, &batches.schema())
             .map_err(|errors| relation(pse_relations::RelationError::Validation { errors }))?;
         let token = pse_columnar::CancellationToken::new();
-        let pool = self.shared.pool();
+        let pool = self.pool();
         let reservation =
             pse_columnar::MemoryConsumer::new("workflow:physical-input").register(&pool);
         let mut rows = Vec::new();
@@ -182,16 +223,18 @@ impl super::ModelingPackage {
     /// Own diagnostic scalar custody before asynchronous source preparation begins.
     pub fn snapshot_diagnostic_samples(
         &self,
+        services: &super::PreparationServices,
         batches: impl RecordBatchReader,
     ) -> Result<DiagnosticSamples, WorkflowError> {
-        self.runtime.snapshot_diagnostic_samples(batches)
+        services.snapshot_diagnostic_samples(batches)
     }
     /// Own initialization scalar custody before asynchronous source preparation begins.
     pub fn snapshot_initialization_stages(
         &self,
+        services: &super::PreparationServices,
         batches: impl RecordBatchReader,
     ) -> Result<InitializationStages, WorkflowError> {
-        self.runtime.snapshot_initialization_stages(batches)
+        services.snapshot_initialization_stages(batches)
     }
 }
 
@@ -387,10 +430,11 @@ pub(super) fn admit_tolerances(
 
 #[cfg(all(test, feature = "solver-kinsol"))]
 pub(in crate::workflow) fn test_primal_batch(
+    services: &super::PreparationServices,
     prepared: &super::ModelingSolvePreparation,
     values: BTreeMap<SemanticId, f64>,
 ) -> Result<datafusion::arrow::record_batch::RecordBatch, WorkflowError> {
-    let context = prepared.source.runtime.validation_context();
+    let context = services.validation_context();
     let mut rows = pse_relations::columnar::RowBuilder::<primal_values::Row>::new(&context)
         .map_err(relation)?;
     for (id, value) in values {
@@ -422,20 +466,20 @@ pub(in crate::workflow) fn test_primal_batch(
 /// Original or constructor-declared auxiliary coordinates, retained with their actual owner.
 #[derive(Clone, Debug)]
 pub struct PrimalCoordinates {
-    runtime: Runtime,
+    services: super::PreparationServices,
     ports: Arc<Vec<Port>>,
     role: NativePrimalCoordinateRole,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl PrimalCoordinates {
     pub(in crate::workflow) fn original(
-        runtime: &Runtime,
+        services: &super::PreparationServices,
         ports: Vec<Port>,
     ) -> Result<Self, WorkflowError> {
-        Self::new(runtime, ports, NativePrimalCoordinateRole::Original)
+        Self::new(services, ports, NativePrimalCoordinateRole::Original)
     }
     pub(in crate::workflow) fn auxiliary(
-        runtime: &Runtime,
+        services: &super::PreparationServices,
         registry: &pse_quantity::QuantityRegistry,
         ids: &[SemanticId],
     ) -> Result<Self, WorkflowError> {
@@ -445,7 +489,7 @@ impl PrimalCoordinates {
             .map_err(|error| contract(error.to_string()))?
             .canonical_unit;
         Self::new(
-            runtime,
+            services,
             ids.iter()
                 .map(|id| Port {
                     id: *id,
@@ -457,7 +501,7 @@ impl PrimalCoordinates {
         )
     }
     fn new(
-        runtime: &Runtime,
+        services: &super::PreparationServices,
         ports: Vec<Port>,
         role: NativePrimalCoordinateRole,
     ) -> Result<Self, WorkflowError> {
@@ -466,8 +510,7 @@ impl PrimalCoordinates {
             .checked_mul(size_of::<Port>() + 64)
             .and_then(|bytes| bytes.checked_add(512))
             .ok_or_else(|| contract("primal coordinate inventory extent"))?;
-        let owner = runtime
-            .shared
+        let owner = services
             .math()
             .reserve("workflow:primal-coordinate-inventory", extent)?;
         let unique = ports.iter().map(|port| port.id).collect::<BTreeSet<_>>();
@@ -475,7 +518,7 @@ impl PrimalCoordinates {
             return Err(contract("duplicate primal coordinate declaration"));
         }
         Ok(Self {
-            runtime: runtime.clone(),
+            services: services.clone(),
             ports: Arc::new(ports),
             role,
             _owner: owner,
@@ -499,15 +542,14 @@ impl PrimalCoordinates {
             .and_then(|bytes| bytes.checked_add(4096))
             .ok_or_else(|| contract("primal transport extent"))?;
         let _scratch = self
-            .runtime
-            .shared
+            .services
             .math()
             .reserve("workflow:primal-transport", scratch)?;
-        let pool = self.runtime.shared.pool();
+        let pool = self.services.pool();
         let cancel = pse_columnar::CancellationToken::new();
-        let context = self.runtime.validation_context();
+        let context = self.services.validation_context();
         let mut columns = pse_relations::columnar::Collection::new(
-            self.runtime.registry(),
+            self.services.registry(),
             &pool,
             &cancel,
             &context,
@@ -551,9 +593,12 @@ impl PrimalCoordinates {
 }
 impl super::ModelingSolvePreparation {
     /// Actual original variable ports, independent of a native report's ID list.
-    pub fn primal_coordinates(&self) -> Result<PrimalCoordinates, WorkflowError> {
+    pub fn primal_coordinates(
+        &self,
+        services: &super::PreparationServices,
+    ) -> Result<PrimalCoordinates, WorkflowError> {
         PrimalCoordinates::original(
-            &self.source.runtime,
+            services,
             self.model
                 .case
                 .compiled()
@@ -570,9 +615,10 @@ impl super::ModelingPackage {
     /// Resolve an explicitly constructor-declared dimensionless auxiliary inventory.
     pub fn auxiliary_primal_coordinates(
         &self,
+        services: &super::PreparationServices,
         ids: &[SemanticId],
     ) -> Result<PrimalCoordinates, WorkflowError> {
-        PrimalCoordinates::auxiliary(&self.runtime, self.physical.quantities(), ids)
+        PrimalCoordinates::auxiliary(services, self.physical.quantities(), ids)
     }
 }
 

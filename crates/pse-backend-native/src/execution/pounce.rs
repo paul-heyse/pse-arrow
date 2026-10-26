@@ -125,9 +125,14 @@ impl BackendExecution for Pounce {
         perturbation: super::StartPerturbation,
     ) -> Result<super::PerturbedStart, ProblemError> {
         #[cfg(feature = "pounce")]
-        { crate::pounce::perturb_start(point, bounds, perturbation) }
+        {
+            crate::pounce::perturb_start(point, bounds, perturbation)
+        }
         #[cfg(not(feature = "pounce"))]
-        { let _ = (point, bounds, perturbation); Err(super::unlinked(Backend::Pounce)) }
+        {
+            let _ = (point, bounds, perturbation);
+            Err(super::unlinked(Backend::Pounce))
+        }
     }
     fn consumes_separator(&self, _settings: &BackendSettings) -> bool {
         true

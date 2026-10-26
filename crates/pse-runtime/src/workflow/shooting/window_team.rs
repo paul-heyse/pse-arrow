@@ -134,6 +134,7 @@ enum Owners {
     },
 }
 pub(super) struct WindowTeam {
+    math: Arc<crate::math::MathService>,
     pub(super) source: Arc<ShootingProblem>,
     pub(super) execution: Execution,
     owners: Owners,
@@ -160,27 +161,31 @@ impl WindowTeam {
     }
     pub(super) fn new(
         problem: Arc<ShootingProblem>,
+        math: Arc<crate::math::MathService>,
         execution: Execution,
         initial: Option<super::super::dynamics::DynamicWorker>,
     ) -> Result<Self, ProblemError> {
-        Self::prepare(problem, execution, initial, None)
+        Self::prepare(problem, math, execution, initial, None)
     }
     pub(super) fn inline(
         problem: Arc<ShootingProblem>,
+        math: Arc<crate::math::MathService>,
         execution: Execution,
     ) -> Result<Self, ProblemError> {
-        Self::prepare(problem, execution, None, Some(1))
+        Self::prepare(problem, math, execution, None, Some(1))
     }
     #[cfg(all(test, feature = "solver-ipopt"))]
     pub(super) fn with_width(
         problem: Arc<ShootingProblem>,
+        math: Arc<crate::math::MathService>,
         execution: Execution,
         width: usize,
     ) -> Result<Self, ProblemError> {
-        Self::prepare(problem, execution, None, Some(width))
+        Self::prepare(problem, math, execution, None, Some(width))
     }
     fn prepare(
         problem: Arc<ShootingProblem>,
+        math: Arc<crate::math::MathService>,
         execution: Execution,
         initial: Option<super::super::dynamics::DynamicWorker>,
         forced_width: Option<usize>,
@@ -188,7 +193,7 @@ impl WindowTeam {
         #[cfg(feature = "solver-idas")]
         let mut initial = initial;
         execution.check()?;
-        let service = problem.runtime.native().clone();
+        let service = math;
         let program = &problem.experiment.program;
         let allowances = super::super::dynamics::allowance_bytes(
             &program.state_allowances,
@@ -219,10 +224,8 @@ impl WindowTeam {
             // keep the mathematical worker available if wider admission falls back.
             initial.discard_idas_workspace();
         }
-        let estimate = crate::math::ConstructionEstimate::from_bound(
-            worker,
-            problem.runtime.shared.budget().math.worker_bytes,
-        );
+        let estimate =
+            crate::math::ConstructionEstimate::from_bound(worker, service.policy().worker_bytes);
         let mut grant = None;
         while width > 1 {
             let bytes = service
@@ -505,6 +508,7 @@ impl WindowTeam {
             }))
         };
         Ok(Self {
+            math: service,
             source: problem,
             execution,
             owners,
@@ -640,9 +644,7 @@ impl WindowTeam {
                         })
                         .collect()
                 };
-                source
-                    .runtime
-                    .native()
+                self.math
                     .quiescent_phase(lanes.len(), 0, execution, work)
                     .map_err(|error| error.into_problem())?
             }

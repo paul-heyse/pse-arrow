@@ -867,7 +867,10 @@ impl MathService {
         let task_scope = scope.clone();
         let local = std::time::Instant::now()
             .checked_add(request.corrector.controls.time_limit)
-            .ok_or_else(|| ProblemError::Contract("path deadline extent".into()))?;
+            .ok_or_else(|| ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                detail: "path deadline extent".into(),
+            })?;
         let scope = ExecutionScope::new(
             scope.cancellation_control().clone(),
             Some(scope.deadline().map_or(local, |d| d.min(local))),
@@ -3143,7 +3146,10 @@ impl MathService {
         {
             let local = std::time::Instant::now()
                 .checked_add(original.time_limit())
-                .ok_or_else(|| ProblemError::Contract("path proof deadline extent".into()))?;
+                .ok_or_else(|| ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    detail: "path proof deadline extent".into(),
+                })?;
             let scope = ExecutionScope::new(
                 scope.cancellation_control().clone(),
                 Some(scope.deadline().map_or(local, |d| d.min(local))),

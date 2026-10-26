@@ -195,6 +195,7 @@ pub(super) enum LiveCapture {
 impl LiveCapture {
     pub(super) fn encode(
         self,
+        services: &super::PreparationServices,
         prepared: &ModelingSimulation,
         projection: &LiveProjection,
         cancel: &pse_diagnostics::Cancellation,
@@ -217,7 +218,7 @@ impl LiveCapture {
             };
             return Ok(event);
         };
-        let runtime = &prepared.runtime;
+
         if !pse_math::SharedAllocation::ptr_eq(
             &projection.source,
             &prepared.model().compiled().admitted,
@@ -245,13 +246,13 @@ impl LiveCapture {
             >())
             .and_then(|bytes| bytes.checked_add(size_of::<LiveSampleBatch>() + 1024))
             .ok_or_else(|| contract("live physical sample extent"))?;
-        let working = runtime
-            .native()
+        let working = services
+            .math()
             .reserve("simulation:live-row-working", extent)?;
-        let pool = runtime.shared.pool();
+        let pool = services.pool();
         let token = pse_columnar::CancellationToken::new();
-        let validation = runtime.validation_context();
-        let mut columns = Collection::new(runtime.registry(), &pool, &token, &validation);
+        let validation = services.validation_context();
+        let mut columns = Collection::new(services.registry(), &pool, &token, &validation);
         columns
             .ensure::<pse_model::generated::runtime::live_simulation_samples::Row>()
             .map_err(relation)?;
@@ -320,6 +321,7 @@ pub(super) struct LiveDispatch {
 
 impl LiveDispatch {
     pub(super) fn new(
+        services: &super::PreparationServices,
         prepared: ModelingSimulation,
         options: LiveSimulationOptions,
         run_id: RunId,
@@ -329,8 +331,10 @@ impl LiveDispatch {
     ) -> Result<Self, WorkflowError> {
         // Canonical launch settles preparation refusals through its existing
         // joined-result path; a failed projection never launches native work.
-        let projection = prepared.live_projection(cancel, deadline).map_err(Arc::new);
-        let owner = prepared.runtime.native().reserve(
+        let projection = prepared
+            .live_projection(services, cancel, deadline)
+            .map_err(Arc::new);
+        let owner = services.math().reserve(
             "simulation:live-queues",
             options
                 .capacity
@@ -342,7 +346,7 @@ impl LiveDispatch {
         let (subscriber, public) = tokio::sync::mpsc::channel(options.capacity);
         Ok(Self {
             observer: Box::new(Observer {
-                prepared,
+                services: services.clone(),
                 sender,
                 run_id,
                 canonical_attempt,
@@ -367,7 +371,7 @@ impl LiveDispatch {
 }
 
 struct Observer {
-    prepared: ModelingSimulation,
+    services: super::PreparationServices,
     sender: tokio::sync::mpsc::Sender<LiveCapture>,
     run_id: RunId,
     canonical_attempt: Option<String>,
@@ -428,9 +432,8 @@ impl super::SimulationSampleObserver for Observer {
             })
             .ok_or_else(|| ProblemError::memory("live capture extent"))?;
         let owner = self
-            .prepared
-            .runtime
-            .native()
+            .services
+            .math()
             .reserve("simulation:live-capture", extent)
             .map_err(crate::math::MathRuntimeError::into_problem)?;
         let mut outputs = Vec::new();
@@ -465,9 +468,8 @@ impl super::SimulationSampleObserver for Observer {
             .and_then(|bytes| bytes.checked_add(size_of::<LiveSampleAttempt>() + 64))
             .ok_or_else(|| ProblemError::memory("live coverage summary extent"))?;
         let owner = self
-            .prepared
-            .runtime
-            .native()
+            .services
+            .math()
             .reserve("simulation:live-coverage-summary", bytes)
             .map_err(crate::math::MathRuntimeError::into_problem)?;
         self.send(
@@ -549,16 +551,18 @@ mod tests {
         }
     }
 
-    async fn prepared() -> ModelingSimulation {
+    async fn prepared() -> (super::super::Runtime, ModelingSimulation) {
         prepared_on(crate::workflow::tests::runtime_with_workspace(32 << 20)).await
     }
-    async fn prepared_on(runtime: super::super::Runtime) -> ModelingSimulation {
+    async fn prepared_on(
+        runtime: super::super::Runtime,
+    ) -> (super::super::Runtime, ModelingSimulation) {
         prepared_with_time_limit(runtime, Duration::from_secs(300)).await
     }
     async fn prepared_with_time_limit(
         runtime: super::super::Runtime,
         time_limit: Duration,
-    ) -> ModelingSimulation {
+    ) -> (super::super::Runtime, ModelingSimulation) {
         prepared_with_inventory(runtime, time_limit, 0).await
     }
     #[expect(
@@ -569,7 +573,7 @@ mod tests {
         runtime: super::super::Runtime,
         time_limit: Duration,
         unrelated: usize,
-    ) -> ModelingSimulation {
+    ) -> (super::super::Runtime, ModelingSimulation) {
         let mut source = String::from(
             "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == -x[i]/1{s}; eq initial: x[0{s}] == 1{s}; annotation check x(x[i] > 0{s}); ",
         );
@@ -593,8 +597,9 @@ mod tests {
             .modeling_package(rows, crate::workflow::tests::physical())
             .await
             .unwrap();
-        package
+        let prepared = package
             .prepare_simulation(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -614,18 +619,20 @@ mod tests {
                 &crate::CancelSource::new(),
             )
             .await
-            .unwrap()
+            .unwrap();
+        (runtime, prepared)
     }
 
     #[tokio::test]
     async fn live_capture_keeps_only_selected_values_and_defers_checked_encoding() {
-        let prepared = prepared().await;
+        let (runtime, prepared) = prepared().await;
         let options = LiveSimulationOptions {
             capacity: 1,
             retention: SampleRetention::Compact,
         };
         let run_id = pse_operations::mint_id();
         let mut dispatch = LiveDispatch::new(
+            &runtime.preparation_services(),
             prepared.clone(),
             options,
             run_id,
@@ -665,6 +672,7 @@ mod tests {
         );
         let LiveSimulationEvent::Sample(batch) = capture
             .encode(
+                &runtime.preparation_services(),
                 &prepared,
                 dispatch.channel.projection.as_ref().unwrap(),
                 &Default::default(),
@@ -682,11 +690,12 @@ mod tests {
 
     #[tokio::test]
     async fn live_capture_invalid_mode_and_output_extent_refuse_in_supervision() {
-        let prepared = prepared().await;
+        let (runtime, prepared) = prepared().await;
         let execution =
             pse_backend_native::solve::Execution::new(Default::default(), &Default::default());
         for (mode, outputs) in [(usize::MAX, vec![1.]), (0, Vec::new()), (0, vec![1., 2.])] {
             let mut dispatch = LiveDispatch::new(
+                &runtime.preparation_services(),
                 prepared.clone(),
                 LiveSimulationOptions {
                     capacity: 1,
@@ -716,6 +725,7 @@ mod tests {
                     .await
                     .unwrap()
                     .encode(
+                        &runtime.preparation_services(),
                         &prepared,
                         dispatch.channel.projection.as_ref().unwrap(),
                         &Default::default(),
@@ -728,8 +738,9 @@ mod tests {
 
     #[tokio::test]
     async fn live_queue_grant_outlives_dropped_cursor_and_finished_native_observer() {
-        let prepared = prepared().await;
+        let (runtime, prepared) = prepared().await;
         let dispatch = LiveDispatch::new(
+            &runtime.preparation_services(),
             prepared,
             LiveSimulationOptions {
                 capacity: 1,
@@ -791,12 +802,15 @@ mod tests {
 
     #[tokio::test]
     async fn live_cursor_drop_joins_native_and_releases_supervisor_queue_grant() {
-        let prepared = prepared().await;
+        let (runtime, prepared) = prepared().await;
         let (handle, cursor) = prepared
-            .start_live(LiveSimulationOptions {
-                capacity: 1,
-                retention: SampleRetention::Compact,
-            })
+            .start_live(
+                &runtime.execution_services(),
+                LiveSimulationOptions {
+                    capacity: 1,
+                    retention: SampleRetention::Compact,
+                },
+            )
             .unwrap();
         let grant = Arc::downgrade(&cursor._owner);
         drop(cursor);
@@ -819,7 +833,7 @@ mod tests {
         let mut extents = Vec::new();
         let mut inventories = Vec::new();
         for unrelated in [0, 64] {
-            let prepared = prepared_with_inventory(
+            let (runtime, prepared) = prepared_with_inventory(
                 crate::workflow::tests::runtime_with_workspace(32 << 20),
                 Duration::from_secs(300),
                 unrelated,
@@ -827,6 +841,7 @@ mod tests {
             .await;
             inventories.push(prepared.model().compiled().admitted.case().rows().len());
             let mut dispatch = LiveDispatch::new(
+                &runtime.preparation_services(),
                 prepared.clone(),
                 LiveSimulationOptions {
                     capacity: 1,
@@ -868,6 +883,7 @@ mod tests {
                 let capture = dispatch.channel.receiver.recv().await.unwrap();
                 let LiveSimulationEvent::Sample(batch) = capture
                     .encode(
+                        &runtime.preparation_services(),
                         &prepared,
                         projection,
                         &Default::default(),
@@ -894,17 +910,25 @@ mod tests {
 
     #[tokio::test]
     async fn live_projection_preparation_preserves_original_stop_scope() {
-        let prepared = prepared().await;
+        let (runtime, prepared) = prepared().await;
         let cancel = pse_diagnostics::Cancellation::default();
         cancel.cancel();
         assert!(matches!(
-            prepared.live_projection(&cancel, Instant::now() + Duration::from_secs(10)),
+            prepared.live_projection(
+                &runtime.preparation_services(),
+                &cancel,
+                Instant::now() + Duration::from_secs(10)
+            ),
             Err(WorkflowError::Math(
                 crate::math::MathRuntimeError::Cancelled
             ))
         ));
         assert!(matches!(
-            prepared.live_projection(&Default::default(), Instant::now()),
+            prepared.live_projection(
+                &runtime.preparation_services(),
+                &Default::default(),
+                Instant::now()
+            ),
             Err(WorkflowError::Math(crate::math::MathRuntimeError::Solve(
                 ProblemError::Limit {
                     kind: pse_backend_native::LimitKind::Time,
@@ -939,14 +963,17 @@ mod tests {
 
     #[tokio::test]
     async fn live_samples_compact_and_full_keep_original_ordinals_checks_and_escaped_buffers() {
-        let prepared = prepared().await;
+        let (runtime, prepared) = prepared().await;
         let mut endpoints = Vec::new();
         for retention in [SampleRetention::Full, SampleRetention::Compact] {
             let (handle, cursor) = prepared
-                .start_live(LiveSimulationOptions {
-                    capacity: 1,
-                    retention,
-                })
+                .start_live(
+                    &runtime.execution_services(),
+                    LiveSimulationOptions {
+                        capacity: 1,
+                        retention,
+                    },
+                )
                 .unwrap();
             tokio::time::sleep(Duration::from_millis(20)).await;
             assert!(
@@ -1024,12 +1051,14 @@ mod tests {
 
     #[tokio::test]
     async fn live_subscription_close_detaches_and_backpressure_cancel_joins_native_owner() {
-        let prepared = prepared().await;
+        let (runtime, prepared) = prepared().await;
         let options = LiveSimulationOptions {
             capacity: 1,
             retention: SampleRetention::Compact,
         };
-        let (handle, cursor) = prepared.start_live(options).unwrap();
+        let (handle, cursor) = prepared
+            .start_live(&runtime.execution_services(), options)
+            .unwrap();
         cursor.close();
         assert!(cursor.next().await.is_none());
         let result = tokio::time::timeout(Duration::from_secs(10), handle.wait())
@@ -1037,7 +1066,9 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(result.report().is_ok(), "detachment cannot cancel science");
-        let (handle, cursor) = prepared.start_live(options).unwrap();
+        let (handle, cursor) = prepared
+            .start_live(&runtime.execution_services(), options)
+            .unwrap();
         tokio::time::sleep(Duration::from_millis(20)).await;
         handle.cancel();
         let settled = tokio::time::timeout(Duration::from_secs(10), handle.wait())
@@ -1070,12 +1101,16 @@ mod tests {
     #[tokio::test]
     async fn canonical_live_expired_admission_yields_one_joined_refusal() {
         let runtime = crate::workflow::durable_tests::durable_runtime();
-        let prepared = prepared_with_time_limit(runtime.clone(), Duration::from_nanos(1)).await;
+        let (runtime, prepared) =
+            prepared_with_time_limit(runtime.clone(), Duration::from_nanos(1)).await;
         let (handle, cursor) = prepared
-            .start_live(LiveSimulationOptions {
-                capacity: 1,
-                retention: SampleRetention::Compact,
-            })
+            .start_live(
+                &runtime.execution_services(),
+                LiveSimulationOptions {
+                    capacity: 1,
+                    retention: SampleRetention::Compact,
+                },
+            )
             .unwrap();
         let settled = tokio::time::timeout(Duration::from_secs(30), handle.wait())
             .await
@@ -1111,12 +1146,15 @@ mod tests {
     #[tokio::test]
     async fn canonical_live_sample_acknowledgments_close_the_original_attempt_prefix() {
         let runtime = crate::workflow::durable_tests::durable_runtime();
-        let prepared = prepared_on(runtime.clone()).await;
+        let (runtime, prepared) = prepared_on(runtime.clone()).await;
         let (handle, cursor) = prepared
-            .start_live(LiveSimulationOptions {
-                capacity: 1,
-                retention: SampleRetention::Compact,
-            })
+            .start_live(
+                &runtime.execution_services(),
+                LiveSimulationOptions {
+                    capacity: 1,
+                    retention: SampleRetention::Compact,
+                },
+            )
             .unwrap();
         let canonical_attempt = handle.canonical_attempt_key().unwrap().to_owned();
         let mut computed_rows = 0_u64;

@@ -29,7 +29,7 @@ impl RunResult {
     ) -> Option<super::result_export::ProjectionRetention> {
         self.projection_owner.clone().map(|owner| {
             super::result_export::ProjectionRetention::new(
-                &self.runtime,
+                self.services.preparation(),
                 owner,
                 id,
                 rows,
@@ -49,86 +49,7 @@ impl RunResult {
         if self.completion().is_ok() {
             ids.push(accuracy_goal_assessments::RELATION_ID);
         }
-        match &self.outcome {
-            super::RunOutcome::Horizon {
-                execution: super::HorizonRunOutcome::Compact(_),
-                ..
-            } => {
-                ids.extend(super::horizon::prefix::summary_ids());
-                if let Some(report) = &self.horizon_output {
-                    ids.extend(report.summaries.keys());
-                    ids.extend(&report.detail_membership);
-                }
-            }
-            super::RunOutcome::Modeling { .. }
-            | super::RunOutcome::Horizon {
-                execution: super::HorizonRunOutcome::Full { .. },
-                ..
-            } => ids.extend([
-                scientific_contexts::RELATION_ID,
-                solve_runs::RELATION_ID,
-                solve_variables::RELATION_ID,
-                solve_constraints::RELATION_ID,
-                solve_metrics::RELATION_ID,
-                solution_pool::RELATION_ID,
-                infeasibility_certificates::RELATION_ID,
-                incumbents::RELATION_ID,
-                modeling_checks::RELATION_ID,
-                modeling_reports::RELATION_ID,
-                modeling_findings::RELATION_ID,
-                solve_strategy_events::RELATION_ID,
-                solve_strategy_products::RELATION_ID,
-                local_validity::RELATION_ID,
-                parametric_sensitivities::RELATION_ID,
-                reduced_hessians::RELATION_ID,
-                propagated_covariances::RELATION_ID,
-                route_decisions::RELATION_ID,
-                structural_assessments::RELATION_ID,
-            ]),
-            super::RunOutcome::Simulation { result, .. } => {
-                ids.push(computation_runs::RELATION_ID);
-                if let Ok(trajectory) = result {
-                    ids.extend(trajectory.table_ids());
-                }
-            }
-            super::RunOutcome::Fit { .. } => ids.extend([
-                scientific_contexts::RELATION_ID,
-                computation_runs::RELATION_ID,
-                fit_variables::RELATION_ID,
-                fit_constraints::RELATION_ID,
-                fit_parameters::RELATION_ID,
-                fit_observations::RELATION_ID,
-                response_sensitivities::RELATION_ID,
-                solve_metrics::RELATION_ID,
-                infeasibility_certificates::RELATION_ID,
-                modeling_checks::RELATION_ID,
-                modeling_reports::RELATION_ID,
-                solve_strategy_events::RELATION_ID,
-                solve_strategy_products::RELATION_ID,
-                local_validity::RELATION_ID,
-                parameter_covariances::RELATION_ID,
-                parameter_intervals::RELATION_ID,
-                profile_points::RELATION_ID,
-                response_directions::RELATION_ID,
-                propagated_covariances::RELATION_ID,
-            ]),
-            #[cfg(feature = "solver-diffsol")]
-            super::RunOutcome::Shooting { result, .. } => {
-                ids.extend([
-                    computation_runs::RELATION_ID,
-                    solve_variables::RELATION_ID,
-                    solve_constraints::RELATION_ID,
-                    solve_metrics::RELATION_ID,
-                    solve_strategy_events::RELATION_ID,
-                    solve_strategy_products::RELATION_ID,
-                ]);
-                if let Ok(report) = result
-                    && report.trajectory.is_some()
-                {
-                    ids.extend(super::ModelingTrajectory::relation_ids());
-                }
-            }
-        }
+        ids.extend(self.completed_facts().table_ids);
         // Membership is producer-owned qualification evidence, sealed with the original
         // attempt. An old or intentionally omitted export remains unavailable.
         if matches!(self.report(), Ok(super::RunReport::Fit(report)) if report.estimate_qualified())
@@ -164,7 +85,7 @@ impl RunResult {
     pub fn table_names(&self) -> Vec<String> {
         self.table_ids()
             .iter()
-            .filter_map(|id| self.runtime.registry().relation_by_id(*id))
+            .filter_map(|id| self.services.preparation().registry().relation_by_id(*id))
             .map(|spec| format!("{}.{}", spec.key.namespace.as_str(), spec.key.name))
             .collect()
     }
@@ -176,8 +97,8 @@ impl RunResult {
             .checked_mul(128)
             .ok_or_else(|| Arc::new(contract("result map extent")))?;
         let owner = self
-            .runtime
-            .shared
+            .services
+            .preparation()
             .math()
             .reserve("result:complete-map", bytes)
             .map_err(|e| Arc::new(WorkflowError::Math(e)))?;
@@ -211,7 +132,8 @@ impl RunResult {
             let _entered = context.as_ref().map(|context| context.enter());
             (|| {
                 let id = self
-                    .runtime
+                    .services
+                    .preparation()
                     .registry()
                     .relation(name)
                     .ok_or_else(|| Arc::new(contract("unknown result relation")))?
@@ -243,7 +165,7 @@ impl RunResult {
         }
         let batch = super::result_export::collect(
             self.cursor_by_id(id, 1024, super::ResultOrder::Public)?,
-            &self.runtime,
+            self.services.preparation(),
             id,
         )?;
         if let Some(retention) = retention {
@@ -258,7 +180,8 @@ impl RunResult {
         rows: usize,
     ) -> Result<super::ResultCursor<'_>, Arc<WorkflowError>> {
         let id = self
-            .runtime
+            .services
+            .preparation()
             .registry()
             .relation(name)
             .ok_or_else(|| Arc::new(contract("unknown result relation")))?
@@ -272,7 +195,8 @@ impl RunResult {
         rows: usize,
     ) -> Result<super::ResultCursor<'static>, Arc<WorkflowError>> {
         let id = self
-            .runtime
+            .services
+            .preparation()
             .registry()
             .relation(name)
             .ok_or_else(|| Arc::new(contract("unknown result relation")))?
@@ -284,12 +208,14 @@ impl RunResult {
             return Err(error);
         }
         let spec = self
-            .runtime
+            .services
+            .preparation()
             .registry()
             .relation_by_id(id)
             .ok_or_else(|| Arc::new(contract("result declaration absent")))?;
-        let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
-            .map_err(|e| Arc::new(relation(e.into())))?;
+        let schema =
+            pse_schema::arrow::relation_schema_ref(self.services.preparation().registry(), spec)
+                .map_err(|e| Arc::new(relation(e.into())))?;
         let retention =
             self.projection_retention(id, rows, super::ResultOrder::Public, 0..usize::MAX);
         let producer_retention = retention.clone();
@@ -321,7 +247,8 @@ impl RunResult {
         rows: usize,
     ) -> Result<super::ResultCursor<'_>, Arc<WorkflowError>> {
         let id = self
-            .runtime
+            .services
+            .preparation()
             .registry()
             .relation(name)
             .ok_or_else(|| Arc::new(contract("unknown result relation")))?
@@ -368,16 +295,18 @@ impl RunResult {
             return Err(error);
         }
         let spec = self
-            .runtime
+            .services
+            .preparation()
             .registry()
             .relation_by_id(id)
             .ok_or_else(|| Arc::new(contract("result declaration absent")))?;
-        let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
-            .map_err(|e| {
-                Arc::new(WorkflowError::Engine(
-                    pse_relations::RelationError::Schema(e).into(),
-                ))
-            })?;
+        let schema =
+            pse_schema::arrow::relation_schema_ref(self.services.preparation().registry(), spec)
+                .map_err(|e| {
+                    Arc::new(WorkflowError::Engine(
+                        pse_relations::RelationError::Schema(e).into(),
+                    ))
+                })?;
         let retention = self.projection_retention(id, rows, order, range.clone());
         let producer_retention = retention.clone();
         super::ResultCursor::new_range_controlled(
@@ -406,8 +335,8 @@ impl RunResult {
         &self,
         projection: &super::result_export::Projection,
     ) -> Result<(), WorkflowError> {
-        let registry = self.runtime.registry();
-        let pool = self.runtime.shared.pool();
+        let registry = self.services.preparation().registry();
+        let pool = self.services.preparation().pool();
         let validation = self.result_validation_context();
         let mut rows = super::result_export::Rows::<
             pse_relations::generated::runtime::modeling_findings::Row,
@@ -489,8 +418,8 @@ impl RunResult {
                 .completion()
                 .is_ok_and(|completion| completion.solves.is_empty())
             {
-                let registry = self.runtime.registry();
-                let pool = self.runtime.shared.pool();
+                let registry = self.services.preparation().registry();
+                let pool = self.services.preparation().pool();
                 let validation = self.result_validation_context();
                 let mut empty = super::result_export::SelectedCollection::new(
                     projection,
@@ -519,8 +448,8 @@ impl RunResult {
                 return Ok(());
             }
             if id == pse_relations::generated::runtime::solve_runs::RELATION_ID {
-                let registry = self.runtime.registry();
-                let pool = self.runtime.shared.pool();
+                let registry = self.services.preparation().registry();
+                let pool = self.services.preparation().pool();
                 let validation = self.result_validation_context();
                 let mut rows = super::result_export::Rows::<
                     pse_relations::generated::runtime::solve_runs::Row,

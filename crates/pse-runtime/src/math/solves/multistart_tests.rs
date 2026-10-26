@@ -45,6 +45,7 @@ async fn modeling_original(
     }
     let prepared = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             pse_modeling::Bindings::default(),
@@ -422,6 +423,7 @@ async fn shared_original_driver(permit_recovery: bool) {
         .unwrap();
     let result = package
         .solve_case(
+            &runtime.execution_services(),
             prepared,
             crate::workflow::tests::compiler_profile(),
             &crate::CancelSource::new(),

@@ -4,8 +4,8 @@
 use super::modeling::assessment::Obligations;
 use super::staged::Staged;
 use super::{
-    AdmittedStudy, LocalStudy, ModelingPackage, PreparedStudyOperation, RunReport, RunResult,
-    StudyDefinition, WorkflowError,
+    AdmittedStudy, ExecutionServices, LocalStudy, ModelingPackage, PreparationServices,
+    PreparedStudyOperation, RunReport, RunResult, StudyDefinition, WorkflowError,
 };
 use futures_util::{FutureExt, StreamExt};
 use pse_diagnostics::{DiagnosticRule, DiagnosticStage};
@@ -166,14 +166,14 @@ pub struct StudyReport {
     pub preparations: crate::math::PreparationCounts,
     canonical_study: Option<StudyId>,
     pub(in crate::workflow) admitted_points: BTreeMap<usize, super::StudyPointDefinition>,
-    pub(in crate::workflow) runtime: super::Runtime,
+    pub(in crate::workflow) services: ExecutionServices,
     pub(in crate::workflow) _source: ModelingPackage,
     pub(in crate::workflow) _owner: Arc<dyn pse_columnar::PayloadOwner>,
 }
 impl StudyReport {
-    /// Original application store and shared pool for exact connected results.
-    pub fn runtime(&self) -> &super::Runtime {
-        &self.runtime
+    /// Explicit execution capabilities retained by this effectful result owner.
+    pub fn services(&self) -> &ExecutionServices {
+        &self.services
     }
     /// Read selected evidence for the actual recorded study, without inferring its
     /// identity from the parent run. In-process studies have no canonical selection.
@@ -182,7 +182,7 @@ impl StudyReport {
     ) -> Result<Option<super::ManagedStudyDiagnosticsDocument>, WorkflowError> {
         match self.canonical_study {
             Some(study) => self
-                .runtime
+                .services
                 .study(study)
                 .diagnostic_selection()
                 .await
@@ -193,93 +193,14 @@ impl StudyReport {
 }
 
 impl super::Runtime {
-    /// Execute and join a genuinely recorded study through the existing durable observer.
-    pub async fn execute_study(
-        &self,
-        definition: &StudyDefinition,
-        maximum_points: usize,
-        cancel: &crate::CancelSource,
-    ) -> Result<StudyReport, WorkflowError> {
-        super::study::creation_checkpoint(cancel)?;
-        if maximum_points == 0
-            || maximum_points > super::MAXIMUM_STUDY_POINTS
-            || definition.point_count() > maximum_points
-        {
-            return Err(super::contract("bounded recorded study extent"));
-        }
-        definition.validate_roles()?;
-        let activity = self.admit_activity()?;
-        activity
-            .scope(async {
-                if let Some(context) = pse_diagnostics::observation::current() {
-                    context.declare_summary("recorded study responsibility");
-                }
-                let physical = self.physical_source(&definition.physical, cancel).await?;
-                let revision = self
-                    .canonical_store()?
-                    .revision(&definition.modeling_revision)
-                    .await?
-                    .ok_or_else(|| super::contract("recorded study model revision absent"))?;
-                let package = self
-                    .modeling_revision(revision, physical, BTreeMap::new())
-                    .await?;
-                // Admission and joined observation have large, disjoint future
-                // layouts. Keep this phase out of its caller's polling frame.
-                let (report, preparations) = crate::math::counted(Box::pin(package.study_durable(
-                    definition,
-                    maximum_points,
-                    cancel,
-                )))
-                .await;
-                let mut report = report?;
-                report.preparations = preparations;
-                Ok(report)
-            })
-            .await
-    }
-}
-
-impl ModelingPackage {
-    /// Execute local admitted science using its retained immutable owners.
-    pub async fn study(
-        &self,
-        local: &LocalStudy,
-        maximum_points: usize,
-        cancel: &crate::CancelSource,
-    ) -> Result<StudyReport, WorkflowError> {
-        if !self.same_replay_source(&local.package) {
-            return Err(super::contract(
-                "local study belongs to a different immutable model owner",
-            ));
-        }
-        let activity = self.runtime.admit_activity()?;
-        activity
-            .scope(async {
-                let _observation = pse_diagnostics::observation::phase("study.execute");
-                if let Some(context) = pse_diagnostics::observation::current() {
-                    context.declare_summary("study responsibility");
-                }
-                // As on the durable route, keep the large coordinator future
-                // behind one pointer in caller-owned observation wrappers.
-                let (report, preparations) = crate::math::counted(Box::pin(
-                    local
-                        .package
-                        .study_inner(&local.science, maximum_points, cancel),
-                ))
-                .await;
-                let mut report = report?;
-                report.preparations = preparations;
-                Ok(report)
-            })
-            .await
-    }
     async fn study_durable(
         &self,
+        package: &ModelingPackage,
         definition: &StudyDefinition,
         maximum_points: usize,
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
-        if definition.modeling_revision != self.source_attribution()
+        if definition.modeling_revision != package.source_attribution()
             || maximum_points == 0
             || maximum_points > super::MAXIMUM_STUDY_POINTS
             || definition.point_count() > maximum_points
@@ -288,16 +209,12 @@ impl ModelingPackage {
                 "bounded study extent and exact modeling revision",
             ));
         }
-        let primary = self.runtime.ensure_managed_primary(cancel).await?;
-        let handle = Box::pin(
-            self.runtime
-                .start_recorded_study(definition.clone(), cancel),
-        )
-        .await?;
+        let primary = self.ensure_managed_primary(cancel).await?;
+        let handle = Box::pin(self.start_recorded_study(definition.clone(), cancel)).await?;
         let inventory = wait_study_inventory(
             handle.study_id(),
             cancel,
-            self.runtime.operations()?.policy().heartbeat(),
+            self.operations()?.policy().heartbeat(),
             || handle.terminal_inventory(),
             || async { handle.cancel().await.map(|_| ()) },
             || primary.observe(),
@@ -312,7 +229,6 @@ impl ModelingPackage {
             .checked_mul(size_of::<PointOutcome>() + size_of::<Option<StudyOccurrenceResult>>())
             .ok_or_else(|| super::contract("study report extent"))?;
         let projection_owner = self
-            .runtime
             .shared
             .math()
             .reserve("study:terminal-report", projection_bytes)?;
@@ -368,16 +284,104 @@ impl ModelingPackage {
             decision,
             preparations: Default::default(),
             admitted_points: self
-                .runtime
                 .retained_study_admissions(&handle.study_id().to_string())
                 .await?,
-            runtime: self.runtime.clone(),
-            _source: self.clone(),
+            services: self.execution_services(),
+            _source: package.clone(),
             _owner: Arc::new(owners),
         })
     }
+
+    /// Execute and join a genuinely recorded study through the existing durable observer.
+    pub async fn execute_study(
+        &self,
+        definition: &StudyDefinition,
+        maximum_points: usize,
+        cancel: &crate::CancelSource,
+    ) -> Result<StudyReport, WorkflowError> {
+        super::study::creation_checkpoint(cancel)?;
+        if maximum_points == 0
+            || maximum_points > super::MAXIMUM_STUDY_POINTS
+            || definition.point_count() > maximum_points
+        {
+            return Err(super::contract("bounded recorded study extent"));
+        }
+        definition.validate_roles()?;
+        let activity = self.admit_activity()?;
+        activity
+            .scope(async {
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.declare_summary("recorded study responsibility");
+                }
+                let physical = self.physical_source(&definition.physical, cancel).await?;
+                let revision = self
+                    .canonical_store()?
+                    .revision(&definition.modeling_revision)
+                    .await?
+                    .ok_or_else(|| super::contract("recorded study model revision absent"))?;
+                let package = self
+                    .modeling_revision(revision, physical, BTreeMap::new())
+                    .await?;
+                // Admission and joined observation have large, disjoint future
+                // layouts. Keep this phase out of its caller's polling frame.
+                let (report, preparations) = crate::math::counted(Box::pin(self.study_durable(
+                    &package,
+                    definition,
+                    maximum_points,
+                    cancel,
+                )))
+                .await;
+                let mut report = report?;
+                report.preparations = preparations;
+                Ok(report)
+            })
+            .await
+    }
+}
+
+impl ModelingPackage {
+    /// Execute local admitted science using its retained immutable owners.
+    pub async fn study(
+        &self,
+        services: &ExecutionServices,
+        local: &LocalStudy,
+        maximum_points: usize,
+        cancel: &crate::CancelSource,
+    ) -> Result<StudyReport, WorkflowError> {
+        if !self.same_replay_source(&local.package) {
+            return Err(super::contract(
+                "local study belongs to a different immutable model owner",
+            ));
+        }
+        // Local scientific admission never authorizes durable execution effects.
+        // Keep canonical source provenance available under the selected capability.
+        let mut selected = services.clone();
+        selected.durability = super::Durability::Ephemeral;
+        let services = &selected;
+        let activity = services.preparation().admit_activity()?;
+        activity
+            .scope(async {
+                let _observation = pse_diagnostics::observation::phase("study.execute");
+                if let Some(context) = pse_diagnostics::observation::current() {
+                    context.declare_summary("study responsibility");
+                }
+                // As on the durable route, keep the large coordinator future
+                // behind one pointer in caller-owned observation wrappers.
+                let (report, preparations) = crate::math::counted(Box::pin(
+                    local
+                        .package
+                        .study_inner(services, &local.science, maximum_points, cancel),
+                ))
+                .await;
+                let mut report = report?;
+                report.preparations = preparations;
+                Ok(report)
+            })
+            .await
+    }
     async fn study_inner(
         &self,
+        services: &ExecutionServices,
         definition: &AdmittedStudy,
         maximum_points: usize,
         cancel: &crate::CancelSource,
@@ -406,9 +410,8 @@ impl ModelingPackage {
             .point_count()
             .checked_mul(size_of::<PointOutcome>() + 4096)
             .ok_or_else(|| super::contract("study outcome extent"))?;
-        let owner = self
-            .runtime
-            .shared
+        let owner = services
+            .preparation()
             .math()
             .reserve("study:occurrence-outcomes", bytes)?;
         for point in &definition.points {
@@ -478,12 +481,11 @@ impl ModelingPackage {
             .collect();
         let mut results: Vec<Option<StudyOccurrenceResult>> = vec![None; graph.points.len()];
         let mut continuation = ContinuationRetention::new(&graph, &positions)?;
-        let width = self
-            .runtime
-            .shared
+        let width = services
+            .preparation()
             .math()
             .cores()
-            .min(self.runtime.shared.budget().math.jobs)
+            .min(services.preparation().math().policy().jobs)
             .max(1);
         let work_cancel = cancel.child_with_deadline(None);
         // Hierarchical cancellation can already have stopped the child. Frontier
@@ -493,7 +495,7 @@ impl ModelingPackage {
             futures_util::future::BoxFuture<'_, LaneCompletion>,
         > = futures_util::stream::FuturesUnordered::new();
         let mut inflight = BTreeSet::new();
-        let _lane_owner = self.runtime.shared.math().reserve(
+        let _lane_owner = services.preparation().math().reserve(
             "study:held-input-lanes",
             width * (size_of::<super::study_operations::StudyPreparationLane>() + 128),
         )?;
@@ -539,20 +541,20 @@ impl ModelingPackage {
                     match completion {
                         LaneCompletion::Prepared { index, operation, staged, lane } => {
                             if operation.is_err() && staged.is_some() {
-                                pending.push(close_point_owner(self, LaneCompletion::Prepared { index, operation, staged, lane }));
+                                pending.push(close_point_owner(services, LaneCompletion::Prepared { index, operation, staged, lane }));
                                 continue;
                             }
                             inflight.remove(&index);
                             match operation {
-                                Ok((operation, requested, source)) => {
+                                Ok((operation, requested)) => {
                                     facts[index].admitted_seed_need = Some(requested.policy.seed_need);
                                     if definition.variants.is_some() {
                                         let extent = super::study_variants::document_extent(&requested, 512 * 1024)?
                                             .checked_mul(4).and_then(|n| n.checked_add(1024)).ok_or_else(|| super::contract("selected admission extent"))?;
-                                        admission_owners.insert(index, self.runtime.shared.math().reserve("study:selected-admission", extent)?);
+                                        admission_owners.insert(index, services.preparation().math().reserve("study:selected-admission", extent)?);
                                         resolved.insert(index, requested);
                                     }
-                                    ready.insert(index, ReadyOperation { operation, staged, lane, source });
+                                    ready.insert(index, ReadyOperation { operation, staged, lane });
                                     frontier.insert(index);
                                 }
                                 Err(error) => {
@@ -593,7 +595,7 @@ impl ModelingPackage {
                             if retain.is_none() && let Some(staged) = staged.take() {
                                 // The original occurrences stay in flight, with their
                                 // preparation lanes held, until native close/parking joins.
-                                pending.push(close_lane(self, points, staged, lanes, &work_cancel));
+                                pending.push(close_lane(services, points, staged, lanes, &work_cancel));
                                 continue;
                             }
                             available.extend(lanes);
@@ -692,14 +694,14 @@ impl ModelingPackage {
                                     let (source, requested) = match explicit {
                                         Some(requested) => (self.clone(), requested),
                                         None => definition.variants.as_ref().ok_or_else(|| super::contract("lazy input absent"))?
-                                            .admit_selected(self, index, None, child_cancel).await?,
+                                            .admit_selected(&services.source_services(), self, index, None, child_cancel).await?,
                                     };
-                                    let operation = lane.prepare(&source, &requested.operation, &requested.binding, child_cancel).await?;
+                                    let operation = lane.prepare(services.preparation(), &source, &requested.operation, &requested.binding, child_cancel).await?;
                                     if operation.seed_need() != requested.policy.seed_need {
                                         return Err(study_error(DiagnosticRule::StudySeedIncompatible,
                                             "declared seed need differs from operation-owned admission"));
                                     }
-                                    Ok((operation, requested, source))
+                                    Ok((operation, requested))
                                 };
                                 let operation = match staged.as_mut() {
                                     Some(staged) => staged.prepare(prepare).await.and_then(|result| result),
@@ -716,7 +718,7 @@ impl ModelingPackage {
                             if let Some(mut preparation) = ready.remove(&index) {
                                 if let Some(staged) = preparation.staged.take() {
                                     inflight.insert(index);
-                                    pending.push(close_point_owner(self, LaneCompletion::Released {
+                                    pending.push(close_point_owner(services, LaneCompletion::Released {
                                         index, lane: preparation.lane, staged: Some(staged), result: Ok(()),
                                     }));
                                     continue;
@@ -791,7 +793,7 @@ impl ModelingPackage {
                         });
                     }
                     let child_cancel = &work_cancel;
-                    pending.push(crate::observation::child("study.execution.lane", execute_lane(self, members, child_cancel)).boxed());
+                    pending.push(crate::observation::child("study.execution.lane", execute_lane(services, members, child_cancel)).boxed());
                 }
                 if pending.is_empty() {
                     if !frontier.is_empty() { continue; }
@@ -862,7 +864,7 @@ impl ModelingPackage {
             decision: decision?,
             preparations,
             admitted_points: resolved,
-            runtime: self.runtime.clone(),
+            services: services.clone(),
             _source: self.clone(),
             _owner: Arc::new((owner, admission_owners)),
         })
@@ -870,7 +872,6 @@ impl ModelingPackage {
 }
 
 struct ReadyOperation {
-    source: ModelingPackage,
     lane: super::study_operations::StudyPreparationLane,
     operation: PreparedStudyOperation,
     staged: Option<Staged>,
@@ -1029,14 +1030,7 @@ enum LaneCompletion {
     Prepared {
         lane: super::study_operations::StudyPreparationLane,
         index: usize,
-        operation: Result<
-            (
-                PreparedStudyOperation,
-                super::StudyPointDefinition,
-                ModelingPackage,
-            ),
-            WorkflowError,
-        >,
+        operation: Result<(PreparedStudyOperation, super::StudyPointDefinition), WorkflowError>,
         staged: Option<Staged>,
     },
     Executed {
@@ -1098,7 +1092,7 @@ impl LaneCompletion {
 }
 
 async fn execute_lane(
-    package: &ModelingPackage,
+    services: &ExecutionServices,
     mut members: Vec<LaneMember>,
     cancel: &crate::CancelSource,
 ) -> LaneCompletion {
@@ -1134,7 +1128,7 @@ async fn execute_lane(
         // Keep the large child state out of this poll frame. The non-inlined
         // factory returns before any child poll, without moving the work to a
         // different task or changing the held-preparation scope.
-        let completion = match prepaid_lane_future(package, &mut members, cancel) {
+        let completion = match prepaid_lane_future(services, &mut members, cancel) {
             Ok(future) => Ok(future.await),
             Err(error) => Err(error),
         };
@@ -1170,7 +1164,12 @@ async fn execute_lane(
     }
     .boxed();
     for scope in scopes {
-        operation = async move { scope.during(cancel, operation).await }.boxed();
+        operation = async move {
+            scope
+                .during(services.preparation(), cancel, operation)
+                .await
+        }
+        .boxed();
     }
     let mut completion = match operation.await {
         Ok(completion) => completion,
@@ -1201,7 +1200,7 @@ async fn execute_lane(
 }
 
 fn close_lane<'a>(
-    package: &'a ModelingPackage,
+    services: &'a ExecutionServices,
     points: Vec<ExecutedPoint>,
     staged: Staged,
     lanes: Vec<super::study_operations::StudyPreparationLane>,
@@ -1217,7 +1216,7 @@ fn close_lane<'a>(
                 .ok_or_else(|| super::contract("closing native owner absent"))?;
             staged.finish_independent(cancel).await
         };
-        let allocation = package.runtime.shared.math().reserve(
+        let allocation = services.preparation().math().reserve(
             "study:closing-lane",
             size_of_val(&closing) + size_of::<ExecutedPoint>() + 128,
         );
@@ -1241,7 +1240,7 @@ fn close_lane<'a>(
 }
 
 fn close_point_owner(
-    package: &ModelingPackage,
+    services: &ExecutionServices,
     mut completion: LaneCompletion,
 ) -> futures_util::future::BoxFuture<'_, LaneCompletion> {
     async move {
@@ -1253,9 +1252,8 @@ fn close_point_owner(
         };
         if let Some(staged) = staged {
             let closing = staged.close();
-            let allocation = package
-                .runtime
-                .shared
+            let allocation = services
+                .preparation()
                 .math()
                 .reserve("study:terminal-lane-close", size_of_val(&closing));
             // A refused extra grant cannot abandon an already-owned native
@@ -1293,16 +1291,15 @@ impl Future for PrepaidLaneFuture<'_> {
 
 #[inline(never)]
 fn prepaid_lane_future<'a>(
-    package: &'a ModelingPackage,
+    services: &'a ExecutionServices,
     members: &'a mut Vec<LaneMember>,
     cancel: &'a crate::CancelSource,
 ) -> Result<PrepaidLaneFuture<'a>, WorkflowError> {
     // Borrowing preserves the caller's owners when admission refuses. Future
     // construction is inert; the mathematical pool pays before heap allocation.
-    let future = execute_lane_inner(package, members, cancel);
-    let owner = package
-        .runtime
-        .shared
+    let future = execute_lane_inner(services, members, cancel);
+    let owner = services
+        .preparation()
         .math()
         .reserve("study:execution-lane-future", size_of_val(&future))?;
     Ok(PrepaidLaneFuture {
@@ -1312,13 +1309,12 @@ fn prepaid_lane_future<'a>(
 }
 
 async fn execute_lane_inner(
-    package: &ModelingPackage,
+    services: &ExecutionServices,
     members: &mut Vec<LaneMember>,
     cancel: &crate::CancelSource,
 ) -> LaneCompletion {
     if members.len() == 1 {
         let mut member = members.remove(0);
-        let package = &member.preparation.source;
         let mut staged = member.preparation.staged.take();
         let result = async {
             if let (
@@ -1330,8 +1326,13 @@ async fn execute_lane_inner(
                 // Prediction and original-space screening are preparation on the
                 // retained quiescent lane, and borrow its existing population until
                 // all directly awaited screening work has completed and joined.
-                let prepare =
-                    continuation_start(package, target, member.previous.as_deref(), older, cancel);
+                let prepare = continuation_start(
+                    services.preparation(),
+                    target,
+                    member.previous.as_deref(),
+                    older,
+                    cancel,
+                );
                 match staged.as_mut() {
                     Some(staged) => staged.prepare(prepare).await??,
                     None => prepare.await?,
@@ -1347,12 +1348,10 @@ async fn execute_lane_inner(
                             .or_else(|| {
                                 std::time::Instant::now().checked_add(case.solve.time_limit())
                             });
-                        staged = Some(
-                            Staged::open_queued(&package.runtime, None, cancel, deadline).await?,
-                        );
+                        staged = Some(Staged::open_queued(services, None, cancel, deadline).await?);
                     }
                     execute(
-                        package,
+                        services,
                         staged.as_mut().ok_or_else(|| {
                             WorkflowError::Internal("study native sequence absent".into())
                         })?,
@@ -1362,13 +1361,7 @@ async fn execute_lane_inner(
                     )
                     .await
                 }
-                operation => {
-                    operation
-                        .start(&package.runtime, cancel)
-                        .await?
-                        .wait()
-                        .await
-                }
+                operation => operation.start(services, cancel).await?.wait().await,
             }
         }
         .await;
@@ -1407,7 +1400,7 @@ async fn execute_lane_inner(
             _ => None,
         })
         .min();
-    match Staged::open_queued(&package.runtime, None, cancel, deadline).await {
+    match Staged::open_queued(services, None, cancel, deadline).await {
         Ok(mut staged) => {
             let preparations = members
                 .iter()
@@ -1424,7 +1417,7 @@ async fn execute_lane_inner(
                 let report = result.map(|result| vec![result]);
                 let result = RunResult::joined(
                     pse_operations::mint_id(),
-                    package.runtime.clone(),
+                    services.clone(),
                     super::RunOutcome::Modeling {
                         request,
                         result: report,
@@ -1665,7 +1658,7 @@ async fn retain_occurrence(
 }
 
 pub(in crate::workflow) async fn continuation_start(
-    package: &ModelingPackage,
+    services: &PreparationServices,
     target: &mut Box<super::ModelingSolvePreparation>,
     predecessor: Option<&MinimalContinuation>,
     older: Option<&MinimalContinuation>,
@@ -1691,7 +1684,7 @@ pub(in crate::workflow) async fn continuation_start(
                 .transpose()?;
             let deadline = std::time::Instant::now()
                 .checked_add(target.solve.time_limit())
-                .ok_or_else(|| super::contract("study target deadline extent"))?;
+                .ok_or_else(|| crate::workflow::deadline_limit("study target deadline extent"))?;
             let scope = target.solve.task_scope().unwrap_or_else(|| {
                 pse_kernels::ExecutionScope::new(
                     pse_diagnostics::Cancellation::default(),
@@ -1705,9 +1698,8 @@ pub(in crate::workflow) async fn continuation_start(
             )
             .map_err(crate::math::MathRuntimeError::from)?;
             let branch = target.solve.composition_request().branch;
-            target.solve = package
-                .runtime
-                .native()
+            target.solve = services
+                .math()
                 .admit_proposal_task(target.solve.clone(), scope.clone())
                 .map_err(crate::math::MathRuntimeError::from)?;
             execution.work_admission = target
@@ -1717,9 +1709,8 @@ pub(in crate::workflow) async fn continuation_start(
             let proposal = point.available_prediction(older, target, branch, &execution);
             match proposal {
                 Ok(proposal) => {
-                    let screened = package
-                        .runtime
-                        .native()
+                    let screened = services
+                        .math()
                         .screen_start(target.solve.clone(), proposal, branch, scope, cancel)
                         .await?;
                     Some(
@@ -1771,7 +1762,7 @@ pub(in crate::workflow) async fn continuation_start(
 }
 
 async fn execute(
-    package: &ModelingPackage,
+    services: &ExecutionServices,
     staged: &mut Staged,
     operation: PreparedStudyOperation,
     attempt: u32,
@@ -1796,7 +1787,7 @@ async fn execute(
                 Ok(Arc::new(
                     RunResult::joined(
                         run_id,
-                        package.runtime.clone(),
+                        services.clone(),
                         super::RunOutcome::Modeling {
                             request,
                             result: report,
@@ -1807,13 +1798,7 @@ async fn execute(
                     .await,
                 ))
             }
-            operation => {
-                operation
-                    .start(&package.runtime, cancel)
-                    .await?
-                    .wait()
-                    .await
-            }
+            operation => operation.start(services, cancel).await?.wait().await,
         }
     })
     .await
@@ -1872,8 +1857,9 @@ pub(in crate::workflow) fn minimal_continuation(
     let descriptor = modeling_seed(result)?;
     let seed = (|| {
         let allocation = result
-            .runtime
-            .native()
+            .services
+            .preparation()
+            .math()
             .reserve("study:continuation-seed", descriptor.owned_extent()?)?;
         let (warm, allocation) = descriptor.materialize(allocation)?.into_owned()?;
         Ok::<_, WorkflowError>(Arc::new(pse_columnar::Leased::new(
@@ -2220,18 +2206,23 @@ mod occurrence_execution_tests {
     use pse_model::generated::identities::DeclarationId;
     use pse_model::scalars::FiniteBound;
 
-    async fn fixture(values: &[f64]) -> (ModelingPackage, LocalStudy) {
-        fixture_source(values, "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x > 0); } }", Backend::Kinsol, 1).await
+    async fn fixture(
+        runtime: &crate::workflow::Runtime,
+        values: &[f64],
+    ) -> (ModelingPackage, LocalStudy) {
+        fixture_source(runtime, values, "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 2+t; annotation start x(2+t); annotation check x(x > 0); } }", Backend::Kinsol, 1).await
     }
     async fn fixture_source(
+        runtime: &crate::workflow::Runtime,
         values: &[f64],
         source: &str,
         backend: Backend,
         threads: usize,
     ) -> (ModelingPackage, LocalStudy) {
-        fixture_source_typed(values, source, backend, threads, "Scalar", "1").await
+        fixture_source_typed(runtime, values, source, backend, threads, "Scalar", "1").await
     }
     async fn fixture_source_typed(
+        runtime: &crate::workflow::Runtime,
         values: &[f64],
         source: &str,
         backend: Backend,
@@ -2240,6 +2231,7 @@ mod occurrence_execution_tests {
         unit_symbol: &str,
     ) -> (ModelingPackage, LocalStudy) {
         fixture_source_with_presolve(
+            runtime,
             values,
             source,
             backend,
@@ -2251,6 +2243,7 @@ mod occurrence_execution_tests {
         .await
     }
     async fn fixture_source_with_presolve(
+        runtime: &crate::workflow::Runtime,
         values: &[f64],
         source: &str,
         backend: Backend,
@@ -2273,16 +2266,24 @@ mod occurrence_execution_tests {
             },
             ..Default::default()
         };
-        fixture_source_with_settings(values, source, quantity_name, unit_symbol, settings).await
+        fixture_source_with_settings(
+            runtime,
+            values,
+            source,
+            quantity_name,
+            unit_symbol,
+            settings,
+        )
+        .await
     }
     async fn fixture_source_with_settings(
+        runtime: &crate::workflow::Runtime,
         values: &[f64],
         source: &str,
         quantity_name: &str,
         unit_symbol: &str,
         settings: crate::math::settings::SolveSettings,
     ) -> (ModelingPackage, LocalStudy) {
-        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
         let rows = pse_authoring::language::parse(
             source,
             SemanticId::NIL,
@@ -2341,6 +2342,7 @@ mod occurrence_execution_tests {
             .collect();
         let definition = package
             .admit_study(
+                &runtime.execution_services(),
                 &crate::workflow::StudyInputs::Explicit(points.to_vec()),
                 &crate::workflow::StudyOutputDemand::Full {},
                 &crate::CancelSource::new(),
@@ -2351,11 +2353,18 @@ mod occurrence_execution_tests {
     }
     #[tokio::test]
     async fn prepaid_lane_preserves_real_member_on_unpolled_drop_and_refusal() {
-        let (package, local) = fixture(&[1.]).await;
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, local) = fixture(&runtime, &[1.]).await;
         let cancel = crate::CancelSource::new();
         let point = &local.points[0];
         let operation = package
-            .prepare_bound_operation(&point.operation, &point.binding, &cancel)
+            .prepare_bound_operation(
+                services.preparation(),
+                &point.operation,
+                &point.binding,
+                &cancel,
+            )
             .await
             .unwrap();
         let mut members = vec![LaneMember {
@@ -2363,7 +2372,6 @@ mod occurrence_execution_tests {
             start: StartProvenance::Fresh,
             attempt: 3,
             preparation: ReadyOperation {
-                source: package.clone(),
                 lane: super::super::study_operations::StudyPreparationLane::new(),
                 operation,
                 staged: None,
@@ -2379,9 +2387,9 @@ mod occurrence_execution_tests {
             panic!("declared fixture expected");
         };
         let prepared = std::ptr::from_ref(case.as_ref());
-        let pool = package.runtime.shared.pool();
+        let pool = runtime.shared.pool();
         let baseline = pool.reserved();
-        let future = prepaid_lane_future(&package, &mut members, &cancel).unwrap();
+        let future = prepaid_lane_future(&services, &mut members, &cancel).unwrap();
         let charged = future._owner.size();
         assert!(charged > size_of::<PrepaidLaneFuture<'_>>());
         assert_eq!(pool.reserved() - baseline, charged);
@@ -2391,23 +2399,23 @@ mod occurrence_execution_tests {
 
         // Drain optional service-owned residency before saturating the pool;
         // refusal must not depend on how many idle cache owners can yield.
-        package.runtime.shared.math().clear_program_cache();
-        package.runtime.shared.math().shutdown_native_lanes().await;
+        runtime.shared.math().clear_program_cache();
+        runtime.shared.math().shutdown_native_lanes().await;
         // Reservations account capacity without allocating this many bytes.
         let pressure =
             pse_columnar::MemoryConsumer::new("test:study-child-refusal").register(&pool);
-        let limit = package.runtime.shared.budget().memory_limit_bytes.get();
+        let limit = runtime.shared.budget().memory_limit_bytes.get();
         pressure.try_grow(limit - pool.reserved()).unwrap();
-        assert!(prepaid_lane_future(&package, &mut members, &cancel).is_err());
+        assert!(prepaid_lane_future(&services, &mut members, &cancel).is_err());
         assert_eq!(members.len(), 1, "refused child cannot consume its member");
         assert_eq!((members[0].index, members[0].attempt), (7, 3));
-        assert_eq!(
-            super::super::OperationSource::of(&members[0].preparation.source),
-            super::super::OperationSource::of(&package)
-        );
         let PreparedStudyOperation::DeclaredCase(case) = &members[0].preparation.operation else {
             panic!("refused child must retain the prepared operation");
         };
+        assert_eq!(
+            super::super::OperationSource::of(&case.source),
+            super::super::OperationSource::of(&package)
+        );
         assert_eq!(std::ptr::from_ref(case.as_ref()), prepared);
         assert!(!cancel.token().is_cancelled());
         drop(pressure);
@@ -2416,22 +2424,23 @@ mod occurrence_execution_tests {
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn terminal_close_refused_extra_grant_still_joins_owned_native_thread() {
-        let (package, _) = fixture(&[1.0]).await;
-        let staged = Staged::open(&package.runtime, None).unwrap();
-        package.runtime.shared.math().clear_program_cache();
-        let pool = package.runtime.shared.pool();
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (_retained_source, _) = fixture(&runtime, &[1.0]).await;
+        let staged = Staged::open(&services, None).unwrap();
+        runtime.shared.math().clear_program_cache();
+        let pool = runtime.shared.pool();
         let pressure =
             pse_columnar::MemoryConsumer::new("test:terminal-close-refusal").register(&pool);
-        let limit = package.runtime.shared.budget().memory_limit_bytes.get();
+        let limit = runtime.shared.budget().memory_limit_bytes.get();
         pressure.try_grow(limit - pool.reserved()).unwrap();
-        let _ = package
-            .runtime
+        let _ = runtime
             .shared
             .math()
             .reserve("test:trim-before-terminal-close", 1);
         pressure.try_grow(limit - pool.reserved()).unwrap();
         let completion = close_point_owner(
-            &package,
+            &services,
             LaneCompletion::Released {
                 index: 0,
                 lane: super::super::study_operations::StudyPreparationLane::new(),
@@ -2449,8 +2458,8 @@ mod occurrence_execution_tests {
             }
         ));
         assert_eq!(
-            package.runtime.shared.math().test_admission_snapshot().2,
-            package.runtime.shared.budget().math.jobs
+            runtime.shared.math().test_admission_snapshot().2,
+            runtime.shared.budget().math.jobs
         );
         drop(pressure);
         assert!(completion.close().await.is_err());
@@ -2479,10 +2488,11 @@ mod occurrence_execution_tests {
     }
 
     async fn local_study_retains_actual_source_through_escaped_report_without_recording() {
-        let (package, local) = fixture(&[1., 1.]).await;
-        assert!(package.runtime.canonical_store().is_err());
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, local) = fixture(&runtime, &[1., 1.]).await;
+        assert!(runtime.canonical_store().is_err());
         let source = Arc::downgrade(&package.revision.admitted);
-        let runtime = package.runtime.clone();
         let identity = super::super::OperationSource::of(&package);
         let cancel = crate::CancelSource::new();
         let missing = runtime.record_study(&local, &cancel).await.unwrap_err();
@@ -2492,7 +2502,7 @@ mod occurrence_execution_tests {
                 .contains("exact admitted physical document bytes")
         );
         drop(package);
-        let report = local.execute(2, &cancel).await.unwrap();
+        let report = local.execute(&services, 2, &cancel).await.unwrap();
         assert!(
             report
                 .outcomes
@@ -2526,12 +2536,14 @@ mod occurrence_execution_tests {
 
     #[tokio::test]
     async fn lazy_ephemeral_variants_keep_selected_order_and_original_scientific_results() {
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
         use crate::workflow::{
             OperationSource, SelectedStudyVariant, SourceChoice, SourceDelta, StudyInputs,
             StudyVariants,
         };
-        let (package, explicit) = fixture(&[1.]).await;
-        assert!(package.runtime.canonical_store().is_err());
+        let (package, explicit) = fixture(&runtime, &[1.]).await;
+        assert!(runtime.canonical_store().is_err());
         let replacement = pse_authoring::language::parse(
             "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 4+t; annotation start x(2+t); annotation check x(x > 0); } }",
             SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default(),
@@ -2574,18 +2586,19 @@ mod occurrence_execution_tests {
                 },
             ],
         };
-        let before = package.runtime.shared.math().preparations().views;
+        let before = runtime.shared.math().preparations().views;
         let definition = package
             .admit_study(
+                &services,
                 &StudyInputs::Lazy(Box::new(variants)),
                 &crate::workflow::StudyOutputDemand::Full {},
                 &crate::CancelSource::new(),
             )
             .await
             .unwrap();
-        assert_eq!(package.runtime.shared.math().preparations().views, before);
+        assert_eq!(runtime.shared.math().preparations().views, before);
         let report = package
-            .study(&definition, 2, &crate::CancelSource::new())
+            .study(&services, &definition, 2, &crate::CancelSource::new())
             .await
             .unwrap();
         assert_eq!(
@@ -2615,11 +2628,13 @@ mod occurrence_execution_tests {
 
     #[tokio::test]
     async fn prediction_source_copy_drops_prior_task_and_start_preserving_original_identity() {
-        let (package, definition) = fixture(&[1.]).await;
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, definition) = fixture(&runtime, &[1.]).await;
         let cancel = crate::CancelSource::new();
         let PreparedStudyOperation::DeclaredCase(prepared) = definition.points[0]
             .operation
-            .prepare(&package, &cancel)
+            .prepare(services.preparation(), &package, &cancel)
             .await
             .unwrap()
         else {
@@ -2640,15 +2655,14 @@ mod occurrence_execution_tests {
         let ledger = crate::math::strategy::admission::TaskAdmission::new(
             original.numerical_strategy().limits,
             scope.clone(),
-            Some(package.runtime.shared.pool()),
+            Some(runtime.shared.pool()),
             false,
         );
         let departure = Arc::downgrade(&ledger);
         let original = original
             .within_admitted_task(scope.clone(), ledger.clone())
             .unwrap();
-        let _copy_owner = package
-            .runtime
+        let _copy_owner = runtime
             .native()
             .reserve("test:prediction-source-copy", 1 << 20)
             .unwrap();
@@ -2689,9 +2703,11 @@ mod occurrence_execution_tests {
 
     #[tokio::test]
     async fn lane_capture_allows_sibling_completion_while_real_selected_chunk_waits() {
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
         const POINTS: usize = 32;
         let values = (1..=32).map(f64::from).collect::<Vec<_>>();
-        let (package, mut definition) = fixture(&values).await;
+        let (package, mut definition) = fixture(&runtime, &values).await;
         let detail = super::super::StudyDetailDemand {
             relations: vec!["runtime.solve_variables".into()],
             maximum_rows: 16,
@@ -2709,16 +2725,17 @@ mod occurrence_execution_tests {
             ..Default::default()
         });
         let cancel = crate::CancelSource::new();
-        let observed = package
-            .runtime
+        let observed = runtime
             .observations()
             .hub()
             .start("qualification.wide-skew-frontier");
         let reader = observed.reader();
         let study = pse_diagnostics::observation::scope(
             Some(observed.context()),
-            super::super::study_demand::CAPTURE_CONTROL
-                .scope(control.clone(), package.study(&definition, POINTS, &cancel)),
+            super::super::study_demand::CAPTURE_CONTROL.scope(
+                control.clone(),
+                package.study(&services, &definition, POINTS, &cancel),
+            ),
         );
         let controls = async {
             let entered = tokio::time::timeout(
@@ -2787,10 +2804,8 @@ mod occurrence_execution_tests {
             assert_eq!(solved.len(), 1);
             assert!((solved[0] - (values[index] + 2.0)).abs() < 1e-8);
         }
-        let counts = crate::workflow::tests::observation_counts(
-            package.runtime.observations().hub(),
-            reader,
-        );
+        let counts =
+            crate::workflow::tests::observation_counts(runtime.observations().hub(), reader);
         let visits = counts["study.frontier.policy_visits"];
         // One initial inspection, preparation/start and terminal capacity events
         // per point; no dependency, retry, revision or cancellation notifications.
@@ -2800,21 +2815,26 @@ mod occurrence_execution_tests {
             "wide/skew policy visits: {visits}"
         );
         assert_eq!(
-            package.runtime.shared.math().test_admission_snapshot().1,
-            package.runtime.shared.math().cores()
+            runtime.shared.math().test_admission_snapshot().1,
+            runtime.shared.math().cores()
         );
-        package.runtime.shared.math().shutdown_native_lanes().await;
+        runtime.shared.math().shutdown_native_lanes().await;
         assert_eq!(
-            package.runtime.shared.math().test_admission_snapshot().2,
-            package.runtime.shared.budget().math.jobs
+            runtime.shared.math().test_admission_snapshot().2,
+            runtime.shared.budget().math.jobs
         );
     }
 
     #[tokio::test]
     async fn lane_capture_late_producer_failure_keeps_scientific_completion_separate() {
-        let (package, definition) = fixture(&[1.0]).await;
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, definition) = fixture(&runtime, &[1.0]).await;
         let cancel = crate::CancelSource::new();
-        let mut report = package.study(&definition, 1, &cancel).await.unwrap();
+        let mut report = package
+            .study(&services, &definition, 1, &cancel)
+            .await
+            .unwrap();
         let StudyOccurrenceResult::Ephemeral(run) = report.results[0].take().unwrap() else {
             panic!("full result expected");
         };
@@ -2871,7 +2891,9 @@ mod occurrence_execution_tests {
 
     #[tokio::test]
     async fn lane_capture_cancellation_drains_actual_native_and_preparation_owners() {
-        let (package, mut definition) = fixture(&[1.0]).await;
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, mut definition) = fixture(&runtime, &[1.0]).await;
         definition.points[0].operation.output = super::super::StudyOutputDemand::Compact {
             detail: super::super::StudyDetailDemand {
                 relations: vec!["runtime.solve_variables".into()],
@@ -2886,8 +2908,10 @@ mod occurrence_execution_tests {
             ..Default::default()
         });
         let cancel = crate::CancelSource::new();
-        let study = super::super::study_demand::CAPTURE_CONTROL
-            .scope(control.clone(), package.study(&definition, 1, &cancel));
+        let study = super::super::study_demand::CAPTURE_CONTROL.scope(
+            control.clone(),
+            package.study(&services, &definition, 1, &cancel),
+        );
         let controls = async {
             let entered = tokio::time::timeout(
                 std::time::Duration::from_secs(10),
@@ -2905,16 +2929,18 @@ mod occurrence_execution_tests {
         assert!(entered);
         assert_eq!(report.outcomes[0].lifecycle, StudyPointState::Cancelled);
         assert_eq!(
-            package.runtime.shared.math().test_admission_snapshot().2,
-            package.runtime.shared.budget().math.jobs
+            runtime.shared.math().test_admission_snapshot().2,
+            runtime.shared.budget().math.jobs
         );
     }
 
     #[tokio::test]
     async fn compact_occurrence_drops_unselected_report_and_keeps_original_completion() {
-        let (package, definition) = fixture(&[1.]).await;
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, definition) = fixture(&runtime, &[1.]).await;
         let mut report = package
-            .study(&definition, 1, &crate::CancelSource::new())
+            .study(&services, &definition, 1, &crate::CancelSource::new())
             .await
             .unwrap();
         let StudyOccurrenceResult::Ephemeral(run) = report.results[0].take().unwrap() else {
@@ -2933,8 +2959,7 @@ mod occurrence_execution_tests {
         let StudyOccurrenceResult::Ephemeral(run) = full else {
             panic!("full expected");
         };
-        let wrapper = package
-            .runtime
+        let wrapper = runtime
             .native()
             .reserve("test:continuation-wrapper", 4096)
             .unwrap();
@@ -3003,7 +3028,9 @@ mod occurrence_execution_tests {
 
     #[tokio::test]
     async fn compact_study_keeps_failed_completion_and_continuation_fanout() {
-        let (package, mut definition) = fixture(&[1., 2., 3., -5., 4.]).await;
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, mut definition) = fixture(&runtime, &[1., 2., 3., -5., 4.]).await;
         for (index, parent) in [(1, 0), (2, 1), (4, 0)] {
             definition.points[index].policy.start = StartPolicy::Continuation(SeedEdge {
                 predecessor: OccurrenceKey(parent),
@@ -3019,7 +3046,7 @@ mod occurrence_execution_tests {
             };
         }
         let report = package
-            .study(&definition, 5, &crate::CancelSource::new())
+            .study(&services, &definition, 5, &crate::CancelSource::new())
             .await
             .unwrap();
         for index in [0, 1, 2, 4] {
@@ -3051,7 +3078,9 @@ mod occurrence_execution_tests {
 
     #[tokio::test]
     async fn compact_continuation_ignores_failed_older_and_keeps_accepted_parent_seed() {
-        let (package, mut definition) = fixture(&[-5., 1., 2.]).await;
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, mut definition) = fixture(&runtime, &[-5., 1., 2.]).await;
         assert_eq!(
             definition.points.len(),
             3,
@@ -3072,7 +3101,7 @@ mod occurrence_execution_tests {
             };
         }
         let report = package
-            .study(&definition, 3, &crate::CancelSource::new())
+            .study(&services, &definition, 3, &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(!report.outcomes[0].scientific.usable);
@@ -3097,10 +3126,12 @@ mod occurrence_execution_tests {
 
     #[tokio::test]
     async fn adjacent_actual_point_preparations_share_one_live_establishment() {
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
         for width in [1, 2] {
             for compact in [false, true] {
-                let (package, definition) = fixture(&[1., 2., 3., 4.]).await;
-                let math = package.runtime.shared.math();
+                let (package, definition) = fixture(&runtime, &[1., 2., 3., 4.]).await;
+                let math = runtime.shared.math();
                 let cancel = crate::CancelSource::new();
                 let mut lanes: Vec<_> = (0..width)
                     .map(|_| super::super::study_operations::StudyPreparationLane::new())
@@ -3122,7 +3153,13 @@ mod occurrence_execution_tests {
                     let lane_index = index % width;
                     let lane = &mut lanes[lane_index];
                     let prepared = lane
-                        .prepare(&package, &point.operation, &point.binding, &cancel)
+                        .prepare(
+                            services.preparation(),
+                            &package,
+                            &point.operation,
+                            &point.binding,
+                            &cancel,
+                        )
                         .await
                         .unwrap();
                     let PreparedStudyOperation::DeclaredCase(case) = &prepared else {
@@ -3147,7 +3184,7 @@ mod occurrence_execution_tests {
                         assert_eq!(case.model.values.scalars[&id], value);
                     }
                     let result = prepared
-                        .start(&package.runtime, &cancel)
+                        .start(&services, &cancel)
                         .await
                         .unwrap()
                         .wait()
@@ -3194,9 +3231,11 @@ mod occurrence_execution_tests {
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
     async fn current_numerical_view_survives_cancellation_until_native_drain() {
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
         // A nonlinear, non-presolved case must actually enter a native session;
         // the affine default fixture can finish analytically before that boundary.
-        let (package, definition) = fixture_source_with_presolve(
+        let (package, definition) = fixture_source_with_presolve(&runtime,
             &[1.],
             "package p { def Root { param t:Scalar=1; var x:Scalar; eq e:x*x==2+t; annotation start x(1); annotation check x(x>0); } }",
             Backend::Kinsol, 1, "Scalar", "1", pse_backend_native::presolve::PolicyKind::Off,
@@ -3205,7 +3244,13 @@ mod occurrence_execution_tests {
         let cancel = crate::CancelSource::new();
         let mut lane = super::super::study_operations::StudyPreparationLane::new();
         let prepared = lane
-            .prepare(&package, &point.operation, &point.binding, &cancel)
+            .prepare(
+                services.preparation(),
+                &package,
+                &point.operation,
+                &point.binding,
+                &cancel,
+            )
             .await
             .unwrap();
         let departure = lane.numerical_view().unwrap();
@@ -3227,18 +3272,18 @@ mod occurrence_execution_tests {
         });
         let work = crate::math::observed_native_task_entry(
             observer,
-            scope.during(&cancel, async {
+            scope.during(services.preparation(), &cancel, async {
                 // Match the production declared-case lane, including its retained
                 // native session, rather than launching a separate run supervisor.
-                let mut staged = Staged::open(&package.runtime, None)?;
-                let result = execute(&package, &mut staged, prepared, 1, &cancel).await;
+                let mut staged = Staged::open(&services, None)?;
+                let result = execute(&services, &mut staged, prepared, 1, &cancel).await;
                 drop(staged);
                 result
             }),
         );
         let controls = async {
             entered.await.unwrap();
-            package.runtime.shared.math().clear_program_cache();
+            runtime.shared.math().clear_program_cache();
             cancel.cancel();
             let mut close = Box::pin(lane.close());
             assert!(futures_util::poll!(close.as_mut()).is_pending());
@@ -3277,7 +3322,9 @@ mod occurrence_execution_tests {
     }
     #[tokio::test]
     async fn equal_bindings_are_distinct_and_failed_dependencies_keep_typed_outcomes() {
-        let (package, mut definition) = fixture(&[1., 1., -5., 2., 3., 4.]).await;
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, mut definition) = fixture(&runtime, &[1., 1., -5., 2., 3., 4.]).await;
         assert_eq!(
             definition.points[0].binding_hash,
             definition.points[1].binding_hash
@@ -3292,7 +3339,7 @@ mod occurrence_execution_tests {
         definition.points[4].policy.dependencies = vec![Dependency::UsableResult(OccurrenceKey(2))];
         definition.points[5].policy.dependencies = vec![Dependency::Ordering(OccurrenceKey(2))];
         let report = package
-            .study(&definition, 8, &crate::CancelSource::new())
+            .study(&services, &definition, 8, &crate::CancelSource::new())
             .await
             .unwrap();
         assert_eq!(report.outcomes.len(), 6);
@@ -3331,10 +3378,15 @@ mod occurrence_execution_tests {
     }
     #[tokio::test]
     async fn precancellation_retains_every_occurrence_without_native_dispatch() {
-        let (package, definition) = fixture(&[1., 2., 3.]).await;
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, definition) = fixture(&runtime, &[1., 2., 3.]).await;
         let cancel = crate::CancelSource::new();
         cancel.cancel();
-        let report = package.study(&definition, 8, &cancel).await.unwrap();
+        let report = package
+            .study(&services, &definition, 8, &cancel)
+            .await
+            .unwrap();
         assert_eq!(report.outcomes.len(), 3);
         assert!(report.outcomes.iter().all(|outcome| {
             outcome.lifecycle == StudyPointState::Cancelled
@@ -3349,10 +3401,12 @@ mod occurrence_execution_tests {
     }
     #[tokio::test(flavor = "current_thread")]
     async fn parent_cancellation_refreshes_blocked_study_points_and_drains_queued_preparation() {
-        let (package, mut definition) = fixture(&[1., 2., 3.]).await;
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, mut definition) = fixture(&runtime, &[1., 2., 3.]).await;
         definition.points[1].policy.dependencies = vec![Dependency::UsableResult(OccurrenceKey(0))];
         definition.points[2].policy.dependencies = vec![Dependency::Ordering(OccurrenceKey(1))];
-        let service = package.runtime.shared.math();
+        let service = runtime.shared.math();
         let (admitted, admission) = tokio::sync::oneshot::channel();
         let (exit, gate) = std::sync::mpsc::channel::<()>();
         let mut submission = crate::math::Submission::ephemeral();
@@ -3368,7 +3422,7 @@ mod occurrence_execution_tests {
         admission.await.unwrap();
         let population_available = service.test_admission_snapshot().2;
         let cancel = crate::CancelSource::new();
-        let mut study = Box::pin(package.study(&definition, 8, &cancel));
+        let mut study = Box::pin(package.study(&services, &definition, 8, &cancel));
         let queued = tokio::time::timeout(std::time::Duration::from_secs(10), async {
             loop {
                 assert!(futures_util::poll!(study.as_mut()).is_pending());
@@ -3397,14 +3451,16 @@ mod occurrence_execution_tests {
     }
     #[tokio::test]
     async fn preparation_failure_has_an_envelope_and_does_not_stop_independent_points() {
-        let (package, mut definition) = fixture(&[1., 2.]).await;
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, mut definition) = fixture(&runtime, &[1., 2.]).await;
         let OperationRequest::DeclaredCase(case) = &mut definition.points[0].operation.operation
         else {
             panic!("fixture must retain its declared case operation")
         };
         case.case = DeclarationId::from_bytes([255; 16]);
         let report = package
-            .study(&definition, 8, &crate::CancelSource::new())
+            .study(&services, &definition, 8, &crate::CancelSource::new())
             .await
             .unwrap();
         assert_eq!(report.outcomes[0].lifecycle, StudyPointState::Failed);
@@ -3420,32 +3476,33 @@ mod occurrence_execution_tests {
     }
     #[tokio::test]
     async fn preparation_reuse_is_bounded_as_occurrence_count_grows() {
-        let (package, small) = fixture(&[1., 2.]).await;
-        let (large_package, large) = fixture(&[1., 2., 3., 4., 5., 6., 7., 8.]).await;
-        let before = package.runtime.native().preparations();
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, small) = fixture(&runtime, &[1., 2.]).await;
+        let (large_package, large) = fixture(&runtime, &[1., 2., 3., 4., 5., 6., 7., 8.]).await;
+        let before = runtime.native().preparations();
         for maximum in [0, 1] {
             assert!(
                 package
-                    .study(&small, maximum, &crate::CancelSource::new())
+                    .study(&services, &small, maximum, &crate::CancelSource::new())
                     .await
                     .is_err()
             );
         }
-        assert_eq!(package.runtime.native().preparations(), before);
+        assert_eq!(runtime.native().preparations(), before);
         let small_report = package
-            .study(&small, 8, &crate::CancelSource::new())
+            .study(&services, &small, 8, &crate::CancelSource::new())
             .await
             .unwrap();
         let large_report = large_package
-            .study(&large, 8, &crate::CancelSource::new())
+            .study(&services, &large, 8, &crate::CancelSource::new())
             .await
             .unwrap();
-        let lanes = package
-            .runtime
+        let lanes = runtime
             .shared
             .math()
             .cores()
-            .min(package.runtime.shared.budget().math.jobs)
+            .min(runtime.shared.budget().math.jobs)
             .max(1);
         for report in [&small_report, &large_report] {
             assert!(
@@ -3481,14 +3538,16 @@ mod occurrence_execution_tests {
     }
     #[tokio::test]
     async fn simultaneous_studies_count_only_their_own_preparations() {
-        let (package, first) = fixture(&[1., 2., 3., 4.]).await;
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
+        let (package, first) = fixture(&runtime, &[1., 2., 3., 4.]).await;
         let mut second = first.clone();
         second.points.truncate(2);
-        let before = package.runtime.native().preparations();
+        let before = runtime.native().preparations();
         let cancel = crate::CancelSource::new();
         let (a, b) = tokio::join!(
-            package.study(&first, 8, &cancel),
-            package.study(&second, 8, &cancel)
+            package.study(&services, &first, 8, &cancel),
+            package.study(&services, &second, 8, &cancel)
         );
         let (a, b) = (a.unwrap(), b.unwrap());
         assert!(
@@ -3501,7 +3560,7 @@ mod occurrence_execution_tests {
             b.outcomes
         );
         assert_ne!(a.run_id, b.run_id);
-        let after = package.runtime.native().preparations();
+        let after = runtime.native().preparations();
         assert_eq!(
             a.preparations.views + b.preparations.views,
             after.views - before.views
@@ -3575,6 +3634,8 @@ mod occurrence_execution_tests {
     #[cfg(feature = "solver-pounce")]
     #[tokio::test]
     async fn compact_native_continuation_sample_survives_report_departure_without_old_task() {
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
         // This control needs an exported native-coordinate seed. POUNCE NLP
         // publishes one; POUNCE-convex retains only its internal batch starts.
         // Keep this actual native path distinct from derived reconstruction.
@@ -3589,6 +3650,7 @@ mod occurrence_execution_tests {
             ..Default::default()
         };
         let (package, definition) = fixture_source_with_settings(
+            &runtime,
             &[0.25],
             POUNCE_OCCURRENCE_SOURCE,
             "Scalar",
@@ -3597,7 +3659,7 @@ mod occurrence_execution_tests {
         )
         .await;
         let mut report = package
-            .study(&definition, 1, &crate::CancelSource::new())
+            .study(&services, &definition, 1, &crate::CancelSource::new())
             .await
             .unwrap();
         let StudyOccurrenceResult::Ephemeral(run) = report.results[0].take().unwrap() else {
@@ -3622,8 +3684,7 @@ mod occurrence_execution_tests {
             "native-coordinate seed must be published"
         );
         let weak = Arc::downgrade(&run);
-        let metadata = package
-            .runtime
+        let metadata = runtime
             .native()
             .reserve("test:continuation-wrapper", 4096)
             .unwrap();
@@ -3664,7 +3725,10 @@ mod occurrence_execution_tests {
     #[cfg(feature = "solver-pounce")]
     #[tokio::test]
     async fn direct_batch_compatibility_uses_actual_complete_native_owner() {
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
         let (package, definition) = fixture_source(
+            &runtime,
             &[0.25, 0.5],
             POUNCE_OCCURRENCE_SOURCE,
             Backend::PounceConvex,
@@ -3675,7 +3739,12 @@ mod occurrence_execution_tests {
         let mut solves = Vec::new();
         for point in &definition.points {
             let PreparedStudyOperation::DeclaredCase(case) = package
-                .prepare_bound_operation(&point.operation, &point.binding, &cancel)
+                .prepare_bound_operation(
+                    services.preparation(),
+                    &point.operation,
+                    &point.binding,
+                    &cancel,
+                )
                 .await
                 .unwrap()
             else {
@@ -3698,7 +3767,12 @@ mod occurrence_execution_tests {
                 }
             }
             let PreparedStudyOperation::DeclaredCase(case) = package
-                .prepare_bound_operation(&point.operation, &point.binding, &cancel)
+                .prepare_bound_operation(
+                    services.preparation(),
+                    &point.operation,
+                    &point.binding,
+                    &cancel,
+                )
                 .await
                 .unwrap()
             else {
@@ -3742,22 +3816,24 @@ mod occurrence_execution_tests {
     #[cfg(feature = "solver-pounce")]
     #[tokio::test]
     async fn occurrence_adapter_reaches_existing_pounce_batch_owner() {
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
         let (package, definition) = fixture_source(
+            &runtime,
             &[0.25, 0.5, 0.75, 1.],
             POUNCE_OCCURRENCE_SOURCE,
             Backend::PounceConvex,
             2,
         )
         .await;
-        let width = package
-            .runtime
+        let width = runtime
             .shared
             .math()
             .cores()
-            .min(package.runtime.shared.budget().math.jobs)
+            .min(runtime.shared.budget().math.jobs)
             .max(1);
         let report = package
-            .study(&definition, 8, &crate::CancelSource::new())
+            .study(&services, &definition, 8, &crate::CancelSource::new())
             .await
             .unwrap();
         assert_eq!(report.outcomes.len(), 4);
@@ -3780,7 +3856,10 @@ mod occurrence_execution_tests {
     #[cfg(feature = "solver-pounce")]
     #[tokio::test]
     async fn four_ready_occurrences_reach_existing_pounce_batch_owner() {
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
         let (package, definition) = fixture_source(
+            &runtime,
             &[0.25, 0.5, 0.75, 1.],
             POUNCE_OCCURRENCE_SOURCE,
             Backend::PounceConvex,
@@ -3791,7 +3870,12 @@ mod occurrence_execution_tests {
         let mut members = Vec::new();
         for (index, point) in definition.points.iter().enumerate() {
             let operation = package
-                .prepare_bound_operation(&point.operation, &point.binding, &cancel)
+                .prepare_bound_operation(
+                    services.preparation(),
+                    &point.operation,
+                    &point.binding,
+                    &cancel,
+                )
                 .await
                 .unwrap();
             members.push(LaneMember {
@@ -3799,7 +3883,6 @@ mod occurrence_execution_tests {
                 start: StartProvenance::Fresh,
                 attempt: 0,
                 preparation: ReadyOperation {
-                    source: package.clone(),
                     lane: super::super::study_operations::StudyPreparationLane::new(),
                     operation,
                     staged: None,
@@ -3814,7 +3897,7 @@ mod occurrence_execution_tests {
         }
         // Supply one fully prepared cohort to the same runtime adapter used by the
         // study scheduler, without making preparation readiness depend on timing.
-        let mut completed = execute_lane(&package, members, &cancel).await;
+        let mut completed = execute_lane(&services, members, &cancel).await;
         let LaneCompletion::Executed { points, staged, .. } = &mut completed else {
             panic!("expected completed occurrences");
         };
@@ -3834,21 +3917,24 @@ mod occurrence_execution_tests {
         }
         completed.close().await.unwrap();
         assert_eq!(
-            package.runtime.shared.math().test_admission_snapshot().1,
-            package.runtime.shared.math().cores()
+            runtime.shared.math().test_admission_snapshot().1,
+            runtime.shared.math().cores()
         );
-        package.runtime.shared.math().shutdown_native_lanes().await;
+        runtime.shared.math().shutdown_native_lanes().await;
         assert_eq!(
-            package.runtime.shared.math().test_admission_snapshot().2,
-            package.runtime.shared.budget().math.jobs,
+            runtime.shared.math().test_admission_snapshot().2,
+            runtime.shared.budget().math.jobs,
             "completion settles the request; explicit service shutdown joins neutral pooled lanes and releases their populations"
         );
     }
 
     #[tokio::test]
     async fn canonical_parameter_overlay_replaces_authored_default_once() {
+        let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
+        let services = runtime.execution_services();
         let source = "package p { def Root { param t: Temperature = 300{K}; var x: Temperature; eq e: x == t; annotation start x(t); } }";
         let (package, definition) = fixture_source_typed(
+            &runtime,
             &[80., 26.85],
             source,
             Backend::Kinsol,
@@ -3865,7 +3951,7 @@ mod occurrence_execution_tests {
                 .all(|entry| entry.parameter))
         );
         let report = package
-            .study(&definition, 8, &crate::CancelSource::new())
+            .study(&services, &definition, 8, &crate::CancelSource::new())
             .await
             .unwrap();
         for (index, expected) in [353.15, 300.].into_iter().enumerate() {

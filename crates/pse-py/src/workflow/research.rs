@@ -73,6 +73,7 @@ impl NativeRuntime {
         )?;
         Ok(NativeModelingPackage::from_revision(
             self.owner.clone(),
+            self.recording_runtime(py)?.execution_services(),
             package,
         ))
     }
@@ -93,6 +94,7 @@ impl NativeRuntime {
         )?;
         Ok(NativeModelingPackage::from_revision(
             self.owner.clone(),
+            self.recording_runtime(py)?.execution_services(),
             package,
         ))
     }
@@ -150,6 +152,7 @@ impl NativeRuntime {
         )?;
         Ok(NativeModelingPackage::from_revision(
             self.owner.clone(),
+            self.recording_runtime(py)?.execution_services(),
             package,
         ))
     }

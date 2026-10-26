@@ -55,11 +55,11 @@ const ENGINEERING_RULE: &str = "modeling:engineering_rule";
 const INGRESS_FRAME: &str = "source:ingress-frame:v1";
 
 fn parsed_fields(
-    runtime: &Runtime,
+    runtime: &crate::workflow::PreparationServices,
     row: &Declaration,
     fields: Option<&FieldSpans>,
 ) -> Result<Arc<pse_modeling::expression::occurrences::ParsedFields>, WorkflowError> {
-    let math = runtime.shared.math();
+    let math = runtime.math();
     let generation = math.modeling_cache.generation();
     let extent = row
         .owned_bytes()
@@ -130,6 +130,7 @@ pub(super) fn kind(row: &Declaration) -> String {
 #[derive(Clone, Debug)]
 pub(in crate::workflow) struct SourceRevision {
     pub(in crate::workflow) origin: Option<Revision>,
+    pub(in crate::workflow) issuer: Option<String>,
     pub(crate) admitted: Arc<AdmittedModelRevision>,
     identity: SourceRevisionHash,
     revision_id: String,
@@ -158,7 +159,7 @@ impl SourceRevision {
         self.origin().ok_or(WorkflowError::RecordingUnavailable)
     }
     pub(super) async fn open(
-        runtime: &Runtime,
+        runtime: &crate::workflow::SourceServices,
         canonical: Revision,
     ) -> Result<Self, WorkflowError> {
         let store = runtime.canonical_store()?;
@@ -219,7 +220,7 @@ impl SourceRevision {
                             .payload
                             .as_slice(),
                     )?;
-                    let parsed = parsed_fields(runtime, &row.0, row.1.as_ref())?;
+                    let parsed = parsed_fields(runtime.preparation(), &row.0, row.1.as_ref())?;
                     typed.decoded(object, row.clone(), parsed.clone())?;
                     index.parsed_fields.insert(row.0.declaration_id, parsed);
                     index.complete_scope(row.0.declaration_id);
@@ -278,7 +279,7 @@ impl SourceRevision {
                 }
             }
             let admitted = AdmittedModelRevision::apply_inputs(
-                runtime,
+                runtime.preparation(),
                 None,
                 &imported,
                 &typed,
@@ -290,14 +291,22 @@ impl SourceRevision {
         let release = read.finish().await;
         let (admitted, identity) = result?;
         release?;
-        Self::admitted(admitted, identity, Some(canonical), None)
+        Self::admitted(
+            admitted,
+            identity,
+            Some(canonical),
+            None,
+            Some(runtime.canonical_store()?.issuing_store()?.into()),
+        )
     }
     fn admitted(
         admitted: Arc<AdmittedModelRevision>,
         identity: SourceRevisionHash,
         origin: Option<Revision>,
         previous: Option<&Self>,
+        issuer: Option<String>,
     ) -> Result<Self, WorkflowError> {
+        let issuer = issuer.or_else(|| previous.and_then(|source| source.issuer.clone()));
         let revision_id = pse_operations::mint_id::<SemanticId>().to_string();
         if let Some(previous) = previous {
             // This is committed only after durable acknowledgement. Concurrent siblings
@@ -314,6 +323,7 @@ impl SourceRevision {
                 head.revision = revision_id.clone();
                 head.generation = generation;
                 return Ok(Self {
+                    issuer,
                     origin,
                     admitted,
                     identity,
@@ -331,6 +341,7 @@ impl SourceRevision {
             generation: 0,
         }));
         Ok(Self {
+            issuer,
             origin,
             admitted,
             identity,
@@ -423,7 +434,7 @@ impl std::ops::Deref for OwnedObject {
     }
 }
 async fn selected_object(
-    runtime: &Runtime,
+    runtime: &crate::workflow::SourceServices,
     read: &SelectedRead,
     version: &str,
 ) -> Result<OwnedObject, WorkflowError> {
@@ -437,7 +448,7 @@ async fn selected_object(
         .and_then(|n| n.checked_add(size_of::<Declaration>() + 1024))
         .ok_or_else(|| contract("canonical source decode extent overflow"))?;
     let lease = runtime
-        .shared
+        .preparation()
         .math()
         .reserve("modeling:canonical-source-decode", bytes)?;
     let row = store
@@ -453,7 +464,7 @@ async fn selected_object(
 }
 
 async fn selected_objects(
-    runtime: &Runtime,
+    runtime: &crate::workflow::SourceServices,
     read: &SelectedRead,
     versions: &[String],
     cancel: &crate::CancelSource,
@@ -462,7 +473,7 @@ async fn selected_objects(
     checkpoint(cancel)?;
     // Manifest and bounded block responses are transient, accounted before the
     // first protected query, independently of the selected scientific payloads.
-    let _scratch = runtime.shared.math().reserve(
+    let _scratch = runtime.preparation().math().reserve(
         "modeling:source-frontier-headers",
         SELECTED_OBJECT_HEADER_SCRATCH,
     )?;
@@ -480,7 +491,7 @@ async fn selected_objects(
             .ok_or_else(|| contract("canonical source decode extent overflow"))?;
         leases.push(
             runtime
-                .shared
+                .preparation()
                 .math()
                 .reserve("modeling:canonical-source-decode", bytes)?,
         );
@@ -522,7 +533,7 @@ async fn selected_objects(
         .collect())
 }
 async fn object(
-    runtime: &Runtime,
+    runtime: &crate::workflow::SourceServices,
     read: &mut SelectedRead,
     name: &str,
 ) -> Result<Option<OwnedObject>, WorkflowError> {
@@ -541,7 +552,7 @@ async fn object(
         .map(Some)
 }
 async fn context(
-    runtime: &Runtime,
+    runtime: &crate::workflow::SourceServices,
     read: &mut SelectedRead,
 ) -> Result<SourceRevisionHash, WorkflowError> {
     let context = object(runtime, read, CONTEXT_LOGICAL)
@@ -561,11 +572,11 @@ pub(super) struct CanonicalIngress<'a> {
     pub(super) physical_scope: PhysicalScope,
     pub(super) documents: &'a pse_modeling::document::DocumentInventory,
     pub(super) sources: &'a pse_admission::authoring_driver::document::Batches,
-    pub(super) fits: &'a super::super::fitting::FitDeclarations,
+    pub(super) fits: &'a super::FitDeclarations,
     pub(super) loader: Option<&'a pse_admission::authoring_driver::document::OwnedDocumentSet>,
 }
 pub(super) async fn persist(
-    runtime: &Runtime,
+    runtime: &crate::workflow::SourceServices,
     ingress: CanonicalIngress<'_>,
     previous: Option<&SourceRevision>,
     cancel: &crate::CancelSource,
@@ -573,7 +584,7 @@ pub(super) async fn persist(
     persist_with_project(runtime, ingress, previous, cancel, None).await
 }
 pub(super) async fn persist_with_project(
-    runtime: &Runtime,
+    runtime: &crate::workflow::SourceServices,
     ingress: CanonicalIngress<'_>,
     previous: Option<&SourceRevision>,
     cancel: &crate::CancelSource,
@@ -597,13 +608,13 @@ pub(super) async fn persist_with_project(
         .and_then(|n| n.checked_add(documents.retained_bytes()))
         .ok_or_else(|| contract("canonical ingress extent"))?;
     let _lease = runtime
-        .shared
+        .preparation()
         .math()
         .reserve("modeling:canonical-ingress", bytes)?;
-    let validation = runtime.admission_context();
+    let validation = runtime.preparation().admission_context();
     let mut builder =
         pse_relations::generated::authored::modeling_declarations::Builder::with_registry(
-            runtime.registry(),
+            runtime.preparation().registry(),
             rows.len(),
             &validation,
         )
@@ -626,7 +637,11 @@ pub(super) async fn persist_with_project(
         ))?;
         index.parsed_fields.insert(
             row.declaration_id,
-            parsed_fields(runtime, row, documents.field_spans.get(&row.declaration_id))?,
+            parsed_fields(
+                runtime.preparation(),
+                row,
+                documents.field_spans.get(&row.declaration_id),
+            )?,
         );
         index.complete_scope(row.declaration_id);
         index.complete_imports(row.declaration_id);
@@ -653,14 +668,14 @@ pub(super) async fn persist_with_project(
     index.requests.clear();
     let data_rows = index.data_closure()?;
     if !data_rows.is_empty() {
-        let workspace = runtime.shared.math().workspace(
+        let workspace = runtime.preparation().math().workspace(
             super::compiler_context(physical, &BTreeMap::new()),
             pse_compiler::workspace::WorkspaceLimits::default(),
         )?;
         let mut data_documents = documents.clone();
         data_documents.parsed_fields = index.parsed_fields.clone();
         let data = runtime
-            .shared
+            .preparation()
             .math()
             .modeling_revision(
                 &workspace,
@@ -819,7 +834,7 @@ pub(super) async fn persist_with_project(
 
 /// Stage complete local ownership before issuing the existing durable effect.
 async fn admit_revision(
-    runtime: &Runtime,
+    runtime: &crate::workflow::SourceServices,
     previous: Option<&SourceRevision>,
     identity: SourceRevisionHash,
     edits: &[ObjectEdit],
@@ -829,7 +844,7 @@ async fn admit_revision(
     admit_revision_authorized(runtime, previous, identity, edits, typed, cancel, None).await
 }
 async fn admit_revision_authorized(
-    runtime: &Runtime,
+    runtime: &crate::workflow::SourceServices,
     previous: Option<&SourceRevision>,
     identity: SourceRevisionHash,
     edits: &[ObjectEdit],
@@ -838,16 +853,24 @@ async fn admit_revision_authorized(
     project: Option<&pse_operations::canonical_projects::ProjectPublication>,
 ) -> Result<SourceRevision, WorkflowError> {
     let admitted = AdmittedModelRevision::apply_inputs(
-        runtime,
+        runtime.preparation(),
         previous.map(|p| p.admitted.as_ref()),
         edits,
         typed,
         cancel,
     )?;
-    let origin = match runtime.durability() {
-        crate::workflow::Durability::Ephemeral => None,
-        crate::workflow::Durability::Durable(_) => {
+    let origin = match runtime.publication() {
+        None => None,
+        Some(_) => {
             let store = runtime.canonical_store()?;
+            if let Some(previous) = previous
+                && previous.origin.is_some()
+                && previous.issuer.as_deref() != Some(store.issuing_store()?)
+            {
+                return Err(contract(
+                    "source edit issuer differs from its original admitted source",
+                ));
+            }
             let old = previous.map(SourceRevision::require_origin).transpose()?;
             let problem = old.map_or_else(
                 || pse_operations::mint_id::<SemanticId>().to_string(),
@@ -878,13 +901,23 @@ async fn admit_revision_authorized(
             Some(recorded)
         }
     };
-    SourceRevision::admitted(admitted, identity, origin, previous)
+    let issuer = origin
+        .as_ref()
+        .map(|_| {
+            runtime
+                .canonical_store()?
+                .issuing_store()
+                .map(str::to_owned)
+                .map_err(WorkflowError::from)
+        })
+        .transpose()?;
+    SourceRevision::admitted(admitted, identity, origin, previous, issuer)
 }
 
 /// Publish the already admitted immutable result through the sole canonical edit path.
 /// Receiving admission belongs to the ordinary typed admission owner; this helper cannot accept raw edits.
 pub(super) async fn publish_admitted_project(
-    runtime: &Runtime,
+    runtime: &crate::workflow::SourceServices,
     intent: &pse_operations::canonical_projects::ProjectPublication,
     parent: &ModelingPackage,
     admitted: &ModelingPackage,
@@ -943,9 +976,9 @@ pub(super) async fn publish_admitted_project(
         admitted.revision.identity,
         Some(recorded),
         Some(&parent.revision),
+        Some(runtime.canonical_store()?.issuing_store()?.into()),
     )?;
     Ok(ModelingPackage {
-        runtime: runtime.clone(),
         revision,
         held_preparation: None,
         research_source: None,
@@ -958,7 +991,8 @@ impl ModelingPackage {
     /// Publish only the already admitted complete source through the original guarded source owner.
     pub(in crate::workflow) async fn publish_portable_import(
         &self,
-        runtime: &Runtime,
+        services: &crate::workflow::SourceServices,
+
         intent: &pse_operations::canonical_project_imports::ProjectImportIntent,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
@@ -971,7 +1005,7 @@ impl ModelingPackage {
             .values()
             .map(|object| object.edit())
             .collect::<Vec<_>>();
-        let recorded = runtime
+        let recorded = services
             .canonical_store()?
             .edit_project(intent.publication(), &edits)
             .await
@@ -987,9 +1021,9 @@ impl ModelingPackage {
             self.revision.identity,
             Some(recorded),
             None,
+            Some(services.canonical_store()?.issuing_store()?.into()),
         )?;
         Ok(ModelingPackage {
-            runtime: runtime.clone(),
             revision,
             held_preparation: None,
             research_source: None,
@@ -1006,18 +1040,19 @@ pub(super) struct CheckedSelection {
     source: Arc<AdmittedModelRevision>,
     physical: super::PhysicalContext,
     providers: Arc<BTreeMap<String, pse_kernels::Registration>>,
-    runtime: Runtime,
+    registry: Arc<pse_schema::Registry>,
     validation: Arc<pse_relations::validate::ValidationContext>,
     _metadata: Arc<pse_columnar::AllocationLease>,
 }
 impl CheckedSelection {
     fn new(
+        services: &crate::workflow::PreparationServices,
         package: &ModelingPackage,
         admission: Arc<super::SelectedAdmission>,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
         checkpoint(cancel)?;
-        let metadata = package.runtime.shared.math().reserve(
+        let metadata = services.math().reserve(
             "modeling:checked-selection-relation",
             package
                 .physical
@@ -1025,18 +1060,16 @@ impl CheckedSelection {
                 .checked_add(size_of::<Self>() + 512)
                 .ok_or_else(|| contract("checked source relation metadata extent"))?,
         )?;
-        let validation = package.runtime.admission_context();
-        let physical =
-            package
-                .physical
-                .readmit_context(&package.runtime, &validation, &cancel.token())?;
-        let spec = package
-            .runtime
+        let validation = services.admission_context();
+        let physical = package
+            .physical
+            .readmit_context(&services, &validation, &cancel.token())?;
+        let spec = services
             .registry()
             .relation("authored.modeling_declarations")
             .ok_or_else(|| contract("selected declaration relation absent"))?;
         let prepared = validation
-            .relation(package.runtime.registry(), spec)
+            .relation(services.registry(), spec)
             .map_err(super::super::relation)?;
         if prepared.has_scope_checks() {
             let bytes = admission
@@ -1047,14 +1080,12 @@ impl CheckedSelection {
                     n.checked_add(row.owned_bytes().checked_mul(32)?)
                 })
                 .ok_or_else(|| contract("selected scoped declaration extent"))?;
-            let _scratch = package
-                .runtime
-                .shared
+            let _scratch = services
                 .math()
                 .reserve("modeling:selected-scoped-rows", bytes)?;
             let mut builder =
                 pse_relations::generated::authored::modeling_declarations::Builder::with_registry(
-                    package.runtime.registry(),
+                    services.registry(),
                     admission.revision.declarations().len(),
                     &validation,
                 )
@@ -1071,21 +1102,24 @@ impl CheckedSelection {
             source: package.revision.admitted.clone(),
             physical,
             providers: package.providers.clone(),
-            runtime: package.runtime.clone(),
+            registry: services.registry().clone(),
             validation,
             _metadata: metadata,
         })
     }
-    pub(super) fn carries(&self, package: &ModelingPackage) -> bool {
+    pub(super) fn carries(
+        &self,
+        package: &ModelingPackage,
+        services: &crate::workflow::PreparationServices,
+    ) -> bool {
         Arc::ptr_eq(&self.source, &package.revision.admitted)
             && self.physical.same_sources(&package.physical)
             && Arc::ptr_eq(&self.providers, &package.providers)
-            && Arc::ptr_eq(self.runtime.sessions(), package.runtime.sessions())
-            && Arc::ptr_eq(self.runtime.registry(), package.runtime.registry())
+            && Arc::ptr_eq(&self.registry, services.registry())
             && self
                 .validation
                 .admission_scope()
-                .same_invocation(package.runtime.admission_context().admission_scope())
+                .same_invocation(services.admission_context().admission_scope())
             && self.admission.request.physical_owners
                 == (
                     Arc::as_ptr(&package.physical.quantities) as usize,
@@ -1638,6 +1672,7 @@ impl ModelingPackage {
     }
     fn source_decode<T: serde::de::DeserializeOwned + LocalSourceRow>(
         &self,
+        services: &crate::workflow::PreparationServices,
         object: &LocalSourceObject,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), WorkflowError> {
         let extent = object
@@ -1646,9 +1681,7 @@ impl ModelingPackage {
             .checked_mul(32)
             .and_then(|n| n.checked_add(8192))
             .ok_or_else(|| contract("owned source decode extent"))?;
-        let owner = self
-            .runtime
-            .shared
+        let owner = services
             .math()
             .reserve("modeling:owned-source-decode", extent)?;
         let value = object
@@ -1662,8 +1695,11 @@ impl ModelingPackage {
     }
     pub(super) async fn declaration_inventory(
         &self,
+        services: &crate::workflow::PreparationServices,
     ) -> Result<super::OwnedDeclarations, WorkflowError> {
-        let parent = self.delta_parent(&crate::CancelSource::new()).await?;
+        let parent = self
+            .delta_parent(services, &crate::CancelSource::new())
+            .await?;
         Ok(super::OwnedDeclarations {
             rows: parent.rows,
             _leases: parent._leases,
@@ -1674,11 +1710,12 @@ impl ModelingPackage {
     /// independently useful for edits, but are not prerequisites for this read.
     pub(super) fn declaration_window(
         &self,
+        services: &crate::workflow::PreparationServices,
         offset: usize,
         limit: usize,
     ) -> Result<(usize, super::OwnedDeclarations), WorkflowError> {
-        let (frame, frame_lease) =
-            self.source_decode::<IngressFrame>(self.local_object(INGRESS_FRAME)?.as_ref())?;
+        let (frame, frame_lease) = self
+            .source_decode::<IngressFrame>(services, self.local_object(INGRESS_FRAME)?.as_ref())?;
         let total = frame.order.len();
         let mut rows = Vec::with_capacity(limit.min(total.saturating_sub(offset)));
         let mut leases = vec![frame_lease];
@@ -1693,7 +1730,7 @@ impl ModelingPackage {
                     "ordered declaration identity differs from admitted body",
                 ));
             }
-            leases.push(self.runtime.shared.math().reserve(
+            leases.push(services.math().reserve(
                 "modeling:selected-declaration-copy",
                 source.0.owned_bytes().saturating_add(8192),
             )?);
@@ -1710,8 +1747,9 @@ impl ModelingPackage {
     /// Explicit fitting inventory from the owned immutable source and its allocations.
     pub async fn fit_declarations(
         &self,
-    ) -> Result<super::super::fitting::FitDeclarations, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        services: &crate::workflow::PreparationServices,
+    ) -> Result<super::FitDeclarations, WorkflowError> {
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let mut rows = Vec::new();
@@ -1723,28 +1761,28 @@ impl ModelingPackage {
                     .values()
                     .filter(|o| o.kind == "fit")
                 {
-                    let (row, lease) = self.source_decode(object)?;
+                    let (row, lease) = self.source_decode(services, object)?;
                     rows.push(row);
                     leases.push(lease);
                 }
-                Ok(super::super::fitting::FitDeclarations::from_owned_rows(
-                    rows, leases,
-                ))
+                Ok(super::FitDeclarations::from_owned_rows(rows, leases))
             })
             .await
     }
     pub(in crate::workflow) async fn fit_declaration(
         &self,
+        services: &crate::workflow::PreparationServices,
         id: pse_model::generated::identities::FitId,
     ) -> Result<pse_model::generated::authored::fit_cases::Row, WorkflowError> {
         let object = self.local_object(&format!("fit:{id}"))?;
-        Ok(self.source_decode(&object)?.0)
+        Ok(self.source_decode(services, &object)?.0)
     }
     pub(in crate::workflow) async fn replace_fits(
         &self,
+        services: &crate::workflow::SourceServices,
         fits: &[pse_model::generated::authored::fit_cases::Row],
     ) -> Result<SourceRevision, WorkflowError> {
-        let existing = self.fit_declarations().await?;
+        let existing = self.fit_declarations(services.preparation()).await?;
         let old = existing
             .fits
             .iter()
@@ -1776,12 +1814,13 @@ impl ModelingPackage {
             ..Default::default()
         };
         Ok(self
-            .with_delta(delta, &crate::CancelSource::new())
+            .with_delta(services, delta, &crate::CancelSource::new())
             .await?
             .revision)
     }
     pub(super) async fn full_source(
         &self,
+        services: &crate::workflow::PreparationServices,
     ) -> Result<
         (
             Vec<Declaration>,
@@ -1793,15 +1832,17 @@ impl ModelingPackage {
         WorkflowError,
     > {
         use pse_relations::generated::authored::{documents, fit_cases, packages};
-        let parent = self.delta_parent(&crate::CancelSource::new()).await?;
+        let parent = self
+            .delta_parent(services, &crate::CancelSource::new())
+            .await?;
         let mut leases = parent._leases;
-        let validation = self.runtime.admission_context();
+        let validation = services.admission_context();
         let mut inventory = pse_modeling::document::DocumentInventory {
             field_spans: parent.fields,
             ..Default::default()
         };
         let mut document_builder = documents::Builder::with_registry(
-            self.runtime.registry(),
+            services.registry(),
             parent.documents.len(),
             &validation,
         )
@@ -1822,7 +1863,7 @@ impl ModelingPackage {
                         row.path.clone(),
                         data.payload.clone().into(),
                         Default::default(),
-                        &self.runtime.shared.pool(),
+                        &services.pool(),
                         &crate::CancelSource::new().token(),
                     )?;
                 inventory.documents.insert(row.document_id, document);
@@ -1832,20 +1873,20 @@ impl ModelingPackage {
             document_builder.push(row).map_err(super::super::relation)?;
         }
         let mut package_builder =
-            packages::Builder::with_registry(self.runtime.registry(), 0, &validation)
+            packages::Builder::with_registry(services.registry(), 0, &validation)
                 .map_err(super::super::relation)?;
         let mut fit_builder =
-            fit_cases::Builder::with_registry(self.runtime.registry(), 0, &validation)
+            fit_cases::Builder::with_registry(services.registry(), 0, &validation)
                 .map_err(super::super::relation)?;
         for object in self.revision.admitted.objects.values() {
             match object.kind.as_str() {
                 "package" => {
-                    let (row, lease) = self.source_decode(object)?;
+                    let (row, lease) = self.source_decode(services, object)?;
                     package_builder.push(row).map_err(super::super::relation)?;
                     leases.push(lease);
                 }
                 "fit" => {
-                    let (row, lease) = self.source_decode(object)?;
+                    let (row, lease) = self.source_decode(services, object)?;
                     fit_builder.push(row).map_err(super::super::relation)?;
                     leases.push(lease);
                 }
@@ -1856,7 +1897,7 @@ impl ModelingPackage {
             inventory.parsed_fields.insert(
                 row.declaration_id,
                 parsed_fields(
-                    &self.runtime,
+                    &services,
                     row,
                     inventory.field_spans.get(&row.declaration_id),
                 )?,
@@ -1886,13 +1927,14 @@ impl ModelingPackage {
     }
     pub(super) async fn selected_declarations(
         &self,
+        services: &crate::workflow::PreparationServices,
         selected: &BTreeSet<DeclarationId>,
         cancel: &crate::CancelSource,
     ) -> Result<super::OwnedDeclarations, WorkflowError> {
         if selected.is_empty() {
             return Err(contract("a fixture selection names at least one test"));
         }
-        let parent = self.delta_parent(cancel).await?;
+        let parent = self.delta_parent(services, cancel).await?;
         let rows = parent
             .rows
             .into_iter()
@@ -1921,7 +1963,11 @@ impl ModelingPackage {
             .0
             .clone())
     }
-    pub(super) fn selection_request(&self, roots: &[DeclarationId]) -> Arc<super::SelectedRequest> {
+    pub(super) fn selection_request(
+        &self,
+        services: &crate::workflow::PreparationServices,
+        roots: &[DeclarationId],
+    ) -> Arc<super::SelectedRequest> {
         Arc::new(super::SelectedRequest {
             roots: roots.to_vec(),
             physical: self.physical.key,
@@ -1940,18 +1986,19 @@ impl ModelingPackage {
                     )
                 })
                 .collect(),
-            validation: Arc::as_ptr(self.runtime.sessions()) as usize,
-            registry: Arc::as_ptr(self.runtime.registry()) as usize,
+            validation: Arc::as_ptr(services.sessions()) as usize,
+            registry: Arc::as_ptr(services.registry()) as usize,
         })
     }
     pub(super) async fn checked_selection(
         &self,
+        services: &crate::workflow::PreparationServices,
         roots: &[DeclarationId],
         cancel: &crate::CancelSource,
     ) -> Result<CheckedSelection, WorkflowError> {
         checkpoint(cancel)?;
-        let math = self.runtime.shared.math();
-        let request = self.selection_request(roots);
+        let math = services.math();
+        let request = self.selection_request(services, roots);
         if let Some(candidates) = math.modeling_cache.selected(&request) {
             for admission in candidates.rchunks(8).flat_map(|window| window.iter().rev()) {
                 checkpoint(cancel)?;
@@ -1959,7 +2006,7 @@ impl ModelingPackage {
                     .dependencies
                     .matches_scoped(&self.revision.admitted, cancel)?
                 {
-                    return CheckedSelection::new(self, admission.clone(), cancel);
+                    return CheckedSelection::new(services, self, admission.clone(), cancel);
                 }
             }
         }
@@ -1970,7 +2017,7 @@ impl ModelingPackage {
             documents,
             leases,
             dependencies,
-        } = self.select_local(roots, cancel)?;
+        } = self.select_local(services, roots, cancel)?;
         let dependencies = Arc::new(dependencies);
         let extent = dependencies
             .retained_bytes()
@@ -1991,7 +2038,7 @@ impl ModelingPackage {
         let suppliers = index.record_sources;
         let versions = Arc::new(index.versions);
         let inputs = super::compiler_context(&self.physical, &self.providers);
-        let lineage = self.compiler_lineage()?;
+        let lineage = self.compiler_lineage(services)?;
         let stamp = crate::math::modeling::LaneStamp::new(
             self.revision.generation(),
             self.revision.revision_id(),
@@ -2058,34 +2105,41 @@ impl ModelingPackage {
             dependencies,
             versions,
             metadata,
-            _validation_owner: self.runtime.model.clone(),
+            _validation_owner: services.validation_context(),
         });
         math.modeling_cache
             .retain_selected(generation, admission.clone());
-        CheckedSelection::new(self, admission, cancel)
+        CheckedSelection::new(services, self, admission, cancel)
     }
-    fn compiler_lineage(&self) -> Result<crate::math::modeling::CompilerLineage, WorkflowError> {
+    fn compiler_lineage(
+        &self,
+        services: &crate::workflow::PreparationServices,
+    ) -> Result<crate::math::modeling::CompilerLineage, WorkflowError> {
         Ok(crate::math::modeling::CompilerLineage::new(
             self.revision.lineage_id(),
             pse_operations::generated::surreal::INTERPRETATION,
-            self.runtime.sessions(),
-            self.runtime.registry().clone(),
-            self.runtime.model.clone(),
+            services.sessions(),
+            services.registry().clone(),
+            services.model.clone(),
         )?)
     }
-    pub(crate) fn pure_workspace(&self) -> Result<crate::math::Workspace, WorkflowError> {
-        Ok(self.runtime.shared.math().compiler_lane(
-            self.compiler_lineage()?,
+    pub(crate) fn pure_workspace(
+        &self,
+        services: &crate::workflow::PreparationServices,
+    ) -> Result<crate::math::Workspace, WorkflowError> {
+        Ok(services.math().compiler_lane(
+            self.compiler_lineage(services)?,
             super::compiler_context(&self.physical, &self.providers),
         )?)
     }
     pub(in crate::workflow) async fn selected_revision(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
         Ok(self
-            .checked_selection(&[root], cancel)
+            .checked_selection(services, &[root], cancel)
             .await?
             .admission
             .revision
@@ -2093,11 +2147,12 @@ impl ModelingPackage {
     }
     pub(in crate::workflow) async fn selected_revision_roots(
         &self,
+        services: &crate::workflow::PreparationServices,
         roots: &[DeclarationId],
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
         Ok(self
-            .checked_selection(roots, cancel)
+            .checked_selection(services, roots, cancel)
             .await?
             .admission
             .revision
@@ -2105,18 +2160,22 @@ impl ModelingPackage {
     }
     pub(in crate::workflow) async fn all_revision(
         &self,
+        services: &crate::workflow::PreparationServices,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
-        let parent = self.delta_parent(&crate::CancelSource::new()).await?;
+        let parent = self
+            .delta_parent(services, &crate::CancelSource::new())
+            .await?;
         let roots = parent
             .rows
             .iter()
             .map(|row| row.declaration_id)
             .collect::<Vec<_>>();
-        self.selected_revision_roots(&roots, &crate::CancelSource::new())
+        self.selected_revision_roots(services, &roots, &crate::CancelSource::new())
             .await
     }
     fn insert_local(
         &self,
+        services: &crate::workflow::PreparationServices,
         index: &mut SourceIndex,
         objects: Vec<Arc<LocalSourceObject>>,
         leases: &mut Vec<Arc<pse_columnar::AllocationLease>>,
@@ -2135,7 +2194,7 @@ impl ModelingPackage {
                 .as_ref()
                 .ok_or_else(|| contract("owned typed declaration absent"))?
                 .clone();
-            let lease = self.runtime.shared.math().reserve(
+            let lease = services.math().reserve(
                 "modeling:local-declaration-copy",
                 source
                     .0
@@ -2167,6 +2226,7 @@ impl ModelingPackage {
     }
     fn select_local(
         &self,
+        services: &crate::workflow::PreparationServices,
         roots: &[DeclarationId],
         cancel: &crate::CancelSource,
     ) -> Result<LocalSelection, WorkflowError> {
@@ -2175,7 +2235,8 @@ impl ModelingPackage {
         let physical_object = premises
             .logical(source, PHYSICAL_SCOPE_LOGICAL)
             .ok_or_else(|| contract("owned physical scope absent"))?;
-        let (mut physical, lease) = self.source_decode::<PhysicalScope>(&physical_object)?;
+        let (mut physical, lease) =
+            self.source_decode::<PhysicalScope>(services, &physical_object)?;
         let mut leases = vec![lease];
         let mut index = SourceIndex::default();
         index.versions.insert(
@@ -2215,7 +2276,8 @@ impl ModelingPackage {
                             vec![object]
                         } else {
                             let object=premises.logical(source,&format!("record:{id}")).ok_or_else(||contract("selected modeling declaration, record or lexical ancestor absent"))?;
-                            let (supplier, lease) = self.source_decode::<DeclarationId>(&object)?;
+                            let (supplier, lease) =
+                                self.source_decode::<DeclarationId>(services, &object)?;
                             leases.push(lease);
                             index
                                 .versions
@@ -2264,7 +2326,7 @@ impl ModelingPackage {
                     }
                     _ => Vec::new(),
                 };
-                self.insert_local(&mut index, objects, &mut leases, cancel)?;
+                self.insert_local(services, &mut index, objects, &mut leases, cancel)?;
             }
             let new_rows = std::mem::take(&mut index.new_rows);
             let mut supplier_demands = Vec::new();
@@ -2292,12 +2354,10 @@ impl ModelingPackage {
                     .get(&id)
                     .cloned()
                     .map(Ok)
-                    .unwrap_or_else(|| parsed_fields(&self.runtime, &row, index.fields.get(&id)))?;
+                    .unwrap_or_else(|| parsed_fields(&services, &row, index.fields.get(&id)))?;
                 let references = selected_source::declaration_references_parsed(&row, &parsed)
                     .map_err(super::super::modeling_error)?;
-                let lease = self
-                    .runtime
-                    .shared
+                let lease = services
                     .math()
                     .reserve("modeling:local-reference-paths", references.owned_bytes())?;
                 index.parsed_fields.insert(id, parsed);
@@ -2324,7 +2384,7 @@ impl ModelingPackage {
             }
             for query in supplier_demands {
                 let objects = premises.inventory(source, query);
-                self.insert_local(&mut index, objects, &mut leases, cancel)?;
+                self.insert_local(services, &mut index, objects, &mut leases, cancel)?;
             }
             for (owner, references) in std::mem::take(&mut index.pending_references) {
                 checkpoint(cancel)?;
@@ -2366,7 +2426,7 @@ impl ModelingPackage {
                 && let Some(object) =
                     premises.logical(source, &format!("physical_scope_document:{id}"))
             {
-                let (entry, lease) = self.source_decode::<PhysicalScope>(&object)?;
+                let (entry, lease) = self.source_decode::<PhysicalScope>(services, &object)?;
                 if entry.package != physical.package
                     || entry.documents != Some(BTreeSet::from([id]))
                 {
@@ -2381,8 +2441,10 @@ impl ModelingPackage {
                 leases.push(lease);
             }
             if let Some(object) = premises.logical(source, &format!("document:{id}")) {
-                let (row, lease) =
-                    self.source_decode::<pse_model::generated::authored::documents::Row>(&object)?;
+                let (row, lease) = self
+                    .source_decode::<pse_model::generated::authored::documents::Row>(
+                        services, &object,
+                    )?;
                 documents.packages.insert(id, row.package_id.as_id());
                 metadata_by_document.insert(id, row);
                 index
@@ -2419,7 +2481,7 @@ impl ModelingPackage {
                     path,
                     object.payload.clone().into(),
                     Default::default(),
-                    &self.runtime.shared.pool(),
+                    &services.pool(),
                     &cancel.token(),
                 )?;
             documents.documents.insert(id, document);
@@ -2670,6 +2732,7 @@ impl ModelingPackage {
     /// problem. The admitted base's durable and local heads are never advanced.
     pub(in crate::workflow) async fn record_study_variant(
         &self,
+        services: &crate::workflow::SourceServices,
         authority: &pse_operations::canonical_studies::StudyAdmissionAuthority,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
@@ -2680,9 +2743,8 @@ impl ModelingPackage {
         let problem = format!("study-variant:{point}");
         let operation = format!("study-variant-source:{point}");
         let extent = self.revision.admitted.retained_bytes();
-        let _owner = self
-            .runtime
-            .shared
+        let _owner = services
+            .preparation()
             .math()
             .reserve("study:variant-source-publication", extent)?;
         let edits = self
@@ -2705,7 +2767,7 @@ impl ModelingPackage {
             })
             .collect::<Vec<_>>();
         let receipt = crate::workflow::study::creation_effect(cancel, async {
-            self.runtime
+            services
                 .canonical_store()?
                 .edit_with_study_admission(&problem, None, &operation, &edits, authority)
                 .await
@@ -2723,6 +2785,7 @@ impl ModelingPackage {
             self.revision.identity,
             Some(receipt),
             None,
+            Some(services.canonical_store()?.issuing_store()?.into()),
         )?;
         Ok(Self {
             revision,
@@ -2794,21 +2857,20 @@ impl ModelingPackage {
     /// Bind retained immutable inputs to an admitted receiver without a transport crossing.
     pub(in crate::workflow) fn reconstruct_replay_source(
         &self,
-        runtime: &Runtime,
+        services: &crate::workflow::SourceServices,
     ) -> Result<ModelingPackage, WorkflowError> {
-        rebind::rebind(self, runtime)
+        rebind::rebind(self, services.preparation())
     }
     /// Candidate only; all owners stay borrowed and exact premises are checked after lookup.
     pub(in crate::workflow) fn replay_source_owner_key(
         &self,
-    ) -> (usize, usize, usize, usize, usize, usize) {
+    ) -> (usize, usize, usize, usize, usize) {
         (
             Arc::as_ptr(&self.revision.admitted) as usize,
             Arc::as_ptr(&self.physical.quantities) as usize,
             Arc::as_ptr(&self.physical.preconditions) as usize,
             Arc::as_ptr(&self.providers) as usize,
             Arc::as_ptr(&self.accelerators) as usize,
-            Arc::as_ptr(&self.runtime.shared) as usize,
         )
     }
     /// Exact retained premises for operation-local coalescing, never a durable identity.
@@ -2819,10 +2881,9 @@ impl ModelingPackage {
             && self.physical.same_sources(&other.physical)
             && Arc::ptr_eq(&self.providers, &other.providers)
             && Arc::ptr_eq(&self.accelerators, &other.accelerators)
-            && Arc::ptr_eq(&self.runtime.shared, &other.runtime.shared)
     }
 }
-impl Runtime {
+impl crate::workflow::SourceServices {
     pub(in crate::workflow) fn admit_replay_source(
         &self,
         document: &crate::workflow::replay::ReplaySourceDocument,
@@ -2895,18 +2956,24 @@ impl Runtime {
                 contract("complete replay premises exceed finite reconstruction allocation")
             })?;
         let _scratch = self
-            .shared
+            .preparation()
             .math()
             .reserve("replay:source-reconstruction", bytes)?;
-        let validation = self.admission_context();
+        let validation = self.preparation().admission_context();
         for (key, batch) in &mut physical.sources {
             checkpoint(cancel)?;
             let spec = self
+                .preparation()
                 .registry()
                 .relation_by_key(*key)
                 .ok_or_else(|| contract("supplied replay physical relation absent"))?;
             *batch = batch
-                .readmit_context(self.registry(), spec, &validation, &cancel.token())
+                .readmit_context(
+                    self.preparation().registry(),
+                    spec,
+                    &validation,
+                    &cancel.token(),
+                )
                 .map_err(super::super::relation)?;
         }
         if document.interpretation != pse_operations::generated::surreal::INTERPRETATION
@@ -3010,7 +3077,7 @@ impl Runtime {
                         "replay declaration membership differs from its body",
                     ));
                 }
-                let parsed = parsed_fields(self, &source.0, source.1.as_ref())?;
+                let parsed = parsed_fields(self.preparation(), &source.0, source.1.as_ref())?;
                 typed.decoded(edited, source.clone(), parsed.clone())?;
                 index.parsed_fields.insert(source.0.declaration_id, parsed);
                 index.complete_scope(source.0.declaration_id);
@@ -3098,8 +3165,9 @@ impl Runtime {
             ));
         }
         checkpoint(cancel)?;
-        let admitted = AdmittedModelRevision::apply_inputs(self, None, &edits, &typed, None)?;
-        let revision = SourceRevision::admitted(admitted, identity, None, None)?;
+        let admitted =
+            AdmittedModelRevision::apply_inputs(self.preparation(), None, &edits, &typed, None)?;
+        let revision = SourceRevision::admitted(admitted, identity, None, None, None)?;
         let mut package = self.package_from_revision(revision, physical, providers)?;
         if let Some(selected) = &document.context {
             if selected.context.source_identity != package.revision.identity().to_string()
@@ -3122,7 +3190,7 @@ impl Runtime {
             package.project_context = Some(selected.clone());
         }
         package.research_source = document.research.clone();
-        rebind::admit_rows(&package, self, &validation, cancel)?;
+        rebind::admit_rows(&package, self.preparation(), &validation, cancel)?;
         checkpoint(cancel)?;
         Ok(package)
     }
@@ -3204,10 +3272,13 @@ mod tests {
             )
             .unwrap();
         let page = package
-            .declaration_page(&crate::workflow::ModelingDeclarationRequest {
-                offset: 9,
-                limit: 1,
-            })
+            .declaration_page(
+                &runtime.preparation_services(),
+                &crate::workflow::ModelingDeclarationRequest {
+                    offset: 9,
+                    limit: 1,
+                },
+            )
             .await
             .unwrap();
         assert_eq!(page.total, original.len());
@@ -3219,7 +3290,10 @@ mod tests {
             "paged reads must not build edit/dependency products"
         );
         assert!(
-            package.declarations().await.is_err(),
+            package
+                .declarations(&runtime.preparation_services(),)
+                .await
+                .is_err(),
             "an unrelated full inventory must exceed this deliberately scarce allowance"
         );
         drop(held);
@@ -3615,13 +3689,23 @@ mod tests {
             .unwrap();
         assert!(package.canonical_revision().is_none());
         let selected = package
-            .checked_selection(&[root], &crate::CancelSource::new())
+            .checked_selection(
+                &runtime.preparation_services(),
+                &[root],
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         let declarations = selected.admission.revision.declarations();
         assert!(declarations.iter().any(|r| r.name == "a"));
         assert!(!declarations.iter().any(|r| r.name == "b"));
-        assert_eq!(&*package.declarations().await.unwrap(), rows.as_slice());
+        assert_eq!(
+            &*package
+                .declarations(&runtime.preparation_services(),)
+                .await
+                .unwrap(),
+            rows.as_slice()
+        );
         let same = runtime
             .modeling_package(rows, package.physical.clone())
             .await
@@ -3629,7 +3713,11 @@ mod tests {
         assert_ne!(same.revision_id(), package.revision_id());
         assert_ne!(same.revision.lineage_id(), package.revision.lineage_id());
         let reused = same
-            .checked_selection(&[root], &crate::CancelSource::new())
+            .checked_selection(
+                &runtime.preparation_services(),
+                &[root],
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         assert!(Arc::ptr_eq(&selected.admission, &reused.admission));
@@ -3663,7 +3751,9 @@ mod tests {
         admission.await.unwrap();
         let parent = crate::CancelSource::new();
         let roots = [root];
+        let preparation_services = runtime.preparation_services();
         let mut selection = Box::pin(package.checked_selection_scoped(
+            &preparation_services,
             &roots,
             &parent,
             std::time::Instant::now() + std::time::Duration::from_secs(60),
@@ -3711,9 +3801,10 @@ mod tests {
             .unwrap();
         let left = parse("package p {param a:Scalar=2;}");
         let right = parse("package p {param a:Scalar=3;}");
+        let source_services = runtime.source_services();
         let (left, right) = tokio::join!(
-            package.with_declarations(left),
-            package.with_declarations(right)
+            package.with_declarations(&source_services, left),
+            package.with_declarations(&source_services, right)
         );
         let left = left.unwrap();
         let right = right.unwrap();
@@ -3724,7 +3815,10 @@ mod tests {
                 || right.revision.lineage_id() == package.revision.lineage_id()
         );
         assert_eq!(
-            &*package.declarations().await.unwrap(),
+            &*package
+                .declarations(&runtime.preparation_services(),)
+                .await
+                .unwrap(),
             parse("package p {param a:Scalar=1;}").as_slice()
         );
         let before = left.revision.head.lock().unwrap().revision.clone();
@@ -3732,6 +3826,7 @@ mod tests {
         cancel.cancel();
         assert!(
             left.with_delta(
+                &runtime.source_services(),
                 crate::workflow::SourceDelta {
                     parent: left.revision_id().into(),
                     ..Default::default()
@@ -3754,7 +3849,7 @@ mod tests {
             .await
             .unwrap();
         let root = package
-            .declarations()
+            .declarations(&runtime.preparation_services())
             .await
             .unwrap()
             .iter()
@@ -3762,7 +3857,11 @@ mod tests {
             .unwrap()
             .declaration_id;
         let selected = package
-            .checked_selection(&[root], &crate::CancelSource::new())
+            .checked_selection(
+                &runtime.preparation_services(),
+                &[root],
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         let object = package
@@ -3781,7 +3880,7 @@ mod tests {
             payload(&(replacement, None::<FieldSpans>)).unwrap().into();
         // Keep its correspondence key deliberately unchanged: full equality refuses reuse.
         let forged_owner = AdmittedModelRevision::apply(
-            &runtime,
+            &runtime.preparation_services(),
             Some(&package.revision.admitted),
             &[forged],
             None,
@@ -3789,7 +3888,7 @@ mod tests {
         .unwrap();
         assert!(!selected.admission.dependencies.matches(&forged_owner));
         let shadow = package
-            .with_declarations(parse(
+            .with_declarations(&runtime.source_services(), parse(
                 "package p {param a:Scalar=1;def Root {param a:Scalar=4;var x:Scalar;eq e:x==a;}}",
             ))
             .await
@@ -3801,7 +3900,11 @@ mod tests {
                 .matches(&shadow.revision.admitted)
         );
         let current = shadow
-            .checked_selection(&[root], &crate::CancelSource::new())
+            .checked_selection(
+                &runtime.preparation_services(),
+                &[root],
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         assert_ne!(
@@ -3880,6 +3983,7 @@ mod tests {
         assert!(package.canonical_revision().is_some());
         let prepared = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -3896,7 +4000,12 @@ mod tests {
             )
             .await
             .unwrap();
-        let original = prepared.start().unwrap().wait().await.unwrap();
+        let original = prepared
+            .start(&runtime.execution_services())
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
         assert_original_root(&original);
         let RunDurability::Durable(record) = original.durability() else {
             panic!("the source run must acknowledge real durable recording")
@@ -3908,7 +4017,10 @@ mod tests {
         let replay = original.replay();
         let document = replay.document().unwrap();
         assert_eq!(document.sources.len(), 1);
-        assert_eq!(document.case_constructors.len(), 1);
+        let crate::workflow::ReplayConstructor::Modeling { cases } = &document.constructor else {
+            panic!("modeling constructor required")
+        };
+        assert_eq!(cases.len(), 1);
         assert!(!document.native_attempts.is_empty());
 
         // Close the actual publication/recording owner, retaining its owned scientific closure.
@@ -3934,7 +4046,9 @@ mod tests {
             local.canonical(),
             Err(WorkflowError::RecordingUnavailable)
         ));
-        let sources = replay.reconstruct_sources(&local).unwrap();
+        let sources = replay
+            .reconstruct_sources(&local.source_services())
+            .unwrap();
         assert_eq!(sources.len(), 1);
         assert!(sources[0].canonical_revision().is_none());
         assert_eq!(
@@ -3942,15 +4056,24 @@ mod tests {
             serde_json::to_value(&document.sources[0]).unwrap(),
             "the receiver admits the complete exact retained source closure",
         );
-        let restored = document.case_constructors[0]
-            .reconstruct(&sources[0], &crate::CancelSource::new())
+        let restored = cases[0]
+            .reconstruct(
+                &local.preparation_services(),
+                &sources[0],
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         assert_eq!(
             restored.solve.original_identity().unwrap(),
             prepared.solve.original_identity().unwrap()
         );
-        let fresh = restored.start().unwrap().wait().await.unwrap();
+        let fresh = restored
+            .start(&local.execution_services())
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
         assert_ne!(fresh.run_id, original.run_id);
         assert_original_root(&fresh);
         assert!(
@@ -3977,7 +4100,7 @@ mod tests {
             .await
             .unwrap();
         let root = package
-            .declarations()
+            .declarations(&runtime.preparation_services())
             .await
             .unwrap()
             .iter()
@@ -3992,15 +4115,17 @@ mod tests {
         assert_ne!(imported.revision_id(), package.revision_id());
         assert_eq!(imported.revision.identity, package.revision.identity);
         let changed = package
-            .with_declarations(parse(
-                "package p {param a:Scalar=2;def Root {var x:Scalar;eq e:x==a;}}",
-            ))
+            .with_declarations(
+                &runtime.source_services(),
+                parse("package p {param a:Scalar=2;def Root {var x:Scalar;eq e:x==a;}}"),
+            )
             .await
             .unwrap();
         let conflict = imported
-            .with_declarations(parse(
-                "package p {param a:Scalar=3;def Root {var x:Scalar;eq e:x==a;}}",
-            ))
+            .with_declarations(
+                &runtime.source_services(),
+                parse("package p {param a:Scalar=3;def Root {var x:Scalar;eq e:x==a;}}"),
+            )
             .await
             .unwrap_err();
         assert!(
@@ -4016,15 +4141,20 @@ mod tests {
         runtime.canonical_store().unwrap().close();
         assert!(
             changed
-                .checked_selection(&[root], &crate::CancelSource::new())
+                .checked_selection(
+                    &runtime.preparation_services(),
+                    &[root],
+                    &crate::CancelSource::new()
+                )
                 .await
                 .is_ok()
         );
         assert!(
             changed
-                .with_declarations(parse(
-                    "package p {param a:Scalar=4;def Root {var x:Scalar;eq e:x==a;}}"
-                ))
+                .with_declarations(
+                    &runtime.source_services(),
+                    parse("package p {param a:Scalar=4;def Root {var x:Scalar;eq e:x==a;}}")
+                )
                 .await
                 .is_err()
         );
@@ -4061,12 +4191,18 @@ mod plan39_selection_tests {
                 let cancel = crate::CancelSource::new();
                 let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
                 let mut selected = package
-                    .checked_selection_scoped(&[root], &cancel, deadline)
+                    .checked_selection_scoped(
+                        &runtime.preparation_services(),
+                        &[root],
+                        &cancel,
+                        deadline,
+                    )
                     .await?;
-                assert!(selected.carries(&package));
+                assert!(selected.carries(&package, &runtime.preparation_services()));
                 let admission = selected.admission.clone();
                 package
                     .prepare_selected_basis(
+                        &runtime.preparation_services(),
                         &mut selected,
                         root,
                         pse_modeling::specialize::root_instance(root),
@@ -4082,6 +4218,7 @@ mod plan39_selection_tests {
                 assert!(
                     package
                         .prepare_selected_basis(
+                            &runtime.preparation_services(),
                             &mut selected,
                             root,
                             pse_modeling::specialize::root_instance(root),
@@ -4096,6 +4233,7 @@ mod plan39_selection_tests {
                 assert!(
                     package
                         .prepare_selected_basis(
+                            &runtime.preparation_services(),
                             &mut selected,
                             root,
                             pse_modeling::specialize::root_instance(root),
@@ -4110,13 +4248,16 @@ mod plan39_selection_tests {
                 let mut foreign_physical = package.clone();
                 foreign_physical.physical = crate::workflow::tests::physical();
                 assert!(
-                    !selected.carries(&foreign_physical),
+                    !selected.carries(&foreign_physical, &runtime.preparation_services()),
                     "equal physical content is not the same owner"
                 );
-                let changed = package.with_declarations(rows(2)).await?;
-                assert!(!selected.carries(&changed));
+                let changed = package
+                    .with_declarations(&runtime.source_services(), rows(2))
+                    .await?;
+                assert!(!selected.carries(&changed, &runtime.preparation_services()));
                 changed
                     .prepare_selected_basis(
+                        &runtime.preparation_services(),
                         &mut selected,
                         root,
                         pse_modeling::specialize::root_instance(root),
@@ -4126,7 +4267,7 @@ mod plan39_selection_tests {
                         deadline,
                     )
                     .await?;
-                assert!(selected.carries(&changed));
+                assert!(selected.carries(&changed, &runtime.preparation_services()));
                 assert_ne!(admission.dependencies, selected.admission.dependencies);
                 Ok::<_, WorkflowError>(())
             })
@@ -4147,16 +4288,21 @@ mod plan39_selection_tests {
             .await
             .unwrap();
         let mut selected = runtime
-            .scope_activity(package.checked_selection(&[root], &crate::CancelSource::new()))
+            .scope_activity(package.checked_selection(
+                &runtime.preparation_services(),
+                &[root],
+                &crate::CancelSource::new(),
+            ))
             .await
             .unwrap();
         runtime
             .scope_activity(async {
-                assert!(!selected.carries(&package));
+                assert!(!selected.carries(&package, &runtime.preparation_services()));
                 let cancel = crate::CancelSource::new();
                 let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
                 package
                     .prepare_selected_basis(
+                        &runtime.preparation_services(),
                         &mut selected,
                         root,
                         pse_modeling::specialize::root_instance(root),
@@ -4166,7 +4312,7 @@ mod plan39_selection_tests {
                         deadline,
                     )
                     .await?;
-                assert!(selected.carries(&package));
+                assert!(selected.carries(&package, &runtime.preparation_services()));
                 Ok::<_, WorkflowError>(())
             })
             .await

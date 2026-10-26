@@ -40,8 +40,8 @@ pub use attempt_documents::{
     AttemptSummaryDocument, AttemptSummaryLimits,
 };
 pub use replay::{
-    ReplayBoundOverride, ReplayCaseConstructor, ReplayCaseInputs, ReplayCoverage,
-    ReplayDecisionDocument, ReplayDecisions, ReplayDocument, ReplayFitConstructor,
+    ReplayBoundOverride, ReplayCaseConstructor, ReplayCaseInputs, ReplayConstructor,
+    ReplayCoverage, ReplayDecisionDocument, ReplayDecisions, ReplayDocument, ReplayFitConstructor,
     ReplayHorizonConstructor, ReplayHorizonController, ReplayHorizonEstimator, ReplayHorizonSignal,
     ReplayNativeAttempt, ReplayNativeRecordCoverage, ReplayPhysicalSource, ReplayProvider,
     ReplayProviderPort, ReplayProviderShape, ReplayScreenedStart, ReplayShootingBound,
@@ -92,7 +92,7 @@ pub use diagnostic_documents::{
 pub(crate) mod diagnostic_rows;
 mod diagnostics;
 mod durable;
-pub use completion::Completion;
+pub use completion::{Completion, ProductPermission, ScientificPermission};
 pub use durable::{
     AdmittedSeed, Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability,
     SeedReadError, StoredCompletion, TerminationCause, TerminationDetail,
@@ -306,9 +306,37 @@ pub use live_simulation::{
 };
 use std::sync::Arc;
 mod canonical;
+mod services;
+pub use services::{
+    ActivityAdmission, ExecutionServices, PreparationServices, PublicationServices, SourceServices,
+};
 mod source_settlement;
 pub use canonical::{CanonicalDeployment, DeploymentHost, OuterAttestation};
 pub use source_settlement::{SourceAcknowledgement, SourceSettlement};
+
+/// Effect knowledge supplied by the selected lazy-admission phase, never inferred
+/// from the scientific failure class or an absent receipt.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AdmissionEffect {
+    /// The owner established that this admission published no source.
+    NoPublication,
+    /// The selected source publication returned its original acknowledgement.
+    SourceAcknowledged {
+        /// Original acknowledged source revision, retained for readback.
+        revision: String,
+    },
+    /// The publication entry point failed without establishing its effect outcome.
+    UnresolvedPublication,
+}
+impl AdmissionEffect {
+    pub(super) const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NoPublication => "no_publication",
+            Self::SourceAcknowledged { .. } => "source_acknowledged",
+            Self::UnresolvedPublication => "unresolved_publication",
+        }
+    }
+}
 
 /// Errors retain the native/physical/authoring cause; no string matching or fallback.
 #[derive(Debug, thiserror::Error)]
@@ -404,6 +432,30 @@ pub enum WorkflowError {
     /// A complete diagnostic for invalid API input.
     #[error("native workflow contract: {0}")]
     Input(String),
+    /// A producer-owned deterministic refusal of immutable scientific inputs.
+    #[error(transparent)]
+    ScientificRefusal(Box<BoundaryDiagnostic>),
+    /// Lazy admission retains the original failure and the actual publication phase.
+    #[error("{cause}")]
+    Admission {
+        /// Actual effect knowledge at the failure boundary.
+        effect: AdmissionEffect,
+        /// Original typed cause, including any unsettled canonical occurrence/readback.
+        #[source]
+        cause: Box<WorkflowError>,
+    },
+    /// A finite runtime/storage/effort allowance refused this operation.
+    #[error("native workflow resource limit: {0}")]
+    Resource(String),
+    /// Authenticated retained content failed its owning integrity contract.
+    #[error("native workflow integrity: {0}")]
+    Integrity(String),
+    /// An executing service or provider is unavailable or failed.
+    #[error("native workflow infrastructure: {0}")]
+    Infrastructure(String),
+    /// The selected operation has no supported implementation under this configuration.
+    #[error("native workflow unsupported: {0}")]
+    Unsupported(String),
     /// An internal operation postcondition failed, distinct from authored input refusal.
     #[error("native workflow invariant: {0}")]
     Internal(String),
@@ -418,12 +470,36 @@ impl From<BoundaryDiagnostic> for WorkflowError {
 }
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
-    code(this) {match this {Self::Input(_)|Self::DocumentDecode(_)|Self::RecordingUnavailable|Self::CallerClosed=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)|Self::StudyExecutionUnavailable{..}=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Typed(_)=>None,_=>None}},
-    forward(this) {match this {Self::SeedRead(e)=>Some(e),Self::DocumentDecode(e)=>Some(e),Self::ResultBlock(e)=>Some(e),Self::Canonical(e)=>Some(e),Self::Boundary(e)=>Some(e.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::StudyCreationUnsettled{source,..}|Self::ArtifactTransferUnsettled{source,..}=>Some(source.as_ref()),_=>None}},
+    code(this) {match this {Self::Input(_)|Self::DocumentDecode(_)|Self::RecordingUnavailable|Self::CallerClosed=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)|Self::StudyExecutionUnavailable{..}=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Resource(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Integrity(_)|Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Unsupported(_)=>Some(pse_diagnostics::DiagnosticCode::NativeUnsupported),Self::Typed(_)=>None,_=>None}},
+    forward(this) {match this {Self::SeedRead(e)=>Some(e),Self::DocumentDecode(e)=>Some(e),Self::ResultBlock(e)=>Some(e),Self::Canonical(e)=>Some(e),Self::Boundary(e)|Self::ScientificRefusal(e)=>Some(e.as_ref()),Self::Admission{cause,..}=>Some(cause.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::StudyCreationUnsettled{source,..}|Self::ArtifactTransferUnsettled{source,..}=>Some(source.as_ref()),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
+}
+pub(crate) fn scientific_refusal(
+    class: pse_model::diagnostic::BoundaryClass,
+    stage: pse_diagnostics::DiagnosticStage,
+    rule: pse_diagnostics::DiagnosticRule,
+    sources: Vec<pse_ids::SemanticId>,
+    message: impl Into<String>,
+) -> WorkflowError {
+    let mut diagnostic = BoundaryDiagnostic::new(class, stage, sources, rule);
+    diagnostic.observations.insert(
+        "detail".into(),
+        pse_model::diagnostic::Observation::Text(message.into()),
+    );
+    WorkflowError::ScientificRefusal(Box::new(diagnostic))
 }
 pub(crate) fn contract(message: impl Into<String>) -> WorkflowError {
     WorkflowError::Input(message.into())
+}
+/// A selected scientific or diagnostic task cannot obtain its finite deadline.
+pub(crate) fn deadline_limit(detail: &'static str) -> WorkflowError {
+    WorkflowError::Math(
+        pse_backend_native::ProblemError::Limit {
+            kind: pse_backend_native::LimitKind::Time,
+            detail: detail.into(),
+        }
+        .into(),
+    )
 }
 fn math(error: impl Into<pse_math::MathError>) -> WorkflowError {
     WorkflowError::Math(MathRuntimeError::Math(error.into()))
@@ -539,7 +615,7 @@ impl Runtime {
         let caller = Arc::new(RuntimeCaller::new(
             Some(canonical.store().clone()),
             model.validation_context(),
-            Arc::downgrade(&shared),
+            Arc::downgrade(&shared.pool()),
         ));
         let physical_cache = Arc::new(physical_cache::PhysicalCache::default());
         let component: Arc<dyn pse_engine::cache_service::CacheComponent> = physical_cache.clone();
@@ -568,7 +644,7 @@ impl Runtime {
         let caller = Arc::new(RuntimeCaller::new(
             None,
             model.validation_context(),
-            Arc::downgrade(&shared),
+            Arc::downgrade(&shared.pool()),
         ));
         let physical_cache = Arc::new(physical_cache::PhysicalCache::default());
         let component: Arc<dyn pse_engine::cache_service::CacheComponent> = physical_cache.clone();
@@ -787,7 +863,7 @@ struct RuntimeCaller {
     state: std::sync::Mutex<RuntimeCallerState>,
     validation: Arc<pse_relations::validate::ValidationContext>,
     observations: Arc<crate::observation::Diagnostics>,
-    resources: std::sync::Weak<SharedRuntime>,
+    resources: std::sync::Weak<dyn datafusion::execution::memory_pool::MemoryPool>,
 }
 #[derive(Debug, Default)]
 struct RuntimeCallerState {
@@ -800,7 +876,7 @@ impl RuntimeCaller {
     fn new(
         store: Option<pse_operations::canonical::CanonicalStore>,
         validation: Arc<pse_relations::validate::ValidationContext>,
-        resources: std::sync::Weak<SharedRuntime>,
+        resources: std::sync::Weak<dyn datafusion::execution::memory_pool::MemoryPool>,
     ) -> Self {
         let observations = crate::observation::process_diagnostics().clone();
         Self {
@@ -815,8 +891,8 @@ impl RuntimeCaller {
         }
     }
     fn sample_resources(&self, context: &pse_diagnostics::observation::ObservationContext) {
-        if let Some(shared) = self.resources.upgrade() {
-            match i64::try_from(shared.pool().reserved()) {
+        if let Some(pool) = self.resources.upgrade() {
+            match i64::try_from(pool.reserved()) {
                 Ok(bytes) => context.integer("resource.shared_pool_reserved", "bytes", bytes),
                 Err(_) => context.unavailable(
                     "resource.shared_pool_reserved",
@@ -1115,7 +1191,7 @@ mod local_caller_tests {
                 Default::default(),
                 directory.path().to_owned(),
             ),
-            resources: Arc::downgrade(&runtime.shared),
+            resources: Arc::downgrade(&runtime.shared.pool()),
         });
         let completed = caller.admit().unwrap();
         let completed_reader = completed.0.observation.as_ref().unwrap().reader();
@@ -1208,7 +1284,12 @@ mod local_caller_tests {
                     let package = executing
                         .modeling_package(declarations.clone(), tests::physical())
                         .await?;
-                    assert_eq!(&*package.declarations().await?, declarations.as_slice());
+                    assert_eq!(
+                        &*package
+                            .declarations(&executing.preparation_services())
+                            .await?,
+                        declarations.as_slice()
+                    );
                     Ok(package.revision_id().to_owned())
                 })
                 .await

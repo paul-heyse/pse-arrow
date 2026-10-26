@@ -420,12 +420,29 @@ impl Operations {
         let completion = self
             .decode_completion(CompletionSelection::Full(read))
             .await?;
-        Ok(match &completion.termination.cause {
-            TerminationCause::Assessment { usable, .. } if completion.completion.is_some() => {
-                Some(*usable)
-            }
-            _ => None,
-        })
+        Ok(completion
+            .completion
+            .as_ref()
+            .and_then(super::Completion::governing_permission))
+    }
+
+    /// Product-local permission from this exact protected original completion.
+    pub(super) async fn result_product_permission(
+        &self,
+        read: &ResultRead,
+        quantity: pse_model::generated::enums::DerivedQuantity,
+    ) -> Result<Option<bool>, WorkflowError> {
+        if read.attempt().completion.is_none() {
+            return Ok(None);
+        }
+        let stored = self
+            .decode_completion(CompletionSelection::Full(read))
+            .await?;
+        Ok(stored
+            .completion
+            .as_ref()
+            .and_then(|completion| completion.product_permission(quantity))
+            .map(super::completion::ProductPermission::permits_result))
     }
 
     pub(super) async fn progress_coverage(
@@ -454,7 +471,7 @@ impl Operations {
         if header.version != 1 {
             return Err(contract("stored completion receipt interpretation"));
         }
-        let (mut completion, owner) = match header.inline {
+        let (completion, owner) = match header.inline {
             Some(completion) => {
                 if header.batch_count != 0 || header.payload_bytes != 0 || !header.digest.is_empty()
                 {
@@ -482,11 +499,8 @@ impl Operations {
                 )
             }
         };
-        if !matches!(completion.version, 1 | 2) {
+        if completion.version != 3 {
             return Err(contract("stored completion interpretation"));
-        }
-        if completion.version == 1 {
-            completion.progress = super::ProgressCoverage::Unknown {};
         }
         Ok(Arc::new(pse_columnar::Leased::new(
             Arc::new(completion),
@@ -705,7 +719,7 @@ impl Operations {
                 outcome.retryable = true;
                 outcome.detail.retry_failure = Some(pse_model::study::RetryFailure::Transient);
                 let stored = StoredCompletion {
-                    version: 2,
+                    version: 3,
                     attempt_id,
                     completion: None,
                     termination: outcome.detail,
@@ -823,7 +837,6 @@ pub struct StoredCompletion {
     /// Truthful execution state, distinct from individual candidate permissions.
     pub state: AttemptState,
     /// Original sampled telemetry coverage; absence never means complete coverage.
-    #[serde(default)]
     pub progress: super::ProgressCoverage,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -980,10 +993,9 @@ impl PublicationAcks {
         ) -> Result<T, pse_operations::canonical::CanonicalError>,
     ) -> Result<T, WorkflowError> {
         self.admitted()?;
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| contract("publication acknowledgment lock poisoned"))?;
+        let mut state = self.state.lock().map_err(|_| {
+            WorkflowError::Internal("publication acknowledgment lock poisoned".into())
+        })?;
         if self.frozen.load(Ordering::Acquire) {
             return Err(contract("publication acknowledgment owner already frozen"));
         }
@@ -1023,10 +1035,9 @@ impl PublicationAcks {
         fence: &AttemptFence,
     ) -> Result<ResultAcknowledgments, WorkflowError> {
         self.admitted()?;
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| contract("publication acknowledgment lock poisoned"))?;
+        let mut state = self.state.lock().map_err(|_| {
+            WorkflowError::Internal("publication acknowledgment lock poisoned".into())
+        })?;
         if self.frozen.swap(true, Ordering::AcqRel) {
             return Err(contract("publication acknowledgment owner already frozen"));
         }
@@ -1217,6 +1228,7 @@ impl DurableAttempt {
     }
     pub(super) async fn register(
         &self,
+        services: &super::SourceServices,
         run_id: RunId,
         request: &RunRequest<'_>,
     ) -> Result<(), WorkflowError> {
@@ -1231,17 +1243,19 @@ impl DurableAttempt {
             self.stream.ready.notify_one();
             return Ok(());
         }
-        let inputs = request_inputs(request)?;
-        let (runtime, physical) = request_context(request)?;
-        let identity = identities(request)?;
-        let sources = request_source_selections(request);
+        let facts = request.facts();
+        let inputs = facts.inputs()?;
+        let physical = facts.context()?;
+        let sources = facts.source_selections();
         for source in &sources {
             if let Some(research) = &source.research {
-                let package = request_packages_for_research(request)
-                    .into_iter()
+                let package = facts
+                    .sources
+                    .iter()
+                    .copied()
                     .find(|p| super::OperationSource::of(p) == *source)
                     .ok_or_else(|| contract("research request source absent"))?;
-                runtime
+                services
                     .restore_research_source(&mut package.clone(), Some(research))
                     .await?;
             }
@@ -1252,17 +1266,18 @@ impl DurableAttempt {
                 .validate_project_context(context)
                 .await?;
         }
+        let identity = facts.identity?;
         let selected = serde_json::to_vec(&(
             3_u8,
             identity,
             physical.identity(),
-            request_provenance(request)?,
+            facts.provenance?,
             sources,
         ))
         .map_err(|e| contract(e.to_string()))?;
         self.register_selection(
             run_id,
-            runtime,
+            services,
             physical,
             &inputs,
             serde_json::to_vec(&(1_u8, run_id, identity)).map_err(|e| contract(e.to_string()))?,
@@ -1274,7 +1289,7 @@ impl DurableAttempt {
     pub(super) async fn register_horizon(
         &self,
         run_id: RunId,
-        runtime: &super::Runtime,
+        services: &super::SourceServices,
         packages: &[super::ModelingPackage],
         identity: ContentHash,
         provenance: &[u8],
@@ -1295,7 +1310,7 @@ impl DurableAttempt {
             .ok_or_else(|| contract("horizon source absent"))?
             .physical;
         for package in packages {
-            runtime
+            services
                 .restore_research_source(&mut package.clone(), package.research_source.as_ref())
                 .await?;
         }
@@ -1320,7 +1335,7 @@ impl DurableAttempt {
         inputs.dedup_by(|a, b| a.key == b.key);
         self.register_selection(
             run_id,
-            runtime,
+            services,
             physical,
             &inputs,
             serde_json::to_vec(&(1_u8, "horizon", run_id, identity))
@@ -1340,7 +1355,7 @@ impl DurableAttempt {
     async fn register_selection(
         &self,
         run_id: RunId,
-        runtime: &super::Runtime,
+        services: &super::SourceServices,
         physical: &super::PhysicalContext,
         inputs: &[Revision],
         request: Vec<u8>,
@@ -1349,11 +1364,14 @@ impl DurableAttempt {
         let primary = inputs
             .first()
             .ok_or_else(|| contract("durable execution needs an exact scientific revision"))?;
-        let physical_rows = self.operations.put_physical_rows(runtime, physical).await?;
+        let physical_rows = self
+            .operations
+            .put_physical_rows(services.preparation(), physical)
+            .await?;
         let mut sources = inputs.iter().skip(1).cloned().collect::<Vec<_>>();
         sources.extend(physical_rows.revisions.iter().cloned());
         let (run, _) = self.canonical_keys(run_id);
-        let attestation = runtime.canonical()?.attestation();
+        let attestation = services.canonical()?.attestation();
         let row = self
             .operations
             .store
@@ -1589,13 +1607,16 @@ impl DurableAttempt {
                     continue;
                 }
                 let spec = result
-                    .runtime
+                    .services
+                    .preparation()
                     .registry()
                     .relation_by_id(*id)
                     .ok_or_else(|| contract("horizon selected relation absent"))?;
-                let schema =
-                    pse_schema::arrow::relation_schema_ref(result.runtime.registry(), spec)
-                        .map_err(|error| relation(error.into()))?;
+                let schema = pse_schema::arrow::relation_schema_ref(
+                    result.services.preparation().registry(),
+                    spec,
+                )
+                .map_err(|error| relation(error.into()))?;
                 let cursor = super::ResultCursor::from_retained(schema, *id, batches)?;
                 let position = positions.entry(*id).or_default();
                 super::result_projection::append_result_table_prefix(
@@ -1702,7 +1723,7 @@ impl DurableAttempt {
         };
         self.completion_owner = Some(owner);
         let stored = StoredCompletion {
-            version: 2,
+            version: 3,
             attempt_id: self.attempt,
             completion,
             termination: outcome.detail,
@@ -1753,7 +1774,7 @@ impl DurableAttempt {
         }
         let outcome = failure(error, cancelled || export_error.is_some());
         let stored = StoredCompletion {
-            version: 2,
+            version: 3,
             attempt_id: self.attempt,
             completion: None,
             termination: outcome.detail,
@@ -1825,7 +1846,8 @@ impl DurableAttempt {
                     .relation_names()
                     .map(|name| {
                         result
-                            .runtime
+                            .services
+                            .preparation()
                             .registry()
                             .relation(name)
                             .map(|spec| spec.id)
@@ -1861,7 +1883,8 @@ impl DurableAttempt {
                 .is_some_and(|selected| selected.contains(&relation));
             let selector = if selected_detail {
                 let name = result
-                    .runtime
+                    .services
+                    .preparation()
                     .registry()
                     .relation_by_id(relation)
                     .ok_or_else(|| contract("selected study relation disappeared"))?
@@ -2362,144 +2385,6 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
         retryable: false,
     }
 }
-fn identities(
-    request: &RunRequest<'_>,
-) -> Result<(ContentHash, Option<ContentHash>), WorkflowError> {
-    let math = |e: pse_backend_native::ProblemError| {
-        WorkflowError::Math(crate::math::MathRuntimeError::from(e))
-    };
-    Ok(match request {
-        RunRequest::Horizon(horizon) => (horizon.identity, None),
-        RunRequest::Modeling(steps) => {
-            let mut h = FramedHasher::new(Frame::DurableModelingRequestV3);
-            h.u64(steps.len() as u64);
-            for step in steps.iter() {
-                h.hash(&step.solve.request_identity().map_err(math)?.as_id());
-            }
-            let preparation = match steps.as_slice() {
-                [one] => Some(one.solve.preparation_identity().map_err(math)?),
-                _ => None,
-            };
-            (h.finish_hash(), preparation)
-        }
-        RunRequest::Simulation(s) => (s.identity(), Some(s.identity())),
-        RunRequest::Fit(f) => (f.problem.key, Some(f.problem.key)),
-        #[cfg(feature = "solver-diffsol")]
-        RunRequest::Shooting { problem, initial } => (
-            problem.request_identity(initial.as_deref()).as_id(),
-            Some(problem.request_identity(None).as_id()),
-        ),
-    })
-}
-/// Preserve each actual input position's exact historical attribution, including fitting.
-/// Scientific source deduplication must not discard distinct context cuts over one source.
-fn request_packages_for_research<'a>(
-    request: &'a RunRequest<'a>,
-) -> Vec<&'a super::ModelingPackage> {
-    match request {
-        RunRequest::Modeling(steps) => steps.iter().map(|step| &step.source).collect(),
-        RunRequest::Horizon(horizon) => horizon.sources.iter().collect(),
-        RunRequest::Simulation(simulation) => vec![&simulation.source],
-        RunRequest::Fit(fit) => vec![&fit.source],
-        #[cfg(feature = "solver-diffsol")]
-        RunRequest::Shooting { problem, .. } => vec![&problem.simulation.source],
-    }
-}
-fn request_source_selections(request: &RunRequest<'_>) -> Vec<super::OperationSource> {
-    match request {
-        RunRequest::Horizon(horizon) => horizon
-            .sources
-            .iter()
-            .map(super::OperationSource::of)
-            .collect(),
-        RunRequest::Modeling(steps) => steps
-            .iter()
-            .map(|step| super::OperationSource::of(&step.source))
-            .collect(),
-        RunRequest::Simulation(simulation) => vec![super::OperationSource::of(&simulation.source)],
-        RunRequest::Fit(fit) => vec![super::OperationSource::of(&fit.source)],
-        #[cfg(feature = "solver-diffsol")]
-        RunRequest::Shooting { problem, .. } => {
-            vec![super::OperationSource::of(&problem.simulation.source)]
-        }
-    }
-}
-fn request_inputs(request: &RunRequest<'_>) -> Result<Vec<Revision>, WorkflowError> {
-    let mut revisions = match request {
-        RunRequest::Horizon(horizon) => horizon
-            .sources
-            .iter()
-            .map(|source| source.recorded_revision().cloned())
-            .collect::<Result<Vec<_>, _>>()?,
-        RunRequest::Modeling(steps) => steps
-            .iter()
-            .map(|s| s.source.recorded_revision().cloned())
-            .collect::<Result<Vec<_>, _>>()?,
-        RunRequest::Simulation(s) => vec![s.source.recorded_revision()?.clone()],
-        RunRequest::Fit(f) => vec![f.source.recorded_revision()?.clone()],
-        #[cfg(feature = "solver-diffsol")]
-        RunRequest::Shooting { problem, .. } => {
-            vec![problem.simulation.source.recorded_revision()?.clone()]
-        }
-    };
-    revisions.sort_by(|a: &Revision, b| a.key.cmp(&b.key));
-    revisions.dedup_by(|a, b| a.key == b.key);
-    Ok(revisions)
-}
-fn request_context<'a>(
-    request: &RunRequest<'a>,
-) -> Result<(&'a super::Runtime, &'a super::PhysicalContext), WorkflowError> {
-    let source = match *request {
-        RunRequest::Horizon(horizon) => horizon
-            .sources
-            .first()
-            .ok_or_else(|| contract("horizon source absent"))?,
-        RunRequest::Modeling(steps) => {
-            &steps
-                .first()
-                .ok_or_else(|| contract("empty scientific request"))?
-                .source
-        }
-        RunRequest::Simulation(s) => &s.source,
-        RunRequest::Fit(f) => &f.source,
-        #[cfg(feature = "solver-diffsol")]
-        RunRequest::Shooting { problem, .. } => &problem.simulation.source,
-    };
-    Ok((&source.runtime, &source.physical))
-}
-fn request_provenance(request: &RunRequest<'_>) -> Result<Vec<serde_json::Value>, WorkflowError> {
-    let encode = |value| serde_json::to_value(value).map_err(|e| contract(e.to_string()));
-    match request {
-        RunRequest::Horizon(horizon) => Ok(vec![
-            serde_json::from_slice(&horizon.provenance)
-                .map_err(|error| contract(error.to_string()))?,
-        ]),
-        RunRequest::Modeling(steps) => steps
-            .iter()
-            .map(|step| {
-                serde_json::to_value((
-                    &step.starts,
-                    step.solve.numerical_strategy(),
-                    step.bound_source.as_deref().map(|bound| &**bound),
-                ))
-                .map_err(|e| contract(e.to_string()))
-            })
-            .collect(),
-        RunRequest::Simulation(simulation) => Ok(vec![encode(simulation.profile())?]),
-        RunRequest::Fit(fit) => Ok(vec![
-            serde_json::to_value(fit.numerical_strategy()).map_err(|e| contract(e.to_string()))?,
-        ]),
-        #[cfg(feature = "solver-diffsol")]
-        RunRequest::Shooting { problem, .. } => Ok(vec![
-            serde_json::to_value(
-                problem
-                    .numerical_strategy()
-                    .map_err(crate::math::MathRuntimeError::from)?,
-            )
-            .map_err(|e| contract(e.to_string()))?,
-        ]),
-    }
-}
 #[cfg(all(test, feature = "canonical-tests"))]
 pub(super) fn inspection_fixture_completion(
     stored: StoredCompletion,
@@ -2584,7 +2469,9 @@ impl Heartbeat {
         }
         match self.failure.lock() {
             Ok(mut failure) => failure.take(),
-            Err(_) => Some(Arc::new(contract("heartbeat failure observation poisoned"))),
+            Err(_) => Some(Arc::new(WorkflowError::Internal(
+                "heartbeat failure observation poisoned".into(),
+            ))),
         }
     }
 }
@@ -3351,21 +3238,11 @@ async fn append_seeds(
 ) -> Result<(Vec<(usize, SolutionId)>, Arc<pse_columnar::AllocationLease>), WorkflowError> {
     let reservation =
         MemoryConsumer::new("canonical:acknowledged-seed-identities").register(&operations.pool);
-    let (super::RunOutcome::Modeling {
-        request: requests,
-        result: Ok(steps),
-    }
-    | super::RunOutcome::Horizon {
-        execution:
-            super::HorizonRunOutcome::Full {
-                requests,
-                result: Ok(steps),
-            },
-        ..
-    }) = &result.outcome
-    else {
+    let facts = result.completed_facts();
+    let steps = facts.completed_modeling;
+    if steps.is_empty() {
         return Ok((Vec::new(), pse_columnar::AllocationLease::new(reservation)));
-    };
+    }
     reservation
         .try_grow(
             steps
@@ -3381,7 +3258,7 @@ async fn append_seeds(
         .canonical_run(fence.run())
         .await?
         .ok_or_else(|| contract("seed run absent"))?;
-    for (index, (step, request)) in steps.iter().zip(requests).enumerate() {
+    for (index, (request, step)) in steps.into_iter().enumerate() {
         let (Some(seed), Some(preparation)) = (
             super::study_execution::completed_modeling_seed(step),
             request.solve.seed_preparation_identity(),
@@ -3948,7 +3825,7 @@ impl Operations {
     /// is bounded, and no unrelated relation is hydrated on replay.
     pub(super) async fn put_physical_rows(
         &self,
-        runtime: &super::Runtime,
+        runtime: &super::PreparationServices,
         physical: &super::PhysicalContext,
     ) -> Result<super::physical_cache::PhysicalRows, WorkflowError> {
         let activity = self.store().admit_activity()?;
@@ -3974,7 +3851,8 @@ impl Operations {
                     let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
                     hash.str("physical.rows.v1").str(&relation.to_string());
                     let mut spool = super::physical_spool::PhysicalSpool::new(
-                        runtime.shared.runtime_env(),
+                        runtime.pool(),
+                        runtime.spill.clone(),
                         pse_operations::canonical::PAYLOAD_BYTES,
                     )?;
                     super::result_blocks::visit_source_blocks_async(
@@ -4412,7 +4290,7 @@ mod canonical_durable_codec {
         attempt.stream.finish().await;
         let detail = failure(&Arc::new(contract("synthetic partial original")), false).detail;
         let stored = StoredCompletion {
-            version: 2,
+            version: 3,
             attempt_id,
             completion: Some(super::super::Completion::default()),
             termination: detail,
@@ -4523,7 +4401,7 @@ mod canonical_durable_codec {
             }),
         };
         let stored = StoredCompletion {
-            version: 2,
+            version: 3,
             attempt_id,
             completion: None,
             termination: failure(&Arc::new(contract("original failed science")), false).detail,
@@ -4645,7 +4523,11 @@ mod canonical_durable_codec {
         let runtime = super::super::tests::runtime_with_workspace(32 << 20);
         let (package, analysis) = package_on(&runtime, LINEAR).await;
         let prepared = package
-            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .prepare_analysis(
+                &runtime.preparation_services(),
+                &analysis,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         let publication = durable_runtime_on(runtime.clone());
@@ -4654,7 +4536,12 @@ mod canonical_durable_codec {
         let mut retained = None;
         for index in 0..5 {
             let started = std::time::Instant::now();
-            let result = prepared.start().unwrap().wait().await.unwrap();
+            let result = prepared
+                .start(&runtime.execution_services())
+                .unwrap()
+                .wait()
+                .await
+                .unwrap();
             let native_us = started.elapsed().as_micros();
             assert!(result.usable());
             let claim =
@@ -4716,7 +4603,7 @@ mod canonical_durable_codec {
                 // Exercise the same actual math/pool owner while export retains
                 // its original source, heartbeat, fence and selected output.
                 let sibling = if reached {
-                    Some(match prepared.start() {
+                    Some(match prepared.start(&runtime.execution_services()) {
                         Err(error) => Err(error),
                         Ok(handle) => {
                             match tokio::time::timeout(Duration::from_secs(20), handle.wait()).await
@@ -4777,10 +4664,14 @@ mod canonical_durable_codec {
         let runtime = tests::runtime_with_workspace(32 << 20);
         let (package, analysis) = package_on(&runtime, LINEAR).await;
         let prepared = package
-            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .prepare_analysis(
+                &runtime.preparation_services(),
+                &analysis,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
-        let handle = prepared.start().unwrap();
+        let handle = prepared.start(&runtime.execution_services()).unwrap();
         // wait publishes only after the actual native owner has joined. Exporting
         // this immutable seed-bearing result cannot perform another native solve.
         let result = handle.wait().await.unwrap();
@@ -5272,7 +5163,7 @@ mod canonical_durable_codec {
         assert!(!attempt.cancelled_refusal(&wrong));
         let outcome = super::failure(&failure, true);
         let stored = StoredCompletion {
-            version: 1,
+            version: 3,
             attempt_id,
             completion: None,
             termination: outcome.detail,
@@ -5320,7 +5211,7 @@ mod canonical_durable_codec {
         for chunked in [false, true] {
             let (operations, fence) = claimed().await;
             let original = StoredCompletion {
-                version: 1,
+                version: 3,
                 attempt_id: pse_operations::mint_id(),
                 completion: Some(super::super::Completion::default()),
                 termination: detail(
@@ -5410,12 +5301,23 @@ mod canonical_durable_codec {
             .unwrap();
         let attempt_id = pse_operations::mint_id();
         let original = StoredCompletion {
-            version: 1,
+            version: 3,
             attempt_id,
-            completion: Some(super::super::Completion::default()),
+            completion: Some(super::super::Completion {
+                permission: Some(super::super::completion::ScientificPermission {
+                    step: None,
+                    requested: 1,
+                    observed: 0,
+                    report_succeeded: false,
+                    decision: CandidateUse::Unusable,
+                    refusals: vec![pse_model::generated::enums::CandidateRefusal::NativeOutcome],
+                    qualifiers: vec![],
+                }),
+                ..Default::default()
+            }),
             termination: detail(
                 TerminationCause::Assessment {
-                    usable: false,
+                    usable: true,
                     candidate_use: vec![],
                     diagnostics: vec![],
                 },
@@ -5462,7 +5364,7 @@ mod canonical_durable_codec {
                 .await
                 .unwrap(),
             Some(false),
-            "authentic cancelled settlement retains producer Assessment permission without inference from lifecycle"
+            "authentic cancelled settlement retains producer Completion permission despite a conflicting terminal summary"
         );
     }
     #[tokio::test]
@@ -5603,7 +5505,7 @@ mod canonical_durable_codec {
             )
             .unwrap();
             let original = StoredCompletion {
-                version: 1,
+                version: 3,
                 attempt_id,
                 completion: Some(super::super::Completion::default()),
                 termination: detail(
@@ -5747,10 +5649,14 @@ mod canonical_durable_codec {
         let runtime = super::super::tests::runtime_with_workspace(32 << 20);
         let (package, analysis) = package_on(&runtime, LINEAR).await;
         let result = package
-            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .prepare_analysis(
+                &runtime.preparation_services(),
+                &analysis,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap()
-            .start()
+            .start(&runtime.execution_services())
             .unwrap()
             .wait()
             .await
@@ -5804,10 +5710,14 @@ mod canonical_durable_codec {
         let runtime = super::super::tests::runtime_with_workspace(32 << 20);
         let (package, analysis) = package_on(&runtime, LINEAR).await;
         let original = package
-            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .prepare_analysis(
+                &runtime.preparation_services(),
+                &analysis,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap()
-            .start()
+            .start(&runtime.execution_services())
             .unwrap()
             .wait()
             .await
@@ -5821,7 +5731,7 @@ mod canonical_durable_codec {
         };
         let result = RunResult::joined(
             original.run_id,
-            runtime,
+            runtime.execution_services(),
             crate::workflow::RunOutcome::Modeling {
                 request: requests.clone(),
                 result: Ok(steps.clone()),
@@ -6107,10 +6017,14 @@ mod canonical_durable_codec {
         let runtime = tests::runtime_with_workspace(32 << 20);
         let (package, analysis) = package_on(&runtime, LINEAR).await;
         let prepared = package
-            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .prepare_analysis(
+                &runtime.preparation_services(),
+                &analysis,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
-        let handle = prepared.start().unwrap();
+        let handle = prepared.start(&runtime.execution_services()).unwrap();
         let result = handle.wait().await.unwrap();
         assert!(matches!(result.durability(), RunDurability::Ephemeral));
         assert!(result.usable(), "{:?}", result.report());
@@ -6157,7 +6071,7 @@ mod canonical_durable_codec {
         });
         let record = attempt.finish(&result, false).await;
         let stored = record.completion.as_ref().unwrap();
-        assert_eq!(stored.version, 2);
+        assert_eq!(stored.version, 3);
         assert_eq!(
             serde_json::to_value(stored.completion.as_ref().unwrap()).unwrap(),
             scientific
@@ -6675,9 +6589,9 @@ mod ordinary_progress_tests {
         );
     }
     #[test]
-    fn ordinary_progress_historical_completion_without_coverage_is_unknown() {
+    fn stored_completion_requires_explicit_progress_coverage() {
         let stored = StoredCompletion {
-            version: 1,
+            version: 3,
             attempt_id: pse_operations::mint_id(),
             completion: None,
             termination: detail(
@@ -6693,8 +6607,7 @@ mod ordinary_progress_tests {
         };
         let mut historical = serde_json::to_value(stored).unwrap();
         historical.as_object_mut().unwrap().remove("progress");
-        let decoded: StoredCompletion = serde_json::from_value(historical).unwrap();
-        assert_eq!(decoded.progress, ProgressCoverage::Unknown {});
+        assert!(serde_json::from_value::<StoredCompletion>(historical).is_err());
     }
 }
 

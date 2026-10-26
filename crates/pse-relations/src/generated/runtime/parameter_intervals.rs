@@ -8,8 +8,8 @@ pub use pse_model::generated::r#runtime::r#parameter_intervals::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    230u8, 10u8, 91u8, 1u8, 29u8, 235u8, 14u8, 116u8, 50u8, 194u8, 78u8, 227u8, 56u8,
-    186u8, 221u8, 214u8,
+    169u8, 85u8, 186u8, 172u8, 52u8, 100u8, 140u8, 9u8, 169u8, 130u8, 3u8, 70u8, 30u8,
+    88u8, 98u8, 233u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "parameter_intervals";
@@ -18,12 +18,12 @@ pub const QUALIFIED_NAME: &str = "runtime.parameter_intervals";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    128u8, 114u8, 19u8, 249u8, 76u8, 251u8, 16u8, 183u8, 114u8, 105u8, 153u8, 73u8, 48u8,
-    169u8, 229u8, 43u8, 180u8, 8u8, 202u8, 255u8, 117u8, 6u8, 210u8, 226u8, 241u8, 243u8,
-    241u8, 135u8, 72u8, 19u8, 229u8, 97u8,
+    145u8, 125u8, 246u8, 28u8, 201u8, 48u8, 168u8, 133u8, 149u8, 221u8, 81u8, 134u8,
+    164u8, 171u8, 216u8, 14u8, 39u8, 17u8, 215u8, 113u8, 179u8, 206u8, 175u8, 136u8,
+    80u8, 7u8, 9u8, 136u8, 191u8, 181u8, 251u8, 154u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeParameterIntervalsRow {
     fn append(
@@ -49,8 +49,12 @@ impl crate::columnar::ArrowValue for RuntimeParameterIntervalsRow {
         )?;
         crate::columnar::ArrowValue::append(&self.r#value, children[7usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#outcome, children[8usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#points, children[9usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#detail, children[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#qualifiers,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#points, children[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#detail, children[11usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -84,10 +88,13 @@ impl crate::columnar::ArrowValue for RuntimeParameterIntervalsRow {
         <crate::generated::enums::IntervalOutcome as crate::columnar::ArrowValue>::append_null(
             children[8usize].as_mut(),
         )?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Vec<
+            crate::generated::enums::CandidateQualifier,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <Option<
             String,
-        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -136,14 +143,20 @@ impl crate::columnar::ArrowValue for RuntimeParameterIntervalsRow {
                 input.column(8usize).as_ref(),
                 index,
             )?,
-            r#points: <i64 as crate::columnar::ArrowValue>::read(
+            r#qualifiers: <Vec<
+                crate::generated::enums::CandidateQualifier,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#points: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
                 index,
             )?,
             r#detail: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(11usize).as_ref(),
                 index,
             )?,
         })
@@ -214,8 +227,12 @@ impl crate::columnar::RelationRow for RuntimeParameterIntervalsRow {
         crate::columnar::ArrowValue::append(&self.r#estimate, columns[6usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#value, columns[7usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#outcome, columns[8usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#points, columns[9usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#detail, columns[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#qualifiers,
+            columns[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#points, columns[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#detail, columns[11usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -251,10 +268,10 @@ impl crate::columnar::RelationRow for RuntimeParameterIntervalsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        25_600_usize + size_of::<Self::Builder>()
+        28_672_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        200usize
+        224usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -303,6 +320,18 @@ impl crate::columnar::RelationRow for RuntimeParameterIntervalsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            (self.r#qualifiers)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).as_str().len())?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
         )?;
         bytes = crate::columnar::allocation_add(
@@ -326,7 +355,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 11usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -374,13 +403,18 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 11usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "points",
+        name: "qualifiers",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "detail",
+        name: "points",
         position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "detail",
+        position: 11usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -403,10 +437,12 @@ pub mod columns {
     pub const VALUE: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///outcome
     pub const OUTCOME: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///qualifiers
+    pub const QUALIFIERS: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///points
-    pub const POINTS: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const POINTS: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///detail
-    pub const DETAIL: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const DETAIL: crate::columnar::ColumnReference = super::COLUMNS[11usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -423,6 +459,7 @@ pub struct RuntimeParameterIntervalsView<'a> {
     estimate_column: &'a arrow_array::Float64Array,
     value_column: &'a arrow_array::Float64Array,
     outcome_column: &'a arrow_array::StringArray,
+    qualifiers_column: &'a arrow_array::ListArray,
     points_column: &'a arrow_array::Int64Array,
     detail_column: &'a arrow_array::StringArray,
 }
@@ -496,12 +533,15 @@ impl<'a> RuntimeParameterIntervalsView<'a> {
             outcome_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(8usize).as_ref())?,
+            qualifiers_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(9usize).as_ref())?,
             points_column: crate::columnar::array::<
                 arrow_array::Int64Array,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             detail_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -626,6 +666,18 @@ impl<'a> RuntimeParameterIntervalsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "qualifiers",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn qualifiers_column(&self) -> &'a arrow_array::ListArray {
+        self.qualifiers_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "qualifiers", "`.")]
+    pub fn qualifiers_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "points",
         "`, including its offsets and validity bitmap.",
     )]
@@ -634,7 +686,7 @@ impl<'a> RuntimeParameterIntervalsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "points", "`.")]
     pub fn points_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -646,7 +698,7 @@ impl<'a> RuntimeParameterIntervalsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "detail", "`.")]
     pub fn detail_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -672,6 +724,10 @@ impl<'a> RuntimeParameterIntervalsView<'a> {
             r#estimate: crate::columnar::ArrowValue::read(self.estimate_column, index)?,
             r#value: crate::columnar::ArrowValue::read(self.value_column, index)?,
             r#outcome: crate::columnar::ArrowValue::read(self.outcome_column, index)?,
+            r#qualifiers: crate::columnar::ArrowValue::read(
+                self.qualifiers_column,
+                index,
+            )?,
             r#points: crate::columnar::ArrowValue::read(self.points_column, index)?,
             r#detail: crate::columnar::ArrowValue::read(self.detail_column, index)?,
         })

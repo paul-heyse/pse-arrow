@@ -8,7 +8,7 @@ use pse_structural::flowsheet::{Decision, Policy};
 
 const SOURCE: &str = include_str!("../../../../../../tests/fixtures/indexed-recycle-closure.pse");
 
-async fn package(source: &str) -> ModelingPackage {
+async fn package(source: &str) -> (Runtime, ModelingPackage) {
     let declarations = pse_authoring::language::parse(
         source,
         SemanticId::from_bytes([175; 16]),
@@ -23,18 +23,20 @@ async fn package(source: &str) -> ModelingPackage {
     );
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
-    runtime()
+    let runtime = runtime();
+    let package = runtime
         .modeling_package(declarations, physical)
         .await
-        .unwrap()
+        .unwrap();
+    (runtime, package)
 }
 
 #[tokio::test]
 async fn indexed_mixer_holdup_separator_executes_conditional_recycle_and_external_closure() {
-    let package = package(SOURCE).await;
+    let (runtime, package) = package(SOURCE).await;
     let cancel = crate::CancelSource::new();
     let root = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -43,6 +45,7 @@ async fn indexed_mixer_holdup_separator_executes_conditional_recycle_and_externa
         .declaration_id;
     let analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler_profile(),
             super::super::tests::profile(SolveIntent::Root),
@@ -55,6 +58,7 @@ async fn indexed_mixer_holdup_separator_executes_conditional_recycle_and_externa
         .analysis;
     let resolved = package
         .resolve_case(
+            &runtime.preparation_services(),
             root,
             analysis.instance,
             analysis.bindings.clone(),
@@ -155,6 +159,7 @@ async fn indexed_mixer_holdup_separator_executes_conditional_recycle_and_externa
     };
     let prepared = package
         .prepare_recycle(
+            &runtime.preparation_services(),
             &analysis,
             selection,
             RecycleRequest {
@@ -173,7 +178,12 @@ async fn indexed_mixer_holdup_separator_executes_conditional_recycle_and_externa
     assert_eq!(prepared.conditional_units().count(), 3);
     let expected_order: Vec<_> = prepared.request.units.iter().map(|u| u.node).collect();
     assert_eq!(prepared.order().unwrap(), expected_order);
-    let report = prepared.start().unwrap().finish().await.unwrap();
+    let report = prepared
+        .start(&runtime.preparation_services())
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
     assert_eq!(
         report.report.qualification,
         Qualification::Feasible,
@@ -205,7 +215,7 @@ async fn indexed_mixer_holdup_separator_executes_conditional_recycle_and_externa
         let budget = crate::math::WorkerBudget::new(16 << 20);
         let mut unit = UnitWorker::new(
             program,
-            package.runtime.native(),
+            runtime.native(),
             &prepared.providers,
             &execution,
             budget,
@@ -330,9 +340,9 @@ async fn indexed_mixer_holdup_separator_temporal_closure_is_independent_and_requ
             false,
         ),
     ] {
-        let package = package(&source).await;
+        let (runtime, package) = package(&source).await;
         let root = package
-            .declarations()
+            .declarations(&runtime.preparation_services())
             .await
             .unwrap()
             .iter()
@@ -340,7 +350,14 @@ async fn indexed_mixer_holdup_separator_temporal_closure_is_independent_and_requ
             .unwrap()
             .declaration_id;
         let prepared = package
-            .declared_simulation(root, compiler_profile(), None, Default::default(), &cancel)
+            .declared_simulation(
+                &runtime.preparation_services(),
+                root,
+                compiler_profile(),
+                None,
+                Default::default(),
+                &cancel,
+            )
             .await
             .unwrap();
         assert_eq!(prepared.model().compiled().model.connections.len(), 3);
@@ -383,7 +400,10 @@ async fn indexed_mixer_holdup_separator_temporal_closure_is_independent_and_requ
                 .all(|value| *value == fraction)
         );
         assert_eq!(prepared.profile().out_atol, vec![closure_budget]);
-        let trajectory = prepared.run(&cancel).await.unwrap();
+        let trajectory = prepared
+            .run(&runtime.execution_services(), &cancel)
+            .await
+            .unwrap();
         assert_eq!(
             trajectory.report().termination,
             native::dynamics::Termination::Completed,
@@ -412,13 +432,13 @@ async fn indexed_mixer_holdup_separator_temporal_closure_is_independent_and_requ
             assert!(last.defects[0].abs() > 0.3);
         }
     }
-    let package = package(&SOURCE.replace(
+    let (runtime, package) = package(&SOURCE.replace(
         "eq initial:reactor[0{s}].inventory==starting_inventory;",
         "",
     ))
     .await;
     let root = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -426,7 +446,14 @@ async fn indexed_mixer_holdup_separator_temporal_closure_is_independent_and_requ
         .unwrap()
         .declaration_id;
     let error = package
-        .declared_simulation(root, compiler_profile(), None, Default::default(), &cancel)
+        .declared_simulation(
+            &runtime.preparation_services(),
+            root,
+            compiler_profile(),
+            None,
+            Default::default(),
+            &cancel,
+        )
         .await
         .unwrap_err();
     assert!(error.to_string().contains("initial"), "{error}");

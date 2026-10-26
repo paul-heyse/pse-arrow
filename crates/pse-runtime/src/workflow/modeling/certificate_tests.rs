@@ -16,7 +16,7 @@ use pse_relations::{
     generated::runtime::{infeasibility_certificates, solve_metrics, solve_runs},
 };
 
-async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+async fn package(text: &str) -> (Runtime, ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
         text,
@@ -30,11 +30,9 @@ async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = fixture::runtime()
-        .modeling_package(rows, physical)
-        .await
-        .unwrap();
-    (package, root)
+    let runtime = fixture::runtime();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
+    (runtime, package, root)
 }
 fn analysis(root: DeclarationId, selection: SolverSelection) -> ModelingAnalysis {
     let solver = SolverProfile {
@@ -66,12 +64,17 @@ fn covering(cover: &str) -> String {
     )
 }
 async fn run(text: &str, selection: SolverSelection) -> Arc<crate::workflow::RunResult> {
-    let (package, root) = package(text).await;
+    let (runtime, package, root) = package(text).await;
+    let services = runtime.execution_services();
     let prepared = package
-        .prepare_analysis(&analysis(root, selection), &crate::CancelSource::new())
+        .prepare_analysis(
+            services.preparation(),
+            &analysis(root, selection),
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
-    prepared.start().unwrap().wait().await.unwrap()
+    prepared.start(&services).unwrap().wait().await.unwrap()
 }
 
 /// Explicit Clarabel serves an authored LP through the coefficient runner's cone form,

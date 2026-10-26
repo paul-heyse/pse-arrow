@@ -77,6 +77,7 @@ fn sources(parameter: u8, nonlinear: bool) -> BTreeMap<String, Vec<u8>> {
 }
 
 async fn point(
+    services: &crate::workflow::PreparationServices,
     package: &ModelingPackage,
     root: DeclarationId,
     overlay: &PointOverlay,
@@ -86,13 +87,14 @@ async fn point(
     crate::math::PreparationCounts,
     crate::math::PreparationEffectCounts,
 ) {
-    let service = package.runtime.shared.math();
+    let service = services.math();
     let mut profile = crate::workflow::tests::profile();
     profile.selection = SolverSelection::Explicit(Backend::Kinsol);
     let (prepared, counts, effects) = observed_phase(
         service,
         phase,
         package.prepare_bound_solve(
+            services,
             root,
             overlay,
             crate::workflow::tests::compiler_profile(),
@@ -150,7 +152,11 @@ fn body(
     &model.compiled().admitted.bodies[&owner.body]
 }
 
-async fn residuals(package: &ModelingPackage, prepared: &ModelingSolvePreparation) -> (f64, f64) {
+async fn residuals(
+    services: &crate::workflow::PreparationServices,
+    package: &ModelingPackage,
+    prepared: &ModelingSolvePreparation,
+) -> (f64, f64) {
     let model = &prepared.model.model;
     let equation = row(model, "e");
     let sibling = row(model, "sibling");
@@ -159,6 +165,7 @@ async fn residuals(package: &ModelingPackage, prepared: &ModelingSolvePreparatio
     values.scalars.insert(row(model, "y"), 7.);
     let observed = package
         .observe(
+            services,
             model.clone(),
             BTreeSet::from([equation, sibling]),
             values,
@@ -188,7 +195,7 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
     .await;
     let original = original.unwrap();
     let root = original
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -196,14 +203,28 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
         .unwrap()
         .declaration_id;
     let empty = PointOverlay::default();
-    let (cold, cold_counts, cold_effects) = point(&original, root, &empty, "cold").await;
+    let (cold, cold_counts, cold_effects) = point(
+        &runtime.preparation_services(),
+        &original,
+        root,
+        &empty,
+        "cold",
+    )
+    .await;
     assert!(cold_counts.views > 0);
     assert_eq!(
         cold_effects.workspaces,
         1 + cold_counts.views + cold_counts.observations,
         "this cold fixture creates one semantic lane plus its numerical views"
     );
-    let (warm, warm_counts, warm_effects) = point(&original, root, &empty, "warm").await;
+    let (warm, warm_counts, warm_effects) = point(
+        &runtime.preparation_services(),
+        &original,
+        root,
+        &empty,
+        "warm",
+    )
+    .await;
     assert_eq!(warm_counts.views, 0);
     assert_eq!(warm_effects.workspaces, 0);
     assert_eq!(warm_effects.frontiers, 0);
@@ -212,7 +233,10 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
         &cold.model.case.compiled().plan,
         &warm.model.case.compiled().plan
     ));
-    assert_eq!(residuals(&original, &cold).await, (1., 0.)); // x-p = 2-1; y-7 = 0.
+    assert_eq!(
+        residuals(&runtime.preparation_services(), &original, &cold).await,
+        (1., 0.)
+    ); // x-p = 2-1; y-7 = 0.
 
     // These maps describe this test's receiving process only. The separately admitted
     // solver worker retains its own producer/configuration evidence and is not observed here.
@@ -226,6 +250,7 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
         service,
         "first-native",
         original.solve_case(
+            &runtime.execution_services(),
             cold.clone(),
             crate::workflow::tests::compiler_profile(),
             &cancel,
@@ -251,14 +276,21 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
     let (edited, _, _) = observed_phase(
         service,
         "authored-value-reload",
-        original.reload_from_parent(&[sources(2, false)], &cancel),
+        original.reload_from_parent(&runtime.source_services(), &[sources(2, false)], &cancel),
     )
     .await;
     let edited = edited.unwrap();
     assert!(original.canonical_revision().is_none());
     assert!(edited.canonical_revision().is_none());
     assert_ne!(original.revision_id(), edited.revision_id());
-    let (value, _, value_effects) = point(&edited, root, &empty, "authored-value").await;
+    let (value, _, value_effects) = point(
+        &runtime.preparation_services(),
+        &edited,
+        root,
+        &empty,
+        "authored-value",
+    )
+    .await;
     assert_eq!(
         value_effects.workspaces, 0,
         "the live source lineage retains its compiler"
@@ -269,9 +301,13 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
         body(&cold.model.model, e).math(),
         body(&value.model.model, e).math()
     ));
-    assert_eq!(residuals(&edited, &value).await, (0., 0.)); // 2-2, independently specified.
+    assert_eq!(
+        residuals(&runtime.preparation_services(), &edited, &value).await,
+        (0., 0.)
+    ); // 2-2, independently specified.
     let resolved = edited
         .solve_case(
+            &runtime.execution_services(),
             value.clone(),
             crate::workflow::tests::compiler_profile(),
             &cancel,
@@ -297,8 +333,14 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
         }],
     };
     let revision = edited.revision.identity();
-    let (bound, bound_counts, bound_effects) =
-        point(&edited, root, &overlay, "typed-binding").await;
+    let (bound, bound_counts, bound_effects) = point(
+        &runtime.preparation_services(),
+        &edited,
+        root,
+        &overlay,
+        "typed-binding",
+    )
+    .await;
     assert_eq!(bound_counts.views, 0);
     assert_eq!(bound_effects.workspaces, 0);
     assert_eq!(bound_effects.frontiers, 0);
@@ -309,20 +351,32 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
         &value.model.case.compiled().plan,
         &bound.model.case.compiled().plan
     ));
-    assert_eq!(residuals(&edited, &bound).await, (-1., 0.)); // 2-3, without a source mutation.
-    assert_eq!(residuals(&edited, &value).await, (0., 0.)); // Retained authored point stays at p=2.
+    assert_eq!(
+        residuals(&runtime.preparation_services(), &edited, &bound).await,
+        (-1., 0.)
+    ); // 2-3, without a source mutation.
+    assert_eq!(
+        residuals(&runtime.preparation_services(), &edited, &value).await,
+        (0., 0.)
+    ); // Retained authored point stays at p=2.
 
     let (structural, _, _) = observed_phase(
         service,
         "structural-reload",
-        edited.reload_from_parent(&[sources(2, true)], &cancel),
+        edited.reload_from_parent(&runtime.source_services(), &[sources(2, true)], &cancel),
     )
     .await;
     let structural = structural.unwrap();
     assert!(structural.canonical_revision().is_none());
     assert_ne!(edited.revision_id(), structural.revision_id());
-    let (changed, changed_counts, changed_effects) =
-        point(&structural, root, &empty, "structural").await;
+    let (changed, changed_counts, changed_effects) = point(
+        &runtime.preparation_services(),
+        &structural,
+        root,
+        &empty,
+        "structural",
+    )
+    .await;
     assert!(changed_counts.views > 0);
     assert!(changed_effects.frontiers > 0);
     assert!(changed_effects.completions > 0);
@@ -332,7 +386,11 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
         "changed numerical products allocate workspaces without reconstructing the semantic lane"
     );
     let before_lane_selection = service.preparation_effects();
-    drop(structural.pure_workspace().unwrap());
+    drop(
+        structural
+            .pure_workspace(&runtime.preparation_services())
+            .unwrap(),
+    );
     assert_eq!(
         service
             .preparation_effects()
@@ -353,7 +411,10 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
         body(&value.model.model, sibling).math(),
         body(&changed.model.model, sibling).math()
     ));
-    assert_eq!(residuals(&structural, &changed).await, (2., 0.)); // x*x-p = 4-2.
+    assert_eq!(
+        residuals(&runtime.preparation_services(), &structural, &changed).await,
+        (2., 0.)
+    ); // x*x-p = 4-2.
     assert_ne!(
         value.model.model.consumed_source_versions(),
         changed.model.model.consumed_source_versions()
@@ -369,11 +430,25 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
     )
     .await;
     let fresh = fresh.unwrap();
-    let (fresh_point, _, _) = point(&fresh, root, &empty, "fresh-oracle").await;
-    assert_eq!(residuals(&fresh, &fresh_point).await, (2., 0.));
-    for (package, prepared) in [(&structural, &changed), (&fresh, &fresh_point)] {
+    let (fresh_point, _, _) = point(
+        &fresh_runtime.preparation_services(),
+        &fresh,
+        root,
+        &empty,
+        "fresh-oracle",
+    )
+    .await;
+    assert_eq!(
+        residuals(&fresh_runtime.preparation_services(), &fresh, &fresh_point).await,
+        (2., 0.)
+    );
+    for (caller, package, prepared) in [
+        (&runtime, &structural, &changed),
+        (&fresh_runtime, &fresh, &fresh_point),
+    ] {
         let result = package
             .solve_case(
+                &caller.execution_services(),
                 prepared.clone(),
                 crate::workflow::tests::compiler_profile(),
                 &cancel,
@@ -403,7 +478,7 @@ async fn local_authored_value_binding_and_structural_edit_journey_preserves_exac
         body(&fresh_point.model.model, e).semantic_identity()
     );
     assert_eq!(
-        residuals(&original, &warm).await,
+        residuals(&runtime.preparation_services(), &original, &warm).await,
         (1., 0.),
         "historical source remains immutable"
     );

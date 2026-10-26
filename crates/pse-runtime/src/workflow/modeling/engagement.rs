@@ -46,6 +46,7 @@ impl PreparationEngagement {
     /// cannot accidentally match a later allocation that reused an address.
     pub(in crate::workflow) fn matches(
         &self,
+        services: &crate::workflow::PreparationServices,
         source: &ModelingPackage,
         root: DeclarationId,
         instance: InstanceId,
@@ -53,6 +54,7 @@ impl PreparationEngagement {
         limits: Limits,
     ) -> bool {
         self.state.load(Ordering::Acquire) == ACTIVE
+            && self._selected.carries(source, services)
             && same_source(&self.source, source)
             && self.root == root
             && self.instance == instance
@@ -129,6 +131,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let engagement = package
             .engage(
+                &runtime.preparation_services(),
                 root,
                 instance,
                 Bindings::default(),
@@ -141,6 +144,7 @@ mod tests {
         math.clear_program_cache();
         for _ in 0..20 {
             assert!(engagement.matches(
+                &runtime.preparation_services(),
                 &package,
                 root,
                 instance,
@@ -160,6 +164,7 @@ mod tests {
         foreign.providers = Arc::new((*package.providers).clone());
         assert!(
             !engagement.matches(
+                &runtime.preparation_services(),
                 &foreign,
                 root,
                 instance,
@@ -170,6 +175,7 @@ mod tests {
         );
         engagement.close().await.unwrap();
         assert!(!engagement.matches(
+            &runtime.preparation_services(),
             &package,
             root,
             instance,
@@ -179,7 +185,7 @@ mod tests {
         assert!(engagement.during(&cancel, async { Ok(()) }).await.is_err());
         engagement.close().await.unwrap();
     }
-    async fn held_fixture(runtime: Runtime) -> (ModelingPackage, Arc<HeldPreparationScope>) {
+    async fn held_fixture(runtime: &Runtime) -> (ModelingPackage, Arc<HeldPreparationScope>) {
         let rows = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; eq a:x*x==1; eq b:x==2; } }",
             SemanticId::from_bytes([43; 16]),
@@ -200,6 +206,7 @@ mod tests {
         let package = scope.package(&package);
         package
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -212,7 +219,8 @@ mod tests {
     }
     #[tokio::test(flavor = "current_thread")]
     async fn held_preparation_reuse_preserves_cancelled_and_expired_caller_clocks() {
-        let (package, scope) = held_fixture(crate::workflow::tests::runtime()).await;
+        let runtime = crate::workflow::tests::runtime();
+        let (package, scope) = held_fixture(&runtime).await;
         let (root, instance, original) = {
             let entries = scope.entries.lock().await;
             let view = &entries.views[0];
@@ -227,6 +235,7 @@ mod tests {
         assert!(matches!(
             package
                 .prepare(
+                    &runtime.preparation_services(),
                     root,
                     instance,
                     Bindings::default(),
@@ -244,6 +253,7 @@ mod tests {
         assert!(matches!(
             package
                 .prepare(
+                    &runtime.preparation_services(),
                     root,
                     instance,
                     Bindings::default(),
@@ -261,7 +271,9 @@ mod tests {
         assert!(!expired.token().is_cancelled());
         let caller = crate::CancelSource::new();
         let guard = scope.entries.lock().await;
+        let preparation_services = runtime.preparation_services();
         let mut queued = Box::pin(package.prepare(
+            &preparation_services,
             root,
             instance,
             Bindings::default(),
@@ -279,6 +291,7 @@ mod tests {
         drop(guard);
         let valid = package
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 instance,
                 Bindings::default(),
@@ -292,7 +305,8 @@ mod tests {
     }
     #[tokio::test]
     async fn closed_scope_releases_engagement_payloads_while_source_package_is_retained() {
-        let (retained_source, scope) = held_fixture(crate::workflow::tests::runtime()).await;
+        let runtime = crate::workflow::tests::runtime();
+        let (retained_source, scope) = held_fixture(&runtime).await;
         let weak = Arc::downgrade(&scope.entries.lock().await.views[0]);
         scope.close().await.unwrap();
         assert!(
@@ -308,20 +322,25 @@ mod tests {
     }
     #[tokio::test(flavor = "current_thread")]
     async fn public_preparation_parent_cancellation_drains_queued_specialization() {
-        let (mut package, scope) = held_fixture(crate::workflow::tests::runtime()).await;
+        let runtime = crate::workflow::tests::runtime();
+        let (mut package, scope) = held_fixture(&runtime).await;
         let (root, instance) = {
             let entries = scope.entries.lock().await;
             (entries.views[0].root, entries.views[0].instance)
         };
         scope.close().await.unwrap();
         package.held_preparation = None;
-        let service = package.runtime.shared.math();
+        let service = runtime.shared.math();
         service.clear_program_cache();
         // Establish source admission before occupying CPU, so the issued public
         // request reaches the actual specialization producer rather than selection.
         drop(
             package
-                .checked_selection(&[root], &crate::CancelSource::new())
+                .checked_selection(
+                    &runtime.preparation_services(),
+                    &[root],
+                    &crate::CancelSource::new(),
+                )
                 .await
                 .unwrap(),
         );
@@ -342,7 +361,9 @@ mod tests {
         entered.await.unwrap();
         let available = service.test_admission_snapshot().2;
         let cancel = crate::CancelSource::new();
+        let preparation_services = runtime.preparation_services();
         let mut preparation = Box::pin(package.prepare(
+            &preparation_services,
             root,
             instance,
             Bindings::default(),
@@ -391,32 +412,30 @@ mod tests {
 impl ModelingPackage {
     pub(in crate::workflow) async fn engage(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<PreparationEngagement>, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let state = AtomicU8::new(ESTABLISHING);
-                let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
+                let deadline = services.math().preparation_deadline(cancel)?;
                 let mut selected = self
-                    .checked_selection_scoped(&[root], cancel, deadline)
+                    .checked_selection_scoped(services, &[root], cancel, deadline)
                     .await?;
                 let phase = cancel.child_with_deadline(Some(deadline));
                 let result = async {
                     let bytes = size_of::<PreparationEngagement>()
                         + crate::math::modeling::bindings_bytes(&bindings)
                         + 1024;
-                    let owner = self
-                        .runtime
-                        .shared
-                        .math()
-                        .reserve("modeling:live-engagement", bytes)?;
+                    let owner = services.math().reserve("modeling:live-engagement", bytes)?;
                     let (model, basis) = self
                         .prepare_selected_basis(
+                            services,
                             &mut selected,
                             root,
                             instance,
@@ -458,8 +477,10 @@ impl ModelingPackage {
     }
 }
 
-/// An explicit lane's finite set of locally admitted views. Membership belongs
-/// to operation admission; retained immutable products own their actual bytes.
+/// An explicit lane's finite set of locally admitted views and allocation protections.
+/// This lease owns admission/release state but no runtime or execution capability; every
+/// effectful prepare/join operation receives its services explicitly. Retained immutable
+/// products own their actual bytes independently of release.
 #[derive(Debug)]
 pub(in crate::workflow) struct HeldPreparationScope {
     entries: tokio::sync::Mutex<HeldEntries>,
@@ -504,6 +525,7 @@ impl HeldPreparationScope {
     }
     pub(in crate::workflow) async fn prepare(
         &self,
+        services: &crate::workflow::PreparationServices,
         source: &ModelingPackage,
         root: DeclarationId,
         instance: InstanceId,
@@ -523,7 +545,7 @@ impl HeldPreparationScope {
         if let Some(view) = entries
             .views
             .iter()
-            .find(|view| view.matches(source, root, instance, &bindings, limits))
+            .find(|view| view.matches(services, source, root, instance, &bindings, limits))
         {
             return Ok(view.model().clone());
         }
@@ -532,14 +554,14 @@ impl HeldPreparationScope {
                 "held preparation differs from the admitted lane request",
             ));
         }
-        let owner = source.runtime.shared.math().reserve(
+        let owner = services.math().reserve(
             "modeling:held-view-entry",
             size_of::<Arc<PreparationEngagement>>()
                 + size_of::<Arc<pse_columnar::AllocationLease>>()
                 + 128,
         )?;
         let view = source
-            .engage(root, instance, bindings, limits, cancel)
+            .engage(services, root, instance, bindings, limits, cancel)
             .await?;
         let model = view.model().clone();
         entries.views.push(view);
@@ -563,6 +585,7 @@ impl HeldPreparationScope {
     /// refusal and admission refusal. No issued attempt is discarded unpolled.
     pub(in crate::workflow) async fn joined<T>(
         &self,
+        services: &crate::workflow::PreparationServices,
         cancel: &crate::CancelSource,
         operation: impl Future<Output = T>,
     ) -> (T, Option<WorkflowError>) {
@@ -573,7 +596,7 @@ impl HeldPreparationScope {
             self.freeze()?;
             let entries = self.entries.lock().await;
             let owner = match entries.views.first() {
-                Some(view) => Some(view.source.runtime.shared.math().reserve(
+                Some(_) => Some(services.math().reserve(
                     "modeling:held-operation-views",
                     entries.views.len()
                         * (size_of::<Arc<PreparationEngagement>>() + size_of::<Admission>())
@@ -605,10 +628,11 @@ impl HeldPreparationScope {
 
     pub(in crate::workflow) async fn during<T>(
         &self,
+        services: &crate::workflow::PreparationServices,
         cancel: &crate::CancelSource,
         operation: impl Future<Output = Result<T, WorkflowError>>,
     ) -> Result<T, WorkflowError> {
-        let (result, renewal) = self.joined(cancel, operation).await;
+        let (result, renewal) = self.joined(services, cancel, operation).await;
         match renewal {
             Some(error) => Err(error),
             None => result,
@@ -666,13 +690,13 @@ impl OriginalPreparationInputs {
         self._owner.size()
     }
     pub(in crate::workflow) fn capture(
-        source: &ModelingPackage,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         instance: InstanceId,
         bindings: &Bindings,
         limits: Limits,
     ) -> Result<Arc<Self>, WorkflowError> {
-        let owner = source.runtime.shared.math().reserve(
+        let owner = services.math().reserve(
             "modeling:original-preparation-inputs",
             size_of::<Self>() + crate::math::modeling::bindings_bytes(bindings) + 128,
         )?;
@@ -692,9 +716,6 @@ pub(in crate::workflow) fn same_source(
 ) -> bool {
     source.revision.revision_id() == current.revision.revision_id()
         && source.revision.identity() == current.revision.identity()
-        && Arc::ptr_eq(&source.runtime.shared, &current.runtime.shared)
-        && Arc::ptr_eq(source.runtime.sessions(), current.runtime.sessions())
-        && Arc::ptr_eq(source.runtime.registry(), current.runtime.registry())
         && source.physical.key == current.physical.key
         && Arc::ptr_eq(&source.physical.quantities, &current.physical.quantities)
         && Arc::ptr_eq(

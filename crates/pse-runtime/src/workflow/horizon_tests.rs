@@ -116,6 +116,7 @@ fn fixed(values: &[(&str, f64)], fixed: &[&str]) -> ModelingCaseBindings {
 /// `x0`, integrated over `steps` periods. Returns it with the actuator's parameter and the
 /// process output.
 async fn plant(
+    services: &crate::workflow::PreparationServices,
     package: &ModelingPackage,
     root: DeclarationId,
     x0: f64,
@@ -136,6 +137,7 @@ async fn plant(
     };
     let simulation = package
         .prepare_simulation(
+            services,
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -399,7 +401,8 @@ async fn nmpc_closed_loop_on_antiwindup() {
     const STEPS: usize = 20;
     let runtime = horizon_runtime();
     let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0., STEPS).await;
+    let (plant, actuator, x) =
+        plant(&runtime.preparation_services(), &package, whole, 0., STEPS).await;
     let setpoints = (0..STEPS)
         .map(|k| if k < 12 { 1. } else { 0.6 })
         .collect::<Vec<_>>();
@@ -517,7 +520,8 @@ async fn horizon_reuses_prepared_view() {
     for (backend, settings) in backends {
         let runtime = horizon_runtime();
         let (package, [root, whole, _]) = package(runtime.clone()).await;
-        let (plant, actuator, x) = plant(&package, whole, 0.2, STEPS).await;
+        let (plant, actuator, x) =
+            plant(&runtime.preparation_services(), &package, whole, 0.2, STEPS).await;
         let mut controller = controller(&package, root, x, vec![1.; STEPS]);
         controller.analysis.solver.selection = SolverSelection::Explicit(backend);
         controller.analysis.solver.backend = settings;
@@ -658,7 +662,8 @@ async fn mhe_recovers_initial_state() {
     const STEPS: usize = 8;
     let runtime = horizon_runtime();
     let (package, [_, whole, estimator]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0.8, STEPS).await;
+    let (plant, actuator, x) =
+        plant(&runtime.preparation_services(), &package, whole, 0.8, STEPS).await;
     let plant_budget = crate::workflow::tests::engineering_target(
         plant.numerics(),
         pse_model::generated::enums::NumericalTarget::Variable,
@@ -774,7 +779,8 @@ async fn horizon_records_one_durable_attempt() {
     const STEPS: usize = 4;
     let runtime = crate::workflow::durable_tests::durable_runtime_on(horizon_runtime());
     let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0.2, STEPS).await;
+    let (plant, actuator, x) =
+        plant(&runtime.preparation_services(), &package, whole, 0.2, STEPS).await;
     let handle = runtime
         .start_horizon(
             Horizon {
@@ -848,7 +854,7 @@ async fn horizon_records_one_durable_attempt() {
 async fn horizon_refuses_inconsistent_loops() {
     let runtime = horizon_runtime();
     let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0., 4).await;
+    let (plant, actuator, x) = plant(&runtime.preparation_services(), &package, whole, 0., 4).await;
     let horizon = |controller: HorizonController, steps: usize, input: SemanticId| Horizon {
         output: crate::workflow::StudyOutputDemand::Full {},
         plant: plant.clone(),
@@ -904,24 +910,33 @@ async fn horizon_refuses_inconsistent_loops() {
 /// The antiwindup loop over `STEPS` samples, from rest, whose setpoint drops from 1 to 0.6
 /// at sample 12, under a controller that decides samples by advanced step when `advanced`.
 /// Both prediction and full solves use the production KKT and physical budgets.
-async fn antiwindup(advanced: Option<AdvancedStep>) -> Arc<RunResult> {
-    antiwindup_with_activity(advanced, false).await
+async fn antiwindup(runtime: &Runtime, advanced: Option<AdvancedStep>) -> Arc<RunResult> {
+    antiwindup_with_activity(runtime, advanced, false).await
 }
 async fn antiwindup_with_activity(
+    runtime: &Runtime,
     advanced: Option<AdvancedStep>,
     activity: bool,
 ) -> Arc<RunResult> {
-    antiwindup_with_start_policy(advanced, activity, StartPolicy::PreviousAccepted, 20).await
+    antiwindup_with_start_policy(
+        runtime,
+        advanced,
+        activity,
+        StartPolicy::PreviousAccepted,
+        20,
+    )
+    .await
 }
 async fn antiwindup_with_start_policy(
+    runtime: &Runtime,
     advanced: Option<AdvancedStep>,
     activity: bool,
     start: StartPolicy,
     steps: usize,
 ) -> Arc<RunResult> {
-    let runtime = horizon_runtime();
     let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0., steps).await;
+    let (plant, actuator, x) =
+        plant(&runtime.preparation_services(), &package, whole, 0., steps).await;
     let setpoints = (0..steps)
         .map(|k| if k < 12 { 1. } else { 0.6 })
         .collect::<Vec<_>>();
@@ -1028,10 +1043,14 @@ fn matches_full_resolve(advanced: &RunResult, full: &RunResult) -> Vec<HorizonDe
 /// Each background solve keeps a factor of positive size, charged to the job's allowance.
 #[tokio::test]
 async fn advanced_step_matches_full_resolve() {
-    let full = antiwindup(None).await;
-    let advanced = antiwindup(Some(AdvancedStep {
-        predictions: vec![("x0".into(), "x[0.25{s}]".into())],
-    }))
+    let runtime = horizon_runtime();
+    let full = antiwindup(&runtime, None).await;
+    let advanced = antiwindup(
+        &runtime,
+        Some(AdvancedStep {
+            predictions: vec![("x0".into(), "x[0.25{s}]".into())],
+        }),
+    )
     .await;
     crate::workflow::review_qualification_tests::assert_review_transport(
         &advanced,
@@ -1078,8 +1097,9 @@ async fn advanced_step_matches_full_resolve() {
 /// applies the full re-solve's moves at every sample.
 #[tokio::test]
 async fn advanced_step_falls_back_on_active_set_change() {
-    let full = antiwindup(None).await;
-    let advanced = antiwindup(Some(AdvancedStep::default())).await;
+    let runtime = horizon_runtime();
+    let full = antiwindup(&runtime, None).await;
+    let advanced = antiwindup(&runtime, Some(AdvancedStep::default())).await;
     let decisions = matches_full_resolve(&advanced, &full);
     let report = advanced.horizon().unwrap();
     let fallbacks = report
@@ -1103,8 +1123,9 @@ async fn advanced_step_falls_back_on_active_set_change() {
 
 #[tokio::test]
 async fn advanced_step_activity_start_is_corrected_before_move_authorization() {
-    let full = antiwindup(None).await;
-    let advanced = antiwindup_with_activity(Some(AdvancedStep::default()), true).await;
+    let runtime = horizon_runtime();
+    let full = antiwindup(&runtime, None).await;
+    let advanced = antiwindup_with_activity(&runtime, Some(AdvancedStep::default()), true).await;
     matches_full_resolve(&advanced, &full);
     let report = advanced.horizon().unwrap();
     let corrected = report
@@ -1135,7 +1156,9 @@ async fn advanced_step_activity_start_is_corrected_before_move_authorization() {
 
 #[tokio::test]
 async fn advanced_no_prior_start_consumes_fresh_screened_activity_with_one_task_owner() {
+    let runtime = horizon_runtime();
     let advanced = antiwindup_with_start_policy(
+        &runtime,
         Some(AdvancedStep::default()),
         true,
         StartPolicy::NoPriorStart,
@@ -1177,7 +1200,8 @@ async fn advanced_no_prior_start_consumes_fresh_screened_activity_with_one_task_
 async fn horizon_public_run_inherits_caller_stop_and_original_deadline() {
     let runtime = horizon_runtime();
     let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0.0, 3).await;
+    let (plant, actuator, x) =
+        plant(&runtime.preparation_services(), &package, whole, 0.0, 3).await;
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
     let caller = crate::CancelSource::new().with_deadline(Some(deadline));
     let sibling = caller.child_with_deadline(None);
@@ -1236,7 +1260,8 @@ async fn horizon_proposal_queue_preserves_the_original_clock_and_cancellation_ow
         time::{Duration, Instant},
     };
     let runtime = horizon_runtime();
-    let staged = crate::workflow::staged::Staged::open(&runtime, None).unwrap();
+    let staged =
+        crate::workflow::staged::Staged::open(&runtime.execution_services(), None).unwrap();
     let cancel = crate::CancelSource::new();
     let flag = pse_diagnostics::Cancellation::default();
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -1275,6 +1300,7 @@ async fn horizon_proposal_queue_preserves_the_original_clock_and_cancellation_ow
 
 #[tokio::test]
 async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_failed_target() {
+    let runtime = horizon_runtime();
     use pse_relations::{
         columnar::RelationRow,
         generated::runtime::{
@@ -1282,7 +1308,7 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
         },
     };
     let completed =
-        antiwindup_with_start_policy(None, false, StartPolicy::PreviousAccepted, 1).await;
+        antiwindup_with_start_policy(&runtime, None, false, StartPolicy::PreviousAccepted, 1).await;
     let first = modeling(&completed)[0].clone();
     assert!(matches!(&first.outcome, Outcome::Native(_)) && first.accepted);
     let original_tables = completed.tables().unwrap();
@@ -1300,7 +1326,6 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
             .iter()
             .any(|row| !row.fixed && !row.parameter && row.value.is_some())
     );
-    let runtime = completed.runtime.clone();
     let good = first.prepared.clone();
     let mut bad = good.clone();
     let scope = pse_kernels::ExecutionScope::new(
@@ -1338,11 +1363,14 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
         detail: Default::default(),
         failed_detail: Default::default(),
     };
-    let mut history = prefix::OriginalHistory::new(&runtime, &demand).unwrap();
-    history.admit_step(&runtime, &good).unwrap();
+    let mut history =
+        prefix::OriginalHistory::new(&runtime.preparation_services(), &demand).unwrap();
+    history
+        .admit_step(&runtime.preparation_services(), &good)
+        .unwrap();
     let mut first_original = RunResult::joined(
         completed.run_id,
-        runtime.clone(),
+        runtime.execution_services(),
         crate::workflow::RunOutcome::Modeling {
             request: vec![good.clone()],
             result: Ok(vec![first.clone()]),
@@ -1355,7 +1383,7 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
     history.take_original(&mut first_original);
     let mut original_failure = RunResult::joined(
         completed.run_id,
-        runtime.clone(),
+        runtime.execution_services(),
         crate::workflow::RunOutcome::Modeling {
             request: vec![bad.clone()],
             result: Err(cause.clone()),
@@ -1365,7 +1393,9 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
     original_failure.modeling_origin = 1;
     let mut original_failure = original_failure.completed();
     let failed_assessments = serde_json::to_value(&original_failure.assessments).unwrap();
-    history.admit_step(&runtime, &bad).unwrap();
+    history
+        .admit_step(&runtime.preparation_services(), &bad)
+        .unwrap();
     history.validate_original(&original_failure).unwrap();
     history.export(&original_failure).await.unwrap();
     history.take_original(&mut original_failure);
@@ -1412,7 +1442,7 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
     );
     let mut joined = RunResult::joined(
         completed.run_id,
-        runtime.clone(),
+        runtime.execution_services(),
         crate::workflow::RunOutcome::Modeling {
             request: vec![good.clone(), bad],
             result: report,
@@ -1468,7 +1498,7 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
     );
     let mut plant = RunResult::joined(
         completed.run_id,
-        runtime,
+        runtime.execution_services(),
         crate::workflow::RunOutcome::Modeling {
             request: vec![good],
             result: report,
@@ -1501,7 +1531,8 @@ async fn compact_horizon_bounds_roles_and_keeps_actual_background_permission() {
     const STEPS: usize = 20;
     let runtime = horizon_runtime();
     let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0., STEPS).await;
+    let (plant, actuator, x) =
+        plant(&runtime.preparation_services(), &package, whole, 0., STEPS).await;
     let mut controller = controller(&package, root, x, vec![1.; STEPS]);
     controller.advanced = Some(AdvancedStep {
         predictions: vec![("x0".into(), "x[0.25{s}]".into())],
@@ -1512,7 +1543,7 @@ async fn compact_horizon_bounds_roles_and_keeps_actual_background_permission() {
     };
     let admitted = Arc::new(
         driver::Admitted::new(
-            &runtime,
+            &runtime.preparation_services(),
             Horizon {
                 output: output.clone(),
                 plant,
@@ -1530,9 +1561,11 @@ async fn compact_horizon_bounds_roles_and_keeps_actual_background_permission() {
         .await
         .unwrap(),
     );
-    let original = prefix::OriginalHistory::new(&runtime, &output).unwrap();
-    let staged = crate::workflow::staged::Staged::open(&runtime, None).unwrap();
+    let original = prefix::OriginalHistory::new(&runtime.preparation_services(), &output).unwrap();
+    let staged =
+        crate::workflow::staged::Staged::open(&runtime.execution_services(), None).unwrap();
     let mut execution = driver::Loop::new(
+        runtime.execution_services(),
         admitted,
         staged,
         pse_operations::mint_id(),
@@ -1675,19 +1708,20 @@ async fn compact_horizon_bounds_roles_and_keeps_actual_background_permission() {
 
 #[tokio::test]
 async fn full_horizon_preparation_materialization_requires_actual_pool_admission() {
-    let result = antiwindup_with_start_policy(None, false, StartPolicy::PreviousAccepted, 1).await;
+    let runtime = horizon_runtime();
+    let result =
+        antiwindup_with_start_policy(&runtime, None, false, StartPolicy::PreviousAccepted, 1).await;
     let prepared = &modeling(&result)[0].prepared;
-    let runtime = &result.runtime;
     let pool = runtime.shared.pool();
     let filler =
         pse_columnar::MemoryConsumer::new("test:full-horizon-copy-pressure").register(&pool);
     filler
         .try_grow(runtime.shared.budget().memory_limit_bytes.get() - pool.reserved())
         .unwrap();
-    assert!(prefix::preparation_copy_owner(runtime, prepared).is_err());
+    assert!(prefix::preparation_copy_owner(&runtime.preparation_services(), prepared).is_err());
     drop(filler);
     let original_reserved = pool.reserved();
-    let owners = prefix::preparation_copy_owner(runtime, prepared).unwrap();
+    let owners = prefix::preparation_copy_owner(&runtime.preparation_services(), prepared).unwrap();
     assert!(pool.reserved() > original_reserved);
     drop(owners);
     assert_eq!(pool.reserved(), original_reserved);
@@ -1702,10 +1736,15 @@ async fn compact_horizon_keeps_original_summaries_and_absolute_member_ordinals()
     const STEPS: usize = 3;
     let runtime = horizon_runtime();
     let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0., STEPS).await;
+    let (plant, actuator, x) =
+        plant(&runtime.preparation_services(), &package, whole, 0., STEPS).await;
     let controller = controller(&package, root, x, vec![1.; STEPS]);
     let prepared = package
-        .prepare_analysis(&controller.analysis, &crate::CancelSource::new())
+        .prepare_analysis(
+            &runtime.preparation_services(),
+            &controller.analysis,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     let symbol = prepared.model.model.compiled().model.paths["u[0.25{s}]"];
@@ -1789,9 +1828,13 @@ async fn owned_loop(
     let maximum_solves = horizon.steps * 3;
     let output = horizon.output.clone();
     let admitted = Arc::new(
-        driver::Admitted::new(runtime, horizon, &crate::CancelSource::new())
-            .await
-            .unwrap(),
+        driver::Admitted::new(
+            &runtime.preparation_services(),
+            horizon,
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap(),
     );
     let run_id = pse_operations::mint_id();
     let mut attempt = if durable {
@@ -1804,7 +1847,7 @@ async fn owned_loop(
         attempt
             .register_horizon(
                 run_id,
-                runtime,
+                &runtime.source_services(),
                 &request.sources,
                 request.identity,
                 &request.provenance,
@@ -1819,9 +1862,11 @@ async fn owned_loop(
     let keys = attempt
         .as_ref()
         .map(|attempt| attempt.canonical_keys(run_id));
-    let original = prefix::OriginalHistory::new(runtime, &output).unwrap();
-    let staged = crate::workflow::staged::Staged::open(runtime, None).unwrap();
+    let original = prefix::OriginalHistory::new(&runtime.preparation_services(), &output).unwrap();
+    let staged =
+        crate::workflow::staged::Staged::open(&runtime.execution_services(), None).unwrap();
     let execution = driver::Loop::new(
+        runtime.execution_services(),
         admitted.clone(),
         staged,
         run_id,
@@ -1840,7 +1885,7 @@ async fn compact_horizon_post_science_pressure_moves_original_completion_on_refu
     #[cfg(not(feature = "canonical-tests"))]
     let runtime = horizon_runtime();
     let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0., 2).await;
+    let (plant, actuator, x) = plant(&runtime.preparation_services(), &package, whole, 0., 2).await;
     let output = crate::workflow::StudyOutputDemand::Compact {
         detail: Default::default(),
         failed_detail: Default::default(),
@@ -1873,12 +1918,19 @@ async fn compact_horizon_post_science_pressure_moves_original_completion_on_refu
     assert_eq!(execution.completion().solves.len(), 1);
     assert_eq!(execution.completion().lineage.len(), 1);
     assert_eq!(execution.completion().assessments.len(), 1);
-    let result = execution.finish(runtime.clone(), outcome, false).await;
+    let result = execution.finish(outcome, false).await;
     assert!(result.report().is_err());
-    assert_eq!(
-        serde_json::to_value(result.completion().unwrap()).unwrap(),
-        expected
+    assert!(
+        !result.usable(),
+        "publication failure withholds the whole requested horizon"
     );
+    let retained = serde_json::to_value(result.completion().unwrap()).unwrap();
+    for collection in ["solves", "lineage", "assessments"] {
+        assert_eq!(
+            retained[collection], expected[collection],
+            "authentic prefix {collection} must survive publication failure"
+        );
+    }
     let summary_error = result
         .horizon_output
         .as_ref()
@@ -1928,7 +1980,7 @@ async fn compact_horizon_post_science_pressure_moves_original_completion_on_refu
 async fn compact_horizon_cancel_before_first_solve_closes_exact_empty_summary_membership() {
     let runtime = crate::workflow::durable_tests::durable_runtime_on(horizon_runtime());
     let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0., 2).await;
+    let (plant, actuator, x) = plant(&runtime.preparation_services(), &package, whole, 0., 2).await;
     let output = crate::workflow::StudyOutputDemand::Compact {
         detail: Default::default(),
         failed_detail: Default::default(),
@@ -1953,7 +2005,7 @@ async fn compact_horizon_cancel_before_first_solve_closes_exact_empty_summary_me
     execution.cancel_before_first_step();
     let outcome = execution.run().await;
     assert!(outcome.is_err() && execution.completion().solves.is_empty());
-    let result = execution.finish(runtime.clone(), outcome, true).await;
+    let result = execution.finish(outcome, true).await;
     admitted.close_sources().await.unwrap();
     let tables = result.tables().unwrap();
     let findings = pse_relations::generated::runtime::modeling_findings::RELATION_ID;
@@ -2015,7 +2067,8 @@ async fn compact_mhe_keeps_only_rolling_measurements_inputs_and_arrival_role() {
     const STEPS: usize = 12;
     let runtime = horizon_runtime();
     let (package, [_, whole, estimator]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0.8, STEPS).await;
+    let (plant, actuator, x) =
+        plant(&runtime.preparation_services(), &package, whole, 0.8, STEPS).await;
     let output = crate::workflow::StudyOutputDemand::Compact {
         detail: Default::default(),
         failed_detail: Default::default(),
@@ -2058,7 +2111,7 @@ async fn compact_mhe_keeps_only_rolling_measurements_inputs_and_arrival_role() {
     )
     .budget;
     assert!((now - expected).abs() <= budget);
-    let result = execution.finish(runtime, outcome, false).await;
+    let result = execution.finish(outcome, false).await;
     assert!(result.usable(), "{:?}", result.report());
     assert_eq!(result.completion().unwrap().solves.len(), STEPS - 4);
     admitted.close_sources().await.unwrap();
@@ -2070,7 +2123,8 @@ async fn compact_multi_step_horizon_seals_one_original_completion_and_seed_inven
     const STEPS: usize = 3;
     let runtime = crate::workflow::durable_tests::durable_runtime_on(horizon_runtime());
     let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0., STEPS).await;
+    let (plant, actuator, x) =
+        plant(&runtime.preparation_services(), &package, whole, 0., STEPS).await;
     let result = run(
         &runtime,
         Horizon {
@@ -2152,10 +2206,14 @@ async fn compact_multi_step_horizon_seals_one_original_completion_and_seed_inven
 async fn compact_failed_detail_uses_one_whole_horizon_cap_and_original_outcome() {
     let runtime = horizon_runtime();
     let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0., 3).await;
+    let (plant, actuator, x) = plant(&runtime.preparation_services(), &package, whole, 0., 3).await;
     let controller = controller(&package, root, x, vec![1.; 3]);
     let prepared = package
-        .prepare_analysis(&controller.analysis, &crate::CancelSource::new())
+        .prepare_analysis(
+            &runtime.preparation_services(),
+            &controller.analysis,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     let symbol = prepared.model.model.compiled().model.paths["u[0.25{s}]"];
@@ -2239,7 +2297,7 @@ async fn compact_failed_detail_uses_one_whole_horizon_cap_and_original_outcome()
         .await
         .unwrap_err();
     assert!(failure.strategy_trace().is_some());
-    let result = execution.finish(runtime, Err(failure), false).await;
+    let result = execution.finish(Err(failure), false).await;
     let completion = result.completion().unwrap();
     assert_eq!(completion.solves.len(), 3);
     assert_eq!(
@@ -2269,10 +2327,16 @@ async fn compact_failed_detail_uses_one_whole_horizon_cap_and_original_outcome()
     let mut cursor = result
         .cursor_by_id(variables, 1, crate::workflow::ResultOrder::Canonical)
         .unwrap();
-    let spec = result.runtime.registry().relation_by_id(variables).unwrap();
+    let spec = result
+        .services
+        .preparation()
+        .registry()
+        .relation_by_id(variables)
+        .unwrap();
     assert_eq!(
         cursor.schema(),
-        pse_schema::arrow::relation_schema_ref(result.runtime.registry(), spec).unwrap()
+        pse_schema::arrow::relation_schema_ref(result.services.preparation().registry(), spec)
+            .unwrap()
     );
     let export_error = cursor.next_batch().await.unwrap_err();
     assert_eq!(export_error.to_string(), detail_error.to_string());
@@ -2289,8 +2353,9 @@ async fn compact_failed_detail_uses_one_whole_horizon_cap_and_original_outcome()
 /// old report allowances cannot accumulate behind a Compact history owner.
 #[tokio::test]
 async fn compact_original_history_releases_report_allowance_in_a_finite_pool() {
-    let source = antiwindup_with_start_policy(None, false, StartPolicy::PreviousAccepted, 1).await;
-    let runtime = &source.runtime;
+    let runtime = horizon_runtime();
+    let source =
+        antiwindup_with_start_policy(&runtime, None, false, StartPolicy::PreviousAccepted, 1).await;
     let native = modeling(&source)[0].clone();
     assert!(
         native
@@ -2304,9 +2369,12 @@ async fn compact_original_history_releases_report_allowance_in_a_finite_pool() {
         detail: Default::default(),
         failed_detail: Default::default(),
     };
-    let mut history = prefix::OriginalHistory::new(runtime, &output).unwrap();
+    let mut history =
+        prefix::OriginalHistory::new(&runtime.preparation_services(), &output).unwrap();
     let baseline = history.retained_owner_bytes();
-    history.admit_step(runtime, prepared).unwrap();
+    history
+        .admit_step(&runtime.preparation_services(), prepared)
+        .unwrap();
     let allowance = history.retained_owner_bytes() - baseline;
     let pool = runtime.shared.pool();
     let limit = runtime.shared.budget().memory_limit_bytes.get();
@@ -2316,11 +2384,13 @@ async fn compact_original_history_releases_report_allowance_in_a_finite_pool() {
     filler.try_grow(limit - pool.reserved() - cushion).unwrap();
     for step in 0..32 {
         if step != 0 {
-            history.admit_step(runtime, prepared).unwrap();
+            history
+                .admit_step(&runtime.preparation_services(), prepared)
+                .unwrap();
         }
         let mut original = RunResult::joined(
             source.run_id,
-            runtime.clone(),
+            runtime.execution_services(),
             crate::workflow::RunOutcome::Modeling {
                 request: vec![prepared.clone()],
                 result: Ok(vec![native.clone()]),
@@ -2363,7 +2433,7 @@ async fn compact_original_history_releases_report_allowance_in_a_finite_pool() {
 async fn compact_summary_refusal_invalidates_prior_complete_prefixes() {
     let runtime = horizon_runtime();
     let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&package, whole, 0., 2).await;
+    let (plant, actuator, x) = plant(&runtime.preparation_services(), &package, whole, 0., 2).await;
     let output = crate::workflow::StudyOutputDemand::Compact {
         detail: Default::default(),
         failed_detail: Default::default(),
@@ -2415,7 +2485,7 @@ async fn compact_summary_refusal_invalidates_prior_complete_prefixes() {
         expected.extend(second[name].as_array().unwrap().iter().cloned());
         assert_eq!(aggregate[name], serde_json::Value::Array(expected));
     }
-    let result = execution.finish(runtime, Err(refusal), false).await;
+    let result = execution.finish(Err(refusal), false).await;
     assert_eq!(
         serde_json::to_value(result.completion().unwrap()).unwrap(),
         aggregate
@@ -2437,7 +2507,8 @@ async fn compact_summary_refusal_invalidates_prior_complete_prefixes() {
 async fn plan38b_replay_horizon_reconstructs_stages_and_reruns_after_cancelled_prefix() {
     let runtime = horizon_runtime();
     let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, output) = plant(&package, whole, 0.0, 3).await;
+    let (plant, actuator, output) =
+        plant(&runtime.preparation_services(), &package, whole, 0.0, 3).await;
     let original = Horizon {
         output: crate::workflow::StudyOutputDemand::Full {},
         plant,
@@ -2455,7 +2526,11 @@ async fn plan38b_replay_horizon_reconstructs_stages_and_reruns_after_cancelled_p
     let constructor = crate::workflow::ReplayHorizonConstructor::new(&original).unwrap();
     let sources = vec![package.clone(), package.clone()];
     let restored = constructor
-        .reconstruct(&sources, &crate::CancelSource::new())
+        .reconstruct(
+            &runtime.preparation_services(),
+            &sources,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     assert_eq!(restored.steps, original.steps);

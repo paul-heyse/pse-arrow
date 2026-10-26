@@ -1107,10 +1107,11 @@ impl ModelingPackage {
     /// Missing fixture coverage is reported for every concrete definition in this revision.
     pub async fn conform(
         &self,
+        services: &crate::workflow::ExecutionServices,
         policy: ModelingConformancePolicy,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingConformanceReport, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
                 if policy.maximum_fixtures == 0
@@ -1125,9 +1126,12 @@ impl ModelingPackage {
                     .allowance()
                     .map_err(MathRuntimeError::from)?;
                 let source_rows = match &policy.fixtures {
-                    ModelingFixtureSelection::Package => self.declarations().await?,
+                    ModelingFixtureSelection::Package => {
+                        self.declarations(services.preparation()).await?
+                    }
                     ModelingFixtureSelection::Selected(selected) => {
-                        self.selected_declarations(selected, cancel).await?
+                        self.selected_declarations(services.preparation(), selected, cancel)
+                            .await?
                     }
                 };
                 let fixtures = policy.fixtures.tests(&source_rows)?;
@@ -1138,9 +1142,9 @@ impl ModelingPackage {
                     .map(|row| fixture_policy(row, &policy))
                     .collect::<Result<Vec<_>, _>>()?;
                 let mut report = ModelingConformanceReport::new(
-                    self.runtime.registry().clone(),
-                    self.runtime.shared.pool(),
-                    self.runtime.validation_context(),
+                    services.preparation().registry().clone(),
+                    services.preparation().pool(),
+                    services.preparation().validation_context(),
                     &fixtures
                         .iter()
                         .map(|r| r.declaration_id)
@@ -1162,12 +1166,11 @@ impl ModelingPackage {
                 }
                 // Active fixtures continuously reuse available slots. Completed fixtures keep
                 // compact, pool-owned reports until their discovery prefix can be merged.
-                let width = self
-                    .runtime
-                    .shared
+                let width = services
+                    .preparation()
                     .math()
                     .cores()
-                    .min(self.runtime.shared.budget().math.jobs)
+                    .min(services.preparation().math().policy().jobs)
                     .max(1);
                 let limit = fixtures.len().min(policy.maximum_fixtures);
                 let work_cancel = crate::CancelSource::new();
@@ -1197,7 +1200,13 @@ impl ModelingPackage {
                         pending.push(async move {
                             #[cfg(not(test))]
                             let outcome = self
-                                .conform_fixture(row, fixture_policy, child_cancel, run_id)
+                                .conform_fixture(
+                                    services,
+                                    row,
+                                    fixture_policy,
+                                    child_cancel,
+                                    run_id,
+                                )
                                 .await;
                             #[cfg(test)]
                             let outcome = if let Some(probe) = probe {
@@ -1207,6 +1216,7 @@ impl ModelingPackage {
                                         CONFORMANCE_TEST_FIXTURE.scope(
                                             row.declaration_id,
                                             self.conform_fixture(
+                                                services,
                                                 row,
                                                 fixture_policy,
                                                 child_cancel,
@@ -1216,8 +1226,14 @@ impl ModelingPackage {
                                     )
                                     .await
                             } else {
-                                self.conform_fixture(row, fixture_policy, child_cancel, run_id)
-                                    .await
+                                self.conform_fixture(
+                                    services,
+                                    row,
+                                    fixture_policy,
+                                    child_cancel,
+                                    run_id,
+                                )
+                                .await
                             };
                             (index, row.declaration_id, outcome)
                         });
@@ -1312,6 +1328,7 @@ impl ModelingPackage {
     /// One independent fixture owns its preparations, native jobs and retained report.
     async fn conform_fixture(
         &self,
+        services: &crate::workflow::ExecutionServices,
         row: &Declaration,
         policy: &ModelingConformancePolicy,
         cancel: &crate::CancelSource,
@@ -1319,9 +1336,9 @@ impl ModelingPackage {
     ) -> Result<FixtureReport, WorkflowError> {
         let cap = policy.maximum_checks;
         let mut report = ModelingConformanceReport::new(
-            self.runtime.registry().clone(),
-            self.runtime.shared.pool(),
-            self.runtime.validation_context(),
+            services.preparation().registry().clone(),
+            services.preparation().pool(),
+            services.preparation().validation_context(),
             &[row.declaration_id],
             cap,
         )?;
@@ -1332,7 +1349,10 @@ impl ModelingPackage {
             let fixture = row.declaration_id;
             #[cfg(test)]
             probe_phase(fixture, "selected source");
-            let revision = match self.selected_revision(fixture, cancel).await {
+            let revision = match self
+                .selected_revision(services.preparation(), fixture, cancel)
+                .await
+            {
                 Ok(revision) => revision,
                 Err(error) => {
                     report.failed(fixture, Kind::Preparation, &error, None, None, cap);
@@ -1345,6 +1365,7 @@ impl ModelingPackage {
             probe_phase(fixture, "declared preparation");
             let admitted = match self
                 .declared_execution(
+                    services.preparation(),
                     fixture,
                     policy.compiler,
                     policy.solver.clone(),
@@ -1384,10 +1405,9 @@ impl ModelingPackage {
             let mut expected_failure = data.and_then(|f| f.expected_failure.as_ref());
             let case = admitted.analysis.case.clone();
             if matches!(&admitted.procedure, DeclaredProcedure::Check) {
-                let checked = match self.pure_workspace() {
-                    Ok(workspace) => self
-                        .runtime
-                        .shared
+                let checked = match self.pure_workspace(services.preparation()) {
+                    Ok(workspace) => services
+                        .preparation()
                         .math()
                         .modeling_point_prepared(
                             workspace,
@@ -1407,7 +1427,7 @@ impl ModelingPackage {
             // minimized; the stitched trajectory carries the model's checks.
             if matches!(&admitted.procedure, DeclaredProcedure::Shooting { .. }) {
                 #[cfg(feature = "solver-diffsol")]
-                match self.conform_shooting(&admitted, cancel).await {
+                match self.conform_shooting(services, &admitted, cancel).await {
                     Ok(result) => {
                         let crate::workflow::RunOutcome::Shooting {
                             result: shooting, ..
@@ -1447,7 +1467,7 @@ impl ModelingPackage {
                 break 'fixture;
             }
             if matches!(&admitted.procedure, DeclaredProcedure::Integrate(_)) {
-                match self.conform_integrated(&admitted, cancel).await {
+                match self.conform_integrated(services, &admitted, cancel).await {
                     Ok(trajectory) => {
                         if let Some(failure) = trajectory.diagnostic() {
                             report.failed(
@@ -1544,7 +1564,7 @@ impl ModelingPackage {
                             for range in ranges {
                                 let check_index = report.checks.len();
                                 let (status, message, failure) = {
-                                    match self.conformance_envelope(&model, &values, &providers, range, policy.compiler, cancel).await {
+                                    match self.conformance_envelope(services.preparation(), &model, &values, &providers, range, policy.compiler, cancel).await {
                                     Ok(Some(true)) => (Status::Passed, "both outside-envelope trials rejected at this sample".into(), None),
                                     Ok(Some(false)) => (Status::Failed, "outside-envelope trial accepted".into(), None),
                                     Ok(None) => (Status::Inconclusive, "computed validity target requires an independent envelope sample".into(), None),
@@ -1588,7 +1608,12 @@ impl ModelingPackage {
             let mut initialized = None;
             if matches!(&admitted.procedure, DeclaredProcedure::Initialize(_)) {
                 match self
-                    .initialize_declared(&admitted, InitializationOverrides::default(), cancel)
+                    .initialize_declared(
+                        services,
+                        &admitted,
+                        InitializationOverrides::default(),
+                        cancel,
+                    )
                     .await
                 {
                     Ok(initialization) => {
@@ -1672,6 +1697,7 @@ impl ModelingPackage {
                 (!expected_diagnostics.is_empty()).then(|| (bindings.clone(), case.clone()));
             let resolution = match self
                 .resolve_prepared_case(
+                    services.preparation(),
                     admitted.prepared_model(self)?,
                     case,
                     solve_order,
@@ -1713,8 +1739,12 @@ impl ModelingPackage {
             probe_phase(fixture, "route assessment");
             let decision = match resolution.route_decision().and_then(|decision| {
                 let identity = resolution.admission_identity(&decision)?;
-                let tables =
-                    analysis_tables::admission_tables(&self.runtime, &decision, identity, 0)?;
+                let tables = analysis_tables::admission_tables(
+                    &services.preparation(),
+                    &decision,
+                    identity,
+                    0,
+                )?;
                 Ok((decision, tables))
             }) {
                 Ok((decision, tables)) => {
@@ -1798,7 +1828,7 @@ impl ModelingPackage {
                 );
             } else {
                 match self
-                    .conformance_derivatives(&resolution, policy.derivatives, cancel)
+                    .conformance_derivatives(services, &resolution, policy.derivatives, cancel)
                     .await
                 {
                     Ok((complete, passed, message)) => {
@@ -1858,6 +1888,7 @@ impl ModelingPackage {
                 }
                 let tested = self
                     .conformance_envelope(
+                        services.preparation(),
                         &resolution.model.model,
                         &resolution.model.values,
                         &resolution.providers,
@@ -1911,12 +1942,14 @@ impl ModelingPackage {
             let solved = if let Some(result) = initialized {
                 Ok(result)
             } else {
-                match self.finish_case(resolution, cancel).await {
+                match self
+                    .finish_case(services.preparation(), resolution, cancel)
+                    .await
+                {
                     Ok(prepared) => {
-                        match prepared
-                            .admission_identity()
-                            .and_then(|identity| prepared.admission_tables(identity, 0))
-                        {
+                        match prepared.admission_identity().and_then(|identity| {
+                            prepared.admission_tables(services.preparation(), identity, 0)
+                        }) {
                             Ok(tables) => {
                                 report.admissions.insert(fixture, tables);
                             }
@@ -1933,7 +1966,8 @@ impl ModelingPackage {
                                 break 'fixture;
                             }
                         }
-                        self.solve_case(prepared, policy.compiler, cancel).await
+                        self.solve_case(services, prepared, policy.compiler, cancel)
+                            .await
                     }
                     Err(error) => Err(error),
                 }
@@ -1943,11 +1977,11 @@ impl ModelingPackage {
                     // Keep the actual completed attempt even if its admission export
                     // refuses. Publication failure does not reinterpret the native result.
                     report.results.insert(fixture, result.clone());
-                    match result
-                        .prepared
-                        .admission_identity()
-                        .and_then(|identity| result.prepared.admission_tables(identity, 0))
-                    {
+                    match result.prepared.admission_identity().and_then(|identity| {
+                        result
+                            .prepared
+                            .admission_tables(services.preparation(), identity, 0)
+                    }) {
                         Ok(tables) => {
                             report.admissions.insert(fixture, tables);
                         }
@@ -1996,6 +2030,7 @@ impl ModelingPackage {
                     if let Some((bindings, case)) = diagnostic_inputs {
                         let diagnosed = if result.accepted {
                             self.diagnose_solution(
+                                services,
                                 fixture,
                                 bindings,
                                 case,
@@ -2058,6 +2093,7 @@ impl ModelingPackage {
     )]
     async fn diagnose_solution(
         &self,
+        services: &crate::workflow::ExecutionServices,
         fixture: DeclarationId,
         bindings: Bindings,
         case: ModelingCaseBindings,
@@ -2087,7 +2123,7 @@ impl ModelingPackage {
             None,
         )?;
         let prepared = operation
-            .within(self.prepare_diagnostics(&analysis, operation.driver()))
+            .within(self.prepare_diagnostics(services.preparation(), &analysis, operation.driver()))
             .await?;
         let mut values = prepared.model.values.clone();
         for (id, value) in &mut values.scalars {
@@ -2095,29 +2131,41 @@ impl ModelingPackage {
                 *value = *solved;
             }
         }
-        self.diagnose_case(prepared, values, thresholds, policy.compiler, &operation)
-            .await
+        self.diagnose_case(
+            services,
+            prepared,
+            values,
+            thresholds,
+            policy.compiler,
+            &operation,
+        )
+        .await
     }
     async fn conform_integrated(
         &self,
+        services: &crate::workflow::ExecutionServices,
         execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingTrajectory, WorkflowError> {
-        self.simulation_for_declared(execution, None, cancel)
+        self.simulation_for_declared(services.preparation(), execution, None, cancel)
             .await?
-            .run(cancel)
+            .run(services, cancel)
             .await
     }
     /// Solve an authored shooting fixture's problem on the math service.
     #[cfg(feature = "solver-diffsol")]
     async fn conform_shooting(
         &self,
+        services: &crate::workflow::ExecutionServices,
         execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<crate::workflow::RunResult>, WorkflowError> {
-        let problem = Arc::new(self.shooting_for_declared(execution, None, cancel).await?);
+        let problem = Arc::new(
+            self.shooting_for_declared(services.preparation(), execution, None, cancel)
+                .await?,
+        );
         let result = problem
-            .start_replay_with_cancel(None, cancel)?
+            .start_replay_with_cancel(services, None, cancel)?
             .wait()
             .await?;
         if let Some(error) = result.error() {
@@ -2127,11 +2175,12 @@ impl ModelingPackage {
     }
     async fn conformance_derivatives(
         &self,
+        services: &crate::workflow::ExecutionServices,
         resolution: &ModelingCaseResolution,
         policy: pse_backend_native::derivative_diagnostics::Policy,
         cancel: &crate::CancelSource,
     ) -> Result<(bool, bool, String), WorkflowError> {
-        let service = self.runtime.shared.math();
+        let service = services.preparation().math();
         let controls = resolution.solver.controls.clone();
         controls.validate().map_err(MathRuntimeError::from)?;
         let control = pse_diagnostics::Cancellation::default();
@@ -2162,6 +2211,7 @@ impl ModelingPackage {
             &scope,
             cancel,
             self.inner_registrations(
+                services.preparation(),
                 resolution.model.model.clone(),
                 &resolution.case_bindings,
                 &resolution.numerical,
@@ -2259,6 +2309,7 @@ impl ModelingPackage {
     }
     async fn conformance_envelope(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: &ModelingPreparation,
         values: &pse_math::binding::CaseValues,
         providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
@@ -2287,6 +2338,7 @@ impl ModelingPackage {
         .row_id();
         let observed = self
             .observe_registered(
+                services,
                 model.clone(),
                 BTreeSet::from([low, high]),
                 values.clone(),
@@ -2309,6 +2361,7 @@ impl ModelingPackage {
             values.scalars.insert(range.target, trial);
             match self
                 .observe_registered(
+                    services,
                     model.clone(),
                     BTreeSet::from([ModelingOutput::Member(range.target).row_id()]),
                     values,
@@ -2756,7 +2809,7 @@ mod tests {
         .with_durability(DurabilitySelection::Ephemeral)
         .unwrap()
     }
-    async fn parallel_package(source: &str, width: usize) -> ModelingPackage {
+    async fn parallel_package(source: &str, width: usize) -> (Runtime, ModelingPackage) {
         let rows = pse_authoring::language::parse(
             source,
             SemanticId::from_bytes([175; 16]),
@@ -2764,10 +2817,12 @@ mod tests {
             pse_authoring::ParseBudget::default(),
         )
         .unwrap();
-        parallel_runtime(width)
+        let runtime = parallel_runtime(width);
+        let package = runtime
             .modeling_package(rows, super::super::super::tests::physical())
             .await
-            .unwrap()
+            .unwrap();
+        (runtime, package)
     }
     #[cfg(feature = "solver-kinsol")]
     fn parallel_source(count: usize) -> String {
@@ -2784,9 +2839,12 @@ mod tests {
         policy.maximum_checks = 4096;
         policy
     }
-    async fn discovery(package: &ModelingPackage) -> Vec<DeclarationId> {
+    async fn discovery(
+        services: &crate::workflow::ExecutionServices,
+        package: &ModelingPackage,
+    ) -> Vec<DeclarationId> {
         package
-            .declarations()
+            .declarations(services.preparation())
             .await
             .unwrap()
             .iter()
@@ -2798,16 +2856,18 @@ mod tests {
     #[tokio::test]
     async fn conformance_parallel_sixteen_native_workers_preserve_authored_results_and_order() {
         let source = parallel_source(16);
-        let package = parallel_package(&source, 16).await;
-        let order = discovery(&package).await;
-        let probe = FixtureProbe::for_fixtures(&order, package.runtime.shared.math());
+        let (runtime, package) = parallel_package(&source, 16).await;
+        let services = runtime.execution_services();
+        let order = discovery(&services, &package).await;
+        let probe = FixtureProbe::for_fixtures(&order, services.preparation().math());
         let _drain = ProbeDrain(probe.clone());
         let cancel = crate::CancelSource::new();
-        let run = CONFORMANCE_TEST_PROBE
-            .scope(probe.clone(), package.conform(parallel_policy(), &cancel));
-        let prepare_until = package
-            .runtime
-            .shared
+        let run = CONFORMANCE_TEST_PROBE.scope(
+            probe.clone(),
+            package.conform(&services, parallel_policy(), &cancel),
+        );
+        let prepare_until = services
+            .preparation()
             .math()
             .preparation_deadline(&cancel)
             .unwrap();
@@ -2877,9 +2937,13 @@ mod tests {
         assert_eq!(report.admissions.len(), 16);
         assert_eq!(report.units.len(), 16);
         assert_eq!(report.fixture_statuses.len(), 16);
-        let serial = parallel_package(&source, 1)
-            .await
-            .conform(parallel_policy(), &crate::CancelSource::new())
+        let (serial_runtime, serial_package) = parallel_package(&source, 1).await;
+        let serial = serial_package
+            .conform(
+                &serial_runtime.execution_services(),
+                parallel_policy(),
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         assert!(serial.passed(), "{}", report_summary(&serial));
@@ -2923,6 +2987,7 @@ mod tests {
         // original-case validation. Sixteen sessions plus sixteen active operations
         // need 32 job slots, while CPU permits still bound active work to 16.
         let runtime = parallel_runtime_with_jobs(16, 32);
+        let services = runtime.execution_services();
         assert_eq!(runtime.shared.math().cores(), 16);
         assert_eq!(runtime.shared.budget().math.jobs, 32);
         let package = runtime
@@ -2934,7 +2999,7 @@ mod tests {
             pse_backend_native::solve::Backend::Ipopt,
         );
         let mut report = package
-            .conform(policy.clone(), &crate::CancelSource::new())
+            .conform(&services, policy.clone(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.passed(), "{}", report_summary(&report));
@@ -2944,12 +3009,17 @@ mod tests {
         );
         assert_eq!(report.initializations.len(), 16);
         assert_eq!(report.results.len(), 16);
-        let serial_package = parallel_runtime_with_jobs(1, 32)
+        let serial_runtime = parallel_runtime_with_jobs(1, 32);
+        let serial_package = serial_runtime
             .modeling_package(rows, fixture::physical())
             .await
             .unwrap();
         let serial = serial_package
-            .conform(policy, &crate::CancelSource::new())
+            .conform(
+                &serial_runtime.execution_services(),
+                policy,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         assert!(serial.passed(), "{}", report_summary(&serial));
@@ -2994,16 +3064,18 @@ mod tests {
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn conformance_parallel_reuses_slots_while_first_fixture_is_still_running() {
-        let package = parallel_package(&parallel_source(20), 16).await;
-        let order = discovery(&package).await;
-        let probe = FixtureProbe::for_fixtures(&order, package.runtime.shared.math());
+        let (runtime, package) = parallel_package(&parallel_source(20), 16).await;
+        let services = runtime.execution_services();
+        let order = discovery(&services, &package).await;
+        let probe = FixtureProbe::for_fixtures(&order, services.preparation().math());
         let _drain = ProbeDrain(probe.clone());
         let cancel = crate::CancelSource::new();
-        let run = CONFORMANCE_TEST_PROBE
-            .scope(probe.clone(), package.conform(parallel_policy(), &cancel));
-        let prepare_until = package
-            .runtime
-            .shared
+        let run = CONFORMANCE_TEST_PROBE.scope(
+            probe.clone(),
+            package.conform(&services, parallel_policy(), &cancel),
+        );
+        let prepare_until = services
+            .preparation()
             .math()
             .preparation_deadline(&cancel)
             .unwrap();
@@ -3052,22 +3124,22 @@ mod tests {
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn conformance_parallel_cancellation_drains_admitted_workers_and_retains_inventory() {
-        let package = parallel_package(&parallel_source(20), 16).await;
-        let order = discovery(&package).await;
-        let pool = package.runtime.shared.pool();
-        let probe = FixtureProbe::for_fixtures(&order, package.runtime.shared.math());
+        let (runtime, package) = parallel_package(&parallel_source(20), 16).await;
+        let services = runtime.execution_services();
+        let order = discovery(&services, &package).await;
+        let pool = services.preparation().pool();
+        let probe = FixtureProbe::for_fixtures(&order, services.preparation().math());
         let _drain = ProbeDrain(probe.clone());
         let cancel = crate::CancelSource::new();
-        let prepare_until = package
-            .runtime
-            .shared
+        let prepare_until = services
+            .preparation()
             .math()
             .preparation_deadline(&cancel)
             .unwrap();
-        let mut run = Box::pin(
-            CONFORMANCE_TEST_PROBE
-                .scope(probe.clone(), package.conform(parallel_policy(), &cancel)),
-        );
+        let mut run = Box::pin(CONFORMANCE_TEST_PROBE.scope(
+            probe.clone(),
+            package.conform(&services, parallel_policy(), &cancel),
+        ));
         tokio::select! {
             result = &mut run => panic!("conformance returned before all sixteen admitted workers: {}; {}", result_summary(&result), probe.snapshot()),
             () = async {
@@ -3083,14 +3155,14 @@ mod tests {
             probe.snapshot()
         );
         let held = pool.reserved();
-        assert!(held >= 16 * package.runtime.shared.budget().math.foreign_bytes);
+        assert!(held >= 16 * services.preparation().math().policy().foreign_bytes);
         cancel.cancel();
         tokio::select! {
             result = &mut run => panic!("cancel abandoned active native workers: {}; {}", result_summary(&result), probe.snapshot()),
             () = probe.wait(|state| state.cancelled.len() == 16) => {}
         }
         assert_eq!(probe.state_snapshot().active, 16);
-        assert!(pool.reserved() >= 16 * package.runtime.shared.budget().math.foreign_bytes);
+        assert!(pool.reserved() >= 16 * services.preparation().math().policy().foreign_bytes);
         probe.release_all();
         let report = run.await.unwrap();
         assert!(!report.complete && !report.passed());
@@ -3137,22 +3209,22 @@ mod tests {
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn conformance_parallel_fatal_fixture_drains_other_issued_workers() {
-        let package = parallel_package(&parallel_source(20), 16).await;
-        let order = discovery(&package).await;
-        let probe = FixtureProbe::for_fixtures(&order, package.runtime.shared.math());
+        let (runtime, package) = parallel_package(&parallel_source(20), 16).await;
+        let services = runtime.execution_services();
+        let order = discovery(&services, &package).await;
+        let probe = FixtureProbe::for_fixtures(&order, services.preparation().math());
         probe.state.lock().unwrap().fatal_fixture = Some(order[0]);
         let _drain = ProbeDrain(probe.clone());
         let cancel = crate::CancelSource::new();
-        let prepare_until = package
-            .runtime
-            .shared
+        let prepare_until = services
+            .preparation()
             .math()
             .preparation_deadline(&cancel)
             .unwrap();
-        let mut run = Box::pin(
-            CONFORMANCE_TEST_PROBE
-                .scope(probe.clone(), package.conform(parallel_policy(), &cancel)),
-        );
+        let mut run = Box::pin(CONFORMANCE_TEST_PROBE.scope(
+            probe.clone(),
+            package.conform(&services, parallel_policy(), &cancel),
+        ));
         tokio::select! {
             result = &mut run => panic!("conformance returned before all issued workers: {}; {}", result_summary(&result), probe.snapshot()),
             () = async {
@@ -3262,9 +3334,10 @@ mod tests {
     #[tokio::test]
     async fn conformance_parallel_global_caps_preserve_unattempted_and_failed_fixtures() {
         let source = "package p {fn positive(x:Scalar)->Scalar valid(x > 0)=x; test bad fixture {dof 0; route steady; procedure check;} {expect positive(-1)==1 tolerance 1e-12;} test good fixture {dof 0; route steady; procedure check;} {expect positive(2)==2 tolerance 1e-12;} test suffix fixture {dof 0; route steady; procedure check;} {expect positive(3)==3 tolerance 1e-12;}}";
-        let package = parallel_package(source, 16).await;
-        let order = discovery(&package).await;
-        let declarations = package.declarations().await.unwrap();
+        let (runtime, package) = parallel_package(source, 16).await;
+        let services = runtime.execution_services();
+        let order = discovery(&services, &package).await;
+        let declarations = package.declarations(services.preparation()).await.unwrap();
         let id = |name| {
             declarations
                 .iter()
@@ -3273,7 +3346,7 @@ mod tests {
                 .declaration_id
         };
         let full = package
-            .conform(parallel_policy(), &crate::CancelSource::new())
+            .conform(&services, parallel_policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert_eq!(
@@ -3304,7 +3377,7 @@ mod tests {
         let mut policy = parallel_policy();
         policy.maximum_fixtures = 2;
         let report = package
-            .conform(policy.clone(), &crate::CancelSource::new())
+            .conform(&services, policy.clone(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(!report.complete);
@@ -3332,7 +3405,7 @@ mod tests {
         policy.maximum_fixtures = 3;
         policy.maximum_checks = 1;
         let capped = package
-            .conform(policy, &crate::CancelSource::new())
+            .conform(&services, policy, &crate::CancelSource::new())
             .await
             .unwrap();
         assert_eq!(capped.checks.len(), 1);
@@ -3355,7 +3428,7 @@ mod tests {
         let cancelled = crate::CancelSource::new();
         cancelled.cancel();
         let untouched = package
-            .conform(parallel_policy(), &cancelled)
+            .conform(&services, parallel_policy(), &cancelled)
             .await
             .unwrap();
         assert!(!untouched.complete);
@@ -3404,9 +3477,10 @@ mod tests {
         }
     }
     #[cfg(feature = "solver-kinsol")]
-    async fn nested_scope_fixture() -> (ModelingPackage, ModelingCaseResolution) {
+    async fn nested_scope_fixture() -> (Runtime, ModelingPackage, ModelingCaseResolution) {
         use super::super::super::tests as fixture;
         let runtime = fixture::runtime_with(128 << 20, 16 << 20, 1 << 30);
+        let services = runtime.execution_services();
         let rows = pse_authoring::language::parse(
             "package p { def Root {param p:Scalar=4; var x:Scalar; annotation start x(2); implicit root select operational(y=1) settings(\"native.kinsol.v1\") {var y:Scalar; eq e:y*y==p; annotation start y(1); annotation bounds y(0.1,10);} realize policy on root using nested; eq e:x==root.y;} }",
             SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named,
@@ -3423,6 +3497,7 @@ mod tests {
             .unwrap();
         let resolution = package
             .resolve_case(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -3439,15 +3514,16 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(resolution.providers.len(), 1);
-        (package, resolution)
+        (runtime, package, resolution)
     }
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn derivative_worker_keeps_submitted_scope_in_actual_nested_factory_and_late_exit() {
         use crate::math::MathService;
         use pse_backend_native::solve::{Controls, Execution};
-        let (package, resolution) = nested_scope_fixture().await;
-        let service = package.runtime.shared.math();
+        let (runtime, _package, resolution) = nested_scope_fixture().await;
+        let services = runtime.execution_services();
+        let service = services.preparation().math();
         let cancel = crate::CancelSource::new();
         let prepared = service
             .prepare_order(
@@ -3599,8 +3675,9 @@ mod tests {
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn derivative_submission_deadline_expires_during_first_preparation_queue() {
-        let (package, mut resolution) = nested_scope_fixture().await;
-        let service = package.runtime.shared.math();
+        let (runtime, package, mut resolution) = nested_scope_fixture().await;
+        let services = runtime.execution_services();
+        let service = services.preparation().math();
         assert_eq!(
             resolution.model.case.compiled().plan.order(),
             DerivativeOrder::Value
@@ -3640,6 +3717,7 @@ mod tests {
         resolution.solver.controls.time_limit = std::time::Duration::from_millis(25);
         let result = package
             .conformance_derivatives(
+                &services,
                 &resolution,
                 policy().derivatives,
                 &crate::CancelSource::new(),
@@ -3789,8 +3867,7 @@ mod tests {
         drop(report);
         assert_eq!(pool.reserved(), 0);
     }
-    async fn package(text: &str) -> ModelingPackage {
-        let runtime = super::super::super::tests::runtime();
+    async fn package(runtime: &Runtime, text: &str) -> ModelingPackage {
         let physical = super::super::super::tests::physical();
         let rows = pse_authoring::language::parse(
             text,
@@ -3822,10 +3899,12 @@ mod tests {
     /// identity, and the published relation keeps it (ADR-0123 Outcome 5).
     #[tokio::test]
     async fn conformance_publishes_oracle_source_id() {
-        let p = package(
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
+        let p = package(&runtime,
             "package p { entity kind source provenance { attribute title: Text; } entity kind release extends source { attribute version: Text; } entity release upstream { title = \"Upstream\", version = \"2.13.0\" } fn cube(x:Scalar)->Scalar=x*x*x; test compared oracle upstream { expect cube(2)==8 tolerance 1e-8; } test analytic { expect cube(3)==27 tolerance 1e-8; } }",
         ).await;
-        let declarations = p.declarations().await.unwrap();
+        let declarations = p.declarations(services.preparation()).await.unwrap();
         let id = |name: &str| {
             declarations
                 .iter()
@@ -3834,7 +3913,7 @@ mod tests {
                 .declaration_id
         };
         let report = p
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         let (compared, analytic) = (id("compared"), id("analytic"));
@@ -3857,11 +3936,13 @@ mod tests {
     }
     #[tokio::test]
     async fn kernel_conformance_discovers_pure_tests_and_reports_uncovered_definitions() {
-        let p = package(
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
+        let p = package(&runtime,
             "package p { fn cube(x:Scalar)->Scalar=x*x*x; test pure { expect cube(2)==8 tolerance 1e-8; } def Missing { var x:Scalar; eq e:x==1; } }",
         ).await;
         let report = p
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(!report.passed());
@@ -3880,11 +3961,15 @@ mod tests {
         drop(report);
         drop(p);
         assert_eq!(ModelingConformanceCheck::rows(&table).unwrap(), expected);
-        let p = package("package p { test pure { expect 1==1 tolerance 1e-8; } }").await;
+        let p = package(
+            &runtime,
+            "package p { test pure { expect 1==1 tolerance 1e-8; } }",
+        )
+        .await;
         let mut limited = policy();
         limited.maximum_checks = 1;
         let result = p
-            .conform(limited, &crate::CancelSource::new())
+            .conform(&services, limited, &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(!result.complete);
@@ -3895,10 +3980,12 @@ mod tests {
     /// before any fixture runs.
     #[tokio::test]
     async fn kernel_conformance_runs_only_selected_fixtures() {
-        let p = package(
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
+        let p = package(&runtime,
             "package p { fn cube(x:Scalar)->Scalar=x*x*x; test first { expect cube(2)==8 tolerance 1e-8; } test second { expect cube(3)==27 tolerance 1e-8; } test wrong { expect cube(1)==2 tolerance 1e-8; } def Missing { var x:Scalar; eq e:x==1; } }",
         ).await;
-        let declarations = p.declarations().await.unwrap();
+        let declarations = p.declarations(services.preparation()).await.unwrap();
         let id = |name: &str| {
             declarations
                 .iter()
@@ -3910,7 +3997,7 @@ mod tests {
         let mut chosen = policy();
         chosen.fixtures = ModelingFixtureSelection::Selected(selected.clone());
         let report = p
-            .conform(chosen.clone(), &crate::CancelSource::new())
+            .conform(&services, chosen.clone(), &crate::CancelSource::new())
             .await
             .unwrap();
         // The failing and the uncovered members of the package are outside the selection.
@@ -3933,7 +4020,7 @@ mod tests {
         assert_eq!(coverage[0].status, Status::NotApplicable);
         // Control: the whole package fails its wrong fixture and its uncovered definition.
         let whole = p
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert_eq!(whole.selection, ModelingFixtureSelection::Package);
@@ -3958,7 +4045,7 @@ mod tests {
             let mut refused = policy();
             refused.fixtures = ModelingFixtureSelection::Selected(selection);
             let error = p
-                .conform(refused, &crate::CancelSource::new())
+                .conform(&services, refused, &crate::CancelSource::new())
                 .await
                 .unwrap_err();
             if let Some(named) = named {
@@ -3972,6 +4059,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_conformance_refuses_mismatched_or_unbounded_fixture_policies() {
         let rt = super::super::super::tests::runtime();
+        let services = rt.execution_services();
         let physical = super::super::super::tests::physical();
         let rows = |metadata: &str| {
             pse_authoring::language::parse(&format!("package p {{test valid fixture {{dof 0; route steady; procedure check;}} {{expect 1==1 tolerance 1e-6;}} test invalid fixture {{dof 0; {metadata}}} {{expect 1==1 tolerance 1e-6;}}}}"), SemanticId::from_bytes([175; 16]), pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap()
@@ -4003,7 +4091,7 @@ mod tests {
                 .unwrap();
             assert!(
                 package
-                    .selected_revision(invalid, &crate::CancelSource::new())
+                    .selected_revision(services.preparation(), invalid, &crate::CancelSource::new())
                     .await
                     .is_err(),
                 "{metadata}"
@@ -4021,11 +4109,11 @@ mod tests {
                 .await
                 .unwrap();
             let error = package
-                .conform(policy(), &crate::CancelSource::new())
+                .conform(&services, policy(), &crate::CancelSource::new())
                 .await
                 .unwrap_err();
             let invalid = package
-                .declarations()
+                .declarations(services.preparation())
                 .await
                 .unwrap()
                 .iter()
@@ -4040,11 +4128,13 @@ mod tests {
     }
     #[tokio::test]
     async fn kernel_conformance_uses_initialized_original_results() {
-        let p = package(
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
+        let p = package(&runtime,
             "package p { def D { var x:Scalar; } test initialized fixture {dof 0; route steady; procedure initialize; initialize homotopy(false) step(0.5) minimum(1e-6) growth(2) attempts(2) seconds(30); fix root.x=2;} {child root:D=D(); expect root.x==2 tolerance 1e-8;} }",
         ).await;
         let report = p
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
@@ -4068,6 +4158,8 @@ mod tests {
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
     async fn kernel_conformance_initializes_inherited_child_stages() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
         let source = r#"package p {
  interface Base {var x:Scalar; eq e:x==4; annotation start x(1);
    stage "warm" {override eq e:x==2;} }
@@ -4076,9 +4168,9 @@ mod tests {
  test initialized fixture {dof 0; route steady; procedure initialize; stages("warm");}
  {child root:D=D; expect root.x==4 tolerance 1e-8;}
  }"#;
-        let p = package(source).await;
+        let p = package(&runtime, source).await;
         let report = p
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
@@ -4091,9 +4183,9 @@ mod tests {
             initialization.attempts[1].step,
             ModelingInitializationStep::Original
         ));
-        let p = package(&source.replace("root.x==4", "root.x==5")).await;
+        let p = package(&runtime, &source.replace("root.x==4", "root.x==5")).await;
         let rejected = p
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(!rejected.passed());
@@ -4110,6 +4202,8 @@ mod tests {
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
     async fn fixture_expects_diagnostic_findings_naming_members() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
         let source = r#"package p {
  def D {var x:Scalar; var y:Scalar; eq a:x+y==2; eq b:x+1.000001*y==2.000001;
    annotation start x(0.5); annotation start y(0.5);}
@@ -4123,9 +4217,12 @@ mod tests {
                 .unwrap();
         let run = |expected: &str, diagnostics: Option<ModelingDiagnosticPolicy>| {
             let text = source.replace("EXPECTED", expected);
+            let runtime = runtime.clone();
+            let services = services.clone();
             async move {
-                let p = package(&text).await;
+                let p = package(&runtime, &text).await;
                 p.conform(
+                    &services,
                     ModelingConformancePolicy {
                         diagnostics,
                         ..policy()
@@ -4162,7 +4259,10 @@ mod tests {
     }
     #[tokio::test]
     async fn conformance_publishes_original_structural_refusal_without_a_run_result() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
         let p = package(
+            &runtime,
             r#"package p {
  def D { var x:Scalar; var y:Scalar; eq a:x==1; eq b:y==2; eq c:x+y==3;
  annotation start x(0); annotation start y(0); }
@@ -4171,23 +4271,24 @@ mod tests {
         )
         .await;
         let report = p
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.results.is_empty());
         let tables = report.admission_tables().unwrap();
         let route = pse_relations::generated::runtime::route_decisions::Row::rows(
             &tables[&pse_relations::generated::runtime::route_decisions::spec(
-                p.runtime.registry(),
+                services.preparation().registry(),
             )
             .unwrap()
             .id],
         )
         .unwrap();
-        let structural_id =
-            pse_relations::generated::runtime::structural_assessments::spec(p.runtime.registry())
-                .unwrap()
-                .id;
+        let structural_id = pse_relations::generated::runtime::structural_assessments::spec(
+            services.preparation().registry(),
+        )
+        .unwrap()
+        .id;
         let structure = pse_relations::generated::runtime::structural_assessments::Row::rows(
             &tables[&structural_id],
         )
@@ -4211,7 +4312,7 @@ mod tests {
         assert_eq!(structure[0].unmatched_rows.len(), 1);
         assert!(structure[0].unmatched_columns.is_empty());
         let fixture = p
-            .declarations()
+            .declarations(services.preparation())
             .await
             .unwrap()
             .iter()
@@ -4222,6 +4323,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let execution = p
             .declared_execution(
+                services.preparation(),
                 fixture,
                 defaults.compiler,
                 defaults.solver,
@@ -4231,7 +4333,10 @@ mod tests {
             )
             .await
             .unwrap();
-        let error = p.prepare_declared(&execution, &cancel).await.unwrap_err();
+        let error = p
+            .prepare_declared(services.preparation(), &execution, &cancel)
+            .await
+            .unwrap_err();
         let WorkflowError::ModelingAdmission { diagnostic, cause } = error else {
             panic!("attributed typed admission refusal expected");
         };
@@ -4271,7 +4376,10 @@ mod tests {
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
     async fn accounting_totals_do_not_create_missing_closure_obligations() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
         let p = package(
+            &runtime,
             r#"package p {
  def D(net:Power) {
   var x:Scalar; eq e:x==1; annotation start x(0);
@@ -4286,10 +4394,10 @@ mod tests {
         )
         .await;
         let report = p
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
-        let declarations = p.declarations().await.unwrap();
+        let declarations = p.declarations(services.preparation()).await.unwrap();
         let id = |name: &str| {
             declarations
                 .iter()
@@ -4329,17 +4437,22 @@ mod tests {
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
     async fn overspecified_root_is_refused_structurally_naming_members() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
         let source = r#"package p {
  def D {var x:Scalar; var y:Scalar; eq a:x==1; eq b:y==2; eq c:x+y==3; annotation start x(0); annotation start y(0);}
  test over fixture {dof -1; route steady; procedure solve;FAILURE} {child root:D=D();}
  }"#;
-        let p = package(&source.replace(
-            "FAILURE",
-            " failure invalid_model members(root.a, root.b, root.c);",
-        ))
+        let p = package(
+            &runtime,
+            &source.replace(
+                "FAILURE",
+                " failure invalid_model members(root.a, root.b, root.c);",
+            ),
+        )
         .await;
         let report = p
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
@@ -4366,9 +4479,9 @@ mod tests {
                     })
         }));
         // Unexpected, the same refusal fails the fixture.
-        let unexpected = package(&source.replace("FAILURE", ""))
+        let unexpected = package(&runtime, &source.replace("FAILURE", ""))
             .await
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(!unexpected.passed());
@@ -4379,22 +4492,28 @@ mod tests {
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
     async fn expected_initialization_failure_leaves_the_specification_intact() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
         let source = r#"package p {
  def D {var x:Scalar; eq e:x==4; annotation start x(1); annotation bounds x(0,10);
    stage "out_of_range" {override eq e:x==20;} }
  test failed fixture {dof 0; route steady; procedure initialize; stages("out_of_range");FAILURE}
  {child root:D=D; expect root.x==4 tolerance 1e-8;}
  }"#;
-        let run = |text: String| async move {
-            let mut execution = policy();
-            execution.solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
-                pse_backend_native::solve::Backend::Ipopt,
-            );
-            package(&text)
-                .await
-                .conform(execution, &crate::CancelSource::new())
-                .await
-                .unwrap()
+        let run = |text: String| {
+            let runtime = runtime.clone();
+            let services = services.clone();
+            async move {
+                let mut execution = policy();
+                execution.solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
+                    pse_backend_native::solve::Backend::Ipopt,
+                );
+                package(&runtime, &text)
+                    .await
+                    .conform(&services, execution, &crate::CancelSource::new())
+                    .await
+                    .unwrap()
+            }
         };
         // Unexpected, the stage's failure fails the fixture and nothing else is solved.
         let unexpected = run(source.replace("FAILURE", "")).await;
@@ -4452,12 +4571,14 @@ mod tests {
     /// fixture carries the declared intent.
     #[tokio::test]
     async fn kernel_conformance_reads_fixture_policies_from_declarations() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
         use pse_backend_native::presolve::Policy as Presolve;
         use pse_backend_native::solve::{Backend, SolveIntent as Intent, SolverSelection};
-        let p = package(
+        let p = package(&runtime,
             "package p { def D { var x:Scalar; eq e:x==1; } test declared fixture {dof 0; route steady; procedure solve; intent certify; policy { backend ipopt; presolve off; options { \"print_level\" = 0; }; derivatives step(1e-7) cells(64); limits items(12) body_occurrences(4096) foreign_bytes(2147483648); }} {child root:D=D();} test open fixture {dof 0; route steady; procedure solve;} {child root:D=D();} }",
         ).await;
-        let rows = p.declarations().await.unwrap();
+        let rows = p.declarations(services.preparation()).await.unwrap();
         let row = |name: &str| rows.iter().find(|r| r.name == name).unwrap();
         let mut run = policy();
         run.solver.controls.options.insert(
@@ -4518,6 +4639,7 @@ mod tests {
             let instance = pse_modeling::specialize::root_instance(id);
             let model = p
                 .prepare(
+                    services.preparation(),
                     id,
                     instance,
                     Bindings::default(),
@@ -4529,6 +4651,7 @@ mod tests {
             assert_eq!(model.compiled().model.fixtures[&instance].intent, expected);
             let analysis = p
                 .declared_execution(
+                    services.preparation(),
                     id,
                     Default::default(),
                     run.solver.clone(),
@@ -4546,10 +4669,10 @@ mod tests {
             assert_eq!(analysis.limits, resolved.limits);
         }
         // A declared allowance applies to its own fixture only.
-        let p = package(
+        let p = package(&runtime,
             "package p { def D { var x:Scalar; let y:Scalar=x*x; } test large fixture {dof 0; route steady; procedure check; fix root.x=2;} {child root:D=D(); expect root.y==4 tolerance 1e-12;} test small fixture {dof 0; route steady; procedure check; policy { limits items(1); } fix root.x=2;} {child root:D=D(); expect root.y==4 tolerance 1e-12;} }",
         ).await;
-        let declarations = p.declarations().await.unwrap();
+        let declarations = p.declarations(services.preparation()).await.unwrap();
         let id = |name: &str| {
             declarations
                 .iter()
@@ -4557,7 +4680,7 @@ mod tests {
                 .unwrap()
                 .declaration_id
         };
-        let report = p.conform(policy(), &cancel).await.unwrap();
+        let report = p.conform(&services, policy(), &cancel).await.unwrap();
         assert_eq!(
             report.fixture_statuses[&id("large")],
             Status::Passed,
@@ -4577,7 +4700,9 @@ mod tests {
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
     async fn kernel_conformance_mixes_explicit_fixture_solver_and_derivative_policies() {
-        let p = package(
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
+        let p = package(&runtime,
             r#"package p {
             test root fixture {dof 0; route steady; procedure solve;} {
                 var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3);
@@ -4590,7 +4715,7 @@ mod tests {
         }"#,
         ).await;
         let fixture = p
-            .declarations()
+            .declarations(services.preparation())
             .await
             .unwrap()
             .iter()
@@ -4602,7 +4727,7 @@ mod tests {
             pse_backend_native::solve::Backend::Ipopt,
         );
         let report = p
-            .conform(policy, &crate::CancelSource::new())
+            .conform(&services, policy, &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
@@ -4620,7 +4745,9 @@ mod tests {
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
     async fn kernel_conformance_prepares_the_requested_exact_hessian() {
-        let p = package(
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
+        let p = package(&runtime,
             "package p {def D {var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3);} test bounded fixture {dof 0; route steady; procedure solve;} {child root:D=D(); expect root.x==2 tolerance 1e-6;}}",
         ).await;
         let mut policy = policy();
@@ -4629,7 +4756,7 @@ mod tests {
         );
         policy.solver.controls.hessian = pse_backend_native::solve::HessianMode::Exact;
         let report = p
-            .conform(policy, &crate::CancelSource::new())
+            .conform(&services, policy, &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
@@ -4637,7 +4764,10 @@ mod tests {
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn kernel_conformance_attaches_shared_checks_to_authored_model_fixtures() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
         let p = package(
+            &runtime,
             r#"package p {
  def D { var x:Scalar; accumulate balance:Scalar conservation tolerance 1e-6;
    contribute balance role inflow = x*x; contribute balance role outflow = 4;
@@ -4658,7 +4788,7 @@ mod tests {
             pse_backend_native::solve::Backend::Kinsol,
         );
         let report = p
-            .conform(policy, &crate::CancelSource::new())
+            .conform(&services, policy, &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
@@ -4683,6 +4813,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_conformance_dispatches_pure_checks_and_preserves_expected_failures() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = super::super::super::tests::physical();
         let source = r#"package p {
             fn square(x:Scalar)->Scalar=x*x;
@@ -4715,7 +4846,7 @@ mod tests {
         );
         let package = runtime.modeling_package(rows, physical).await.unwrap();
         let report = package
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
@@ -4739,7 +4870,10 @@ mod tests {
         assert_eq!(findings.batch().num_rows(), 1);
         let cancelled = crate::CancelSource::new();
         cancelled.cancel();
-        let report = package.conform(policy(), &cancelled).await.unwrap();
+        let report = package
+            .conform(&services, policy(), &cancelled)
+            .await
+            .unwrap();
         assert!(!report.complete && !report.passed());
         assert!(
             report
@@ -4757,10 +4891,11 @@ mod tests {
  fn cp(T: Temperature, p: Row<cp_data>) -> MolarCp guards(p.T: T) valid(T > 0{K}) = p.c;
  fn dh(T0: Temperature, T: Temperature, p: Row<cp_data>) -> DeltaH guards(p.T: [T0, T]) = p.c*(T - T0);"#;
     async fn statuses(
+        services: &crate::workflow::ExecutionServices,
         p: &ModelingPackage,
         report: &ModelingConformanceReport,
     ) -> BTreeMap<String, Status> {
-        p.declarations()
+        p.declarations(services.preparation())
             .await
             .unwrap()
             .iter()
@@ -4774,6 +4909,8 @@ mod tests {
     /// published finding carries the same typed lineage, and the clause round-trips.
     #[tokio::test]
     async fn expected_envelope_failure_matches_set_layer_and_variable() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
         use pse_model::generated::enums::ModelingValidityLayer as Layer;
         let source = format!(
             r#"package p {{ {ENVELOPE_BANK}
@@ -4808,19 +4945,19 @@ mod tests {
             rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
             roundtrip.iter().map(|r| &r.value).collect::<Vec<_>>()
         );
-        let p = package(&source).await;
+        let p = package(&runtime, &source).await;
         let report = p
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
         assert!(
-            statuses(&p, &report)
+            statuses(&services, &p, &report)
                 .await
                 .values()
                 .all(|s| *s == Status::Passed)
         );
-        let declarations = p.declarations().await.unwrap();
+        let declarations = p.declarations(services.preparation()).await.unwrap();
         let id = |name: &str| {
             declarations
                 .iter()
@@ -4895,6 +5032,8 @@ mod tests {
     /// expecting a failure its evaluation does not produce fails too.
     #[tokio::test]
     async fn expected_failure_with_wrong_lineage_fails_the_fixture() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
         let call = "expect cp(450{K}, cp_data[a]) == 75{J/(mol*K)} tolerance 1e-9{J/(mol*K)};";
         let fixtures = [
             (
@@ -4933,12 +5072,12 @@ mod tests {
         let source = format!(
             "package p {{ {ENVELOPE_BANK}\n{tests}\n test unobserved fixture {{ dof 0; route steady; procedure check; failure trial_rejected validity(data) form(cp) set(cp_data[a]) variable(T); }} {{ expect cp(300{{K}}, cp_data[a]) == 75{{J/(mol*K)}} tolerance 1e-9{{J/(mol*K)}}; }} }}"
         );
-        let p = package(&source).await;
+        let p = package(&runtime, &source).await;
         let report = p
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
-        let statuses = statuses(&p, &report).await;
+        let statuses = statuses(&services, &p, &report).await;
         for (name, _, expected) in fixtures {
             assert_eq!(statuses[name], expected, "{name}: {:?}", report.checks);
         }
@@ -4972,8 +5111,10 @@ mod tests {
     /// oracle is not parity evidence. It is a projection of the run's checks.
     #[tokio::test]
     async fn parity_report_lists_every_oracle_fixture_with_release_and_tolerance() {
+        let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         use pse_model::generated::runtime::modeling_parity::Row;
-        let p = package(
+        let p = package(&runtime,
             r#"package p {
  entity kind source provenance { attribute title: Text; }
  entity kind software_release extends source release { attribute version: Text; }
@@ -4990,7 +5131,7 @@ mod tests {
  test analytic fixture { dof 0; route steady; procedure check; } { expect positive(1) == 1 tolerance 1e-9; }
 }"#,
         ).await;
-        let declarations = p.declarations().await.unwrap();
+        let declarations = p.declarations(services.preparation()).await.unwrap();
         let id = |name: &str| {
             declarations
                 .iter()
@@ -4999,7 +5140,7 @@ mod tests {
                 .declaration_id
         };
         let report = p
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
@@ -5069,7 +5210,7 @@ mod tests {
             .count();
         assert_eq!(rows.len(), applied);
         // A release is a source.
-        let refused = super::super::super::tests::runtime()
+        let refused = runtime
             .modeling_package(
                 pse_authoring::language::parse(
                     "package q { entity kind version release { attribute name: Text; } }",
@@ -5093,6 +5234,8 @@ mod tests {
     #[cfg(feature = "solver-highs")]
     #[tokio::test]
     async fn authored_milp_routes_to_highs() {
+        let runtime = super::super::super::tests::runtime_with_workspace(64 << 20);
+        let services = runtime.execution_services();
         use crate::math::solves::Outcome;
         use pse_backend_native::solve::{Backend, SolveIntent};
         use pse_model::generated::enums::ModelingVariableDomain as Domain;
@@ -5110,14 +5253,11 @@ mod tests {
             .declaration_id;
         let physical = super::super::super::tests::physical();
         // Admit the complete imported schema closure alongside its checked projection.
-        let package = super::super::super::tests::runtime_with_workspace(64 << 20)
-            .modeling_package(rows, physical)
-            .await
-            .unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let mut policy = policy();
         policy.solver.intent = SolveIntent::Optimize;
         let report = package
-            .conform(policy.clone(), &crate::CancelSource::new())
+            .conform(&services, policy.clone(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(report.passed(), "{:?}", report.checks);
@@ -5139,6 +5279,7 @@ mod tests {
         // The published variable rows state each declared domain.
         let prepared = package
             .prepare_solve(
+                services.preparation(),
                 fixture,
                 pse_modeling::specialize::root_instance(fixture),
                 Bindings::default(),
@@ -5152,7 +5293,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         let table = result.table("runtime.solve_variables").unwrap();
         let rows = pse_relations::generated::runtime::solve_variables::Row::rows(&table).unwrap();
         let domains = rows
@@ -5178,9 +5319,12 @@ mod tests {
 
     #[tokio::test]
     async fn kernel_conformance_retains_route_refusal_and_runs_following_fixture() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
         use pse_backend_native::routing::{AssessmentState, Refusal};
         use pse_relations::columnar::RelationRow;
         let p = package(
+            &runtime,
             r#"package p {
  test refused fixture { dof -1; route steady; procedure solve; } {
    var x:Scalar; eq a:x==1; eq b:x==2; annotation start x(0);
@@ -5191,7 +5335,7 @@ mod tests {
  }"#,
         )
         .await;
-        let declarations = p.declarations().await.unwrap();
+        let declarations = p.declarations(services.preparation()).await.unwrap();
         let id = |name: &str| {
             declarations
                 .iter()
@@ -5203,6 +5347,7 @@ mod tests {
         let defaults = policy();
         let admitted = p
             .declared_execution(
+                services.preparation(),
                 id("refused"),
                 defaults.compiler,
                 defaults.solver,
@@ -5214,6 +5359,7 @@ mod tests {
             .unwrap();
         let resolution = p
             .resolve_case(
+                services.preparation(),
                 id("refused"),
                 pse_modeling::specialize::root_instance(id("refused")),
                 admitted.analysis.bindings.clone(),
@@ -5242,11 +5388,11 @@ mod tests {
             })
         }));
         let diagnostic = p
-            .finish_case(resolution, &cancel)
+            .finish_case(services.preparation(), resolution, &cancel)
             .await
             .unwrap_err()
             .boundary_diagnostic();
-        let report = p.conform(policy(), &cancel).await.unwrap();
+        let report = p.conform(&services, policy(), &cancel).await.unwrap();
         assert!(report.complete);
         assert!(!report.passed());
         assert_eq!(report.fixture_statuses[&id("refused")], Status::Failed);
@@ -5271,10 +5417,11 @@ mod tests {
                 && check.message.contains("inventory difference -1")
         }));
         let tables = report.admission_tables().unwrap();
-        let route_id =
-            pse_relations::generated::runtime::route_decisions::spec(p.runtime.registry())
-                .unwrap()
-                .id;
+        let route_id = pse_relations::generated::runtime::route_decisions::spec(
+            services.preparation().registry(),
+        )
+        .unwrap()
+        .id;
         let routes =
             pse_relations::generated::runtime::route_decisions::Row::rows(&tables[&route_id])
                 .unwrap();
@@ -5286,7 +5433,10 @@ mod tests {
 
     #[tokio::test]
     async fn kernel_conformance_continues_after_fixture_resource_refusal() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
         let p = package(
+            &runtime,
             r#"package p {
  def D { var x:Scalar; let y:Scalar=x*x; }
  test exhausted fixture { dof 0; route steady; procedure check;
@@ -5298,7 +5448,7 @@ mod tests {
  }"#,
         )
         .await;
-        let declarations = p.declarations().await.unwrap();
+        let declarations = p.declarations(services.preparation()).await.unwrap();
         let id = |name: &str| {
             declarations
                 .iter()
@@ -5307,7 +5457,7 @@ mod tests {
                 .declaration_id
         };
         let report = p
-            .conform(policy(), &crate::CancelSource::new())
+            .conform(&services, policy(), &crate::CancelSource::new())
             .await
             .unwrap();
         assert!(!report.complete);
@@ -5339,8 +5489,11 @@ mod tests {
     #[cfg(feature = "solver-highs")]
     #[tokio::test]
     async fn kernel_conformance_acquires_pending_class_evidence_and_continues() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
         use pse_backend_native::routing::AssessmentState;
         let p = package(
+            &runtime,
             r#"package p {
  test pending fixture { dof 1; route steady; procedure solve; intent optimize; } {
    var x:Scalar; let cost:Scalar=(x-3)^2; annotation objective cost(minimize);
@@ -5352,7 +5505,7 @@ mod tests {
  }"#,
         )
         .await;
-        let declarations = p.declarations().await.unwrap();
+        let declarations = p.declarations(services.preparation()).await.unwrap();
         let id = |name: &str| {
             declarations
                 .iter()
@@ -5364,6 +5517,7 @@ mod tests {
         let defaults = policy();
         let admitted = p
             .declared_execution(
+                services.preparation(),
                 id("pending"),
                 defaults.compiler,
                 defaults.solver,
@@ -5375,6 +5529,7 @@ mod tests {
             .unwrap();
         let resolution = p
             .resolve_case(
+                services.preparation(),
                 id("pending"),
                 pse_modeling::specialize::root_instance(id("pending")),
                 admitted.analysis.bindings.clone(),
@@ -5398,16 +5553,20 @@ mod tests {
         // relation has one request/step key and cannot claim an ambiguous common mode.
         use pse_relations::columnar::RelationRow;
         let identity = resolution.admission_identity(&decision).unwrap();
-        let tables = analysis_tables::admission_tables(&p.runtime, &decision, identity, 0).unwrap();
-        let structural_id =
-            pse_relations::generated::runtime::structural_assessments::spec(p.runtime.registry())
-                .unwrap()
-                .id;
+        let tables =
+            analysis_tables::admission_tables(services.preparation(), &decision, identity, 0)
+                .unwrap();
+        let structural_id = pse_relations::generated::runtime::structural_assessments::spec(
+            services.preparation().registry(),
+        )
+        .unwrap()
+        .id;
         assert!(!tables.contains_key(&structural_id));
-        let route_id =
-            pse_relations::generated::runtime::route_decisions::spec(p.runtime.registry())
-                .unwrap()
-                .id;
+        let route_id = pse_relations::generated::runtime::route_decisions::spec(
+            services.preparation().registry(),
+        )
+        .unwrap()
+        .id;
         let routes =
             pse_relations::generated::runtime::route_decisions::Row::rows(&tables[&route_id])
                 .unwrap();
@@ -5424,7 +5583,7 @@ mod tests {
             );
         }
         drop(resolution);
-        let report = p.conform(policy(), &cancel).await.unwrap();
+        let report = p.conform(&services, policy(), &cancel).await.unwrap();
         assert!(report.complete);
         assert!(report.passed(), "{:?}", report.checks);
         for fixture in [id("pending"), id("following")] {

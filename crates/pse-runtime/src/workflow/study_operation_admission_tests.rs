@@ -9,7 +9,7 @@
 )]
 use super::super::{
     BindingAssignment, BindingQuantity, BindingTarget, FitPreparationDocument, PointOverlay,
-    PreparedStudyOperation, StudyPoint, StudyPointPolicy,
+    PreparedStudyOperation, Runtime, StudyPoint, StudyPointPolicy,
 };
 use super::*;
 use pse_model::scalars::{FiniteBound, PositiveCount, Tolerance};
@@ -31,10 +31,10 @@ fn point(operation: OperationRequest) -> StudyPoint {
         },
     }
 }
-async fn plant() -> (ModelingPackage, DeclarationId) {
-    plant_on(super::super::tests::runtime()).await
+async fn plant(runtime: &Runtime) -> (ModelingPackage, DeclarationId) {
+    plant_on(runtime).await
 }
-async fn plant_on(runtime: Runtime) -> (ModelingPackage, DeclarationId) {
+async fn plant_on(runtime: &Runtime) -> (ModelingPackage, DeclarationId) {
     let text = "package p {
       def Root {
         domain t:Time from 0{s} to 1{s};
@@ -94,10 +94,10 @@ fn quantity(package: &ModelingPackage, magnitude: f64, name: &str, unit: &str) -
             .id,
     }
 }
-async fn control_operation() -> (ModelingPackage, StudyOperation) {
-    let (package, _) = plant().await;
+async fn control_operation(runtime: &Runtime) -> (ModelingPackage, StudyOperation) {
+    let (package, _) = plant(runtime).await;
     let case = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -131,7 +131,8 @@ fn prior_overlay(package: &ModelingPackage, magnitude: f64, unit: &str) -> Point
 
 #[tokio::test]
 async fn host_and_study_requests_share_case_preparation_and_keep_study_route_assertion() {
-    let (package, operation) = control_operation().await;
+    let runtime = super::super::tests::runtime();
+    let (package, operation) = control_operation(&runtime).await;
     let OperationRequest::DeclaredCase(case) = &operation.operation else {
         panic!("declared case");
     };
@@ -139,6 +140,7 @@ async fn host_and_study_requests_share_case_preparation_and_keep_study_route_ass
     let (prepared, admissions) = counted_declared_admissions(async {
         let host = package
             .prepare_operation(
+                &runtime.preparation_services(),
                 &operation.source,
                 &operation.preparation,
                 crate::workflow::RuntimeOperationRequest::DeclaredCase {
@@ -152,7 +154,10 @@ async fn host_and_study_requests_share_case_preparation_and_keep_study_route_ass
             .unwrap()
             .into_study()
             .unwrap();
-        let study = operation.prepare(&package, &cancel).await.unwrap();
+        let study = operation
+            .prepare(&runtime.preparation_services(), &package, &cancel)
+            .await
+            .unwrap();
         (host, study)
     })
     .await;
@@ -179,7 +184,10 @@ async fn host_and_study_requests_share_case_preparation_and_keep_study_route_ass
         panic!("declared case");
     };
     case.route = ModelingAnalysisRoute::Integrated;
-    let error = wrong_route.prepare(&package, &cancel).await.unwrap_err();
+    let error = wrong_route
+        .prepare(&runtime.preparation_services(), &package, &cancel)
+        .await
+        .unwrap_err();
     assert_eq!(
         error.boundary_diagnostic().class,
         BoundaryClass::Unsupported
@@ -188,12 +196,19 @@ async fn host_and_study_requests_share_case_preparation_and_keep_study_route_ass
 
 #[tokio::test]
 async fn presentation_only_successive_admission_reuses_basis_with_current_receiving() {
-    let (package, operation) = control_operation().await;
+    let runtime = super::super::tests::runtime();
+    let (package, operation) = control_operation(&runtime).await;
     let cancel = CancelSource::new();
     let overlay = prior_overlay(&package, 300.0, "K");
     let mut admission = None;
     let (binding, _) = package
-        .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &operation,
+            &overlay,
+            &mut admission,
+            &cancel,
+        )
         .await
         .unwrap();
     let model = admission
@@ -210,7 +225,13 @@ async fn presentation_only_successive_admission_reuses_basis_with_current_receiv
         failed_detail: Default::default(),
     };
     let (again, _) = package
-        .admit_operation_overlay(&presented, &overlay, &mut admission, &cancel)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &presented,
+            &overlay,
+            &mut admission,
+            &cancel,
+        )
         .await
         .unwrap();
     assert_eq!(binding.identity(), again.identity());
@@ -257,11 +278,13 @@ async fn presentation_only_successive_admission_reuses_basis_with_current_receiv
     reason = "bounded I28 probe reports actual immutable allocations and independent lane preparation counts"
 )]
 async fn independent_study_lane_immutable_basis_and_changed_premises_probe() {
-    let (package, operation) = control_operation().await;
+    let runtime = super::super::tests::runtime();
+    let (package, operation) = control_operation(&runtime).await;
     let cancel = CancelSource::new();
     let mut admission = None;
     let (binding, _) = package
         .admit_operation_overlay(
+            &runtime.preparation_services(),
             &operation,
             &prior_overlay(&package, 300.0, "K"),
             &mut admission,
@@ -271,10 +294,11 @@ async fn independent_study_lane_immutable_basis_and_changed_premises_probe() {
         .unwrap();
     let mut left = StudyPreparationLane::new();
     let mut right = StudyPreparationLane::new();
+    let services = runtime.preparation_services();
     let ((first, second), counts) = crate::math::counted(async {
         tokio::join!(
-            left.prepare(&package, &operation, &binding, &cancel),
-            right.prepare(&package, &operation, &binding, &cancel)
+            left.prepare(&services, &package, &operation, &binding, &cancel),
+            right.prepare(&services, &package, &operation, &binding, &cancel)
         )
     })
     .await;
@@ -315,7 +339,13 @@ async fn independent_study_lane_immutable_basis_and_changed_premises_probe() {
         .evaluation
         .derivative_components += 1;
     let prepared = left
-        .prepare(&package, &changed, &binding, &cancel)
+        .prepare(
+            &runtime.preparation_services(),
+            &package,
+            &changed,
+            &binding,
+            &cancel,
+        )
         .await
         .unwrap();
     drop(prepared);
@@ -327,7 +357,13 @@ async fn independent_study_lane_immutable_basis_and_changed_premises_probe() {
     };
     case.settings.numerics.supplier_action_accuracy *= 0.5;
     let prepared = left
-        .prepare(&package, &changed, &binding, &cancel)
+        .prepare(
+            &runtime.preparation_services(),
+            &package,
+            &changed,
+            &binding,
+            &cancel,
+        )
         .await
         .unwrap();
     drop(prepared);
@@ -335,7 +371,13 @@ async fn independent_study_lane_immutable_basis_and_changed_premises_probe() {
     let policy_scope = left.scope().unwrap();
     let foreign = package.distinct_provider_owner_for_test();
     let prepared = left
-        .prepare(&foreign, &changed, &binding, &cancel)
+        .prepare(
+            &runtime.preparation_services(),
+            &foreign,
+            &changed,
+            &binding,
+            &cancel,
+        )
         .await
         .unwrap();
     drop(prepared);
@@ -344,9 +386,15 @@ async fn independent_study_lane_immutable_basis_and_changed_premises_probe() {
     let mut wrong_source = changed;
     wrong_source.source.physical_context = ContentHash::from_bytes([91; 32]);
     assert!(
-        left.prepare(&foreign, &wrong_source, &binding, &cancel)
-            .await
-            .is_err()
+        left.prepare(
+            &runtime.preparation_services(),
+            &foreign,
+            &wrong_source,
+            &binding,
+            &cancel
+        )
+        .await
+        .is_err()
     );
     assert!(left.current.is_none());
     assert!(right.scope().unwrap().is_open());
@@ -355,7 +403,8 @@ async fn independent_study_lane_immutable_basis_and_changed_premises_probe() {
 
 #[tokio::test]
 async fn declared_admission_reuses_one_basis_for_thousand_physical_points() {
-    let (package, operation) = control_operation().await;
+    let runtime = super::super::tests::runtime();
+    let (package, operation) = control_operation(&runtime).await;
     let cancel = CancelSource::new();
     let ((), preparations) = crate::math::counted(async {
         let mut admission = None;
@@ -371,7 +420,13 @@ async fn declared_admission_reuses_one_basis_for_thousand_physical_points() {
             };
             let overlay = prior_overlay(&package, magnitude, unit);
             let (binding, seed_need) = package
-                .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+                .admit_operation_overlay(
+                    &runtime.preparation_services(),
+                    &operation,
+                    &overlay,
+                    &mut admission,
+                    &cancel,
+                )
                 .await
                 .unwrap();
             assert_eq!(seed_need, SeedNeed::Required);
@@ -399,12 +454,19 @@ async fn declared_admission_reuses_one_basis_for_thousand_physical_points() {
 
 #[tokio::test]
 async fn reused_declared_admission_rechecks_each_binding_and_structural_change() {
-    let (package, operation) = control_operation().await;
+    let runtime = super::super::tests::runtime();
+    let (package, operation) = control_operation(&runtime).await;
     let cancel = CancelSource::new();
     let overlay = prior_overlay(&package, 80.0, "degC");
     let mut admission = None;
     let (first, _) = package
-        .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &operation,
+            &overlay,
+            &mut admission,
+            &cancel,
+        )
         .await
         .unwrap();
     let original_key = DeclaredStudyAdmission::key(&operation, &overlay).unwrap();
@@ -419,7 +481,13 @@ async fn reused_declared_admission_rechecks_each_binding_and_structural_change()
     let demand = admission.as_ref().unwrap().overlay_model().model.clone();
     let canonical = prior_overlay(&package, 353.15, "K");
     let (equivalent, _) = package
-        .admit_operation_overlay(&operation, &canonical, &mut admission, &cancel)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &operation,
+            &canonical,
+            &mut admission,
+            &cancel,
+        )
         .await
         .unwrap();
     assert_eq!(first.identity(), equivalent.identity());
@@ -437,7 +505,13 @@ async fn reused_declared_admission_rechecks_each_binding_and_structural_change()
         .assignments
         .push(prior_overlay(&package, 81.0, "degC").assignments.remove(0));
     let error = package
-        .admit_operation_overlay(&operation, &duplicate, &mut admission, &cancel)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &operation,
+            &duplicate,
+            &mut admission,
+            &cancel,
+        )
         .await
         .unwrap_err();
     assert_eq!(
@@ -447,7 +521,13 @@ async fn reused_declared_admission_rechecks_each_binding_and_structural_change()
     let mut wrong = overlay.clone();
     wrong.assignments[0].value = quantity(&package, 1.0, "Time", "s");
     let error = package
-        .admit_operation_overlay(&operation, &wrong, &mut admission, &cancel)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &operation,
+            &wrong,
+            &mut admission,
+            &cancel,
+        )
         .await
         .unwrap_err();
     assert_eq!(
@@ -461,7 +541,13 @@ async fn reused_declared_admission_rechecks_each_binding_and_structural_change()
         value: overlay.assignments[0].value.clone(),
     });
     let error = package
-        .admit_operation_overlay(&operation, &invalid_member, &mut admission, &cancel)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &operation,
+            &invalid_member,
+            &mut admission,
+            &cancel,
+        )
         .await
         .unwrap_err();
     assert_eq!(
@@ -483,7 +569,13 @@ async fn reused_declared_admission_rechecks_each_binding_and_structural_change()
     let mut changed_path = overlay.clone();
     changed_path.assignments[0].target = BindingTarget::Path("cost".into());
     let error = package
-        .admit_operation_overlay(&operation, &changed_path, &mut admission, &cancel)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &operation,
+            &changed_path,
+            &mut admission,
+            &cancel,
+        )
         .await
         .unwrap_err();
     assert_eq!(
@@ -499,7 +591,13 @@ async fn reused_declared_admission_rechecks_each_binding_and_structural_change()
     case.settings.controls.threads = 0;
     assert!(
         package
-            .admit_operation_overlay(&changed_settings, &overlay, &mut admission, &cancel)
+            .admit_operation_overlay(
+                &runtime.preparation_services(),
+                &changed_settings,
+                &overlay,
+                &mut admission,
+                &cancel
+            )
             .await
             .is_err()
     );
@@ -508,20 +606,38 @@ async fn reused_declared_admission_rechecks_each_binding_and_structural_change()
         "failed replacement releases the previous basis"
     );
     package
-        .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &operation,
+            &overlay,
+            &mut admission,
+            &cancel,
+        )
         .await
         .unwrap();
     let mut changed_limits = operation.clone();
     changed_limits.preparation.limits.depth = 0;
     assert!(
         package
-            .admit_operation_overlay(&changed_limits, &overlay, &mut admission, &cancel)
+            .admit_operation_overlay(
+                &runtime.preparation_services(),
+                &changed_limits,
+                &overlay,
+                &mut admission,
+                &cancel
+            )
             .await
             .is_err()
     );
     assert!(admission.is_none());
     package
-        .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &operation,
+            &overlay,
+            &mut admission,
+            &cancel,
+        )
         .await
         .unwrap();
     let mut changed_compiler = operation.clone();
@@ -536,7 +652,13 @@ async fn reused_declared_admission_rechecks_each_binding_and_structural_change()
     };
     case.route = ModelingAnalysisRoute::Integrated;
     let error = package
-        .admit_operation_overlay(&changed_route, &wrong, &mut admission, &cancel)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &changed_route,
+            &wrong,
+            &mut admission,
+            &cancel,
+        )
         .await
         .unwrap_err();
     assert_eq!(
@@ -545,7 +667,13 @@ async fn reused_declared_admission_rechecks_each_binding_and_structural_change()
         "overlay physical admission precedes route/procedure validation"
     );
     let error = package
-        .admit_operation_overlay(&changed_route, &overlay, &mut admission, &cancel)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &changed_route,
+            &overlay,
+            &mut admission,
+            &cancel,
+        )
         .await
         .unwrap_err();
     assert_eq!(
@@ -554,13 +682,25 @@ async fn reused_declared_admission_rechecks_each_binding_and_structural_change()
     );
     assert!(!admission.as_ref().unwrap().matches(&original_key));
     package
-        .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &operation,
+            &overlay,
+            &mut admission,
+            &cancel,
+        )
         .await
         .unwrap();
     let cancelled = CancelSource::new();
     cancelled.cancel();
     let error = package
-        .admit_operation_overlay(&operation, &overlay, &mut admission, &cancelled)
+        .admit_operation_overlay(
+            &runtime.preparation_services(),
+            &operation,
+            &overlay,
+            &mut admission,
+            &cancelled,
+        )
         .await
         .unwrap_err();
     assert_eq!(
@@ -576,7 +716,8 @@ async fn reused_declared_admission_rechecks_each_binding_and_structural_change()
 
 #[tokio::test]
 async fn declared_admission_rechecks_nonfinite_optional_settings() {
-    let (package, operation) = control_operation().await;
+    let runtime = super::super::tests::runtime();
+    let (package, operation) = control_operation(&runtime).await;
     let cancel = CancelSource::new();
     let overlay = prior_overlay(&package, 300.0, "K");
     let valid_key = DeclaredStudyAdmission::key(&operation, &overlay).unwrap();
@@ -584,7 +725,13 @@ async fn declared_admission_rechecks_nonfinite_optional_settings() {
     for absolute in [true, false] {
         for value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
             package
-                .admit_operation_overlay(&operation, &overlay, &mut admission, &cancel)
+                .admit_operation_overlay(
+                    &runtime.preparation_services(),
+                    &operation,
+                    &overlay,
+                    &mut admission,
+                    &cancel,
+                )
                 .await
                 .unwrap();
             let mut invalid = operation.clone();
@@ -603,7 +750,13 @@ async fn declared_admission_rechecks_nonfinite_optional_settings() {
             );
             assert!(
                 package
-                    .admit_operation_overlay(&invalid, &overlay, &mut admission, &cancel)
+                    .admit_operation_overlay(
+                        &runtime.preparation_services(),
+                        &invalid,
+                        &overlay,
+                        &mut admission,
+                        &cancel
+                    )
                     .await
                     .is_err()
             );
@@ -617,7 +770,8 @@ async fn declared_admission_rechecks_nonfinite_optional_settings() {
 
 #[tokio::test]
 async fn scoped_study_admission_preserves_individual_point_bindings() {
-    let (package, operation) = control_operation().await;
+    let runtime = super::super::tests::runtime();
+    let (package, operation) = control_operation(&runtime).await;
     let mut points = Vec::new();
     for (key, magnitude, unit) in [(0, 80.0, "degC"), (1, 354.15, "K")] {
         let mut submitted = point(operation.operation.clone());
@@ -628,6 +782,7 @@ async fn scoped_study_admission_preserves_individual_point_bindings() {
     }
     let definition = package
         .admit_study(
+            &runtime.execution_services(),
             &crate::workflow::StudyInputs::Explicit(points.to_vec()),
             &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
@@ -658,9 +813,10 @@ async fn scoped_study_admission_preserves_individual_point_bindings() {
 
 #[tokio::test]
 async fn scoped_study_admission_transitions_from_declared_case_to_horizon() {
-    let (package, operation) = control_operation().await;
+    let runtime = super::super::tests::runtime();
+    let (package, operation) = control_operation(&runtime).await;
     let plant = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -671,11 +827,12 @@ async fn scoped_study_admission_transitions_from_declared_case_to_horizon() {
     declared.policy.key = OccurrenceKey(0);
     declared.overlay = prior_overlay(&package, 80.0, "degC");
     let mut horizon = point(OperationRequest::Horizon(Box::new(
-        horizon(&package, plant).await,
+        horizon(&runtime, &package, plant).await,
     )));
     horizon.policy.key = OccurrenceKey(1);
     let definition = package
         .admit_study(
+            &runtime.execution_services(),
             &crate::workflow::StudyInputs::Explicit([declared, horizon].to_vec()),
             &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
@@ -705,9 +862,14 @@ async fn scoped_study_admission_transitions_from_declared_case_to_horizon() {
         353.15
     );
 }
-async fn horizon(package: &ModelingPackage, case: DeclarationId) -> HorizonOperation {
+async fn horizon(
+    runtime: &Runtime,
+    package: &ModelingPackage,
+    case: DeclarationId,
+) -> HorizonOperation {
     let simulation = package
         .declared_simulation(
+            &runtime.preparation_services(),
             case,
             super::super::tests::compiler_profile(),
             None,
@@ -727,7 +889,7 @@ async fn horizon(package: &ModelingPackage, case: DeclarationId) -> HorizonOpera
         .id;
     assert!(simulation.contract().parameters.contains(&parameter));
     let control = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -772,9 +934,11 @@ async fn horizon(package: &ModelingPackage, case: DeclarationId) -> HorizonOpera
 
 #[tokio::test]
 async fn admitted_simulation_descriptor_reconstructs_the_existing_owner() {
-    let (package, case) = plant().await;
+    let runtime = super::super::tests::runtime();
+    let (package, case) = plant(&runtime).await;
     let definition = package
         .admit_study(
+            &runtime.execution_services(),
             &crate::workflow::StudyInputs::Explicit(
                 [point(OperationRequest::Simulation(SimulationOperation {
                     case,
@@ -792,7 +956,12 @@ async fn admitted_simulation_descriptor_reconstructs_the_existing_owner() {
     assert_eq!(p.policy.seed_need, SeedNeed::NotNeeded);
     assert!(matches!(
         package
-            .prepare_bound_operation(&p.operation, &p.binding, &CancelSource::new())
+            .prepare_bound_operation(
+                &runtime.preparation_services(),
+                &p.operation,
+                &p.binding,
+                &CancelSource::new()
+            )
             .await
             .unwrap(),
         PreparedStudyOperation::Simulation(_)
@@ -801,9 +970,10 @@ async fn admitted_simulation_descriptor_reconstructs_the_existing_owner() {
 
 #[tokio::test]
 async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
+    let runtime = super::super::tests::runtime();
     use super::super::fitting::regression;
     use pse_backend_native::solve::{Backend, SolveIntent};
-    let package = regression::package(regression::declared(), [1.; 4]).await;
+    let package = regression::package(&runtime, regression::declared(), [1.; 4]).await;
     let request = OperationRequest::Fit(FitOperation {
         fit: super::super::tests::id(32).into(),
         settings: crate::workflow::PhysicalFitRequest::new(FitPreparationDocument {
@@ -823,6 +993,7 @@ async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
     });
     let definition = package
         .admit_study(
+            &runtime.execution_services(),
             &crate::workflow::StudyInputs::Explicit([point(request)].to_vec()),
             &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
@@ -833,7 +1004,12 @@ async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
     assert_eq!(p.policy.seed_need, SeedNeed::NotNeeded);
     assert!(matches!(
         package
-            .prepare_bound_operation(&p.operation, &p.binding, &CancelSource::new())
+            .prepare_bound_operation(
+                &runtime.preparation_services(),
+                &p.operation,
+                &p.binding,
+                &CancelSource::new()
+            )
             .await
             .unwrap(),
         PreparedStudyOperation::Fit(_)
@@ -842,10 +1018,12 @@ async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
 
 #[tokio::test]
 async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_meaning() {
-    let (package, case) = plant().await;
-    let request = horizon(&package, case).await;
+    let runtime = super::super::tests::runtime();
+    let (package, case) = plant(&runtime).await;
+    let request = horizon(&runtime, &package, case).await;
     let definition = package
         .admit_study(
+            &runtime.execution_services(),
             &crate::workflow::StudyInputs::Explicit(
                 [point(OperationRequest::Horizon(Box::new(request.clone())))].to_vec(),
             ),
@@ -858,7 +1036,12 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     let canonical = &p.operation.admitted_horizon.as_ref().unwrap().inputs[0];
     assert_eq!(canonical.canonical.into_inner(), 353.15);
     let PreparedStudyOperation::Horizon(prepared) = package
-        .prepare_bound_operation(&p.operation, &p.binding, &CancelSource::new())
+        .prepare_bound_operation(
+            &runtime.preparation_services(),
+            &p.operation,
+            &p.binding,
+            &CancelSource::new(),
+        )
         .await
         .unwrap()
     else {
@@ -869,6 +1052,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     equivalent.inputs[0].initial = quantity(&package, 353.15, "Temperature", "K");
     let other = package
         .admit_study(
+            &runtime.execution_services(),
             &crate::workflow::StudyInputs::Explicit(
                 [point(OperationRequest::Horizon(Box::new(equivalent)))].to_vec(),
             ),
@@ -891,6 +1075,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
     wrong.inputs[0].initial = quantity(&package, 1., "Time", "s");
     let error = package
         .admit_study(
+            &runtime.execution_services(),
             &crate::workflow::StudyInputs::Explicit(
                 [point(OperationRequest::Horizon(Box::new(wrong)))].to_vec(),
             ),
@@ -907,9 +1092,10 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
 
 #[tokio::test]
 async fn horizon_priors_and_trajectories_retain_canonical_target_correspondence() {
-    let (package, case) = plant().await;
+    let runtime = super::super::tests::runtime();
+    let (package, case) = plant(&runtime).await;
     let control = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -921,7 +1107,7 @@ async fn horizon_priors_and_trajectories_retain_canonical_target_correspondence(
         route: ModelingAnalysisRoute::Steady,
         settings: SolveSettings::default(),
     };
-    let mut request = horizon(&package, case).await;
+    let mut request = horizon(&runtime, &package, case).await;
     request.controller = Some(ControllerOperation {
         case: selected.clone(),
         bindings: vec![HorizonBinding {
@@ -956,7 +1142,11 @@ async fn horizon_priors_and_trajectories_retain_canonical_target_correspondence(
         admitted_horizon: None,
     };
     operation
-        .admit_horizon_values(&package, &CancelSource::new())
+        .admit_horizon_values(
+            &runtime.preparation_services(),
+            &package,
+            &CancelSource::new(),
+        )
         .await
         .unwrap();
     let canonical = operation.admitted_horizon.as_ref().unwrap();
@@ -966,6 +1156,7 @@ async fn horizon_priors_and_trajectories_retain_canonical_target_correspondence(
         panic!("horizon")
     };
     let model = declared_paths(
+        &runtime.preparation_services(),
         &package,
         &spec.estimator.as_ref().unwrap().case,
         operation.preparation.compiler,
@@ -998,7 +1189,11 @@ async fn horizon_priors_and_trajectories_retain_canonical_target_correspondence(
     };
     spec.estimator.as_mut().unwrap().arrival[0].initial = quantity(&package, 1., "Time", "s");
     let error = incompatible
-        .admit_horizon_values(&package, &CancelSource::new())
+        .admit_horizon_values(
+            &runtime.preparation_services(),
+            &package,
+            &CancelSource::new(),
+        )
         .await
         .unwrap_err();
     assert_eq!(
@@ -1013,13 +1208,13 @@ async fn horizon_priors_and_trajectories_retain_canonical_target_correspondence(
     feature = "canonical-tests",
     any(feature = "solver-diffsol", feature = "solver-ipopt")
 ))]
-async fn deny_recording_after_durable_source(package: &ModelingPackage) {
+async fn deny_recording_after_durable_source(runtime: &Runtime, package: &ModelingPackage) {
     assert!(matches!(
-        package.runtime.durability(),
+        runtime.durability(),
         super::super::Durability::Durable(_)
     ));
     let origin = package.canonical_revision().unwrap();
-    let store = package.runtime.canonical_store().unwrap();
+    let store = runtime.canonical_store().unwrap();
     assert_eq!(
         store.revision(&origin.key).await.unwrap().unwrap().key,
         origin.key
@@ -1062,10 +1257,11 @@ fn original_local_result(report: &super::super::StudyReport, index: usize) -> &R
 #[tokio::test]
 async fn durable_origin_local_simulation_keeps_original_full_and_compact_results_without_recording()
 {
+    let runtime = super::super::durable_tests::durable_runtime();
     use super::super::{RunReport, StudyDetailDemand, StudyInputs, StudyOutputDemand};
-    let (package, case) = plant_on(super::super::durable_tests::durable_runtime()).await;
+    let (package, case) = plant_on(&runtime).await;
     let origin = package.canonical_revision().unwrap().key.clone();
-    deny_recording_after_durable_source(&package).await;
+    deny_recording_after_durable_source(&runtime, &package).await;
     let cancel = CancelSource::new();
     let inputs = StudyInputs::Explicit(vec![point(OperationRequest::Simulation(
         SimulationOperation {
@@ -1074,10 +1270,18 @@ async fn durable_origin_local_simulation_keeps_original_full_and_compact_results
         },
     ))]);
     let full = package
-        .admit_study(&inputs, &StudyOutputDemand::Full {}, &cancel)
+        .admit_study(
+            &runtime.execution_services(),
+            &inputs,
+            &StudyOutputDemand::Full {},
+            &cancel,
+        )
         .await
         .unwrap();
-    let report = package.study(&full, 1, &cancel).await.unwrap();
+    let report = package
+        .study(&runtime.execution_services(), &full, 1, &cancel)
+        .await
+        .unwrap();
     let original = original_local_result(&report, 0);
     let RunReport::Simulation(trajectory) = original.report().unwrap() else {
         panic!("original simulation");
@@ -1088,6 +1292,7 @@ async fn durable_origin_local_simulation_keeps_original_full_and_compact_results
 
     let compact = package
         .admit_study(
+            &runtime.execution_services(),
             &inputs,
             &StudyOutputDemand::Compact {
                 detail: StudyDetailDemand::default(),
@@ -1097,7 +1302,10 @@ async fn durable_origin_local_simulation_keeps_original_full_and_compact_results
         )
         .await
         .unwrap();
-    let report = compact.execute(1, &cancel).await.unwrap();
+    let report = compact
+        .execute(&runtime.execution_services(), 1, &cancel)
+        .await
+        .unwrap();
     assert!(
         report.outcomes[0].scientific.usable,
         "{:?}",
@@ -1115,25 +1323,19 @@ async fn durable_origin_local_simulation_keeps_original_full_and_compact_results
         origin,
         "local execution preserves its original source attribution"
     );
-    assert!(
-        package
-            .runtime
-            .canonical_store()
-            .unwrap()
-            .admit_activity()
-            .is_err()
-    );
+    assert!(runtime.canonical_store().unwrap().admit_activity().is_err());
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
 #[tokio::test]
 async fn durable_origin_local_lazy_simulation_constructs_only_selected_occurrences_without_recording()
  {
+    let runtime = super::super::durable_tests::durable_runtime();
     use super::super::{
         RunReport, SelectedStudyVariant, SourceChoice, SourceDelta, StudyInputs, StudyOutputDemand,
         StudyVariants,
     };
-    let (package, case) = plant_on(super::super::durable_tests::durable_runtime()).await;
+    let (package, case) = plant_on(&runtime).await;
     let requested = |key| {
         let mut selected = point(OperationRequest::Simulation(SimulationOperation {
             case,
@@ -1174,11 +1376,12 @@ async fn durable_origin_local_lazy_simulation_constructs_only_selected_occurrenc
             },
         ],
     };
-    deny_recording_after_durable_source(&package).await;
+    deny_recording_after_durable_source(&runtime, &package).await;
     let cancel = CancelSource::new();
-    let before = package.runtime.shared.math().preparations().views;
+    let before = runtime.shared.math().preparations().views;
     let local = package
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Lazy(Box::new(variants)),
             &StudyOutputDemand::Full {},
             &cancel,
@@ -1186,11 +1389,14 @@ async fn durable_origin_local_lazy_simulation_constructs_only_selected_occurrenc
         .await
         .unwrap();
     assert_eq!(
-        package.runtime.shared.math().preparations().views,
+        runtime.shared.math().preparations().views,
         before,
         "lazy admission does not construct selected science"
     );
-    let report = local.execute(2, &cancel).await.unwrap();
+    let report = local
+        .execute(&runtime.execution_services(), 2, &cancel)
+        .await
+        .unwrap();
     assert_eq!(
         report
             .outcomes
@@ -1211,29 +1417,17 @@ async fn durable_origin_local_lazy_simulation_constructs_only_selected_occurrenc
         report.results[0].as_ref().unwrap().run_id(),
         report.results[1].as_ref().unwrap().run_id()
     );
-    assert!(
-        package
-            .runtime
-            .canonical_store()
-            .unwrap()
-            .admit_activity()
-            .is_err()
-    );
+    assert!(runtime.canonical_store().unwrap().admit_activity().is_err());
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
 #[tokio::test]
 async fn durable_origin_local_fit_keeps_original_regression_without_recording() {
+    let runtime = super::super::durable_tests::durable_runtime();
     use super::super::{RunReport, StudyInputs, StudyOutputDemand, fitting::regression};
     use pse_backend_native::solve::{Backend, SolveIntent};
-    let package = regression::package_on(
-        super::super::durable_tests::durable_runtime(),
-        false,
-        regression::declared(),
-        [1.; 4],
-    )
-    .await;
-    deny_recording_after_durable_source(&package).await;
+    let package = regression::package_on(&runtime, false, regression::declared(), [1.; 4]).await;
+    deny_recording_after_durable_source(&runtime, &package).await;
     let request = OperationRequest::Fit(FitOperation {
         fit: super::super::tests::id(32).into(),
         settings: crate::workflow::PhysicalFitRequest::new(FitPreparationDocument {
@@ -1254,13 +1448,17 @@ async fn durable_origin_local_fit_keeps_original_regression_without_recording() 
     let cancel = CancelSource::new();
     let local = package
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Explicit(vec![point(request)]),
             &StudyOutputDemand::Full {},
             &cancel,
         )
         .await
         .unwrap();
-    let report = local.execute(1, &cancel).await.unwrap();
+    let report = local
+        .execute(&runtime.execution_services(), 1, &cancel)
+        .await
+        .unwrap();
     let original = original_local_result(&report, 0);
     let RunReport::Fit(fit) = original.report().unwrap() else {
         panic!("original regression fit");
@@ -1273,33 +1471,31 @@ async fn durable_origin_local_fit_keeps_original_regression_without_recording() 
     }
     assert_eq!(fit.predictions.len(), 4);
     assert!(fit.checks_complete);
-    assert!(
-        package
-            .runtime
-            .canonical_store()
-            .unwrap()
-            .admit_activity()
-            .is_err()
-    );
+    assert!(runtime.canonical_store().unwrap().admit_activity().is_err());
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
 #[tokio::test]
 async fn durable_origin_local_horizon_keeps_original_two_step_plant_without_recording() {
+    let runtime = super::super::durable_tests::durable_runtime();
     use super::super::{HorizonDecision, StudyInputs, StudyOutputDemand};
-    let (package, case) = plant_on(super::super::durable_tests::durable_runtime()).await;
-    let request = horizon(&package, case).await;
-    deny_recording_after_durable_source(&package).await;
+    let (package, case) = plant_on(&runtime).await;
+    let request = horizon(&runtime, &package, case).await;
+    deny_recording_after_durable_source(&runtime, &package).await;
     let cancel = CancelSource::new();
     let local = package
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Explicit(vec![point(OperationRequest::Horizon(Box::new(request)))]),
             &StudyOutputDemand::Full {},
             &cancel,
         )
         .await
         .unwrap();
-    let report = local.execute(1, &cancel).await.unwrap();
+    let report = local
+        .execute(&runtime.execution_services(), 1, &cancel)
+        .await
+        .unwrap();
     let original = original_local_result(&report, 0);
     let horizon = original.horizon().unwrap();
     assert_eq!(horizon.completed_steps, 2);
@@ -1312,12 +1508,5 @@ async fn durable_origin_local_horizon_keeps_original_two_step_plant_without_reco
         assert_eq!(step.reached.len(), 1);
         assert!((step.reached[0] - (1.0 + 53.15 * (index + 1) as f64 * 0.5)).abs() < 1e-5);
     }
-    assert!(
-        package
-            .runtime
-            .canonical_store()
-            .unwrap()
-            .admit_activity()
-            .is_err()
-    );
+    assert!(runtime.canonical_store().unwrap().admit_activity().is_err());
 }

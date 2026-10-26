@@ -56,7 +56,7 @@ fn eligible_inputs(profile: &FitProfile, facts: Eligibility) -> bool {
             facts.foreign_allowance,
         )
 }
-pub(in crate::workflow::fitting) fn eligible(p: &FitProblem) -> bool {
+pub(in crate::workflow::fitting) fn eligible(p: &FitProblem, math: &MathService) -> bool {
     eligible_inputs(
         &p.profile,
         Eligibility {
@@ -68,12 +68,7 @@ pub(in crate::workflow::fitting) fn eligible(p: &FitProblem) -> bool {
                 .variables
                 .iter()
                 .any(|v| v.lower.is_finite() || v.upper.is_finite()),
-            foreign_allowance: p
-                .runtime
-                .shared
-                .budget()
-                .math
-                .foreign_allowance(&p.profile.solver.controls),
+            foreign_allowance: math.policy().foreign_allowance(&p.profile.solver.controls),
         },
     )
 }
@@ -288,23 +283,33 @@ fn termination(reason: TerminationReason) -> FitResidualTermination {
 }
 pub(in crate::workflow::fitting) fn solve(
     p: &Arc<FitProblem>,
+    math: &Arc<MathService>,
     execution: Execution,
     initial: &[f64],
     pin: Option<(usize, f64)>,
     scratch: Option<Arc<FitScratch>>,
 ) -> Result<(FitResidualReport, Vec<f64>), ProblemError> {
-    solve_using(p, execution, initial, pin, scratch, p.residual_lm_criteria)
+    solve_using(
+        p,
+        math,
+        execution,
+        initial,
+        pin,
+        scratch,
+        p.residual_lm_criteria,
+    )
 }
 /// The same callback, normalization, work and join owner under an explicit library policy.
 pub(in crate::workflow::fitting) fn solve_using(
     p: &Arc<FitProblem>,
+    math: &Arc<MathService>,
     execution: Execution,
     initial: &[f64],
     pin: Option<(usize, f64)>,
     scratch: Option<Arc<FitScratch>>,
     criteria: ResidualLmCriteria,
 ) -> Result<(FitResidualReport, Vec<f64>), ProblemError> {
-    if !eligible(p) {
+    if !eligible(p, math) {
         return Err(ProblemError::unsupported("residual LM eligibility changed"));
     }
     execution.check()?;
@@ -338,11 +343,12 @@ pub(in crate::workflow::fitting) fn solve_using(
         *target = value;
     }
     if n == 0 {
-        let _ = assess_pin(
+        let _ = observe_pin(
             p,
+            math,
             execution,
             &physical,
-            pin.map_or(usize::MAX, |p| p.0),
+            Some(pin.map_or(usize::MAX, |p| p.0)),
             scratch,
         )?;
         return Ok((
@@ -375,7 +381,12 @@ pub(in crate::workflow::fitting) fn solve_using(
         )
         .ok_or_else(|| ProblemError::memory("LM evaluation allowance"))?;
     let problem = ResidualProblem {
-        oracle: RefCell::new(FitOracle::with_scratch(p.clone(), execution, scratch)?),
+        oracle: RefCell::new(FitOracle::with_scratch(
+            p.clone(),
+            math.clone(),
+            execution,
+            scratch,
+        )?),
         z,
         physical: RefCell::new(physical),
         free,
@@ -442,41 +453,6 @@ pub(super) fn stationarity(p: &FitProblem, point: &Point, pin: Option<usize>) ->
         maximum = maximum.max(normalized);
     }
     maximum
-}
-
-/// Independent original point for a pinned likelihood solve; no optimizer point is reused.
-pub(in crate::workflow::fitting) fn assess_pin(
-    p: &Arc<FitProblem>,
-    execution: Execution,
-    candidate: &[f64],
-    pin: usize,
-    scratch: Option<Arc<FitScratch>>,
-) -> Result<(f64, f64, bool), ProblemError> {
-    let mut oracle = FitOracle::with_scratch(p.clone(), execution, scratch)?;
-    let point = oracle.evaluate_demand(candidate, Demand::responses())?;
-    let residuals = p
-        .measurements
-        .iter()
-        .zip(&point.predictions)
-        .filter(|(m, _)| m.included)
-        .map(|(m, value)| FitOracle::residual(m, *value).map(|v| v.0 * v.0))
-        .collect::<Result<Vec<_>, _>>()?;
-    let objective = 0.5 * residuals.iter().sum::<f64>();
-    if !objective.is_finite() {
-        return Err(ProblemError::numerical("LM pinned original objective"));
-    }
-    let quality = native::quality::observed(
-        &p.contract,
-        &p.bounds,
-        candidate,
-        &point.constraints,
-        &p.tolerances,
-    )?;
-    Ok((
-        objective,
-        stationarity(p, point, Some(pin)),
-        quality.feasible(),
-    ))
 }
 
 #[cfg(test)]

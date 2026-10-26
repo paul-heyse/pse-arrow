@@ -316,8 +316,10 @@ async fn actual_steady_and_fit() -> Science {
         .value
         .unwrap();
     assert!(x.is_finite());
-    let package = regression::package(regression::declared(), [1.; 4]).await;
+    let fit_runtime = crate::workflow::tests::runtime();
+    let package = regression::package(&fit_runtime, regression::declared(), [1.; 4]).await;
     let fit = regression::fit(
+        &fit_runtime.execution_services(),
         &package,
         regression::profile(HessianMode::GaussNewton, None),
     )

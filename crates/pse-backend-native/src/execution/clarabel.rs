@@ -60,8 +60,8 @@ impl BackendExecution for Clarabel {
         };
         conic::settings_base(settings, &Controls::default(), settings.mode)?;
         let mut capability = CAPABILITY;
-        capability.parallel = settings.direct == conic::Direct::MklPardiso
-            && cfg!(feature = "clarabel-pardiso");
+        capability.parallel =
+            settings.direct == conic::Direct::MklPardiso && cfg!(feature = "clarabel-pardiso");
         Ok(capability)
     }
     fn representation(&self) -> Representation {

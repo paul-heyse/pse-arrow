@@ -14,7 +14,7 @@ pub struct ModelingDiagnosticSamples {
     pub origin: Option<super::super::super::DiagnosticOrigin>,
     /// Run identity of the sample campaign.
     pub run_id: RunId,
-    pub(in crate::workflow::modeling) runtime: Runtime,
+    pub(in crate::workflow::modeling) services: crate::workflow::PreparationServices,
     /// Diagnostics or the evaluation failure of each attempted sample, by sample name.
     pub outcomes: Vec<(
         SemanticId,
@@ -31,6 +31,7 @@ impl ModelingPackage {
     /// The finding limit and wall allowance apply across the complete sample set.
     pub(in crate::workflow) async fn diagnose_samples(
         &self,
+        services: &crate::workflow::ExecutionServices,
         prepared: ModelingDiagnosticPreparation,
         samples: Vec<(SemanticId, CaseValues)>,
         policy: ModelingDiagnosticPolicy,
@@ -38,7 +39,7 @@ impl ModelingPackage {
         maximum_samples: usize,
         operation: &super::super::super::DiagnosticOperation,
     ) -> Result<ModelingDiagnosticSamples, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
                 policy.validate()?;
@@ -62,15 +63,15 @@ impl ModelingPackage {
                     .checked_mul(1024)
                     .and_then(|n| n.checked_add(operation.retained_bytes()))
                     .ok_or_else(|| contract("diagnostic sample extent"))?;
-                let owner = self
-                    .runtime
-                    .shared
+                let owner = services
+                    .preparation()
                     .math()
                     .reserve("modeling:diagnostic-samples", bytes)?;
                 let mut report = ModelingDiagnosticSamples {
+                    services: services.preparation().clone(),
                     origin: operation.origin.clone(),
                     run_id: pse_operations::mint_id(),
-                    runtime: self.runtime.clone(),
+
                     outcomes: Vec::new(),
                     unattempted: samples.len(),
                     stop: DiagnosticSampleStop::Completed,
@@ -120,6 +121,7 @@ impl ModelingPackage {
                     }
                     let result = self
                         .diagnose_case(
+                            services,
                             prepared.clone(),
                             values,
                             ModelingDiagnosticPolicy {

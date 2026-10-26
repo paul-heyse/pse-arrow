@@ -11,12 +11,12 @@ impl RunResult {
         if let Ok(RunReport::Simulation(trajectory)) = self.report() {
             return trajectory.project(request).await;
         }
-        let pool = self.runtime.shared.pool();
+        let pool = self.services.preparation().pool();
         let cancel = request.cancel.clone();
         let validation = self.result_validation_context();
         let mut header = super::result_export::Rows::<computation_runs::Row>::new(
             request,
-            self.runtime.registry(),
+            self.services.preparation().registry(),
             &pool,
             &cancel,
             &validation,
@@ -49,8 +49,8 @@ impl RunResult {
         };
         let validation = self.result_validation_context();
         let report = result.as_ref().ok().map(Box::as_ref);
-        let registry = self.runtime.registry();
-        let pool = self.runtime.shared.pool();
+        let registry = self.services.preparation().registry();
+        let pool = self.services.preparation().pool();
         let cancel = request.cancel.clone();
         if super::ModelingTrajectory::relation_ids().contains(&request.relation)
             && let Some(report) = report.filter(|r| r.trajectory.is_some())
@@ -68,6 +68,7 @@ impl RunResult {
             problem
                 .simulation
                 .completed_trajectory(
+                    self.services.preparation(),
                     report,
                     header,
                     self.assessments
@@ -249,7 +250,7 @@ impl RunResult {
             && request.wants(solve_strategy_events::RELATION_ID)
         {
             strategy_events
-                .strategy_events(trace, self.run_id, 0, self.runtime.shared.math())
+                .strategy_events(trace, self.run_id, 0, self.services.preparation().math())
                 .await?;
         }
         strategy_events.finish().await.map_err(relation)?;

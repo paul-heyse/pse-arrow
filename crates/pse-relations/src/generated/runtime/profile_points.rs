@@ -27,8 +27,8 @@ pub use pse_model::generated::r#runtime::r#profile_points::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    146u8, 164u8, 245u8, 85u8, 12u8, 195u8, 39u8, 56u8, 60u8, 70u8, 97u8, 109u8, 95u8,
-    122u8, 149u8, 49u8,
+    75u8, 7u8, 126u8, 86u8, 98u8, 215u8, 132u8, 249u8, 40u8, 123u8, 180u8, 151u8, 216u8,
+    160u8, 99u8, 196u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "profile_points";
@@ -37,12 +37,12 @@ pub const QUALIFIED_NAME: &str = "runtime.profile_points";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 2u32;
+pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    43u8, 188u8, 229u8, 43u8, 233u8, 189u8, 160u8, 51u8, 163u8, 131u8, 174u8, 170u8,
-    171u8, 30u8, 152u8, 39u8, 183u8, 205u8, 157u8, 181u8, 182u8, 206u8, 215u8, 222u8,
-    4u8, 244u8, 230u8, 107u8, 49u8, 72u8, 19u8, 185u8,
+    20u8, 31u8, 30u8, 254u8, 206u8, 187u8, 162u8, 57u8, 17u8, 83u8, 99u8, 93u8, 79u8,
+    23u8, 228u8, 8u8, 127u8, 165u8, 63u8, 19u8, 55u8, 14u8, 63u8, 9u8, 144u8, 190u8,
+    31u8, 128u8, 100u8, 137u8, 196u8, 228u8,
 ]);
 impl crate::columnar::ArrowValue
 for RuntimeProfilePointsFieldFailuresItemObservationsItemContractsItemIndicesItem {
@@ -2216,30 +2216,34 @@ impl crate::columnar::ArrowValue for RuntimeProfilePointsRow {
             children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#termination,
+            &self.r#qualifiers,
             children[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#callback_terminal_failure,
+            &self.r#termination,
             children[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#failures,
+            &self.r#callback_terminal_failure,
             children[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#objective,
+            &self.r#failures,
             children[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#statistic,
+            &self.r#objective,
             children[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#accepted,
+            &self.r#statistic,
             children[12usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#detail, children[13usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#accepted,
+            children[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#detail, children[14usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -2267,25 +2271,28 @@ impl crate::columnar::ArrowValue for RuntimeProfilePointsRow {
         <Option<
             crate::generated::enums::NativeQualification,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
-        <Option<
-            crate::generated::enums::NativeTermination,
+        <Vec<
+            crate::generated::enums::CandidateQualifier,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <Option<
-            bool,
+            crate::generated::enums::NativeTermination,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            bool,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         <Vec<
             RuntimeProfilePointsFieldFailuresItem,
-        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
-        <Option<
-            f64,
         > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <Option<
             f64,
         > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         <Option<
             String,
-        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -2328,44 +2335,50 @@ impl crate::columnar::ArrowValue for RuntimeProfilePointsRow {
                 input.column(6usize).as_ref(),
                 index,
             )?,
+            r#qualifiers: <Vec<
+                crate::generated::enums::CandidateQualifier,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
             r#termination: <Option<
                 crate::generated::enums::NativeTermination,
             > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
             r#callback_terminal_failure: <Option<
                 bool,
             > as crate::columnar::ArrowValue>::read(
-                input.column(8usize).as_ref(),
+                input.column(9usize).as_ref(),
                 index,
             )?,
             r#failures: <Vec<
                 RuntimeProfilePointsFieldFailuresItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
+                input.column(10usize).as_ref(),
                 index,
             )?,
             r#objective: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(11usize).as_ref(),
                 index,
             )?,
             r#statistic: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
             r#accepted: <bool as crate::columnar::ArrowValue>::read(
-                input.column(12usize).as_ref(),
+                input.column(13usize).as_ref(),
                 index,
             )?,
             r#detail: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(13usize).as_ref(),
+                input.column(14usize).as_ref(),
                 index,
             )?,
         })
@@ -2438,27 +2451,34 @@ impl crate::columnar::RelationRow for RuntimeProfilePointsRow {
             columns[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#termination,
+            &self.r#qualifiers,
             columns[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#callback_terminal_failure,
+            &self.r#termination,
             columns[8usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#failures, columns[9usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#objective,
+            &self.r#callback_terminal_failure,
+            columns[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#failures,
             columns[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#statistic,
+            &self.r#objective,
             columns[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#accepted,
+            &self.r#statistic,
             columns[12usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#detail, columns[13usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#accepted,
+            columns[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#detail, columns[14usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -2494,10 +2514,10 @@ impl crate::columnar::RelationRow for RuntimeProfilePointsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        410_624_usize + size_of::<Self::Builder>()
+        413_696_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        3208usize
+        3232usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -2542,6 +2562,18 @@ impl crate::columnar::RelationRow for RuntimeProfilePointsRow {
             } else {
                 Ok::<usize, crate::RelationError>(1)
             }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#qualifiers)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).as_str().len())?,
+                    ),
+                )?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -3926,7 +3958,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 15usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -3964,38 +3996,43 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "termination",
+        name: "qualifiers",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "callback_terminal_failure",
+        name: "termination",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "failures",
+        name: "callback_terminal_failure",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "objective",
+        name: "failures",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "statistic",
+        name: "objective",
         position: 11usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "accepted",
+        name: "statistic",
         position: 12usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "detail",
+        name: "accepted",
         position: 13usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "detail",
+        position: 14usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -4014,20 +4051,22 @@ pub mod columns {
     pub const SEED: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///qualification
     pub const QUALIFICATION: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///qualifiers
+    pub const QUALIFIERS: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///termination
-    pub const TERMINATION: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const TERMINATION: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///callback_terminal_failure
-    pub const CALLBACK_TERMINAL_FAILURE: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const CALLBACK_TERMINAL_FAILURE: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///failures
-    pub const FAILURES: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const FAILURES: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///objective
-    pub const OBJECTIVE: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const OBJECTIVE: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///statistic
-    pub const STATISTIC: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const STATISTIC: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///accepted
-    pub const ACCEPTED: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    pub const ACCEPTED: crate::columnar::ColumnReference = super::COLUMNS[13usize];
     ///detail
-    pub const DETAIL: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    pub const DETAIL: crate::columnar::ColumnReference = super::COLUMNS[14usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -4042,6 +4081,7 @@ pub struct RuntimeProfilePointsView<'a> {
     value_column: &'a arrow_array::Float64Array,
     seed_column: &'a arrow_array::Int64Array,
     qualification_column: &'a arrow_array::StringArray,
+    qualifiers_column: &'a arrow_array::ListArray,
     termination_column: &'a arrow_array::StringArray,
     callback_terminal_failure_column: &'a arrow_array::BooleanArray,
     failures_column: &'a arrow_array::ListArray,
@@ -4114,27 +4154,30 @@ impl<'a> RuntimeProfilePointsView<'a> {
             qualification_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(6usize).as_ref())?,
+            qualifiers_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(7usize).as_ref())?,
             termination_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             callback_terminal_failure_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             failures_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             objective_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             statistic_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
             accepted_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(12usize).as_ref())?,
+            >(batch.column(13usize).as_ref())?,
             detail_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(13usize).as_ref())?,
+            >(batch.column(14usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -4235,6 +4278,18 @@ impl<'a> RuntimeProfilePointsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "qualifiers",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn qualifiers_column(&self) -> &'a arrow_array::ListArray {
+        self.qualifiers_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "qualifiers", "`.")]
+    pub fn qualifiers_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "termination",
         "`, including its offsets and validity bitmap.",
     )]
@@ -4243,7 +4298,7 @@ impl<'a> RuntimeProfilePointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "termination", "`.")]
     pub fn termination_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -4261,7 +4316,7 @@ impl<'a> RuntimeProfilePointsView<'a> {
         "`.",
     )]
     pub fn callback_terminal_failure_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -4273,7 +4328,7 @@ impl<'a> RuntimeProfilePointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "failures", "`.")]
     pub fn failures_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -4285,7 +4340,7 @@ impl<'a> RuntimeProfilePointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "objective", "`.")]
     pub fn objective_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -4297,7 +4352,7 @@ impl<'a> RuntimeProfilePointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "statistic", "`.")]
     pub fn statistic_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -4309,7 +4364,7 @@ impl<'a> RuntimeProfilePointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "accepted", "`.")]
     pub fn accepted_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -4321,7 +4376,7 @@ impl<'a> RuntimeProfilePointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "detail", "`.")]
     pub fn detail_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[13usize]
+        &self.batch.schema_ref().fields()[14usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -4346,6 +4401,10 @@ impl<'a> RuntimeProfilePointsView<'a> {
             r#seed: crate::columnar::ArrowValue::read(self.seed_column, index)?,
             r#qualification: crate::columnar::ArrowValue::read(
                 self.qualification_column,
+                index,
+            )?,
+            r#qualifiers: crate::columnar::ArrowValue::read(
+                self.qualifiers_column,
                 index,
             )?,
             r#termination: crate::columnar::ArrowValue::read(

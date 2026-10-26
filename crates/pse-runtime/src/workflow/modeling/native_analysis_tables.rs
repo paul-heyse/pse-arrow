@@ -63,7 +63,7 @@ impl ModelingLinearDiagnostics {
             .map(serde_json::to_string)
             .transpose()
             .map_err(|e| contract(e.to_string()))?;
-        let table = one(&self.runtime, self._owner.size(), || {
+        let table = one(&self.services, self._owner.size(), || {
             RuntimeModelingLinearDiagnosticsRow {
                 origin_json,
                 run_id: self.run_id,
@@ -266,7 +266,7 @@ impl ModelingJacobianOptimization {
             .map(serde_json::to_string)
             .transpose()
             .map_err(|e| contract(e.to_string()))?;
-        let table = one(&self.runtime, self._owner.size(), || {
+        let table = one(&self.services, self._owner.size(), || {
             RuntimeModelingJacobianOptimizationRow{
             origin_json,
             run_id:self.run_id,source_identity:self.source_identity,numerical_identity:self.numerical_identity,
@@ -298,7 +298,7 @@ impl ModelingJacobianOptimization {
                 .iter()
                 .map(|ids| {
                     crate::workflow::PrimalCoordinates::auxiliary(
-                        &self.runtime,
+                        &self.services,
                         &self.quantities,
                         ids,
                     )

@@ -249,7 +249,12 @@ async fn check_explicit_cone(runtime: Runtime, retained_pressure: bool) {
         native::routing::Route::Native(Backend::Clarabel)
     );
     drop(pressure);
-    let result = prepared.start().unwrap().finish().await.unwrap();
+    let result = prepared
+        .start(&runtime.preparation_services())
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
     let Outcome::Native(report) = &result.outcome else {
         panic!("{:?}", result.outcome)
     };
@@ -279,6 +284,7 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
     let cancel = crate::CancelSource::new();
     let analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler_profile(),
             SolverProfile {
@@ -300,6 +306,7 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
         .analysis;
     let model = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             analysis.bindings.clone(),
@@ -321,6 +328,7 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
     let (x, y, a) = (symbol("x"), symbol("y"), symbol("a"));
     let prepared = package
         .prepare_block_initialization(
+            &runtime.preparation_services(),
             &analysis,
             vec![BTreeMap::from([(a, 9.0)]), BTreeMap::from([(a, -1.0)])],
             &cancel,
@@ -328,10 +336,13 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
         .await
         .unwrap();
     assert_eq!(prepared.blocks().boundaries().count(), 2);
-    let (handle, operation) = prepared.start_with_operation().unwrap();
+    let (handle, operation) = prepared
+        .start_with_operation(&runtime.preparation_services())
+        .unwrap();
     let report = handle.finish().await.unwrap();
     let (context, work) = crate::math::counted(async {
         prepared.review_context(
+            &runtime.preparation_services(),
             &crate::workflow::ReviewContextRequest::default(),
             operation,
             &report,
@@ -439,6 +450,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
     let cancel = crate::CancelSource::new();
     let mut analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler_profile(),
             profile(SolveIntent::Root),
@@ -452,6 +464,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
     analysis.bindings.demand.push("bad".into());
     let model = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             analysis.bindings.clone(),
@@ -491,7 +504,12 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
             .collect(),
     };
     let flow = package
-        .prepare_flow(&analysis, selection.clone(), &cancel)
+        .prepare_flow(
+            &runtime.preparation_services(),
+            &analysis,
+            selection.clone(),
+            &cancel,
+        )
         .await
         .unwrap();
     let witness = runtime
@@ -524,7 +542,13 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };
     let prepared = package
-        .prepare_recycle(&analysis, selection.clone(), request.clone(), &cancel)
+        .prepare_recycle(
+            &runtime.preparation_services(),
+            &analysis,
+            selection.clone(),
+            request.clone(),
+            &cancel,
+        )
         .await
         .unwrap();
     assert_eq!(prepared.order().unwrap(), vec![root.as_id()]);
@@ -537,10 +561,13 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
                 .any(|p| p.selected && p.declaration == Some(id(91)))
     }));
 
-    let (handle, operation) = prepared.start_with_operation().unwrap();
+    let (handle, operation) = prepared
+        .start_with_operation(&runtime.preparation_services())
+        .unwrap();
     let report = handle.finish().await.unwrap();
     let (context, work) = crate::math::counted(async {
         prepared.review_context(
+            &runtime.preparation_services(),
             &crate::workflow::ReviewContextRequest::default(),
             operation,
             &report,
@@ -635,7 +662,11 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
     assert_ne!(report.run_id.as_id(), SemanticId::NIL);
     assert!(trace_rows.iter().all(|row| row.run_id == report.run_id));
     let original = package.revision.identity();
-    let mut rows = package.declarations().await.unwrap().to_vec();
+    let mut rows = package
+        .declarations(&runtime.preparation_services())
+        .await
+        .unwrap()
+        .to_vec();
     rows.iter_mut()
         .find(|r| r.name == "output")
         .unwrap()
@@ -644,11 +675,20 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
         .as_mut()
         .unwrap()
         .expression = Some("x/2+a+hidden".into());
-    let revised = package.with_declarations(rows).await.unwrap();
+    let revised = package
+        .with_declarations(&runtime.source_services(), rows)
+        .await
+        .unwrap();
     assert_ne!(revised.revision.identity(), original);
     assert_eq!(package.revision.identity(), original);
     let error = revised
-        .prepare_recycle(&analysis, selection, request, &cancel)
+        .prepare_recycle(
+            &runtime.preparation_services(),
+            &analysis,
+            selection,
+            request,
+            &cancel,
+        )
         .await
         .unwrap_err();
     assert!(

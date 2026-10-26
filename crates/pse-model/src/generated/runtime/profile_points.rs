@@ -892,6 +892,8 @@ pub struct RuntimeProfilePointsRow {
     pub r#seed: Option<i64>,
     ///qualification
     pub r#qualification: Option<crate::generated::enums::NativeQualification>,
+    ///The original pin completion qualifiers, without stronger certification.
+    pub r#qualifiers: Vec<crate::generated::enums::CandidateQualifier>,
     ///termination
     pub r#termination: Option<crate::generated::enums::NativeTermination>,
     ///An actual terminal callback latch, absent in historical records that did not observe it.
@@ -920,7 +922,7 @@ impl crate::SemanticEq for RuntimeProfilePointsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#qualification,
                 &other.r#qualification,
-            )
+            ) && crate::SemanticEq::semantic_eq(&self.r#qualifiers, &other.r#qualifiers)
             && crate::SemanticEq::semantic_eq(&self.r#termination, &other.r#termination)
             && crate::SemanticEq::semantic_eq(
                 &self.r#callback_terminal_failure,
@@ -1597,6 +1599,8 @@ impl crate::SemanticFrame for RuntimeProfilePointsRow {
         crate::SemanticFrame::frame(&self.r#seed, hash);
         hash.str(stringify!(r#qualification));
         crate::SemanticFrame::frame(&self.r#qualification, hash);
+        hash.str(stringify!(r#qualifiers));
+        crate::SemanticFrame::frame(&self.r#qualifiers, hash);
         hash.str(stringify!(r#termination));
         crate::SemanticFrame::frame(&self.r#termination, hash);
         hash.str(stringify!(r#callback_terminal_failure));
@@ -1623,6 +1627,7 @@ impl crate::HeapUsage for RuntimeProfilePointsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#seed))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#qualification))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#qualifiers))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#termination))
             .saturating_add(
                 crate::HeapUsage::heap_bytes(&self.r#callback_terminal_failure),

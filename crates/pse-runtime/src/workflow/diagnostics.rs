@@ -15,6 +15,7 @@ impl super::WorkflowError {
                 cause.strategy_trace()
             }
             Self::Shared(cause) => cause.strategy_trace(),
+            Self::Admission { cause, .. } => cause.strategy_trace(),
             _ => None,
         }
     }
@@ -26,7 +27,22 @@ impl super::WorkflowError {
 impl DiagnosticProjection for super::WorkflowError {
     fn boundary_diagnostic(&self, stage: DiagnosticStage) -> BoundaryDiagnostic {
         match self {
-            Self::Boundary(d) => d.as_ref().clone(),
+            Self::Boundary(d) | Self::ScientificRefusal(d) => d.as_ref().clone(),
+            Self::Admission { effect, cause } => {
+                let mut diagnostic =
+                    DiagnosticProjection::boundary_diagnostic(cause.as_ref(), stage);
+                diagnostic.observations.insert(
+                    "admission_effect".into(),
+                    Observation::Text(effect.as_str().into()),
+                );
+                if let super::AdmissionEffect::SourceAcknowledged { revision } = effect {
+                    diagnostic.observations.insert(
+                        "source_revision".into(),
+                        Observation::Text(revision.clone()),
+                    );
+                }
+                diagnostic
+            }
             Self::StudyExecutionUnavailable { study } => {
                 let mut diagnostic =
                     project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage);
@@ -98,19 +114,29 @@ impl DiagnosticProjection for super::WorkflowError {
             Self::ResultBlock(e) => pse_model::diagnostic::project_typed(e, stage),
             Self::DocumentDecode(_) => pse_model::diagnostic::project_typed(self, stage),
             Self::Input(_)
+            | Self::Resource(_)
+            | Self::Integrity(_)
+            | Self::Infrastructure(_)
+            | Self::Unsupported(_)
             | Self::RecordingUnavailable
             | Self::CallerClosed
             | Self::Internal(_) => {
                 let mut diagnostic =
                     project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage);
-                diagnostic.rule = if matches!(
-                    self,
-                    Self::Input(_) | Self::RecordingUnavailable | Self::CallerClosed
-                ) {
-                    DiagnosticRule::WorkflowInput
-                } else {
-                    DiagnosticRule::WorkflowInternal
+                diagnostic.rule = match self {
+                    Self::Input(_) | Self::RecordingUnavailable | Self::CallerClosed => {
+                        DiagnosticRule::WorkflowInput
+                    }
+                    Self::Resource(_) => DiagnosticRule::MathLimit,
+                    Self::Infrastructure(_) | Self::Integrity(_) => DiagnosticRule::MathLibrary,
+                    Self::Unsupported(_) => DiagnosticRule::NativeUnsupported,
+                    _ => DiagnosticRule::WorkflowInternal,
                 };
+                if matches!(self, Self::Integrity(_)) {
+                    diagnostic
+                        .observations
+                        .insert("integrity_failure".into(), Observation::Boolean(true));
+                }
                 diagnostic
                     .observations
                     .insert("detail".into(), Observation::Text(self.to_string()));
@@ -119,6 +145,107 @@ impl DiagnosticProjection for super::WorkflowError {
         }
     }
 }
+/// Whether a selected immutable admission may retain a permanent scientific denial.
+/// This is persistence permission, never authorization to repeat a canonical effect.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum AdmissionDisposition {
+    ScientificRefusal,
+    TransientOrUnclassified,
+    UnsettledEffects,
+}
+fn deterministic_diagnostic(diagnostic: &BoundaryDiagnostic) -> bool {
+    use pse_model::diagnostic::BoundaryClass as C;
+    matches!(
+        diagnostic.class,
+        C::InvalidModel | C::Unsupported | C::Incompatible
+    ) && diagnostic.causes.iter().all(deterministic_diagnostic)
+}
+fn deterministic_math(error: &crate::math::MathRuntimeError) -> bool {
+    use crate::math::MathRuntimeError as E;
+    use pse_compiler::workspace::CompileError;
+    fn modeling(error: &pse_modeling::ModelingError) -> bool {
+        use pse_modeling::{ModelingContractReason, ModelingError};
+        match error {
+            ModelingError::Located { cause, .. } => modeling(cause),
+            ModelingError::Contract { reason, .. } => {
+                *reason != ModelingContractReason::Unclassified
+            }
+            _ => deterministic_diagnostic(&error.boundary_diagnostic()),
+        }
+    }
+    match error {
+        E::Shared(cause) | E::Strategy { cause, .. } => deterministic_math(cause),
+        E::Compile(CompileError::Syntax { .. } | CompileError::ConditionalUnavailable(_)) => {
+            deterministic_diagnostic(&error.boundary_diagnostic(DiagnosticStage::ModelingAdmission))
+        }
+        E::Compile(CompileError::Modeling(cause)) => modeling(cause),
+        E::Solve(pse_backend_native::ProblemError::Structural { .. }) => true,
+        _ => false,
+    }
+}
+fn deterministic_scientific(error: &super::WorkflowError) -> bool {
+    use super::WorkflowError as E;
+    match error {
+        E::Admission { cause, .. } => deterministic_scientific(cause),
+        E::Shared(cause) => deterministic_scientific(cause),
+        E::ScientificRefusal(diagnostic) => deterministic_diagnostic(diagnostic),
+        E::Math(cause) => deterministic_math(cause),
+        E::ConditionalAdmission { cause, .. } | E::ModelingAdmission { cause, .. } => {
+            deterministic_math(cause)
+        }
+        E::Authoring(
+            pse_admission::authoring_driver::DriverError::Authoring(_)
+            | pse_admission::authoring_driver::DriverError::Rules(_),
+        ) => {
+            let diagnostic = error.boundary_diagnostic();
+            diagnostic.code != pse_diagnostics::DiagnosticCode::AuthoringDocumentIo
+                && deterministic_diagnostic(&diagnostic)
+        }
+        // Legacy string contracts, generic unsupported errors, database/schema reads and
+        // opaque typed wrappers do not establish an immutable scientific refusal.
+        _ => false,
+    }
+}
+/// Interpret only an actual source-owner refusal proof; statement class and a
+/// missing acknowledgement do not establish publication absence.
+pub(super) fn publication_failure_effect(error: &super::WorkflowError) -> super::AdmissionEffect {
+    match error {
+        super::WorkflowError::Canonical(error) if error.proves_source_refusal() => {
+            super::AdmissionEffect::NoPublication
+        }
+        super::WorkflowError::Shared(cause) => publication_failure_effect(cause),
+        _ => super::AdmissionEffect::UnresolvedPublication,
+    }
+}
+fn unresolved_admission_effect(error: &super::WorkflowError) -> bool {
+    match error {
+        super::WorkflowError::Admission { effect, cause } => {
+            matches!(effect, super::AdmissionEffect::UnresolvedPublication)
+                || unresolved_admission_effect(cause)
+        }
+        super::WorkflowError::Shared(cause) => unresolved_admission_effect(cause),
+        _ => false,
+    }
+}
+pub(super) fn admission_disposition(error: &super::WorkflowError) -> AdmissionDisposition {
+    let effect = match error {
+        super::WorkflowError::Admission { effect, .. } => effect,
+        super::WorkflowError::Shared(cause) => return admission_disposition(cause),
+        _ => return AdmissionDisposition::UnsettledEffects,
+    };
+    if matches!(effect, super::AdmissionEffect::UnresolvedPublication)
+        || unresolved_admission_effect(error)
+    {
+        AdmissionDisposition::UnsettledEffects
+    } else if deterministic_scientific(error)
+        && deterministic_diagnostic(&error.boundary_diagnostic())
+    {
+        AdmissionDisposition::ScientificRefusal
+    } else {
+        AdmissionDisposition::TransientOrUnclassified
+    }
+}
+
 pub(super) fn observed(
     error: &dyn DiagnosticProjection,
     stage: DiagnosticStage,
@@ -130,7 +257,34 @@ pub(super) fn operation_context(
     error: super::WorkflowError,
     operation: &'static str,
 ) -> super::WorkflowError {
-    tracing::warn!(operation, error = %error, "canonical workflow operation failed");
+    let diagnostic = error.boundary_diagnostic();
+    use pse_model::diagnostic::BoundaryClass as C;
+    match diagnostic.class {
+        C::Internal | C::Infrastructure => tracing::error!(
+            operation,
+            code = diagnostic.code.as_str(),
+            class = diagnostic.class.as_str(),
+            "workflow operation failed"
+        ),
+        C::Cancelled => tracing::debug!(
+            operation,
+            code = diagnostic.code.as_str(),
+            class = diagnostic.class.as_str(),
+            "workflow operation cancelled"
+        ),
+        C::ResourceLimit => tracing::warn!(
+            operation,
+            code = diagnostic.code.as_str(),
+            class = diagnostic.class.as_str(),
+            "workflow operation allowance refused"
+        ),
+        _ => tracing::info!(
+            operation,
+            code = diagnostic.code.as_str(),
+            class = diagnostic.class.as_str(),
+            "workflow operation refused"
+        ),
+    }
     #[cfg(feature = "canonical-tests")]
     {
         #[allow(
@@ -741,5 +895,234 @@ mod tests {
             contracts.iter().map(|c| c.quantity).collect::<Vec<_>>(),
             vec![*expected.as_bytes(), *actual.as_bytes()]
         );
+    }
+}
+
+#[cfg(test)]
+mod admission_failure_tests {
+    use super::*;
+    use crate::math::MathRuntimeError;
+    use crate::workflow::{AdmissionEffect, WorkflowError};
+    use pse_model::diagnostic::BoundaryClass;
+
+    fn scientific() -> WorkflowError {
+        crate::workflow::scientific_refusal(
+            BoundaryClass::InvalidModel,
+            DiagnosticStage::ModelingDynamic,
+            DiagnosticRule::ModelingDomain,
+            vec![pse_ids::SemanticId::from_bytes([13; 16])],
+            "missing immutable initial condition",
+        )
+    }
+    fn at(effect: AdmissionEffect, cause: WorkflowError) -> WorkflowError {
+        WorkflowError::Admission {
+            effect,
+            cause: Box::new(cause),
+        }
+    }
+    #[test]
+    fn admission_persists_only_owned_scientific_refusal_with_known_effects() {
+        assert_eq!(
+            admission_disposition(&scientific()),
+            AdmissionDisposition::UnsettledEffects
+        );
+        for effect in [
+            AdmissionEffect::NoPublication,
+            AdmissionEffect::SourceAcknowledged {
+                revision: "issued-source-revision".into(),
+            },
+        ] {
+            let error = at(effect, scientific());
+            assert_eq!(
+                admission_disposition(&error),
+                AdmissionDisposition::ScientificRefusal
+            );
+            let diagnostic = error.boundary_diagnostic();
+            assert_eq!(diagnostic.class, BoundaryClass::InvalidModel);
+            assert_eq!(diagnostic.stage, DiagnosticStage::ModelingDynamic);
+            assert_eq!(
+                diagnostic.sources,
+                vec![pse_ids::SemanticId::from_bytes([13; 16])]
+            );
+        }
+        let acknowledged = at(
+            AdmissionEffect::SourceAcknowledged {
+                revision: "issued-source-revision".into(),
+            },
+            scientific(),
+        );
+        assert!(
+            matches!(&acknowledged.boundary_diagnostic().observations["source_revision"], Observation::Text(value) if value == "issued-source-revision")
+        );
+        let unknown = at(AdmissionEffect::UnresolvedPublication, scientific());
+        assert_eq!(
+            admission_disposition(&unknown),
+            AdmissionDisposition::UnsettledEffects
+        );
+        assert_eq!(
+            unknown.boundary_diagnostic().class,
+            BoundaryClass::InvalidModel
+        );
+        let nested_unknown = at(AdmissionEffect::NoPublication, unknown);
+        assert_eq!(
+            admission_disposition(&nested_unknown),
+            AdmissionDisposition::UnsettledEffects
+        );
+        assert_eq!(
+            nested_unknown.boundary_diagnostic().class,
+            BoundaryClass::InvalidModel
+        );
+    }
+    #[test]
+    fn capacity_deadline_internal_cancel_and_legacy_strings_never_become_permanent_science() {
+        let errors = vec![
+            WorkflowError::Resource("lazy descriptor bytes".into()),
+            WorkflowError::Math(MathRuntimeError::Limit("compiler capacity")),
+            WorkflowError::Math(MathRuntimeError::PreparationExpired),
+            WorkflowError::Math(MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    detail: "admission deadline".into(),
+                },
+            )),
+            WorkflowError::Math(MathRuntimeError::Internal("poisoned producer".into())),
+            WorkflowError::Internal("missing admitted projection".into()),
+            WorkflowError::Integrity("corrupt admitted content".into()),
+            WorkflowError::Math(MathRuntimeError::Cancelled),
+            WorkflowError::Input("legacy ambiguous contract".into()),
+            WorkflowError::Unsupported("runtime capability unavailable".into()),
+        ];
+        for cause in errors {
+            let error = at(
+                AdmissionEffect::SourceAcknowledged {
+                    revision: "issued".into(),
+                },
+                cause,
+            );
+            assert_eq!(
+                admission_disposition(&error),
+                AdmissionDisposition::TransientOrUnclassified,
+                "{error:?}"
+            );
+        }
+        let failure = WorkflowError::Canonical(
+            pse_operations::canonical::CanonicalError::SourceEditUnsettled {
+                problem: "original-problem".into(),
+                operation: "original-operation".into(),
+                source: Box::new(pse_operations::canonical::CanonicalError::Timeout),
+            },
+        );
+        let error = at(AdmissionEffect::UnresolvedPublication, failure);
+        assert_eq!(
+            admission_disposition(&error),
+            AdmissionDisposition::UnsettledEffects
+        );
+        let WorkflowError::Admission { cause, .. } = error else {
+            panic!("effect wrapper lost")
+        };
+        assert!(
+            matches!(*cause, WorkflowError::Canonical(pse_operations::canonical::CanonicalError::SourceEditUnsettled { problem, operation, source }) if problem == "original-problem" && operation == "original-operation" && matches!(*source, pse_operations::canonical::CanonicalError::Timeout))
+        );
+    }
+    #[test]
+    fn source_owner_refusal_proof_remains_distinct_from_class_or_missing_receipt() {
+        use pse_operations::canonical::CanonicalError;
+        let refused = WorkflowError::Canonical(CanonicalError::SourceEditRefused {
+            problem: "issued-problem".into(),
+            operation: "issued-operation".into(),
+            source: Box::new(CanonicalError::OperationReused),
+        });
+        assert_eq!(
+            publication_failure_effect(&refused),
+            AdmissionEffect::NoPublication
+        );
+        assert_eq!(
+            publication_failure_effect(&WorkflowError::Canonical(CanonicalError::Timeout)),
+            AdmissionEffect::UnresolvedPublication
+        );
+        assert_eq!(
+            publication_failure_effect(&WorkflowError::Resource("memory".into())),
+            AdmissionEffect::UnresolvedPublication
+        );
+    }
+    #[test]
+    fn equivalent_poisoned_runtime_and_math_callback_keep_internal_class() {
+        let direct = MathRuntimeError::Internal("producer lock poisoned".into());
+        let nested = MathRuntimeError::Math(
+            MathRuntimeError::Internal("producer lock poisoned".into()).into_math(),
+        );
+        for error in [direct, nested] {
+            let diagnostic = error.boundary_diagnostic(DiagnosticStage::Evaluation);
+            assert_eq!(diagnostic.class, BoundaryClass::Internal);
+            assert_eq!(
+                diagnostic.code,
+                pse_diagnostics::DiagnosticCode::InternalInvariant
+            );
+            assert_eq!(
+                crate::math::strategy::runtime_failure(&error),
+                pse_model::generated::enums::NumericalAttemptObservation::OperationalFailure
+            );
+        }
+        let integrity =
+            WorkflowError::Integrity("retained IPC failed validation".into()).boundary_diagnostic();
+        assert_eq!(integrity.class, BoundaryClass::Infrastructure);
+        assert!(matches!(
+            integrity.observations["integrity_failure"],
+            Observation::Boolean(true)
+        ));
+    }
+    #[test]
+    fn diagnostic_deadline_overflow_keeps_native_time_cause_and_never_permanent_science() {
+        let error = crate::workflow::diagnostic_operation::DiagnosticOperation::new(
+            &crate::CancelSource::new(),
+            std::time::Duration::MAX,
+            None,
+        )
+        .err()
+        .expect("unrepresentable diagnostic deadline must refuse");
+        assert!(matches!(&error,
+            WorkflowError::Math(MathRuntimeError::Solve(pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time, detail,
+            })) if detail == "diagnostic deadline extent"));
+        let diagnostic = DiagnosticProjection::boundary_diagnostic(
+            &error,
+            DiagnosticStage::NonlinearExplanation,
+        );
+        assert_eq!(diagnostic.class, BoundaryClass::ResourceLimit);
+        assert_eq!(
+            diagnostic.code,
+            pse_diagnostics::DiagnosticCode::RuntimeTimeout
+        );
+        assert_eq!(diagnostic.rule, DiagnosticRule::NativeLimit);
+        assert_eq!(diagnostic.stage, DiagnosticStage::NonlinearExplanation);
+        assert_eq!(
+            admission_disposition(&at(AdmissionEffect::NoPublication, error)),
+            AdmissionDisposition::TransientOrUnclassified
+        );
+    }
+    #[test]
+    fn pool_capacity_and_pool_internal_failure_have_distinct_meaning() {
+        use datafusion::common::DataFusionError;
+        for (error, expected) in [
+            (
+                DataFusionError::ResourcesExhausted("allocation".into()),
+                BoundaryClass::ResourceLimit,
+            ),
+            (
+                DataFusionError::Internal("pool invariant".into()),
+                BoundaryClass::Internal,
+            ),
+            (
+                DataFusionError::Execution("pool service".into()),
+                BoundaryClass::Infrastructure,
+            ),
+        ] {
+            assert_eq!(
+                MathRuntimeError::Pool(error)
+                    .boundary_diagnostic(DiagnosticStage::Evaluation)
+                    .class,
+                expected
+            );
+        }
     }
 }

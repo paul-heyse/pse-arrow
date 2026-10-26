@@ -42,15 +42,21 @@ impl ModelingPackage {
     /// It neither acquires nor renews publication permission.
     pub(super) async fn checked_selection_scoped(
         &self,
+        services: &crate::workflow::PreparationServices,
         roots: &[DeclarationId],
         cancel: &crate::CancelSource,
         deadline: Instant,
     ) -> Result<canonical::CheckedSelection, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let phase = cancel.child_with_deadline(Some(deadline));
-                scoped(&phase, deadline, self.checked_selection(roots, &phase)).await
+                scoped(
+                    &phase,
+                    deadline,
+                    self.checked_selection(services, roots, &phase),
+                )
+                .await
             })
             .await
     }
@@ -60,6 +66,7 @@ impl ModelingPackage {
     )]
     pub(super) async fn prepare_selected_basis(
         &self,
+        services: &crate::workflow::PreparationServices,
         selected: &mut canonical::CheckedSelection,
         root: DeclarationId,
         instance: InstanceId,
@@ -68,21 +75,25 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
         deadline: Instant,
     ) -> Result<(ModelingPreparation, Arc<PreparedBasis>), WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 scoped(cancel, deadline, async { Ok(()) }).await?;
-                let math = self.runtime.shared.math();
-                if !selected.carries(self) {
+                let math = services.math();
+                if !selected.carries(self, services) {
                     // Different sources/invocations must establish eligibility now;
                     // a retained checked relation never keeps a caller activity open.
                     *selected = scoped(
                         cancel,
                         deadline,
-                        self.checked_selection(&selected.admission.request.roots.clone(), cancel),
+                        self.checked_selection(
+                            services,
+                            &selected.admission.request.roots.clone(),
+                            cancel,
+                        ),
                     )
                     .await?;
-                    if !selected.carries(self) {
+                    if !selected.carries(self, services) {
                         return Err(contract(
                             "selected source/context differs from the local receiver",
                         ));
@@ -96,7 +107,7 @@ impl ModelingPackage {
                     crate::tooling::operational_metrics::PreparationStage::Basis.reuse();
                     basis
                 } else {
-                    let workspace = self.pure_workspace()?;
+                    let workspace = self.pure_workspace(services)?;
                     let frontier = scoped(cancel, deadline, async {
                         Ok(math
                             .plan_frontier_keyed(

@@ -2,12 +2,12 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Reconstructable study operations dispatch through their existing operation owners.
-use super::Runtime;
 use super::{
     AdvancedStep, Arrival, DeclaredProcedure, Horizon, HorizonController, HorizonEstimator,
     HorizonInput, HorizonSignal, ModelingPackage, ModelingSimulation, ModelingSolvePreparation,
     PreparedFit, RunHandle, RunResult, WindowInput, WorkflowError,
 };
+use super::{ExecutionServices, PreparationServices};
 use crate::CancelSource;
 use crate::math::settings::SolveSettings;
 use pse_compiler::workspace::Profile;
@@ -446,6 +446,7 @@ impl DeclaredStudyAdmission {
         self.operation == key.0 && self.paths == key.1 && self.members == key.2
     }
     pub(in crate::workflow) async fn prepare(
+        services: &PreparationServices,
         package: &ModelingPackage,
         operation: &StudyOperation,
         key: (ContentHash, Vec<String>),
@@ -461,6 +462,7 @@ impl DeclaredStudyAdmission {
         operation.source.check(package)?;
         let execution = package
             .declared_execution_with_demand(
+                services,
                 case.case,
                 operation.preparation.compiler,
                 case.settings.clone().profile()?,
@@ -600,10 +602,11 @@ impl OperationPreparation<'_> {
     /// Source/route mismatch, unsupported procedures and original operation-owner refusals.
     pub(in crate::workflow) async fn prepare(
         &self,
+        services: &PreparationServices,
         package: &ModelingPackage,
         cancel: &CancelSource,
     ) -> Result<PreparedStudyOperation, WorkflowError> {
-        let preparation_driver = package.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         self.source.check(package)?;
         if self.admitted_horizon.is_some()
@@ -641,6 +644,7 @@ impl OperationPreparation<'_> {
                 Ok(PreparedStudyOperation::DeclaredCase(Box::new(
                     package
                         .prepare_case_operation(
+                            services,
                             case.case,
                             &case.settings,
                             self.preparation,
@@ -655,6 +659,7 @@ impl OperationPreparation<'_> {
                 Ok(PreparedStudyOperation::Simulation(Box::new(
                     package
                         .declared_simulation_request(
+                            services,
                             simulation.case,
                             compiler,
                             simulation.settings.as_ref(),
@@ -668,6 +673,7 @@ impl OperationPreparation<'_> {
             OperationRequest::Fit(fit) => Ok(PreparedStudyOperation::Fit(Box::new(
                 package
                     .prepare_physical_fit(
+                        services,
                         fit.fit,
                         fit.settings.clone(),
                         compiler,
@@ -699,6 +705,7 @@ impl OperationPreparation<'_> {
                 }
                 let plant = package
                     .declared_simulation_request(
+                        services,
                         spec.plant.case,
                         compiler,
                         spec.plant.settings.as_ref(),
@@ -714,6 +721,7 @@ impl OperationPreparation<'_> {
                 }
                 let controller = if let Some(control) = &spec.controller {
                     let execution = declared_paths(
+                        services,
                         package,
                         &control.case,
                         compiler,
@@ -788,6 +796,7 @@ impl OperationPreparation<'_> {
                 };
                 let estimator = if let Some(estimate) = &spec.estimator {
                     let execution = declared_paths(
+                        services,
                         package,
                         &estimate.case,
                         compiler,
@@ -858,10 +867,7 @@ impl OperationPreparation<'_> {
                     controller,
                 };
                 #[cfg(feature = "solver-diffsol")]
-                package
-                    .runtime
-                    .admit_horizon(horizon.clone(), cancel)
-                    .await?;
+                services.admit_horizon(horizon.clone(), cancel).await?;
                 Ok(PreparedStudyOperation::Horizon(Box::new(horizon)))
             }
         }
@@ -869,6 +875,7 @@ impl OperationPreparation<'_> {
 }
 
 pub(in crate::workflow) async fn admit_horizon_values(
+    services: &PreparationServices,
     package: &ModelingPackage,
     source: &OperationSource,
     preparation: &PreparationSettings,
@@ -883,6 +890,7 @@ pub(in crate::workflow) async fn admit_horizon_values(
     let limits = preparation.limits;
     let plant = package
         .declared_simulation_request(
+            services,
             spec.plant.case,
             compiler,
             spec.plant.settings.as_ref(),
@@ -902,6 +910,7 @@ pub(in crate::workflow) async fn admit_horizon_values(
     let mut trajectories = BTreeMap::new();
     if let Some(estimate) = &spec.estimator {
         let execution = declared_paths(
+            services,
             package,
             &estimate.case,
             compiler,
@@ -925,6 +934,7 @@ pub(in crate::workflow) async fn admit_horizon_values(
     }
     if let Some(control) = &spec.controller {
         let execution = declared_paths(
+            services,
             package,
             &control.case,
             compiler,
@@ -966,6 +976,7 @@ impl StudyOperation {
     /// occurrence. The ready attempt rechecks this against actual solve admission.
     pub(in crate::workflow) async fn admit_binding_seed_need(
         &self,
+        services: &PreparationServices,
         package: &ModelingPackage,
         binding: &super::AdmittedBinding,
         admission: &mut Option<DeclaredStudyAdmission>,
@@ -995,6 +1006,7 @@ impl StudyOperation {
                 OperationRequest::Simulation(simulation) => {
                     let execution = package
                         .declared_execution(
+                            services,
                             simulation.case,
                             self.preparation.compiler,
                             Default::default(),
@@ -1009,7 +1021,13 @@ impl StudyOperation {
                 OperationRequest::Fit(fit) => {
                     fit.settings.settings.solver.clone().profile()?;
                     package
-                        .validate_fit_binding(fit.fit, binding, self.preparation.limits, cancel)
+                        .validate_fit_binding(
+                            services,
+                            fit.fit,
+                            binding,
+                            self.preparation.limits,
+                            cancel,
+                        )
                         .await?;
                 }
                 OperationRequest::Horizon(_) => {
@@ -1033,7 +1051,8 @@ impl StudyOperation {
             // Changed target membership replaces the structural owner; values do not.
             *admission = None;
             let mut basis =
-                DeclaredStudyAdmission::prepare(package, self, (key.0, key.1), cancel).await?;
+                DeclaredStudyAdmission::prepare(services, package, self, (key.0, key.1), cancel)
+                    .await?;
             basis.members = key.2;
             *admission = Some(basis);
         }
@@ -1045,10 +1064,12 @@ impl StudyOperation {
     /// Admit raw horizon quantities through the same contextual runtime owner.
     pub(crate) async fn admit_horizon_values(
         &mut self,
+        services: &PreparationServices,
         package: &ModelingPackage,
         cancel: &CancelSource,
     ) -> Result<(), WorkflowError> {
         if let Some(values) = admit_horizon_values(
+            services,
             package,
             &self.source,
             &self.preparation,
@@ -1091,6 +1112,7 @@ impl StudyOperation {
     /// Source/route mismatch and operation-owner refusals retain their typed causes.
     pub async fn prepare(
         &self,
+        services: &PreparationServices,
         package: &ModelingPackage,
         cancel: &CancelSource,
     ) -> Result<PreparedStudyOperation, WorkflowError> {
@@ -1102,7 +1124,7 @@ impl StudyOperation {
             admitted_horizon: self.admitted_horizon.as_ref(),
             binding: None,
         }
-        .prepare(package, cancel)
+        .prepare(services, package, cancel)
         .await
     }
 
@@ -1135,15 +1157,6 @@ fn target_member(
         .ok_or_else(|| super::contract(format!("horizon target {path} is unavailable")))
 }
 impl PreparedStudyOperation {
-    /// The source-bound runtime; hosts do not select another execution owner.
-    pub fn runtime(&self) -> &Runtime {
-        match self {
-            Self::DeclaredCase(prepared) => &prepared.source.runtime,
-            Self::Simulation(prepared) => &prepared.runtime,
-            Self::Fit(prepared) => &prepared.problem.runtime,
-            Self::Horizon(prepared) => &prepared.plant.runtime,
-        }
-    }
     /// Operation-owned seed consumption, after constant evaluation is known.
     pub fn seed_need(&self) -> SeedNeed {
         match self {
@@ -1156,7 +1169,7 @@ impl PreparedStudyOperation {
     /// Exact dispatch and selected branch storage, admitted before a worker claim.
     pub(in crate::workflow) fn start_attempt_extent(
         &self,
-        runtime: &Runtime,
+        services: &ExecutionServices,
         cancel: &CancelSource,
     ) -> Option<usize> {
         fn extent<F, Fut>(_: F) -> usize
@@ -1166,20 +1179,20 @@ impl PreparedStudyOperation {
         {
             size_of::<Fut>()
         }
-        let dispatch = extent(|attempt| self.start_attempt(runtime, cancel, attempt));
+        let dispatch = extent(|attempt| self.start_attempt(services, cancel, attempt));
         let branch = match self {
             Self::DeclaredCase(case) => extent(|attempt| {
-                runtime.start_attempt(vec![case.as_ref().clone()], attempt, cancel)
+                services.start_attempt(vec![case.as_ref().clone()], attempt, cancel)
             }),
             Self::Simulation(simulation) => {
-                extent(|attempt| simulation.start_attempt(attempt, cancel))
+                extent(|attempt| simulation.start_attempt(services, attempt, cancel))
             }
-            Self::Fit(fit) => extent(|attempt| fit.start_attempt(attempt, cancel)),
+            Self::Fit(fit) => extent(|attempt| fit.start_attempt(services, attempt, cancel)),
             Self::Horizon(horizon) => {
                 #[cfg(feature = "solver-diffsol")]
                 {
                     extent(|attempt| {
-                        runtime.start_horizon_attempt(horizon.as_ref().clone(), cancel, attempt)
+                        services.start_horizon_attempt(horizon.as_ref().clone(), cancel, attempt)
                     })
                 }
                 #[cfg(not(feature = "solver-diffsol"))]
@@ -1196,7 +1209,7 @@ impl PreparedStudyOperation {
     /// Reuse the worker's claimed attempt and its one run identity through the same owner.
     pub(crate) async fn start_attempt(
         &self,
-        runtime: &Runtime,
+        services: &ExecutionServices,
         cancel: &CancelSource,
         attempt: super::durable::DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
@@ -1210,19 +1223,23 @@ impl PreparedStudyOperation {
         let mut work: futures_util::future::BoxFuture<'_, Result<RunHandle, WorkflowError>> =
             match self {
                 Self::DeclaredCase(case) => super::worker::boxed_worker_action(|| {
-                    runtime.start_attempt(vec![case.as_ref().clone()], attempt, cancel)
+                    services.start_attempt(vec![case.as_ref().clone()], attempt, cancel)
                 }),
-                Self::Simulation(simulation) => {
-                    super::worker::boxed_worker_action(|| simulation.start_attempt(attempt, cancel))
-                }
-                Self::Fit(fit) => {
-                    super::worker::boxed_worker_action(|| fit.start_attempt(attempt, cancel))
-                }
+                Self::Simulation(simulation) => super::worker::boxed_worker_action(|| {
+                    simulation.start_attempt(services, attempt, cancel)
+                }),
+                Self::Fit(fit) => super::worker::boxed_worker_action(|| {
+                    fit.start_attempt(services, attempt, cancel)
+                }),
                 Self::Horizon(horizon) => {
                     #[cfg(feature = "solver-diffsol")]
                     {
                         super::worker::boxed_worker_action(|| {
-                            runtime.start_horizon_attempt(horizon.as_ref().clone(), cancel, attempt)
+                            services.start_horizon_attempt(
+                                horizon.as_ref().clone(),
+                                cancel,
+                                attempt,
+                            )
                         })
                     }
                     #[cfg(not(feature = "solver-diffsol"))]
@@ -1251,7 +1268,7 @@ impl PreparedStudyOperation {
     /// Native admission/cancellation and existing supervisor failures retain their causes.
     pub async fn start(
         &self,
-        runtime: &Runtime,
+        services: &ExecutionServices,
         cancel: &CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
         if cancel.token().is_cancelled() {
@@ -1259,16 +1276,16 @@ impl PreparedStudyOperation {
         }
         match self {
             Self::DeclaredCase(case) => {
-                runtime
+                services
                     .start_modeling(vec![case.as_ref().clone()], false, cancel)
                     .await
             }
-            Self::Simulation(simulation) => simulation.start_with_cancel(cancel),
-            Self::Fit(fit) => fit.start_with_cancel(cancel),
+            Self::Simulation(simulation) => simulation.start_with_cancel(services, cancel),
+            Self::Fit(fit) => fit.start_with_cancel(services, cancel),
             Self::Horizon(horizon) => {
                 #[cfg(feature = "solver-diffsol")]
                 {
-                    runtime
+                    services
                         .start_horizon(horizon.as_ref().clone(), cancel)
                         .await
                 }
@@ -1315,6 +1332,7 @@ fn validate_declared(
     Ok(())
 }
 async fn declared_paths(
+    services: &PreparationServices,
     package: &ModelingPackage,
     case: &CaseOperation,
     compiler: Profile,
@@ -1326,6 +1344,7 @@ async fn declared_paths(
     count_declared_admission();
     let execution = package
         .declared_execution_with_demand(
+            services,
             case.case,
             compiler,
             case.settings.clone().profile()?,
@@ -1364,6 +1383,7 @@ pub(in crate::workflow) struct StudyPreparationLane {
 pub(in crate::workflow) type CurrentNumericalView =
     Option<Arc<crate::math::retention::RetainedBoundSolver>>;
 struct PreparedLaneInputs {
+    services: PreparationServices,
     numerical_view: CurrentNumericalView,
     original: ModelingPackage,
     package: ModelingPackage,
@@ -1377,6 +1397,7 @@ impl StudyPreparationLane {
     }
     pub(in crate::workflow) async fn prepare(
         &mut self,
+        services: &PreparationServices,
         package: &ModelingPackage,
         operation: &StudyOperation,
         binding: &super::AdmittedBinding,
@@ -1385,6 +1406,7 @@ impl StudyPreparationLane {
         let key = DeclaredStudyAdmission::binding_key(operation, binding)?;
         let same = self.current.as_ref().is_some_and(|current| {
             current.key == key
+                && current.services.same_owner(services)
                 && current.scope.is_open()
                 && super::modeling::engagement::same_source(&current.original, package)
         });
@@ -1392,6 +1414,7 @@ impl StudyPreparationLane {
             self.close().await?;
             let scope = super::modeling::engagement::HeldPreparationScope::new();
             self.current = Some(PreparedLaneInputs {
+                services: services.clone(),
                 original: package.clone(),
                 package: scope.package(package),
                 key,
@@ -1409,6 +1432,7 @@ impl StudyPreparationLane {
             current
                 .package
                 .prepare_bound_operation_with_current_view(
+                    services,
                     operation,
                     binding,
                     &mut current.admission,
@@ -1487,6 +1511,7 @@ mod study_operation_unit {
                     observer.fetch_add(1, Ordering::Relaxed);
                 }),
                 declared_paths(
+                    &runtime.preparation_services(),
                     &package,
                     &selected,
                     crate::workflow::tests::compiler_profile(),
@@ -1507,7 +1532,7 @@ mod study_operation_unit {
         let x = execution.model.compiled().model.paths["root.x"];
         execution.analysis.case.values.insert("root.x".into(), 4.);
         let prepared = package
-            .prepare_declared_diagnostics(&execution, &cancel)
+            .prepare_declared_diagnostics(&runtime.preparation_services(), &execution, &cancel)
             .await
             .unwrap();
         assert_eq!(prepared.model.values.scalars[&x], 4.);
@@ -1522,7 +1547,7 @@ mod study_operation_unit {
             .insert("root.absent".into(), 5.);
         assert!(
             package
-                .prepare_declared_diagnostics(&execution, &cancel)
+                .prepare_declared_diagnostics(&runtime.preparation_services(), &execution, &cancel)
                 .await
                 .is_err()
         );
@@ -1549,6 +1574,14 @@ mod study_operation_unit {
             route: ModelingAnalysisRoute::Steady,
             settings: SolveSettings::default(),
         }
+    }
+
+    #[test]
+    fn persisted_study_refuses_host_only_shooting_constructor() {
+        let mut encoded =
+            serde_json::to_value(operation(OperationRequest::DeclaredCase(case()))).unwrap();
+        encoded["operation"] = serde_json::json!({"kind":"shooting", "request":{}});
+        assert!(serde_json::from_value::<StudyOperation>(encoded).is_err());
     }
 
     #[test]

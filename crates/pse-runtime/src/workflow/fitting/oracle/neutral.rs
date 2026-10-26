@@ -23,7 +23,10 @@ impl std::fmt::Debug for FitScratch {
 }
 impl FitScratch {
     /// Optional extra resident/reset overlap is reserved before any current provider is made.
-    pub(in crate::workflow::fitting) fn new(p: &FitProblem) -> Option<Arc<Self>> {
+    pub(in crate::workflow::fitting) fn new(
+        p: &FitProblem,
+        math: &Arc<MathService>,
+    ) -> Option<Arc<Self>> {
         let bytes = p
             .experiments
             .iter()
@@ -33,12 +36,7 @@ impl FitScratch {
                     Experiment::Transient(s) => DynamicScratch::allowance(&s.program)?,
                 })
             })?;
-        let owner = p
-            .runtime
-            .shared
-            .math()
-            .reserve("fit:neutral-case-slots", bytes)
-            .ok()?;
+        let owner = math.reserve("fit:neutral-case-slots", bytes).ok()?;
         let owner: Arc<dyn pse_math::AllocationOwner> = owner;
         let valid = Arc::new(AtomicBool::new(true));
         let slots = p

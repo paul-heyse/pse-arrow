@@ -3,6 +3,7 @@
 //! Single and multiple shooting (ADR-0110 Outcome 5) against an analytic optimum, with
 //! continuity closing from perturbed nodes and path bounds at the samples.
 use super::*;
+use crate::workflow::replay::ReplayConstructor;
 use crate::workflow::tests::{compiler_profile, id};
 use crate::workflow::{Durability, PreparedOperation, RuntimeOperationRequest};
 use native::solve::{Backend, Controls, SolverSelection};
@@ -15,40 +16,39 @@ use std::time::Instant;
 /// (the states are ordered y, x),
 /// the control `u` scheduled on [0, 1) and [1, 2], the integral cost `∫ (x − 1)² dt/1 s`
 /// and the reported terminal miss `(x − 1.5)²`.
-async fn tracking(method: Method) -> crate::workflow::ModelingSimulation {
+async fn tracking(
+    runtime: &crate::workflow::Runtime,
+    method: Method,
+) -> crate::workflow::ModelingSimulation {
     tracking_with_integration_accuracy(
+        runtime,
         method,
         pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction,
     )
     .await
 }
 async fn tracking_with_integration_accuracy(
+    runtime: &crate::workflow::Runtime,
     method: Method,
     allowance: f64,
 ) -> crate::workflow::ModelingSimulation {
-    tracking_dimensions(method, allowance, 1, vec![1.]).await
+    tracking_dimensions(runtime, method, allowance, 1, vec![1.]).await
 }
 async fn tracking_dimensions(
+    runtime: &crate::workflow::Runtime,
     method: Method,
     allowance: f64,
     channels: usize,
     changes: Vec<f64>,
 ) -> crate::workflow::ModelingSimulation {
-    tracking_dimensions_on(
-        method,
-        allowance,
-        channels,
-        changes,
-        crate::workflow::tests::runtime_with_workspace(32 << 20),
-    )
-    .await
+    tracking_dimensions_on(method, allowance, channels, changes, runtime).await
 }
 async fn tracking_dimensions_on(
     method: Method,
     allowance: f64,
     channels: usize,
     changes: Vec<f64>,
-    runtime: crate::workflow::Runtime,
+    runtime: &crate::workflow::Runtime,
 ) -> crate::workflow::ModelingSimulation {
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
@@ -96,6 +96,7 @@ async fn tracking_dimensions_on(
     };
     package
         .prepare_simulation(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -181,8 +182,10 @@ fn quadratic() -> ([f64; 3], [f64; 2]) {
 /// an accepted point is reintegrated once at First, including scheduled control changes.
 #[tokio::test]
 async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     for method in methods() {
-        let simulation = tracking(method).await;
+        let simulation = tracking(&runtime, method).await;
         let state = simulation
             .contract()
             .differential
@@ -199,20 +202,24 @@ async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral()
                 lower: None,
                 upper: Some(2.),
             });
-            let problem = Arc::new(simulation.shooting(profile).unwrap());
+            let problem = Arc::new(
+                simulation
+                    .shooting(services.preparation(), profile)
+                    .unwrap(),
+            );
             let mut execution =
                 Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
             execution.memory = Some(
-                problem
-                    .runtime
-                    .shared
-                    .budget()
-                    .math
+                services
+                    .preparation()
+                    .math()
+                    .policy()
                     .foreign_allowance(&solver().controls),
             );
             let started = execution.started;
             let abandonment = execution.abandonment.clone();
             let mut oracle = ShootingOracle {
+                math: services.preparation().math().clone(),
                 observation: pse_diagnostics::observation::current().map(|context| {
                     context.producer(
                         pse_diagnostics::observation::ProducerRole::Workflow,
@@ -383,17 +390,28 @@ async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral()
 
 #[tokio::test]
 async fn shooting_order_policy_exact_cache_and_original_stop_are_explicit() {
-    let simulation = tracking(Method::Diffsol).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let simulation = tracking(&runtime, Method::Diffsol).await;
     let mut profile = request(&simulation, ShootingMethod::Single, vec![], true);
-    let demanded = Arc::new(simulation.shooting(profile.clone()).unwrap());
+    let demanded = Arc::new(
+        simulation
+            .shooting(services.preparation(), profile.clone())
+            .unwrap(),
+    );
     profile.evaluation = ShootingEvaluationPolicy::EagerFirst;
-    let eager = Arc::new(simulation.shooting(profile).unwrap());
+    let eager = Arc::new(
+        simulation
+            .shooting(services.preparation(), profile)
+            .unwrap(),
+    );
     assert_ne!(demanded.profile_key, eager.profile_key);
     assert_ne!(
         demanded.strategy_profile().unwrap(),
         eager.strategy_profile().unwrap()
     );
     let mut oracle = ShootingOracle {
+        math: services.preparation().math().clone(),
         observation: pse_diagnostics::observation::current().map(|context| {
             context.producer(
                 pse_diagnostics::observation::ProducerRole::Workflow,
@@ -561,13 +579,14 @@ fn assert_original_objective(
     assert_tracking_publication(report, simulation);
 }
 async fn solve(
+    services: &crate::workflow::ExecutionServices,
     problem: ShootingProblem,
     initial: Option<&[f64]>,
 ) -> Arc<crate::workflow::RunResult> {
     let problem = Arc::new(problem);
     let handle = match initial {
-        Some(initial) => problem.start_with_initial(initial.to_vec()),
-        None => problem.start(),
+        Some(initial) => problem.start_with_initial(services, initial.to_vec()),
+        None => problem.start(services),
     }
     .unwrap();
     handle.wait().await.unwrap()
@@ -604,13 +623,18 @@ fn report_of(result: &crate::workflow::RunResult) -> &ShootingReport {
 
 #[tokio::test]
 async fn host_shooting_study_projection_refuses_without_native_or_durable_effects() {
-    let simulation = tracking(Method::Diffsol).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let simulation = tracking(&runtime, Method::Diffsol).await;
     let problem = Arc::new(
         simulation
-            .shooting(request(&simulation, ShootingMethod::Single, vec![], false))
+            .shooting(
+                services.preparation(),
+                request(&simulation, ShootingMethod::Single, vec![], false),
+            )
             .unwrap(),
     );
-    let baseline = problem.runtime.shared.math().test_admission_snapshot();
+    let baseline = services.preparation().math().test_admission_snapshot();
     let host = RuntimeOperationRequest::Shooting {
         problem: problem.clone(),
         initial: None,
@@ -634,18 +658,17 @@ async fn host_shooting_study_projection_refuses_without_native_or_durable_effect
         );
     }
     assert_eq!(
-        problem.runtime.shared.math().test_admission_snapshot(),
+        services.preparation().math().test_admission_snapshot(),
         baseline
     );
-    assert!(matches!(
-        problem.runtime.durability(),
-        Durability::Ephemeral
-    ));
+    assert!(matches!(services.durability(), Durability::Ephemeral));
 }
 
 #[tokio::test]
 async fn scientific_shooting_strict_composed_work_refuses_before_integration() {
-    let simulation = tracking(Method::Diffsol).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let simulation = tracking(&runtime, Method::Diffsol).await;
     let mut requested = request(&simulation, ShootingMethod::Single, vec![], false);
     let limits = pse_model::strategy::WorkLimits {
         attempts: 1,
@@ -655,9 +678,14 @@ async fn scientific_shooting_strict_composed_work_refuses_before_integration() {
         proof_steps: None,
     };
     requested.solver.composition.limits = Some(limits);
-    let problem = Arc::new(simulation.shooting(requested).unwrap());
+    let problem = Arc::new(
+        simulation
+            .shooting(services.preparation(), requested)
+            .unwrap(),
+    );
     let error = problem
         .solve(
+            &services,
             id(99).into(),
             pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             Arc::new(native::solve::Progress::new(16)),
@@ -684,9 +712,14 @@ async fn scientific_shooting_strict_composed_work_refuses_before_integration() {
     // An explicit vector cannot acquire entry permission from optional recovery.
     let mut requested = request(&simulation, ShootingMethod::Single, vec![], false);
     requested.solver.composition.recovery = vec![pse_model::strategy::StartOrigin::Auxiliary];
-    let problem = Arc::new(simulation.shooting(requested).unwrap());
+    let problem = Arc::new(
+        simulation
+            .shooting(services.preparation(), requested)
+            .unwrap(),
+    );
     let error = problem
         .solve(
+            &services,
             id(100).into(),
             pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
             Arc::new(native::solve::Progress::new(16)),
@@ -722,24 +755,29 @@ async fn scientific_shooting_strict_composed_work_refuses_before_integration() {
 /// control that both routes discretize.
 #[tokio::test]
 async fn shooting_matches_simultaneous_optimum() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     let (optimum, value) = analytic();
     assert!(optimum.iter().all(|u| *u > 0. && *u < 5.), "{optimum:?}");
     for method in methods() {
-        let simulation = tracking(method).await;
+        let simulation = tracking(&runtime, method).await;
         for (shooting, nodes) in [
             (ShootingMethod::Single, vec![]),
             (ShootingMethod::Multiple, vec![0.5, 1., 1.5]),
         ] {
             let case = format!("{method:?} {shooting:?}");
             let problem = simulation
-                .shooting(request(&simulation, shooting, nodes.clone(), true))
+                .shooting(
+                    services.preparation(),
+                    request(&simulation, shooting, nodes.clone(), true),
+                )
                 .unwrap();
             assert_eq!(problem.controls(), 2);
             assert_eq!(problem.contract().variables.len(), 2 + nodes.len());
             let budget = objective_budget(&problem);
             let bounds = problem.constraint_bounds().to_vec();
             let row_budgets = problem.tolerances().rows.clone();
-            let result = solve(problem, None).await;
+            let result = solve(&services, problem, None).await;
             let report = report_of(&result);
             assert!(
                 result.usable(),
@@ -791,10 +829,15 @@ async fn shooting_matches_simultaneous_optimum() {
 /// independent native solves, not transported multipliers or optimizer history.
 #[tokio::test]
 async fn shooting_primal_start_inquiry_preserves_fresh_owner_and_current_bounds() {
-    let simulation = tracking(Method::Diffsol).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let simulation = tracking(&runtime, Method::Diffsol).await;
     let problem = Arc::new(
         simulation
-            .shooting(request(&simulation, ShootingMethod::Single, vec![], true))
+            .shooting(
+                services.preparation(),
+                request(&simulation, ShootingMethod::Single, vec![], true),
+            )
             .unwrap(),
     );
     let (optimum, value) = analytic();
@@ -806,8 +849,8 @@ async fn shooting_primal_start_inquiry_preserves_fresh_owner_and_current_bounds(
     ] {
         let started = Instant::now();
         let handle = match initial {
-            Some(initial) => problem.start_with_initial(initial.to_vec()),
-            None => problem.start(),
+            Some(initial) => problem.start_with_initial(&services, initial.to_vec()),
+            None => problem.start(&services),
         }
         .unwrap();
         let result = handle.wait().await.unwrap();
@@ -842,13 +885,17 @@ async fn shooting_primal_start_inquiry_preserves_fresh_owner_and_current_bounds(
     }
 
     // Refused requests and a cancelled invocation cannot poison a later solve.
-    assert!(problem.start_with_initial(vec![0.5]).is_err());
-    assert!(problem.start_with_initial(vec![f64::NAN, 0.5]).is_err());
+    assert!(problem.start_with_initial(&services, vec![0.5]).is_err());
+    assert!(
+        problem
+            .start_with_initial(&services, vec![f64::NAN, 0.5])
+            .is_err()
+    );
     let cancelled = crate::CancelSource::new();
     cancelled.cancel();
     assert!(
         problem
-            .start_replay_with_cancel(Some(optimum.to_vec()), &cancelled)
+            .start_replay_with_cancel(&services, Some(optimum.to_vec()), &cancelled)
             .is_err()
     );
 
@@ -861,7 +908,9 @@ async fn shooting_primal_start_inquiry_preserves_fresh_owner_and_current_bounds(
             bound_push: pse_model::scalar!(Tolerance(0.02)),
             ..Default::default()
         });
-    let changed = simulation.shooting(changed).unwrap();
+    let changed = simulation
+        .shooting(services.preparation(), changed)
+        .unwrap();
     assert_eq!(changed.initial_extent(), problem.initial_extent());
     assert_ne!(
         changed.contract().variables[0].upper,
@@ -870,7 +919,7 @@ async fn shooting_primal_start_inquiry_preserves_fresh_owner_and_current_bounds(
     let budget = objective_budget(&changed);
     let bounds = changed.constraint_bounds().to_vec();
     let rows = changed.tolerances().rows.clone();
-    let result = solve(changed, Some(&optimum)).await;
+    let result = solve(&services, changed, Some(&optimum)).await;
     let report = report_of(&result);
     assert!(
         result.usable(),
@@ -890,7 +939,14 @@ async fn shooting_primal_start_inquiry_preserves_fresh_owner_and_current_bounds(
 
     let mut limited = request(&simulation, ShootingMethod::Single, vec![], true);
     limited.solver.controls.iterations = 1;
-    let result = solve(simulation.shooting(limited).unwrap(), Some(&poor)).await;
+    let result = solve(
+        &services,
+        simulation
+            .shooting(services.preparation(), limited)
+            .unwrap(),
+        Some(&poor),
+    )
+    .await;
     let report = report_of(&result);
     assert_eq!(
         report.solve.as_ref().unwrap().termination.category,
@@ -899,7 +955,7 @@ async fn shooting_primal_start_inquiry_preserves_fresh_owner_and_current_bounds(
     assert!(!report.completion.permits_use());
 
     let result = problem
-        .start_with_initial(optimum.to_vec())
+        .start_with_initial(&services, optimum.to_vec())
         .unwrap()
         .wait()
         .await
@@ -912,22 +968,20 @@ async fn shooting_primal_start_inquiry_preserves_fresh_owner_and_current_bounds(
 
 #[tokio::test]
 async fn shooting_equal_size_anchor_maps_are_distinct_start_contexts() {
-    let simulation = tracking(Method::Diffsol).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let simulation = tracking(&runtime, Method::Diffsol).await;
     let first = simulation
-        .shooting(request(
-            &simulation,
-            ShootingMethod::Multiple,
-            vec![0.75],
-            true,
-        ))
+        .shooting(
+            services.preparation(),
+            request(&simulation, ShootingMethod::Multiple, vec![0.75], true),
+        )
         .unwrap();
     let second = simulation
-        .shooting(request(
-            &simulation,
-            ShootingMethod::Multiple,
-            vec![1.25],
-            true,
-        ))
+        .shooting(
+            services.preparation(),
+            request(&simulation, ShootingMethod::Multiple, vec![1.25], true),
+        )
         .unwrap();
     assert_eq!(first.initial_extent(), second.initial_extent());
     assert_ne!(first.contract().identity, second.contract().identity);
@@ -946,7 +1000,9 @@ async fn shooting_equal_size_anchor_maps_are_distinct_start_contexts() {
 
 #[tokio::test]
 async fn shooting_trajectory_projection_retains_completion_diagnostic_and_lease() {
-    let simulation = tracking(Method::Diffsol).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let simulation = tracking(&runtime, Method::Diffsol).await;
     let mut profile = request(&simulation, ShootingMethod::Single, vec![], false);
     // No controls can satisfy this path: retain the actual refused joined candidate.
     profile.path.push(PathBound {
@@ -954,8 +1010,10 @@ async fn shooting_trajectory_projection_retains_completion_diagnostic_and_lease(
         lower: Some(10.),
         upper: None,
     });
-    let problem = simulation.shooting(profile).unwrap();
-    let result = solve(problem, None).await;
+    let problem = simulation
+        .shooting(services.preparation(), profile)
+        .unwrap();
+    let result = solve(&services, problem, None).await;
     crate::workflow::review_qualification_tests::assert_review_transport(
         &result,
         &[
@@ -983,6 +1041,7 @@ async fn shooting_trajectory_projection_retains_completion_diagnostic_and_lease(
     let header = result.completion().unwrap().computation.clone().unwrap();
     let projected = simulation
         .completed_trajectory(
+            services.preparation(),
             report,
             header.clone(),
             result.assessments[0].clone(),
@@ -1021,8 +1080,12 @@ async fn shooting_trajectory_projection_retains_completion_diagnostic_and_lease(
     // A separate actual joined completion makes the range checks nonempty;
     // no contradictory path bound or fabricated report supplies its samples.
     let successful = solve(
+        &services,
         simulation
-            .shooting(request(&simulation, ShootingMethod::Single, vec![], false))
+            .shooting(
+                services.preparation(),
+                request(&simulation, ShootingMethod::Single, vec![], false),
+            )
             .unwrap(),
         None,
     )
@@ -1111,20 +1174,25 @@ fn assert_shooting_sample_projection(
 /// Invalid requests are refused before any integration.
 #[tokio::test]
 async fn multiple_shooting_continuity_closes() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     for method in methods() {
         // Value and sensitivity integrations must agree well inside the unchanged
         // physical continuity budget, including IDAS's sensitivity error control.
-        let simulation = tracking_with_integration_accuracy(method, 1e-8).await;
+        let simulation = tracking_with_integration_accuracy(&runtime, method, 1e-8).await;
         for controlled in [false, true] {
             let case = format!("{method:?} controlled={controlled}");
             let problem = Arc::new(
                 simulation
-                    .shooting(request(
-                        &simulation,
-                        ShootingMethod::Multiple,
-                        vec![0.5, 1., 1.5],
-                        controlled,
-                    ))
+                    .shooting(
+                        services.preparation(),
+                        request(
+                            &simulation,
+                            ShootingMethod::Multiple,
+                            vec![0.5, 1., 1.5],
+                            controlled,
+                        ),
+                    )
                     .unwrap(),
             );
             let execution = Execution::new(
@@ -1137,7 +1205,7 @@ async fn multiple_shooting_continuity_closes() {
                 *node += 0.3;
             }
             let result = problem
-                .start_with_initial(initial)
+                .start_with_initial(&services, initial)
                 .unwrap()
                 .wait()
                 .await
@@ -1173,10 +1241,13 @@ async fn multiple_shooting_continuity_closes() {
             let mut profile = simulation.profile().clone();
             profile.sensitivity = DynamicSensitivity::None;
             let mut worker = simulation
-                .worker(pse_kernels::ExecutionScope::new(
-                    pse_diagnostics::Cancellation::new(false),
-                    Some(Instant::now().checked_add(profile.time_limit).unwrap()),
-                ))
+                .worker(
+                    services.preparation().math(),
+                    pse_kernels::ExecutionScope::new(
+                        pse_diagnostics::Cancellation::new(false),
+                        Some(Instant::now().checked_add(profile.time_limit).unwrap()),
+                    ),
+                )
                 .unwrap();
             let horizon = native::dynamics::integrate(
                 &mut worker,
@@ -1260,7 +1331,7 @@ async fn multiple_shooting_continuity_closes() {
             }
         }
     }
-    let simulation = tracking(Method::Diffsol).await;
+    let simulation = tracking(&runtime, Method::Diffsol).await;
     let c = simulation.contract().clone();
     let base = request(&simulation, ShootingMethod::Multiple, vec![0.5], true);
     for invalid in [
@@ -1309,7 +1380,7 @@ async fn multiple_shooting_continuity_closes() {
         },
     ] {
         assert!(matches!(
-            simulation.shooting(invalid),
+            simulation.shooting(services.preparation(), invalid),
             Err(WorkflowError::Input(_))
         ));
     }
@@ -1320,7 +1391,9 @@ async fn multiple_shooting_continuity_closes() {
 /// uncertainty rather than demanding nearly identical control coordinates.
 #[tokio::test]
 async fn shooting_path_bounds_hold_at_samples() {
-    let simulation = tracking(Method::Diffsol).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let simulation = tracking(&runtime, Method::Diffsol).await;
     let c = simulation.contract().clone();
     // The outputs begin with the states; x is the differential one.
     let x = c.differential.iter().position(|d| *d).unwrap();
@@ -1342,7 +1415,9 @@ async fn shooting_path_bounds_hold_at_samples() {
             lower: None,
             upper: Some(0.9),
         }];
-        let problem = simulation.shooting(profile).unwrap();
+        let problem = simulation
+            .shooting(services.preparation(), profile)
+            .unwrap();
         let budget = objective_budget(&problem);
         let bounds = problem.constraint_bounds().to_vec();
         let row_budgets = problem.tolerances().rows.clone();
@@ -1360,7 +1435,7 @@ async fn shooting_path_bounds_hold_at_samples() {
         )
         .coordinate_scale;
         let admitted_jumps = row_budgets[..continuity_count].iter().sum::<f64>() * state_scale;
-        let result = solve(problem, None).await;
+        let result = solve(&services, problem, None).await;
         let report = report_of(&result);
         assert!(
             result.usable(),
@@ -1428,6 +1503,7 @@ fn parse(
 async fn shooting_fixture_needs_authored_controls() {
     let physical = physical();
     let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     let def = "def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u:Scalar=1; var x[i in t]:Scalar; eq rate[i in t]:d(x[i])/di==(u-x[i])/1{s}; eq initial:x[0{s}]==0;}";
     let allowance = pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
     let integrate = format!(
@@ -1486,6 +1562,7 @@ async fn shooting_fixture_needs_authored_controls() {
             .unwrap();
         let error = package
             .declared_execution(
+                services.preparation(),
                 root,
                 compiler_profile(),
                 solver(),
@@ -1507,6 +1584,8 @@ async fn shooting_fixture_needs_authored_controls() {
 /// and conformance solves the fixture and passes its model checks.
 #[tokio::test]
 async fn authored_shooting_fixture_solves() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     let physical = physical();
     let def = "def Tracking { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 0.5; var x[i in t]: Scalar; var y[i in t]: Scalar; eq rate[i in t]: d(x[i])/di == (u - x[i])/1{s}; eq square[i in t]: y[i] == x[i]*x[i]; eq initial: x[0{s}] == 0; annotation start x(0); annotation start y(0); let cost: Scalar = integral(i in t | (x[i]-1)*(x[i]-1)/1{s}); annotation check cost(cost >= 0); let miss[i in t]: Scalar = (x[i]-1.5)*(x[i]-1.5); annotation report miss(\"terminal miss\"); annotation objective cost(minimize, weight = 1); annotation objective miss(minimize, weight = 1); }";
     let fixture = |name: &str, shoot: &str| {
@@ -1547,6 +1626,7 @@ async fn authored_shooting_fixture_solves() {
     for (fixture, nodes) in fixtures.into_iter().zip([0, 3]) {
         let refusal = package
             .declared_simulation(
+                services.preparation(),
                 fixture,
                 compiler_profile(),
                 None,
@@ -1563,6 +1643,7 @@ async fn authored_shooting_fixture_solves() {
         );
         let problem = package
             .declared_shooting(
+                services.preparation(),
                 fixture,
                 compiler_profile(),
                 None,
@@ -1578,7 +1659,7 @@ async fn authored_shooting_fixture_solves() {
         let simulation = problem.simulation.clone();
         let bounds = problem.constraint_bounds().to_vec();
         let row_budgets = problem.tolerances().rows.clone();
-        let result = solve(problem, None).await;
+        let result = solve(&services, problem, None).await;
         let report = report_of(&result);
         assert!(
             result.usable(),
@@ -1615,7 +1696,7 @@ async fn authored_shooting_fixture_solves() {
             maximum_cells: 100,
         },
     };
-    let report = package.conform(policy, &cancel).await.unwrap();
+    let report = package.conform(&services, policy, &cancel).await.unwrap();
     assert!(report.passed(), "{:?}", report.checks);
     assert_eq!(
         report
@@ -1629,8 +1710,10 @@ async fn authored_shooting_fixture_solves() {
 
 #[tokio::test]
 async fn plan38b_simulation_replay_reconstructs_original_inputs_and_cancels_pending_admission() {
-    let simulation = tracking(Method::Diffsol).await;
-    let original = simulation.start().unwrap().wait().await.unwrap();
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let simulation = tracking(&runtime, Method::Diffsol).await;
+    let original = simulation.start(&services).unwrap().wait().await.unwrap();
     assert!(original.report().is_ok());
     crate::workflow::review_qualification_tests::assert_review_transport(
         &original,
@@ -1646,17 +1729,27 @@ async fn plan38b_simulation_replay_reconstructs_original_inputs_and_cancels_pend
     .await;
     let replay = original.replay();
     let document = replay.document_with_limit(128 << 20).unwrap();
-    assert_eq!(document.simulation_constructors.len(), 1);
-    let constructor = &document.simulation_constructors[0];
+    let ReplayConstructor::Simulation {
+        simulation: constructor,
+    } = &document.constructor
+    else {
+        panic!("simulation constructor required")
+    };
     assert_eq!(constructor.profile.samples, simulation.profile().samples);
     assert_eq!(constructor.profile.schedule, simulation.profile().schedule);
     assert_eq!(
         constructor.profile.end.to_bits(),
         simulation.profile().end.to_bits()
     );
-    let sources = replay.reconstruct_sources(&simulation.runtime).unwrap();
+    let sources = replay
+        .reconstruct_sources(&runtime.source_services())
+        .unwrap();
     let reconstructed = constructor
-        .reconstruct(&sources[0], &crate::CancelSource::new())
+        .reconstruct(
+            &runtime.preparation_services(),
+            &sources[0],
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     assert_eq!(
@@ -1668,7 +1761,7 @@ async fn plan38b_simulation_replay_reconstructs_original_inputs_and_cancels_pend
         simulation.profile().samples
     );
 
-    let permits = simulation.runtime.shared.compiler_cpu();
+    let permits = runtime.shared.compiler_cpu();
     let width = permits.available_permits();
     assert!(width > 0);
     let held = permits.acquire_many_owned(width as u32).await.unwrap();
@@ -1700,17 +1793,23 @@ async fn plan38b_simulation_replay_reconstructs_original_inputs_and_cancels_pend
 
 #[tokio::test]
 async fn plan38b_shooting_replay_preserves_constructor_initial_and_fresh_allowance() {
-    let simulation = tracking(Method::Diffsol).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let simulation = tracking(&runtime, Method::Diffsol).await;
     let requested = request(&simulation, ShootingMethod::Single, vec![], true);
-    let problem = Arc::new(simulation.shooting(requested.clone()).unwrap());
+    let problem = Arc::new(
+        simulation
+            .shooting(services.preparation(), requested.clone())
+            .unwrap(),
+    );
     let initial = vec![0.8; problem.initial_extent()];
-    let permits = simulation.runtime.shared.compiler_cpu();
+    let permits = runtime.shared.compiler_cpu();
     let width = permits.available_permits();
     assert!(width > 0);
     let held = permits.acquire_many_owned(width as u32).await.unwrap();
     let parent = crate::CancelSource::new();
     let handle = problem
-        .start_replay_with_cancel(Some(initial.clone()), &parent)
+        .start_replay_with_cancel(&services, Some(initial.clone()), &parent)
         .unwrap();
     assert!(
         tokio::time::timeout(std::time::Duration::from_millis(20), handle.wait())
@@ -1726,7 +1825,12 @@ async fn plan38b_shooting_replay_preserves_constructor_initial_and_fresh_allowan
     drop(held);
     let replay = stopped.replay();
     let document = replay.document_with_limit(128 << 20).unwrap();
-    let constructor = document.shooting_constructor.as_ref().unwrap();
+    let ReplayConstructor::Shooting {
+        shooting: constructor,
+    } = &document.constructor
+    else {
+        panic!("shooting constructor required")
+    };
     assert_eq!(
         constructor.initial,
         Some(initial.iter().map(|x| x.to_bits()).collect())
@@ -1745,31 +1849,37 @@ async fn plan38b_shooting_replay_preserves_constructor_initial_and_fresh_allowan
         constructor.simulation.profile.samples,
         simulation.profile().samples
     );
-    let sources = replay.reconstruct_sources(&simulation.runtime).unwrap();
+    let sources = replay
+        .reconstruct_sources(&runtime.source_services())
+        .unwrap();
     let reconstructed = constructor
-        .reconstruct(&sources[0], &crate::CancelSource::new())
+        .reconstruct(
+            &runtime.preparation_services(),
+            &sources[0],
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     assert_eq!(reconstructed.initial_extent(), problem.initial_extent());
     let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
     assert_ne!(fresh.run_id, stopped.run_id);
     assert!(fresh.report().is_ok(), "{:?}", fresh.report());
-    assert_eq!(
-        fresh
-            .replay()
-            .document_with_limit(128 << 20)
-            .unwrap()
-            .shooting_constructor
-            .unwrap()
-            .initial,
-        constructor.initial
-    );
+    let fresh_document = fresh.replay().document_with_limit(128 << 20).unwrap();
+    let ReplayConstructor::Shooting {
+        shooting: fresh_constructor,
+    } = &fresh_document.constructor
+    else {
+        panic!("shooting constructor required")
+    };
+    assert_eq!(fresh_constructor.initial, constructor.initial);
 }
 
 /// Changed IVPs retain mathematical scratch, never native trajectories; forward and
 /// adjoint upgrades agree with an independently constructed oracle at the new point.
 #[tokio::test]
 async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     use pse_diagnostics::observation::{CoherentRecord, ObservationHub, Policy, RecordTap, Value};
     #[derive(Debug, Default)]
     struct Integrations(std::sync::Mutex<Vec<CoherentRecord>>);
@@ -1789,25 +1899,22 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
         }
     }
     for method in methods() {
-        let simulation = tracking(method).await;
+        let simulation = tracking(&runtime, method).await;
         let problem = Arc::new(
             simulation
-                .shooting(request(
-                    &simulation,
-                    ShootingMethod::Multiple,
-                    vec![1.],
-                    true,
-                ))
+                .shooting(
+                    services.preparation(),
+                    request(&simulation, ShootingMethod::Multiple, vec![1.], true),
+                )
                 .unwrap(),
         );
         let mut execution =
             Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
         execution.memory = Some(
-            problem
-                .runtime
-                .shared
-                .budget()
-                .math
+            services
+                .preparation()
+                .math()
+                .policy()
                 .foreign_allowance(&solver().controls),
         );
         let hub = ObservationHub::new(Policy {
@@ -1836,6 +1943,7 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
                 .count(name, "count", 0);
         }
         let mut oracle = ShootingOracle {
+            math: services.preparation().math().clone(),
             observation: pse_diagnostics::observation::current().map(|context| {
                 context.producer(
                     pse_diagnostics::observation::ProducerRole::Workflow,
@@ -1848,7 +1956,15 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
             point: None,
             // This control isolates the current-thread owner's retention. The
             // separate team control exercises independently admitted wider lanes.
-            worker: Some(WindowTeam::with_width(problem.clone(), execution.clone(), 1).unwrap()),
+            worker: Some(
+                WindowTeam::with_width(
+                    problem.clone(),
+                    services.preparation().math().clone(),
+                    execution.clone(),
+                    1,
+                )
+                .unwrap(),
+            ),
         };
         oracle.objective(&[0.4, 1.2, 0.3]).unwrap();
         let identity = oracle.worker.as_ref().unwrap().buffer_identity().unwrap();
@@ -1933,6 +2049,7 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
         }
         drop(entered);
         let mut fresh = ShootingOracle {
+            math: services.preparation().math().clone(),
             observation: pse_diagnostics::observation::current().map(|context| {
                 context.producer(
                     pse_diagnostics::observation::ProducerRole::Workflow,
@@ -1974,8 +2091,10 @@ async fn shooting_lane_retains_worker_across_trials_and_derivative_upgrades() {
 /// neither result licenses a blanket policy change for fitting or shooting.
 #[tokio::test]
 async fn shooting_trial_product_scheduling_preserves_lazy_default_and_explicit_eager_tradeoff() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     for method in methods() {
-        let simulation = tracking(method).await;
+        let simulation = tracking(&runtime, method).await;
         for nodes in [vec![], vec![0.5, 1., 1.5]] {
             let shooting = if nodes.is_empty() {
                 ShootingMethod::Single
@@ -1989,20 +2108,24 @@ async fn shooting_trial_product_scheduling_preserves_lazy_default_and_explicit_e
             ] {
                 let mut profile = request(&simulation, shooting, nodes.clone(), true);
                 profile.evaluation = policy;
-                let problem = Arc::new(simulation.shooting(profile).unwrap());
+                let problem = Arc::new(
+                    simulation
+                        .shooting(services.preparation(), profile)
+                        .unwrap(),
+                );
                 let mut execution =
                     Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
                 execution.memory = Some(
-                    problem
-                        .runtime
-                        .shared
-                        .budget()
-                        .math
+                    services
+                        .preparation()
+                        .math()
+                        .policy()
                         .foreign_allowance(&solver().controls),
                 );
                 let mut x = vec![0.4, 1.2];
                 x.extend(std::iter::repeat_n(0.3, nodes.len()));
                 let mut oracle = ShootingOracle {
+                    math: services.preparation().math().clone(),
                     observation: None,
                     purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
                     problem: problem.clone(),
@@ -2052,10 +2175,16 @@ async fn shooting_trial_product_scheduling_preserves_lazy_default_and_explicit_e
 #[cfg(feature = "solver-idas")]
 #[tokio::test]
 async fn shooting_integral_only_retains_adjoint_when_no_rows_consume_forward_directions() {
-    let simulation = tracking(Method::Idas).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let simulation = tracking(&runtime, Method::Idas).await;
     let mut profile = request(&simulation, ShootingMethod::Single, vec![], true);
     profile.objective.terminal.clear();
-    let problem = Arc::new(simulation.shooting(profile).unwrap());
+    let problem = Arc::new(
+        simulation
+            .shooting(services.preparation(), profile)
+            .unwrap(),
+    );
     assert!(!problem.forward_quadratures());
     let selected = problem.adjoint_axes(0);
     assert_eq!(selected.len(), problem.controls.len());
@@ -2070,14 +2199,14 @@ async fn shooting_integral_only_retains_adjoint_when_no_rows_consume_forward_dir
     let mut execution =
         Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
     execution.memory = Some(
-        problem
-            .runtime
-            .shared
-            .budget()
-            .math
+        services
+            .preparation()
+            .math()
+            .policy()
             .foreign_allowance(&solver().controls),
     );
     let mut oracle = ShootingOracle {
+        math: services.preparation().math().clone(),
         observation: None,
         purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
         problem,
@@ -2118,22 +2247,27 @@ async fn shooting_integral_only_retains_adjoint_when_no_rows_consume_forward_dir
 #[cfg(feature = "solver-idas")]
 #[tokio::test]
 async fn shooting_failed_forward_quadrature_upgrade_keeps_completed_weaker_point() {
-    let simulation = tracking(Method::Idas).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let simulation = tracking(&runtime, Method::Idas).await;
     let problem = Arc::new(
         simulation
-            .shooting(request(&simulation, ShootingMethod::Single, vec![], true))
+            .shooting(
+                services.preparation(),
+                request(&simulation, ShootingMethod::Single, vec![], true),
+            )
             .unwrap(),
     );
     let mut execution =
         Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
-    let memory = problem
-        .runtime
-        .shared
-        .budget()
-        .math
+    let memory = services
+        .preparation()
+        .math()
+        .policy()
         .foreign_allowance(&solver().controls);
     execution.memory = Some(memory);
     let mut oracle = ShootingOracle {
+        math: services.preparation().math().clone(),
         observation: None,
         purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
         problem,
@@ -2182,27 +2316,32 @@ async fn shooting_failed_forward_quadrature_upgrade_keeps_completed_weaker_point
 #[cfg(feature = "solver-idas")]
 #[tokio::test]
 async fn shooting_forward_quadrature_preflight_retains_adjoint_when_added_cells_do_not_fit() {
-    let simulation = tracking(Method::Idas).await;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let simulation = tracking(&runtime, Method::Idas).await;
     let mut problem = simulation
-        .shooting(request(&simulation, ShootingMethod::Single, vec![], true))
+        .shooting(
+            services.preparation(),
+            request(&simulation, ShootingMethod::Single, vec![], true),
+        )
         .unwrap();
     assert!(problem.forward_quadratures());
     let plain = native::dynamics::Anchored::new(
         simulation
-            .worker(pse_kernels::ExecutionScope::new(
-                pse_diagnostics::Cancellation::default(),
-                None,
-            ))
+            .worker(
+                services.preparation().math(),
+                pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            )
             .unwrap(),
         false,
     )
     .unwrap();
     let observed = native::dynamics::Anchored::new(
         simulation
-            .worker(pse_kernels::ExecutionScope::new(
-                pse_diagnostics::Cancellation::default(),
-                None,
-            ))
+            .worker(
+                services.preparation().math(),
+                pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            )
             .unwrap(),
         true,
     )
@@ -2243,7 +2382,9 @@ async fn shooting_forward_quadrature_preflight_retains_adjoint_when_added_cells_
             "the retained adjoint must independently fit this fixture's limit"
         );
     }
-    problem.admit_windows(&simulation).unwrap();
+    problem
+        .admit_windows(&simulation, services.preparation().math())
+        .unwrap();
     assert!(
         !problem.forward_quadratures(),
         "optional endpoint product must fit in addition to the ordinary trajectory"
@@ -2252,14 +2393,14 @@ async fn shooting_forward_quadrature_preflight_retains_adjoint_when_added_cells_
     let mut execution =
         Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
     execution.memory = Some(
-        problem
-            .runtime
-            .shared
-            .budget()
-            .math
+        services
+            .preparation()
+            .math()
+            .policy()
             .foreign_allowance(&solver().controls),
     );
     let mut oracle = ShootingOracle {
+        math: services.preparation().math().clone(),
         observation: None,
         purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
         problem,
@@ -2279,13 +2420,16 @@ async fn shooting_forward_quadrature_preflight_retains_adjoint_when_added_cells_
 #[cfg(feature = "solver-idas")]
 #[tokio::test]
 async fn shooting_exact_functional_routes_at_fixed_engineering_policy() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
     use pse_diagnostics::observation::{ObservationHub, Policy};
     let allowance = pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
     let mut failures = Vec::new();
     for channels in [1, 3] {
         for changes in [vec![1.], vec![0.5, 1.]] {
             let simulation =
-                tracking_dimensions(Method::Idas, allowance, channels, changes.clone()).await;
+                tracking_dimensions(&runtime, Method::Idas, allowance, channels, changes.clone())
+                    .await;
             assert_eq!(simulation.contract().quadratures.len(), channels);
             for nodes in [vec![], vec![1.]] {
                 for combined in [false, true] {
@@ -2310,7 +2454,9 @@ async fn shooting_exact_functional_routes_at_fixed_engineering_policy() {
                         if !combined && force_adjoint {
                             continue;
                         }
-                        let mut problem = simulation.shooting(request.clone()).unwrap();
+                        let mut problem = simulation
+                            .shooting(services.preparation(), request.clone())
+                            .unwrap();
                         assert_eq!(problem.forward_quadratures(), combined || !nodes.is_empty());
                         if force_adjoint {
                             problem.forward_quadratures = false;
@@ -2324,11 +2470,10 @@ async fn shooting_exact_functional_routes_at_fixed_engineering_policy() {
                             &solver().controls,
                         );
                         execution.memory = Some(
-                            problem
-                                .runtime
-                                .shared
-                                .budget()
-                                .math
+                            services
+                                .preparation()
+                                .math()
+                                .policy()
                                 .foreign_allowance(&solver().controls),
                         );
                         let hub = ObservationHub::new(Policy {
@@ -2348,6 +2493,7 @@ async fn shooting_exact_functional_routes_at_fixed_engineering_policy() {
                                 .count(name, "count", 0);
                         }
                         let mut oracle = ShootingOracle {
+                            math: services.preparation().math().clone(),
                             observation: None,
                             purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
                             problem: problem.clone(),
@@ -2492,10 +2638,13 @@ async fn shooting_exact_functional_routes_at_fixed_engineering_policy() {
                         // Query the same source-owned admission formulas separately from
                         // clocks. These are conservative workspace estimates, not RSS.
                         let worker = simulation
-                            .worker(pse_kernels::ExecutionScope::new(
-                                pse_diagnostics::Cancellation::default(),
-                                None,
-                            ))
+                            .worker(
+                                services.preparation().math(),
+                                pse_kernels::ExecutionScope::new(
+                                    pse_diagnostics::Cancellation::default(),
+                                    None,
+                                ),
+                            )
                             .unwrap();
                         let view = native::dynamics::Anchored::new(worker, !forward).unwrap();
                         let mut maximum_window_workspace = 0;
@@ -2569,22 +2718,21 @@ async fn shooting_fixed_window_team_matches_inline_and_drains_failed_upgrade() {
             ..Default::default()
         },
     );
+    let services = runtime.execution_services();
     let simulation = tracking_dimensions_on(
         Method::Idas,
         pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction,
         1,
         vec![1.],
-        runtime,
+        &runtime,
     )
     .await;
     let problem = Arc::new(
         simulation
-            .shooting(request(
-                &simulation,
-                ShootingMethod::Multiple,
-                vec![0.2, 1.3],
-                true,
-            ))
+            .shooting(
+                services.preparation(),
+                request(&simulation, ShootingMethod::Multiple, vec![0.2, 1.3], true),
+            )
             .unwrap(),
     );
     assert_eq!(
@@ -2597,17 +2745,16 @@ async fn shooting_fixed_window_team_matches_inline_and_drains_failed_upgrade() {
         let mut execution =
             Execution::new(pse_diagnostics::Cancellation::default(), &solver().controls);
         execution.memory = Some(
-            problem
-                .runtime
-                .shared
-                .budget()
-                .math
+            services
+                .preparation()
+                .math()
+                .policy()
                 .foreign_allowance(&solver().controls),
         );
         use native::solve::WorkAdmission;
-        let storage = problem
-            .runtime
-            .native()
+        let storage = services
+            .preparation()
+            .math()
             .reserve("test:shooting-original-foreign", execution.memory.unwrap())
             .unwrap();
         let task = crate::math::strategy::admission::TaskAdmission::new_for(
@@ -2619,7 +2766,7 @@ async fn shooting_fixed_window_team_matches_inline_and_drains_failed_upgrade() {
                 proof_steps: None,
             },
             execution.scope().unwrap(),
-            problem.runtime.native(),
+            services.preparation().math(),
             false,
         );
         task.retain_storage_allowance(storage).unwrap();
@@ -2634,8 +2781,13 @@ async fn shooting_fixed_window_team_matches_inline_and_drains_failed_upgrade() {
                 .is_err(),
             "actual initial integrations retain the one original native envelope"
         );
-        let handed_off =
-            WindowTeam::new(problem.clone(), execution.clone(), Some(initial)).unwrap();
+        let handed_off = WindowTeam::new(
+            problem.clone(),
+            services.preparation().math().clone(),
+            execution.clone(),
+            Some(initial),
+        )
+        .unwrap();
         assert_eq!(
             handed_off.width(),
             2,
@@ -2650,12 +2802,21 @@ async fn shooting_fixed_window_team_matches_inline_and_drains_failed_upgrade() {
         let x = [0.4, 1.2, 0.1, 0.6];
         assert_eq!(x.len(), problem.contract.variables.len());
         let mut serial = ShootingOracle {
+            math: services.preparation().math().clone(),
             observation: None,
             purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
             problem: problem.clone(),
             execution: execution.clone(),
             point: None,
-            worker: Some(WindowTeam::with_width(problem.clone(), execution.clone(), 1).unwrap()),
+            worker: Some(
+                WindowTeam::with_width(
+                    problem.clone(),
+                    services.preparation().math().clone(),
+                    execution.clone(),
+                    1,
+                )
+                .unwrap(),
+            ),
         };
         let first = serial.evaluate(&x, DerivativeOrder::First).unwrap();
         let expected = (
@@ -2677,7 +2838,13 @@ async fn shooting_fixed_window_team_matches_inline_and_drains_failed_upgrade() {
                 .collect::<Vec<_>>(),
         );
         drop(serial);
-        let mut team = WindowTeam::with_width(problem.clone(), execution.clone(), 2).unwrap();
+        let mut team = WindowTeam::with_width(
+            problem.clone(),
+            services.preparation().math().clone(),
+            execution.clone(),
+            2,
+        )
+        .unwrap();
         assert_eq!(
             team.width(),
             2,
@@ -2685,6 +2852,7 @@ async fn shooting_fixed_window_team_matches_inline_and_drains_failed_upgrade() {
         );
         team.require_concurrent_wave();
         let mut parallel = ShootingOracle {
+            math: services.preparation().math().clone(),
             observation: None,
             purpose: crate::invocation::IntegrationPurpose::PrimalTrial,
             problem: problem.clone(),

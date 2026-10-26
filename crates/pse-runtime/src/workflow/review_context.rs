@@ -558,8 +558,8 @@ impl RunResult {
     ) -> Result<ReviewContext, WorkflowError> {
         request.validate()?;
         let owner = self
-            .runtime
-            .shared
+            .services
+            .preparation()
             .math()
             .reserve("review:descriptive-context", request.maximum_bytes)?;
         let mut out = builder(
@@ -875,7 +875,7 @@ fn select_single(request: &ReviewContextRequest) -> Result<(), WorkflowError> {
 /// are immutable shared revision references; no executable provider is consulted.
 #[cfg(feature = "solver-kinsol")]
 fn strategy_builder(
-    runtime: &super::Runtime,
+    services: &super::PreparationServices,
     source: &ModelingPackage,
     request: &ReviewContextRequest,
     operation: Option<OperationId>,
@@ -883,8 +883,7 @@ fn strategy_builder(
 ) -> Result<(Builder, Arc<pse_columnar::AllocationLease>), WorkflowError> {
     request.validate()?;
     select_single(request)?;
-    let owner = runtime
-        .shared
+    let owner = services
         .math()
         .reserve("review:strategy-context", request.maximum_bytes)?;
     let mut out = builder(request, Some(run_id), operation);
@@ -933,14 +932,14 @@ fn strategy_records(
 }
 #[cfg(feature = "solver-kinsol")]
 pub(in crate::workflow) fn initialization_context(
-    runtime: &super::Runtime,
+    services: &super::PreparationServices,
     source: &ModelingPackage,
     profile: &crate::math::initialization::InitializationProfile,
     request: &ReviewContextRequest,
     operation: Option<OperationId>,
     report: &crate::math::initialization::InitializationReport,
 ) -> Result<ReviewContext, WorkflowError> {
-    let (mut out, owner) = strategy_builder(runtime, source, request, operation, report.run_id)?;
+    let (mut out, owner) = strategy_builder(services, source, request, operation, report.run_id)?;
     out.settings(&profile.solver)?;
     #[derive(serde::Serialize)]
     struct Submitted<'a> {
@@ -1047,7 +1046,7 @@ pub(in crate::workflow) fn initialization_context(
     reason = "borrowed original strategy owners avoid an eager aggregate context allocation"
 )]
 pub(in crate::workflow) fn recycle_context(
-    runtime: &super::Runtime,
+    services: &super::PreparationServices,
     source: &ModelingPackage,
     submitted: &super::RecycleRequest,
     initial: &[f64],
@@ -1057,7 +1056,7 @@ pub(in crate::workflow) fn recycle_context(
     operation: Option<OperationId>,
     report: &crate::math::initialization::DeclaredRootReport,
 ) -> Result<ReviewContext, WorkflowError> {
-    let (mut out, owner) = strategy_builder(runtime, source, request, operation, report.run_id)?;
+    let (mut out, owner) = strategy_builder(services, source, request, operation, report.run_id)?;
     #[derive(serde::Serialize)]
     struct Submitted<'a> {
         source: usize,
@@ -1117,15 +1116,14 @@ impl ModelingPackage {
     /// Retain a reviewable source/preparation failure even before run or attempt identities exist.
     pub fn review_context_failure(
         &self,
+        services: &super::PreparationServices,
         request: &ReviewContextRequest,
         operation: Option<OperationId>,
         error: &WorkflowError,
     ) -> Result<ReviewContext, WorkflowError> {
         request.validate()?;
         select_single(request)?;
-        let owner = self
-            .runtime
-            .shared
+        let owner = services
             .math()
             .reserve("review:pre-handle-context", request.maximum_bytes)?;
         let mut out = builder(request, None, operation);
@@ -1206,7 +1204,12 @@ mod tests {
             .unwrap();
         let error = contract("original pre-handle failure");
         let (result, counts) = crate::math::counted(async {
-            package.review_context_failure(&ReviewContextRequest::default(), None, &error)
+            package.review_context_failure(
+                &runtime.preparation_services(),
+                &ReviewContextRequest::default(),
+                None,
+                &error,
+            )
         })
         .await;
         let context = result.unwrap();
@@ -1303,6 +1306,7 @@ mod tests {
         let configurations_before = configuration_calls.load(std::sync::atomic::Ordering::SeqCst);
         let context = package
             .review_context_failure(
+                &runtime.preparation_services(),
                 &ReviewContextRequest::default(),
                 None,
                 &contract("original failed request"),
@@ -1330,7 +1334,7 @@ mod tests {
         let restored: ReviewContextDocument =
             serde_json::from_slice(&serde_json::to_vec(context.document()).unwrap()).unwrap();
         let root = package
-            .declarations()
+            .declarations(&runtime.preparation_services())
             .await
             .unwrap()
             .iter()
@@ -1339,6 +1343,7 @@ mod tests {
             .declaration_id;
         let mut prepared = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -1378,7 +1383,7 @@ mod tests {
         let configurations_before = configuration_calls.load(std::sync::atomic::Ordering::SeqCst);
         let result = Arc::new(RunResult::joined(
             RunId::from_bytes([92; 16]),
-            runtime.clone(),
+            runtime.execution_services(),
             crate::workflow::RunOutcome::Modeling {
                 request: vec![prepared],
                 result: Err(Arc::new(contract("retained pre-dispatch failure"))),

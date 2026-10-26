@@ -546,7 +546,7 @@ impl Runtime {
                             .await?;
                         operation.check()?;
                         let package = source.reconstruct(
-                            self,
+                            &self.source_services(),
                             physical,
                             BTreeMap::new(),
                             operation.driver(),
@@ -554,7 +554,7 @@ impl Runtime {
                         operation.check()?;
                         premises_established = true;
                         let prepared = constructor
-                            .reconstruct(&package, operation.driver())
+                            .reconstruct(&self.preparation_services(), &package, operation.driver())
                             .boxed()
                             .await?;
                         operation.check()?;

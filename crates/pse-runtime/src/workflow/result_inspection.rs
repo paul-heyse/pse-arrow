@@ -136,7 +136,7 @@ pub struct ResultInspectionBasis {
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ResultInspectionOriginal {
-    /// Producer-authored governing Assessment usable fact. Missing/error/infrastructure is unknown.
+    /// Completion-owned original scientific permission. Missing original fact is unknown.
     pub governing_permission: Option<bool>,
     /// Original physical source closure availability, never a current-context substitution.
     pub physical: ResultPhysicalContext,
@@ -443,7 +443,7 @@ pub enum ResultInspectionRefusal {
 pub enum ResultInspectionDocument {
     /// A page of the admitted registry field inventory, without validating stored Arrow rows.
     Schema {
-        /// Exact original source/terminal/range; usability remains Unknown.
+        /// Exact original source/terminal/range and available completion-owned product permission.
         selection: PackResultSelection,
         /// Original governing permission and physical closure; selected-product usability is independent.
         original: ResultInspectionOriginal,
@@ -470,7 +470,7 @@ pub enum ResultInspectionDocument {
     },
     /// Readable bounded original scalar observations; exact IPC remains the bulk interface.
     Values {
-        /// Exact original source/terminal/range; usability remains Unknown.
+        /// Exact original source/terminal/range and available completion-owned product permission.
         selection: PackResultSelection,
         /// Original governing permission and physical closure; selected-product usability is independent.
         original: ResultInspectionOriginal,
@@ -1007,9 +1007,23 @@ impl Runtime {
                 {
                     return Ok(refused(ResultInspectionRefusal::ManifestChanged));
                 }
-                let selection = reader.pack_selection(PackScientificState::Unknown)?;
+                use pse_model::generated::enums::DerivedQuantity;
+                use pse_relations::generated::runtime::{parameter_covariances, parameter_intervals, profile_points};
+                let quantities: &[DerivedQuantity] = if spec.id == parameter_covariances::RELATION_ID { &[DerivedQuantity::ParameterCovariance] }
+                    else if spec.id == profile_points::RELATION_ID { &[DerivedQuantity::ProfileInterval] }
+                    else if spec.id == parameter_intervals::RELATION_ID { &[DerivedQuantity::WaldInterval, DerivedQuantity::ProfileInterval] }
+                    else { &[] };
+                let mut usability = PackScientificState::Unknown;
+                for quantity in quantities {
+                    if let Some(permitted) = self.operations()?.result_product_permission(reader.selection(), *quantity).await? {
+                        if !permitted { usability = PackScientificState::Unusable; break; }
+                        usability = PackScientificState::Usable;
+                    }
+                }
+                let selection = reader.pack_selection(usability)?;
                 if let Some(cursor) = &request.cursor
                     && (cursor.manifest != manifest
+                        || cursor.selection.usability != selection.usability
                         || reader.validate_pack_selection(&cursor.selection).is_err())
                 {
                     return Ok(refused(ResultInspectionRefusal::CursorChanged));

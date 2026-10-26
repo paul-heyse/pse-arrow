@@ -4,7 +4,10 @@
 //! Persisted incidence and retained result-evidence graphs. Reachability is
 //! structural; quantitative meaning stays in the original scientific Arrow rows.
 
-use super::{Durability, ModelingSolvePreparation, Runtime, WorkflowError, contract, relation};
+use super::{
+    Durability, ExecutionServices, ModelingSolvePreparation, PublicationServices, Runtime,
+    SourceServices, WorkflowError, contract, relation,
+};
 use petgraph::{
     graph::{DiGraph, NodeIndex},
     visit::{Dfs, Reversed},
@@ -1152,7 +1155,8 @@ fn project_response_evidence(
 /// relations; this owner never retains a hydrated run report or trajectory.
 #[derive(Clone, Debug)]
 pub struct AnalysisHandle {
-    runtime: Runtime,
+    publication: PublicationServices,
+    validation: Arc<pse_relations::validate::ValidationContext>,
     key: String,
 }
 impl AnalysisHandle {
@@ -1164,29 +1168,29 @@ impl AnalysisHandle {
     pub async fn header(
         &self,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = self.publication.admit_activity()?;
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analyses as rows;
-                let owner = super::connected_results::response_owner(
-                    &self.runtime,
+                let owner = super::connected_results::pooled_response_owner(
+                    self.publication.pool(),
                     "canonical:analysis-header",
                     MetadataResponse::Header,
                 )?;
                 let row = pse_operations::canonical::response_ownership_scope(
                     owner.clone(),
-                    self.runtime.canonical_store()?.analysis(&self.key),
+                    self.publication.store().analysis(&self.key),
                 )
                 .await?;
-                let validation = self.runtime.validation_context();
+                let validation = self.validation.clone();
                 let mut builder =
-                    rows::Builder::with_registry(self.runtime.registry(), 1, &validation)
+                    rows::Builder::with_registry(self.publication.registry(), 1, &validation)
                         .map_err(relation)?;
                 builder.push(row).map_err(relation)?;
                 builder
                     .finish()
                     .map_err(relation)?
-                    .retained(&self.runtime.shared.pool(), &CancellationToken::new())
+                    .retained(self.publication.pool(), &CancellationToken::new())
                     .map_err(relation)
             })
             .await
@@ -1196,33 +1200,36 @@ impl AnalysisHandle {
         &self,
         after: Option<&str>,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = self.publication.admit_activity()?;
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analysis_nodes as rows;
-                let owner = super::connected_results::response_owner(
-                    &self.runtime,
+                let owner = super::connected_results::pooled_response_owner(
+                    self.publication.pool(),
                     "canonical:analysis-page",
                     MetadataResponse::Page,
                 )?;
                 let page = pse_operations::canonical::response_ownership_scope(
                     owner.clone(),
-                    self.runtime
-                        .canonical_store()?
+                    self.publication
+                        .store()
                         .analysis_node_page(&self.key, after),
                 )
                 .await?;
-                let validation = self.runtime.validation_context();
-                let mut builder =
-                    rows::Builder::with_registry(self.runtime.registry(), page.len(), &validation)
-                        .map_err(relation)?;
+                let validation = self.validation.clone();
+                let mut builder = rows::Builder::with_registry(
+                    self.publication.registry(),
+                    page.len(),
+                    &validation,
+                )
+                .map_err(relation)?;
                 for row in page {
                     builder.push(row).map_err(relation)?;
                 }
                 builder
                     .finish()
                     .map_err(relation)?
-                    .retained(&self.runtime.shared.pool(), &CancellationToken::new())
+                    .retained(self.publication.pool(), &CancellationToken::new())
                     .map_err(relation)
             })
             .await
@@ -1232,39 +1239,42 @@ impl AnalysisHandle {
         &self,
         after: Option<&str>,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = self.publication.admit_activity()?;
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analysis_edges as rows;
-                let owner = super::connected_results::response_owner(
-                    &self.runtime,
+                let owner = super::connected_results::pooled_response_owner(
+                    self.publication.pool(),
                     "canonical:analysis-page",
                     MetadataResponse::Page,
                 )?;
                 let page = pse_operations::canonical::response_ownership_scope(
                     owner.clone(),
-                    self.runtime
-                        .canonical_store()?
+                    self.publication
+                        .store()
                         .analysis_edge_page(&self.key, after),
                 )
                 .await?;
-                let validation = self.runtime.validation_context();
-                let mut builder =
-                    rows::Builder::with_registry(self.runtime.registry(), page.len(), &validation)
-                        .map_err(relation)?;
+                let validation = self.validation.clone();
+                let mut builder = rows::Builder::with_registry(
+                    self.publication.registry(),
+                    page.len(),
+                    &validation,
+                )
+                .map_err(relation)?;
                 for row in page {
                     builder.push(row).map_err(relation)?;
                 }
                 builder
                     .finish()
                     .map_err(relation)?
-                    .retained(&self.runtime.shared.pool(), &CancellationToken::new())
+                    .retained(self.publication.pool(), &CancellationToken::new())
                     .map_err(relation)
             })
             .await
     }
 }
-impl Runtime {
+impl SourceServices {
     /// Read bounded original completion metadata from one exact retained attempt.
     /// Scientific reports and trajectories remain in their canonical result sets.
     pub async fn stored_completion(
@@ -1276,6 +1286,17 @@ impl Runtime {
         activity
             .scope(async { self.operations()?.completion(run, attempt).await })
             .await
+    }
+}
+impl Runtime {
+    /// Read bounded original completion metadata from one exact retained attempt.
+    /// Scientific reports and trajectories remain in their canonical result sets.
+    pub async fn stored_completion(
+        &self,
+        run: &str,
+        attempt: &str,
+    ) -> Result<Arc<pse_columnar::Leased<super::durable::StoredCompletion>>, WorkflowError> {
+        self.source_services().stored_completion(run, attempt).await
     }
     /// Reopen only an active, retained exact analysis; no latest-run substitution.
     pub async fn analysis(&self, key: &str) -> Result<AnalysisHandle, WorkflowError> {
@@ -1293,160 +1314,12 @@ impl Runtime {
                 )
                 .await?;
                 Ok(AnalysisHandle {
-                    runtime: self.clone(),
+                    publication: self.publication_services()?,
+                    validation: self.validation_context(),
                     key: key.into(),
                 })
             })
             .await
-    }
-
-    #[allow(
-        clippy::too_many_arguments,
-        reason = "one analysis admission binds exact source and result lineage, method/configuration, graph membership and selection controls"
-    )]
-    async fn store_analysis_graph(
-        &self,
-        revision: &pse_operations::canonical::Revision,
-        sources: &[pse_operations::canonical::Revision],
-        inputs: &[ArtifactRead],
-        method: &str,
-        configuration: Vec<u8>,
-        graph: Graph,
-        nodes: BTreeMap<String, NodeIndex>,
-        controls: &AnalysisControls,
-    ) -> Result<AnalysisHandle, WorkflowError> {
-        use petgraph::visit::EdgeRef;
-        let selected = selected(&graph, &nodes, controls)?;
-        let mut input_hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
-        input_hash.str("pse.analysis.inputs.v1");
-        for source in sources {
-            input_hash.str(&source.key);
-        }
-        for input in inputs {
-            input_hash
-                .str(&input.header().key)
-                .str(&input.header().creation_request_digest);
-        }
-        for index in &selected {
-            let (semantic, kind) = &graph[*index];
-            input_hash.str(semantic).str(kind);
-        }
-        let mut included = graph
-            .edge_references()
-            .filter(|edge| selected.contains(&edge.source()) && selected.contains(&edge.target()))
-            .map(|edge| {
-                let (kind, evidence) = edge.weight();
-                (
-                    graph[edge.source()].0.clone(),
-                    graph[edge.target()].0.clone(),
-                    kind.clone(),
-                    evidence.clone(),
-                )
-            })
-            .collect::<Vec<_>>();
-        included.sort();
-        included.dedup();
-        for (source, target, kind, evidence) in &included {
-            input_hash
-                .str(source)
-                .str(target)
-                .str(kind)
-                .part(&serde_json::to_vec(evidence).map_err(|error| contract(error.to_string()))?);
-        }
-        let input_digest = input_hash.finish_hash().to_hex();
-        let mut header = self
-            .canonical_store()?
-            .new_analysis(
-                revision,
-                method,
-                configuration,
-                input_digest,
-                selected.len() as u64,
-                included.len() as u64,
-            )
-            .await?;
-        let key = header.key.clone();
-        let mut mapping = BTreeMap::new();
-        let mut retained_nodes = Vec::with_capacity(selected.len());
-        for index in selected {
-            let (semantic, kind) = &graph[index];
-            let node_key = analysis_key(
-                "pse.analysis.node.v1",
-                &[key.as_bytes(), semantic.as_bytes()],
-            );
-            mapping.insert(semantic.clone(), node_key.clone());
-            retained_nodes.push(AnalysisNode {
-                key: node_key,
-                analysis: key.clone(),
-                semantic: semantic.clone(),
-                kind: kind.clone(),
-            });
-        }
-        let mut retained_edges = Vec::with_capacity(included.len());
-        for (source, target, kind, evidence) in included {
-            let source = mapping
-                .get(&source)
-                .ok_or_else(|| contract("analysis source absent"))?
-                .clone();
-            let target = mapping
-                .get(&target)
-                .ok_or_else(|| contract("analysis target absent"))?
-                .clone();
-            let evidence_bytes =
-                serde_json::to_vec(&evidence).map_err(|error| contract(error.to_string()))?;
-            let edge_key = analysis_key(
-                "pse.analysis.edge.v1",
-                &[
-                    key.as_bytes(),
-                    source.as_bytes(),
-                    target.as_bytes(),
-                    kind.as_bytes(),
-                    &evidence_bytes,
-                ],
-            );
-            retained_edges.push(AnalysisEdge {
-                key: edge_key,
-                analysis: key.clone(),
-                source,
-                target,
-                kind,
-                evidence_artifact: evidence.as_ref().map(|locator| locator.artifact.clone()),
-                evidence_block: evidence.as_ref().map(|locator| locator.block),
-                evidence_row: evidence.as_ref().and_then(|locator| locator.row),
-                evidence_field: evidence.and_then(|locator| locator.field),
-            });
-        }
-        pse_operations::canonical_analyses::seal_analysis_request(
-            &mut header,
-            sources,
-            inputs,
-            &retained_nodes,
-            &retained_edges,
-        );
-        let acknowledged = self
-            .canonical_store()?
-            .persist_analysis(&header, sources, inputs, &retained_nodes, &retained_edges)
-            .await?;
-        let valid = check_analysis_ack(&self.shared.pool(), &header, &acknowledged);
-        #[cfg(all(test, feature = "canonical-tests"))]
-        let lost = GRAPH_HANDOFF_REPLY_LOSS
-            .try_with(|lost| *lost)
-            .unwrap_or(false);
-        #[cfg(not(all(test, feature = "canonical-tests")))]
-        let lost = false;
-        if valid.is_err() || lost {
-            return Err(
-                pse_operations::canonical::CanonicalError::AnalysisUnsettled {
-                    intent: Box::new(header),
-                    source: Box::new(pse_operations::canonical::CanonicalError::IncompleteResponse),
-                }
-                .into(),
-            );
-        }
-        Ok(AnalysisHandle {
-            runtime: self.clone(),
-            key,
-        })
     }
 
     /// Construct the protected selection once, before its caller polls it.
@@ -1494,7 +1367,7 @@ impl Runtime {
                 let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
                     .map_err(|error| contract(error.to_string()))?;
                 let snapshot = super::ResultSnapshot::capture(
-                    self,
+                    &self.source_services(),
                     protected.input.clone(),
                     protected.input_owner.clone(),
                     spec.id,
@@ -1707,7 +1580,9 @@ impl Runtime {
                 let configuration = serde_json::to_vec(&(2_u8, controls, run, attempt))
                     .map_err(|error| contract(error.to_string()))?;
                 let handle = self
+                    .publication_services()?
                     .store_analysis_graph(
+                        self.validation_context(),
                         revision,
                         sources,
                         std::slice::from_ref(&artifact_read),
@@ -1757,21 +1632,177 @@ impl Runtime {
         })
     }
 }
+impl PublicationServices {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one analysis admission binds exact source and result lineage, method/configuration, graph membership and selection controls"
+    )]
+    async fn store_analysis_graph(
+        &self,
+        validation: Arc<pse_relations::validate::ValidationContext>,
+        revision: &pse_operations::canonical::Revision,
+        sources: &[pse_operations::canonical::Revision],
+        inputs: &[ArtifactRead],
+        method: &str,
+        configuration: Vec<u8>,
+        graph: Graph,
+        nodes: BTreeMap<String, NodeIndex>,
+        controls: &AnalysisControls,
+    ) -> Result<AnalysisHandle, WorkflowError> {
+        use petgraph::visit::EdgeRef;
+        let selected = selected(&graph, &nodes, controls)?;
+        let mut input_hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+        input_hash.str("pse.analysis.inputs.v1");
+        for source in sources {
+            input_hash.str(&source.key);
+        }
+        for input in inputs {
+            input_hash
+                .str(&input.header().key)
+                .str(&input.header().creation_request_digest);
+        }
+        for index in &selected {
+            let (semantic, kind) = &graph[*index];
+            input_hash.str(semantic).str(kind);
+        }
+        let mut included = graph
+            .edge_references()
+            .filter(|edge| selected.contains(&edge.source()) && selected.contains(&edge.target()))
+            .map(|edge| {
+                let (kind, evidence) = edge.weight();
+                (
+                    graph[edge.source()].0.clone(),
+                    graph[edge.target()].0.clone(),
+                    kind.clone(),
+                    evidence.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        included.sort();
+        included.dedup();
+        for (source, target, kind, evidence) in &included {
+            input_hash
+                .str(source)
+                .str(target)
+                .str(kind)
+                .part(&serde_json::to_vec(evidence).map_err(|error| contract(error.to_string()))?);
+        }
+        let input_digest = input_hash.finish_hash().to_hex();
+        let mut header = self
+            .store()
+            .new_analysis(
+                revision,
+                method,
+                configuration,
+                input_digest,
+                selected.len() as u64,
+                included.len() as u64,
+            )
+            .await?;
+        let key = header.key.clone();
+        let mut mapping = BTreeMap::new();
+        let mut retained_nodes = Vec::with_capacity(selected.len());
+        for index in selected {
+            let (semantic, kind) = &graph[index];
+            let node_key = analysis_key(
+                "pse.analysis.node.v1",
+                &[key.as_bytes(), semantic.as_bytes()],
+            );
+            mapping.insert(semantic.clone(), node_key.clone());
+            retained_nodes.push(AnalysisNode {
+                key: node_key,
+                analysis: key.clone(),
+                semantic: semantic.clone(),
+                kind: kind.clone(),
+            });
+        }
+        let mut retained_edges = Vec::with_capacity(included.len());
+        for (source, target, kind, evidence) in included {
+            let source = mapping
+                .get(&source)
+                .ok_or_else(|| contract("analysis source absent"))?
+                .clone();
+            let target = mapping
+                .get(&target)
+                .ok_or_else(|| contract("analysis target absent"))?
+                .clone();
+            let evidence_bytes =
+                serde_json::to_vec(&evidence).map_err(|error| contract(error.to_string()))?;
+            let edge_key = analysis_key(
+                "pse.analysis.edge.v1",
+                &[
+                    key.as_bytes(),
+                    source.as_bytes(),
+                    target.as_bytes(),
+                    kind.as_bytes(),
+                    &evidence_bytes,
+                ],
+            );
+            retained_edges.push(AnalysisEdge {
+                key: edge_key,
+                analysis: key.clone(),
+                source,
+                target,
+                kind,
+                evidence_artifact: evidence.as_ref().map(|locator| locator.artifact.clone()),
+                evidence_block: evidence.as_ref().map(|locator| locator.block),
+                evidence_row: evidence.as_ref().and_then(|locator| locator.row),
+                evidence_field: evidence.and_then(|locator| locator.field),
+            });
+        }
+        pse_operations::canonical_analyses::seal_analysis_request(
+            &mut header,
+            sources,
+            inputs,
+            &retained_nodes,
+            &retained_edges,
+        );
+        let acknowledged = self
+            .store()
+            .persist_analysis(&header, sources, inputs, &retained_nodes, &retained_edges)
+            .await?;
+        let valid = check_analysis_ack(self.pool(), &header, &acknowledged);
+        #[cfg(all(test, feature = "canonical-tests"))]
+        let lost = GRAPH_HANDOFF_REPLY_LOSS
+            .try_with(|lost| *lost)
+            .unwrap_or(false);
+        #[cfg(not(all(test, feature = "canonical-tests")))]
+        let lost = false;
+        if valid.is_err() || lost {
+            return Err(
+                pse_operations::canonical::CanonicalError::AnalysisUnsettled {
+                    intent: Box::new(header),
+                    source: Box::new(pse_operations::canonical::CanonicalError::IncompleteResponse),
+                }
+                .into(),
+            );
+        }
+        Ok(AnalysisHandle {
+            publication: self.clone(),
+            validation,
+            key,
+        })
+    }
+}
+
 impl ModelingSolvePreparation {
     /// Persist original all-branch numerical incidence and conservative execution
     /// dependencies before dispatch. Neither edge kind certifies derivatives.
     pub async fn dependency_analysis(
         &self,
+        services: &ExecutionServices,
         controls: &AnalysisControls,
         cancel: CancellationToken,
     ) -> Result<AnalysisHandle, WorkflowError> {
-        let activity = self.source.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
                 controls.validate()?;
-                let runtime = &self.source.runtime;
+                let publication = services
+                    .publication()
+                    .ok_or(WorkflowError::RecordingUnavailable)?;
                 let owner = MemoryConsumer::new("canonical:dependency-analysis")
-                    .register(&runtime.shared.pool());
+                    .register(&services.preparation().pool());
                 owner
                     .try_grow(128 * 1024 * 1024)
                     .map_err(pse_engine::EngineError::from)?;
@@ -1852,17 +1883,17 @@ impl ModelingSolvePreparation {
                 }
                 let revision = self.source.recorded_revision()?.clone();
                 let mut sources = vec![revision.clone()];
-                let operations = match runtime.durability() {
+                let operations = match services.durability() {
                     Durability::Durable(operations) => operations.as_ref().clone(),
                     Durability::Ephemeral => super::Operations::from_store(
-                        runtime.canonical_store()?.clone(),
+                        publication.store().clone(),
                         "analysis",
                         super::LeasePolicy::default(),
-                        runtime.shared.pool(),
+                        services.preparation().pool(),
                     ),
                 };
                 let physical_rows = operations
-                    .put_physical_rows(runtime, &self.source.physical)
+                    .put_physical_rows(services.preparation(), &self.source.physical)
                     .await?;
                 sources.extend(physical_rows.revisions.iter().cloned());
                 sources.sort_by(|a, b| a.key.cmp(&b.key));
@@ -1870,8 +1901,9 @@ impl ModelingSolvePreparation {
                 let configuration =
                     serde_json::to_vec(&(1_u8, controls, self.admission_identity()?.to_hex()))
                         .map_err(|error| contract(error.to_string()))?;
-                let analysis = runtime
+                let analysis = publication
                     .store_analysis_graph(
+                        services.preparation().validation_context(),
                         &revision,
                         &sources,
                         &[],
@@ -1905,7 +1937,10 @@ mod canonical_analyses_server_unit {
                 .await;
         analysis.bindings.demand.push("t".into());
         let cancel = crate::CancelSource::new();
-        let original = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let original = package
+            .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
         let parameter = original.model.case.compiled().plan.structure().parameters()[0].id;
         let variable = original.model.case.compiled().plan.structure().variables()[0]
             .port
@@ -1915,13 +1950,20 @@ mod canonical_analyses_server_unit {
             reduced_hessian: false,
             propagation: None,
         });
-        let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let prepared = package
+            .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
         let controls = AnalysisControls {
             roots: vec![parameter.to_string()],
             direction: AnalysisDirection::Downstream,
         };
         let pre = prepared
-            .dependency_analysis(&controls, CancellationToken::new())
+            .dependency_analysis(
+                &runtime.execution_services(),
+                &controls,
+                CancellationToken::new(),
+            )
             .await
             .unwrap();
         let receipt = runtime
@@ -1952,7 +1994,11 @@ mod canonical_analyses_server_unit {
         assert!(edges.iter().any(|edge| edge.kind == "execution_dependency"));
         assert!(edges.iter().all(|edge| edge.evidence_artifact.is_none()));
         let replay = prepared
-            .dependency_analysis(&controls, CancellationToken::new())
+            .dependency_analysis(
+                &runtime.execution_services(),
+                &controls,
+                CancellationToken::new(),
+            )
             .await
             .unwrap();
         assert_ne!(replay.key(), pre.key());
@@ -1968,7 +2014,12 @@ mod canonical_analyses_server_unit {
         assert_eq!(replay_receipt.input_digest, receipt.input_digest);
         assert_eq!(replay_receipt.node_count, receipt.node_count);
         assert_eq!(replay_receipt.edge_count, receipt.edge_count);
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared
+            .start(&runtime.execution_services())
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
         assert!(result.usable(), "{:?}", result.report());
         let quantified = parametric_sensitivities::Row::rows(
             &result.table("runtime.parametric_sensitivities").unwrap(),
@@ -2134,12 +2185,19 @@ mod canonical_analyses_server_unit {
             .as_mut()
             .unwrap()
             .expression = Some("2".into());
-        let revised = package.with_declarations(declarations).await.unwrap();
+        let revised = package
+            .with_declarations(&runtime.source_services(), declarations)
+            .await
+            .unwrap();
         let changed = revised
-            .prepare_analysis(&analysis, &cancel)
+            .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
             .await
             .unwrap()
-            .dependency_analysis(&controls, CancellationToken::new())
+            .dependency_analysis(
+                &runtime.execution_services(),
+                &controls,
+                CancellationToken::new(),
+            )
             .await
             .unwrap();
         assert_ne!(changed.key(), pre.key());

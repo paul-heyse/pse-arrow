@@ -150,12 +150,12 @@ ordinary observation events do not masquerade as registered diagnostic codes.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| B01 | planned; 56a reader prerequisite implemented/tested | 56b | Completion/product facts govern every local, persisted and public consumer; diagnostic bytes retained |
-| B02 | planned | 56b | Shared evidence policy and explicit pure composite decisions; qualifiers survive |
-| B03 | planned | 56b | Each kind supplies lifecycle facts once; tagged replay and exhaustive consumers replace old projections |
-| B04 | planned | 56b | Selected owner slices have narrow inputs/visibility and no reverse declaration cycle |
-| B05 | planned | 56b | Default/configured capability agrees with admission and exact backend attribution |
-| B06 | planned | 56b | Meaning-based failures drive scientific persistence, safe recovery and host diagnostics |
+| B01 | implementation in progress; consumer integration pending | 56b | Completion/product facts govern every local, persisted and public consumer; diagnostic bytes retained |
+| B02 | implemented source; integration and execution pending | 56b | Shared evidence policy and explicit pure composite decisions; qualifiers survive |
+| B03 | implemented projections/tagged replay; integration pending | 56b | Each kind supplies lifecycle facts once; tagged replay and exhaustive consumers replace old projections |
+| B04 | owner and caller migration in progress | 56b | Selected owner slices have narrow inputs/visibility and no reverse declaration cycle |
+| B05 | native seam implemented; runtime/public qualification pending | 56b | Default/configured capability agrees with admission and exact backend attribution |
+| B06 | typed source and host remedies implemented; integration pending | 56b | Meaning-based failures drive scientific persistence, safe recovery and host diagnostics |
 
 B01's pure decision can precede the canonical cutover; persisted completion requires C03/C05.
 B03 provides early constructor/fact declarations to C before all lifecycle migrations finish.
@@ -202,3 +202,19 @@ entry points; existing Python/MCP facades retain convenience. Completion v2, sto
 and replay v5 publish together; receipt framing and file placement stay unchanged. RC01–RC06
 remain pending. ADR-0227 records the selected contract before publication. 56a evidence retains
 its original scope; no B package is complete from that prerequisite alone.
+
+
+The source cutover now records original scope and product permission in Completion, shares request/
+completed lifecycle projections, and uses a single tagged replay constructor. Native adapters own
+configured capability and replacement starts. Typed admission effects preserve acknowledged source
+revisions and unresolved publication; host remedies consume those facts. These source changes are
+under integration, with no B package completion claim.
+
+B04 removes broad runtime retention from the selected modeling, fitting and prepared strategy values.
+Explicit preparation, source, publication and execution capabilities preserve existing allocation,
+validation, cancellation and selected durability behavior. Canonical source revisions retain their
+original issuer as immutable provenance: a supplied target service cannot stand in for that fact.
+Python effectful facades carry the explicit services supplied during preparation. Remaining work is
+consumer/fixture migration, full generation, focused scientific execution and the selected composed
+qualification against the fresh owned deployment. Earlier source-drift refusals executed no tests;
+they provide no scientific acceptance evidence.

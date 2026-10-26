@@ -631,7 +631,11 @@ impl Runtime {
             return Err(contract("draft edits name a different local parent"));
         }
         let issuing = self.canonical_store()?.issuing_store()?;
-        if base.runtime_store_issuer()? != issuing {
+        if base
+            .source_issuer()
+            .ok_or_else(|| contract("draft parent has no original issuing authority"))?
+            != issuing
+        {
             return Err(contract("draft parent issuing authority differs"));
         }
         let revision = base
@@ -676,7 +680,7 @@ impl Runtime {
                     let mut base=self.project_boxed(self.modeling_revision(base,physical,BTreeMap::new()))?.await?;
                     self.restore_project_context(&mut base,content.source.context.as_ref()).await?;
                     self.restore_research_source(&mut base,content.source.research.as_ref()).await?;
-                    self.project_boxed(base.construct_study_variant(&content.source,content.delta,cancel))?.await
+                    self.project_boxed(base.construct_study_variant(&self.source_services(), &content.source,content.delta,cancel))?.await
                 }
             }
         })).await

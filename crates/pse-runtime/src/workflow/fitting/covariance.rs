@@ -492,15 +492,9 @@ impl FitProblem {
                 .collect())
         })
     }
-    /// The quantities the fit derives from its estimate: the covariance, and on request
-    /// Wald intervals and profile-likelihood chains.
-    pub(super) fn derive(
-        self: &Arc<Self>,
-        report: &mut FitReport,
-        route: FitRoute,
-        execution: &native::solve::Execution,
-        workers: usize,
-    ) {
+    /// Local covariance and Wald diagnostics. The prepared owner runs profile chains
+    /// after the estimate's authored original checks have been captured.
+    pub(super) fn derive(self: &Arc<Self>, report: &mut FitReport) {
         report.covariance = self.covariance(report);
         let Some(uncertainty) = &self.profile.uncertainty else {
             return;
@@ -510,10 +504,6 @@ impl FitProblem {
         }
         let level = uncertainty.level.into_inner();
         report.wald = Some(self.wald(report, level));
-        if let Some(controls) = &uncertainty.profile {
-            report.profiles =
-                Some(self.profiles(report, level, controls, (route, workers), execution));
-        }
     }
 }
 

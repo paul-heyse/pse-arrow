@@ -10,6 +10,7 @@ async fn prepared_cells(
     branching: bool,
 ) -> (Runtime, ModelingPackage, ModelingDiagnosticPreparation) {
     let runtime = fixture::runtime();
+    let services = runtime.execution_services();
     let source = if branching {
         "package p { def Cell {param g:Scalar=1; var x:Scalar; let a:Scalar=(if g>0 then log(x) else log(-x)); let b:Scalar=a*a+x; annotation valid x(-1,1); annotation valid b(-2,2); eq e:b==0;} def Root {child left:Cell=Cell(); child right:Cell=Cell();} }"
     } else {
@@ -46,7 +47,11 @@ async fn prepared_cells(
         numerical: Default::default(),
     };
     let prepared = package
-        .prepare_diagnostics(&analysis, &crate::CancelSource::new())
+        .prepare_diagnostics(
+            services.preparation(),
+            &analysis,
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     (runtime, package, prepared)

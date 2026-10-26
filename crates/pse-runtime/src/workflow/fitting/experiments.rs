@@ -78,6 +78,7 @@ fn drain_failed_startup(
 /// memory. They receive at most one bounded wave while the parent lends active compute.
 pub(super) struct ExperimentTeam {
     problem: Arc<FitProblem>,
+    math: Arc<MathService>,
     execution: Execution,
     lanes: Vec<Lane>,
     borrowed: Option<usize>,
@@ -96,13 +97,14 @@ impl std::fmt::Debug for ExperimentTeam {
 impl ExperimentTeam {
     pub(super) fn new(
         problem: Arc<FitProblem>,
+        math: Arc<MathService>,
         execution: Execution,
     ) -> Result<Option<Self>, ProblemError> {
         let requested = problem.profile.experiment_workers.into_inner();
         if requested <= 1 || problem.experiments.len() <= 1 {
             return Ok(None);
         }
-        let service = problem.runtime.native().clone();
+        let service = math.clone();
         let count = requested
             .min(problem.experiments.len())
             .min(service.cores());
@@ -111,7 +113,12 @@ impl ExperimentTeam {
         }
         for width in (2..=count).rev() {
             let assignments = stride_assignment(problem.experiments.len(), width);
-            if let Some(team) = Self::construct(problem.clone(), execution.clone(), assignments)? {
+            if let Some(team) = Self::construct(
+                problem.clone(),
+                math.clone(),
+                execution.clone(),
+                assignments,
+            )? {
                 return Ok(Some(team));
             }
         }
@@ -120,23 +127,25 @@ impl ExperimentTeam {
     #[cfg(all(test, feature = "solver-diffsol"))]
     pub(super) fn fixed_affinity_for_test(
         problem: Arc<FitProblem>,
+        math: Arc<MathService>,
         execution: Execution,
     ) -> Result<Self, ProblemError> {
         assert_eq!(problem.experiments.len(), 4);
         assert!(problem.profile.experiment_workers.into_inner() >= 2);
-        assert!(problem.runtime.native().cores() >= 2);
+        assert!(math.cores() >= 2);
         // The real fixture alternates IVPs and steady evaluators. This comparison
         // fixes one of each on each owner; it establishes no general cost predictor.
-        Self::construct(problem, execution, vec![vec![0, 1], vec![2, 3]])?
+        Self::construct(problem, math, execution, vec![vec![0, 1], vec![2, 3]])?
             .ok_or_else(|| ProblemError::memory("fixed experiment team footprint refused"))
     }
     fn construct(
         problem: Arc<FitProblem>,
+        math: Arc<MathService>,
         execution: Execution,
         assignments: Vec<Vec<usize>>,
     ) -> Result<Option<Self>, ProblemError> {
         let count = assignments.len();
-        let service = problem.runtime.native().clone();
+        let service = math.clone();
         let borrowed = BORROWED_CAPACITY.with(std::cell::Cell::get);
         if borrowed.is_some_and(|cores| count > cores) {
             return Err(ProblemError::memory(
@@ -160,7 +169,8 @@ impl ExperimentTeam {
             ) => return Ok(None),
             Err(error) => return Err(error.into_problem()),
         };
-        let Some(foreign) = foreign::Population::prepare(&problem, &execution, Some(&assignments))?
+        let Some(foreign) =
+            foreign::Population::prepare(&problem, &math, &execution, Some(&assignments))?
         else {
             return Ok(None);
         };
@@ -389,6 +399,7 @@ impl ExperimentTeam {
         };
         Ok(Some(Self {
             problem,
+            math,
             execution,
             lanes,
             borrowed,
@@ -449,7 +460,7 @@ impl ExperimentTeam {
         if let Some(context) = pse_diagnostics::observation::current() {
             context.gauge("fit.experiment_lanes", "count", self.lanes.len() as f64);
         }
-        let service = self.problem.runtime.native().clone();
+        let service = self.math.clone();
         let count = self.problem.experiments.len();
         let x: Arc<[f64]> = Arc::from(x);
         let work = || {

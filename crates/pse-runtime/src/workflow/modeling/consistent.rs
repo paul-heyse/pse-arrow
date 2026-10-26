@@ -290,13 +290,15 @@ impl ModelingSimulation {
     /// cancellation, or failure to join the actual native operation.
     pub async fn initialize_consistent(
         &self,
+        services: &crate::workflow::ExecutionServices,
         run_id: RunId,
         request: native::ConsistentInitialization,
         controls: Controls,
         scope: ExecutionScope,
         cancellation: Cancellation,
     ) -> Result<ConsistentInitializationResult, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
+        let math = services.preparation().math();
         activity
             .scope(async {
                 let submission = Submission {
@@ -306,7 +308,7 @@ impl ModelingSimulation {
                     deadline: scope.deadline(),
                 };
                 let handle =
-                    self.submit_consistent(run_id, request, controls, scope, submission)?;
+                    self.submit_consistent(math, run_id, request, controls, scope, submission)?;
                 let (mut observed, owner) = handle.finish().await?;
                 observed.check_after_join();
                 Ok(ConsistentInitializationResult {
@@ -320,6 +322,7 @@ impl ModelingSimulation {
     }
     pub(crate) fn submit_consistent(
         &self,
+        math: &Arc<crate::math::MathService>,
         run_id: RunId,
         request: native::ConsistentInitialization,
         controls: Controls,
@@ -345,12 +348,7 @@ impl ModelingSimulation {
             ));
         }
         self.contract.validate().map_err(MathRuntimeError::from)?;
-        let foreign = self
-            .runtime
-            .shared
-            .budget()
-            .math
-            .foreign_allowance(&controls);
+        let foreign = math.policy().foreign_allowance(&controls);
         if foreign == 0 {
             return Err(contract("IC requires a finite positive foreign allowance"));
         }
@@ -369,15 +367,13 @@ impl ModelingSimulation {
             })
             .ok_or(MathRuntimeError::Limit("IC worker/residual extent"))?;
         let prepared = self.clone();
-        Ok(self.runtime.shared.math().submit_with(
-            1,
-            bytes,
-            submission,
-            move |flag, progress| {
+        let worker_math = math.clone();
+        Ok(
+            math.submit_with(1, bytes, submission, move |flag, progress| {
                 let composition = pse_model::strategy::CompositionRequest::default();
                 let (mut observed, trace) = crate::math::strategy::target::callable(
                     crate::math::strategy::target::CallContext {
-                        service: prepared.runtime.shared.math(),
+                        service: &worker_math,
                         scope: &scope,
                         storage: None,
                     },
@@ -403,7 +399,7 @@ impl ModelingSimulation {
                         let parameters = prepared
                             .profile
                             .parameters_at(&prepared.parameters, request.time);
-                        let mut worker = prepared.worker(attempt_scope.clone())?;
+                        let mut worker = prepared.worker(&worker_math, attempt_scope.clone())?;
                         let mut report = native::initialize_consistent(
                             &mut worker,
                             &parameters,
@@ -485,8 +481,8 @@ impl ModelingSimulation {
                     })
                     .ok_or(MathRuntimeError::Limit("IC retained observation extent"))?;
                 Ok((observed, retained))
-            },
-        )?)
+            })?,
+        )
     }
 }
 

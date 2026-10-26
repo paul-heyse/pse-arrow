@@ -58,7 +58,7 @@ impl ModelingElasticAttempt {
 pub struct ModelingNonlinearExplanation {
     /// Identity of this explanation run.
     pub run_id: RunId,
-    pub(in crate::workflow::modeling) runtime: Runtime,
+    pub(in crate::workflow::modeling) services: crate::workflow::PreparationServices,
     pub(in crate::workflow::modeling) source_identity: pse_ids::ContentHash,
     pub(in crate::workflow::modeling) nominals: BTreeMap<SemanticId, f64>,
     pub(in crate::workflow::modeling) penalty_tolerance: f64,
@@ -82,11 +82,12 @@ impl ModelingPackage {
     /// are retained.
     pub async fn explain_nonlinear(
         &self,
+        services: &crate::workflow::ExecutionServices,
         analysis: &ModelingAnalysis,
         policy: ModelingNonlinearPolicy,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingNonlinearExplanation, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity.scope(async {
         if policy.maximum_attempts == 0
             || policy.maximum_attempts > 10000
@@ -105,12 +106,12 @@ impl ModelingPackage {
         let started = Instant::now();
         let deadline = started
             .checked_add(policy.time_limit)
-            .ok_or_else(|| contract("explanation deadline overflow"))?;
+            .ok_or_else(|| crate::workflow::deadline_limit("explanation deadline overflow"))?;
         let (prepared, interruption) = crate::workflow::staged::bounded(
             pse_diagnostics::DiagnosticStage::NonlinearExplanation,
             Some(deadline),
             cancel,
-            |child| async move { self.prepare_diagnostics(analysis, &child).await },
+            |child| async move { self.prepare_diagnostics(services.preparation(), analysis, &child).await },
         )
         .await;
         if let Some(error) = interruption {
@@ -142,9 +143,7 @@ impl ModelingPackage {
             .and_then(|n| n.checked_mul(128))
             .and_then(|n| n.checked_add(policy.maximum_attempts * 512))
             .ok_or_else(|| contract("explanation result extent"))?;
-        let owner = self
-            .runtime
-            .shared
+        let owner = services.preparation()
             .math()
             .reserve("modeling:nonlinear-explanation", bytes)?;
         let background_variables = prepared
@@ -159,8 +158,9 @@ impl ModelingPackage {
             .map(|v| v.port.id)
             .collect();
         let mut report = ModelingNonlinearExplanation {
+                    services: services.preparation().clone(),
             run_id: pse_operations::mint_id(),
-            runtime: self.runtime.clone(),
+
             source_identity: prepared.model.case.compiled().plan.structure().key(),
             nominals: policy.nominals.clone(),
             penalty_tolerance: policy.penalty_tolerance,
@@ -226,7 +226,7 @@ impl ModelingPackage {
                 cancel,
                 |child| async move {
                     let prepared = self
-                        .prepare_analysis_attempt(
+                        .prepare_analysis_attempt(services.preparation(),
                             &trial,
                             cases::CaseOverrides {
                                 seed,
@@ -235,7 +235,7 @@ impl ModelingPackage {
                             &child,
                         )
                         .await?;
-                    self.solve_case(prepared, trial.compiler, &child).await
+                    self.solve_case(services, prepared, trial.compiler, &child).await
                 },
             )
             .await;
@@ -358,10 +358,11 @@ impl ModelingPackage {
     /// The analysis keeps its original formulation; a feasible model yields no proof.
     pub async fn certify_infeasibility(
         &self,
+        services: &crate::workflow::ExecutionServices,
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInfeasibilityCertificate, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
                 use pse_backend_native::{
@@ -380,8 +381,12 @@ impl ModelingPackage {
                     iis: true,
                     ..ScipSettings::default()
                 });
-                let prepared = self.prepare_analysis(&trial, cancel).await?;
-                let result = self.solve_case(prepared, trial.compiler, cancel).await?;
+                let prepared = self
+                    .prepare_analysis(services.preparation(), &trial, cancel)
+                    .await?;
+                let result = self
+                    .solve_case(services, prepared, trial.compiler, cancel)
+                    .await?;
                 let Outcome::Native(native) = &result.outcome else {
                     return Err(contract(
                         "global infeasibility certification needs a native certifying solve",
@@ -483,7 +488,7 @@ mod tests {
             numerical: Default::default(),
         };
         let before = package
-            .prepare_diagnostics(&analysis, &cancel)
+            .prepare_diagnostics(&rt.preparation_services(), &analysis, &cancel)
             .await
             .unwrap();
         let original_key = before.model.case.compiled().plan.structure().key();
@@ -504,7 +509,7 @@ mod tests {
             time_limit: Duration::from_secs(30),
         };
         let report = package
-            .explain_nonlinear(&analysis, policy.clone(), &cancel)
+            .explain_nonlinear(&rt.execution_services(), &analysis, policy.clone(), &cancel)
             .await
             .unwrap();
         let summarize = || {
@@ -596,7 +601,7 @@ mod tests {
             2
         );
         let after = package
-            .prepare_diagnostics(&analysis, &cancel)
+            .prepare_diagnostics(&rt.preparation_services(), &analysis, &cancel)
             .await
             .unwrap();
         assert_eq!(
@@ -607,7 +612,12 @@ mod tests {
         let mut exhausted = analysis.clone();
         exhausted.solver.controls.iterations = 1;
         let failed = package
-            .explain_nonlinear(&exhausted, policy.clone(), &cancel)
+            .explain_nonlinear(
+                &rt.execution_services(),
+                &exhausted,
+                policy.clone(),
+                &cancel,
+            )
             .await
             .unwrap();
         assert!(!failed.complete);
@@ -622,7 +632,7 @@ mod tests {
         let mut limited = policy;
         limited.maximum_attempts = 1;
         let partial = package
-            .explain_nonlinear(&analysis, limited, &cancel)
+            .explain_nonlinear(&rt.execution_services(), &analysis, limited, &cancel)
             .await
             .unwrap();
         assert!(!partial.complete);

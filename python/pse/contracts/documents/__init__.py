@@ -6282,10 +6282,10 @@ class ComparisonPolicyBody(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 class Completion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable semantic projection shared by Arrow, Python and publication."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Standalone completion document interpretation.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Retained engineering outcomes; historical no-goal products have an empty collection.
     accuracy_goals: tuple[RuntimeAccuracyGoalAssessmentsRow, ...] = msgspec.field(default_factory=tuple)
     #: Final physical closure and usability decisions, never recomputed by an exporter.
@@ -6296,20 +6296,26 @@ class Completion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
     diagnostics: tuple[BoundaryDiagnosticBody, ...]
     #: Complete request lineage, independent of this execution's unique identity.
     lineage: tuple[RuntimeRunLineageRow, ...]
+    #: Whole original request decision; absence never authorizes scientific reuse.
+    permission: ScientificPermission | None = None
+    #: Fit-derived mathematical validity composed with its governing original decision.
+    products: tuple[ProductPermission, ...]
     #: Algebraic outcomes, including requested steps that were not attempted.
     solves: tuple[RuntimeSolveRunsRow, ...]
+    #: Independently requested original modeling steps, never whole-request promotion.
+    step_permissions: tuple[ScientificPermission, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.accuracy_goals), v.sequence_key(v.record_key)(self.assessments), v.optional_key(v.record_key)(self.computation), v.sequence_key(v.record_key)(self.diagnostics), v.sequence_key(v.record_key)(self.lineage), v.sequence_key(v.record_key)(self.solves),))
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.accuracy_goals), v.sequence_key(v.record_key)(self.assessments), v.optional_key(v.record_key)(self.computation), v.sequence_key(v.record_key)(self.diagnostics), v.sequence_key(v.record_key)(self.lineage), v.optional_key(v.record_key)(self.permission), v.sequence_key(v.record_key)(self.products), v.sequence_key(v.record_key)(self.solves), v.sequence_key(v.record_key)(self.step_permissions),))
 
 
 class CompletionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable semantic projection shared by Arrow, Python and publication."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
 
     #: Standalone completion document interpretation.
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     #: Retained engineering outcomes; historical no-goal products have an empty collection.
     accuracy_goals: tuple[RuntimeAccuracyGoalAssessmentsRowOutput, ...] = msgspec.field(default_factory=tuple)
     #: Final physical closure and usability decisions, never recomputed by an exporter.
@@ -6320,11 +6326,17 @@ class CompletionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
     diagnostics: tuple[BoundaryDiagnosticBodyOutput, ...]
     #: Complete request lineage, independent of this execution's unique identity.
     lineage: tuple[RuntimeRunLineageRowOutput, ...]
+    #: Whole original request decision; absence never authorizes scientific reuse.
+    permission: ScientificPermissionOutput | None
+    #: Fit-derived mathematical validity composed with its governing original decision.
+    products: tuple[ProductPermissionOutput, ...]
     #: Algebraic outcomes, including requested steps that were not attempted.
     solves: tuple[RuntimeSolveRunsRowOutput, ...]
+    #: Independently requested original modeling steps, never whole-request promotion.
+    step_permissions: tuple[ScientificPermissionOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.accuracy_goals), v.sequence_key(v.record_key)(self.assessments), v.optional_key(v.record_key)(self.computation), v.sequence_key(v.record_key)(self.diagnostics), v.sequence_key(v.record_key)(self.lineage), v.sequence_key(v.record_key)(self.solves),))
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.accuracy_goals), v.sequence_key(v.record_key)(self.assessments), v.optional_key(v.record_key)(self.computation), v.sequence_key(v.record_key)(self.diagnostics), v.sequence_key(v.record_key)(self.lineage), v.optional_key(v.record_key)(self.permission), v.sequence_key(v.record_key)(self.products), v.sequence_key(v.record_key)(self.solves), v.sequence_key(v.record_key)(self.step_permissions),))
 
 
 class CompositionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -13435,6 +13447,86 @@ class LinearDiagnosticControlsOutput(msgspec.Struct, frozen=True, forbid_unknown
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.iis), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.lower_penalties), v.scalar_key(self.maximum_entries), v.scalar_key(self.ranging), v.scalar_key(self.rays), v.optional_key(v.tuple_key((v.scalar_key, v.scalar_key, v.scalar_key,)))(self.relaxation), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.row_penalties), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.upper_penalties),))
 
 
+class LocalValidity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: certified
+    certified: bool
+    #: condition_1norm
+    condition_1norm: float | None = None
+    #: conditional
+    conditional: bool
+    #: detail
+    detail: str | None = None
+    #: licq
+    licq: bool | None = None
+    #: reason
+    reason: enums.WithheldReason | None = None
+    #: residual
+    residual: float | None = None
+    #: root_backward_error
+    root_backward_error: float | None = None
+    #: root_backward_error_limit
+    root_backward_error_limit: float | None = None
+    #: root_neighborhood
+    root_neighborhood: str | None = None
+    #: root_rank
+    root_rank: int | None = None
+    #: root_rank_cutoff
+    root_rank_cutoff: float | None = None
+    #: root_rank_relative_cutoff
+    root_rank_relative_cutoff: float | None = None
+    #: second_order
+    second_order: bool | None = None
+    #: strict_complementarity
+    strict_complementarity: bool | None = None
+    #: weakly_active
+    weakly_active: int | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.certified), v.optional_key(v.scalar_key)(self.condition_1norm), v.scalar_key(self.conditional), v.optional_key(v.scalar_key)(self.detail), v.optional_key(v.scalar_key)(self.licq), v.optional_key(v.scalar_key)(self.reason), v.optional_key(v.scalar_key)(self.residual), v.optional_key(v.scalar_key)(self.root_backward_error), v.optional_key(v.scalar_key)(self.root_backward_error_limit), v.optional_key(v.scalar_key)(self.root_neighborhood), v.optional_key(v.scalar_key)(self.root_rank), v.optional_key(v.scalar_key)(self.root_rank_cutoff), v.optional_key(v.scalar_key)(self.root_rank_relative_cutoff), v.optional_key(v.scalar_key)(self.second_order), v.optional_key(v.scalar_key)(self.strict_complementarity), v.optional_key(v.scalar_key)(self.weakly_active),))
+
+
+class LocalValidityOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: certified
+    certified: bool
+    #: condition_1norm
+    condition_1norm: float | None
+    #: conditional
+    conditional: bool
+    #: detail
+    detail: str | None
+    #: licq
+    licq: bool | None
+    #: reason
+    reason: enums.WithheldReason | None
+    #: residual
+    residual: float | None
+    #: root_backward_error
+    root_backward_error: float | None
+    #: root_backward_error_limit
+    root_backward_error_limit: float | None
+    #: root_neighborhood
+    root_neighborhood: str | None
+    #: root_rank
+    root_rank: int | None
+    #: root_rank_cutoff
+    root_rank_cutoff: float | None
+    #: root_rank_relative_cutoff
+    root_rank_relative_cutoff: float | None
+    #: second_order
+    second_order: bool | None
+    #: strict_complementarity
+    strict_complementarity: bool | None
+    #: weakly_active
+    weakly_active: int | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.certified), v.optional_key(v.scalar_key)(self.condition_1norm), v.scalar_key(self.conditional), v.optional_key(v.scalar_key)(self.detail), v.optional_key(v.scalar_key)(self.licq), v.optional_key(v.scalar_key)(self.reason), v.optional_key(v.scalar_key)(self.residual), v.optional_key(v.scalar_key)(self.root_backward_error), v.optional_key(v.scalar_key)(self.root_backward_error_limit), v.optional_key(v.scalar_key)(self.root_neighborhood), v.optional_key(v.scalar_key)(self.root_rank), v.optional_key(v.scalar_key)(self.root_rank_cutoff), v.optional_key(v.scalar_key)(self.root_rank_relative_cutoff), v.optional_key(v.scalar_key)(self.second_order), v.optional_key(v.scalar_key)(self.strict_complementarity), v.optional_key(v.scalar_key)(self.weakly_active),))
+
+
 class ManagedDetailOwner(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Actual receiving process and diagnostic owner; never a mathematical identity."""
 
@@ -16471,27 +16563,23 @@ class PartitionedSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fiel
 
 
 class PetscSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="petsc"):
-    """Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile."""
+    """Serial PETSc direct trust-region root profile."""
 
     #: Selected native KSP method.
     linear: enums.NativePetscLinear = enums.NativePetscLinear.GMRES
-    #: Selected native nonlinear method.
+    #: Selected direct nonlinear method.
     method: enums.NativePetscMethod = enums.NativePetscMethod.NEWTON_TRUST_REGION
     #: Selected native PC method.
     preconditioner: enums.NativePetscPreconditioner = enums.NativePetscPreconditioner.ILU
-    #: Required precisely for the pseudo-transient profile.
-    pseudo: PseudoTime | None = None
-    #: Required precisely for nonlinear additive Schwarz.
-    schwarz: Schwarz | None = None
-    #: Inner trust-region profile used by SNES and TSPSEUDO correction.
+    #: Normalized trust-region controls.
     trust: TrustRegion = msgspec.field(default_factory=lambda: _document_default({"initial": 1.0, "maximum": 100000000.0, "minimum": 1e-12}, TrustRegion))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.linear), v.scalar_key(self.method), v.scalar_key(self.preconditioner), v.optional_key(v.record_key)(self.pseudo), v.optional_key(v.record_key)(self.schwarz), v.record_key(self.trust),))
+        return (type(self), (v.scalar_key(self.linear), v.scalar_key(self.method), v.scalar_key(self.preconditioner), v.record_key(self.trust),))
 
 
 class PetscSettingsDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="petsc"):
-    """Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile."""
+    """Serial PETSc direct trust-region root profile."""
 
     _pse_required_version: ClassVar[int] = 1
     _pse_required_version_field: ClassVar[str] = "document_version"
@@ -16499,23 +16587,19 @@ class PetscSettingsDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=T
     document_version: Literal[1] = 1
     #: Selected native KSP method.
     linear: enums.NativePetscLinear = enums.NativePetscLinear.GMRES
-    #: Selected native nonlinear method.
+    #: Selected direct nonlinear method.
     method: enums.NativePetscMethod = enums.NativePetscMethod.NEWTON_TRUST_REGION
     #: Selected native PC method.
     preconditioner: enums.NativePetscPreconditioner = enums.NativePetscPreconditioner.ILU
-    #: Required precisely for the pseudo-transient profile.
-    pseudo: PseudoTime | None = None
-    #: Required precisely for nonlinear additive Schwarz.
-    schwarz: Schwarz | None = None
-    #: Inner trust-region profile used by SNES and TSPSEUDO correction.
+    #: Normalized trust-region controls.
     trust: TrustRegion = msgspec.field(default_factory=lambda: _document_default({"initial": 1.0, "maximum": 100000000.0, "minimum": 1e-12}, TrustRegion))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.linear), v.scalar_key(self.method), v.scalar_key(self.preconditioner), v.optional_key(v.record_key)(self.pseudo), v.optional_key(v.record_key)(self.schwarz), v.record_key(self.trust),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.linear), v.scalar_key(self.method), v.scalar_key(self.preconditioner), v.record_key(self.trust),))
 
 
 class PetscSettingsDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="petsc"):
-    """Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile."""
+    """Serial PETSc direct trust-region root profile."""
 
     _pse_required_version: ClassVar[int] = 1
     _pse_required_version_field: ClassVar[str] = "document_version"
@@ -16523,39 +16607,31 @@ class PetscSettingsDocumentOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
     document_version: Literal[1] = 1
     #: Selected native KSP method.
     linear: enums.NativePetscLinear = enums.NativePetscLinear.GMRES
-    #: Selected native nonlinear method.
+    #: Selected direct nonlinear method.
     method: enums.NativePetscMethod = enums.NativePetscMethod.NEWTON_TRUST_REGION
     #: Selected native PC method.
     preconditioner: enums.NativePetscPreconditioner = enums.NativePetscPreconditioner.ILU
-    #: Required precisely for the pseudo-transient profile.
-    pseudo: PseudoTimeOutput | None = None
-    #: Required precisely for nonlinear additive Schwarz.
-    schwarz: SchwarzOutput | None = None
-    #: Inner trust-region profile used by SNES and TSPSEUDO correction.
+    #: Normalized trust-region controls.
     trust: TrustRegionOutput = msgspec.field(default_factory=lambda: _document_default({"initial": 1.0, "maximum": 100000000.0, "minimum": 1e-12}, TrustRegionOutput))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.linear), v.scalar_key(self.method), v.scalar_key(self.preconditioner), v.optional_key(v.record_key)(self.pseudo), v.optional_key(v.record_key)(self.schwarz), v.record_key(self.trust),))
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.linear), v.scalar_key(self.method), v.scalar_key(self.preconditioner), v.record_key(self.trust),))
 
 
 class PetscSettingsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="petsc"):
-    """Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile."""
+    """Serial PETSc direct trust-region root profile."""
 
     #: Selected native KSP method.
     linear: enums.NativePetscLinear = enums.NativePetscLinear.GMRES
-    #: Selected native nonlinear method.
+    #: Selected direct nonlinear method.
     method: enums.NativePetscMethod = enums.NativePetscMethod.NEWTON_TRUST_REGION
     #: Selected native PC method.
     preconditioner: enums.NativePetscPreconditioner = enums.NativePetscPreconditioner.ILU
-    #: Required precisely for the pseudo-transient profile.
-    pseudo: PseudoTimeOutput | None = None
-    #: Required precisely for nonlinear additive Schwarz.
-    schwarz: SchwarzOutput | None = None
-    #: Inner trust-region profile used by SNES and TSPSEUDO correction.
+    #: Normalized trust-region controls.
     trust: TrustRegionOutput = msgspec.field(default_factory=lambda: _document_default({"initial": 1.0, "maximum": 100000000.0, "minimum": 1e-12}, TrustRegionOutput))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.linear), v.scalar_key(self.method), v.scalar_key(self.preconditioner), v.optional_key(v.record_key)(self.pseudo), v.optional_key(v.record_key)(self.schwarz), v.record_key(self.trust),))
+        return (type(self), (v.scalar_key(self.linear), v.scalar_key(self.method), v.scalar_key(self.preconditioner), v.record_key(self.trust),))
 
 
 class Phase(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18229,6 +18305,34 @@ class ProductHeaderPageOutput(msgspec.Struct, frozen=True, forbid_unknown_fields
         return (type(self), (v.optional_key(v.record_key)(self.next), v.sequence_key(v.record_key)(self.rows),))
 
 
+class ProductPermission(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Local validity remains meaningful even when original permission withholds a product."""
+
+    #: The completed scientific product decision.
+    decision: enums.CandidateUse
+    #: Existing registry-owned derived scientific quantity.
+    quantity: enums.DerivedQuantity
+    #: The independent mathematical assessment, with its original qualifiers.
+    validity: LocalValidity
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.decision), v.scalar_key(self.quantity), v.record_key(self.validity),))
+
+
+class ProductPermissionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Local validity remains meaningful even when original permission withholds a product."""
+
+    #: The completed scientific product decision.
+    decision: enums.CandidateUse
+    #: Existing registry-owned derived scientific quantity.
+    quantity: enums.DerivedQuantity
+    #: The independent mathematical assessment, with its original qualifiers.
+    validity: LocalValidityOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.decision), v.scalar_key(self.quantity), v.record_key(self.validity),))
+
+
 class ProductionDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A producer's finite output obligation, before the output point or receipt exists."""
 
@@ -18282,13 +18386,15 @@ class ProfileChain(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     parameter: v.SemanticId
     #: Every pinned fit, in solve order.
     points: tuple[ProfilePoint, ...]
+    #: Limitations retained from the estimate and accepted pins through this interval end.
+    qualifiers: tuple[enums.CandidateQualifier, ...]
     #: Worker start or environment failures for this execution, including partial starts.
     scheduling_failures: tuple[ProfileWorkerFailure, ...]
     #: Typed worker failure, separate from the scientific interval outcome.
     worker_failure: ProfileWorkerFailure | None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.actual_parallelism), v.record_key(self.bound), v.optional_key(v.scalar_key)(self.detail), v.scalar_key(self.end), v.scalar_key(self.estimate), v.scalar_key(self.parameter), v.sequence_key(v.record_key)(self.points), v.sequence_key(v.record_key)(self.scheduling_failures), v.optional_key(v.record_key)(self.worker_failure),))
+        return (type(self), (v.scalar_key(self.actual_parallelism), v.record_key(self.bound), v.optional_key(v.scalar_key)(self.detail), v.scalar_key(self.end), v.scalar_key(self.estimate), v.scalar_key(self.parameter), v.sequence_key(v.record_key)(self.points), v.sequence_key(v.scalar_key)(self.qualifiers), v.sequence_key(v.record_key)(self.scheduling_failures), v.optional_key(v.record_key)(self.worker_failure),))
 
 
 class ProfileControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -18366,6 +18472,8 @@ class ProfilePoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     objective: float | None
     #: The pinned fit's qualification, when the runner returned a report.
     qualification: enums.NativeQualification | None
+    #: Applicability and closure limitations of this independently checked pin.
+    qualifiers: tuple[enums.CandidateQualifier, ...]
     #: Actual residual-native evidence for this pin; absent for a native NLP pin.
     residual: FitResidualReport | None
     #: The chain point whose solution seeded this fit; `None` for the fit estimate (PS-11).
@@ -18378,7 +18486,7 @@ class ProfilePoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     value: float
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.accepted), v.scalar_key(self.callback_terminal_failure), v.optional_key(v.scalar_key)(self.detail), v.sequence_key(v.record_key)(self.failures), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.qualification), v.optional_key(v.record_key)(self.residual), v.optional_key(v.scalar_key)(self.seed), v.optional_key(v.scalar_key)(self.statistic), v.optional_key(v.scalar_key)(self.termination), v.scalar_key(self.value),))
+        return (type(self), (v.scalar_key(self.accepted), v.scalar_key(self.callback_terminal_failure), v.optional_key(v.scalar_key)(self.detail), v.sequence_key(v.record_key)(self.failures), v.optional_key(v.scalar_key)(self.objective), v.optional_key(v.scalar_key)(self.qualification), v.sequence_key(v.scalar_key)(self.qualifiers), v.optional_key(v.record_key)(self.residual), v.optional_key(v.scalar_key)(self.seed), v.optional_key(v.scalar_key)(self.statistic), v.optional_key(v.scalar_key)(self.termination), v.scalar_key(self.value),))
 
 
 class ProfileRef(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -20882,50 +20990,6 @@ class PropagationOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         return (type(self), (v.record_key(self.covariance), v.sequence_key(v.scalar_key)(self.outputs),))
 
 
-class PseudoTime(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Finite step growth and rejection controls for artificial pseudo-time."""
-
-    #: Failed-stage shrink strictly between zero and one.
-    failed_scale: float = 0.5
-    #: Successful-step growth greater than one.
-    growth: float = 1.1
-    #: Positive artificial initial time step.
-    initial: float = 0.01
-    #: Finite maximum time step.
-    maximum: float = 1000000.0
-    #: Explicit rejection floor; a step below this ends the attempt.
-    minimum: float = 1e-12
-    #: Finite allowed nonlinear failures.
-    nonlinear_failures: Annotated[int, msgspec.Meta(ge=0)] = 20
-    #: Finite allowed rejected steps.
-    rejections: Annotated[int, msgspec.Meta(ge=0)] = 20
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.failed_scale), v.scalar_key(self.growth), v.scalar_key(self.initial), v.scalar_key(self.maximum), v.scalar_key(self.minimum), v.scalar_key(self.nonlinear_failures), v.scalar_key(self.rejections),))
-
-
-class PseudoTimeOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Finite step growth and rejection controls for artificial pseudo-time."""
-
-    #: Failed-stage shrink strictly between zero and one.
-    failed_scale: float = 0.5
-    #: Successful-step growth greater than one.
-    growth: float = 1.1
-    #: Positive artificial initial time step.
-    initial: float = 0.01
-    #: Finite maximum time step.
-    maximum: float = 1000000.0
-    #: Explicit rejection floor; a step below this ends the attempt.
-    minimum: float = 1e-12
-    #: Finite allowed nonlinear failures.
-    nonlinear_failures: Annotated[int, msgspec.Meta(ge=0)] = 20
-    #: Finite allowed rejected steps.
-    rejections: Annotated[int, msgspec.Meta(ge=0)] = 20
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.failed_scale), v.scalar_key(self.growth), v.scalar_key(self.initial), v.scalar_key(self.maximum), v.scalar_key(self.minimum), v.scalar_key(self.nonlinear_failures), v.scalar_key(self.rejections),))
-
-
 class PureConformanceControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Limits and selection for pure document conformance, with no solver work."""
 
@@ -21996,6 +22060,58 @@ class ReplayCaseInputsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=
         return (type(self), (v.mapping_key(v.scalar_key, v.scalar_key)(self.members), v.mapping_key(v.scalar_key, v.scalar_key)(self.values), v.mapping_key(v.scalar_key, v.record_key)(self.variables),))
 
 
+class ReplayConstructorFit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fit"):
+    """Original shared-parameter fit."""
+
+    #: Complete immutable fitting constructor.
+    fit: ReplayFitConstructor
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.fit),))
+
+
+class ReplayConstructorHorizon(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="horizon"):
+    """Original requested horizon, independently of retained full or compact history."""
+
+    #: Complete original plant and stage constructors.
+    horizon: ReplayHorizonConstructor
+    #: Exact original horizon provenance bytes.
+    provenance: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.horizon), v.sequence_key(v.scalar_key)(self.provenance),))
+
+
+class ReplayConstructorModeling(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="modeling"):
+    """Original finite authored sequence."""
+
+    #: Original cases in their exact requested order.
+    cases: tuple[ReplayCaseConstructorOutput, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.cases),))
+
+
+class ReplayConstructorShooting(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="shooting"):
+    """Host-only composed shooting; this does not admit persisted study shooting."""
+
+    #: Original shooting with its original simulation constructor.
+    shooting: ReplayShootingConstructor
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.shooting),))
+
+
+class ReplayConstructorSimulation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="simulation"):
+    """Original physical integration."""
+
+    #: Complete immutable integration constructor.
+    simulation: ReplaySimulationConstructor
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.simulation),))
+
+
 class ReplayCoverage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Recorded coverage, without promoting an interrupted prefix into a full trajectory."""
 
@@ -22057,15 +22173,15 @@ class ReplayDecisions(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 class ReplayDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Complete export of available scientific premises. Compiled products/factories remain in-process capabilities."""
 
-    _pse_required_version: ClassVar[int] = 4
+    _pse_required_version: ClassVar[int] = 5
 
     #: Explicit current document version.
-    version: Literal[4] = 4
+    version: Literal[5] = 5
     #: Exact required binary build.
     build: v.ContentHash
-    #: Original portable case constructors, retaining all supplied structural and numerical inputs.
-    case_constructors: tuple[ReplayCaseConstructorOutput, ...]
-    #: Original physical mappings and full constructor configurations, using existing producer documents.
+    #: Exactly one original operation constructor, with its family-owned payloads.
+    constructor: ReplayConstructor
+    #: Original physical mappings and full constructor configurations.
     contexts: tuple[RuntimeScientificContextsRow, ...]
     #: Exact original independent-sequence failure policy.
     continue_independent: bool
@@ -22073,12 +22189,6 @@ class ReplayDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     coverage: ReplayCoverageOutput
     #: Full retained decisions with their actual effective declaration.
     decisions: tuple[ReplayDecisions, ...]
-    #: Complete original fit and experiment constructor.
-    fit_constructor: ReplayFitConstructor | None
-    #: Full original horizon provenance, including output demand, period, stages and mappings.
-    horizon: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...] | None
-    #: Complete original closed-loop plant and stage constructors.
-    horizon_constructor: ReplayHorizonConstructor | None
     #: Full actual retained adapter settings, submitted starts and original coordinate witnesses.
     native_attempts: tuple[ReplayNativeAttemptOutput, ...]
     #: Native continuation has no library checkpoint in the current source owner.
@@ -22087,10 +22197,6 @@ class ReplayDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     native_record_coverage: ReplayNativeRecordCoverage
     #: Actual immutable build/runtime observations used by constructor admission.
     runtime_premises: tuple[SnapshotOutput, ...]
-    #: Complete original shooting and simulation constructor.
-    shooting_constructor: ReplayShootingConstructor | None
-    #: Complete original simulation constructors across all linked methods.
-    simulation_constructors: tuple[ReplaySimulationConstructor, ...]
     #: Full actual solver settings for all original solver owners.
     solver_settings: tuple[ReplaySolverSettingsOutput, ...]
     #: Historical source execution; a numerical rerun always gets another identity.
@@ -22099,7 +22205,7 @@ class ReplayDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     sources: tuple[ReplaySourceDocumentOutput, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.build), v.sequence_key(v.record_key)(self.case_constructors), v.sequence_key(v.record_key)(self.contexts), v.scalar_key(self.continue_independent), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.decisions), v.optional_key(v.record_key)(self.fit_constructor), v.optional_key(v.sequence_key(v.scalar_key))(self.horizon), v.optional_key(v.record_key)(self.horizon_constructor), v.sequence_key(v.record_key)(self.native_attempts), v.scalar_key(self.native_continuation), v.scalar_key(self.native_record_coverage), v.sequence_key(v.record_key)(self.runtime_premises), v.optional_key(v.record_key)(self.shooting_constructor), v.sequence_key(v.record_key)(self.simulation_constructors), v.sequence_key(v.record_key)(self.solver_settings), v.scalar_key(self.source_run), v.sequence_key(v.record_key)(self.sources),))
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.build), v.record_key(self.constructor), v.sequence_key(v.record_key)(self.contexts), v.scalar_key(self.continue_independent), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.decisions), v.sequence_key(v.record_key)(self.native_attempts), v.scalar_key(self.native_continuation), v.scalar_key(self.native_record_coverage), v.sequence_key(v.record_key)(self.runtime_premises), v.sequence_key(v.record_key)(self.solver_settings), v.scalar_key(self.source_run), v.sequence_key(v.record_key)(self.sources),))
 
 
 class ReplayFitConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -24559,7 +24665,7 @@ class ResultInspectionDocumentSchema(msgspec.Struct, frozen=True, forbid_unknown
     recorded_rows: Annotated[int, msgspec.Meta(ge=0)]
     #: Original schema metadata including contract version/fingerprint.
     schema_metadata: dict[str, str]
-    #: Exact original source/terminal/range; usability remains Unknown.
+    #: Exact original source/terminal/range and available completion-owned product permission.
     selection: PackResultSelectionOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
@@ -24593,7 +24699,7 @@ class ResultInspectionDocumentValues(msgspec.Struct, frozen=True, forbid_unknown
     schema_metadata: dict[str, str]
     #: Exact original descriptors, in requested order.
     selected_fields: tuple[ResultInspectionField, ...]
-    #: Exact original source/terminal/range; usability remains Unknown.
+    #: Exact original source/terminal/range and available completion-owned product permission.
     selection: PackResultSelectionOutput
 
     def _pse_equality_key(self) -> v.EqualityKey:
@@ -24632,7 +24738,7 @@ class ResultInspectionField(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 class ResultInspectionOriginal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Original governing permission and retained physical interpretation, independent of selected-product usability."""
 
-    #: Producer-authored governing Assessment usable fact. Missing/error/infrastructure is unknown.
+    #: Completion-owned original scientific permission. Missing original fact is unknown.
     governing_permission: bool | None
     #: Original physical source closure availability, never a current-context substitution.
     physical: ResultPhysicalContext
@@ -26933,30 +27039,6 @@ class ScheduledInput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
         return (type(self), (v.scalar_key(self.parameter), v.sequence_key(v.scalar_key)(self.times),))
 
 
-class Schwarz(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Explicit correction damping and overlap extension for nonlinear Schwarz."""
-
-    #: Native nonlinear correction damping in (0,1].
-    damping: float = 1.0
-    #: Restrict the extension to each block's declared interior.
-    restricted: bool = True
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.damping), v.scalar_key(self.restricted),))
-
-
-class SchwarzOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Explicit correction damping and overlap extension for nonlinear Schwarz."""
-
-    #: Native nonlinear correction damping in (0,1].
-    damping: float = 1.0
-    #: Restrict the extension to each block's declared interior.
-    restricted: bool = True
-
-    def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.damping), v.scalar_key(self.restricted),))
-
-
 class ScientificArtifactCoordinate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A row or nested value projected from the registry declaration."""
 
@@ -27013,6 +27095,50 @@ class ScientificFactsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.candidate_use), v.scalar_key(self.seed_permission), v.scalar_key(self.usable),))
+
+
+class ScientificPermission(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One completion-owned original scope, with evidence and reasons retained together."""
+
+    #: Result permission; seed evidence remains on the original assessments.
+    decision: enums.CandidateUse
+    #: Actually retained original observations.
+    observed: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original applicability/incumbent qualifiers, without strengthening.
+    qualifiers: tuple[enums.CandidateQualifier, ...]
+    #: Original refusal reasons, including incomplete coverage and report failure.
+    refusals: tuple[enums.CandidateRefusal, ...]
+    #: Whether the original requested report succeeded.
+    report_succeeded: bool
+    #: Required original observations in this scope.
+    requested: Annotated[int, msgspec.Meta(ge=0)]
+    #: Absent for the complete request; otherwise the original independent step.
+    step: int | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.decision), v.scalar_key(self.observed), v.sequence_key(v.scalar_key)(self.qualifiers), v.sequence_key(v.scalar_key)(self.refusals), v.scalar_key(self.report_succeeded), v.scalar_key(self.requested), v.optional_key(v.scalar_key)(self.step),))
+
+
+class ScientificPermissionOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One completion-owned original scope, with evidence and reasons retained together."""
+
+    #: Result permission; seed evidence remains on the original assessments.
+    decision: enums.CandidateUse
+    #: Actually retained original observations.
+    observed: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original applicability/incumbent qualifiers, without strengthening.
+    qualifiers: tuple[enums.CandidateQualifier, ...]
+    #: Original refusal reasons, including incomplete coverage and report failure.
+    refusals: tuple[enums.CandidateRefusal, ...]
+    #: Whether the original requested report succeeded.
+    report_succeeded: bool
+    #: Required original observations in this scope.
+    requested: Annotated[int, msgspec.Meta(ge=0)]
+    #: Absent for the complete request; otherwise the original independent step.
+    step: int | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.decision), v.scalar_key(self.observed), v.sequence_key(v.scalar_key)(self.qualifiers), v.sequence_key(v.scalar_key)(self.refusals), v.scalar_key(self.report_succeeded), v.scalar_key(self.requested), v.optional_key(v.scalar_key)(self.step),))
 
 
 class ScipSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="scip"):
@@ -31521,6 +31647,8 @@ RefusalOutput = RefusalOutputDependencyUnusable | RefusalOutputSeedPermission | 
 
 ReplayBoundOverride = ReplayBoundOverrideKeep | ReplayBoundOverrideRemove | ReplayBoundOverrideValue
 
+ReplayConstructor = ReplayConstructorModeling | ReplayConstructorSimulation | ReplayConstructorFit | ReplayConstructorHorizon | ReplayConstructorShooting
+
 ReplayForwardSelection = ReplayForwardSelectionSemanticParameters | ReplayForwardSelectionPhysicalAxes
 
 ReplayHorizonSignal = ReplayHorizonSignalMeasured | ReplayHorizonSignalEstimated | ReplayHorizonSignalApplied | ReplayHorizonSignalTrajectory
@@ -32396,6 +32524,8 @@ __all__ = [
     "LimitsOutput",
     "LinearDiagnosticControls",
     "LinearDiagnosticControlsOutput",
+    "LocalValidity",
+    "LocalValidityOutput",
     "ManagedDetailOwner",
     "ManagedDetailOwnerOutput",
     "ManagedDetailReference",
@@ -32690,6 +32820,8 @@ __all__ = [
     "ProductHeaderPage",
     "ProductHeaderPageOutput",
     "ProductKind",
+    "ProductPermission",
+    "ProductPermissionOutput",
     "ProductionDemand",
     "ProductionDemandOutput",
     "ProfileChain",
@@ -32849,8 +32981,6 @@ __all__ = [
     "ProjectStudyClosureOutput",
     "Propagation",
     "PropagationOutput",
-    "PseudoTime",
-    "PseudoTimeOutput",
     "PureConformanceControls",
     "PureConformanceControlsOutput",
     "QuantityKind",
@@ -32922,6 +33052,12 @@ __all__ = [
     "ReplayCaseConstructorOutput",
     "ReplayCaseInputs",
     "ReplayCaseInputsOutput",
+    "ReplayConstructor",
+    "ReplayConstructorFit",
+    "ReplayConstructorHorizon",
+    "ReplayConstructorModeling",
+    "ReplayConstructorShooting",
+    "ReplayConstructorSimulation",
     "ReplayCoverage",
     "ReplayCoverageOutput",
     "ReplayDecisions",
@@ -33186,12 +33322,12 @@ __all__ = [
     "RuntimeSolveRunsRow",
     "RuntimeSolveRunsRowOutput",
     "ScheduledInput",
-    "Schwarz",
-    "SchwarzOutput",
     "ScientificArtifactCoordinate",
     "ScientificCoordinateValue",
     "ScientificFacts",
     "ScientificFactsOutput",
+    "ScientificPermission",
+    "ScientificPermissionOutput",
     "ScipSettings",
     "ScipSettingsDocument",
     "ScipSettingsDocumentOutput",
@@ -33460,4 +33596,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:c2eb44dc3096325c180953fa54b5c9618bd4fa03fa52251e835ef005b95c00ea"
+SCHEMA_SET_FINGERPRINT = "blake3:f87d518034ebfe00547f6b32a106482848453ec8145b40691ca8e2cfb9bf0a44"

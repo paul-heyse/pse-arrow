@@ -14,11 +14,12 @@ impl ModelingPackage {
     /// or compiler support, source validation or the original scope refuses it.
     pub async fn prepare_path_curvature(
         &self,
+        services: &crate::workflow::PreparationServices,
         original: &ModelingSolvePreparation,
         scope: ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<crate::math::solves::paths::PathCurvature, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity.scope(async {
         scope
             .check()
@@ -40,7 +41,7 @@ impl ModelingPackage {
                 contract("path curvature requires the actual scalar parametric request")
             })?;
         let program = self
-            .parametric_program(
+            .parametric_program(services,
                 &original.model.model,
                 &original.model,
                 &request.parameters,
@@ -53,9 +54,8 @@ impl ModelingPackage {
             .check()
             .map_err(pse_backend_native::ProblemError::Provider)
             .map_err(crate::math::MathRuntimeError::from)?;
-        Ok(self
-            .runtime
-            .native()
+        Ok(services
+            .math()
             .prepare_path_curvature(original.solve.clone(), program, scope, driver)
             .await?)
 

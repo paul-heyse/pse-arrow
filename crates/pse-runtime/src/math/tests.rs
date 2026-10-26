@@ -801,6 +801,7 @@ async fn nested_preparation_admits_small_sources_with_generous_worker_capacity()
     };
     let prepared = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Default::default(),
@@ -848,6 +849,7 @@ async fn general_rebind_admits_small_projection_with_generous_worker_capacity() 
         .unwrap();
     let prepared = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Default::default(),
@@ -1561,6 +1563,7 @@ async fn direct_function_preparation_uses_finite_policy_through_postdispatch_joi
     let driver = crate::CancelSource::new();
     let model = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Default::default(),
@@ -1569,7 +1572,9 @@ async fn direct_function_preparation_uses_finite_policy_through_postdispatch_joi
         )
         .await
         .unwrap();
-    let workspace = package.pure_workspace().unwrap();
+    let workspace = package
+        .pure_workspace(&runtime.preparation_services())
+        .unwrap();
     let rows = model
         .compiled()
         .admitted

@@ -18,6 +18,7 @@ impl ModelingPackage {
     )]
     pub async fn prepare_simulation(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         instance: InstanceId,
         bindings: Bindings,
@@ -28,12 +29,13 @@ impl ModelingPackage {
         derivatives: DerivativeOrder,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 self.prepare_simulation_for(
+                    services,
                     root,
                     instance,
                     bindings,
@@ -56,6 +58,7 @@ impl ModelingPackage {
     )]
     pub(in crate::workflow) async fn prepare_simulation_for(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         instance: InstanceId,
         bindings: Bindings,
@@ -67,12 +70,13 @@ impl ModelingPackage {
         exact_parameters: &BTreeSet<SemanticId>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 self.prepare_simulation_with_controls(
+                    services,
                     root,
                     instance,
                     bindings,
@@ -100,6 +104,7 @@ impl ModelingPackage {
     )]
     pub(in crate::workflow) async fn prepare_simulation_with_controls(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         instance: InstanceId,
         bindings: Bindings,
@@ -116,9 +121,9 @@ impl ModelingPackage {
         pending: Option<&crate::workflow::PhysicalSimulationRequest>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 if bindings
@@ -151,7 +156,7 @@ impl ModelingPackage {
                         model
                     }
                     _ => {
-                        self.prepare(root, instance, bindings.clone(), limits, cancel)
+                        self.prepare(services, root, instance, bindings.clone(), limits, cancel)
                             .await?
                     }
                 };
@@ -191,6 +196,7 @@ impl ModelingPackage {
                 let original_profile = profile.clone();
                 let mut simulation = self
                     .prepare_simulation_modes(
+                        services,
                         root,
                         instance,
                         bindings.clone(),
@@ -220,7 +226,7 @@ impl ModelingPackage {
                 };
                 simulation.original_inputs =
                     Some(crate::workflow::replay::OriginalSimulationInputs::capture(
-                        self,
+                        services,
                         root,
                         instance,
                         &bindings,
@@ -245,6 +251,7 @@ impl ModelingPackage {
     )]
     async fn prepare_simulation_modes(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         instance: InstanceId,
         bindings: Bindings,
@@ -289,16 +296,17 @@ impl ModelingPackage {
             }
             #[cfg(feature = "solver-diffsol")]
             let original = engagement::OriginalPreparationInputs::capture(
-                self, root, instance, &bindings, limits,
+                services, root, instance, &bindings, limits,
             )?;
             let model = if mode.facts.is_empty() {
                 base.clone()
             } else {
-                self.prepare(root, instance, bindings, limits, cancel)
+                self.prepare(services, root, instance, bindings, limits, cancel)
                     .await?
             };
             let mut next = self
                 .prepare_simulation_mode(
+                    services,
                     model,
                     #[cfg(feature = "solver-diffsol")]
                     original,

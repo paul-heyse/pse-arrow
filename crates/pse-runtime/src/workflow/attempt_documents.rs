@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bounded projections of retained producer evidence. No evaluation or native call occurs here.
-use super::{RunReport, RunRequest, RunResult, WorkflowError, contract};
+use super::{RunResult, WorkflowError, contract};
 use crate::math::strategy::{Event, OriginalConclusion, Trace};
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::diagnostic::Observation as NumberObservation;
@@ -442,24 +442,14 @@ impl RunResult {
             .saturating_add(
                 size_of::<AttemptSummary>() + size_of::<AttemptSummaryDocument>() + 512,
             );
-        let requested_steps = match self.request() {
-            RunRequest::Modeling(steps) => steps.len(),
-            _ => 1,
-        };
+        let requested_steps = self.request().facts().requested_steps;
+        let facts = self.completed_facts();
         // Admit copies of actual variable-size option/start payloads before cloning them.
         for step in 0..requested_steps.min(limits.steps) {
-            let native = self
-                .modeling_result(step)
-                .and_then(|result| match &result.outcome {
-                    crate::math::solves::Outcome::Native(native) => Some(native.as_ref()),
-                    _ => None,
-                })
-                .or(match self.report() {
-                    Ok(RunReport::Fit(report)) => report.solve.as_ref(),
-                    #[cfg(feature = "solver-diffsol")]
-                    Ok(RunReport::Shooting(report)) => report.solve.as_ref(),
-                    _ => None,
-                });
+            let native = facts
+                .native_reports
+                .iter()
+                .find_map(|(ordinal, native)| (*ordinal == step).then_some(*native));
             if let Some(native) = native {
                 extent = native_copy_extent(native)
                     .and_then(|copied| extent.checked_add(copied))
@@ -467,8 +457,8 @@ impl RunResult {
             }
         }
         let owner = self
-            .runtime
-            .shared
+            .services
+            .preparation()
             .math()
             .reserve("attempt:retained-summary", extent)?;
         let mut summary = AttemptSummaryDocument {
@@ -478,12 +468,7 @@ impl RunResult {
             omitted_steps: requested_steps.saturating_sub(limits.steps),
             native_attempts: Vec::new(),
             omitted_native_attempts: 0,
-            native_record_coverage: match self.original_request() {
-                RunRequest::Simulation(_) | RunRequest::Horizon(_) => {
-                    super::ReplayNativeRecordCoverage::IntegrationReportOnly
-                }
-                _ => super::ReplayNativeRecordCoverage::StrategyAttempts,
-            },
+            native_record_coverage: self.original_request().facts().native_record_coverage,
             failure: None,
             usable: self.usable(),
             _allocation: Some(owner.clone()),
@@ -515,37 +500,20 @@ impl RunResult {
                     projected.trace(trace, &mut events);
                 }
             } else {
-                match self.report() {
-                    Ok(RunReport::Fit(report)) => {
-                        projected.accepted = Some(self.usable());
-                        if let Some(native) = &report.solve {
-                            projected.native(native, &mut findings);
-                        }
-                        if let Some(trace) = &report.strategy {
-                            projected.trace(trace, &mut events);
-                        }
-                    }
-                    #[cfg(feature = "solver-diffsol")]
-                    Ok(RunReport::Shooting(report)) => {
-                        projected.accepted = Some(self.usable());
-                        if let Some(native) = &report.solve {
-                            projected.native(native, &mut findings);
-                        }
-                        if let Some(trace) = &report.strategy {
-                            projected.trace(trace, &mut events);
-                        }
-                    }
-                    Ok(RunReport::Simulation(_)) | Ok(RunReport::Horizon(_)) => {
-                        projected.accepted = Some(self.usable());
-                    }
-                    Err(error) => {
-                        projected.observation =
-                            Some(crate::math::strategy::workflow_failure(error));
-                        if let Some(trace) = error.strategy_trace() {
-                            projected.trace(trace, &mut events);
-                        }
-                    }
-                    _ => {}
+                projected.accepted = facts.non_modeling_accepted;
+                if let Some((_, native)) = facts
+                    .native_reports
+                    .iter()
+                    .find(|(ordinal, _)| *ordinal == step)
+                {
+                    projected.native(native, &mut findings);
+                }
+                if let Err(error) = self.report() {
+                    projected.observation = Some(crate::math::strategy::workflow_failure(error));
+                }
+                if let Some((_, trace)) = facts.traces.iter().find(|(ordinal, _)| *ordinal == step)
+                {
+                    projected.trace(trace, &mut events);
                 }
             }
             summary.steps.push(projected);
@@ -573,7 +541,7 @@ mod tests {
     fn default_summary_is_one_shared_product_and_custom_bounds_are_explicit() {
         let result = RunResult::joined(
             RunId::from_bytes([91; 16]),
-            crate::workflow::tests::runtime(),
+            crate::workflow::tests::runtime().execution_services(),
             crate::workflow::RunOutcome::Modeling {
                 request: vec![],
                 result: Ok(vec![]),
@@ -599,7 +567,7 @@ mod tests {
     fn escaped_summary_document_retains_real_lease_and_decoding_is_data_only() {
         let result = RunResult::joined(
             RunId::from_bytes([93; 16]),
-            crate::workflow::tests::runtime(),
+            crate::workflow::tests::runtime().execution_services(),
             crate::workflow::RunOutcome::Modeling {
                 request: vec![],
                 result: Ok(vec![]),

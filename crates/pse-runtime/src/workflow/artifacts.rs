@@ -859,7 +859,7 @@ impl Runtime {
                     let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
                         .map_err(|error| contract(error.to_string()))?;
                     let snapshot = super::ResultSnapshot::capture(
-                        self,
+                        &self.source_services(),
                         input.clone(),
                         input_owner.clone(),
                         spec.id,
@@ -1163,6 +1163,7 @@ mod tests {
         };
         let prepared = package
             .prepare_simulation(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -1175,7 +1176,12 @@ mod tests {
             )
             .await
             .unwrap();
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared
+            .start(&runtime.execution_services())
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
         let run = result.canonical_run_key().unwrap();
         let attempt = result.canonical_attempt_key().unwrap();
         let original = pse_relations::generated::runtime::trajectory_endpoints::Row::rows(
@@ -1351,6 +1357,7 @@ mod tests {
         };
         let prepared = package
             .declared_simulation(
+                &runtime.preparation_services(),
                 root,
                 super::super::tests::compiler_profile(),
                 Some(profile),
@@ -1359,7 +1366,12 @@ mod tests {
             )
             .await
             .unwrap();
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared
+            .start(&runtime.execution_services())
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
         assert!(
             !result.usable(),
             "the fixed-horizon completion remains unsatisfied after the event"

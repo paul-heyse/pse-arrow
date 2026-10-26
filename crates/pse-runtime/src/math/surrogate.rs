@@ -57,7 +57,7 @@ impl Drop for ActorGateGuard<'_> {
 }
 impl ActorGate {
     fn poison() -> MathRuntimeError {
-        MathRuntimeError::Panic("surrogate actor gate poisoned".into())
+        MathRuntimeError::Internal("surrogate actor gate poisoned".into())
     }
     fn lock(&self) -> Result<ActorGateGuard<'_>, MathRuntimeError> {
         Ok(ActorGateGuard {
@@ -513,11 +513,9 @@ impl MathService {
         let (actor, owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{scope.cancellation_control().cancel();control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         // The actor itself owns the lease so its Drop joins library/pool destruction before releasing it,
         // including when the last handle disappears during a detached active job.
-        *actor
-            .owner
-            .lock()
-            .map_err(|_| MathRuntimeError::Panic("surrogate allocation owner poisoned".into()))? =
-            Some(owner.clone());
+        *actor.owner.lock().map_err(|_| {
+            MathRuntimeError::Internal("surrogate allocation owner poisoned".into())
+        })? = Some(owner.clone());
         Ok(SurrogateHandle {
             service: self.clone(),
             actor,
@@ -790,7 +788,10 @@ impl MathService {
         }
         let local = Instant::now()
             .checked_add(time)
-            .ok_or_else(|| ProblemError::Contract("surrogate phase deadline extent".into()))?;
+            .ok_or_else(|| ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                detail: "surrogate phase deadline extent".into(),
+            })?;
         let deadline = scope
             .deadline()
             .into_iter()
@@ -1207,6 +1208,7 @@ mod tests {
         };
         let mut prepared = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -1317,6 +1319,7 @@ mod tests {
             };
             let denied = package
                 .prepare_solve(
+                    &runtime.preparation_services(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Default::default(),
@@ -1342,6 +1345,7 @@ mod tests {
             );
             let mismatch = package
                 .prepare_solve(
+                    &runtime.preparation_services(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Default::default(),
@@ -1374,6 +1378,7 @@ mod tests {
             );
             let wrong_original = package
                 .prepare_solve(
+                    &runtime.preparation_services(),
                     other,
                     pse_modeling::specialize::root_instance(other),
                     Default::default(),
@@ -1421,7 +1426,12 @@ mod tests {
                 .unwrap();
         }
         let result = package
-            .solve_case(prepared, workflow_fixture::compiler_profile(), &cancel)
+            .solve_case(
+                &runtime.execution_services(),
+                prepared,
+                workflow_fixture::compiler_profile(),
+                &cancel,
+            )
             .await
             .unwrap();
         assert!(result.accepted, "diagnostic={:?}", result.diagnostic());
@@ -1492,6 +1502,29 @@ mod tests {
 #[cfg(test)]
 mod gate_wait_tests {
     use super::*;
+    #[test]
+    fn poisoned_surrogate_owner_is_internal_and_never_input_or_resource_refusal() {
+        use pse_model::diagnostic::DiagnosticProjection;
+        let gate = ActorGate::default();
+        assert!(
+            std::panic::catch_unwind(|| {
+                let _held = gate.lock().unwrap();
+                panic!("injected owned callback unwind");
+            })
+            .is_err()
+        );
+        let error = gate.lock().err().unwrap();
+        assert!(matches!(error, MathRuntimeError::Internal(_)));
+        let diagnostic = error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation);
+        assert_eq!(
+            diagnostic.class,
+            pse_model::diagnostic::BoundaryClass::Internal
+        );
+        assert_eq!(
+            diagnostic.rule,
+            pse_diagnostics::DiagnosticRule::WorkflowInternal
+        );
+    }
     #[test]
     fn surrogate_gate_release_and_cancel_wake_original_waiters() {
         for cancel in [false, true] {

@@ -6,7 +6,7 @@
 
 #[cfg(test)]
 use super::result_files;
-use super::{Runtime, WorkflowError, contract, result_blocks};
+use super::{Runtime, SourceServices, WorkflowError, contract, result_blocks};
 use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryPool, MemoryReservation};
 use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata;
@@ -317,20 +317,20 @@ impl SelectedResultReader {
         &self,
         cancel: CancellationToken,
     ) -> Result<super::SelectedResultSnapshot, WorkflowError> {
-        let activity = self.reader.runtime.admit_activity()?;
-        let pool = self.reader.runtime.shared.pool();
+        let activity = self.reader.services.admit_activity()?;
+        let pool = self.reader.services.preparation().pool();
         let reader = &self.reader;
         activity
             .scope(prepaid_reader_future(&pool, async move {
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                 let selection_owner = MemoryConsumer::new("canonical:selected-snapshot-key")
-                    .register(&reader.runtime.shared.pool());
+                    .register(&reader.services.preparation().pool());
                 selection_owner
                     .try_grow(reader.set.capacity())
                     .map_err(pse_engine::EngineError::from)?;
                 let mut fresh = ResultReader {
                     observation: None,
-                    runtime: reader.runtime.clone(),
+                    services: reader.services.clone(),
                     read: reader.read.clone(),
                     snapshot: None,
                     decode: reader.decode.clone(),
@@ -361,7 +361,7 @@ impl SelectedResultReader {
                 loop {
                     let cancel = fresh.cancel.clone();
                     let next = prepaid_reader_future(
-                        &fresh.runtime.shared.pool(),
+                        &fresh.services.preparation().pool(),
                         fresh.next_checked_body(Some(&mut builder)),
                     )?;
                     let batch = cancel
@@ -481,7 +481,7 @@ impl Write for BoundedExportFile {
 struct ResultReader {
     /// Related lazy access; it owns no scientific execution or cancellation authority.
     observation: Option<pse_diagnostics::observation::OperationGuard>,
-    runtime: Runtime,
+    services: SourceServices,
     read: Arc<ResultRead>,
     snapshot: Option<super::ResultSnapshot>,
     decode: Arc<super::result_snapshot::ProtectedResultDecode>,
@@ -541,7 +541,8 @@ impl ResultReader {
         usability: super::PackScientificState,
     ) -> Result<super::PackResultSelection, WorkflowError> {
         let spec = self
-            .runtime
+            .services
+            .preparation()
             .registry()
             .relation_by_id(self.relation)
             .ok_or_else(|| contract("selected relation absent"))?;
@@ -632,7 +633,8 @@ impl ResultReader {
             .map_err(io)?;
         let mut metadata = self.schema.metadata().clone();
         let relation = self
-            .runtime
+            .services
+            .preparation()
             .registry()
             .relation_by_id(self.relation)
             .ok_or_else(|| contract("selected relation absent"))?;
@@ -866,7 +868,7 @@ impl ResultReader {
         // Construct and erase the large borrowed file-read state here, before
         // polling. Cancellation wrappers then retain only this small owner;
         // their forwarding futures cannot embed another concrete child state.
-        let pool = self.runtime.shared.pool();
+        let pool = self.services.preparation().pool();
         prepaid_reader_future(&pool, self.next_checked_body(None))
     }
 
@@ -916,8 +918,8 @@ impl ResultReader {
                     self.selected_batch = None;
                     return Ok(None);
                 }
-                let owner = response_owner(
-                    &self.runtime,
+                let owner = pooled_response_owner(
+                    &self.services.preparation().pool(),
                     "canonical:result-metadata",
                     if self.output.as_ref().is_some_and(|filter| filter.dense) {
                         MetadataResponse::OutputPage
@@ -934,7 +936,7 @@ impl ResultReader {
                             }
                             if filter.dense {
                                 let page = self
-                                    .runtime
+                                    .services
                                     .canonical_store()?
                                     .result_output_page(
                                         &self.read,
@@ -971,7 +973,7 @@ impl ResultReader {
                                 page.blocks
                             } else {
                                 let joined = self
-                                    .runtime
+                                    .services
                                     .canonical_store()?
                                     .result_joined_block_page(
                                         &self.read,
@@ -1024,7 +1026,7 @@ impl ResultReader {
                     .native_selection
                     .as_ref()
                     .map(|selection| {
-                        selection.prune_members(&self.runtime, page.len(), |index| {
+                        selection.prune_members(&self.services, page.len(), |index| {
                             let block = page.get(index)?;
                             Some((block, self.descriptors.get(&block.batch)?))
                         })
@@ -1035,7 +1037,7 @@ impl ResultReader {
                 self.pruning_position = 0;
                 self.pending = page.into();
                 self.metadata_owner = Some(retain_metadata(
-                    &self.runtime.shared.pool(),
+                    &self.services.preparation().pool(),
                     owner,
                     self.retained_page_bytes()?,
                 )?);
@@ -1081,7 +1083,7 @@ impl ResultReader {
                 use pse_model::HeapUsage;
                 self.selected_batch = None;
                 let owner = MemoryConsumer::new("canonical:selected-current-batch")
-                    .register(&self.runtime.shared.pool());
+                    .register(&self.services.preparation().pool());
                 owner
                     .try_grow(
                         size_of::<SelectedBatch>()
@@ -1112,7 +1114,7 @@ impl ResultReader {
                     .remove(&metadata.batch)
                     .ok_or_else(|| contract("selected output block lacks index"))?;
                 let offsets_owner = MemoryConsumer::new("canonical:selected-source-offsets")
-                    .register(&self.runtime.shared.pool());
+                    .register(&self.services.preparation().pool());
                 let maximum_offsets = match &indexes {
                     OutputRows::Scalar => checked.batch().num_rows(),
                     OutputRows::Dense(_) => checked.batch().num_rows(),
@@ -1229,7 +1231,8 @@ impl ResultReader {
                 }
                 let rows =
                     super::result_snapshot::SelectedRows::from_offsets(indices, offsets_owner)?;
-                let selected = rows.apply(&checked, &self.runtime.shared.pool(), &self.cancel)?;
+                let selected =
+                    rows.apply(&checked, &self.services.preparation().pool(), &self.cancel)?;
                 if let Some(builder) = frozen.as_deref_mut() {
                     builder.push(&metadata, &descriptor, rows)?;
                 }
@@ -1241,7 +1244,7 @@ impl ResultReader {
         }
     }
 }
-impl Runtime {
+impl SourceServices {
     /// Bounded exact-attempt metadata preflight for review publication. It never polls rows.
     pub(crate) async fn review_result_selections(
         &self,
@@ -1253,7 +1256,7 @@ impl Runtime {
             return Err(contract("review selects more than 1024 scientific members"));
         }
         let reservation = MemoryConsumer::new("review:scientific-selection-preflight")
-            .register(&self.shared.pool());
+            .register(&self.preparation().pool());
         let extent = requests
             .iter()
             .try_fold(0usize, |total, request| {
@@ -1287,8 +1290,8 @@ impl Runtime {
             }
             let key = (request.run.clone(), request.attempt.clone());
             if !attempts.contains_key(&key) {
-                let response = response_owner(
-                    self,
+                let response = pooled_response_owner(
+                    &self.preparation().pool(),
                     "review:exact-result-metadata",
                     MetadataResponse::Selection,
                 )?;
@@ -1299,7 +1302,7 @@ impl Runtime {
                 )
                 .await?;
                 let _owner = retain_protected_metadata(
-                    &self.shared.pool(),
+                    &self.preparation().pool(),
                     response,
                     read.retained_bytes()?,
                     |owner| read.retain_metadata_owner(owner),
@@ -1327,6 +1330,7 @@ impl Runtime {
                 .get(&key)
                 .ok_or_else(|| contract("review preflight attempt absent"))?;
             let spec = self
+                .preparation()
                 .registry()
                 .relation(&request.relation)
                 .ok_or_else(|| contract("unknown selected review relation"))?;
@@ -1381,22 +1385,26 @@ impl Runtime {
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("result.read");
                 use pse_relations::generated::runtime::canonical_runs as rows;
-                let extent =
-                    response_owner(self, "canonical:result-header", MetadataResponse::Header)?;
+                let extent = pooled_response_owner(
+                    &self.preparation().pool(),
+                    "canonical:result-header",
+                    MetadataResponse::Header,
+                )?;
                 let row = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
                     self.canonical_store()?.canonical_run(run),
                 )
                 .await?
                 .ok_or_else(|| contract("canonical run absent"))?;
-                let validation = self.validation_context();
-                let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
-                    .map_err(super::relation)?;
+                let validation = self.preparation().validation_context();
+                let mut builder =
+                    rows::Builder::with_registry(self.preparation().registry(), 1, &validation)
+                        .map_err(super::relation)?;
                 builder.push(row).map_err(super::relation)?;
                 builder
                     .finish()
                     .map_err(super::relation)?
-                    .retained(&self.shared.pool(), &CancellationToken::new())
+                    .retained(&self.preparation().pool(), &CancellationToken::new())
                     .map_err(super::relation)
             })
             .await
@@ -1411,22 +1419,26 @@ impl Runtime {
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("result.read");
                 use pse_relations::generated::runtime::canonical_attempts as rows;
-                let extent =
-                    response_owner(self, "canonical:result-header", MetadataResponse::Header)?;
+                let extent = pooled_response_owner(
+                    &self.preparation().pool(),
+                    "canonical:result-header",
+                    MetadataResponse::Header,
+                )?;
                 let row = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
                     self.canonical_store()?.canonical_attempt(attempt),
                 )
                 .await?
                 .ok_or_else(|| contract("canonical attempt absent"))?;
-                let validation = self.validation_context();
-                let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
-                    .map_err(super::relation)?;
+                let validation = self.preparation().validation_context();
+                let mut builder =
+                    rows::Builder::with_registry(self.preparation().registry(), 1, &validation)
+                        .map_err(super::relation)?;
                 builder.push(row).map_err(super::relation)?;
                 builder
                     .finish()
                     .map_err(super::relation)?
-                    .retained(&self.shared.pool(), &CancellationToken::new())
+                    .retained(&self.preparation().pool(), &CancellationToken::new())
                     .map_err(super::relation)
             })
             .await
@@ -1441,8 +1453,11 @@ impl Runtime {
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("result.read");
                 use pse_relations::generated::runtime::canonical_result_manifests as rows;
-                let extent =
-                    response_owner(self, "canonical:result-header", MetadataResponse::Header)?;
+                let extent = pooled_response_owner(
+                    &self.preparation().pool(),
+                    "canonical:result-header",
+                    MetadataResponse::Header,
+                )?;
                 let store = self.canonical_store()?;
                 let read =
                     pse_operations::canonical::response_ownership_scope(extent.clone(), async {
@@ -1457,22 +1472,23 @@ impl Runtime {
                     })
                     .await?;
                 let read_owner = Arc::new(retain_protected_metadata(
-                    &self.shared.pool(),
+                    &self.preparation().pool(),
                     extent.clone(),
                     read.retained_bytes()?,
                     |owner| read.retain_metadata_owner(owner),
                 )?);
                 read.retain_metadata_owner(read_owner)?;
-                let validation = self.validation_context();
-                let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
-                    .map_err(super::relation)?;
+                let validation = self.preparation().validation_context();
+                let mut builder =
+                    rows::Builder::with_registry(self.preparation().registry(), 1, &validation)
+                        .map_err(super::relation)?;
                 builder
                     .push(read.manifest().clone())
                     .map_err(super::relation)?;
                 builder
                     .finish()
                     .map_err(super::relation)?
-                    .retained(&self.shared.pool(), &CancellationToken::new())
+                    .retained(&self.preparation().pool(), &CancellationToken::new())
                     .map_err(super::relation)
             })
             .await
@@ -1492,8 +1508,8 @@ impl Runtime {
             .scope(async {
                 let _observation = pse_diagnostics::observation::phase("result.read");
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                let extent = response_owner(
-                    self,
+                let extent = pooled_response_owner(
+                    &self.preparation().pool(),
                     "canonical:result-selection",
                     MetadataResponse::Selection,
                 )?;
@@ -1543,8 +1559,8 @@ impl Runtime {
                 if start > end {
                     return Err(contract("result row range is reversed"));
                 }
-                let extent = response_owner(
-                    self,
+                let extent = pooled_response_owner(
+                    &self.preparation().pool(),
                     "canonical:result-selection",
                     MetadataResponse::Selection,
                 )?;
@@ -1594,7 +1610,7 @@ impl Runtime {
         extent: Arc<MemoryReservation>,
         output: Option<Arc<OutputFilter>>,
     ) -> Result<PrepaidReaderFuture<'a, Result<ResultReader, WorkflowError>>, WorkflowError> {
-        prepaid_reader_future(&self.shared.pool(), async move {
+        prepaid_reader_future(&self.preparation().pool(), async move {
             let read = match selection {
                 TerminalResultSelection::Exact { run, attempt } => {
                     pse_operations::canonical::response_ownership_scope(
@@ -1627,7 +1643,7 @@ impl Runtime {
     ) -> Result<ResultReader, WorkflowError> {
         let std::ops::Range { start, end } = rows;
         let read_owner = Arc::new(retain_protected_metadata(
-            &self.shared.pool(),
+            &self.preparation().pool(),
             extent,
             read.retained_bytes()?,
             |owner| read.retain_metadata_owner(owner),
@@ -1637,11 +1653,12 @@ impl Runtime {
             return Err(contract("result row range is reversed"));
         }
         let spec = self
+            .preparation()
             .registry()
             .relation(relation)
             .ok_or_else(|| contract("unknown result relation"))?;
         let name = spec.id.to_string();
-        let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
+        let schema = pse_schema::arrow::relation_schema_ref(self.preparation().registry(), spec)
             .map_err(|error| pse_engine::EngineError::Semantic(Arc::new(error)))?;
         let set = read
             .sets()
@@ -1653,8 +1670,8 @@ impl Runtime {
         // The schema is borrowed from the registry's charged immutable arena.
         // The snapshot owns the shared ResultRead allocation. This reader only
         // owns its additional set key; Arc aliases do not charge read metadata twice.
-        let selection_owner =
-            MemoryConsumer::new("canonical:result-selection-key").register(&self.shared.pool());
+        let selection_owner = MemoryConsumer::new("canonical:result-selection-key")
+            .register(&self.preparation().pool());
         selection_owner
             .try_grow(set.len())
             .map_err(pse_engine::EngineError::from)?;
@@ -1704,7 +1721,7 @@ impl Runtime {
                     self,
                     spec.id,
                     schema.clone(),
-                    &self.bound_model().native_state(),
+                    &self.preparation().bound_model().native_state(),
                     expression,
                 )
                 .map_err(pse_engine::EngineError::from)
@@ -1714,7 +1731,7 @@ impl Runtime {
         let exhausted = start == end || snapshot.as_ref().is_some_and(|s| s.blocks().is_empty());
         Ok(ResultReader {
             observation: None,
-            runtime: self.clone(),
+            services: self.clone(),
             snapshot,
             decode,
             read,
@@ -1778,6 +1795,7 @@ impl Runtime {
                     return Err(contract("result row range is reversed"));
                 }
                 let spec = self
+                    .preparation()
                     .registry()
                     .relation(relation)
                     .ok_or_else(|| contract("unknown result relation"))?;
@@ -1805,8 +1823,8 @@ impl Runtime {
                     .and_then(|bytes| bytes.checked_add(partition.len()))
                     .and_then(|bytes| bytes.checked_add(128))
                     .ok_or_else(|| contract("output selection allocation extent"))?;
-                let filter_owner =
-                    MemoryConsumer::new("canonical:output-selection").register(&self.shared.pool());
+                let filter_owner = MemoryConsumer::new("canonical:output-selection")
+                    .register(&self.preparation().pool());
                 filter_owner
                     .try_grow(admitted + size_of::<OutputFilter>() + 2 * size_of::<usize>())
                     .map_err(pse_engine::EngineError::from)?;
@@ -1836,8 +1854,8 @@ impl Runtime {
                 }
                 filter._owner.shrink(admitted - retained);
                 // The immutable typed predicate exists before any block/descriptor RPC.
-                let extent = response_owner(
-                    self,
+                let extent = pooled_response_owner(
+                    &self.preparation().pool(),
                     "canonical:selected-result-selection",
                     MetadataResponse::Selection,
                 )?;
@@ -1872,6 +1890,95 @@ fn write_output_identity(
         output.push_str(field);
     }
     Ok(())
+}
+
+impl Runtime {
+    /// Read review result selections through explicit original-source capabilities.
+    pub(crate) async fn review_result_selections(
+        &self,
+        requests: &[super::ReviewScientificSelection],
+        cancel: &CancellationToken,
+    ) -> Result<(Vec<super::PackResultSelection>, MemoryReservation), WorkflowError> {
+        self.source_services()
+            .review_result_selections(requests, cancel)
+            .await
+    }
+    /// Read run record through explicit original-source capabilities.
+    pub async fn run_record(
+        &self,
+        run: &str,
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        self.source_services().run_record(run).await
+    }
+    /// Read attempt record through explicit original-source capabilities.
+    pub async fn attempt_record(
+        &self,
+        attempt: &str,
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        self.source_services().attempt_record(attempt).await
+    }
+    /// Read result manifest through explicit original-source capabilities.
+    pub async fn result_manifest(
+        &self,
+        attempt: &str,
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        self.source_services().result_manifest(attempt).await
+    }
+    /// Read latest results through explicit original-source capabilities.
+    pub async fn latest_results(
+        &self,
+        problem: &str,
+        classes: &[pse_operations::canonical_execution::TerminalClass],
+        relation: &str,
+        start: u64,
+        end: u64,
+        cancel: CancellationToken,
+    ) -> Result<CanonicalResultReader, WorkflowError> {
+        self.source_services()
+            .latest_results(problem, classes, relation, start, end, cancel)
+            .await
+    }
+    /// Read results through explicit original-source capabilities.
+    pub async fn results(
+        &self,
+        run: &str,
+        attempt: &str,
+        relation: &str,
+        start: u64,
+        end: u64,
+        cancel: CancellationToken,
+    ) -> Result<CanonicalResultReader, WorkflowError> {
+        self.source_services()
+            .results(run, attempt, relation, start, end, cancel)
+            .await
+    }
+    /// Read output results through explicit original-source capabilities.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the read facade preserves exact scientific selection coordinates and cancellation"
+    )]
+    pub async fn output_results(
+        &self,
+        run: &str,
+        attempt: &str,
+        relation: &str,
+        owner: pse_ids::SemanticId,
+        field: &str,
+        partition: &str,
+        start: u64,
+        end: u64,
+        minimum: Option<f64>,
+        maximum: Option<f64>,
+        missing: Option<bool>,
+        cancel: CancellationToken,
+    ) -> Result<SelectedResultReader, WorkflowError> {
+        self.source_services()
+            .output_results(
+                run, attempt, relation, owner, field, partition, start, end, minimum, maximum,
+                missing, cancel,
+            )
+            .await
+    }
 }
 
 #[cfg(test)]
@@ -2547,7 +2654,7 @@ mod canonical_connected_results_server_unit {
             None
         );
         let original = StoredCompletion {
-            version: 2,
+            version: 3,
             attempt_id: pse_operations::mint_id(),
             completion: None,
             termination: TerminationDetail {
@@ -3422,7 +3529,7 @@ mod canonical_connected_results_server_unit {
             ..Default::default()
         };
         let composed = crate::tooling::review_export::export_review_pack(
-            &runtime,
+            &runtime.source_services(),
             &composed_path,
             &evidence,
             &analysis,
@@ -3647,7 +3754,7 @@ mod canonical_connected_results_server_unit {
         let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
         let completion = super::super::durable::StoredCompletion {
-            version: 1,
+            version: 3,
             attempt_id: pse_operations::mint_id(),
             completion: None,
             termination: super::super::durable::TerminationDetail {

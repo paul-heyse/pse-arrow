@@ -111,7 +111,6 @@ impl ConicRequest {
 /// Prepared explicit cone analysis, retaining the declared request and resolved policy.
 #[derive(Clone, Debug)]
 pub struct PreparedConic {
-    runtime: Runtime,
     request: Arc<ConicRequest>,
     solve: PreparedSolve,
     _owner: Arc<pse_columnar::AllocationLease>,
@@ -120,9 +119,10 @@ impl PreparedConic {
     /// Physical coordinates declared by this conic request before native execution.
     pub fn primal_coordinates(
         &self,
+        services: &super::PreparationServices,
     ) -> Result<super::physical_values::PrimalCoordinates, WorkflowError> {
         super::physical_values::PrimalCoordinates::original(
-            &self.runtime,
+            services,
             self.request
                 .variables
                 .iter()
@@ -144,9 +144,12 @@ impl PreparedConic {
         &self.solve
     }
     /// Submit to the existing finite solve lifecycle, including native destruction and join.
-    pub fn start(&self) -> Result<SolveHandle, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
-        activity.sync_scope(|| Ok(self.runtime.native().solve(self.solve.clone())?))
+    pub fn start(
+        &self,
+        services: &super::PreparationServices,
+    ) -> Result<SolveHandle, WorkflowError> {
+        let activity = services.admit_activity()?;
+        activity.sync_scope(|| Ok(services.math().solve(self.solve.clone())?))
     }
 }
 impl Runtime {
@@ -341,7 +344,6 @@ impl Runtime {
                     .prepare_conic(problem, proof, profile, numerics)
                     .await?;
                 Ok(PreparedConic {
-                    runtime: self.clone(),
                     request,
                     solve,
                     _owner: owner,

@@ -23,9 +23,14 @@ fn rows(size: usize, default: u8, nonlinear: bool) -> Vec<Declaration> {
     )
     .unwrap()
 }
-async fn prepare(package: &ModelingPackage, root: DeclarationId) -> ModelingPreparation {
+async fn prepare(
+    services: &crate::workflow::PreparationServices,
+    package: &ModelingPackage,
+    root: DeclarationId,
+) -> ModelingPreparation {
     package
         .prepare(
+            services,
             root,
             pse_modeling::specialize::root_instance(root),
             Default::default(),
@@ -66,7 +71,7 @@ async fn runtime_source_size_ladder_preserves_local_edits_noops_and_old_products
         );
         let before = service.preparation_effects();
         let started = Instant::now();
-        let old_product = prepare(&original, root).await;
+        let old_product = prepare(&runtime.preparation_services(), &original, root).await;
         let cold = service.preparation_effects().since(before);
         assert!(cold.workspaces > 0 && cold.frontiers > 0 && cold.completions > 0);
         eprintln!(
@@ -83,10 +88,10 @@ async fn runtime_source_size_ladder_preserves_local_edits_noops_and_old_products
         let before = service.preparation_effects();
         let started = Instant::now();
         let equal = original
-            .with_declarations(original_rows.clone())
+            .with_declarations(&runtime.source_services(), original_rows.clone())
             .await
             .unwrap();
-        let repeated = prepare(&equal, root).await;
+        let repeated = prepare(&runtime.preparation_services(), &equal, root).await;
         assert_eq!(equal.revision_id(), original.revision_id());
         assert!(pse_math::SharedAllocation::ptr_eq(
             &old_product.compiled().admitted,
@@ -105,7 +110,7 @@ async fn runtime_source_size_ladder_preserves_local_edits_noops_and_old_products
             .modeling_package(original_rows.clone(), physical.clone())
             .await
             .unwrap();
-        let equal_product = prepare(&equal_ingress, root).await;
+        let equal_product = prepare(&runtime.preparation_services(), &equal_ingress, root).await;
         let effects = service.preparation_effects().since(before);
         eprintln!(
             "source-size size={size} phase=equal-fresh-ingress elapsed_ns={} effects={effects:?}",
@@ -173,15 +178,24 @@ async fn runtime_source_size_ladder_preserves_local_edits_noops_and_old_products
             let stable_owner = current.revision.admitted.objects[&logical(stable)].clone();
             let before = service.preparation_effects();
             let started = Instant::now();
-            let next = current.with_delta(delta, &cancel).await.unwrap();
-            let product = prepare(&next, root).await;
+            let next = current
+                .with_delta(&runtime.source_services(), delta, &cancel)
+                .await
+                .unwrap();
+            let product = prepare(&runtime.preparation_services(), &next, root).await;
             let effects = service.preparation_effects().since(before);
             eprintln!(
                 "source-size size={size} phase={phase} elapsed_ns={} effects={effects:?}",
                 started.elapsed().as_nanos()
             );
             assert_ne!(next.revision.identity(), prior_identity);
-            assert_eq!(&*next.declarations().await.unwrap(), expected.as_slice());
+            assert_eq!(
+                &*next
+                    .declarations(&runtime.preparation_services(),)
+                    .await
+                    .unwrap(),
+                expected.as_slice()
+            );
             assert!(Arc::ptr_eq(
                 &stable_owner,
                 &next.revision.admitted.objects[&logical(stable)]
@@ -193,12 +207,21 @@ async fn runtime_source_size_ladder_preserves_local_edits_noops_and_old_products
                 .await
                 .unwrap();
             assert_eq!(next.revision.identity(), fresh.revision.identity());
-            assert_eq!(&*fresh.declarations().await.unwrap(), expected.as_slice());
+            assert_eq!(
+                &*fresh
+                    .declarations(&runtime.preparation_services(),)
+                    .await
+                    .unwrap(),
+                expected.as_slice()
+            );
             assert!(product.compiled().bound_structure(&BTreeMap::new()).is_ok());
             current = next;
         }
         assert_eq!(
-            &*original.declarations().await.unwrap(),
+            &*original
+                .declarations(&runtime.preparation_services(),)
+                .await
+                .unwrap(),
             original_rows.as_slice()
         );
         assert_eq!(
@@ -210,7 +233,7 @@ async fn runtime_source_size_ladder_preserves_local_edits_noops_and_old_products
                 .key(),
             old_structure
         );
-        let retained = prepare(&original, root).await;
+        let retained = prepare(&runtime.preparation_services(), &original, root).await;
         assert_eq!(
             retained
                 .compiled()
@@ -246,7 +269,7 @@ async fn runtime_source_size_ladder_byte_receivers_check_full_source_predicates(
         // physical/provider and generated-row predicates on deserialized bytes.
         let imported = received
             .reconstruct(
-                &runtime,
+                &runtime.source_services(),
                 physical.clone(),
                 BTreeMap::new(),
                 &crate::CancelSource::new(),
@@ -260,11 +283,14 @@ async fn runtime_source_size_ladder_byte_receivers_check_full_source_predicates(
         assert_eq!(imported.revision.identity(), original.revision.identity());
         assert_ne!(imported.revision_id(), original.revision_id());
         assert_eq!(
-            &*imported.declarations().await.unwrap(),
+            &*imported
+                .declarations(&runtime.preparation_services(),)
+                .await
+                .unwrap(),
             expected.as_slice()
         );
         let before = runtime.shared.math().preparation_effects();
-        let product = prepare(&imported, root).await;
+        let product = prepare(&runtime.preparation_services(), &imported, root).await;
         assert!(
             runtime
                 .shared
@@ -286,7 +312,7 @@ async fn runtime_source_size_ladder_byte_receivers_check_full_source_predicates(
         assert!(
             changed
                 .reconstruct(
-                    &runtime,
+                    &runtime.source_services(),
                     physical.clone(),
                     BTreeMap::new(),
                     &crate::CancelSource::new()
@@ -295,11 +321,17 @@ async fn runtime_source_size_ladder_byte_receivers_check_full_source_predicates(
             "same claimed identity cannot authorize changed actual source bytes"
         );
         assert_eq!(
-            &*original.declarations().await.unwrap(),
+            &*original
+                .declarations(&runtime.preparation_services(),)
+                .await
+                .unwrap(),
             expected.as_slice()
         );
         assert_eq!(
-            &*imported.declarations().await.unwrap(),
+            &*imported
+                .declarations(&runtime.preparation_services(),)
+                .await
+                .unwrap(),
             expected.as_slice()
         );
     }
@@ -337,7 +369,7 @@ async fn generated_edit_prepare_bind_evaluate_keeps_analytic_current_and_histori
         for (coefficient, nonlinear) in edits {
             let declarations = rows(2, coefficient, nonlinear);
             current = current
-                .with_declarations(declarations.clone())
+                .with_declarations(&runtime.source_services(), declarations.clone())
                 .await
                 .unwrap();
             let cold = runtime
@@ -347,6 +379,7 @@ async fn generated_edit_prepare_bind_evaluate_keeps_analytic_current_and_histori
             for package in [&current, &cold, &original] {
                 let prepared = package
                     .prepare(
+                        &runtime.preparation_services(),
                         root,
                         pse_modeling::specialize::root_instance(root),
                         pse_modeling::specialize::Bindings {
@@ -370,7 +403,9 @@ async fn generated_edit_prepare_bind_evaluate_keeps_analytic_current_and_histori
                     .unwrap();
                 let executable = service
                     .prepare_modeling_functions(
-                        package.pure_workspace().unwrap(),
+                        package
+                            .pure_workspace(&runtime.preparation_services())
+                            .unwrap(),
                         prepared,
                         vec![output],
                         vec![x],

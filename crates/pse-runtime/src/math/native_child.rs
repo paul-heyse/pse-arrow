@@ -318,7 +318,12 @@ impl MathService {
     ) -> Result<SolveHandle<(PortableRootResult, Arc<AllocationLease>)>, MathRuntimeError> {
         let deadline = Instant::now()
             .checked_add(source.options.time_limit)
-            .ok_or_else(|| contract("native child deadline extent"))?;
+            .ok_or_else(|| {
+                MathRuntimeError::Solve(pse_backend_native::ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    detail: "native child deadline extent".into(),
+                })
+            })?;
         let deadline = original_deadline.map_or(deadline, |outer| outer.min(deadline));
         let scope = ExecutionScope::new(cancel.clone(), Some(deadline));
         checkpoint(&scope)?;
@@ -344,13 +349,13 @@ impl MathService {
             .bindings
             .retained_bytes()
             .checked_mul(2)
-            .ok_or_else(|| contract("native child source attribution extent"))?;
+            .ok_or_else(|| MathRuntimeError::Limit("native child source attribution extent"))?;
         let known_bytes = replay_extent
             .checked_mul(2)
             .and_then(|n| n.checked_add(4 * REQUEST_LIMIT + 2 * RESPONSE_LIMIT))
             .and_then(|n| n.checked_add(NATIVE_CHILD_STACK_BYTES))
             .and_then(|n| n.checked_add(source_bytes))
-            .ok_or_else(|| contract("native child construction extent"))?;
+            .ok_or_else(|| MathRuntimeError::Limit("native child construction extent"))?;
         let service = self.clone();
         self.submit_source_timed(1, bytes, submission, move |flag, _| {
             let scope = ExecutionScope::new(flag, Some(deadline));
@@ -361,7 +366,7 @@ impl MathService {
             let wire = source.wire()?;
             let payload = serde_json::to_vec(&wire).map_err(infrastructure)?;
             if payload.len() > REQUEST_LIMIT {
-                return Err(contract("native child request frame limit"));
+                return Err(MathRuntimeError::Limit("native child request frame limit"));
             }
             let original = source.problem(&scope)?;
             original.validate_options(&source.options)?;
@@ -491,7 +496,7 @@ fn launch(
     let actual = observed.map_err(infrastructure)?;
     if actual.sha256 != child.observation.sha256 || actual.canonical != child.observation.canonical
     {
-        return Err(contract(
+        return Err(infrastructure(
             "native child executable changed after qualification",
         ));
     }
@@ -564,8 +569,8 @@ fn launch(
                 != serde_json::to_vec(&pse_buildinfo::BuildInfo::captured())
                     .map_err(infrastructure)?
         {
-            return Err(contract(
-                "native child executable/build/profile/attempt handshake differs",
+            return Err(MathRuntimeError::Internal(
+                "native child executable/build/profile/attempt handshake differs".into(),
             ));
         }
         if let Some(context) = pse_diagnostics::observation::current() {
@@ -601,8 +606,8 @@ fn launch(
             || response.execution != execution
             || response.request != request
         {
-            return Err(contract(
-                "native child response belongs to another attempt/profile",
+            return Err(MathRuntimeError::Internal(
+                "native child response belongs to another attempt/profile".into(),
             ));
         }
         let (proposal, refusal) = match response.result {
@@ -768,14 +773,19 @@ fn send(
     struct Count {
         bytes: usize,
         limit: usize,
+        exceeded: bool,
     }
     impl Write for Count {
         fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-            self.bytes = self
+            let Some(total) = self
                 .bytes
                 .checked_add(bytes.len())
                 .filter(|count| *count <= self.limit)
-                .ok_or_else(|| io::Error::other("native child outgoing frame limit"))?;
+            else {
+                self.exceeded = true;
+                return Err(io::Error::other("native child outgoing frame limit"));
+            };
+            self.bytes = total;
             Ok(bytes.len())
         }
         fn flush(&mut self) -> io::Result<()> {
@@ -783,11 +793,23 @@ fn send(
         }
     }
     checkpoint(scope)?;
-    let mut count = Count { bytes: 0, limit };
-    serde_json::to_writer(&mut count, value).map_err(|e| contract(e.to_string()))?;
+    let mut count = Count {
+        bytes: 0,
+        limit,
+        exceeded: false,
+    };
+    serde_json::to_writer(&mut count, value).map_err(|error| {
+        if count.exceeded {
+            MathRuntimeError::Limit("native child outgoing frame bytes")
+        } else {
+            MathRuntimeError::Internal(format!("native child frame serialization: {error}"))
+        }
+    })?;
     let bytes = serde_json::to_vec(value).map_err(infrastructure)?;
     if bytes.len() != count.bytes {
-        return Err(contract("native child frame extent changed"));
+        return Err(MathRuntimeError::Internal(
+            "native child frame extent changed".into(),
+        ));
     }
     write_bytes(channel, &(bytes.len() as u64).to_le_bytes(), scope)?;
     write_bytes(channel, &bytes, scope)
@@ -799,14 +821,17 @@ fn receive<T: serde::de::DeserializeOwned>(
 ) -> Result<T, MathRuntimeError> {
     let mut size = [0; 8];
     read_bytes(channel, &mut size, scope)?;
-    let size = usize::try_from(u64::from_le_bytes(size)).map_err(infrastructure)?;
+    let size = usize::try_from(u64::from_le_bytes(size))
+        .map_err(|_| MathRuntimeError::Limit("native child incoming frame extent"))?;
     if size > limit {
-        return Err(contract("native child incoming frame limit"));
+        return Err(MathRuntimeError::Limit("native child incoming frame limit"));
     }
     let mut bytes = vec![0; size];
     read_bytes(channel, &mut bytes, scope)?;
     checkpoint(scope)?;
-    serde_json::from_slice(&bytes).map_err(infrastructure)
+    serde_json::from_slice(&bytes).map_err(|error| {
+        MathRuntimeError::Internal(format!("native child admitted frame decoding: {error}"))
+    })
 }
 
 /// Entry point of the private native worker, never a public stdin DTO admission API.
@@ -833,7 +858,9 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
         .find_map(|line| line.strip_prefix("PPid:"))
         .and_then(|v| v.trim().parse::<u32>().ok());
     if actual_parent != Some(parent) {
-        return Err(contract("native child parent identity differs"));
+        return Err(MathRuntimeError::Internal(
+            "native child parent identity differs".into(),
+        ));
     }
     let startup = ExecutionScope::new(Cancellation::default(), None);
     let executable =
@@ -857,7 +884,9 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
         || request.remaining.is_zero()
         || digest(&request.source) != request.request
     {
-        return Err(contract("native child admitted request identity differs"));
+        return Err(MathRuntimeError::Internal(
+            "native child admitted request identity differs".into(),
+        ));
     }
     let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
     h.str(PROTOCOL)
@@ -868,11 +897,18 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
         .u64(request.remaining.as_secs())
         .u64(u64::from(request.remaining.subsec_nanos()));
     if h.finish_hash() != request.execution {
-        return Err(contract("native child execution profile identity differs"));
+        return Err(MathRuntimeError::Internal(
+            "native child execution profile identity differs".into(),
+        ));
     }
     let deadline = Instant::now()
         .checked_add(request.remaining)
-        .ok_or_else(|| contract("native child receiving deadline extent"))?;
+        .ok_or_else(|| {
+            MathRuntimeError::Solve(pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                detail: "native child receiving deadline extent".into(),
+            })
+        })?;
     let scope = ExecutionScope::new(Cancellation::default(), Some(deadline));
     let registration = diagnostics.register_child(request.diagnostic_parent);
     let context = diagnostic.context();
@@ -925,14 +961,18 @@ fn reconstruct_and_solve(
     scope: &ExecutionScope,
 ) -> Result<Vec<f64>, MathRuntimeError> {
     checkpoint(scope)?;
-    let wire: RootWire = serde_json::from_slice(&request.source).map_err(infrastructure)?;
+    let wire: RootWire = serde_json::from_slice(&request.source).map_err(|error| {
+        MathRuntimeError::Internal(format!("native child admitted source decoding: {error}"))
+    })?;
     if digest(&wire.registry) != wire.registry_digest || !wire.spec.providers.is_empty() {
-        return Err(contract(
-            "native child physical registry or provider closure differs",
+        return Err(MathRuntimeError::Internal(
+            "native child physical registry or provider closure differs".into(),
         ));
     }
-    let registry: pse_quantity::QuantityRegistryBuilder =
-        serde_json::from_slice(&wire.registry).map_err(infrastructure)?;
+    let registry: pse_quantity::QuantityRegistryBuilder = serde_json::from_slice(&wire.registry)
+        .map_err(|error| {
+            MathRuntimeError::Internal(format!("native child admitted registry decoding: {error}"))
+        })?;
     let registry = registry.build().map_err(pse_math::MathError::from)?;
     pse_math::initialize()?;
     checkpoint(scope)?;
@@ -950,7 +990,9 @@ fn reconstruct_and_solve(
     .map_err(infrastructure)?;
     let body = reconstruct_portable(&permit, &registry, scope.cancellation())?;
     if body.spec() != &wire.spec || !body.math().providers().is_empty() {
-        return Err(contract("native child reconstructed source differs"));
+        return Err(MathRuntimeError::Internal(
+            "native child reconstructed source differs".into(),
+        ));
     }
     let bindings = wire.source.bind(body.math())?;
     let problem = compile_problem(

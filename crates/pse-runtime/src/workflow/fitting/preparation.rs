@@ -29,7 +29,7 @@ impl PreparedExperiments {
     )]
     pub(super) fn finish(
         self,
-        runtime: super::super::Runtime,
+        services: PreparationServices,
         quantities: Arc<pse_quantity::QuantityRegistry>,
         preconditions: Arc<pse_quantity::PhysicalPreconditions>,
         source_identity: ContentHash,
@@ -56,7 +56,7 @@ impl PreparedExperiments {
             mut bytes,
             physical_cells,
         } = self;
-        let policy = &runtime.shared.budget().math;
+        let policy = services.math().policy();
         let q = &quantities;
         let experiment_metadata = experiments.iter().try_fold(0usize, |total, experiment| {
             let bytes = match experiment {
@@ -214,7 +214,7 @@ impl PreparedExperiments {
             integer: false,
             declared_tolerance: None,
         });
-        let numerics = runtime.native().policy_resolution_owner().resolve(
+        let numerics = services.math().policy_resolution_owner().resolve(
             pse_math::SharedAllocation::from(quantities.clone()).with_owner(physical_owner.clone()),
             pse_math::SharedAllocation::from(preconditions.clone()).with_owner(physical_owner),
             &targets,
@@ -281,7 +281,6 @@ impl PreparedExperiments {
             snapshot: native::execution::Snapshot::observe(&native::execution::LINKED),
             structure,
             structural_assessment: None,
-            runtime,
             quantities,
             source_identity: source,
             declaration: d,

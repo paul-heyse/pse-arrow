@@ -246,7 +246,6 @@ pub struct ModelingSimulation {
     output_positions: BTreeMap<SemanticId, usize>,
     profile: native::Profile,
     snapshot: pse_backend_native::execution::Snapshot,
-    pub(in crate::workflow) runtime: Runtime,
     pub(in crate::workflow) source: ModelingPackage,
     programs: Arc<[FunctionProgram]>,
     layout: Arc<crate::workflow::dynamics::DynamicLayout>,
@@ -289,6 +288,7 @@ pub struct ModelingTrajectory {
 }
 #[derive(Debug)]
 struct TrajectorySnapshot {
+    services: crate::workflow::PreparationServices,
     run_id: RunId,
     report: Arc<native::Report>,
     prepared: ModelingSimulation,
@@ -437,7 +437,7 @@ impl ModelingTrajectory {
         let diagnostics = policy
             .construction_allocation_bound(coordinates, rows)
             .map_err(crate::math::MathRuntimeError::from)?;
-        let capacity = prepared.runtime.shared.budget().math.worker_bytes;
+        let capacity = self.inner.services.math().policy().worker_bytes;
         let allowances = crate::workflow::dynamics::allowance_bytes(
             &prepared.state_allowances,
             &prepared.output_allowances,
@@ -484,7 +484,7 @@ impl ModelingTrajectory {
             )
             .into());
         }
-        let handle = self.inner.prepared.runtime.shared.math().submit_construction(1, construction, crate::math::Submission::ephemeral(), move |flag, _| {
+        let handle = self.inner.services.math().submit_construction(1, construction, crate::math::Submission::ephemeral(), move |flag, _| {
             let execution = pse_backend_native::solve::Execution::new(flag.clone(), &controls);
             let scope = execution.scope()?;
             let mut outcomes = Vec::new();
@@ -493,7 +493,7 @@ impl ModelingTrajectory {
                 let parameters = p.profile.parameters_at(&p.parameters, sample.time);
                 // The box the mode's range obligations admit, so a difference step stays
                 // inside it: one-sided at an input or state held at its bound.
-                let bounds = p.worker(scope.clone())?.coordinate_box(sample.mode, sample.time, &sample.state, &parameters)?;
+                let bounds = p.worker(trajectory.inner.services.math(), scope.clone())?.coordinate_box(sample.mode, sample.time, &sample.state, &parameters)?;
                 let mut functions = vec![(Function::Rhs, p.contract.states.len()), (Function::Output, p.contract.outputs.len())];
                 if !p.contract.quadratures.is_empty() { functions.push((Function::QuadratureFlux, p.contract.quadratures.len())); }
                 if !p.contract.balances.is_empty() { functions.push((Function::Inventory, p.contract.balances.len())); }
@@ -502,7 +502,7 @@ impl ModelingTrajectory {
                     let mut normalization = pse_math::normalization::Normalization::identity(p.contract.states.len() + p.contract.parameters.len(), rows);
                     normalization.variables[p.contract.states.len()..].copy_from_slice(&p.profile.parameter_scales);
                     let result = pse_backend_native::derivative_diagnostics::analyze_dynamic(
-                        Box::new(p.worker(scope.clone())?),
+                        Box::new(p.worker(trajectory.inner.services.math(), scope.clone())?),
                         pse_backend_native::derivative_diagnostics::DynamicSample { mode: sample.mode, function, time: sample.time, state: sample.state.clone(), parameters: parameters.clone(), bounds: bounds.clone() },
                         normalization, policy, execution.clone(),
                     )?;
@@ -584,6 +584,7 @@ impl ModelingSimulation {
     #[cfg(feature = "solver-diffsol")]
     pub(in crate::workflow) fn completed_trajectory(
         &self,
+        services: &crate::workflow::PreparationServices,
         report: &crate::workflow::ShootingReport,
         header: pse_model::generated::runtime::computation_runs::Row,
         assessment: pse_model::generated::runtime::candidate_assessments::Row,
@@ -599,6 +600,7 @@ impl ModelingSimulation {
             .ok_or_else(|| contract("shooting endpoint assessment absent"))?;
         Ok(ModelingTrajectory {
             inner: Arc::new(TrajectorySnapshot {
+                services: services.clone(),
                 run_id: header.run_id,
                 report: trajectory.clone(),
                 prepared: self.clone(),
@@ -819,12 +821,16 @@ impl ModelingSimulation {
     }
     pub(crate) fn worker(
         &self,
+        math: &Arc<crate::math::MathService>,
         scope: pse_kernels::ExecutionScope,
     ) -> Result<DynamicWorker, ProblemError> {
-        self.program().worker(scope, self.snapshot_allocator())
+        self.program().worker(scope, self.snapshot_allocator(math))
     }
-    pub(crate) fn snapshot_allocator(&self) -> crate::workflow::dynamics::SnapshotAllocator {
-        self.runtime.shared.math().dynamic_snapshots()
+    pub(crate) fn snapshot_allocator(
+        &self,
+        math: &Arc<crate::math::MathService>,
+    ) -> crate::workflow::dynamics::SnapshotAllocator {
+        math.dynamic_snapshots()
     }
     pub(crate) fn snapshot(&self) -> &pse_backend_native::execution::Snapshot {
         &self.snapshot
@@ -993,6 +999,7 @@ impl ModelingSimulation {
     #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
     pub(super) fn integrate_sample_attempt(
         &self,
+        math: &Arc<crate::math::MathService>,
         run_id: RunId,
         profile: &native::Profile,
         attempt: u64,
@@ -1004,7 +1011,7 @@ impl ModelingSimulation {
             retention,
             observer,
         } = capture;
-        let mut worker = self.worker(scope.clone())?;
+        let mut worker = self.worker(math, scope.clone())?;
         let Some(observer) = observer.as_deref_mut() else {
             struct IgnoreNativeSamples;
             impl native::SampleObserver for IgnoreNativeSamples {
@@ -1129,22 +1136,31 @@ impl ModelingSimulation {
     /// Submit prebound live sample ownership before any native effect.
     pub(in crate::workflow) fn submit_with_samples(
         &self,
+        services: &crate::workflow::ExecutionServices,
         run_id: RunId,
         submission: crate::math::Submission,
         retention: native::SampleRetention,
         observer: Box<dyn SimulationSampleObserver>,
     ) -> Result<DynamicsHandle, WorkflowError> {
-        self.submit_inner(run_id, submission, retention, Some(observer))
+        self.submit_inner(services, run_id, submission, retention, Some(observer))
     }
     pub(in crate::workflow) fn submit(
         &self,
+        services: &crate::workflow::ExecutionServices,
         run_id: RunId,
         submission: crate::math::Submission,
     ) -> Result<DynamicsHandle, WorkflowError> {
-        self.submit_inner(run_id, submission, native::SampleRetention::Full, None)
+        self.submit_inner(
+            services,
+            run_id,
+            submission,
+            native::SampleRetention::Full,
+            None,
+        )
     }
     fn submit_inner(
         &self,
+        services: &crate::workflow::ExecutionServices,
         run_id: RunId,
         mut submission: crate::math::Submission,
         retention: native::SampleRetention,
@@ -1152,11 +1168,15 @@ impl ModelingSimulation {
     ) -> Result<DynamicsHandle, WorkflowError> {
         let local = std::time::Instant::now()
             .checked_add(self.profile.time_limit)
-            .ok_or_else(|| contract("simulation submission deadline extent"))?;
+            .ok_or_else(|| {
+                crate::workflow::deadline_limit("simulation submission deadline extent")
+            })?;
         let deadline = submission.deadline.map_or(local, |outer| outer.min(local));
         submission.deadline = Some(deadline);
-        let service = self.runtime.shared.math();
+        let service = services.preparation().math();
         let prepared = self.clone();
+        #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+        let worker_math = service.clone();
         let bytes = self
             .admission_bytes(retention)
             .map_err(crate::math::MathRuntimeError::from)?;
@@ -1191,6 +1211,7 @@ impl ModelingSimulation {
                     sample_execution.memory = Some(storage.size());
                     sample_execution.progress = progress.clone();
                     let native_result = prepared.integrate_sample_attempt(
+                        &worker_math,
                         run_id,
                         &prepared.profile,
                         0,
@@ -1212,6 +1233,7 @@ impl ModelingSimulation {
                     let (report, checks) = native_result?;
                     let mut selected_attempt = 0;
                     let (mut report, mut checks, accuracy) = prepared.assess_dynamic_accuracy(
+                        &worker_math,
                         report,
                         checks,
                         accuracy::DynamicAttemptContext {
@@ -1290,6 +1312,7 @@ impl ModelingSimulation {
     }
     pub(in crate::workflow) fn finish(
         &self,
+        services: &crate::workflow::PreparationServices,
         run_id: RunId,
         report: native::Report,
         checks: checks::SampleChecks,
@@ -1322,6 +1345,7 @@ impl ModelingSimulation {
             completion.assessment_row(run_id, 0, &self.numerics().policy, None, None, false);
         Ok(ModelingTrajectory {
             inner: Arc::new(TrajectorySnapshot {
+                services: services.clone(),
                 run_id,
                 completion,
                 checks: checks.rows,
@@ -1342,12 +1366,13 @@ impl ModelingSimulation {
     /// Await one joined run. Cancellation still waits for native teardown.
     pub async fn run(
         &self,
+        services: &crate::workflow::ExecutionServices,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingTrajectory, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
-                let result = self.start_with_cancel(cancel)?.wait().await?;
+                let result = self.start_with_cancel(services, cancel)?.wait().await?;
                 let crate::workflow::RunOutcome::Simulation { result, .. } = &result.outcome else {
                     return Err(contract("simulation operation required"));
                 };
@@ -1637,18 +1662,20 @@ impl ModelingPackage {
     /// Bind an authored case directly to the integrated route and its integration controls.
     pub async fn declared_simulation(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         compiler: Profile,
         profile: Option<native::Profile>,
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        self.declared_simulation_bound(root, compiler, profile, limits, None, cancel)
+        self.declared_simulation_bound(services, root, compiler, profile, limits, None, cancel)
             .await
     }
     /// Admit pending physical controls once, or use the case's authored controls.
     pub(in crate::workflow) async fn declared_simulation_request(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         compiler: Profile,
         request: Option<&super::super::PhysicalSimulationRequest>,
@@ -1658,19 +1685,24 @@ impl ModelingPackage {
     ) -> Result<ModelingSimulation, WorkflowError> {
         match request {
             Some(request) => {
-                let request = request.clone().retain(&self.runtime)?;
-                self.declared_physical_simulation(root, compiler, &request, limits, binding, cancel)
-                    .await
+                let request = request.clone().retain(&services)?;
+                self.declared_physical_simulation(
+                    services, root, compiler, &request, limits, binding, cancel,
+                )
+                .await
             }
             None => {
-                self.declared_simulation_bound(root, compiler, None, limits, binding, cancel)
-                    .await
+                self.declared_simulation_bound(
+                    services, root, compiler, None, limits, binding, cancel,
+                )
+                .await
             }
         }
     }
     /// Apply fresh immutable parameter coordinates before rebuilding integration premises.
     pub(in crate::workflow) async fn declared_simulation_bound(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         compiler: Profile,
         profile: Option<native::Profile>,
@@ -1678,13 +1710,14 @@ impl ModelingPackage {
         binding: Option<&super::super::AdmittedBinding>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let mut execution = self
                     .declared_execution(
+                        services,
                         root,
                         compiler,
                         Default::default(),
@@ -1704,7 +1737,7 @@ impl ModelingPackage {
                     execution.analysis.case.members = binding.values();
                 }
                 let prepared = self
-                    .simulation_for_declared_bound(&execution, profile, binding, cancel)
+                    .simulation_for_declared_bound(services, &execution, profile, binding, cancel)
                     .await?;
                 if let Some(binding) = binding
                     && binding
@@ -1724,26 +1757,29 @@ impl ModelingPackage {
     /// Internal integration projection; the declared operation owner retains its procedure.
     pub(in crate::workflow) async fn simulation_for_declared(
         &self,
+        services: &crate::workflow::PreparationServices,
         execution: &DeclaredExecution,
         profile: Option<native::Profile>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        self.simulation_for_declared_bound(execution, profile, None, cancel)
+        self.simulation_for_declared_bound(services, execution, profile, None, cancel)
             .await
     }
     pub(in crate::workflow) async fn simulation_for_declared_bound(
         &self,
+        services: &crate::workflow::PreparationServices,
         execution: &DeclaredExecution,
         profile: Option<native::Profile>,
         binding: Option<&super::super::AdmittedBinding>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        self.simulation_for_declared_input(execution, profile, None, binding, cancel)
+        self.simulation_for_declared_input(services, execution, profile, None, binding, cancel)
             .await
     }
     /// Admit host physical coordinate controls under the actual declared state inventory.
     pub async fn declared_physical_simulation(
         &self,
+        services: &crate::workflow::PreparationServices,
         root: DeclarationId,
         compiler: Profile,
         request: &super::super::PhysicalSimulationRequest,
@@ -1753,6 +1789,7 @@ impl ModelingPackage {
     ) -> Result<ModelingSimulation, WorkflowError> {
         let mut execution = self
             .declared_execution(
+                services,
                 root,
                 compiler,
                 Default::default(),
@@ -1778,6 +1815,7 @@ impl ModelingPackage {
                 .with_coordinates(Vec::new(), Vec::new(), Vec::new());
         let mut prepared = self
             .simulation_for_declared_input(
+                services,
                 &execution,
                 Some(controls),
                 Some(request),
@@ -1790,15 +1828,16 @@ impl ModelingPackage {
     }
     async fn simulation_for_declared_input(
         &self,
+        services: &crate::workflow::PreparationServices,
         execution: &DeclaredExecution,
         profile: Option<native::Profile>,
         pending: Option<&super::super::PhysicalSimulationRequest>,
         binding: Option<&super::super::AdmittedBinding>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 if !matches!(
@@ -1828,6 +1867,7 @@ impl ModelingPackage {
                     (controls.profile, controls.provisional_quadratures)
                 };
                 self.prepare_simulation_with_controls(
+                    services,
                     analysis.root,
                     analysis.instance,
                     analysis.bindings.clone(),
@@ -1856,6 +1896,7 @@ impl ModelingPackage {
     )]
     async fn prepare_simulation_mode(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: ModelingPreparation,
         #[cfg(feature = "solver-diffsol")] original: Arc<engagement::OriginalPreparationInputs>,
         instance: InstanceId,
@@ -1872,7 +1913,7 @@ impl ModelingPackage {
         snapshot: &pse_backend_native::execution::Snapshot,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         if derivatives < DerivativeOrder::First {
             return Err(contract(
@@ -2020,7 +2061,15 @@ impl ModelingPackage {
             .collect::<BTreeSet<_>>();
         let states = state.iter().map(|p| p.id).collect::<Vec<_>>();
         let (mut values, starts) = self
-            .resolve_starts(&model, &case, &Default::default(), compiler, false, cancel)
+            .resolve_starts(
+                services,
+                &model,
+                &case,
+                &Default::default(),
+                compiler,
+                false,
+                cancel,
+            )
             .await?;
         // Terminal placeholders are excluded from every trial program below. Their
         // real values are supplied only by completed native whole-domain quadrature.
@@ -2042,12 +2091,14 @@ impl ModelingPackage {
         if initial_outputs.len() != product.model.derivatives.len()
             || initial_outputs.len() != product.model.initial_equations.len()
         {
-            return Err(contract(
+            return Err(missing_initial_conditions(
+                states.clone(),
                 "every differential state requires one explicit isolated lower-endpoint initial condition",
             ));
         }
         let initial_values = self
             .observe_registered(
+                services,
                 model.clone(),
                 initial_outputs.iter().map(|(_, _, row)| *row).collect(),
                 values.clone(),
@@ -2069,7 +2120,9 @@ impl ModelingPackage {
                     supplied_value: values.scalars.get(state).copied(),
                     ..Default::default()
                 })
-                .ok_or_else(|| contract("missing dynamic initial condition"))?;
+                .ok_or_else(|| {
+                    missing_initial_conditions(vec![*state], "missing dynamic initial condition")
+                })?;
             values.scalars.insert(*state, value);
         }
         // Evaluate the original isolated RHS projection, independently of case Start overrides.
@@ -2088,6 +2141,7 @@ impl ModelingPackage {
             .collect::<Vec<_>>();
         let original_initial_values = self
             .observe_registered(
+                services,
                 model.clone(),
                 original_initial_rows.iter().copied().collect(),
                 values.clone(),
@@ -2107,6 +2161,7 @@ impl ModelingPackage {
         }
         let providers = self
             .inner_registrations(
+                services,
                 model.clone(),
                 &case,
                 &crate::math::solves::NumericalInputs::default(),
@@ -2168,11 +2223,10 @@ impl ModelingPackage {
         {
             *row = *id;
         }
-        self.runtime
-            .shared
+        services
             .math()
             .validate_modeling_partition(
-                self.numerical_workspace()?,
+                self.numerical_workspace(services)?,
                 model.clone(),
                 algebraic.iter().map(|(id, _)| *id).collect(),
                 states
@@ -2258,6 +2312,7 @@ impl ModelingPackage {
             .collect::<Result<BTreeSet<_>, WorkflowError>>()?;
         let observed = self
             .observe_registered(
+                services,
                 model.clone(),
                 nominal_rows,
                 values.clone(),
@@ -2358,6 +2413,7 @@ impl ModelingPackage {
         } else {
             let observed = self
                 .observe_registered(
+                    services,
                     model.clone(),
                     accuracy_rows,
                     values.clone(),
@@ -2402,7 +2458,7 @@ impl ModelingPackage {
             &self.quantities,
         )?);
         let physical_owner: Arc<dyn pse_math::AllocationOwner> = Arc::new(self.physical.clone());
-        let numerics = self.runtime.native().policy_resolution_owner().resolve(
+        let numerics = services.math().policy_resolution_owner().resolve(
             pse_math::SharedAllocation::from(self.quantities.clone())
                 .with_owner(physical_owner.clone()),
             pse_math::SharedAllocation::from(self.physical.preconditions.clone())
@@ -2528,16 +2584,17 @@ impl ModelingPackage {
                     .state
                     .iter()
                     .position(|c| c.id == *target)
-                    .ok_or_else(|| contract("original initial coordinate absent"))?;
+                    .ok_or_else(|| {
+                        WorkflowError::Internal("original initial coordinate absent".into())
+                    })?;
                 let binding = &coordinates.state[coordinate];
-                let expected = *original_initial_values
-                    .get(row)
-                    .ok_or_else(|| contract("original initial RHS projection absent"))?;
+                let expected = *original_initial_values.get(row).ok_or_else(|| {
+                    WorkflowError::Internal("original initial RHS projection absent".into())
+                })?;
                 let normalized = (expected - binding.offset) / binding.scale;
-                let absolute = *profile
-                    .atol
-                    .get(coordinate)
-                    .ok_or_else(|| contract("original initial absolute tolerance absent"))?;
+                let absolute = *profile.atol.get(coordinate).ok_or_else(|| {
+                    WorkflowError::Internal("original initial absolute tolerance absent".into())
+                })?;
                 let tolerance = binding.scale.abs() * (absolute + profile.rtol * normalized.abs());
                 if !expected.is_finite() || !tolerance.is_finite() || tolerance <= 0. {
                     return Err(contract(
@@ -2644,7 +2701,7 @@ impl ModelingPackage {
             .collect::<Result<Vec<_>, WorkflowError>>()?;
         let signs = self
             .state_signs(
-                &model, &case, &states, &values, &providers, compiler, cancel,
+                services, &model, &case, &states, &values, &providers, compiler, cancel,
             )
             .await?;
         let mut dynamic_contract = native::Contract {
@@ -2799,11 +2856,10 @@ impl ModelingPackage {
                 } else {
                     Vec::new()
                 };
-                self.runtime
-                    .shared
+                services
                     .math()
                     .prepare_modeling_function_entries(
-                        self.numerical_workspace()?,
+                        self.numerical_workspace(services)?,
                         model.clone(),
                         selected,
                         derivative_coordinates.clone(),
@@ -2816,11 +2872,10 @@ impl ModelingPackage {
                     )
                     .await?
             } else {
-                self.runtime
-                    .shared
+                services
                     .math()
                     .prepare_modeling_function_products(
-                        self.numerical_workspace()?,
+                        self.numerical_workspace(services)?,
                         model.clone(),
                         selected,
                         derivative_coordinates.clone(),
@@ -2939,7 +2994,7 @@ impl ModelingPackage {
             });
         }
         let guard = self
-            .prepare_dynamic_guards(&model, &case, &terminal_targets, compiler, cancel)
+            .prepare_dynamic_guards(services, &model, &case, &terminal_targets, compiler, cancel)
             .await?;
         let units = results::assessment_units(product);
         let sample_scope = (!integral_ids.is_empty()).then(|| {
@@ -2961,11 +3016,10 @@ impl ModelingPackage {
             None
         } else {
             Some(
-                self.runtime
-                    .shared
+                services
                     .math()
                     .prepare_modeling_functions(
-                        self.numerical_workspace()?,
+                        self.numerical_workspace(services)?,
                         model.clone(),
                         sample_rows.into_iter().collect(),
                         derivative_coordinates.clone(),
@@ -2980,11 +3034,10 @@ impl ModelingPackage {
             None
         } else {
             Some(
-                self.runtime
-                    .shared
+                services
                     .math()
                     .prepare_modeling_functions(
-                        self.numerical_workspace()?,
+                        self.numerical_workspace(services)?,
                         model.clone(),
                         all_check_rows.into_iter().collect(),
                         derivative_coordinates.clone(),
@@ -3325,7 +3378,7 @@ impl ModelingPackage {
             output_positions,
             profile,
             snapshot: snapshot.clone(),
-            runtime: self.runtime.clone(),
+
             source: self.clone(),
             programs: programs.into(),
             layout,
@@ -3352,6 +3405,7 @@ impl ModelingPackage {
     )]
     async fn state_signs(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: &ModelingPreparation,
         case: &ModelingCaseBindings,
         states: &[SemanticId],
@@ -3411,6 +3465,7 @@ impl ModelingPackage {
         } else {
             let observed = self
                 .observe_registered(
+                    services,
                     model.clone(),
                     rows,
                     values.clone(),
@@ -3442,6 +3497,7 @@ impl ModelingPackage {
     }
     async fn prepare_dynamic_guards(
         &self,
+        services: &crate::workflow::PreparationServices,
         model: &ModelingPreparation,
         case: &ModelingCaseBindings,
         terminal_targets: &BTreeSet<SemanticId>,
@@ -3567,12 +3623,10 @@ impl ModelingPackage {
                 }
             })
             .collect::<BTreeSet<_>>();
-        let compiled = self
-            .runtime
-            .shared
+        let compiled = services
             .math()
             .prepare_modeling_functions(
-                self.numerical_workspace()?,
+                self.numerical_workspace(services)?,
                 model.clone(),
                 rows.into_iter().collect(),
                 vec![],
@@ -3596,6 +3650,16 @@ impl ModelingPackage {
         }))
     }
 }
+fn missing_initial_conditions(states: Vec<SemanticId>, detail: &'static str) -> WorkflowError {
+    crate::workflow::scientific_refusal(
+        pse_model::diagnostic::BoundaryClass::InvalidModel,
+        pse_diagnostics::DiagnosticStage::ModelingDynamic,
+        pse_diagnostics::DiagnosticRule::ModelingDomain,
+        states,
+        detail,
+    )
+}
+
 /// The lower-endpoint start of a state without an isolated initial equation: an annotation
 /// start is evaluated through the model at the endpoint (its row); any other source is the
 /// resolved constant. The typed source decides; no label is parsed (F14).
@@ -3614,7 +3678,7 @@ fn start_row(
                 if *target == state && d == declaration)
         })
         .map(|o| Some(o.row_id()))
-        .ok_or_else(|| contract("initial annotation output missing"))
+        .ok_or_else(|| WorkflowError::Internal("initial annotation output missing".into()))
 }
 fn contract_error(message: &str) -> WorkflowError {
     contract(message)
@@ -3716,7 +3780,8 @@ mod tests {
     #[tokio::test]
     async fn compact_retention_admits_below_full_trajectory_cell_capacity() {
         use crate::workflow::{LiveSimulationEvent, LiveSimulationOptions};
-        async fn prepare(runtime: Runtime, max_cells: usize) -> ModelingSimulation {
+        async fn prepare(runtime: &Runtime, max_cells: usize) -> ModelingSimulation {
+            let services = runtime.execution_services();
             let outputs = (0..64)
                 .map(|j| {
                     format!(
@@ -3743,6 +3808,7 @@ mod tests {
             let package = runtime.modeling_package(rows, physical()).await.unwrap();
             package
                 .prepare_simulation(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Default::default(),
@@ -3765,7 +3831,9 @@ mod tests {
                 .await
                 .unwrap()
         }
-        let wide = prepare(super::super::super::tests::runtime(), 10_000_000).await;
+        let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
+        let wide = prepare(&runtime, 10_000_000).await;
         assert!(wide.contract.outputs.len() >= 64);
         let full_bytes = wide.admission_bytes(native::SampleRetention::Full).unwrap();
         let compact_bytes = wide
@@ -3777,7 +3845,10 @@ mod tests {
             full_bytes - compact_bytes,
             wide.full_sample_payload_bytes - current
         );
-        let full = wide.run(&crate::CancelSource::new()).await.unwrap();
+        let full = wide
+            .run(&services, &crate::CancelSource::new())
+            .await
+            .unwrap();
         assert!(full.checks_complete());
         assert!(full.checks().iter().all(|check| check.satisfied));
         let expected_endpoint = full.report().endpoint.as_ref().unwrap().point.state.clone();
@@ -3796,7 +3867,9 @@ mod tests {
             )
             .unwrap()
             + wide.retained_check_cells;
-        let compact = prepare(super::super::super::tests::runtime(), compact_cells).await;
+        let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
+        let compact = prepare(&runtime, compact_cells).await;
         assert!(
             compact
                 .admission_bytes(native::SampleRetention::Full)
@@ -3809,6 +3882,7 @@ mod tests {
         );
         let refused = compact
             .submit(
+                &services,
                 RunId::from_bytes([41; 16]),
                 crate::math::Submission::ephemeral(),
             )
@@ -3818,10 +3892,13 @@ mod tests {
             pse_model::diagnostic::BoundaryClass::ResourceLimit
         );
         let (handle, cursor) = compact
-            .start_live(LiveSimulationOptions {
-                capacity: 1,
-                retention: native::SampleRetention::Compact,
-            })
+            .start_live(
+                &services,
+                LiveSimulationOptions {
+                    capacity: 1,
+                    retention: native::SampleRetention::Compact,
+                },
+            )
             .unwrap();
         let mut count = 0;
         let mut escaped = None;
@@ -3875,6 +3952,7 @@ mod tests {
     #[tokio::test]
     async fn dynamic_observable_nominal_is_bound_from_the_compiler_inventory() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let rows = pse_authoring::language::parse(
             "package p {def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==1; eq initial:x[0{s}]==1{s}; let view[i in t]:Time=2*x[i]; annotation nominal view(4{s});}}",
             SemanticId::from_bytes([175;16]), pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
@@ -3886,6 +3964,7 @@ mod tests {
         let package = runtime.modeling_package(rows, physical()).await.unwrap();
         let prepared = package
             .prepare_simulation(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -3929,6 +4008,7 @@ mod tests {
             AccuracyGoalSubject, AccuracyGoalUse, AccuracyObservation, NumericalAccuracyClass,
         };
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let cancel = crate::CancelSource::new();
         let rows = pse_authoring::language::parse(
             "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == -x[i]/1{s}; eq initial: x[0{s}] == 1{s}; let clock[i in t]: Scalar = abs(i/1{s}-0.5); let state_view[i in t]: Time = 2*x[i]; let area:Time=integral(i in t | x[i]/1{s}); annotation report clock(\"point output\"); annotation report state_view(\"state-derived output\"); annotation report area(\"integral\"); } }",
@@ -3952,6 +4032,7 @@ mod tests {
         };
         let prepare = |profile| {
             package.prepare_simulation(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -3964,7 +4045,7 @@ mod tests {
             )
         };
         let base = prepare(profile.clone()).await.unwrap();
-        let ordinary = base.run(&cancel).await.unwrap();
+        let ordinary = base.run(&services, &cancel).await.unwrap();
         assert!(ordinary.completion().accuracy.is_empty());
         assert!(
             !ordinary
@@ -4044,7 +4125,7 @@ mod tests {
                 });
         }
         let prepared = prepare(requested).await.unwrap();
-        let joined = prepared.run(&cancel).await.unwrap();
+        let joined = prepared.run(&services, &cancel).await.unwrap();
         assert!(
             !joined.accepted(),
             "the unresolved integrated goal must remain visible"
@@ -4137,6 +4218,7 @@ mod tests {
         use pse_columnar::MemoryConsumer;
         let (batch, pool) = {
             let runtime = super::super::super::tests::runtime();
+            let services = runtime.execution_services();
             let cancel = crate::CancelSource::new();
             let rows = pse_authoring::language::parse(
                 "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 0.5; var x[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{s}; eq initial: x[0{s}] == 1{s}; } }",
@@ -4151,6 +4233,7 @@ mod tests {
             let package = runtime.modeling_package(rows, physical()).await.unwrap();
             let prepared = package
                 .prepare_simulation(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -4170,7 +4253,7 @@ mod tests {
                 )
                 .await
                 .unwrap();
-            let result = prepared.start().unwrap().wait().await.unwrap();
+            let result = prepared.start(&services).unwrap().wait().await.unwrap();
             let crate::workflow::RunReport::Simulation(trajectory) = result.report().unwrap()
             else {
                 panic!("simulation expected");
@@ -4246,13 +4329,18 @@ mod tests {
             );
             // Equal supplied identities do not make distinct attempts share mutable transport.
             let ((other_report, other_checks, other_accuracy), other_owner) = prepared
-                .submit(trajectory.run_id(), crate::math::Submission::ephemeral())
+                .submit(
+                    &services,
+                    trajectory.run_id(),
+                    crate::math::Submission::ephemeral(),
+                )
                 .unwrap()
                 .finish()
                 .await
                 .unwrap();
             let other = prepared
                 .finish(
+                    services.preparation(),
                     trajectory.run_id(),
                     other_report,
                     other_checks,
@@ -4291,6 +4379,8 @@ mod tests {
 
     #[tokio::test]
     async fn contextual_closure_inventory_controls_preserve_explicit_profile_origin() {
+        let runtime = fixture::runtime();
+        let services = runtime.execution_services();
         use super::super::super::tests as fixture;
         let source = r#"package p {
             entity kind source provenance {attribute title:Text;}
@@ -4321,13 +4411,11 @@ mod tests {
             .find(|row| row.name == "dynamic")
             .unwrap()
             .declaration_id;
-        let package = fixture::runtime()
-            .modeling_package(rows, physical())
-            .await
-            .unwrap();
+        let package = runtime.modeling_package(rows, physical()).await.unwrap();
         let cancel = crate::CancelSource::new();
         let automatic = package
             .declared_simulation(
+                services.preparation(),
                 root,
                 fixture::compiler_profile(),
                 None,
@@ -4348,6 +4436,7 @@ mod tests {
         explicit.out_atol = vec![1.0];
         let declared = package
             .declared_simulation(
+                services.preparation(),
                 root,
                 fixture::compiler_profile(),
                 Some(explicit.clone()),
@@ -4366,6 +4455,7 @@ mod tests {
         );
         let direct = package
             .prepare_simulation(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -4390,6 +4480,7 @@ mod tests {
     #[tokio::test]
     async fn authored_conservation_derives_only_its_generated_flux_quadrature_controls() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let cancel = crate::CancelSource::new();
         for unrelated_integral in [false, true] {
             let extra = if unrelated_integral {
@@ -4415,6 +4506,7 @@ mod tests {
             let package = runtime.modeling_package(rows, physical()).await.unwrap();
             let prepared = package
                 .declared_simulation(
+                    services.preparation(),
                     root,
                     super::super::super::tests::compiler_profile(),
                     None,
@@ -4434,7 +4526,7 @@ mod tests {
                 let prepared = prepared.unwrap();
                 assert_eq!(prepared.profile.out_rtol, Some(1e-8));
                 assert_eq!(prepared.profile.out_atol, vec![1e-6]);
-                let trajectory = prepared.run(&cancel).await.unwrap();
+                let trajectory = prepared.run(&services, &cancel).await.unwrap();
                 assert!(trajectory.accepted(), "{:?}", trajectory.validation_error());
             }
         }
@@ -4443,6 +4535,7 @@ mod tests {
     async fn declared_terminal_endpoint_qualifies_conservation_prefix_without_fabricating_integrals()
      {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let allowance =
@@ -4490,7 +4583,14 @@ mod tests {
                     .declaration_id;
                 let package = runtime.modeling_package(rows, physical()).await.unwrap();
                 let prepared = package
-                    .declared_simulation(root, compiler, None, Limits::default(), &cancel)
+                    .declared_simulation(
+                        services.preparation(),
+                        root,
+                        compiler,
+                        None,
+                        Limits::default(),
+                        &cancel,
+                    )
                     .await
                     .unwrap();
                 if accepted {
@@ -4507,7 +4607,14 @@ mod tests {
                     .unwrap();
                     let resetting = runtime.modeling_package(rows, physical()).await.unwrap();
                     let error = resetting
-                        .declared_simulation(root, compiler, None, Limits::default(), &cancel)
+                        .declared_simulation(
+                            services.preparation(),
+                            root,
+                            compiler,
+                            None,
+                            Limits::default(),
+                            &cancel,
+                        )
                         .await
                         .unwrap_err();
                     assert!(
@@ -4523,6 +4630,7 @@ mod tests {
                 assert!(profile.out_atol.iter().all(|value| *value == allowance));
                 let prepared = package
                     .declared_simulation(
+                        services.preparation(),
                         root,
                         compiler,
                         Some(profile.clone()),
@@ -4535,6 +4643,7 @@ mod tests {
                     profile.endpoint = native::EndpointRequirement::default();
                     let error = package
                         .declared_simulation(
+                            services.preparation(),
                             root,
                             compiler,
                             Some(profile),
@@ -4545,7 +4654,7 @@ mod tests {
                         .unwrap_err();
                     assert!(error.to_string().contains("authored endpoint"), "{error}");
                 }
-                let trajectory = prepared.run(&cancel).await.unwrap();
+                let trajectory = prepared.run(&services, &cancel).await.unwrap();
                 assert_eq!(
                     trajectory.report().termination,
                     native::Termination::Event,
@@ -4604,6 +4713,7 @@ mod tests {
     #[tokio::test]
     async fn authored_conservation_inventory_and_original_flux_reach_native_closure_reports() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
@@ -4632,6 +4742,7 @@ mod tests {
                 .unwrap();
             let prepared = package
                 .prepare_simulation(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -4676,7 +4787,7 @@ mod tests {
                     .outputs
                     .contains(&ModelingOutput::Inventory(descriptor.id))
             );
-            let trajectory = prepared.run(&cancel).await.unwrap();
+            let trajectory = prepared.run(&services, &cancel).await.unwrap();
             assert_eq!(
                 trajectory.report().termination,
                 native::Termination::Completed,
@@ -4708,6 +4819,7 @@ mod tests {
     async fn authored_conservation_general_inventory_audits_original_coordinates_and_exposes_flux_drift()
      {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
@@ -4742,6 +4854,7 @@ mod tests {
                     .unwrap();
                 let prepared = package
                     .prepare_simulation(
+                        services.preparation(),
                         root,
                         pse_modeling::specialize::root_instance(root),
                         Bindings::default(),
@@ -4769,7 +4882,7 @@ mod tests {
                     1,
                     "original independent differential coordinate remains"
                 );
-                let trajectory = prepared.run(&cancel).await.unwrap();
+                let trajectory = prepared.run(&services, &cancel).await.unwrap();
                 assert_eq!(
                     trajectory.report().termination,
                     native::Termination::Completed,
@@ -4814,6 +4927,7 @@ mod tests {
     async fn authored_conservation_auxiliary_inventory_initializes_original_algebraic_coordinates()
     {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let cancel = crate::CancelSource::new();
         let methods = vec![
             native::Method::Diffsol,
@@ -4843,6 +4957,7 @@ mod tests {
                 let package = runtime.modeling_package(rows, physical()).await.unwrap();
                 let prepared = package
                     .prepare_simulation(
+                        services.preparation(),
                         root,
                         pse_modeling::specialize::root_instance(root),
                         Bindings::default(),
@@ -4892,7 +5007,7 @@ mod tests {
                     .next()
                     .unwrap();
                 assert!(descriptor.state.is_some());
-                let trajectory = prepared.run(&cancel).await.unwrap();
+                let trajectory = prepared.run(&services, &cancel).await.unwrap();
                 assert_eq!(
                     trajectory.report().termination,
                     native::Termination::Completed,
@@ -4951,6 +5066,7 @@ mod tests {
     #[tokio::test]
     async fn authored_conservation_shared_coordinates_keep_each_original_initial_source() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let cancel = crate::CancelSource::new();
         let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; var y[i in t]:Time; eq initial_x:x[0{s}]==1{s}; eq initial_y:y[0{s}]==2{s}; conserve sum[i in t]:Time on t inventory x[i]+y[i] flux 3 tolerance 1e-6{s}; conserve difference[i in t]:Time on t inventory x[i]-y[i] flux -1 tolerance 1e-6{s}; } }";
         let rows = pse_authoring::language::parse(
@@ -4979,6 +5095,7 @@ mod tests {
         for method in methods {
             let prepared = package
                 .prepare_simulation(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -5024,7 +5141,7 @@ mod tests {
                     .count(),
                 2
             );
-            let trajectory = prepared.run(&cancel).await.unwrap();
+            let trajectory = prepared.run(&services, &cancel).await.unwrap();
             assert_eq!(
                 trajectory.report().termination,
                 native::Termination::Completed,
@@ -5060,6 +5177,7 @@ mod tests {
     #[tokio::test]
     async fn authored_conservation_transfers_resolve_guard_names_and_preserve_state_dependence() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
@@ -5101,6 +5219,7 @@ mod tests {
                     .unwrap();
                 let prepared = package
                     .declared_simulation(
+                        services.preparation(),
                         root,
                         compiler,
                         Some(native::Profile {
@@ -5162,7 +5281,7 @@ mod tests {
                         .iter()
                         .any(|p| p.function == Function::Transfer(0))
                 );
-                let trajectory = prepared.run(&cancel).await.unwrap();
+                let trajectory = prepared.run(&services, &cancel).await.unwrap();
                 assert_eq!(
                     trajectory.accepted(),
                     matches,
@@ -5209,6 +5328,7 @@ mod tests {
     #[tokio::test]
     async fn authored_conservation_point_inventory_uses_difference_transfer_convention() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let cancel = crate::CancelSource::new();
         let mut physical = physical();
         // A named physical rate boundary is required independently of conservation.
@@ -5393,6 +5513,7 @@ mod tests {
             };
             let prepared = package
                 .declared_simulation(
+                    services.preparation(),
                     root,
                     super::super::super::tests::compiler_profile(),
                     Some(profile.clone()),
@@ -5427,6 +5548,7 @@ mod tests {
             profile.numerics.requirements.push(declaration);
             let prepared = package
                 .declared_simulation(
+                    services.preparation(),
                     root,
                     super::super::super::tests::compiler_profile(),
                     Some(profile),
@@ -5481,7 +5603,7 @@ mod tests {
                 .unwrap();
             assert_eq!(resolved.quantity, delta.id.as_id());
             assert_eq!(resolved.unit, delta.canonical_unit.as_id());
-            let trajectory = prepared.run(&cancel).await.unwrap();
+            let trajectory = prepared.run(&services, &cancel).await.unwrap();
             assert_eq!(
                 trajectory.report().termination,
                 native::Termination::Completed,
@@ -5498,6 +5620,7 @@ mod tests {
     #[tokio::test]
     async fn authored_conservation_refuses_algebraic_resets_before_native_consistency() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 1; var x[i in t]: Time; var y[i in t]: Time; conserve stock[i in t]: Time on t inventory x[i] flux p tolerance 1e-6{s}; eq initial: x[0{s}] == 1{s}; eq definition[i in t]: y[i] == 2*x[i]; annotation start y(2{s}); let hit[i in t]: Time = x[i]-1.5{s}; let jump[i in t]: Time = 2*y[i]; } test evented fixture { dof 0; route integrated; procedure integrate; integrate samples(0{s},1{s}) relative(1e-9) normalized_absolute(1e-11) step(1e-4{s}); mode before; event root.hit[0{s}] direction(either) tolerance(1e-8{s}) reset(root.y[0{s}] = root.jump[0{s}]) next(after); mode after; } { child root: Root = Root(); } }";
         let rows = pse_authoring::language::parse(
@@ -5515,6 +5638,7 @@ mod tests {
         let package = runtime.modeling_package(rows, physical).await.unwrap();
         let error = package
             .declared_simulation(
+                services.preparation(),
                 root,
                 super::super::super::tests::compiler_profile(),
                 Some(native::Profile {
@@ -5545,6 +5669,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_conformance_integrates_authored_samples_and_retains_each_check() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let text = "package p { def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==2; eq initial:x[0{s}]==1{s}; annotation check x(x[i]<=4{s}); annotation valid x(0{s},4{s}); let area:Time=integral(i in t | 2); annotation check area(area>1.9{s});} test dynamic fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s},0.5{s},1{s}) relative(1e-6) normalized_absolute(1e-8) step(1e-4{s}) quadrature_relative(1e-6) quadrature_absolute(root.area=1e-7{s});} {child root:Root=Root();} }";
         let rows = pse_authoring::language::parse(
@@ -5583,7 +5708,7 @@ mod tests {
             },
         };
         let report = package
-            .conform(policy, &crate::CancelSource::new())
+            .conform(&services, policy, &crate::CancelSource::new())
             .await
             .unwrap();
         assert_eq!(report.trajectories.len(), 1, "{:?}", report.checks);
@@ -5634,6 +5759,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_fixture_schedules_inputs() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let text = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u: Scalar = 5; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == u; eq initial: x[0{s}] == 1{s}; } test scheduled fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s}, 0.5{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.u at(0.5{s}) values(2, -1);} {child root: Root = Root();} test on_state fixture {dof 0; route integrated; procedure integrate; integrate samples(0{s}, 1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s}); schedule root.x[0{s}] at(0.5{s}) values(1{s}, 2{s});} {child root: Root = Root();} }";
         let rows = pse_authoring::language::parse(
@@ -5665,7 +5791,14 @@ mod tests {
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let prepared = package
-            .declared_simulation(scheduled, compiler, None, Limits::default(), &cancel)
+            .declared_simulation(
+                services.preparation(),
+                scheduled,
+                compiler,
+                None,
+                Limits::default(),
+                &cancel,
+            )
             .await
             .unwrap();
         // One contract parameter, two intervals, each with its authored value.
@@ -5682,6 +5815,7 @@ mod tests {
         profile.sensitivity = native::DynamicSensitivity::Forward;
         let sensitive = package
             .declared_simulation(
+                services.preparation(),
                 scheduled,
                 compiler,
                 Some(profile.clone()),
@@ -5691,7 +5825,7 @@ mod tests {
             .await
             .unwrap();
         assert_ne!(sensitive.identity(), prepared.identity());
-        let result = sensitive.run(&cancel).await.unwrap();
+        let result = sensitive.run(&services, &cancel).await.unwrap();
         assert!(result.accepted(), "{:?}", result.diagnostic());
         let samples = &result.report().samples;
         // x = 1 + 2·t before the change and 2 − (t − 0.5) after; the unscheduled model
@@ -5733,6 +5867,7 @@ mod tests {
         selected_profile.forward_axes = Some(vec![1]);
         let selected = package
             .declared_simulation(
+                services.preparation(),
                 scheduled,
                 compiler,
                 Some(selected_profile),
@@ -5748,11 +5883,14 @@ mod tests {
             &constructor.forward_selection,
             Some(crate::workflow::replay::ReplayForwardSelection::PhysicalAxes(axes)) if axes == &[1],
         ));
-        let reconstructed = constructor.reconstruct(&package, &cancel).await.unwrap();
+        let reconstructed = constructor
+            .reconstruct(services.preparation(), &package, &cancel)
+            .await
+            .unwrap();
         assert_eq!(reconstructed.profile.forward_axes, Some(vec![1]));
         assert_eq!(reconstructed.parameters, selected.parameters);
         assert_eq!(reconstructed.identity(), selected.identity());
-        let selected_result = selected.run(&cancel).await.unwrap();
+        let selected_result = selected.run(&services, &cancel).await.unwrap();
         assert!(
             selected_result.accepted(),
             "{:?}",
@@ -5782,6 +5920,7 @@ mod tests {
         profile.schedule[0].times = vec![0.25];
         let error = package
             .declared_simulation(
+                services.preparation(),
                 scheduled,
                 compiler,
                 Some(profile),
@@ -5793,7 +5932,14 @@ mod tests {
         assert!(error.to_string().contains("authored schedule"), "{error}");
         // A state is not a scheduled input.
         let error = package
-            .declared_simulation(on_state, compiler, None, Limits::default(), &cancel)
+            .declared_simulation(
+                services.preparation(),
+                on_state,
+                compiler,
+                None,
+                Limits::default(),
+                &cancel,
+            )
             .await
             .unwrap_err();
         assert!(
@@ -5807,6 +5953,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_integrated_events_bind_source_resets_and_same_layout_modes() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let integrate = "dof 0; route integrated; procedure integrate; integrate samples(0{s}, 0.25{s}, 0.75{s}, 2{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-4{s});";
         let source = format!(
@@ -5853,7 +6000,14 @@ mod tests {
         };
         let compiler = super::super::super::tests::compiler_profile();
         let simulate = |root, profile| {
-            package.declared_simulation(root, compiler, Some(profile), Limits::default(), &cancel)
+            package.declared_simulation(
+                services.preparation(),
+                root,
+                compiler,
+                Some(profile),
+                Limits::default(),
+                &cancel,
+            )
         };
         let prepared = simulate(evented, profile.clone()).await.unwrap();
         assert_eq!(prepared.mode_names().collect::<Vec<_>>(), ["rise", "coast"]);
@@ -5910,7 +6064,7 @@ mod tests {
             &program.output_allowances,
             &again.output_allowances
         ));
-        let result = prepared.run(&cancel).await.unwrap();
+        let result = prepared.run(&services, &cancel).await.unwrap();
         assert!(
             result.accepted(),
             "{:?} {:?}",
@@ -5946,7 +6100,7 @@ mod tests {
         let stopped = simulate(stopped, terminal_profile)
             .await
             .unwrap()
-            .run(&cancel)
+            .run(&services, &cancel)
             .await
             .unwrap();
         assert_eq!(stopped.report().termination, native::Termination::Event);
@@ -5963,6 +6117,7 @@ mod tests {
     #[tokio::test]
     async fn authored_directional_event_routes_to_idas() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let fixture = |direction: &str| {
             format!(
@@ -5994,11 +6149,18 @@ mod tests {
             (tests[2], native::Method::Idas, fall),
         ] {
             let prepared = package
-                .declared_simulation(root, compiler, None, Limits::default(), &cancel)
+                .declared_simulation(
+                    services.preparation(),
+                    root,
+                    compiler,
+                    None,
+                    Limits::default(),
+                    &cancel,
+                )
                 .await
                 .unwrap();
             assert_eq!(prepared.profile().resolved_method().unwrap(), method);
-            let result = prepared.run(&cancel).await.unwrap();
+            let result = prepared.run(&services, &cancel).await.unwrap();
             assert_eq!(
                 result.report().termination,
                 native::Termination::Event,
@@ -6015,7 +6177,14 @@ mod tests {
         }
         // Diffsol detects every sign change, so it refuses a directional event.
         let mut diffsol = package
-            .declared_simulation(tests[2], compiler, None, Limits::default(), &cancel)
+            .declared_simulation(
+                services.preparation(),
+                tests[2],
+                compiler,
+                None,
+                Limits::default(),
+                &cancel,
+            )
             .await
             .unwrap()
             .profile()
@@ -6023,6 +6192,7 @@ mod tests {
         diffsol.method = native::Method::Diffsol;
         let error = package
             .declared_simulation(
+                services.preparation(),
                 tests[2],
                 compiler,
                 Some(diffsol),
@@ -6043,6 +6213,7 @@ mod tests {
     #[tokio::test]
     async fn idas_sign_constraints_from_authored_bounds() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let integrate = "dof 0; route integrated; procedure integrate; integrate samples(0{s}, 10{s}) relative(1e-2) normalized_absolute(1e-2) step(1e-4{s});";
         let decay = |state: &str, start: &str, rate: &str, bounds: &str| {
@@ -6074,7 +6245,14 @@ mod tests {
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let prepare = |root, profile| {
-            package.declared_simulation(root, compiler, profile, Limits::default(), &cancel)
+            package.declared_simulation(
+                services.preparation(),
+                root,
+                compiler,
+                profile,
+                Limits::default(),
+                &cancel,
+            )
         };
         // One sign per state, in state order: x ≥ 0, y ≤ 0, z free.
         let prepared = prepare(signs, None).await.unwrap();
@@ -6115,13 +6293,13 @@ mod tests {
             constrained.contract().signs,
             [native::StateSign::NonNegative]
         );
-        let kept = constrained.run(&cancel).await.unwrap();
+        let kept = constrained.run(&services, &cancel).await.unwrap();
         assert!(kept.accepted(), "{:?}", kept.diagnostic());
         assert!(lowest(&kept) >= 0., "constrained minimum {}", lowest(&kept));
         let free = prepare(relaxed, Some(profile)).await.unwrap();
         assert!(free.contract().signs.is_empty());
         assert_ne!(free.identity(), constrained.identity());
-        let dipped = free.run(&cancel).await.unwrap();
+        let dipped = free.run(&services, &cancel).await.unwrap();
         assert!(dipped.accepted(), "{:?}", dipped.diagnostic());
         assert!(
             lowest(&dipped) < 0.,
@@ -6135,6 +6313,7 @@ mod tests {
     #[tokio::test]
     async fn simultaneous_route_refuses_authored_events() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let def = "def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; let hit[i in t]: Time = x[i]-2{s}; }";
         let events =
@@ -6163,6 +6342,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let error = package
             .prepare(
+                services.preparation(),
                 evented,
                 pse_modeling::specialize::root_instance(evented),
                 Bindings::default().with_analysis(pse_modeling::analysis::Route::Simultaneous),
@@ -6180,6 +6360,7 @@ mod tests {
         // The integrated route admits the same case.
         package
             .prepare(
+                services.preparation(),
                 evented,
                 pse_modeling::specialize::root_instance(evented),
                 Bindings::default().with_analysis(pse_modeling::analysis::Route::Integrated),
@@ -6193,7 +6374,7 @@ mod tests {
         ));
         let package = runtime.modeling_package(rows, physical).await.unwrap();
         let declared = package
-            .declarations()
+            .declarations(services.preparation())
             .await
             .unwrap()
             .iter()
@@ -6202,6 +6383,7 @@ mod tests {
             .declaration_id;
         let error = package
             .declared_execution(
+                services.preparation(),
                 declared,
                 super::super::super::tests::compiler_profile(),
                 super::super::super::tests::profile(),
@@ -6221,6 +6403,7 @@ mod tests {
     }
     async fn terminal_quadratures(method: native::Method) {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[0{s}] == 1{s}; let area: Time = integral(i in t | p); let score: Scalar = log(area/1{s}); annotation report area(\"integral\"); annotation report score(\"log-integral\"); annotation check area(area > 3{s}); annotation check x(x[i] <= 6{s}); } }";
         let cancel = crate::CancelSource::new();
@@ -6259,6 +6442,7 @@ mod tests {
             };
             let preparation = package
                 .prepare_simulation(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -6283,7 +6467,7 @@ mod tests {
                 1,
                 "terminal outputs must not be prefix samples"
             );
-            let result = prepared.run(&cancel).await.unwrap();
+            let result = prepared.run(&services, &cancel).await.unwrap();
             assert!(
                 result.accepted(),
                 "{:?} {:?}",
@@ -6336,6 +6520,7 @@ mod tests {
             assert!(
                 package
                     .prepare_simulation(
+                        services.preparation(),
                         root,
                         pse_modeling::specialize::root_instance(root),
                         Bindings::default(),
@@ -6355,6 +6540,7 @@ mod tests {
             derivatives.sensitivity = native::DynamicSensitivity::Forward;
             let sensitive = package
                 .prepare_simulation(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -6367,7 +6553,7 @@ mod tests {
                 )
                 .await
                 .unwrap();
-            let sensitive = sensitive.run(&cancel).await.unwrap();
+            let sensitive = sensitive.run(&services, &cancel).await.unwrap();
             assert!(sensitive.accepted(), "{:?}", sensitive.diagnostic());
             for sample in &sensitive.report().samples {
                 assert_eq!(sample.output_sensitivities.len(), 1);
@@ -6379,6 +6565,7 @@ mod tests {
     #[tokio::test]
     async fn temporal_composition_refuses_missing_or_competing_endpoint_initialization() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let source = "package p {def Cell(times:Set<Time>={}) {var x:Time;eq rate[i in times]:d(x)/di==1;} def Root {domain t:Time from 0{s} to 2{s};discretize grid on t using integrated(elements=1,order=1);child cell:Cell=Cell();evolve time_state on cell using t bind times;eq initial:cell[0{s}].x==0{s};}}";
         for text in [
             source.replace("eq initial:cell[0{s}].x==0{s};", ""),
@@ -6399,6 +6586,7 @@ mod tests {
             let package = runtime.modeling_package(rows, physical()).await.unwrap();
             let error = package
                 .prepare_simulation(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -6415,13 +6603,19 @@ mod tests {
                 )
                 .await
                 .unwrap_err();
-            assert!(error.to_string().contains("initial"), "{error}");
+            let diagnostic = error.boundary_diagnostic();
+            assert_eq!(
+                diagnostic.class,
+                pse_model::diagnostic::BoundaryClass::InvalidModel
+            );
+            assert!(!diagnostic.sources.is_empty());
         }
     }
 
     #[tokio::test]
     async fn kernel_integrated_sample_checks_share_model_semantics_and_owned_rows() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; annotation check x(x[i] <= 4{s}); } }";
         for (text, accepted) in [
@@ -6447,7 +6641,7 @@ mod tests {
             let cancel = crate::CancelSource::new();
             let prepared = package
                 .prepare_simulation(
-                    root,
+                    services.preparation(), root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
                     Limits::default(),
@@ -6463,7 +6657,7 @@ mod tests {
                 )
                 .await
                 .unwrap();
-            let result = prepared.run(&cancel).await.unwrap();
+            let result = prepared.run(&services, &cancel).await.unwrap();
             assert_eq!(result.report().termination, native::Termination::Completed);
             assert!(result.checks_complete(), "{:?}", result.validation_error());
             assert_eq!(result.accepted(), accepted);
@@ -6505,6 +6699,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_integrated_coupled_rate_matrix_uses_original_residual_and_parameter_jets() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize mesh on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; var y[i in t]: Time; eq first[i in t]: p*d(x[i])/di+d(y[i])/di == p; eq second[i in t]: d(x[i])/di+2*d(y[i])/di == 0; eq ix: x[0{s}] == 1{s}; eq iy: y[0{s}] == 3{s}; } }";
         let compiler = super::super::super::tests::compiler_profile();
@@ -6540,6 +6735,7 @@ mod tests {
                 .unwrap();
             let result = package
                 .prepare_simulation(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -6608,7 +6804,7 @@ mod tests {
                 .iter()
                 .position(|s| *s == y)
                 .unwrap();
-            let result = prepared.run(&cancel).await.unwrap();
+            let result = prepared.run(&services, &cancel).await.unwrap();
             if singular {
                 assert_ne!(result.report().termination, native::Termination::Completed);
                 assert!(result.report().error.is_some());
@@ -6631,6 +6827,7 @@ mod tests {
     #[tokio::test]
     async fn dynamics_refuses_free_integer() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); var x[i in t]: Time; var units: Count in integer; eq ode[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; annotation start x(0{s}); annotation start units(1{1}); annotation bounds units(0{1}, 3{1}); } }";
         let rows = pse_authoring::language::parse(
@@ -6655,6 +6852,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let simulate = |case| {
             package.prepare_simulation(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -6692,6 +6890,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_integrated_time_uses_generated_rates_native_solver_and_initial_sensitivities() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize mesh on t using integrated(elements=1,order=1); param p: Scalar = 2; param offset: Time = 1{s}; var x[i in t]: Time; eq ode[i in t]: d(x[i])/di == p; eq initial: x[0{s}] == offset; annotation start x(0{s}); annotation nominal x(10{s}); annotation check x(abs(x[i] - offset - p*i) < 1e-5{s}); } }";
         let rows = pse_authoring::language::parse(
@@ -6718,6 +6917,7 @@ mod tests {
         };
         let prepared = package
             .prepare_simulation(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -6812,8 +7012,12 @@ mod tests {
         assert!(frozen_allowances(&policy, &access, &prepared.coordinates, &outputs).is_err());
         let scope =
             pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
-        let mut first = prepared.worker(scope.clone()).unwrap();
-        let mut second = prepared.worker(scope).unwrap();
+        let mut first = prepared
+            .worker(services.preparation().math(), scope.clone())
+            .unwrap();
+        let mut second = prepared
+            .worker(services.preparation().math(), scope)
+            .unwrap();
         assert_eq!(Arc::strong_count(&prepared.state_allowances), 3);
         assert_eq!(Arc::strong_count(&prepared.output_allowances), 3);
         first.assert_independent_layout(&second);
@@ -6877,10 +7081,10 @@ mod tests {
         // Once native consumers release the previous derivative, the same charged
         // CSC payload is refilled. A live alias instead keeps its exact old values.
         let mut reuse = prepared
-            .worker(pse_kernels::ExecutionScope::new(
-                pse_diagnostics::Cancellation::new(false),
-                None,
-            ))
+            .worker(
+                services.preparation().math(),
+                pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
+            )
             .unwrap();
         let first = reuse
             .evaluate(0, Function::Output, 0., &[0.1], prepared.parameters(), true)
@@ -6965,7 +7169,7 @@ mod tests {
         let mut permuted = permuted
             .worker(
                 pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
-                prepared.snapshot_allocator(),
+                prepared.snapshot_allocator(services.preparation().math()),
             )
             .unwrap();
         let reversed = prepared
@@ -7022,7 +7226,7 @@ mod tests {
             .iter()
             .position(|id| *id == offset)
             .unwrap();
-        let result = prepared.run(&cancel).await.unwrap();
+        let result = prepared.run(&services, &cancel).await.unwrap();
         assert_eq!(
             result.report().termination,
             native::Termination::Completed,
@@ -7061,7 +7265,10 @@ mod tests {
         assert!((rows.last().unwrap().value - 5.).abs() < 1e-6);
         let flag = pse_diagnostics::Cancellation::default();
         let mut worker = prepared
-            .worker(pse_kernels::ExecutionScope::new(flag.clone(), None))
+            .worker(
+                services.preparation().math(),
+                pse_kernels::ExecutionScope::new(flag.clone(), None),
+            )
             .unwrap();
         assert!(
             worker
@@ -7123,6 +7330,7 @@ mod tests {
     #[cfg(feature = "solver-diffsol")]
     async fn kernel_diffsol_cotangents_preserve_physical_scaling_and_direct_product_capability() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); param p:Scalar=2; param offset:Time=1{s}; var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==p*(x[i]/1{s})^2; eq initial:x[0{s}]==offset; annotation start x(1{s}); annotation nominal x(10{s}); } }";
         let rows = pse_authoring::language::parse(
             source,
@@ -7140,6 +7348,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let prepared = package
             .prepare_simulation(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -7160,10 +7369,10 @@ mod tests {
             .await
             .unwrap();
         let mut worker = prepared
-            .worker(pse_kernels::ExecutionScope::new(
-                pse_diagnostics::Cancellation::default(),
-                None,
-            ))
+            .worker(
+                services.preparation().math(),
+                pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            )
             .unwrap();
         let state = [0.1];
         let parameters = prepared.parameters();
@@ -7187,10 +7396,10 @@ mod tests {
             }
         }
         let mut fresh = prepared
-            .worker(pse_kernels::ExecutionScope::new(
-                pse_diagnostics::Cancellation::default(),
-                None,
-            ))
+            .worker(
+                services.preparation().math(),
+                pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            )
             .unwrap();
         let mut direct_jvp = vec![f64::NAN; original.values.len()];
         fresh
@@ -7252,6 +7461,7 @@ mod tests {
     #[cfg(feature = "solver-idas")]
     async fn kernel_integrated_actions_preserve_scaled_axes_and_complete_publication() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); param p:Scalar=2; param offset:Time=1{s}; var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==p*(x[i]/1{s})^2; eq initial:x[0{s}]==offset; annotation start x(1{s}); annotation nominal x(10{s}); } }";
         let rows = pse_authoring::language::parse(
             source,
@@ -7269,6 +7479,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let prepared = package
             .prepare_simulation(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -7296,10 +7507,10 @@ mod tests {
             .await
             .unwrap();
         let mut worker = prepared
-            .worker(pse_kernels::ExecutionScope::new(
-                pse_diagnostics::Cancellation::default(),
-                None,
-            ))
+            .worker(
+                services.preparation().math(),
+                pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            )
             .unwrap();
         let state = [0.1];
         let parameters = prepared.parameters();
@@ -7393,6 +7604,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_nonlinear_dae_initial_parameter_sensitivities_and_quadrature_agree() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); param p:Scalar=2; param offset:Time=1{s}; var x[i in t]:Time; var y[i in t]:Scalar; eq rate[i in t]:d(x[i])/di==p; eq initial:x[0{s}]==offset; eq algebraic[i in t]:y[i]*y[i]==x[i]/1{s}; annotation start x(1{s}); annotation start y(1); let area:Time=integral(i in t | p); annotation check area(abs(area-2{s})<1e-5{s}); } }";
         let rows = pse_authoring::language::parse(
@@ -7430,6 +7642,7 @@ mod tests {
             };
             let prepared = package
                 .prepare_simulation(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -7480,7 +7693,7 @@ mod tests {
                 .iter()
                 .position(|id| *id == parameter("offset"))
                 .unwrap();
-            let result = prepared.run(&cancel).await.unwrap();
+            let result = prepared.run(&services, &cancel).await.unwrap();
             assert!(result.accepted(), "{method:?}: {:?}", result.diagnostic());
             for sample in &result.report().samples {
                 let y = (1. + 2. * sample.time).sqrt();
@@ -7495,6 +7708,7 @@ mod tests {
     #[tokio::test]
     async fn kernel_integrated_dae_checks_partition_and_retains_completed_samples_on_failure() {
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let source = "package p { def Root { domain t: Time from 0{s} to 2{s}; discretize mesh on t using integrated(elements=1,order=1); param p: Scalar = 2; param offset: Time = 1{s}; var x[i in t]: Time; var y: Scalar; eq ode[i in t]: d(x[i])/di == y; eq initial: x[0{s}] == offset; eq algebraic: y == 2*p; annotation start x(0{s}); annotation start y(999); } }";
         let parse = |source: &str| {
@@ -7529,6 +7743,7 @@ mod tests {
         };
         let prepared = package
             .prepare_simulation(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -7548,7 +7763,7 @@ mod tests {
             .position(|d| *d)
             .unwrap();
         let yi = 1 - xi;
-        let result = prepared.run(&cancel).await.unwrap();
+        let result = prepared.run(&services, &cancel).await.unwrap();
         assert_eq!(
             result.report().termination,
             native::Termination::Completed,
@@ -7569,12 +7784,16 @@ mod tests {
             assert!((sample.outputs[yi] - 4.).abs() <= state_budget(yi));
         }
         let singular = package
-            .with_declarations(parse(&source.replace("y == 2*p", "p == 2")))
+            .with_declarations(
+                &services.source_services(),
+                parse(&source.replace("y == 2*p", "p == 2")),
+            )
             .await
             .unwrap();
         assert!(
             singular
                 .prepare_simulation(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -7589,36 +7808,46 @@ mod tests {
                 .is_err()
         );
         let no_initial = singular
-            .with_declarations(parse(&source.replace("eq initial: x[0{s}] == offset;", "")))
+            .with_declarations(
+                &services.source_services(),
+                parse(&source.replace("eq initial: x[0{s}] == offset;", "")),
+            )
             .await
             .unwrap();
-        assert!(
-            no_initial
-                .prepare_simulation(
-                    root,
-                    pse_modeling::specialize::root_instance(root),
-                    Bindings::default(),
-                    Limits::default(),
-                    ModelingCaseBindings::default(),
-                    compiler,
-                    profile.clone(),
-                    DerivativeOrder::First,
-                    &cancel
-                )
-                .await
-                .unwrap_err()
-                .to_string()
-                .contains("initial condition")
+        let error = no_initial
+            .prepare_simulation(
+                services.preparation(),
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                compiler,
+                profile.clone(),
+                DerivativeOrder::First,
+                &cancel,
+            )
+            .await
+            .unwrap_err();
+        let diagnostic = error.boundary_diagnostic();
+        assert_eq!(
+            diagnostic.class,
+            pse_model::diagnostic::BoundaryClass::InvalidModel
         );
+        assert!(!diagnostic.sources.is_empty());
         let guarded = no_initial
-            .with_declarations(parse(&source.replace(
-                "annotation start x(0{s});",
-                "annotation start x(0{s}); annotation valid x(0{s},2{s});",
-            )))
+            .with_declarations(
+                &services.source_services(),
+                parse(&source.replace(
+                    "annotation start x(0{s});",
+                    "annotation start x(0{s}); annotation valid x(0{s},2{s});",
+                )),
+            )
             .await
             .unwrap();
         let prepared = guarded
             .prepare_simulation(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -7632,10 +7861,10 @@ mod tests {
             .await
             .unwrap();
         let mut worker = prepared
-            .worker(pse_kernels::ExecutionScope::new(
-                pse_diagnostics::Cancellation::new(false),
-                None,
-            ))
+            .worker(
+                services.preparation().math(),
+                pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
+            )
             .unwrap();
         let mut outside = vec![4.; 2];
         outside[xi] = 3.;
@@ -7670,16 +7899,19 @@ mod tests {
                 matches!(diagnostic.observations[name], pse_model::diagnostic::Observation::Real(actual) if actual.to_bits() == value.to_bits())
             );
         }
-        let result = prepared.run(&cancel).await.unwrap();
+        let result = prepared.run(&services, &cancel).await.unwrap();
         assert_ne!(result.report().termination, native::Termination::Completed);
         assert!(result.report().error.is_some());
         assert!(!result.report().samples.is_empty());
         assert!(result.report().samples.iter().all(|s| s.outputs[xi] <= 2.));
         let bounded = guarded
-            .with_declarations(parse(&source.replace(
-                "annotation start x(0{s});",
-                "annotation start x(0{s}); annotation bounds x(0{s},2{s});",
-            )))
+            .with_declarations(
+                &services.source_services(),
+                parse(&source.replace(
+                    "annotation start x(0{s});",
+                    "annotation start x(0{s}); annotation bounds x(0{s},2{s});",
+                )),
+            )
             .await
             .unwrap();
         let profile = prepared.profile.clone();
@@ -7696,6 +7928,7 @@ mod tests {
         };
         let override_bounds = bounded
             .prepare_simulation(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -7708,7 +7941,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let result = override_bounds.run(&cancel).await.unwrap();
+        let result = override_bounds.run(&services, &cancel).await.unwrap();
         assert_eq!(
             result.report().termination,
             native::Termination::Completed,
@@ -7722,6 +7955,7 @@ mod tests {
     async fn kernel_same_definition_selects_steady_integrated_and_simultaneous() {
         use pse_modeling::analysis::Route;
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let physical = physical();
         let source = "package p { difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0.5,0.5); def Root { domain t: Time from 0{s} to 1{s}; when analysis.route == analysis.integrated { discretize native on t using integrated(elements=1,order=1); } when analysis.route != analysis.integrated { discretize grid on t using backward(elements=4,order=1); } param target: Time = 2{s}; param tau: Time = 1{s}; var x[i in t]: Time; when analysis.dynamic { eq transient[i in t]: d(x[i])/di == (target-x[i])/tau; eq initial: x[0{s}] == 0{s}; } when not analysis.dynamic { eq stationary[i in t]: 0 == (target-x[i])/tau; } annotation start x(0{s}); } }";
         let rows = pse_authoring::language::parse(
@@ -7741,6 +7975,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let simulation = package
             .prepare_simulation(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -7756,7 +7991,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let trajectory = simulation.run(&cancel).await.unwrap();
+        let trajectory = simulation.run(&services, &cancel).await.unwrap();
         assert_eq!(
             trajectory.report().termination,
             native::Termination::Completed,
@@ -7775,6 +8010,7 @@ mod tests {
             );
             let prepared = package
                 .prepare_solve(
+                    services.preparation(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default().with_analysis(route),
@@ -7799,7 +8035,7 @@ mod tests {
                 .map(|v| v.port.id)
                 .collect::<Vec<_>>();
             let result = package
-                .solve_case(prepared, compiler, &cancel)
+                .solve_case(&services, prepared, compiler, &cancel)
                 .await
                 .unwrap();
             assert!(result.accepted, "{result:?}");
@@ -7865,6 +8101,7 @@ mod diagnostic_admission_tests {
         use native::Oracle;
         use pse_model::scalars::PositiveCount;
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); var x[i in t]:Scalar; var y[i in t]:Scalar; eq rx[i in t]:d(x[i])/di == -x[i]/1{s}; eq ry[i in t]:d(y[i])/di == (x[i]-2*y[i])/1{s}; eq ix:x[0{s}]==1; eq iy:y[0{s}]==0; annotation start x(1); annotation start y(0); } }";
         let rows = pse_authoring::language::parse(
             source,
@@ -7885,6 +8122,7 @@ mod diagnostic_admission_tests {
         let cancel = crate::CancelSource::new();
         let prepared = package
             .prepare_simulation(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -7944,10 +8182,10 @@ mod diagnostic_admission_tests {
             .unwrap();
         let yi = 1 - xi;
         let mut worker = prepared
-            .worker(pse_kernels::ExecutionScope::new(
-                pse_diagnostics::Cancellation::default(),
-                None,
-            ))
+            .worker(
+                services.preparation().math(),
+                pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None),
+            )
             .unwrap();
         let point = [0.1; 2];
         let direction = [0.3, 0.7];
@@ -7989,7 +8227,7 @@ mod diagnostic_admission_tests {
             "unprepared derivatives refuse before output publication"
         );
         drop(worker);
-        let result = prepared.run(&cancel).await.unwrap();
+        let result = prepared.run(&services, &cancel).await.unwrap();
         assert!(result.accepted(), "{:?}", result.diagnostic());
         assert!(
             result
@@ -8012,6 +8250,7 @@ mod diagnostic_admission_tests {
     {
         use crate::workflow::{BindingAssignment, BindingQuantity, BindingTarget, PointOverlay};
         async fn execute_point(
+            services: &crate::workflow::ExecutionServices,
             point: &ModelingSimulation,
             expected: [f64; 3],
             cancel: &crate::CancelSource,
@@ -8029,7 +8268,7 @@ mod diagnostic_admission_tests {
                 initial.constants.is_empty(),
                 "the authored initial RHS remains a model function"
             );
-            let result = point.run(cancel).await.unwrap();
+            let result = point.run(&services, cancel).await.unwrap();
             assert!(result.accepted(), "{:?}", result.diagnostic());
             assert_eq!(result.report().samples.len(), expected.len());
             for (sample, (time, state)) in result
@@ -8049,6 +8288,7 @@ mod diagnostic_admission_tests {
             result
         }
         let runtime = super::super::super::tests::runtime();
+        let services = runtime.execution_services();
         let mut context = super::super::super::tests::physical();
         context.preconditions = Arc::new(
             pse_quantity::PhysicalPreconditions::new(
@@ -8103,6 +8343,7 @@ mod diagnostic_admission_tests {
         // cannot be added by mutating a previously admitted descriptor.
         let execution = package
             .declared_execution_with_demand(
+                services.preparation(),
                 case,
                 compiler,
                 Default::default(),
@@ -8140,17 +8381,29 @@ mod diagnostic_admission_tests {
             admitted_horizon: None,
         };
         let (converted, seed_need) = package
-            .admit_operation_overlay(&operation, &overlay(300., percent_id), &mut None, &cancel)
+            .admit_operation_overlay(
+                services.preparation(),
+                &operation,
+                &overlay(300., percent_id),
+                &mut None,
+                &cancel,
+            )
             .await
             .unwrap();
         assert_eq!(seed_need, pse_model::study::SeedNeed::NotNeeded);
         let (canonical_binding, _) = package
-            .admit_operation_overlay(&operation, &overlay(3., canonical), &mut None, &cancel)
+            .admit_operation_overlay(
+                services.preparation(),
+                &operation,
+                &overlay(3., canonical),
+                &mut None,
+                &cancel,
+            )
             .await
             .unwrap();
         assert_eq!(converted.identity(), canonical_binding.identity());
         let crate::workflow::PreparedStudyOperation::Simulation(first) = package
-            .prepare_bound_operation(&operation, &converted, &cancel)
+            .prepare_bound_operation(services.preparation(), &operation, &converted, &cancel)
             .await
             .unwrap()
         else {
@@ -8163,12 +8416,12 @@ mod diagnostic_admission_tests {
             .values
             .insert("root.u".into(), 3.);
         let fresh = package
-            .simulation_for_declared(&fresh_execution, None, &cancel)
+            .simulation_for_declared(services.preparation(), &fresh_execution, None, &cancel)
             .await
             .unwrap();
         assert_eq!(first.parameters(), fresh.parameters());
-        let first_result = execute_point(&first, [3., 4.5, 6.], &cancel).await;
-        let fresh_result = execute_point(&fresh, [3., 4.5, 6.], &cancel).await;
+        let first_result = execute_point(&services, &first, [3., 4.5, 6.], &cancel).await;
+        let fresh_result = execute_point(&services, &fresh, [3., 4.5, 6.], &cancel).await;
         for (bound, reference) in first_result
             .report()
             .samples
@@ -8179,11 +8432,18 @@ mod diagnostic_admission_tests {
             assert!((bound.state[0] - reference.state[0]).abs() < 1e-9);
         }
         let (next_binding, _) = package
-            .admit_operation_overlay(&operation, &overlay(5., canonical), &mut None, &cancel)
+            .admit_operation_overlay(
+                services.preparation(),
+                &operation,
+                &overlay(5., canonical),
+                &mut None,
+                &cancel,
+            )
             .await
             .unwrap();
         let next = package
             .declared_simulation_bound(
+                services.preparation(),
                 case,
                 compiler,
                 None,
@@ -8194,10 +8454,11 @@ mod diagnostic_admission_tests {
             .await
             .unwrap();
         assert_eq!(next.parameters(), [5.]);
-        execute_point(&next, [5., 7.5, 10.], &cancel).await;
+        execute_point(&services, &next, [5., 7.5, 10.], &cancel).await;
         assert_eq!(first.parameters(), [3.]);
         let retry = package
             .declared_simulation_bound(
+                services.preparation(),
                 case,
                 compiler,
                 None,
@@ -8210,10 +8471,13 @@ mod diagnostic_admission_tests {
         assert_eq!(retry.identity(), first.identity());
         let document = first.original_inputs.as_ref().unwrap().document(0);
         assert_eq!(document.binding.as_ref(), Some(&converted));
-        let replayed = document.reconstruct(&package, &cancel).await.unwrap();
+        let replayed = document
+            .reconstruct(services.preparation(), &package, &cancel)
+            .await
+            .unwrap();
         assert_eq!(replayed.identity(), first.identity());
-        execute_point(&replayed, [3., 4.5, 6.], &cancel).await;
-        execute_point(&retry, [3., 4.5, 6.], &cancel).await;
+        execute_point(&services, &replayed, [3., 4.5, 6.], &cancel).await;
+        execute_point(&services, &retry, [3., 4.5, 6.], &cancel).await;
         let scheduled_operation = crate::workflow::StudyOperation {
             operation: crate::workflow::OperationRequest::Simulation(
                 crate::workflow::SimulationOperation {
@@ -8225,6 +8489,7 @@ mod diagnostic_admission_tests {
         };
         let (scheduled_binding, _) = package
             .admit_operation_overlay(
+                services.preparation(),
                 &scheduled_operation,
                 &overlay(300., percent_id),
                 &mut None,
@@ -8234,6 +8499,7 @@ mod diagnostic_admission_tests {
             .unwrap();
         let scheduled_point = package
             .declared_simulation_bound(
+                services.preparation(),
                 scheduled,
                 compiler,
                 None,
@@ -8244,6 +8510,31 @@ mod diagnostic_admission_tests {
             .await
             .unwrap();
         assert_eq!(scheduled_point.parameters(), [3., 7.]);
-        execute_point(&scheduled_point, [3., 4.5, 8.], &cancel).await;
+        execute_point(&services, &scheduled_point, [3., 4.5, 8.], &cancel).await;
+    }
+}
+
+#[cfg(test)]
+mod failure_contract_tests {
+    use super::*;
+    #[test]
+    fn missing_initial_condition_retains_actual_state_and_dynamic_stage() {
+        let state = SemanticId::from_bytes([177; 16]);
+        let error = missing_initial_conditions(vec![state], "missing dynamic initial condition");
+        let diagnostic = error.boundary_diagnostic();
+        assert_eq!(
+            diagnostic.class,
+            pse_model::diagnostic::BoundaryClass::InvalidModel
+        );
+        assert_eq!(
+            diagnostic.stage,
+            pse_diagnostics::DiagnosticStage::ModelingDynamic
+        );
+        assert_eq!(
+            diagnostic.rule,
+            pse_diagnostics::DiagnosticRule::ModelingDomain
+        );
+        assert_eq!(diagnostic.sources, vec![state]);
+        assert!(matches!(error, WorkflowError::ScientificRefusal(_)));
     }
 }

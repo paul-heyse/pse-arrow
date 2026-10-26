@@ -66,6 +66,57 @@ impl Demand {
         }
     }
 }
+/// Fresh original observations for a profile pin; no optimizer callback cache escapes.
+pub(super) struct PinObservation {
+    pub(super) objective: f64,
+    pub(super) gradient: Option<f64>,
+    pub(super) quality: native::quality::Quality,
+    pub(super) trajectories: BTreeMap<InstanceId, Arc<native::dynamics::Report>>,
+}
+pub(super) fn observe_pin(
+    p: &Arc<FitProblem>,
+    math: &Arc<MathService>,
+    execution: Execution,
+    candidate: &[f64],
+    gradient_pin: Option<usize>,
+    scratch: Option<Arc<FitScratch>>,
+) -> Result<PinObservation, ProblemError> {
+    let mut oracle = FitOracle::with_scratch(p.clone(), math.clone(), execution, scratch)?;
+    let point = oracle.evaluate_demand(
+        candidate,
+        Demand {
+            purpose: crate::invocation::IntegrationPurpose::OriginalAssessment,
+            ..if gradient_pin.is_some() {
+                Demand::responses()
+            } else {
+                Demand::default()
+            }
+        },
+    )?;
+    let residuals = p
+        .measurements
+        .iter()
+        .zip(&point.predictions)
+        .filter(|(measurement, _)| measurement.included)
+        .map(|(measurement, value)| FitOracle::residual(measurement, *value).map(|v| v.0 * v.0))
+        .collect::<Result<Vec<_>, _>>()?;
+    let objective = 0.5 * residuals.iter().sum::<f64>();
+    if !objective.is_finite() {
+        return Err(ProblemError::numerical("pinned original objective"));
+    }
+    Ok(PinObservation {
+        objective,
+        gradient: gradient_pin.map(|pin| residual::stationarity(p, point, Some(pin))),
+        quality: native::quality::observed(
+            &p.contract,
+            &p.bounds,
+            candidate,
+            &point.constraints,
+            &p.tolerances,
+        )?,
+        trajectories: point.trajectories.clone(),
+    })
+}
 #[derive(Debug)]
 struct Point {
     achieved: Demand,
@@ -134,6 +185,7 @@ pub(super) struct FitOracle {
     point_generation: u64,
     response_layouts: std::sync::Mutex<BTreeMap<usize, native::square_response::SquareScope>>,
     prepared: Arc<FitProblem>,
+    math: Arc<MathService>,
     workers: Vec<Option<CaseWorker>>,
     #[cfg(feature = "solver-diffsol")]
     transient_workers: Vec<Option<crate::workflow::dynamics::DynamicWorker>>,
@@ -176,16 +228,18 @@ impl FitOracle {
     #[cfg(test)]
     pub(super) fn new(
         p: impl Into<Arc<FitProblem>>,
+        math: Arc<MathService>,
         execution: Execution,
     ) -> Result<Self, ProblemError> {
-        Self::with_scratch(p.into(), execution, None)
+        Self::with_scratch(p.into(), math, execution, None)
     }
     pub(super) fn with_scratch(
         p: Arc<FitProblem>,
+        math: Arc<MathService>,
         execution: Execution,
         scratch: Option<Arc<FitScratch>>,
     ) -> Result<Self, ProblemError> {
-        let result = Self::construct(p, execution, scratch.clone());
+        let result = Self::construct(p, math, execution, scratch.clone());
         if result.is_err()
             && let Some(scratch) = scratch
         {
@@ -195,15 +249,17 @@ impl FitOracle {
     }
     fn construct(
         p: Arc<FitProblem>,
+        math: Arc<MathService>,
         execution: Execution,
         scratch: Option<Arc<FitScratch>>,
     ) -> Result<Self, ProblemError> {
         let _phase = pse_diagnostics::observation::phase("fit.oracle_construction");
-        let mut team = experiments::ExperimentTeam::new(p.clone(), execution.clone())?;
+        let mut team =
+            experiments::ExperimentTeam::new(p.clone(), math.clone(), execution.clone())?;
         let transient_execution = match &mut team {
             Some(team) => team.take_parent_executions(),
             None => {
-                foreign::Population::prepare(&p, &execution, None)?
+                foreign::Population::prepare(&p, &math, &execution, None)?
                     .ok_or_else(|| {
                         ProblemError::internal("serial foreign population unexpectedly unavailable")
                     })?
@@ -293,6 +349,7 @@ impl FitOracle {
             response_layouts: Default::default(),
             derivatives: p.profile.derivatives,
             prepared: p,
+            math,
             workers,
             #[cfg(feature = "solver-diffsol")]
             transient_workers,
@@ -1028,18 +1085,19 @@ pub(super) struct ProfileAlgorithm {
     pub(super) stopping: ResidualLmCriteria,
 }
 impl FitProblem {
-    /// Run the fit, then derive its covariance and requested intervals, solving up to
-    /// `workers` profile chains at once.
+    /// Run the native fit and retain local covariance/Wald diagnostics. Authored
+    /// original checks and profile pins remain with the prepared scientific owner.
     pub(crate) fn execute_profile(
         self: &Arc<Self>,
+        math: &Arc<MathService>,
         solver: &SolverProfile,
         route: FitRoute,
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
-        workers: usize,
         admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
-    ) -> Result<FitReport, crate::math::MathRuntimeError> {
+    ) -> Result<(FitReport, Execution), crate::math::MathRuntimeError> {
         self.execute_profile_with_lm(
+            math,
             solver,
             ProfileAlgorithm {
                 route,
@@ -1047,20 +1105,19 @@ impl FitProblem {
             },
             scope,
             progress,
-            workers,
             admission,
         )
     }
     /// Keep inquiry policy variation inside the actual native lifetime and scientific finish owner.
     pub(super) fn execute_profile_with_lm(
         self: &Arc<Self>,
+        math: &Arc<MathService>,
         solver: &SolverProfile,
         algorithm: ProfileAlgorithm,
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
-        workers: usize,
         admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
-    ) -> Result<FitReport, crate::math::MathRuntimeError> {
+    ) -> Result<(FitReport, Execution), crate::math::MathRuntimeError> {
         let ProfileAlgorithm { route, stopping } = algorithm;
         let operation = pse_diagnostics::observation::current().map(|parent| {
             parent.child(
@@ -1083,19 +1140,19 @@ impl FitProblem {
             let (mut report, execution) = native::execution::scoped(
                 &adapters,
                 solver.controls.threads,
-                self.runtime.native().stack_bytes(),
+                math.stack_bytes(),
                 || {
                     let _entered = observation.as_ref().map(|context| context.enter());
-                    self.execute_inner(solver, route, scope, progress, admission, stopping)
+                    self.execute_inner(math, solver, route, scope, progress, admission, stopping)
                 },
             )?;
-            // The estimation adapter team and native retained state have joined before
-            // profile admission releases the coordinator's active allowance.
+            // Retain local diagnostics after the estimation adapter team has joined.
+            // The same execution continues through authored checks and profile admission.
             native::execution::original_scoped(&execution, || {
-                self.derive(&mut report, route, &execution, workers);
+                self.derive(&mut report);
             });
             observe_report(&report);
-            Ok(report)
+            Ok((report, execution))
         })();
         if let Some(operation) = operation {
             operation.finish(match &result {
@@ -1110,6 +1167,7 @@ impl FitProblem {
     }
     fn execute_inner(
         self: &Arc<Self>,
+        math: &Arc<MathService>,
         solver: &SolverProfile,
         route: FitRoute,
         scope: pse_kernels::ExecutionScope,
@@ -1125,24 +1183,23 @@ impl FitProblem {
         execution.progress = progress;
         execution.work_admission =
             admission.map(|admission| -> Arc<dyn native::solve::WorkAdmission> { admission });
-        execution.memory = Some(
-            self.runtime
-                .shared
-                .budget()
-                .math
-                .foreign_allowance(&solver.controls),
-        );
+        execution.memory = Some(math.policy().foreign_allowance(&solver.controls));
         // This bank is created and destroyed inside the actual adapter owner. Only
         // callback Drop can return neutral storage to the independent final oracle.
-        let scratch = FitScratch::new(self);
+        let scratch = FitScratch::new(self, math);
         let (solve, residual, candidate) = if self.initial.is_empty() {
-            let mut oracle =
-                FitOracle::with_scratch(self.clone(), execution.clone(), scratch.clone())?;
+            let mut oracle = FitOracle::with_scratch(
+                self.clone(),
+                math.clone(),
+                execution.clone(),
+                scratch.clone(),
+            )?;
             oracle.objective(&[])?;
             (None, None, Some(vec![]))
         } else if route == FitRoute::ResidualLm {
             let (report, candidate) = residual::solve_using(
                 self,
+                math,
                 execution.clone(),
                 &self.initial,
                 None,
@@ -1151,7 +1208,12 @@ impl FitProblem {
             )?;
             (None, Some(report), Some(candidate))
         } else {
-            let oracle = FitOracle::with_scratch(self.clone(), execution.clone(), scratch.clone())?;
+            let oracle = FitOracle::with_scratch(
+                self.clone(),
+                math.clone(),
+                execution.clone(),
+                scratch.clone(),
+            )?;
             let FitRoute::Native(backend) = route else {
                 return Err(ProblemError::unsupported("nonempty fit has no native route").into());
             };
@@ -1239,7 +1301,7 @@ impl FitProblem {
         {
             scratch.discard();
         }
-        self.observe(&mut report, execution.clone(), scratch)?;
+        self.observe(math, &mut report, execution.clone(), scratch)?;
         Ok((report, execution))
     }
     /// The free parameters: each one's declaration index and fit column, in fit order.
@@ -1253,6 +1315,7 @@ impl FitProblem {
     /// cache and candidate status, and the local response diagnostic.
     fn observe(
         self: &Arc<Self>,
+        math: &Arc<MathService>,
         report: &mut FitReport,
         execution: Execution,
         scratch: Option<Arc<FitScratch>>,
@@ -1270,9 +1333,10 @@ impl FitProblem {
             // One fresh final oracle remains independent of optimizer callback state.
             // Known optional refusal precedes any response IVP; actual rank memory is
             // acquired only after integration so it does not inflate the IVP peak.
-            let rank = rank_admission(self);
+            let rank = rank_admission(self, math);
             let responses = rank.is_ok() || report.residual.is_some();
-            let mut final_oracle = FitOracle::with_scratch(self.clone(), execution, scratch)?;
+            let mut final_oracle =
+                FitOracle::with_scratch(self.clone(), math.clone(), execution, scratch)?;
             let demand = Demand {
                 purpose: crate::invocation::IntegrationPurpose::OriginalAssessment,
                 ..if responses {
@@ -1392,6 +1456,9 @@ impl FitProblem {
                 .responses
                 .then(|| residual::stationarity(self, point, None))
                 .filter(|value| value.is_finite());
+            if residual.failure.is_none() && quality.feasible() {
+                residual.qualification = native::solve::Qualification::Feasible;
+            }
             if residual.failure.is_none()
                 && residual.termination.successful()
                 && quality.feasible()
@@ -1475,7 +1542,7 @@ struct RankAdmission {
     np: usize,
     bytes: usize,
 }
-fn rank_admission(p: &FitProblem) -> Result<RankAdmission, ProblemError> {
+fn rank_admission(p: &FitProblem, math: &MathService) -> Result<RankAdmission, ProblemError> {
     let np = p.parameter_columns.iter().filter(|v| v.is_some()).count();
     let local_dense = p
         .experiments
@@ -1498,7 +1565,7 @@ fn rank_admission(p: &FitProblem) -> Result<RankAdmission, ProblemError> {
     }
     // Dense diagnostics are optional: reserve independently from the sparse
     // solve, before allocating any matrix. Failure does not lose the candidate.
-    let limit = p.runtime.shared.budget().math.worker_bytes;
+    let limit = math.policy().worker_bytes;
     if local_dense.checked_mul(8).is_none_or(|bytes| bytes > limit) {
         return Err(ProblemError::memory(
             "local dense response diagnostic memory allowance",
@@ -1553,7 +1620,7 @@ fn rank_admission(p: &FitProblem) -> Result<RankAdmission, ProblemError> {
 impl FitOracle {
     #[cfg(test)]
     fn response_rank(&mut self, x: &[f64]) -> Result<RankDiagnostic, ProblemError> {
-        let plan = rank_admission(&self.prepared)?;
+        let plan = rank_admission(&self.prepared, &self.math)?;
         self.response_rank_admitted(x, plan)
     }
     fn response_rank_admitted(
@@ -1582,7 +1649,7 @@ impl FitOracle {
             let RankAdmission { rows, np, bytes } = plan;
             let reservation =
                 datafusion::execution::memory_pool::MemoryConsumer::new("fit:response-diagnostic")
-                    .register(&p.runtime.shared.pool());
+                    .register(self.math.pool());
             reservation
                 .try_grow(bytes)
                 .map_err(|e| ProblemError::memory(e.to_string()))?;
@@ -2215,19 +2282,37 @@ mod tests {
     // Materialize the large fixture future outside the test executor's polling
     // frame, so fixture construction does not consume the fitting caller's stack.
     #[inline(never)]
-    fn source(fixed: bool) -> impl Future<Output = crate::workflow::ModelingPackage> {
+    fn source(
+        runtime: &crate::workflow::Runtime,
+        fixed: bool,
+    ) -> impl Future<Output = crate::workflow::ModelingPackage> + '_ {
         Box::pin(source_body(
+            runtime,
             fixed,
             "param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 0);",
         ))
     }
-    async fn source_body(fixed: bool, body: &str) -> crate::workflow::ModelingPackage {
-        source_text(fixed, &format!("package p {{ def Root {{ {body} }} }}")).await
+    async fn source_body(
+        runtime: &crate::workflow::Runtime,
+        fixed: bool,
+        body: &str,
+    ) -> crate::workflow::ModelingPackage {
+        source_text(
+            runtime,
+            fixed,
+            &format!("package p {{ def Root {{ {body} }} }}"),
+        )
+        .await
     }
-    async fn source_text(fixed: bool, text: &str) -> crate::workflow::ModelingPackage {
-        source_measured(fixed, text, 3., 2.).await
+    async fn source_text(
+        runtime: &crate::workflow::Runtime,
+        fixed: bool,
+        text: &str,
+    ) -> crate::workflow::ModelingPackage {
+        source_measured(runtime, fixed, text, 3., 2.).await
     }
     async fn source_measured(
+        runtime: &crate::workflow::Runtime,
         fixed: bool,
         text: &str,
         value: f64,
@@ -2260,11 +2345,11 @@ mod tests {
         )]));
         let mut data = FitDeclarations::default();
         data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(32),"parameters":[{"symbol_id":id(1),"fixed":fixed,"value":2.0,"lower":0.1,"upper":10.0,"scale":2.0}],"experiments":[{"experiment_id":id(33),"case_id":root,"route":"steady","bindings":[{"parameter_id":id(1),"path":"p"}]}],"observations":[{"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(31),"experiment_id":id(33),"output_path":"y","time":null,"included":true,"importance":4.0}]})).unwrap());
-        runtime()
+        runtime
             .modeling_package(rows, physical)
             .await
             .unwrap()
-            .with_fit_declarations(data)
+            .with_fit_declarations(&runtime.source_services(), data)
             .await
             .unwrap()
     }
@@ -2295,9 +2380,12 @@ mod tests {
     }
     #[tokio::test]
     async fn fitting_value_demand_omits_steady_jacobian_and_upgrades_coherently() {
-        let source = source(false).await;
+        let runtime = runtime();
+        let services = runtime.execution_services();
+        let source = source(&runtime, false).await;
         let cancel = crate::CancelSource::new();
         let preparation = source.prepare_fit_problem(
+            services.preparation(),
             id(32).into(),
             profile(false),
             compiler_profile(),
@@ -2312,7 +2400,8 @@ mod tests {
             pse_diagnostics::Cancellation::new(false),
             &p.profile.solver.controls,
         );
-        let mut oracle = FitOracle::new(p, execution).unwrap();
+        let mut oracle =
+            FitOracle::new(p, services.preparation().math().clone(), execution).unwrap();
         let hub = pse_diagnostics::observation::ObservationHub::new(
             pse_diagnostics::observation::Policy {
                 max_metrics: 64,
@@ -2397,10 +2486,13 @@ mod tests {
     }
     #[tokio::test]
     async fn prepared_fit_clones_share_the_original_reservation() {
+        let runtime = runtime();
+        let services = runtime.execution_services();
         // Ownership is independent of native backend availability.
-        let revision = source(true).await;
+        let revision = source(&runtime, true).await;
         let prepared = revision
             .prepare_fit(
+                services.preparation(),
                 id(32).into(),
                 profile(false),
                 compiler_profile(),
@@ -2409,7 +2501,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let pool = revision.runtime.shared.pool();
+        let pool = services.preparation().pool();
         let before = pool.reserved();
         let bytes = prepared.problem._owner.size();
         let owner = Arc::downgrade(&prepared.problem._owner);
@@ -2425,15 +2517,16 @@ mod tests {
 
         // Disposable program retention may yield to pressure. Release it first so
         // saturation covers live allocations throughout the refusal check.
-        revision.runtime.clear_program_cache();
+        runtime.clear_program_cache();
         let pressure = datafusion::execution::memory_pool::MemoryConsumer::new("test:fit-pressure")
             .register(&pool);
-        let limit = revision.runtime.shared.budget().memory_limit_bytes.get();
+        let limit = runtime.shared.budget().memory_limit_bytes.get();
         pressure.try_grow(limit - pool.reserved()).unwrap();
         assert_eq!(pool.reserved(), limit);
         assert!(
             revision
                 .prepare_fit(
+                    services.preparation(),
                     id(32).into(),
                     profile(false),
                     compiler_profile(),
@@ -2447,9 +2540,12 @@ mod tests {
     }
     #[tokio::test]
     async fn compiled_weighted_loss_gradient_and_exact_hessian() {
-        let p = source(false)
+        let runtime = runtime();
+        let services = runtime.execution_services();
+        let p = source(&runtime, false)
             .await
             .prepare_fit_problem(
+                services.preparation(),
                 id(32).into(),
                 profile(false),
                 compiler_profile(),
@@ -2463,7 +2559,7 @@ mod tests {
             pse_diagnostics::Cancellation::new(false),
             &p.profile.solver.controls,
         );
-        let mut o = FitOracle::new(p, ex).unwrap();
+        let mut o = FitOracle::new(p, services.preparation().math().clone(), ex).unwrap();
         assert!((o.objective(&[2.0]).unwrap() - 0.5).abs() < 1e-12);
         let mut g = [0.0];
         o.gradient(&[2.0], &mut g).unwrap();
@@ -2472,7 +2568,7 @@ mod tests {
         o.hessian(&[2.0], 1.0, &[], &mut h).unwrap();
         assert_eq!(h.len(), 1);
         assert!((h[0] - 18.0).abs() < 1e-12);
-        let pool = o.prepared.runtime.shared.pool();
+        let pool = o.math.pool().clone();
         let before = pool.reserved();
         let RankDiagnostic {
             responses: j,
@@ -2491,7 +2587,7 @@ mod tests {
         // and derivatives remain available at the candidate after that refusal.
         let pressure = datafusion::execution::memory_pool::MemoryConsumer::new("test:pressure")
             .register(&pool);
-        let limit = o.prepared.runtime.shared.budget().memory_limit_bytes.get();
+        let limit = runtime.shared.budget().memory_limit_bytes.get();
         pressure.try_grow(limit - pool.reserved()).unwrap();
         assert!(o.response_rank(&[2.0]).is_err());
         assert!((o.objective(&[2.0]).unwrap() - 0.5).abs() < 1e-12);
@@ -2521,29 +2617,36 @@ mod tests {
     /// curvature alone.
     #[tokio::test]
     async fn gauss_newton_hessian_matches_jtwj() {
+        let runtime = runtime();
+        let services = runtime.execution_services();
         // One free parameter and one experiment state tied by a nonlinear closure; the
         // observed y = state² has curvature 2 in the state.
         let body = "param p: Scalar = 2; var state: Scalar; annotation start state(2); eq closure: state*state == p*p; let y: Scalar = state*state;";
-        let oracle = |hessian| async move {
-            let mut profile = profile(false);
-            profile.solver.controls.hessian = hessian;
-            let p = source_body(false, body)
-                .await
-                .prepare_fit_problem(
-                    id(32).into(),
-                    profile,
-                    compiler_profile(),
-                    Default::default(),
-                    &crate::CancelSource::new(),
-                )
-                .await
-                .unwrap()
-                .0;
-            let ex = Execution::new(
-                pse_diagnostics::Cancellation::new(false),
-                &p.profile.solver.controls,
-            );
-            FitOracle::new(p, ex).unwrap()
+        let oracle = |hessian| {
+            let runtime = runtime.clone();
+            let services = services.clone();
+            async move {
+                let mut profile = profile(false);
+                profile.solver.controls.hessian = hessian;
+                let p = source_body(&runtime, false, body)
+                    .await
+                    .prepare_fit_problem(
+                        services.preparation(),
+                        id(32).into(),
+                        profile,
+                        compiler_profile(),
+                        Default::default(),
+                        &crate::CancelSource::new(),
+                    )
+                    .await
+                    .unwrap()
+                    .0;
+                let ex = Execution::new(
+                    pse_diagnostics::Cancellation::new(false),
+                    &p.profile.solver.controls,
+                );
+                FitOracle::new(p, services.preparation().math().clone(), ex).unwrap()
+            }
         };
         let mut gn = oracle(HessianMode::GaussNewton).await;
         let mut exact = oracle(HessianMode::Exact).await;
@@ -2586,9 +2689,12 @@ mod tests {
     }
     #[tokio::test]
     async fn sparse_fit_admission_tracks_support_and_refills_duplicates() {
-        let p = source(false)
+        let runtime = runtime();
+        let services = runtime.execution_services();
+        let p = source(&runtime, false)
             .await
             .prepare_fit_problem(
+                services.preparation(),
                 id(32).into(),
                 profile(false),
                 compiler_profile(),
@@ -2670,9 +2776,12 @@ mod tests {
     }
     #[tokio::test]
     async fn bounded_rank_diagnostic_does_not_disable_sparse_candidate_evaluation() {
-        let mut p = source(false)
+        let runtime = runtime();
+        let services = runtime.execution_services();
+        let mut p = source(&runtime, false)
             .await
             .prepare_fit_problem(
+                services.preparation(),
                 id(32).into(),
                 profile(false),
                 compiler_profile(),
@@ -2687,7 +2796,7 @@ mod tests {
             pse_diagnostics::Cancellation::new(false),
             &p.profile.solver.controls,
         );
-        let mut oracle = FitOracle::new(p, ex).unwrap();
+        let mut oracle = FitOracle::new(p, services.preparation().math().clone(), ex).unwrap();
         assert!(oracle.response_rank(&[2.0]).is_err());
         assert!(
             oracle.point.is_none(),
@@ -2700,12 +2809,15 @@ mod tests {
     }
     #[tokio::test]
     async fn all_fixed_fit_uses_joined_direct_evaluation_and_explicit_source_export() {
+        let runtime = runtime();
+        let services = runtime.execution_services();
         let mut requested = profile(true);
         requested.solver.selection = native::solve::SolverSelection::Auto;
-        let package = source(true).await;
-        let source_tables = package.source_tables().await.unwrap();
+        let package = source(&runtime, true).await;
+        let source_tables = package.source_tables(services.preparation()).await.unwrap();
         let p = package
             .prepare_fit(
+                services.preparation(),
                 id(32).into(),
                 requested,
                 compiler_profile(),
@@ -2721,7 +2833,7 @@ mod tests {
         );
         assert!(p.problem.contract.variables.is_empty());
         assert_eq!(p.route(), FitRoute::Evaluation);
-        let handle = p.start().unwrap();
+        let handle = p.start(&services).unwrap();
         let a = handle.wait().await.unwrap();
         let b = handle.wait().await.unwrap();
         assert!(Arc::ptr_eq(&a, &b));
@@ -2755,6 +2867,8 @@ mod tests {
     }
     #[tokio::test]
     async fn scientific_fit_strict_composed_work_refuses_before_evaluation() {
+        let runtime = runtime();
+        let services = runtime.execution_services();
         for counter in 0..4 {
             let mut requested = profile(true);
             requested.solver.selection = native::solve::SolverSelection::Auto;
@@ -2772,9 +2886,10 @@ mod tests {
                 _ => limits.proof_steps = Some(1),
             }
             requested.solver.composition.limits = Some(limits);
-            let prepared = source(true)
+            let prepared = source(&runtime, true)
                 .await
                 .prepare_fit(
+                    services.preparation(),
                     id(32).into(),
                     requested,
                     compiler_profile(),
@@ -2785,6 +2900,7 @@ mod tests {
                 .unwrap();
             let error = prepared
                 .execute(
+                    &services,
                     id(99).into(),
                     pse_kernels::ExecutionScope::new(
                         pse_diagnostics::Cancellation::default(),
@@ -2811,7 +2927,9 @@ mod tests {
     }
     #[tokio::test]
     async fn all_fixed_required_presolve_is_refused_and_scales_are_checked() {
-        let revision = source(true).await;
+        let runtime = runtime();
+        let services = runtime.execution_services();
+        let revision = source(&runtime, true).await;
         let mut controls = profile(true);
         controls.solver.presolve = native::presolve::Policy::from_native_options(
             &Default::default(),
@@ -2820,6 +2938,7 @@ mod tests {
         .unwrap();
         let error = revision
             .prepare_fit(
+                services.preparation(),
                 id(32).into(),
                 controls,
                 compiler_profile(),
@@ -2870,9 +2989,12 @@ mod tests {
     #[cfg(not(feature = "solver-ipopt"))]
     #[tokio::test]
     async fn variable_fit_requires_a_linked_adapter() {
-        let error = source(false)
+        let runtime = runtime();
+        let services = runtime.execution_services();
+        let error = source(&runtime, false)
             .await
             .prepare_fit(
+                services.preparation(),
                 id(32).into(),
                 profile(false),
                 compiler_profile(),
@@ -2885,7 +3007,10 @@ mod tests {
     }
     #[tokio::test]
     async fn invalid_uncertainty_and_unbound_observations_fail_admission() {
+        let runtime = runtime();
+        let services = runtime.execution_services();
         let b = source_measured(
+            &runtime,
             false,
             "package p {def Root {param p:Scalar=2;let y:Scalar=p*p;}}",
             3.,
@@ -2895,6 +3020,7 @@ mod tests {
         let r = b;
         let error = r
             .prepare_fit_problem(
+                services.preparation(),
                 id(32).into(),
                 profile(false),
                 compiler_profile(),
@@ -2906,13 +3032,17 @@ mod tests {
         assert!(
             matches!(error, WorkflowError::Input(ref message) if message == "included observations require finite values, positive difference-unit standard deviations and importance")
         );
-        let b = source(false).await;
-        let mut fits = b.fit_declarations().await.unwrap();
+        let b = source(&runtime, false).await;
+        let mut fits = b.fit_declarations(services.preparation()).await.unwrap();
         fits.fits[0].observations[0].experiment_id = id(99).into();
-        let b = b.with_fit_declarations(fits).await.unwrap();
+        let b = b
+            .with_fit_declarations(&services.source_services(), fits)
+            .await
+            .unwrap();
         let r = b;
         let error = r
             .prepare_fit_problem(
+                services.preparation(),
                 id(32).into(),
                 profile(false),
                 compiler_profile(),
@@ -2927,13 +3057,16 @@ mod tests {
     }
     #[tokio::test]
     async fn steady_response_solves_the_compiled_implicit_closure() {
+        let runtime = runtime();
+        let services = runtime.execution_services();
         let body = "param p: Scalar = 2; var state: Scalar; annotation start state(2); eq closure: state == p; let y: Scalar = state*state;";
-        let b = source_body(false, body).await;
+        let b = source_body(&runtime, false, body).await;
         let profile = profile(false);
-        let fixed = source_body(true, body).await;
+        let fixed = source_body(&runtime, true, body).await;
         let fixed_profile = profile.clone();
         let fixed_problem = fixed
             .prepare_fit_problem(
+                services.preparation(),
                 id(32).into(),
                 fixed_profile.clone(),
                 compiler_profile(),
@@ -2949,6 +3082,7 @@ mod tests {
         {
             let error = fixed
                 .prepare_fit(
+                    services.preparation(),
                     id(32).into(),
                     fixed_profile,
                     compiler_profile(),
@@ -2961,6 +3095,7 @@ mod tests {
         }
         let p = b
             .prepare_fit_problem(
+                services.preparation(),
                 id(32).into(),
                 profile,
                 compiler_profile(),
@@ -2974,7 +3109,7 @@ mod tests {
             pse_diagnostics::Cancellation::new(false),
             &p.profile.solver.controls,
         );
-        let mut o = FitOracle::new(p, ex).unwrap();
+        let mut o = FitOracle::new(p, services.preparation().math().clone(), ex).unwrap();
         let RankDiagnostic {
             responses: response,
             rank,
@@ -2987,10 +3122,13 @@ mod tests {
 
     #[tokio::test]
     async fn fit_refuses_free_integer() {
+        let runtime = runtime();
+        let services = runtime.execution_services();
         let body = "param p: Scalar = 2; var n: Count in integer; annotation start n(1{1}); annotation bounds n(0{1}, 5{1}); eq e: n >= 1{1}; let y: Scalar = p*p;";
-        let error = source_body(false, body)
+        let error = source_body(&runtime, false, body)
             .await
             .prepare_fit_problem(
+                services.preparation(),
                 id(32).into(),
                 profile(false),
                 compiler_profile(),
@@ -3007,13 +3145,16 @@ mod tests {
     }
     #[tokio::test]
     async fn authored_fit_retains_fixed_case_values_and_physical_bounds() {
+        let runtime = runtime();
+        let services = runtime.execution_services();
         use pse_relations::columnar::RelationRow;
-        let package = source_text(
+        let package = source_text(&runtime,
             true,
             "package p { test Root fixture {dof 0; fix x=2;} {param p:Scalar=2; var x:Scalar; let y:Scalar=x+p; annotation bounds x(1,3); annotation check y(y==4);} }",
         ).await;
         let result = package
             .prepare_fit(
+                services.preparation(),
                 id(32).into(),
                 profile(true),
                 compiler_profile(),
@@ -3022,7 +3163,7 @@ mod tests {
             )
             .await
             .unwrap()
-            .start()
+            .start(&services)
             .unwrap()
             .wait()
             .await
@@ -3037,12 +3178,21 @@ mod tests {
     }
     #[tokio::test]
     async fn authored_fit_can_observe_a_parameter_without_an_alias() {
-        let package = source(true).await;
-        let mut fits = package.fit_declarations().await.unwrap();
+        let runtime = runtime();
+        let services = runtime.execution_services();
+        let package = source(&runtime, true).await;
+        let mut fits = package
+            .fit_declarations(services.preparation())
+            .await
+            .unwrap();
         fits.fits[0].observations[0].output_path = "p".into();
-        let package = package.with_fit_declarations(fits).await.unwrap();
+        let package = package
+            .with_fit_declarations(&services.source_services(), fits)
+            .await
+            .unwrap();
         let result = package
             .prepare_fit(
+                services.preparation(),
                 id(32).into(),
                 profile(true),
                 compiler_profile(),
@@ -3051,7 +3201,7 @@ mod tests {
             )
             .await
             .unwrap()
-            .start()
+            .start(&services)
             .unwrap()
             .wait()
             .await
@@ -3065,14 +3215,23 @@ mod tests {
     #[cfg(all(feature = "solver-ipopt", feature = "solver-diffsol"))]
     #[tokio::test]
     async fn final_fit_derivative_failure_preserves_fresh_original_values() {
+        let runtime = runtime();
+        let services = runtime.execution_services();
         // sqrt is defined at zero; its derivative is not. The optional response
         // product must fail without discarding an independently valid value.
-        let package = source_body(false, "param p:Scalar=2; let y:Scalar=sqrt(p);").await;
-        let mut declarations = package.fit_declarations().await.unwrap();
+        let package = source_body(&runtime, false, "param p:Scalar=2; let y:Scalar=sqrt(p);").await;
+        let mut declarations = package
+            .fit_declarations(services.preparation())
+            .await
+            .unwrap();
         declarations.fits[0].parameters[0].lower = Some(0.0);
-        let package = package.with_fit_declarations(declarations).await.unwrap();
+        let package = package
+            .with_fit_declarations(&services.source_services(), declarations)
+            .await
+            .unwrap();
         let (problem, _) = package
             .prepare_fit_problem(
+                services.preparation(),
                 id(32).into(),
                 profile(false),
                 compiler_profile(),
@@ -3081,48 +3240,69 @@ mod tests {
             )
             .await
             .unwrap();
-        p09_tests::with_admitted_fit_oracle(problem.into(), |oracle| {
-            let problem = oracle.prepared.clone();
-            let mut report = p09_tests::candidate_fit_report(&problem, vec![0.0]);
-            problem
-                .observe(&mut report, oracle.execution.clone(), None)
-                .unwrap();
-            assert_eq!(report.predictions, vec![Some(0.0)]);
-            assert_eq!(report.objective, Some(4.5));
-            assert!(report.quality.as_ref().unwrap().feasible());
-            assert!(matches!(
-                report.diagnostic,
-                Some(FitDiagnostic {
-                    rule: FitRule::ResponseRank,
-                    ..
-                })
-            ));
-            assert!(report.responses.is_none() && report.rank.is_none());
-        })
+        p09_tests::with_admitted_fit_oracle(
+            problem.into(),
+            services.preparation().math().clone(),
+            |oracle| {
+                let problem = oracle.prepared.clone();
+                let mut report = p09_tests::candidate_fit_report(&problem, vec![0.0]);
+                problem
+                    .observe(&oracle.math, &mut report, oracle.execution.clone(), None)
+                    .unwrap();
+                assert_eq!(report.predictions, vec![Some(0.0)]);
+                assert_eq!(report.objective, Some(4.5));
+                assert!(report.quality.as_ref().unwrap().feasible());
+                assert!(matches!(
+                    report.diagnostic,
+                    Some(FitDiagnostic {
+                        rule: FitRule::ResponseRank,
+                        ..
+                    })
+                ));
+                assert!(report.responses.is_none() && report.rank.is_none());
+            },
+        )
         .await;
     }
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
     async fn original_fit_failure_withholds_completed_statistical_products_in_invocation() {
+        let runtime = runtime();
+        let services = runtime.execution_services();
         use crate::invocation::ProductAvailability;
-        use pse_model::scalars::Fraction;
+        use pse_model::generated::enums::{DerivedQuantity, WithheldReason};
+        use pse_model::scalars::{FiniteBound, Fraction};
+        use pse_relations::{
+            columnar::RelationRow,
+            generated::runtime::{
+                local_validity, parameter_covariances, parameter_intervals, propagated_covariances,
+            },
+        };
         let package = source_body(
+            &runtime,
             false,
             "param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 3);",
         )
         .await;
-        let mut declarations = package.fit_declarations().await.unwrap();
+        let mut declarations = package
+            .fit_declarations(services.preparation())
+            .await
+            .unwrap();
         declarations.fits[0].observations[0].importance = 1.;
-        let package = package.with_fit_declarations(declarations).await.unwrap();
+        let package = package
+            .with_fit_declarations(&services.source_services(), declarations)
+            .await
+            .unwrap();
         let mut requested = profile(false);
         requested.solver.controls.hessian = HessianMode::GaussNewton;
         requested.uncertainty = Some(FitUncertainty {
             level: pse_model::scalar!(Fraction(0.95)),
             profile: None,
-            predictions: false,
+            predictions: true,
         });
         let prepared = package
             .prepare_fit(
+                services.preparation(),
                 id(32).into(),
                 requested,
                 compiler_profile(),
@@ -3134,7 +3314,7 @@ mod tests {
         let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
         let operation = hub.start("fit original failure after statistical computation");
         let _entered = operation.context().enter();
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!()
         };
@@ -3146,6 +3326,84 @@ mod tests {
         );
         assert!(report.wald.as_ref().unwrap().is_ok());
         assert!(!result.usable() && !report.estimate_qualified());
+        let completion = result.completion().unwrap();
+        for quantity in [
+            DerivedQuantity::ParameterCovariance,
+            DerivedQuantity::WaldInterval,
+        ] {
+            let fact = completion.product_permission(quantity).unwrap();
+            assert!(
+                fact.validity.certified,
+                "independent mathematical validity survives"
+            );
+            assert!(!fact.permits_result(), "the original fit governs reuse");
+        }
+        let withheld = result.parameter_covariance().unwrap().unwrap_err();
+        assert_eq!(withheld.quantity, DerivedQuantity::ParameterCovariance);
+        assert_eq!(withheld.reason, WithheldReason::UpstreamWithheld);
+        let covariance = report.covariance.as_ref().unwrap();
+        // Even an exact copy of the retained cells carrying this actual run's origin
+        // cannot obtain qualified-fit authority by a document round trip.
+        let mut submitted = crate::math::settings::ParameterCovariance {
+            version: pse_model::document::Version,
+            origin: crate::math::settings::CovarianceOrigin::QualifiedFit {
+                run_id: result.run_id,
+                record: None,
+            },
+            parameters: covariance.parameters.clone(),
+            parameter_quantities: covariance.parameter_quantities.clone(),
+            parameter_units: covariance.parameter_units.clone(),
+            scales: covariance
+                .scales
+                .iter()
+                .map(|value| FiniteBound::try_new(*value).unwrap())
+                .collect(),
+            values: covariance
+                .values
+                .as_ref()
+                .unwrap()
+                .iter()
+                .map(|value| FiniteBound::try_new(*value).unwrap())
+                .collect(),
+            verified: None,
+        };
+        assert!(
+            result
+                .reconcile_parameter_covariance(&mut submitted)
+                .is_err()
+        );
+        assert!(submitted.verified.is_none());
+        let validity =
+            local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
+        let prediction = validity
+            .iter()
+            .find(|row| row.quantity == DerivedQuantity::PropagatedCovariance)
+            .unwrap();
+        assert!(!prediction.validity.certified);
+        assert_eq!(
+            prediction.validity.reason,
+            Some(WithheldReason::UpstreamWithheld)
+        );
+        assert!(
+            propagated_covariances::Row::rows(
+                &result.table("runtime.propagated_covariances").unwrap()
+            )
+            .unwrap()
+            .is_empty()
+        );
+        // Diagnostic exports retain the completed mathematical cells and interval ends.
+        let retained = parameter_covariances::Row::rows(
+            &result.table("runtime.parameter_covariances").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(retained.len(), 1);
+        assert_eq!(&retained[0].values, covariance.values.as_ref().unwrap());
+        let intervals =
+            parameter_intervals::Row::rows(&result.table("runtime.parameter_intervals").unwrap())
+                .unwrap();
+        assert_eq!(intervals.len(), 2);
+        assert!(intervals.iter().all(|interval| interval.value.is_some()));
+        assert!(report.responses.is_some() && report.predictions.iter().all(Option::is_some));
         let document = result.invocation_evidence().unwrap();
         assert_eq!(serde_json::to_value(&document).unwrap()["version"], 2);
         assert!(document.timing_unavailable.is_none());
@@ -3182,19 +3440,50 @@ mod tests {
                 .any(|product| product.role == "profile_intervals"
                     && product.availability == ProductAvailability::NotRequested)
         );
+        for role in ["response_jacobian", "identifiability"] {
+            assert!(
+                document.products.iter().any(|product| product.role == role
+                    && product.availability == ProductAvailability::Available),
+                "{role}"
+            );
+        }
         assert!(document.endpoints.qualification_seconds.is_none());
     }
+    #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
     #[tokio::test]
-    async fn authored_fit_checks_can_reject_a_numerically_feasible_candidate() {
+    async fn persisted_original_fit_failure_withholds_exact_covariance_despite_retained_cells() {
+        use pse_model::{generated::enums::DerivedQuantity, scalars::Fraction};
+        use pse_relations::{
+            columnar::RelationRow,
+            generated::runtime::{local_validity, parameter_covariances},
+        };
+        let runtime = crate::workflow::durable_tests::durable_runtime();
+        let services = runtime.execution_services();
         let package = source_body(
-            true,
+            &runtime,
+            false,
             "param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 3);",
         )
         .await;
-        let mut requested = profile(true);
-        requested.solver.composition.recovery = vec![pse_model::strategy::StartOrigin::Auxiliary];
+        let mut declarations = package
+            .fit_declarations(services.preparation())
+            .await
+            .unwrap();
+        declarations.fits[0].observations[0].importance = 1.;
+        let package = package
+            .with_fit_declarations(&services.source_services(), declarations)
+            .await
+            .unwrap();
+        let mut requested = profile(false);
+        requested.solver.controls.hessian = HessianMode::GaussNewton;
+        requested.uncertainty = Some(FitUncertainty {
+            level: pse_model::scalar!(Fraction(0.95)),
+            profile: None,
+            predictions: true,
+        });
         let prepared = package
             .prepare_fit(
+                services.preparation(),
                 id(32).into(),
                 requested,
                 compiler_profile(),
@@ -3203,7 +3492,103 @@ mod tests {
             )
             .await
             .unwrap();
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let handle = prepared.start(&services).unwrap();
+        let run = handle.canonical_run_key().unwrap().to_owned();
+        let attempt = handle.canonical_attempt_key().unwrap().to_owned();
+        let result = handle.wait().await.unwrap();
+        let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
+            panic!("actual fit report");
+        };
+        assert!(report.quality.as_ref().unwrap().feasible());
+        assert!(report.checks_complete && report.checks.iter().any(|check| !check.satisfied));
+        let expected = report
+            .covariance
+            .as_ref()
+            .unwrap()
+            .values
+            .as_ref()
+            .unwrap()
+            .clone();
+        assert!(report.wald.as_ref().unwrap().is_ok());
+        assert!(!result.usable());
+        let stored = runtime.stored_completion(&run, &attempt).await.unwrap();
+        let completion = stored.completion.as_ref().unwrap();
+        assert!(!completion.permits_result());
+        let product = completion
+            .product_permission(DerivedQuantity::ParameterCovariance)
+            .unwrap();
+        assert!(product.validity.certified);
+        assert!(!product.permits_result());
+        drop(result);
+        let cancel = pse_columnar::CancellationToken::new();
+        let record = crate::math::settings::FitCovarianceRecord {
+            run: run.clone(),
+            attempt: attempt.clone(),
+        };
+        assert!(
+            runtime.fit_covariance(record, &cancel).await.is_err(),
+            "exact protected completion withholds statistical reuse"
+        );
+        let mut reader = runtime
+            .results(
+                &run,
+                &attempt,
+                "runtime.parameter_covariances",
+                0,
+                8,
+                cancel.clone(),
+            )
+            .await
+            .unwrap();
+        let mut cells = Vec::new();
+        while let Some(batch) = reader.next_relation_batch().await.unwrap() {
+            cells.extend(parameter_covariances::Row::rows(&batch).unwrap());
+        }
+        assert_eq!(cells.len(), 1);
+        assert_eq!(
+            cells[0].values, expected,
+            "diagnostic covariance bytes survive reopen"
+        );
+        let mut reader = runtime
+            .results(&run, &attempt, "runtime.local_validity", 0, 16, cancel)
+            .await
+            .unwrap();
+        let mut validity = Vec::new();
+        while let Some(batch) = reader.next_relation_batch().await.unwrap() {
+            validity.extend(local_validity::Row::rows(&batch).unwrap());
+        }
+        assert!(
+            validity
+                .iter()
+                .any(|row| row.quantity == DerivedQuantity::ParameterCovariance
+                    && row.validity.certified),
+            "local mathematical validity stays independent"
+        );
+    }
+    #[tokio::test]
+    async fn authored_fit_checks_can_reject_a_numerically_feasible_candidate() {
+        let runtime = runtime();
+        let services = runtime.execution_services();
+        let package = source_body(
+            &runtime,
+            true,
+            "param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 3);",
+        )
+        .await;
+        let mut requested = profile(true);
+        requested.solver.composition.recovery = vec![pse_model::strategy::StartOrigin::Auxiliary];
+        let prepared = package
+            .prepare_fit(
+                services.preparation(),
+                id(32).into(),
+                requested,
+                compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let result = prepared.start(&services).unwrap().wait().await.unwrap();
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!()
         };
@@ -3250,10 +3635,13 @@ mod tests {
     }
     #[tokio::test]
     async fn authored_fit_source_profile_and_binding_ownership_are_separate() {
-        let package = source(true).await;
+        let runtime = runtime();
+        let services = runtime.execution_services();
+        let package = source(&runtime, true).await;
         let cancel = crate::CancelSource::new();
         let (first, _) = package
             .prepare_fit_problem(
+                services.preparation(),
                 id(32).into(),
                 profile(true),
                 compiler_profile(),
@@ -3266,6 +3654,7 @@ mod tests {
         other.rank_tolerance = 1e-6;
         let (second, _) = package
             .prepare_fit_problem(
+                services.preparation(),
                 id(32).into(),
                 other,
                 compiler_profile(),
@@ -3277,7 +3666,7 @@ mod tests {
         assert_eq!(first.source_identity, second.source_identity);
         assert_ne!(first.profile_key, second.profile_key);
         assert_ne!(first.key, second.key);
-        let edited = source_measured(
+        let edited = source_measured(&runtime,
             true,
             "package p {def Root {param p: Scalar = 2; let y: Scalar = p*p; annotation check p(p > 0);}}",
             5.,
@@ -3285,6 +3674,7 @@ mod tests {
         ).await;
         let (third, _) = edited
             .prepare_fit_problem(
+                services.preparation(),
                 id(32).into(),
                 profile(true),
                 compiler_profile(),
@@ -3296,12 +3686,18 @@ mod tests {
         assert_ne!(first.source_identity, third.source_identity);
         assert_eq!(
             package
-                .all_revision()
+                .all_revision(services.preparation())
                 .await
                 .unwrap()
                 .checked()
                 .measurement(
-                    package.fit_declarations().await.unwrap().fits[0].experiments[0].case_id,
+                    package
+                        .fit_declarations(services.preparation(),)
+                        .await
+                        .unwrap()
+                        .fits[0]
+                        .experiments[0]
+                        .case_id,
                     id(31).into(),
                     "value",
                     Some("sigma")
@@ -3310,11 +3706,19 @@ mod tests {
                 .value,
             Some(3.)
         );
-        let mut data = package.fit_declarations().await.unwrap();
+        let mut data = package
+            .fit_declarations(services.preparation())
+            .await
+            .unwrap();
         data.fits[0].parameters[0].value = 2.5;
-        let changed = package.clone().with_fit_declarations(data).await.unwrap();
+        let changed = package
+            .clone()
+            .with_fit_declarations(&services.source_services(), data)
+            .await
+            .unwrap();
         let (fourth, _) = changed
             .prepare_fit_problem(
+                services.preparation(),
                 id(32).into(),
                 profile(true),
                 compiler_profile(),
@@ -3327,13 +3731,20 @@ mod tests {
             first.source_identity, fourth.source_identity,
             "fit declaration belongs to source identity"
         );
-        let mut data = changed.fit_declarations().await.unwrap();
+        let mut data = changed
+            .fit_declarations(services.preparation())
+            .await
+            .unwrap();
         let binding = data.fits[0].experiments[0].bindings[0].clone();
         data.fits[0].experiments[0].bindings.push(binding);
-        let invalid = changed.with_fit_declarations(data).await.unwrap();
+        let invalid = changed
+            .with_fit_declarations(&services.source_services(), data)
+            .await
+            .unwrap();
         assert!(
             invalid
                 .prepare_fit_problem(
+                    services.preparation(),
                     id(32).into(),
                     profile(true),
                     compiler_profile(),
@@ -3352,6 +3763,8 @@ mod tests {
     #[cfg(all(feature = "solver-ipopt", feature = "solver-kinsol"))]
     #[tokio::test]
     async fn nlp_runner_serves_solve_initialize_fit() {
+        let runtime = runtime();
+        let services = runtime.execution_services();
         use crate::math::solves::{NumericalInputs, Outcome};
         use native::solve::{Controls, Qualification, SolveReport, SolverSelection};
         use pse_compiler::workspace::ModelingCaseBindings;
@@ -3370,7 +3783,7 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime().modeling_package(rows, physical).await.unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let ipopt = |intent| SolverProfile {
             presolve: Default::default(),
             numerics: Default::default(),
@@ -3388,6 +3801,7 @@ mod tests {
         // A solve sequence step.
         let prepared = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Default::default(),
@@ -3402,7 +3816,7 @@ mod tests {
             .await
             .unwrap();
         let solved = package
-            .solve_case(prepared, compiler, &cancel)
+            .solve_case(&services, prepared, compiler, &cancel)
             .await
             .unwrap();
         let Outcome::Native(solve) = &solved.outcome else {
@@ -3411,6 +3825,7 @@ mod tests {
         // A block initialization attempt.
         let analysis = package
             .declared_execution(
+                services.preparation(),
                 root,
                 compiler,
                 // Initialization blocks prepare first derivatives only.
@@ -3429,19 +3844,25 @@ mod tests {
             .unwrap()
             .analysis;
         let initialized = package
-            .prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel)
+            .prepare_block_initialization(
+                services.preparation(),
+                &analysis,
+                vec![BTreeMap::new()],
+                &cancel,
+            )
             .await
             .unwrap()
-            .start()
+            .start(services.preparation())
             .unwrap()
             .finish()
             .await
             .unwrap();
         let initialize = initialized.attempts[0].result.as_ref().unwrap();
         // A parameter fit.
-        let fitted = source(false)
+        let fitted = source(&runtime, false)
             .await
             .prepare_fit(
+                services.preparation(),
                 id(32).into(),
                 profile(false),
                 compiler,
@@ -3450,7 +3871,7 @@ mod tests {
             )
             .await
             .unwrap()
-            .start()
+            .start(&services)
             .unwrap()
             .wait()
             .await

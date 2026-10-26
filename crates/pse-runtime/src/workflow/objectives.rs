@@ -23,7 +23,7 @@
 //! at each step's solved values in original coordinates, and recorded in
 //! `runtime.objective_levels`.
 use super::{
-    ModelingAnalysis, ModelingPackage, ModelingResult, Runtime, WorkflowError, contract,
+    ModelingAnalysis, ModelingPackage, ModelingResult, WorkflowError, contract,
     modeling::{assessment::Obligations, cases::CaseOverrides},
     modeling_error, relation,
     staged::{Overlay, Staged, Start},
@@ -71,7 +71,7 @@ pub struct ModelingObjectiveLevel {
 pub struct ModelingLevelsReport {
     /// Identity of this solve.
     pub run_id: RunId,
-    runtime: Runtime,
+    services: super::PreparationServices,
     /// Native lexicographic, or one staged step per level.
     pub route: ModelingObjectiveRoute,
     /// Every level, in optimization order.
@@ -96,9 +96,9 @@ impl ModelingLevelsReport {
     /// A level that does not fit the relation.
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         use pse_relations::generated::runtime::objective_levels as rows;
-        let validation = self.runtime.validation_context();
+        let validation = self.services.validation_context();
         let mut builder =
-            rows::Builder::with_registry(self.runtime.registry(), self.levels.len(), &validation)
+            rows::Builder::with_registry(self.services.registry(), self.levels.len(), &validation)
                 .map_err(relation)?;
         for level in &self.levels {
             builder
@@ -216,10 +216,11 @@ impl ModelingPackage {
     /// prepare the first step. A failed later step ends the report instead.
     pub async fn optimize_levels(
         &self,
+        services: &super::ExecutionServices,
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingLevelsReport, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity.scope(async {
         if analysis
             .bindings
@@ -232,7 +233,7 @@ impl ModelingPackage {
         }
         let base = self
             .prepare(
-                analysis.root,
+                services.preparation(), analysis.root,
                 analysis.instance,
                 analysis.bindings.clone(),
                 analysis.limits,
@@ -247,9 +248,9 @@ impl ModelingPackage {
         if levels.levels.is_empty() {
             return Err(contract("a lexicographic solve needs an objective"));
         }
-        let mut staged = Staged::open(&self.runtime, None)?;
+        let mut staged = Staged::open(services, None)?;
         let (decision, mut resolution) = self
-            .level_route(analysis, levels.single_nonzero(), cancel)
+            .level_route(services, analysis, levels.single_nonzero(), cancel)
             .await?;
         let mut selected = analysis.clone();
         if let pse_backend_native::routing::Route::Native(backend) = decision
@@ -262,11 +263,11 @@ impl ModelingPackage {
         }
         let report =
             if decision.lexicographic == Some(pse_backend_native::routing::Lexicographic::Native) {
-                let prepared = self.finish_case(resolution, cancel).await?;
-                self.native_solve(&mut staged, &levels, prepared, cancel)
+                let prepared = self.finish_case(services.preparation(), resolution, cancel).await?;
+                self.native_solve(services, &mut staged, &levels, prepared, cancel)
                     .await
             } else {
-                self.staged_solve(&mut staged, &selected, &levels, cancel)
+                self.staged_solve(services, &mut staged, &selected, &levels, cancel)
                     .await
             };
         staged.close().await;
@@ -277,6 +278,7 @@ impl ModelingPackage {
     /// Query declared native priority semantics, otherwise admit one backend for staging.
     async fn level_route(
         &self,
+        services: &super::ExecutionServices,
         analysis: &ModelingAnalysis,
         single_nonzero: bool,
         cancel: &crate::CancelSource,
@@ -289,6 +291,7 @@ impl ModelingPackage {
     > {
         let mut resolution = self
             .resolve_case(
+                services.preparation(),
                 analysis.root,
                 analysis.instance,
                 analysis.bindings.clone(),
@@ -303,9 +306,8 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
-        resolution.model.case = self
-            .runtime
-            .shared
+        resolution.model.case = services
+            .preparation()
             .math()
             .discover_class(
                 resolution.model.case.clone(),
@@ -321,6 +323,7 @@ impl ModelingPackage {
     }
     async fn native_solve(
         &self,
+        services: &super::ExecutionServices,
         staged: &mut Staged,
         levels: &Levels,
         prepared: super::ModelingSolvePreparation,
@@ -330,11 +333,11 @@ impl ModelingPackage {
         let result = staged
             .run(prepared, Obligations::Final, run_id, 0, None, cancel)
             .await;
-        let mut report = self.report(ModelingObjectiveRoute::Native, levels);
+        let mut report = self.report(services, ModelingObjectiveRoute::Native, levels);
         report.steps.push(result);
         let values = match report.steps[0].as_ref() {
             Ok(result) if priority_completed(result) => {
-                Some(self.level_values(levels, result, cancel).await?)
+                Some(self.level_values(services, levels, result, cancel).await?)
             }
             _ => None,
         };
@@ -348,6 +351,7 @@ impl ModelingPackage {
     }
     async fn staged_solve(
         &self,
+        services: &super::ExecutionServices,
         staged: &mut Staged,
         analysis: &ModelingAnalysis,
         levels: &Levels,
@@ -368,6 +372,7 @@ impl ModelingPackage {
         } else {
             let model = self
                 .prepare(
+                    services.preparation(),
                     analysis.root,
                     analysis.instance,
                     analysis.bindings.clone().with_objective_level(last),
@@ -395,6 +400,7 @@ impl ModelingPackage {
             };
             let resolution = self
                 .resolve_case(
+                    services.preparation(),
                     analysis.root,
                     analysis.instance,
                     bindings,
@@ -415,9 +421,10 @@ impl ModelingPackage {
             // A pure route assessment may select a supported method whose
             // representation is still pending. Prepare its actual selected
             // artifacts before admitting the first numerical priority step.
-            self.finish_case(resolution, cancel).await?;
+            self.finish_case(services.preparation(), resolution, cancel)
+                .await?;
         }
-        let mut report = self.report(ModelingObjectiveRoute::Staged, levels);
+        let mut report = self.report(services, ModelingObjectiveRoute::Staged, levels);
         let mut bounds = BTreeMap::new();
         let mut accepted = None;
         for position in 0..=last {
@@ -466,7 +473,7 @@ impl ModelingPackage {
             };
             report.steps.push(record.result);
             accepted = Some(step);
-            let values = self.level_values(levels, &result, cancel).await?;
+            let values = self.level_values(services, levels, &result, cancel).await?;
             let optimum = values[position];
             report.levels[position].optimum = Some(optimum);
             if position == last {
@@ -499,10 +506,15 @@ impl ModelingPackage {
         report.completed = true;
         Ok(report)
     }
-    fn report(&self, route: ModelingObjectiveRoute, levels: &Levels) -> ModelingLevelsReport {
+    fn report(
+        &self,
+        services: &super::ExecutionServices,
+        route: ModelingObjectiveRoute,
+        levels: &Levels,
+    ) -> ModelingLevelsReport {
         ModelingLevelsReport {
             run_id: pse_operations::mint_id(),
-            runtime: self.runtime.clone(),
+            services: services.preparation().clone(),
             route,
             levels: levels
                 .levels
@@ -527,12 +539,14 @@ impl ModelingPackage {
     /// Every level's value at `result`, observed through the model at its solved values.
     async fn level_values(
         &self,
+        services: &super::ExecutionServices,
         levels: &Levels,
         result: &ModelingResult,
         cancel: &crate::CancelSource,
     ) -> Result<Vec<f64>, WorkflowError> {
         let observed = self
             .observe(
+                services.preparation(),
                 result.prepared.model.model.clone(),
                 levels.rows(),
                 result.values.clone(),
@@ -562,7 +576,7 @@ mod tests {
     use pse_modeling::{Bindings, Limits};
     use pse_relations::columnar::RelationRow;
 
-    async fn package(text: &str) -> (ModelingPackage, ModelingAnalysis) {
+    async fn package(text: &str) -> (super::super::Runtime, ModelingPackage, ModelingAnalysis) {
         let physical = fixture::physical();
         let rows = pse_authoring::language::parse(
             text,
@@ -576,10 +590,8 @@ mod tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = fixture::runtime()
-            .modeling_package(rows, physical)
-            .await
-            .unwrap();
+        let runtime = fixture::runtime();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let mut solver = fixture::profile();
         solver.intent = SolveIntent::Optimize;
         solver.selection = SolverSelection::Auto;
@@ -594,7 +606,7 @@ mod tests {
             solver,
             numerical: NumericalInputs::default(),
         };
-        (package, analysis)
+        (runtime, package, analysis)
     }
     fn symbol(result: &ModelingResult, name: &str) -> SemanticId {
         result
@@ -618,9 +630,17 @@ mod tests {
             other => panic!("{other:?}"),
         }
     }
-    async fn solve(package: &ModelingPackage, analysis: &ModelingAnalysis) -> ModelingLevelsReport {
+    async fn solve(
+        runtime: &super::super::Runtime,
+        package: &ModelingPackage,
+        analysis: &ModelingAnalysis,
+    ) -> ModelingLevelsReport {
         let report = package
-            .optimize_levels(analysis, &crate::CancelSource::new())
+            .optimize_levels(
+                &runtime.execution_services(),
+                analysis,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         assert!(report.completed, "{:?}", report.failure);
@@ -657,8 +677,8 @@ mod tests {
             ("0{W}", 1.0, 3.0, [4.0, 1.0]),
             ("1{W}", 0.0, 3.0, [3.0, 0.0]),
         ] {
-            let (package, analysis) = package(&milp(absolute)).await;
-            let report = solve(&package, &analysis).await;
+            let (runtime, package, analysis) = package(&milp(absolute)).await;
+            let report = solve(&runtime, &package, &analysis).await;
             assert_eq!(report.route, ModelingObjectiveRoute::Native);
             assert_eq!(report.steps.len(), 1);
             let result = report.result().unwrap();
@@ -705,8 +725,8 @@ mod tests {
     /// accuracy. For a fixed sum s, the independent minimum effort is 2s²/3.
     #[tokio::test]
     async fn lexicographic_nlp_staged_respects_meaningful_degradation() {
-        let (package, analysis) = package(&nlp(MISS, "0.01", "0")).await;
-        let report = solve(&package, &analysis).await;
+        let (runtime, package, analysis) = package(&nlp(MISS, "0.01", "0")).await;
+        let report = solve(&runtime, &package, &analysis).await;
         assert_eq!(report.route, ModelingObjectiveRoute::Staged);
         assert_eq!(report.steps.len(), 2);
         let result = report.result().unwrap();
@@ -756,8 +776,8 @@ mod tests {
             (MISS, "0.01", "0", 0.0, 0.01),
             (shifted.as_str(), "0.001", "0.05", 1.0, 1.05),
         ] {
-            let (package, analysis) = package(&nlp(first, absolute, relative)).await;
-            let report = solve(&package, &analysis).await;
+            let (runtime, package, analysis) = package(&nlp(first, absolute, relative)).await;
+            let report = solve(&runtime, &package, &analysis).await;
             assert_eq!(report.route, ModelingObjectiveRoute::Staged);
             let level = &report.levels[0];
             assert!((level.optimum.unwrap() - optimum).abs() < 1e-6, "{level:?}");
@@ -790,10 +810,10 @@ mod tests {
         };
         let cancel = crate::CancelSource::new();
         for (absolute, relative) in [("0", "0"), ("0", "0.1"), ("1e-6", "0")] {
-            let (package, analysis) = package(&nlp(MISS, absolute, relative)).await;
+            let (runtime, package, analysis) = package(&nlp(MISS, absolute, relative)).await;
             refused(
                 package
-                    .optimize_levels(&analysis, &cancel)
+                    .optimize_levels(&runtime.execution_services(), &analysis, &cancel)
                     .await
                     .unwrap_err(),
             );
@@ -805,16 +825,16 @@ mod tests {
     /// repeated solve with other values rebinds every step without a new preparation.
     #[tokio::test]
     async fn objective_levels_prepare_once_per_level() {
-        let (package, mut analysis) = package(
+        let (runtime, package, mut analysis) = package(
             &nlp(MISS, "0.01", "0")
                 .replace("let miss", "param target: Scalar = 2; let miss")
                 .replace("(x + y - 2)", "(x + y - target)"),
         )
         .await;
         analysis.bindings.demand = vec!["target".into()];
-        let native = package.runtime.native();
+        let native = runtime.native();
         let before = native.preparations();
-        let first = solve(&package, &analysis).await;
+        let first = solve(&runtime, &package, &analysis).await;
         let after_first = native.preparations();
         // The two level structures and the lexicographic probe.
         assert!(
@@ -839,7 +859,7 @@ mod tests {
             .collect::<BTreeSet<_>>();
         assert_eq!(keys.len(), 2);
         analysis.case.values.insert("target".into(), 3.0);
-        let second = solve(&package, &analysis).await;
+        let second = solve(&runtime, &package, &analysis).await;
         let after_second = native.preparations();
         assert_eq!(after_second.views, after_first.views);
         assert!(after_second.rebuilt > after_first.rebuilt);

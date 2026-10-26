@@ -1766,7 +1766,10 @@ impl NativeSession {
         let service = self.service.clone();
         let deadline = std::time::Instant::now()
             .checked_add(first.step.time_limit())
-            .ok_or_else(|| ProblemError::Contract("batch deadline extent".into()))?;
+            .ok_or_else(|| ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time,
+                detail: "batch deadline extent".into(),
+            })?;
         let threads = first.step.threads();
         if members
             .iter()

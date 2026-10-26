@@ -31,7 +31,8 @@ const PROJECTION: &str = "package p {
 
 /// A study of the projection at eight values of `a`, each point independent.
 async fn study(selection: SolverSelection, threads: usize) -> Vec<(f64, f64, ModelingResult)> {
-    let (package, root) = package(PROJECTION).await;
+    let (runtime, package, root) = package(PROJECTION).await;
+    let services = runtime.execution_services();
     let mut base = analysis(root, selection);
     base.solver.controls.threads = threads;
     base.bindings.demand = vec!["x".into(), "y".into(), "a".into(), "b".into()];
@@ -41,9 +42,14 @@ async fn study(selection: SolverSelection, threads: usize) -> Vec<(f64, f64, Mod
     for a in values {
         let mut analysis = base.clone();
         analysis.case.values.insert("a".into(), a);
-        preparations.push(package.prepare_analysis(&analysis, &cancel).await.unwrap());
+        preparations.push(
+            package
+                .prepare_analysis(services.preparation(), &analysis, &cancel)
+                .await
+                .unwrap(),
+        );
     }
-    let mut staged = crate::workflow::staged::Staged::open(&package.runtime, None).unwrap();
+    let mut staged = crate::workflow::staged::Staged::open(&services, None).unwrap();
     let results = staged
         .batch(&preparations, assessment::Obligations::Final, &cancel)
         .await;
@@ -143,9 +149,11 @@ async fn pounce_convex_batched_study() {
 /// sensitivity mechanism exists.
 #[tokio::test]
 async fn qp_sensitivity_through_kkt_analysis() {
-    let (package, root) = package(QUADRATIC).await;
+    let (runtime, package, root) = package(QUADRATIC).await;
+    let services = runtime.execution_services();
     let plain = package
         .prepare_analysis(
+            services.preparation(),
             &analysis(root, SolverSelection::Auto),
             &crate::CancelSource::new(),
         )
@@ -237,16 +245,23 @@ async fn sos_bound_labelled_nonrigorous() {
     assert!((minimum + 3.51391).abs() < 1e-4, "{minimum}");
     let cancel = crate::CancelSource::new();
     for (sense, sign, expected) in [("minimize", "", minimum), ("maximize", "-", -minimum)] {
-        let (package, root) = package(&quartic(sense, sign)).await;
+        let (runtime, package, root) = package(&quartic(sense, sign)).await;
+        let services = runtime.execution_services();
         let request = analysis(root, SolverSelection::Auto);
-        let prepared = package.prepare_analysis(&request, &cancel).await.unwrap();
+        let prepared = package
+            .prepare_analysis(services.preparation(), &request, &cancel)
+            .await
+            .unwrap();
         let objective_budget = fixture::engineering_target(
             prepared.solve.numerics(),
             NumericalTarget::Objective,
             SemanticId::NIL,
         )
         .budget;
-        let bound = package.sos_bound(&request, None, &cancel).await.unwrap();
+        let bound = package
+            .sos_bound(&services, &request, None, &cancel)
+            .await
+            .unwrap();
         assert_eq!(
             bound.assurance,
             NativeAssurance::SosBoundNonrigorous,
@@ -258,15 +273,21 @@ async fn sos_bound_labelled_nonrigorous() {
             "{sense}: {bound:?} against {expected}"
         );
     }
-    let (package, root) = package(
+    let (runtime, package, root) = package(
         "package p { def Root { var x: Scalar;
           let cost: Scalar = exp(x) - x;
           annotation objective cost(minimize);
           annotation bounds x(-2, 2); annotation start x(0); } }",
     )
     .await;
+    let services = runtime.execution_services();
     let refused = package
-        .sos_bound(&analysis(root, SolverSelection::Auto), None, &cancel)
+        .sos_bound(
+            &services,
+            &analysis(root, SolverSelection::Auto),
+            None,
+            &cancel,
+        )
         .await
         .unwrap_err();
     assert!(refused.to_string().contains("polynomial"), "{refused}");

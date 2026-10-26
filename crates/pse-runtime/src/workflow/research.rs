@@ -279,7 +279,9 @@ impl Runtime {
             }
             let mut roots = vec![member.root, member.record];
             roots.extend(&member.calibration);
-            let revision = package.selected_revision_roots(&roots, cancel).await?;
+            let revision = package
+                .selected_revision_roots(&self.preparation_services(), &roots, cancel)
+                .await?;
             let checked = revision.checked();
             if request.role == "derived" {
                 let mut attributes = vec![member.attribute.as_str()];
@@ -357,7 +359,9 @@ impl Runtime {
             .await?
             .ok_or_else(|| contract("research dataset unavailable"))?;
         let members: Vec<ResearchDataObject> = decoded(&dataset.members)?;
-        let fit = package.fit_declaration(request.fit).await?;
+        let fit = package
+            .fit_declaration(&self.preparation_services(), request.fit)
+            .await?;
         if fit.observations.len() != request.observations.len() {
             return Err(contract(
                 "research selection must preserve complete observation population",
@@ -391,7 +395,11 @@ impl Runtime {
                 return Err(contract("research observation original selection differs"));
             }
             let revision = package
-                .selected_revision_roots(&[member.root, member.record], cancel)
+                .selected_revision_roots(
+                    &self.preparation_services(),
+                    &[member.root, member.record],
+                    cancel,
+                )
                 .await?;
             let measured = revision
                 .checked()
@@ -463,6 +471,19 @@ impl Runtime {
         });
         Ok((package, request.fit))
     }
+    /// Authenticate original research attribution through an explicit source boundary.
+    pub(in crate::workflow) async fn restore_research_source(
+        &self,
+        package: &mut ModelingPackage,
+        source: Option<&ResearchSource>,
+    ) -> Result<(), WorkflowError> {
+        self.source_services()
+            .restore_research_source(package, source)
+            .await
+    }
+}
+
+impl super::SourceServices {
     /// Authenticate research attribution before recording actual scientific execution.
     pub(in crate::workflow) async fn restore_research_source(
         &self,
@@ -477,6 +498,7 @@ impl Runtime {
                 .ok_or_else(|| contract("original research selection unavailable"))?;
             let revision = package.recorded_revision()?;
             if source.issuing_store != store.issuing_store()?
+                || package.source_issuer() != Some(source.issuing_store.as_str())
                 || source.dataset != selection.dataset
                 || source.physical_context != selection.physical_context
                 || source.physical_context != package.physical.identity().to_string()

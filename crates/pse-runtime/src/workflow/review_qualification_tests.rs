@@ -235,14 +235,23 @@ async fn review_qualification_actual_prehandle_failure_retains_original_request_
     let reader = observed.reader();
     let error = pse_diagnostics::observation::scope(
         Some(observed.context()),
-        package.prepare_analysis(&analysis, &crate::CancelSource::new()),
+        package.prepare_analysis(
+            &runtime.preparation_services(),
+            &analysis,
+            &crate::CancelSource::new(),
+        ),
     )
     .await
     .unwrap_err();
     observed.finish(pse_diagnostics::observation::Outcome::Failed);
     let ((), counts) = crate::math::counted(async {
         let context = package
-            .review_context_failure(&ReviewContextRequest::default(), Some(operation), &error)
+            .review_context_failure(
+                &runtime.preparation_services(),
+                &ReviewContextRequest::default(),
+                Some(operation),
+                &error,
+            )
             .unwrap();
         let mut document: ReviewContextDocument =
             serde_json::from_slice(&serde_json::to_vec(context.document()).unwrap()).unwrap();

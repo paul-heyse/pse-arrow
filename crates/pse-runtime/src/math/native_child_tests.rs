@@ -9,13 +9,75 @@ fn private_native_frames_refuse_oversize_and_keep_original_stop() {
         .write_all(&((RESPONSE_LIMIT + 1) as u64).to_le_bytes())
         .unwrap();
     let scope = ExecutionScope::new(Cancellation::default(), None);
-    assert!(matches!(
-        receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope),
-        Err(MathRuntimeError::Solve(_))
-    ));
+    let error = receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope)
+        .err()
+        .expect("private frame must refuse");
+    assert!(matches!(error, MathRuntimeError::Limit(_)));
+    assert_eq!(
+        error
+            .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
+            .class,
+        pse_model::diagnostic::BoundaryClass::ResourceLimit
+    );
     let cancel = Cancellation::new(true);
     let scope = ExecutionScope::new(cancel, None);
-    assert!(receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope).is_err());
+    let error = receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope)
+        .err()
+        .expect("private frame must refuse");
+    assert_eq!(
+        error
+            .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
+            .class,
+        pse_model::diagnostic::BoundaryClass::Cancelled
+    );
+}
+
+#[test]
+fn private_native_outgoing_frame_budget_differs_from_serialization_invariant() {
+    let (_reader, mut writer) = UnixStream::pair().unwrap();
+    let scope = ExecutionScope::new(Cancellation::default(), None);
+    let error = send(&mut writer, &vec![1_u8, 2, 3], 1, &scope).unwrap_err();
+    assert_eq!(
+        error
+            .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
+            .class,
+        pse_model::diagnostic::BoundaryClass::ResourceLimit
+    );
+    struct Broken;
+    impl Serialize for Broken {
+        fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+            Err(serde::ser::Error::custom("admitted serializer failed"))
+        }
+    }
+    let error = send(&mut writer, &Broken, RESPONSE_LIMIT, &scope).unwrap_err();
+    assert!(matches!(error, MathRuntimeError::Internal(_)));
+    assert_eq!(
+        error
+            .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
+            .class,
+        pse_model::diagnostic::BoundaryClass::Internal
+    );
+}
+
+#[test]
+fn private_native_corrupt_admitted_frame_is_internal() {
+    let (mut reader, mut writer) = UnixStream::pair().unwrap();
+    writer.write_all(&1_u64.to_le_bytes()).unwrap();
+    writer.write_all(b"?").unwrap();
+    let scope = ExecutionScope::new(Cancellation::default(), None);
+    let error = receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope)
+        .err()
+        .expect("private frame must refuse");
+    assert!(matches!(error, MathRuntimeError::Internal(_)));
+    let diagnostic = error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native);
+    assert_eq!(
+        diagnostic.class,
+        pse_model::diagnostic::BoundaryClass::Internal
+    );
+    assert_eq!(
+        diagnostic.code,
+        pse_diagnostics::DiagnosticCode::InternalInvariant
+    );
 }
 
 #[test]

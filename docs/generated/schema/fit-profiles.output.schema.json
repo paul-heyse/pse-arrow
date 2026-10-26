@@ -347,6 +347,19 @@
       ],
       "type": "object"
     },
+    "CandidateQualifier": {
+      "enum": [
+        "accepted_incumbent_feasible",
+        "accepted_incumbent_within_gap",
+        "closure_allowed",
+        "applicability_unknown_allowed",
+        "applicability_extrapolation_allowed",
+        "accuracy_estimated",
+        "accuracy_empirical",
+        "engineering_canonical_fallback"
+      ],
+      "type": "string"
+    },
     "DiagnosticCode": {
       "enum": [
         "authoring.parse",
@@ -1443,6 +1456,13 @@
           },
           "type": "array"
         },
+        "qualifiers": {
+          "description": "Limitations retained from the estimate and accepted pins through this interval end.",
+          "items": {
+            "$ref": "#/$defs/CandidateQualifier"
+          },
+          "type": "array"
+        },
         "scheduling_failures": {
           "description": "Worker start or environment failures for this execution, including partial starts.",
           "items": {
@@ -1463,6 +1483,7 @@
         }
       },
       "required": [
+        "qualifiers",
         "worker_failure",
         "scheduling_failures",
         "actual_parallelism",
@@ -1612,6 +1633,13 @@
           ],
           "description": "The pinned fit's qualification, when the runner returned a report."
         },
+        "qualifiers": {
+          "description": "Applicability and closure limitations of this independently checked pin.",
+          "items": {
+            "$ref": "#/$defs/CandidateQualifier"
+          },
+          "type": "array"
+        },
         "residual": {
           "anyOf": [
             {
@@ -1658,6 +1686,7 @@
         }
       },
       "required": [
+        "qualifiers",
         "residual",
         "value",
         "seed",

@@ -1718,7 +1718,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "Serial PETSc trust-region, pseudo-time or nonlinear Schwarz profile.",
+          "description": "Serial PETSc direct trust-region root profile.",
           "properties": {
             "backend": {
               "const": "petsc",
@@ -1732,36 +1732,12 @@
             "method": {
               "$ref": "#/$defs/NativePetscMethod",
               "default": "newton_trust_region",
-              "description": "Selected native nonlinear method."
+              "description": "Selected direct nonlinear method."
             },
             "preconditioner": {
               "$ref": "#/$defs/NativePetscPreconditioner",
               "default": "ilu",
               "description": "Selected native PC method."
-            },
-            "pseudo": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/PseudoTimeOutput"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "description": "Required precisely for the pseudo-transient profile."
-            },
-            "schwarz": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/SchwarzOutput"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "description": "Required precisely for nonlinear additive Schwarz."
             },
             "trust": {
               "$ref": "#/$defs/TrustRegionOutput",
@@ -1770,7 +1746,7 @@
                 "maximum": 100000000.0,
                 "minimum": 1e-12
               },
-              "description": "Inner trust-region profile used by SNES and TSPSEUDO correction."
+              "description": "Normalized trust-region controls."
             }
           },
           "required": [
@@ -1778,9 +1754,7 @@
             "method",
             "linear",
             "preconditioner",
-            "trust",
-            "pseudo",
-            "schwarz"
+            "trust"
           ],
           "title": "PetscSettingsOutput",
           "type": "object"
@@ -4527,9 +4501,7 @@
     },
     "NativePetscMethod": {
       "enum": [
-        "newton_trust_region",
-        "nonlinear_additive_schwarz",
-        "pseudo_transient"
+        "newton_trust_region"
       ],
       "type": "string"
     },
@@ -5889,66 +5861,6 @@
       ],
       "type": "object"
     },
-    "PseudoTimeOutput": {
-      "additionalProperties": false,
-      "description": "Finite step growth and rejection controls for artificial pseudo-time.",
-      "properties": {
-        "failed_scale": {
-          "default": 0.5,
-          "description": "Failed-stage shrink strictly between zero and one.",
-          "format": "double",
-          "type": "number"
-        },
-        "growth": {
-          "default": 1.1,
-          "description": "Successful-step growth greater than one.",
-          "format": "double",
-          "type": "number"
-        },
-        "initial": {
-          "default": 0.01,
-          "description": "Positive artificial initial time step.",
-          "format": "double",
-          "type": "number"
-        },
-        "maximum": {
-          "default": 1000000.0,
-          "description": "Finite maximum time step.",
-          "format": "double",
-          "type": "number"
-        },
-        "minimum": {
-          "default": 1e-12,
-          "description": "Explicit rejection floor; a step below this ends the attempt.",
-          "format": "double",
-          "type": "number"
-        },
-        "nonlinear_failures": {
-          "default": 20,
-          "description": "Finite allowed nonlinear failures.",
-          "format": "uint32",
-          "minimum": 0,
-          "type": "integer"
-        },
-        "rejections": {
-          "default": 20,
-          "description": "Finite allowed rejected steps.",
-          "format": "uint32",
-          "minimum": 0,
-          "type": "integer"
-        }
-      },
-      "required": [
-        "initial",
-        "minimum",
-        "maximum",
-        "growth",
-        "failed_scale",
-        "rejections",
-        "nonlinear_failures"
-      ],
-      "type": "object"
-    },
     "RawMapContextKind": {
       "description": "Whether an actual inner solve has a supplied frozen scientific context.",
       "oneOf": [
@@ -6600,6 +6512,120 @@
         "variables"
       ],
       "type": "object"
+    },
+    "ReplayConstructor": {
+      "description": "Mutually exclusive original scientific inputs. Auxiliary constructors stay in their family.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Original finite authored sequence.",
+          "properties": {
+            "cases": {
+              "description": "Original cases in their exact requested order.",
+              "items": {
+                "$ref": "#/$defs/ReplayCaseConstructorOutput"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "modeling",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "cases"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Original physical integration.",
+          "properties": {
+            "kind": {
+              "const": "simulation",
+              "type": "string"
+            },
+            "simulation": {
+              "$ref": "#/$defs/ReplaySimulationConstructor",
+              "description": "Complete immutable integration constructor."
+            }
+          },
+          "required": [
+            "kind",
+            "simulation"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Original shared-parameter fit.",
+          "properties": {
+            "fit": {
+              "$ref": "#/$defs/ReplayFitConstructor",
+              "description": "Complete immutable fitting constructor."
+            },
+            "kind": {
+              "const": "fit",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "fit"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Original requested horizon, independently of retained full or compact history.",
+          "properties": {
+            "horizon": {
+              "$ref": "#/$defs/ReplayHorizonConstructor",
+              "description": "Complete original plant and stage constructors."
+            },
+            "kind": {
+              "const": "horizon",
+              "type": "string"
+            },
+            "provenance": {
+              "description": "Exact original horizon provenance bytes.",
+              "items": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "horizon",
+            "provenance"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Host-only composed shooting; this does not admit persisted study shooting.",
+          "properties": {
+            "kind": {
+              "const": "shooting",
+              "type": "string"
+            },
+            "shooting": {
+              "$ref": "#/$defs/ReplayShootingConstructor",
+              "description": "Original shooting with its original simulation constructor."
+            }
+          },
+          "required": [
+            "kind",
+            "shooting"
+          ],
+          "type": "object"
+        }
+      ]
     },
     "ReplayCoverageOutput": {
       "additionalProperties": false,
@@ -8621,28 +8647,6 @@
       ],
       "type": "object"
     },
-    "SchwarzOutput": {
-      "additionalProperties": false,
-      "description": "Explicit correction damping and overlap extension for nonlinear Schwarz.",
-      "properties": {
-        "damping": {
-          "default": 1.0,
-          "description": "Native nonlinear correction damping in (0,1].",
-          "format": "double",
-          "type": "number"
-        },
-        "restricted": {
-          "default": true,
-          "description": "Restrict the extension to each block's declared interior.",
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "damping",
-        "restricted"
-      ],
-      "type": "object"
-    },
     "ScientificArtifactCoordinate": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -10049,15 +10053,12 @@
       "type": "string",
       "x-pse-identity": "ContentHash"
     },
-    "case_constructors": {
-      "description": "Original portable case constructors, retaining all supplied structural and numerical inputs.",
-      "items": {
-        "$ref": "#/$defs/ReplayCaseConstructorOutput"
-      },
-      "type": "array"
+    "constructor": {
+      "$ref": "#/$defs/ReplayConstructor",
+      "description": "Exactly one original operation constructor, with its family-owned payloads."
     },
     "contexts": {
-      "description": "Original physical mappings and full constructor configurations, using existing producer documents.",
+      "description": "Original physical mappings and full constructor configurations.",
       "items": {
         "$ref": "#/$defs/RuntimeScientificContextsRow"
       },
@@ -10078,41 +10079,6 @@
       },
       "type": "array"
     },
-    "fit_constructor": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ReplayFitConstructor"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "Complete original fit and experiment constructor."
-    },
-    "horizon": {
-      "description": "Full original horizon provenance, including output demand, period, stages and mappings.",
-      "items": {
-        "format": "uint8",
-        "maximum": 255,
-        "minimum": 0,
-        "type": "integer"
-      },
-      "type": [
-        "array",
-        "null"
-      ]
-    },
-    "horizon_constructor": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ReplayHorizonConstructor"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "Complete original closed-loop plant and stage constructors."
-    },
     "native_attempts": {
       "description": "Full actual retained adapter settings, submitted starts and original coordinate witnesses.",
       "items": {
@@ -10132,24 +10098,6 @@
       "description": "Actual immutable build/runtime observations used by constructor admission.",
       "items": {
         "$ref": "#/$defs/SnapshotOutput"
-      },
-      "type": "array"
-    },
-    "shooting_constructor": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ReplayShootingConstructor"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "Complete original shooting and simulation constructor."
-    },
-    "simulation_constructors": {
-      "description": "Complete original simulation constructors across all linked methods.",
-      "items": {
-        "$ref": "#/$defs/ReplaySimulationConstructor"
       },
       "type": "array"
     },
@@ -10174,8 +10122,8 @@
       "type": "array"
     },
     "version": {
-      "const": 4,
-      "default": 4,
+      "const": 5,
+      "default": 5,
       "description": "Explicit current document version.",
       "type": "integer"
     }
@@ -10188,13 +10136,8 @@
     "build",
     "sources",
     "solver_settings",
-    "case_constructors",
-    "simulation_constructors",
-    "fit_constructor",
-    "horizon_constructor",
-    "shooting_constructor",
+    "constructor",
     "contexts",
-    "horizon",
     "decisions",
     "native_attempts",
     "native_record_coverage",

@@ -232,7 +232,7 @@ impl PreparedPetsc {
     }
     /// Frozen typed backend settings identity consumed by the strategy.
     pub fn strategy_profile(&self) -> Result<ContentHash, ProblemError> {
-        Ok(profile_key(&self.profile)?.as_id())
+        composition_profile_key(&self.profile, &self.settings)
     }
     /// Finite controls consumed by this auxiliary attempt.
     pub fn controls(&self) -> &Controls {
@@ -604,11 +604,24 @@ impl MathService {
     }
 }
 
+fn composition_profile_key(
+    profile: &SolverProfile,
+    settings: &native_petsc::Settings,
+) -> Result<ContentHash, ProblemError> {
+    let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+    h.str("petsc-scientific-composition-profile")
+        .hash(&profile_key(profile)?.as_id());
+    pse_ids::document::frame(&mut h, settings)
+        .map_err(|error| ProblemError::Contract(error.to_string()))?;
+    Ok(h.finish_hash())
+}
+
 fn admit(
     source: &PreparedPetscSource,
     profile: &SolverProfile,
     domain: Option<&dyn PetscDomainFactory>,
     method: native_petsc::Method,
+    settings: native_petsc::Settings,
 ) -> Result<native_petsc::Settings, ProblemError> {
     source.scope.check().map_err(ProblemError::from)?;
     profile.controls.validate()?;
@@ -629,14 +642,23 @@ fn admit(
             "PETSc supplemental original guard obligations require their actual supplier".into(),
         ));
     }
-    let settings = match &profile.backend {
-        BackendSettings::Petsc(s) => *s,
+    let direct = match &profile.backend {
+        BackendSettings::Petsc(settings) => settings,
         _ => {
             return Err(ProblemError::Contract(
-                "PETSc mathematical product requires explicit typed method settings".into(),
+                "PETSc composition requires explicit direct correction settings".into(),
             ));
         }
     };
+    direct.validate()?;
+    if direct.linear != settings.linear
+        || direct.preconditioner != settings.preconditioner
+        || direct.trust != settings.trust
+    {
+        return Err(ProblemError::Contract(
+            "PETSc composition correction differs from its direct profile".into(),
+        ));
+    }
     settings.validate()?;
     if settings.method != method
         || source.original.accuracy.native_scaling
@@ -726,6 +748,7 @@ impl MathService {
         &self,
         source: PreparedPetscSource,
         profile: SolverProfile,
+        settings: native_petsc::Settings,
         definition: PetscFlowDefinition,
     ) -> Result<PreparedPetsc, MathRuntimeError> {
         let PetscFlowDefinition {
@@ -740,6 +763,7 @@ impl MathService {
             &profile,
             domain.as_deref(),
             native_petsc::Method::PseudoTransient,
+            settings,
         )?;
         if mass.binding() != (source.original_identity(), source.preparation_identity())
             || limits.steps == 0
@@ -781,7 +805,7 @@ impl MathService {
             .hash(&family.key())
             .hash(&mass.realization())
             .hash(&source.physical.obligations().guards)
-            .hash(&profile_key(&profile)?.as_id())
+            .hash(&composition_profile_key(&profile, &settings)?)
             .u64(u64::from(limits.steps))
             .f64(limits.artificial_time);
         if let Some(domain) = &domain {
@@ -822,13 +846,22 @@ impl MathService {
         source: PreparedPetscSource,
         compiler: PetscCompiler,
         profile: SolverProfile,
+        settings: native_petsc::Settings,
         domain: Option<Arc<dyn PetscDomainFactory>>,
         declaration: ContentHash,
         driver: &crate::CancelSource,
     ) -> Result<PreparedPetsc, MathRuntimeError> {
         let mut preparing = Preparing(Some(source.scope.cancellation_control().clone()));
         let result = self
-            .prepare_petsc_blocks_inner(source, compiler, profile, domain, declaration, driver)
+            .prepare_petsc_blocks_inner(
+                source,
+                compiler,
+                profile,
+                settings,
+                domain,
+                declaration,
+                driver,
+            )
             .await;
         preparing.0 = None;
         result
@@ -838,6 +871,7 @@ impl MathService {
         source: PreparedPetscSource,
         compiler: PetscCompiler,
         profile: SolverProfile,
+        settings: native_petsc::Settings,
         domain: Option<Arc<dyn PetscDomainFactory>>,
         declaration: ContentHash,
         driver: &crate::CancelSource,
@@ -851,6 +885,7 @@ impl MathService {
             &profile,
             domain.as_deref(),
             native_petsc::Method::NonlinearAdditiveSchwarz,
+            settings,
         )?;
         let scope = source.scope.clone();
         let worker_scope = scope.clone();
@@ -1104,7 +1139,7 @@ impl MathService {
             .hash(&source.preparation_identity())
             .hash(&source.physical.obligations().guards)
             .hash(&declaration)
-            .hash(&profile_key(&profile)?.as_id());
+            .hash(&composition_profile_key(&profile, &settings)?);
         if let Some(domain) = &domain {
             h.hash(&domain.source());
         }

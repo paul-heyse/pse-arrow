@@ -14,7 +14,7 @@ use pse_kernels::DerivativeOrder;
 
 /// A package on a runtime whose native jobs admit a foreign allowance SCIP takes as its
 /// memory limit.
-async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+async fn package(text: &str) -> (Runtime, ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
         text,
@@ -28,11 +28,9 @@ async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30)
-        .modeling_package(rows, physical)
-        .await
-        .unwrap();
-    (package, root)
+    let runtime = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30);
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
+    (runtime, package, root)
 }
 fn profile(intent: SolveIntent, selection: SolverSelection) -> SolverProfile {
     let mut profile = fixture::profile();
@@ -53,11 +51,18 @@ fn analysis(root: DeclarationId, solver: SolverProfile) -> ModelingAnalysis {
         numerical: NumericalInputs::default(),
     }
 }
-async fn solve(package: &ModelingPackage, analysis: &ModelingAnalysis) -> ModelingResult {
+async fn solve(
+    services: &crate::workflow::ExecutionServices,
+    package: &ModelingPackage,
+    analysis: &ModelingAnalysis,
+) -> ModelingResult {
     let cancel = crate::CancelSource::new();
-    let prepared = package.prepare_analysis(analysis, &cancel).await.unwrap();
+    let prepared = package
+        .prepare_analysis(services.preparation(), analysis, &cancel)
+        .await
+        .unwrap();
     package
-        .solve_case(prepared, analysis.compiler, &cancel)
+        .solve_case(&services, prepared, analysis.compiler, &cancel)
         .await
         .unwrap()
 }
@@ -120,6 +125,7 @@ async fn selected_scip_preparation_budget_refuses_resource_without_relaxing_or_r
                 ..Default::default()
             },
         );
+        let services = runtime.execution_services();
         let package = runtime
             .modeling_package(rows, fixture::physical())
             .await
@@ -136,7 +142,11 @@ async fn selected_scip_preparation_budget_refuses_resource_without_relaxing_or_r
         // scientific compiler policy succeeds with an ordinary resource allowance.
         request.compiler.evaluation.scratch_bytes = 512;
         let prepared = package
-            .prepare_analysis(&request, &crate::CancelSource::new())
+            .prepare_analysis(
+                services.preparation(),
+                &request,
+                &crate::CancelSource::new(),
+            )
             .await;
         if worker_bytes == 512 {
             let error = prepared.unwrap_err();
@@ -166,7 +176,8 @@ async fn selected_scip_preparation_budget_refuses_resource_without_relaxing_or_r
 
 #[tokio::test]
 async fn price_taker_quadratic_cost_miqp() {
-    let (package, root) = package(PRICE_TAKER).await;
+    let (runtime, package, root) = package(PRICE_TAKER).await;
+    let services = runtime.execution_services();
     // Only SCIP represents a mixed-integer quadratic program; HiGHS refuses the class.
     let explicit = analysis(
         root,
@@ -177,7 +188,11 @@ async fn price_taker_quadratic_cost_miqp() {
     );
     assert!(
         package
-            .prepare_analysis(&explicit, &crate::CancelSource::new())
+            .prepare_analysis(
+                services.preparation(),
+                &explicit,
+                &crate::CancelSource::new()
+            )
             .await
             .is_err()
     );
@@ -192,7 +207,7 @@ async fn price_taker_quadratic_cost_miqp() {
             ]
         })
         .collect();
-    let result = solve(&package, &request).await;
+    let result = solve(&services, &package, &request).await;
     let Outcome::Native(native) = &result.outcome else {
         panic!("{:?}", result.outcome);
     };
@@ -265,7 +280,8 @@ async fn price_taker_quadratic_cost_miqp() {
 #[tokio::test]
 async fn limited_native_incumbent_is_original_feasible_and_explicitly_nonoptimal() {
     use pse_model::generated::enums::{CandidateQualifier, CandidateUse, IncumbentPolicy};
-    let (package, root) = package(PRICE_TAKER).await;
+    let (runtime, package, root) = package(PRICE_TAKER).await;
+    let services = runtime.execution_services();
     let mut solver = profile(
         SolveIntent::Optimize,
         SolverSelection::Explicit(Backend::Scip),
@@ -277,7 +293,7 @@ async fn limited_native_incumbent_is_original_feasible_and_explicitly_nonoptimal
         pse_backend_native::solve::OptionValue::Integer(1),
     );
     solver.numerics.incumbent = IncumbentPolicy::AcceptFeasible;
-    let result = solve(&package, &analysis(root, solver.clone())).await;
+    let result = solve(&services, &package, &analysis(root, solver.clone())).await;
     let Outcome::Native(native) = &result.outcome else {
         panic!("{:?}", result.outcome)
     };
@@ -338,7 +354,7 @@ async fn limited_native_incumbent_is_original_feasible_and_explicitly_nonoptimal
     );
 
     solver.numerics.incumbent = IncumbentPolicy::Refuse;
-    let refused = solve(&package, &analysis(root, solver)).await;
+    let refused = solve(&services, &package, &analysis(root, solver)).await;
     assert!(!refused.accepted);
     let Outcome::Native(native) = &refused.outcome else {
         panic!("{:?}", refused.outcome)
@@ -387,8 +403,10 @@ fn implicit_oracle(lower: f64, upper: f64) -> f64 {
 
 #[tokio::test]
 async fn certify_exports_implicit_residuals_exactly() {
-    let (package, root) = package(IMPLICIT).await;
+    let (runtime, package, root) = package(IMPLICIT).await;
+    let services = runtime.execution_services();
     let result = solve(
+        &services,
         &package,
         &analysis(root, profile(SolveIntent::Certify, SolverSelection::Auto)),
     )
@@ -424,7 +442,7 @@ async fn certify_exports_implicit_residuals_exactly() {
     );
     // The inner solve's deterministic start lies inside the case interval.
     bounded.case.values.insert("root.y".into(), 2.0);
-    let result = solve(&package, &bounded).await;
+    let result = solve(&services, &package, &bounded).await;
     assert!(result.accepted, "{:?}", result.validation_error);
     let restricted = implicit_oracle(1.5, 3.0);
     assert!(restricted > global + 0.1);
@@ -441,12 +459,13 @@ const OBSTRUCTION: &str = "package p { def Root { var x:Scalar;
 
 #[tokio::test]
 async fn certified_infeasibility_beside_local_explanation() {
-    let (package, root) = package(OBSTRUCTION).await;
+    let (runtime, package, root) = package(OBSTRUCTION).await;
+    let services = runtime.execution_services();
     let mut solver = profile(SolveIntent::FeasiblePoint, SolverSelection::Auto);
     solver.backend = BackendSettings::Default;
     let analysis = analysis(root, solver);
     let certificate = package
-        .certify_infeasibility(&analysis, &crate::CancelSource::new())
+        .certify_infeasibility(&services, &analysis, &crate::CancelSource::new())
         .await
         .unwrap();
     // A global conclusion with its own assurance; the elastic explanation stays local.
@@ -491,9 +510,11 @@ async fn certified_infeasibility_beside_local_explanation() {
     );
     assert!(!certificate.result.accepted);
     // A feasible model yields no proof.
-    let (feasible, root) = package_feasible().await;
+    let (runtime, feasible, root) = package_feasible().await;
+    let services = runtime.execution_services();
     let certificate = feasible
         .certify_infeasibility(
+            &services,
             &self::analysis(
                 root,
                 profile(SolveIntent::FeasiblePoint, SolverSelection::Auto),
@@ -505,14 +526,15 @@ async fn certified_infeasibility_beside_local_explanation() {
     assert!(!certificate.proven());
     assert!(certificate.members.is_empty());
 }
-async fn package_feasible() -> (ModelingPackage, DeclarationId) {
+async fn package_feasible() -> (Runtime, ModelingPackage, DeclarationId) {
     package(&OBSTRUCTION.replace("eq hi: x*x <= 1;", "")).await
 }
 
 #[tokio::test]
 async fn solution_pool_published() {
     use pse_relations::{columnar::RelationRow, generated::runtime::solution_pool};
-    let (package, root) = package(PRICE_TAKER).await;
+    let (runtime, package, root) = package(PRICE_TAKER).await;
+    let services = runtime.execution_services();
     let mut solver = profile(SolveIntent::Optimize, SolverSelection::Auto);
     solver.backend = BackendSettings::Scip(ScipSettings {
         pool: 3,
@@ -520,10 +542,10 @@ async fn solution_pool_published() {
     });
     let cancel = crate::CancelSource::new();
     let prepared = package
-        .prepare_analysis(&analysis(root, solver), &cancel)
+        .prepare_analysis(services.preparation(), &analysis(root, solver), &cancel)
         .await
         .unwrap();
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let result = prepared.start(&services).unwrap().wait().await.unwrap();
     let table = result.table("runtime.solution_pool").unwrap();
     let rows = solution_pool::Row::rows(&table).unwrap();
     assert!(!rows.is_empty());

@@ -83,6 +83,7 @@ fn ic_generic_controls_refuse_inactive_choices_and_keep_actual_resource_controls
 #[tokio::test]
 async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -114,6 +115,7 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     };
     let prepared = package
         .prepare_simulation(
+            services.preparation(),
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -144,6 +146,7 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     );
     let result = prepared
         .initialize_consistent(
+            &services,
             RunId::from_bytes([8; 16]),
             request.clone(),
             Controls::default(),
@@ -204,6 +207,7 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     };
     let (mut observed, owner) = prepared
         .submit_consistent(
+            services.preparation().math(),
             RunId::from_bytes([8; 16]),
             request.clone(),
             Controls::default(),
@@ -249,6 +253,7 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     };
     let error = prepared
         .initialize_consistent(
+            &services,
             RunId::from_bytes([8; 16]),
             request.clone(),
             controls,
@@ -285,6 +290,7 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     assert!(
         prepared
             .initialize_consistent(
+                &services,
                 RunId::from_bytes([8; 16]),
                 request.clone(),
                 Controls::default(),
@@ -304,6 +310,7 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     assert!(
         prepared
             .initialize_consistent(
+                &services,
                 RunId::from_bytes([8; 16]),
                 wrong_time,
                 Controls::default(),
@@ -322,6 +329,7 @@ async fn actual_authored_idas_ic_preserves_initial_roles_without_integrating() {
     assert!(
         prepared
             .initialize_consistent(
+                &services,
                 RunId::from_bytes([8; 16]),
                 request,
                 Controls::default(),

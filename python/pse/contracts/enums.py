@@ -1971,8 +1971,6 @@ class NativePetscMethod(StrEnum):
     """The declared NativePetscMethod enumeration."""
 
     NEWTON_TRUST_REGION = "newton_trust_region"
-    NONLINEAR_ADDITIVE_SCHWARZ = "nonlinear_additive_schwarz"
-    PSEUDO_TRANSIENT = "pseudo_transient"
 
 
 class NativePetscPreconditioner(StrEnum):

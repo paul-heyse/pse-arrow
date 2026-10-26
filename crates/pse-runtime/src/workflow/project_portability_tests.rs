@@ -424,11 +424,12 @@ async fn project_portability_expired_original_recovery_keeps_exact_receipt_and_f
     let admitted = reader
         .replay_source()
         .unwrap()
-        .reconstruct(&local, physical, BTreeMap::new(), &cancel)
+        .reconstruct(&local.source_services(), physical, BTreeMap::new(), &cancel)
         .unwrap();
-    let source = Box::pin(admitted.publish_portable_import(&runtime, &intent, &cancel))
-        .await
-        .unwrap();
+    let source =
+        Box::pin(admitted.publish_portable_import(&runtime.source_services(), &intent, &cancel))
+            .await
+            .unwrap();
     let revision = source.canonical_revision().unwrap().clone();
     let store = runtime.canonical_store().unwrap();
     // An authenticated original occurrence that never began copying can already be expired.
@@ -554,11 +555,12 @@ async fn project_portability_active_original_settles_after_expiry_without_copy_o
     let admitted = reader
         .replay_source()
         .unwrap()
-        .reconstruct(&local, physical, BTreeMap::new(), &cancel)
+        .reconstruct(&local.source_services(), physical, BTreeMap::new(), &cancel)
         .unwrap();
-    let source = Box::pin(admitted.publish_portable_import(&runtime, &intent, &cancel))
-        .await
-        .unwrap();
+    let source =
+        Box::pin(admitted.publish_portable_import(&runtime.source_services(), &intent, &cancel))
+            .await
+            .unwrap();
     let revision = source.canonical_revision().unwrap().clone();
     let store = runtime.canonical_store().unwrap();
     let mut archive = reader.archive(&cancel).unwrap();

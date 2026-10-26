@@ -123,6 +123,7 @@ pub(super) fn chain_metadata_bytes() -> Option<usize> {
 }
 pub(super) fn chains(
     problem: &FitProblem,
+    math: &MathService,
     execution: &Execution,
     workers: usize,
 ) -> Result<Option<Vec<Execution>>, ProblemError> {
@@ -131,11 +132,7 @@ pub(super) fn chains(
         return Ok(Some(vec![execution.clone(); workers]));
     }
     let foreign = execution.memory.unwrap_or_else(|| {
-        problem
-            .runtime
-            .shared
-            .budget()
-            .math
+        math.policy()
             .foreign_allowance(&problem.profile.solver.controls)
     });
     let original = Arc::new(());
@@ -149,11 +146,7 @@ pub(super) fn chains(
         });
     let mut leases = vec![first];
     for _ in 1..workers {
-        match problem
-            .runtime
-            .native()
-            .reserve("fit:profile-chain-foreign", foreign)
-        {
+        match math.reserve("fit:profile-chain-foreign", foreign) {
             Ok(lease) => leases.push(Some(Envelope {
                 extent: foreign,
                 _token: lease,
@@ -209,17 +202,14 @@ impl Population {
     /// the caller retries a narrower assignment. Optional retention never refuses.
     pub(super) fn prepare(
         problem: &FitProblem,
+        math: &MathService,
         execution: &Execution,
         assignments: Option<&[Vec<usize>]>,
     ) -> Result<Option<Self>, ProblemError> {
         execution.check()?;
-        let service = problem.runtime.native();
+        let service = math;
         let foreign = execution.memory.unwrap_or_else(|| {
-            problem
-                .runtime
-                .shared
-                .budget()
-                .math
+            math.policy()
                 .foreign_allowance(&problem.profile.solver.controls)
         });
         let mut parent = vec![execution.clone(); problem.experiments.len()];

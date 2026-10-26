@@ -220,7 +220,7 @@ async fn live_review_of_gated_native_root_cancels_only_copied_reader_then_joins_
     };
     let source_cancel = crate::CancelSource::new();
     let prepared = package
-        .prepare_analysis(&analysis, &source_cancel)
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &source_cancel)
         .await
         .unwrap();
     assert_eq!(

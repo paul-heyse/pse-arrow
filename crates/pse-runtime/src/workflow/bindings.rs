@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Physical assignments are resolved once against an immutable selected revision.
-use super::{ModelingPackage, WorkflowError};
+use super::{ModelingPackage, PreparationServices, WorkflowError};
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_model::scalars::FiniteBound;
 use pse_quantity::{CanonicalConversionPlan, IndexSet, ResolvedPhysicalContract};
@@ -132,12 +132,13 @@ impl ModelingPackage {
     /// Resolve submitted paths through the compiler's lexical/indexed path owner at admission.
     pub(in crate::workflow) async fn admit_operation_overlay(
         &self,
+        services: &PreparationServices,
         operation: &super::StudyOperation,
         overlay: &PointOverlay,
         admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
         cancel: &crate::CancelSource,
     ) -> Result<(AdmittedBinding, pse_model::study::SeedNeed), WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 cancel
@@ -159,7 +160,7 @@ impl ModelingPackage {
                         *admission = None;
                         *admission = Some(
                             super::study_operations::DeclaredStudyAdmission::prepare(
-                                self, operation, key, cancel,
+                                services, self, operation, key, cancel,
                             )
                             .await?,
                         );
@@ -176,6 +177,7 @@ impl ModelingPackage {
                     super::OperationRequest::Simulation(simulation) => {
                         let execution = self
                             .declared_execution_with_demand(
+                                services,
                                 simulation.case,
                                 operation.preparation.compiler,
                                 Default::default(),
@@ -205,6 +207,7 @@ impl ModelingPackage {
                         fit.settings.settings.solver.clone().profile()?;
                         let binding = self
                             .admit_fit_overlay(
+                                services,
                                 fit.fit,
                                 overlay,
                                 operation.preparation.limits,
@@ -231,7 +234,7 @@ impl ModelingPackage {
                     entries: BTreeMap::new(),
                 };
                 let seed_need = operation
-                    .admit_binding_seed_need(self, &binding, admission, cancel)
+                    .admit_binding_seed_need(services, self, &binding, admission, cancel)
                     .await?;
                 Ok((binding, seed_need))
             })
@@ -240,47 +243,54 @@ impl ModelingPackage {
     /// Reconstruct the existing operation and apply its admitted coordinates once.
     pub(in crate::workflow) async fn prepare_bound_operation(
         &self,
+        services: &PreparationServices,
         operation: &super::StudyOperation,
         binding: &AdmittedBinding,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
-                self.prepare_bound_operation_with_admission(operation, binding, &mut None, cancel)
-                    .await
+                self.prepare_bound_operation_with_admission(
+                    services, operation, binding, &mut None, cancel,
+                )
+                .await
             })
             .await
     }
     /// The lane retains the existing membership authority; point values remain fresh.
     pub(in crate::workflow) async fn prepare_bound_operation_with_admission(
         &self,
+        services: &PreparationServices,
         operation: &super::StudyOperation,
         binding: &AdmittedBinding,
         admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
-        self.prepare_bound_operation_with_current_view(operation, binding, admission, None, cancel)
-            .await
+        self.prepare_bound_operation_with_current_view(
+            services, operation, binding, admission, None, cancel,
+        )
+        .await
     }
     /// Borrow the active lane's current immutable view for this point's resolution.
     pub(in crate::workflow) async fn prepare_bound_operation_with_current_view(
         &self,
+        services: &PreparationServices,
         operation: &super::StudyOperation,
         binding: &AdmittedBinding,
         admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
         current_view: Option<&mut super::study_operations::CurrentNumericalView>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 operation.source.check(self)?;
                 if let super::OperationRequest::DeclaredCase(case) = &operation.operation {
                     operation
-                        .admit_binding_seed_need(self, binding, admission, cancel)
+                        .admit_binding_seed_need(services, self, binding, admission, cancel)
                         .await?;
                     let execution = admission
                         .as_ref()
@@ -300,16 +310,23 @@ impl ModelingPackage {
                         .into());
                     }
                     let prepared = self
-                        .prepare_operation_execution(execution, Some(binding), current_view, cancel)
+                        .prepare_operation_execution(
+                            services,
+                            execution,
+                            Some(binding),
+                            current_view,
+                            cancel,
+                        )
                         .await?;
                     return Ok(super::PreparedStudyOperation::DeclaredCase(Box::new(
                         prepared,
                     )));
                 }
                 operation
-                    .admit_binding_seed_need(self, binding, admission, cancel)
+                    .admit_binding_seed_need(services, self, binding, admission, cancel)
                     .await?;
                 self.prepare_operation(
+                    services,
                     &operation.source,
                     &operation.preparation,
                     super::RuntimeOperationRequest::Study {
@@ -579,7 +596,10 @@ mod binding_admission_unit {
     use pse_diagnostics::DiagnosticRule;
     use pse_model::diagnostic::Observation;
 
-    async fn fixture(name: &str) -> (ModelingPackage, crate::math::modeling::ModelingPreparation) {
+    async fn fixture(
+        runtime: &crate::workflow::Runtime,
+        name: &str,
+    ) -> (ModelingPackage, crate::math::modeling::ModelingPreparation) {
         let mut context = physical();
         let mut builder = context.quantities.to_builder();
         let mut bar = context
@@ -596,9 +616,10 @@ mod binding_admission_unit {
         context.quantities = std::sync::Arc::new(builder.build().unwrap());
         context.key =
             pse_compiler::workspace::physical_identity(&context.quantities, &context.preconditions);
-        fixture_with(name, true, context).await
+        fixture_with(runtime, name, true, context).await
     }
     async fn fixture_with(
+        runtime: &crate::workflow::Runtime,
         name: &str,
         explicit: bool,
         physical: crate::workflow::PhysicalContext,
@@ -623,9 +644,10 @@ mod binding_admission_unit {
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = runtime().modeling_package(rows, physical).await.unwrap();
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let model = package
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 pse_modeling::Bindings {
@@ -667,7 +689,8 @@ mod binding_admission_unit {
     }
     #[tokio::test]
     async fn affine_and_equivalent_pressure_units_admit_once() {
-        let (package, model) = fixture("temperature").await;
+        let runtime = runtime();
+        let (package, model) = fixture(&runtime, "temperature").await;
         let a = package
             .admit_overlay(
                 model.compiled(),
@@ -728,7 +751,8 @@ mod binding_admission_unit {
     }
     #[tokio::test]
     async fn all_path_and_member_aliases_refuse_without_last_write_wins() {
-        let (package, model) = fixture("temperature").await;
+        let runtime = runtime();
+        let (package, model) = fixture(&runtime, "temperature").await;
         let first = assignment(
             &package,
             BindingTarget::Path("temperature".into()),
@@ -780,7 +804,8 @@ mod binding_admission_unit {
     }
     #[tokio::test]
     async fn conflicting_signed_zero_assignments_refuse_in_either_order() {
-        let (package, model) = fixture("temperature").await;
+        let runtime = runtime();
+        let (package, model) = fixture(&runtime, "temperature").await;
         for magnitudes in [[0.0, -0.0], [-0.0, 0.0]] {
             let overlay = PointOverlay {
                 assignments: magnitudes
@@ -808,7 +833,8 @@ mod binding_admission_unit {
     }
     #[tokio::test]
     async fn unit_mismatch_retains_both_contracts_and_revision_location() {
-        let (package, model) = fixture("temperature").await;
+        let runtime = runtime();
+        let (package, model) = fixture(&runtime, "temperature").await;
         let error = package
             .admit_overlay(
                 model.compiled(),
@@ -838,7 +864,8 @@ mod binding_admission_unit {
     }
     #[tokio::test]
     async fn derived_unknown_and_tampered_targets_cannot_be_admitted() {
-        let (package, model) = fixture("temperature").await;
+        let runtime = runtime();
+        let (package, model) = fixture(&runtime, "temperature").await;
         for path in ["derived", "unknown"] {
             let error = package
                 .admit_overlay(
@@ -880,8 +907,9 @@ mod binding_admission_unit {
     }
     #[tokio::test]
     async fn compatible_explicit_member_rename_retains_content_but_old_revision_refuses() {
-        let (before, old_model) = fixture("temperature").await;
-        let (after, new_model) = fixture("renamed").await;
+        let runtime = runtime();
+        let (before, old_model) = fixture(&runtime, "temperature").await;
+        let (after, new_model) = fixture(&runtime, "renamed").await;
         let old = before
             .admit_overlay(
                 old_model.compiled(),
@@ -920,6 +948,7 @@ mod binding_admission_unit {
     }
     #[tokio::test]
     async fn same_dimension_wrong_basis_datum_and_subject_refuse_complete_contracts() {
+        let runtime = runtime();
         use pse_quantity::QuantityTypeId;
         enum Difference {
             Basis,
@@ -985,7 +1014,7 @@ mod binding_admission_unit {
         context.quantities = std::sync::Arc::new(builder.build().unwrap());
         context.key =
             pse_compiler::workspace::physical_identity(&context.quantities, &context.preconditions);
-        let (package, model) = fixture_with("temperature", true, context).await;
+        let (package, model) = fixture_with(&runtime, "temperature", true, context).await;
         for control in controls {
             let mut supplied = assignment(
                 &package,
@@ -1025,8 +1054,9 @@ mod binding_admission_unit {
     }
     #[tokio::test]
     async fn named_member_rename_changes_binding_identity_and_cannot_reuse_member() {
-        let (before, old_model) = fixture_with("temperature", false, physical()).await;
-        let (after, new_model) = fixture_with("renamed", false, physical()).await;
+        let runtime = runtime();
+        let (before, old_model) = fixture_with(&runtime, "temperature", false, physical()).await;
+        let (after, new_model) = fixture_with(&runtime, "renamed", false, physical()).await;
         let old = before
             .admit_overlay(
                 old_model.compiled(),
@@ -1116,6 +1146,7 @@ mod binding_admission_unit {
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
+        let services = runtime.execution_services();
         let package = runtime.modeling_package(rows, physical()).await.unwrap();
         let operation = StudyOperation {
             version: pse_model::document::Version,
@@ -1138,7 +1169,13 @@ mod binding_admission_unit {
         };
         let driver = crate::CancelSource::new();
         let (binding, _) = package
-            .admit_operation_overlay(&operation, &PointOverlay::default(), &mut None, &driver)
+            .admit_operation_overlay(
+                services.preparation(),
+                &operation,
+                &PointOverlay::default(),
+                &mut None,
+                &driver,
+            )
             .await
             .unwrap();
         for bound in [true, false] {
@@ -1157,11 +1194,17 @@ mod binding_admission_unit {
                     if bound {
                         package
                             .prepare_bound_operation_with_admission(
-                                &operation, &binding, &mut None, &driver,
+                                services.preparation(),
+                                &operation,
+                                &binding,
+                                &mut None,
+                                &driver,
                             )
                             .await
                     } else {
-                        operation.prepare(&package, &driver).await
+                        operation
+                            .prepare(services.preparation(), &package, &driver)
+                            .await
                     }
                 },
             )
@@ -1205,11 +1248,14 @@ mod binding_admission_unit {
             let fresh = crate::CancelSource::new();
             if bound {
                 package
-                    .prepare_bound_operation(&operation, &binding, &fresh)
+                    .prepare_bound_operation(services.preparation(), &operation, &binding, &fresh)
                     .await
                     .unwrap();
             } else {
-                operation.prepare(&package, &fresh).await.unwrap();
+                operation
+                    .prepare(services.preparation(), &package, &fresh)
+                    .await
+                    .unwrap();
             }
         }
     }

@@ -128,7 +128,7 @@ pub struct ModelingResultData {
     pub run_id: RunId,
     /// Actual zero-based original attempt supplied by the completion owner.
     pub(in crate::workflow) original_attempt: usize,
-    runtime: Runtime,
+    services: crate::workflow::PreparationServices,
     /// Projection of `completion`; never decided separately.
     pub accepted: bool,
     /// The §16.6 candidate-use completion shared with the published assessment.
@@ -165,6 +165,11 @@ fn stamp_start(outcome: &mut Outcome, run: RunId, attempt: usize) {
     }
 }
 impl ModelingResult {
+    /// Build explicit original-coordinate transport using this completed result facade's capability.
+    pub fn primal_coordinates(&self) -> Result<crate::workflow::PrimalCoordinates, WorkflowError> {
+        self.prepared.primal_coordinates(&self.services)
+    }
+
     /// Bind an original-permitted candidate as the starting point of a scalar path.
     /// Auxiliary reports cannot establish this originating scientific point.
     /// # Errors
@@ -192,7 +197,7 @@ impl ModelingResult {
             self.completion.decision.clone(),
         )
         .map_err(crate::math::MathRuntimeError::from)?;
-        let owner = self.runtime.native().reserve(
+        let owner = self.services.math().reserve(
             "modeling:path-origin",
             start
                 .retained_bytes()
@@ -233,7 +238,7 @@ impl ModelingResult {
             self.completion.decision.clone(),
         )
         .map_err(crate::math::MathRuntimeError::from)?;
-        let owner = self.runtime.native().reserve(
+        let owner = self.services.math().reserve(
             "modeling:prediction-anchor",
             anchor
                 .retained_bytes()
@@ -276,7 +281,7 @@ impl ModelingResult {
         let crate::math::prediction::SelectedProposal::Secant { proposal } = selected else {
             return Err(contract("secant selector returned another producer"));
         };
-        let owner = self.runtime.native().reserve(
+        let owner = self.services.math().reserve(
             "modeling:secant-proposal",
             proposal
                 .retained_bytes()
@@ -354,7 +359,7 @@ impl ModelingResult {
         // fixed envelope and coordinate/value bounds cover the portable point and
         // shared prepared/sample wrappers. Root factor storage retains its own owner.
         let permission_owner = super::super::durable::completion_retention_owner(
-            &self.runtime.shared.pool(),
+            &self.services.pool(),
             &self.completion.decision,
         )?;
         let extent = report.variables.len().checked_mul(size_of::<SemanticId>())
@@ -370,8 +375,8 @@ impl ModelingResult {
             .and_then(|n| n.checked_add(4096))
             .ok_or_else(|| contract("retained prediction sample extent"))?;
         let point_owner = self
-            .runtime
-            .native()
+            .services
+            .math()
             .reserve("modeling:retained-prediction-sample", extent)?;
         let Some(receipt) = self.portable_prediction()? else {
             return Ok(None);
@@ -393,7 +398,7 @@ impl ModelingResult {
         };
         Ok(Some(PredictionSample {
             prepared,
-            runtime: self.runtime.clone(),
+            services: self.services.clone(),
             point: Arc::new(pse_columnar::Leased::new(
                 Arc::new(receipt),
                 Arc::new(owners),
@@ -474,7 +479,7 @@ impl ModelingResult {
                 "explicit activity request unexpectedly selected a fallback",
             ));
         }
-        let owner = self.runtime.native().reserve(
+        let owner = self.services.math().reserve(
             "modeling:activity-proposal",
             proposal
                 .retained_bytes()
@@ -515,8 +520,8 @@ impl ModelingResult {
         let (mut previous, _previous_owner) = self
             .prepared
             .solve
-            .convex_qp_problem(self.runtime.native(), execution)?;
-        let (next, _next_owner) = target.convex_qp_problem(self.runtime.native(), execution)?;
+            .convex_qp_problem(self.services.math(), execution)?;
+        let (next, _next_owner) = target.convex_qp_problem(self.services.math(), execution)?;
         // The library QP objective excludes authored constants. Use the native evaluator
         // in that convention directly, avoiding cancellation from subtracting a constant.
         previous.objective_constant = 0.0;
@@ -568,8 +573,8 @@ impl ModelingResult {
             })
             .ok_or_else(|| contract("QP projection comparison bytes"))?;
         let _comparison_owner = self
-            .runtime
-            .native()
+            .services
+            .math()
             .reserve("modeling:qp-coefficient-comparison", comparison_bytes)?;
         fn sparse_value(
             matrix: &faer::sparse::SparseColMat<usize, f64>,
@@ -744,7 +749,7 @@ impl ModelingResult {
         let crate::math::prediction::SelectedProposal::Qp { proposal, outcome } = selected else {
             return Err(contract("QP selector returned another producer"));
         };
-        let owner = self.runtime.native().reserve(
+        let owner = self.services.math().reserve(
             "modeling:qp-proposal",
             proposal
                 .retained_bytes()
@@ -831,7 +836,7 @@ impl ModelingResult {
                 return Err(contract("root selector returned a different producer"));
             }
         };
-        let owner = self.runtime.native().reserve(
+        let owner = self.services.math().reserve(
             "modeling:root-proposal",
             proposal
                 .retained_bytes()
@@ -1015,6 +1020,7 @@ impl ModelingResult {
         reason = "result assembly retains separate preparation, attempt identity, outcome, original assessment, completion permission, native ownership and strategy observations"
     )]
     pub(in crate::workflow) fn from_assessment(
+        services: &crate::workflow::PreparationServices,
         prepared: ModelingSolvePreparation,
         run_id: RunId,
         attempt: usize,
@@ -1027,7 +1033,7 @@ impl ModelingResult {
         stamp_start(&mut outcome, run_id, attempt);
         Self(Arc::new(ModelingResultData {
             strategy,
-            runtime: prepared.source.runtime.clone(),
+            services: services.clone(),
             prepared,
             run_id,
             original_attempt: attempt,
@@ -1048,17 +1054,17 @@ impl ModelingPackage {
     /// Execute one prepared case, join native destruction, then check knowledge obligations.
     pub async fn solve_case(
         &self,
+        services: &crate::workflow::ExecutionServices,
         prepared: ModelingSolvePreparation,
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
                 let mut prepared = prepared;
                 prepared.compiler = compiler;
-                let joined = self
-                    .runtime
+                let joined = services
                     .start_modeling(vec![prepared], false, cancel)
                     .await?
                     .wait()
@@ -1602,7 +1608,7 @@ impl ModelingResult {
         &self,
     ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
     {
-        crate::workflow::result_export::collect_tables(self.table_ids(), &self.runtime, |id| {
+        crate::workflow::result_export::collect_tables(self.table_ids(), &self.services, |id| {
             self.cursor_by_id(id, 1024).map_err(Arc::new)
         })
         .map_err(WorkflowError::Shared)
@@ -1611,7 +1617,7 @@ impl ModelingResult {
         &self,
         id: SemanticId,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        crate::workflow::result_export::collect(self.cursor_by_id(id, 1024)?, &self.runtime, id)
+        crate::workflow::result_export::collect(self.cursor_by_id(id, 1024)?, &self.services, id)
             .map_err(WorkflowError::Shared)
     }
     /// Encode only one selected relation.
@@ -1620,7 +1626,7 @@ impl ModelingResult {
         name: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         let id = self
-            .runtime
+            .services
             .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown modeling result relation"))?
@@ -1634,7 +1640,7 @@ impl ModelingResult {
         rows: usize,
     ) -> Result<crate::workflow::ResultCursor<'_>, WorkflowError> {
         let id = self
-            .runtime
+            .services
             .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown modeling result relation"))?
@@ -1647,7 +1653,7 @@ impl ModelingResult {
         name: &str,
         rows: usize,
     ) -> Result<crate::workflow::ResultCursor<'static>, WorkflowError> {
-        let runtime = &self.runtime;
+        let runtime = &self.services;
         let id = runtime
             .registry()
             .relation(name)
@@ -1690,11 +1696,11 @@ impl ModelingResult {
             return Err(WorkflowError::Shared(error));
         }
         let spec = self
-            .runtime
+            .services
             .registry()
             .relation_by_id(id)
             .ok_or_else(|| contract("modeling result declaration absent"))?;
-        let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
+        let schema = pse_schema::arrow::relation_schema_ref(self.services.registry(), spec)
             .map_err(pse_relations::RelationError::from)
             .map_err(relation)?;
         crate::workflow::ResultCursor::new(
@@ -1713,12 +1719,12 @@ impl ModelingResult {
         &self,
         request: &crate::workflow::result_export::Projection,
     ) -> Result<(), WorkflowError> {
-        let pool = self.runtime.shared.pool();
+        let pool = self.services.pool();
         let cancel = request.cancel.clone();
-        let validation = self.runtime.validation_context();
+        let validation = self.services.validation_context();
         let mut columns = crate::workflow::result_export::SelectedCollection::new(
             request,
-            self.runtime.registry(),
+            self.services.registry(),
             &pool,
             &cancel,
             &validation,
@@ -1746,7 +1752,7 @@ impl ModelingResult {
             if request.wants(pse_relations::generated::runtime::solve_strategy_events::RELATION_ID)
             {
                 columns
-                    .strategy_events(strategy, self.run_id, 0, self.runtime.shared.math())
+                    .strategy_events(strategy, self.run_id, 0, self.services.math())
                     .await?;
             }
         }
@@ -1976,6 +1982,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let prepared = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -2089,7 +2096,7 @@ pub(crate) struct PortableRootPoint {
 /// The single proposal selection adapter accepts both live and reopened scientific points.
 pub(crate) struct PredictionSample {
     pub(crate) prepared: ModelingSolvePreparation,
-    pub(crate) runtime: Runtime,
+    pub(crate) services: crate::workflow::PreparationServices,
     pub(crate) point: Arc<pse_columnar::Leased<PortablePrediction>>,
     /// Additional source-valued projections made while reopening a portable point.
     pub(crate) _projection_owner: Option<Arc<pse_columnar::AllocationLease>>,
@@ -2138,7 +2145,7 @@ impl PredictionSample {
             point.permission.clone(),
         )
         .map_err(crate::math::MathRuntimeError::from)?;
-        let owner = self.runtime.native().reserve(
+        let owner = self.services.math().reserve(
             "modeling:prediction-anchor",
             anchor
                 .retained_bytes()
@@ -2316,7 +2323,7 @@ impl PredictionSample {
                 ));
             }
         };
-        let owner = self.runtime.native().reserve(
+        let owner = self.services.math().reserve(
             "modeling:selected-proposal",
             proposal
                 .retained_bytes()

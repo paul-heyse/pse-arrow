@@ -4,7 +4,7 @@
 use super::{
     frozen_inspection::FrozenEvidenceSet, review_analysis::AnalysisDocument, review_pack::*,
 };
-use crate::workflow::{Runtime, WorkflowError, contract};
+use crate::workflow::{SourceServices, WorkflowError, contract};
 use pse_columnar::CancellationToken;
 use std::path::Path;
 
@@ -71,17 +71,17 @@ pub fn export_supplied_review_pack(
 /// Compose multiple exact protected selections, holding one result reader at a time.
 /// Original model context is supplied factual material, never reconstructed from result rows.
 pub async fn export_review_pack(
-    runtime: &Runtime,
+    services: &SourceServices,
     destination: &Path,
     evidence: &FrozenEvidenceSet,
     analysis: &AnalysisDocument,
     mut request: PackExportRequest,
     cancel: CancellationToken,
 ) -> Result<PackIndex, WorkflowError> {
-    let activity = runtime.admit_activity()?;
+    let activity = services.admit_activity()?;
     activity
         .scope(async {
-            let (declarations, _selection_owner) = runtime
+            let (declarations, _selection_owner) = services
                 .review_result_selections(&request.scientific_results, &cancel)
                 .await?;
             for (selection, declared) in request.scientific_results.iter().zip(declarations) {
@@ -113,7 +113,7 @@ pub async fn export_review_pack(
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                 let outcome = if let Some(output) = &selected.output {
                     let (minimum, maximum) = output.bounds()?;
-                    match runtime
+                    match services
                         .output_results(
                             &selected.run,
                             &selected.attempt,
@@ -137,7 +137,7 @@ pub async fn export_review_pack(
                         Err(error) => Err(error),
                     }
                 } else {
-                    match runtime
+                    match services
                         .results(
                             &selected.run,
                             &selected.attempt,

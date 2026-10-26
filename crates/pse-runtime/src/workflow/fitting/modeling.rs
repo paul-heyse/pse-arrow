@@ -9,49 +9,12 @@ use pse_model::generated::enums::ModelingAnalysisRoute as Route;
 use pse_model::generated::identities::RunId;
 use pse_modeling::Bindings;
 use pse_modeling::Limits;
-use pse_relations::{
-    columnar::{FieldCheckedBatch, RelationRow},
-    generated::authored::fit_cases,
-};
 
 struct FitPreparationInput<'a> {
     binding: Option<&'a super::super::AdmittedBinding>,
     pending: Option<&'a BTreeMap<InstanceId, super::super::PhysicalSimulationRequest>>,
 }
 
-/// Registry-owned experiment and parameter selection intent; measurements belong to typed records.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct FitDeclarations {
-    /// Declared fits with their parameters, experiments and observation selections.
-    pub fits: Vec<fit_cases::Row>,
-    #[serde(skip)]
-    _owners: Vec<Arc<pse_columnar::AllocationLease>>,
-}
-impl FitDeclarations {
-    pub(crate) fn from_owned_rows(
-        fits: Vec<fit_cases::Row>,
-        owners: Vec<Arc<pse_columnar::AllocationLease>>,
-    ) -> Self {
-        Self {
-            fits,
-            _owners: owners,
-        }
-    }
-    pub(crate) fn from_batches(
-        batches: &BTreeMap<SemanticId, FieldCheckedBatch>,
-    ) -> Result<Self, WorkflowError> {
-        Ok(Self {
-            fits: batches
-                .get(&fit_cases::RELATION_ID)
-                .map(fit_cases::Row::rows)
-                .transpose()
-                .map_err(super::super::relation)?
-                .unwrap_or_default(),
-            _owners: Vec::new(),
-        })
-    }
-}
 #[derive(Clone, Debug)]
 pub(super) enum Assessment {
     Steady {
@@ -103,28 +66,19 @@ fn fit_binding_refusal(
     diagnostic.into()
 }
 impl ModelingPackage {
-    /// Attach generated fitting declarations to this immutable source revision.
-    pub async fn with_fit_declarations(
-        mut self,
-        data: FitDeclarations,
-    ) -> Result<Self, WorkflowError> {
-        let unique = |ids: Vec<SemanticId>| ids.iter().collect::<BTreeSet<_>>().len() == ids.len();
-        if !unique(data.fits.iter().map(|r| r.fit_id.as_id()).collect()) {
-            return Err(contract("duplicate fit declaration identity"));
-        }
-        self.revision = self.replace_fits(&data.fits).await?;
-        Ok(self)
-    }
     /// Admit global fit-parameter quantities through every experiment's shared physical port.
     pub(in crate::workflow) async fn admit_fit_overlay(
         &self,
+        services: &PreparationServices,
         id: FitId,
         overlay: &super::super::PointOverlay,
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<super::super::AdmittedBinding, WorkflowError> {
-        let declaration = self.fit_declaration(id).await?;
-        let (sources, _) = self.fit_sources(&declaration, limits, cancel).await?;
+        let declaration = self.fit_declaration(services, id).await?;
+        let (sources, _) = self
+            .fit_sources(services, &declaration, limits, cancel)
+            .await?;
         let mut entries = BTreeMap::new();
         for assignment in &overlay.assignments {
             let super::super::BindingTarget::Member(member) = assignment.target else {
@@ -169,13 +123,16 @@ impl ModelingPackage {
     }
     pub(in crate::workflow) async fn validate_fit_binding(
         &self,
+        services: &PreparationServices,
         id: FitId,
         binding: &super::super::AdmittedBinding,
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<(), WorkflowError> {
-        let declaration = self.fit_declaration(id).await?;
-        let (sources, _) = self.fit_sources(&declaration, limits, cancel).await?;
+        let declaration = self.fit_declaration(services, id).await?;
+        let (sources, _) = self
+            .fit_sources(services, &declaration, limits, cancel)
+            .await?;
         self.validate_fit_source_binding(&declaration, &sources, binding)
     }
     fn validate_fit_source_binding(
@@ -234,6 +191,7 @@ impl ModelingPackage {
     }
     async fn fit_sources(
         &self,
+        services: &PreparationServices,
         declaration: &FitDeclaration,
         limits: Limits,
         cancel: &crate::CancelSource,
@@ -242,7 +200,13 @@ impl ModelingPackage {
         let mut ports: Vec<Option<Port>> = vec![None; declaration.parameters.len()];
         for experiment in &declaration.experiments {
             let (mut bindings, case) = self
-                .declared_case(experiment.case_id, experiment.route, limits, cancel)
+                .declared_case(
+                    services,
+                    experiment.case_id,
+                    experiment.route,
+                    limits,
+                    cancel,
+                )
                 .await?;
             bindings.demand.extend(
                 experiment
@@ -261,6 +225,7 @@ impl ModelingPackage {
             bindings.demand.dedup();
             let model = self
                 .prepare(
+                    services,
                     experiment.case_id,
                     experiment.experiment_id,
                     bindings.clone(),
@@ -301,18 +266,20 @@ impl ModelingPackage {
     /// Compile authored case paths once; trial parameter values never enter source queries.
     pub async fn prepare_fit(
         &self,
+        services: &PreparationServices,
         id: FitId,
         profile: FitProfile,
         compiler: Profile,
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
-        self.prepare_fit_bound(id, profile, compiler, limits, None, cancel)
+        self.prepare_fit_bound(services, id, profile, compiler, limits, None, cancel)
             .await
     }
     /// Build each point's declared values, numerical premises and fresh experiment ICs together.
     pub(in crate::workflow) async fn prepare_fit_bound(
         &self,
+        services: &PreparationServices,
         id: FitId,
         profile: FitProfile,
         compiler: Profile,
@@ -321,6 +288,7 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
         self.prepare_fit_input(
+            services,
             id,
             profile,
             compiler,
@@ -336,6 +304,7 @@ impl ModelingPackage {
     /// Prepare fitting with physically typed experiment controls under one shared owner.
     pub async fn prepare_physical_fit(
         &self,
+        services: &PreparationServices,
         id: FitId,
         request: super::super::PhysicalFitRequest,
         compiler: Profile,
@@ -343,7 +312,7 @@ impl ModelingPackage {
         binding: Option<&super::super::AdmittedBinding>,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
-        let request = request.retain(&self.runtime)?;
+        let request = request.retain(services)?;
         let pending = request.settings.simulations.clone();
         let profiles = pending
             .iter()
@@ -359,6 +328,7 @@ impl ModelingPackage {
             .collect();
         let profile = request.settings.with_simulations(profiles).profile()?;
         self.prepare_fit_input(
+            services,
             id,
             profile,
             compiler,
@@ -373,6 +343,7 @@ impl ModelingPackage {
     }
     async fn prepare_fit_input(
         &self,
+        services: &PreparationServices,
         id: FitId,
         profile: FitProfile,
         compiler: Profile,
@@ -381,19 +352,19 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
         let FitPreparationInput { binding, pending } = input;
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let mut original_profile = profile.clone();
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let (mut problem, assessments) = self
-                    .prepare_fit_problem_bound(id, profile, compiler, limits, FitPreparationInput { binding, pending }, cancel)
+                    .prepare_fit_problem_bound(services, id, profile, compiler, limits, FitPreparationInput { binding, pending }, cancel)
                     .await?;
                 original_profile.simulations = problem.profile.simulations.clone();
-                let original_inputs = crate::workflow::replay::OriginalFitInputs::capture(self, id, &original_profile, compiler, limits, binding, problem.residual_lm_criteria)?;
+                let original_inputs = crate::workflow::replay::OriginalFitInputs::capture(services, id, &original_profile, compiler, limits, binding, problem.residual_lm_criteria)?;
                 if !problem.initial.is_empty() && problem.profile.optimizer != FitOptimizer::NativeNlp {
-                    if oracle::residual::eligible(&problem) {
+                    if oracle::residual::eligible(&problem, services.math()) {
                         return Ok(PreparedFit { original_inputs, source: self.clone(),
                             problem: Arc::new(problem), route: FitRoute::ResidualLm, assessments });
                     }
@@ -415,7 +386,7 @@ impl ModelingPackage {
                 .map_err(crate::math::MathRuntimeError::from)?;
                 let reservation =
                     datafusion::execution::memory_pool::MemoryConsumer::new("fit:route-structure")
-                        .register(&problem.runtime.shared.pool());
+                        .register(&services.pool());
                 reservation
                     .try_grow(extent)
                     .map_err(crate::math::MathRuntimeError::from)?;
@@ -486,6 +457,7 @@ impl ModelingPackage {
     #[cfg(test)]
     pub(in crate::workflow::fitting) async fn prepare_fit_problem(
         &self,
+        services: &PreparationServices,
         id: FitId,
         profile: FitProfile,
         compiler: Profile,
@@ -493,6 +465,7 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<(FitProblem, Vec<Assessment>), WorkflowError> {
         self.prepare_fit_problem_bound(
+            services,
             id,
             profile,
             compiler,
@@ -507,6 +480,7 @@ impl ModelingPackage {
     }
     async fn prepare_fit_problem_bound(
         &self,
+        services: &PreparationServices,
         id: FitId,
         mut profile: FitProfile,
         compiler: Profile,
@@ -515,22 +489,22 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<(FitProblem, Vec<Assessment>), WorkflowError> {
         let FitPreparationInput { binding, pending } = input;
-        let preparation_driver = self.runtime.shared.math().preparation_driver(cancel)?;
+        let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         // Preparation contains both steady and transient child state machines. Keep
         // that state on the heap before activity/context composition so callers
         // carry a bounded future rather than every preparation alternative inline.
         let future_storage =
             datafusion::execution::memory_pool::MemoryConsumer::new("fit:preparation-future")
-                .register(&self.runtime.shared.pool());
+                .register(&services.pool());
         let preparation = {
             let preparation = async {
                 // Charged once the layout bound is known, before the layout is built.
                 let reservation =
                     datafusion::execution::memory_pool::MemoryConsumer::new("fit:prepared")
-                        .register(&self.runtime.shared.pool());
-                let mut d = self.fit_declaration(id).await?;
+                        .register(&services.pool());
+                let mut d = self.fit_declaration(services, id).await?;
                 profile
                     .solver
                     .controls
@@ -577,10 +551,9 @@ impl ModelingPackage {
                     residual_rows,
                     free_parameters,
                     profile.max_cells,
-                    self.runtime
-                        .shared
-                        .budget()
-                        .math
+                    services
+                        .math()
+                        .policy()
                         .foreign_allowance(&profile.solver.controls),
                 );
                 if profile.optimizer == FitOptimizer::ResidualLm
@@ -658,7 +631,8 @@ impl ModelingPackage {
                 };
                 let q = &self.quantities;
                 // One immutable structural/physical inventory serves admission and fresh point construction.
-                let (mut sources, parameter_ports) = self.fit_sources(&d, limits, cancel).await?;
+                let (mut sources, parameter_ports) =
+                    self.fit_sources(services, &d, limits, cancel).await?;
                 if let Some(binding) = binding {
                     self.validate_fit_source_binding(&d, &sources, binding)?;
                     for parameter in &mut d.parameters {
@@ -899,6 +873,7 @@ impl ModelingPackage {
                         // The experiment's authored case declares its modes and events.
                         let mut simulation = self
                             .prepare_simulation_with_controls(
+                                services,
                                 e.case_id,
                                 e.experiment_id,
                                 bindings,
@@ -1030,7 +1005,7 @@ impl ModelingPackage {
                         let result = Experiment::Transient(Box::new(IntegratedExperiment {
                             snapshot: simulation.snapshot().clone(),
                             program: simulation.program(),
-                            snapshots: simulation.snapshot_allocator(),
+                            snapshots: simulation.snapshot_allocator(services.math()),
                             profile: simulation.profile().clone(),
                             parameters: simulation.parameters.clone(),
                             output_ports,
@@ -1048,6 +1023,7 @@ impl ModelingPackage {
                         experiment_solver.intent = SolveIntent::FeasiblePoint;
                         let resolved = self
                             .resolve_case(
+                                services,
                                 e.case_id,
                                 e.experiment_id,
                                 bindings,
@@ -1130,12 +1106,10 @@ impl ModelingPackage {
                                 );
                             }
                         }
-                        let case = self
-                            .runtime
-                            .shared
+                        let case = services
                             .math()
                             .prepare_modeling_functions(
-                                self.numerical_workspace()?,
+                                self.numerical_workspace(services)?,
                                 model.clone(),
                                 outputs.into_iter().collect(),
                                 coordinates.iter().map(|v| v.0).collect(),
@@ -1180,11 +1154,10 @@ impl ModelingPackage {
                             None
                         } else {
                             Some(
-                                self.runtime
-                                    .shared
+                                services
                                     .math()
                                     .prepare_modeling_functions(
-                                        self.numerical_workspace()?,
+                                        self.numerical_workspace(services)?,
                                         model.clone(),
                                         check_rows.into_iter().collect(),
                                         vec![],
@@ -1226,7 +1199,11 @@ impl ModelingPackage {
                     };
                     for binding in local_observations {
                         let observation_revision = self
-                            .selected_revision_roots(&[e.case_id, binding.observation_id], cancel)
+                            .selected_revision_roots(
+                                services,
+                                &[e.case_id, binding.observation_id],
+                                cancel,
+                            )
                             .await?;
                         let observation = observation_revision
                             .checked()
@@ -1364,7 +1341,7 @@ impl ModelingPackage {
                     physical_cells,
                 };
                 let control = pse_diagnostics::Cancellation::default();
-                let runtime = self.runtime.clone();
+                let retained_services = services.clone();
                 let quantities = q.clone();
                 let preconditions = self.physical.preconditions.clone();
                 let source = identity.finish_hash();
@@ -1372,21 +1349,17 @@ impl ModelingPackage {
                     Arc::new(self.physical.clone());
                 // The transferred reservation owns construction storage; the canonical job
                 // supplies the bounded worker, CPU admission and native cancellation boundary.
-                let operation =
-                    self.runtime
-                        .shared
-                        .math()
-                        .job(1, 0, control.clone(), move |flag| {
-                            Ok(prepared.finish(
-                                runtime,
-                                quantities,
-                                preconditions,
-                                source,
-                                physical_owner,
-                                reservation,
-                                &flag.flag(),
-                            ))
-                        });
+                let operation = services.math().job(1, 0, control.clone(), move |flag| {
+                    Ok(prepared.finish(
+                        retained_services,
+                        quantities,
+                        preconditions,
+                        source,
+                        physical_owner,
+                        reservation,
+                        &flag.flag(),
+                    ))
+                });
                 tokio::pin!(operation);
                 let problem = tokio::select! {
                     result = &mut operation => result.map_err(WorkflowError::from)??,
@@ -1411,6 +1384,7 @@ impl ModelingPackage {
 impl PreparedFit {
     pub(crate) fn execute(
         &self,
+        services: &ExecutionServices,
         run_id: RunId,
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
@@ -1420,13 +1394,14 @@ impl PreparedFit {
         let problem = &self.problem;
         let (mut report, trace) = crate::math::strategy::target::callable(
             crate::math::strategy::target::CallContext {
-                service: problem.runtime.shared.math(),
+                service: services.preparation().math(),
                 scope: &scope,
                 storage,
             },
             self.callable_source(),
             |solver, admission| {
                 self.execute_original(
+                    services.preparation().math(),
                     run_id,
                     scope.clone(),
                     progress.clone(),
@@ -1506,6 +1481,7 @@ impl PreparedFit {
     }
     fn execute_original(
         &self,
+        math: &Arc<MathService>,
         run_id: RunId,
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
@@ -1513,58 +1489,19 @@ impl PreparedFit {
         solver: &SolverProfile,
         admission: Arc<crate::math::strategy::admission::TaskAdmission>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
-        let mut report = self.problem.execute_profile(
+        let (mut report, execution) = self.problem.execute_profile(
+            math,
             solver,
             self.route,
             scope.clone(),
             progress,
-            workers,
             Some(admission),
         )?;
         let Some(candidate) = report.candidate.as_ref() else {
             report.completion = Some(self.assess_completion(&report));
             return Ok(report);
         };
-        let assess=|| -> Result<(Vec<super::super::ModelingCheck>,Vec<super::super::ModelingReport>),WorkflowError> {
-            let checkpoint=|| scope.check().map_err(|error| WorkflowError::from(crate::math::MathRuntimeError::from(native::ProblemError::Provider(error))));
-            checkpoint()?;
-            let mut rows=Vec::new(); let mut reports=Vec::new();
-            for (ei,(source,experiment)) in self.assessments.iter().zip(&self.problem.experiments).enumerate() {
-                match (source,experiment) {
-                    (Assessment::Steady{model,program,numerics},Experiment::Steady(s))=>{
-                        let mut values=s.values.clone();
-                        for (id,col) in &s.coordinates {values.scalars.insert(*id,candidate[col.get()]);}
-                        let mut applicability=Vec::new();
-                        let observed=if let Some(program)=program {
-                            let providers=crate::math::attempt_providers(&s.providers,&scope).map_err(|e|WorkflowError::from(crate::math::MathRuntimeError::from(native::ProblemError::Provider(e))))?;
-                            let mut worker=program.assembly.worker_scoped(providers,scope.clone());
-                            let outputs=worker.constraints(&values).map_err(math)?;
-                            let observed=program.assembly.structure().rows().iter().map(|r|r.id).zip(outputs.iter().copied()).collect();
-                            applicability=worker.applicability_observations();
-                            observed
-                        }else{BTreeMap::new()};
-                        let (checks,observations)=checks::assess_observations(run_id,model.compiled(),&values,&observed,&applicability,numerics,&self.problem.quantities,true,None,None)?;
-                        rows.extend(checks); reports.extend(observations);
-                    },
-                    (Assessment::Transient(simulation),Experiment::Transient(s))=>{
-                        let mut parameters=s.parameters.clone();
-                        for binding in &s.bindings {
-                            let value=self.problem.parameter_columns[binding.parameter].map_or(self.problem.declaration.parameters[binding.parameter].value,|col|candidate[col.get()]);
-                            parameters[binding.local]=value*binding.conversion.scale+binding.conversion.offset;
-                        }
-                        let trajectory=report.trajectories.get(&self.problem.declaration.experiments[ei].experiment_id).ok_or_else(||contract("final original trajectory unavailable"))?;
-                        let checks=simulation.check_samples(run_id,trajectory,&parameters,&scope);
-                        if let Some(error)=checks.error {return Err(WorkflowError::Boundary(Box::new(error)));}
-                        if !checks.complete{return Err(contract("original trajectory assessment incomplete"));}
-                        rows.extend(checks.rows); reports.extend(checks.reports);
-                    },
-                    _=>return Err(contract("fit assessment source mismatch")),
-                }
-            }
-            checkpoint()?;
-            Ok((rows,reports))
-        };
-        match crate::workflow::dynamics::analysis("fit.original_physical_checks", assess) {
+        match self.assess_candidate(run_id, candidate, &report.trajectories, &scope) {
             Ok((checks, reports)) => {
                 report.checks = checks;
                 report.reports = reports;
@@ -1573,7 +1510,142 @@ impl PreparedFit {
             Err(error) => report.validation_error = Some(error.boundary_diagnostic()),
         }
         report.completion = Some(self.assess_completion(&report));
+        if let Some(uncertainty) = &self.problem.profile.uncertainty
+            && let Some(controls) = &uncertainty.profile
+            && report.covariance.is_some()
+        {
+            report.profiles = Some(native::execution::original_scoped(&execution, || {
+                self.profiles(
+                    math,
+                    run_id,
+                    &report,
+                    uncertainty.level.into_inner(),
+                    controls,
+                    (self.route, workers),
+                    &execution,
+                )
+            }));
+        }
         Ok(report)
+    }
+    /// Assess the authored source obligations at an independently observed candidate.
+    /// Profile pins and the original estimate share this exact physical interpretation.
+    pub(super) fn assess_candidate(
+        &self,
+        run_id: RunId,
+        candidate: &[f64],
+        trajectories: &BTreeMap<InstanceId, Arc<native::dynamics::Report>>,
+        scope: &pse_kernels::ExecutionScope,
+    ) -> Result<
+        (
+            Vec<super::super::ModelingCheck>,
+            Vec<super::super::ModelingReport>,
+        ),
+        WorkflowError,
+    > {
+        let assess = || {
+            if self.assessments.len() != self.problem.experiments.len() {
+                return Err(contract("fit assessment sources are incomplete"));
+            }
+            let checkpoint = || {
+                scope.check().map_err(|error| {
+                    WorkflowError::from(crate::math::MathRuntimeError::from(
+                        native::ProblemError::Provider(error),
+                    ))
+                })
+            };
+            checkpoint()?;
+            let mut rows = Vec::new();
+            let mut reports = Vec::new();
+            for (ei, (source, experiment)) in self
+                .assessments
+                .iter()
+                .zip(&self.problem.experiments)
+                .enumerate()
+            {
+                match (source, experiment) {
+                    (
+                        Assessment::Steady {
+                            model,
+                            program,
+                            numerics,
+                        },
+                        Experiment::Steady(s),
+                    ) => {
+                        let mut values = s.values.clone();
+                        for (id, col) in &s.coordinates {
+                            values.scalars.insert(*id, candidate[col.get()]);
+                        }
+                        let mut applicability = Vec::new();
+                        let observed = if let Some(program) = program {
+                            let providers = crate::math::attempt_providers(&s.providers, scope)
+                                .map_err(|e| {
+                                    WorkflowError::from(crate::math::MathRuntimeError::from(
+                                        native::ProblemError::Provider(e),
+                                    ))
+                                })?;
+                            let mut worker =
+                                program.assembly.worker_scoped(providers, scope.clone());
+                            let outputs = worker.constraints(&values).map_err(math)?;
+                            let observed = program
+                                .assembly
+                                .structure()
+                                .rows()
+                                .iter()
+                                .map(|r| r.id)
+                                .zip(outputs.iter().copied())
+                                .collect();
+                            applicability = worker.applicability_observations();
+                            observed
+                        } else {
+                            BTreeMap::new()
+                        };
+                        let (checks, observations) = checks::assess_observations(
+                            run_id,
+                            model.compiled(),
+                            &values,
+                            &observed,
+                            &applicability,
+                            numerics,
+                            &self.problem.quantities,
+                            true,
+                            None,
+                            None,
+                        )?;
+                        rows.extend(checks);
+                        reports.extend(observations);
+                    }
+                    (Assessment::Transient(simulation), Experiment::Transient(s)) => {
+                        let mut parameters = s.parameters.clone();
+                        for binding in &s.bindings {
+                            let value = self.problem.parameter_columns[binding.parameter].map_or(
+                                self.problem.declaration.parameters[binding.parameter].value,
+                                |col| candidate[col.get()],
+                            );
+                            parameters[binding.local] =
+                                value * binding.conversion.scale + binding.conversion.offset;
+                        }
+                        let trajectory = trajectories
+                            .get(&self.problem.declaration.experiments[ei].experiment_id)
+                            .ok_or_else(|| contract("final original trajectory unavailable"))?;
+                        let checks =
+                            simulation.check_samples(run_id, trajectory, &parameters, scope);
+                        if let Some(error) = checks.error {
+                            return Err(WorkflowError::Boundary(Box::new(error)));
+                        }
+                        if !checks.complete {
+                            return Err(contract("original trajectory assessment incomplete"));
+                        }
+                        rows.extend(checks.rows);
+                        reports.extend(checks.reports);
+                    }
+                    _ => return Err(contract("fit assessment source mismatch")),
+                }
+            }
+            checkpoint()?;
+            Ok((rows, reports))
+        };
+        crate::workflow::dynamics::analysis("fit.original_physical_checks", assess)
     }
 }
 
@@ -1585,7 +1657,9 @@ mod parameter_point_tests {
 
     #[tokio::test]
     async fn fit_parameter_points_preserve_roles_fresh_starts_units_and_replay() {
-        let original = regression::package(regression::declared(), [1.; 4]).await;
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.execution_services();
+        let original = regression::package(&runtime, regression::declared(), [1.; 4]).await;
         let mut physical = original.physical.clone();
         let quantity = physical.quantities.neutral_dimensionless().unwrap();
         let canonical = physical
@@ -1610,16 +1684,25 @@ mod parameter_point_tests {
             &physical.quantities,
             &physical.preconditions,
         );
-        let mut declarations = original.fit_declarations().await.unwrap();
+        let mut declarations = original
+            .fit_declarations(services.preparation())
+            .await
+            .unwrap();
         declarations.fits[0].parameters[0].fixed = true;
         declarations.fits[0].parameters[1].lower = None;
         declarations.fits[0].parameters[1].upper = None;
-        let package = original
-            .runtime
-            .modeling_package(original.declarations().await.unwrap().to_vec(), physical)
+        let package = runtime
+            .modeling_package(
+                original
+                    .declarations(services.preparation())
+                    .await
+                    .unwrap()
+                    .to_vec(),
+                physical,
+            )
             .await
             .unwrap()
-            .with_fit_declarations(declarations.clone())
+            .with_fit_declarations(&services.source_services(), declarations.clone())
             .await
             .unwrap();
         let fit = id(32).into();
@@ -1648,7 +1731,13 @@ mod parameter_point_tests {
         profile.solver.selection = native::solve::SolverSelection::Auto;
         let cancel = crate::CancelSource::new();
         let canonical_binding = package
-            .admit_fit_overlay(fit, &overlay(2., 3., canonical), Limits::default(), &cancel)
+            .admit_fit_overlay(
+                services.preparation(),
+                fit,
+                &overlay(2., 3., canonical),
+                Limits::default(),
+                &cancel,
+            )
             .await
             .unwrap();
         let operation = crate::workflow::StudyOperation {
@@ -1683,6 +1772,7 @@ mod parameter_point_tests {
         };
         let (converted, seed_need) = package
             .admit_operation_overlay(
+                services.preparation(),
                 &operation,
                 &overlay(200., 300., percent_id),
                 &mut None,
@@ -1693,7 +1783,7 @@ mod parameter_point_tests {
         assert_eq!(seed_need, pse_model::study::SeedNeed::NotNeeded);
         assert_eq!(converted.identity(), canonical_binding.identity());
         let crate::workflow::PreparedStudyOperation::Fit(first) = package
-            .prepare_bound_operation(&operation, &converted, &cancel)
+            .prepare_bound_operation(services.preparation(), &operation, &converted, &cancel)
             .await
             .unwrap()
         else {
@@ -1715,11 +1805,12 @@ mod parameter_point_tests {
         fresh_declarations.fits[0].parameters[1].value = 3.;
         let fresh_source = package
             .clone()
-            .with_fit_declarations(fresh_declarations)
+            .with_fit_declarations(&services.source_services(), fresh_declarations)
             .await
             .unwrap();
         let fresh = fresh_source
             .prepare_fit(
+                services.preparation(),
                 fit,
                 profile.clone(),
                 compiler_profile(),
@@ -1734,11 +1825,18 @@ mod parameter_point_tests {
             serde_json::to_value(fresh.declaration()).unwrap()
         );
         let next_binding = package
-            .admit_fit_overlay(fit, &overlay(4., 5., canonical), Limits::default(), &cancel)
+            .admit_fit_overlay(
+                services.preparation(),
+                fit,
+                &overlay(4., 5., canonical),
+                Limits::default(),
+                &cancel,
+            )
             .await
             .unwrap();
         let next = package
             .prepare_fit_bound(
+                services.preparation(),
                 fit,
                 profile.clone(),
                 compiler_profile(),
@@ -1752,6 +1850,7 @@ mod parameter_point_tests {
         assert_eq!(first.problem.initial, vec![3.]);
         let retry = package
             .prepare_fit_bound(
+                services.preparation(),
                 fit,
                 profile,
                 compiler_profile(),
@@ -1765,14 +1864,23 @@ mod parameter_point_tests {
         assert_eq!(retry.problem.initial, vec![3.]);
         let constructor = first.original_inputs.document(0);
         assert_eq!(constructor.binding.as_ref(), Some(&converted));
-        let replay = constructor.reconstruct(&package, &cancel).await.unwrap();
+        let replay = constructor
+            .reconstruct(services.preparation(), &package, &cancel)
+            .await
+            .unwrap();
         assert_eq!(replay.identity(), first.identity());
         assert_eq!(replay.problem.initial, first.problem.initial);
         let mut ambiguous = overlay(2., 3., canonical);
         ambiguous.assignments[0].target = BindingTarget::Path("a".into());
         assert_eq!(
             package
-                .admit_fit_overlay(fit, &ambiguous, Limits::default(), &cancel)
+                .admit_fit_overlay(
+                    services.preparation(),
+                    fit,
+                    &ambiguous,
+                    Limits::default(),
+                    &cancel
+                )
                 .await
                 .unwrap_err()
                 .boundary_diagnostic()

@@ -6,7 +6,7 @@
 use super::*;
 use crate::workflow::{
     RunReport, RunResult,
-    tests::{compiler_profile, id, physical, runtime},
+    tests::{compiler_profile, id, physical},
 };
 use native::solve::Backend;
 use pse_relations::{columnar::RelationRow, generated::runtime::local_validity};
@@ -43,22 +43,24 @@ pub(in crate::workflow) fn analytic() -> ([f64; 4], [f64; 2]) {
 /// The regression package: one steady experiment observing `y₁…y₄`, with `sigma` and
 /// `importance` per observation.
 pub(in crate::workflow) async fn package(
+    runtime: &crate::workflow::Runtime,
     sigma: [Option<f64>; 4],
     importance: [f64; 4],
 ) -> crate::workflow::ModelingPackage {
-    package_with(false, sigma, importance).await
+    package_with(runtime, false, sigma, importance).await
 }
 /// With `offset`, a third parameter `d` enters every output only through `a + d`, so the
 /// two are not separately identifiable.
 pub(in crate::workflow) async fn package_with(
+    runtime: &crate::workflow::Runtime,
     offset: bool,
     sigma: [Option<f64>; 4],
     importance: [f64; 4],
 ) -> crate::workflow::ModelingPackage {
-    package_on(runtime(), offset, sigma, importance).await
+    package_on(runtime, offset, sigma, importance).await
 }
 pub(in crate::workflow) async fn package_on(
-    runtime: crate::workflow::Runtime,
+    runtime: &crate::workflow::Runtime,
     offset: bool,
     sigma: [Option<f64>; 4],
     importance: [f64; 4],
@@ -116,7 +118,7 @@ pub(in crate::workflow) async fn package_on(
         .modeling_package(rows, physical)
         .await
         .unwrap()
-        .with_fit_declarations(data)
+        .with_fit_declarations(&runtime.source_services(), data)
         .await
         .unwrap()
 }
@@ -155,11 +157,13 @@ pub(in crate::workflow) fn profile(
     }
 }
 pub(in crate::workflow) async fn fit(
+    services: &ExecutionServices,
     package: &crate::workflow::ModelingPackage,
     profile: FitProfile,
 ) -> Arc<RunResult> {
     package
         .prepare_fit(
+            services.preparation(),
             id(32).into(),
             profile,
             compiler_profile(),
@@ -168,7 +172,7 @@ pub(in crate::workflow) async fn fit(
         )
         .await
         .unwrap()
-        .start()
+        .start(services)
         .unwrap()
         .wait()
         .await

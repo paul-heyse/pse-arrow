@@ -22,7 +22,12 @@ fn reader(
     payloads: &[Vec<u8>],
     memory: usize,
 ) -> PhysicalSpoolReader {
-    let mut spool = PhysicalSpool::new(runtime.shared.runtime_env(), memory).unwrap();
+    let mut spool = PhysicalSpool::new(
+        runtime.shared.pool(),
+        runtime.shared.runtime_env().disk_manager.clone(),
+        memory,
+    )
+    .unwrap();
     for payload in payloads {
         spool.push(payload).unwrap();
     }
@@ -118,7 +123,7 @@ async fn canonical_physical_empty_source_map_publishes_accounted_context_receipt
     };
     assert!(super::super::result_projection::projection_memory_refusal(
         &constrained
-            .put_physical_rows(&runtime, &physical)
+            .put_physical_rows(&runtime.preparation_services(), &physical)
             .await
             .unwrap_err()
     ));
@@ -128,7 +133,7 @@ async fn canonical_physical_empty_source_map_publishes_accounted_context_receipt
         "context grant refusal precedes publication"
     );
     let rows = operations
-        .put_physical_rows(&runtime, &physical)
+        .put_physical_rows(&runtime.preparation_services(), &physical)
         .await
         .unwrap();
     assert_eq!(rows.revisions.len(), 1);
@@ -136,7 +141,7 @@ async fn canonical_physical_empty_source_map_publishes_accounted_context_receipt
     assert_eq!(rows.revisions[0].sequence, 1);
     assert_eq!(
         operations
-            .put_physical_rows(&runtime, &physical)
+            .put_physical_rows(&runtime.preparation_services(), &physical)
             .await
             .unwrap()
             .revisions,
@@ -157,7 +162,7 @@ async fn canonical_physical_grouped_publication_preserves_exact_replay_and_relat
         .await
         .unwrap();
     let baseline = operations
-        .put_physical_rows(&runtime, &physical)
+        .put_physical_rows(&runtime.preparation_services(), &physical)
         .await
         .unwrap();
     let (&relation, table) = physical
@@ -211,7 +216,7 @@ async fn canonical_physical_grouped_publication_preserves_exact_replay_and_relat
     let old = old.unwrap();
     physical.sources.insert(relation, tall);
     let published = operations
-        .put_physical_rows(&runtime, &physical)
+        .put_physical_rows(&runtime.preparation_services(), &physical)
         .await
         .unwrap();
     let fitting = published
@@ -246,7 +251,7 @@ async fn canonical_physical_grouped_publication_preserves_exact_replay_and_relat
     }
     runtime.clear_program_cache();
     let replayed = operations
-        .put_physical_rows(&runtime, &physical)
+        .put_physical_rows(&runtime.preparation_services(), &physical)
         .await
         .unwrap();
     assert_eq!(

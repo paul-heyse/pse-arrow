@@ -67,11 +67,10 @@ impl std::hash::Hash for ProjectionOwner {
 }
 impl ProjectionOwner {
     pub(super) fn new(
-        runtime: &super::Runtime,
+        services: &super::PreparationServices,
         validation: Arc<pse_relations::validate::ValidationContext>,
     ) -> Option<Self> {
-        let metadata = runtime
-            .shared
+        let metadata = services
             .math()
             .reserve("result:projection-owner", size_of::<ProjectionOwnerData>())
             .ok()?;
@@ -126,21 +125,14 @@ pub(super) struct ProjectionRetention {
 }
 impl ProjectionRetention {
     pub(super) fn new(
-        runtime: &super::Runtime,
+        services: &super::PreparationServices,
         owner: ProjectionOwner,
         relation: SemanticId,
         rows: usize,
         order: ResultOrder,
         range: std::ops::Range<usize>,
     ) -> Self {
-        Self::from_service(
-            runtime.shared.math().clone(),
-            owner,
-            relation,
-            rows,
-            order,
-            range,
-        )
+        Self::from_service(services.math().clone(), owner, relation, rows, order, range)
     }
     fn from_service(
         service: Arc<crate::math::MathService>,
@@ -893,27 +885,27 @@ pub(super) fn working(
 
 pub(super) fn collect(
     mut cursor: ResultCursor<'_>,
-    runtime: &super::Runtime,
+    services: &super::PreparationServices,
     id: SemanticId,
 ) -> Result<FieldCheckedBatch, Arc<WorkflowError>> {
     let mut chunks = Vec::new();
-    let metadata = pse_columnar::MemoryConsumer::new("result:convenience-chunks")
-        .register(&runtime.shared.pool());
+    let metadata =
+        pse_columnar::MemoryConsumer::new("result:convenience-chunks").register(&services.pool());
     while let Some(chunk) = cursor.next_chunk()? {
         metadata
             .try_grow(2 * size_of::<FieldCheckedBatch>())
             .map_err(|e| Arc::new(relation(pse_columnar::CanonError::from(e).into())))?;
         chunks.push(chunk);
     }
-    let spec = runtime
+    let spec = services
         .registry()
         .relation_by_id(id)
         .ok_or_else(|| Arc::new(contract("result declaration absent")))?;
     FieldCheckedBatch::concat_reserved(
-        runtime.registry(),
+        services.registry(),
         spec,
         &chunks,
-        &runtime.shared.pool(),
+        &services.pool(),
         &CancellationToken::new(),
     )
     .map_err(|e| Arc::new(relation(e)))
@@ -923,7 +915,7 @@ pub(super) fn collect(
 #[derive(Debug)]
 pub struct StrategyEventExport {
     model: pse_engine::session::BoundModel,
-    shared: Arc<crate::SharedRuntime>,
+    service: Arc<crate::math::MathService>,
     traces: Vec<(
         pse_model::generated::identities::RunId,
         usize,
@@ -936,7 +928,7 @@ impl StrategyEventExport {
     /// Retain shared traces in original attempt order; payload encoding remains lazy.
     pub fn new(
         model: pse_engine::session::BoundModel,
-        shared: Arc<crate::SharedRuntime>,
+        service: Arc<crate::math::MathService>,
         upper: usize,
         traces: impl Iterator<
             Item = (
@@ -953,9 +945,7 @@ impl StrategyEventExport {
                 crate::math::solves::StrategyTrace,
             )>())
             .ok_or_else(|| contract("strategy trace export extent"))?;
-        let owner = shared
-            .math()
-            .reserve("result:strategy-trace-index", bytes)?;
+        let owner = service.reserve("result:strategy-trace-index", bytes)?;
         let mut retained = Vec::with_capacity(upper);
         for trace in traces {
             if retained.len() == upper {
@@ -965,7 +955,7 @@ impl StrategyEventExport {
         }
         Ok(Self {
             model,
-            shared,
+            service,
             traces: retained,
             failures: EncodingState::default(),
             _owner: owner,
@@ -996,7 +986,7 @@ impl StrategyEventExport {
             ResultOrder::Public,
             |request| async move {
                 let result = async {
-                    let pool = self.shared.pool();
+                    let pool = self.service.pool().clone();
                     let cancel = request.cancel.clone();
                     let validation = self.model.validation_context();
                     let mut columns = Rows::<events::Row>::new(
@@ -1009,7 +999,7 @@ impl StrategyEventExport {
                     .map_err(relation)?;
                     for (run, step, trace) in &self.traces {
                         columns
-                            .strategy_events(trace, *run, *step, self.shared.math())
+                            .strategy_events(trace, *run, *step, &self.service)
                             .await?;
                     }
                     columns.finish().await.map_err(relation)
@@ -1023,21 +1013,20 @@ impl StrategyEventExport {
 
 pub(super) fn collect_tables<'a>(
     ids: Vec<SemanticId>,
-    runtime: &super::Runtime,
+    services: &super::PreparationServices,
     mut cursor: impl FnMut(SemanticId) -> Result<ResultCursor<'a>, Arc<WorkflowError>>,
 ) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, Arc<WorkflowError>> {
     let bytes = ids
         .len()
         .checked_mul(size_of::<FieldCheckedBatch>() + size_of::<SemanticId>() + 128)
         .ok_or_else(|| Arc::new(contract("result map extent")))?;
-    let owner = runtime
-        .shared
+    let owner = services
         .math()
         .reserve("result:complete-map", bytes)
         .map_err(|error| Arc::new(WorkflowError::Math(error)))?;
     ids.into_iter()
         .map(|id| {
-            collect(cursor(id)?, runtime, id)
+            collect(cursor(id)?, services, id)
                 .map(|batch| (id, batch.with_export_owner(owner.clone())))
         })
         .collect()

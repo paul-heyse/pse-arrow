@@ -38,9 +38,11 @@ impl std::fmt::Debug for Products {
     }
 }
 impl Products {
-    fn copy_parent(&self, runtime: &Runtime) -> Result<Parent, WorkflowError> {
-        let owner = runtime
-            .shared
+    fn copy_parent(
+        &self,
+        services: &crate::workflow::PreparationServices,
+    ) -> Result<Parent, WorkflowError> {
+        let owner = services
             .math()
             .reserve("modeling:delta-product-copy", self.extent)?;
         let mut parent = self.parent.clone();
@@ -233,16 +235,19 @@ fn same_declaration_meaning(a: &Declaration, b: &Declaration) -> bool {
 impl ModelingPackage {
     pub(in crate::workflow::modeling) async fn delta_parent(
         &self,
+        services: &crate::workflow::PreparationServices,
         cancel: &crate::CancelSource,
     ) -> Result<Parent, WorkflowError> {
         checkpoint(cancel)?;
         if let Some(products) = self.revision.delta_products.get() {
-            return products.copy_parent(&self.runtime);
+            return products.copy_parent(&services);
         }
-        let (frame, frame_lease) =
-            self.source_decode::<IngressFrame>(self.local_object(INGRESS_FRAME)?.as_ref())?;
-        let (mut physical, physical_lease) = self
-            .source_decode::<PhysicalScope>(self.local_object(PHYSICAL_SCOPE_LOGICAL)?.as_ref())?;
+        let (frame, frame_lease) = self
+            .source_decode::<IngressFrame>(services, self.local_object(INGRESS_FRAME)?.as_ref())?;
+        let (mut physical, physical_lease) = self.source_decode::<PhysicalScope>(
+            services,
+            self.local_object(PHYSICAL_SCOPE_LOGICAL)?.as_ref(),
+        )?;
         let mut leases = vec![frame_lease, physical_lease];
         let mut members = BTreeMap::new();
         let mut documents = BTreeMap::new();
@@ -258,14 +263,14 @@ impl ModelingPackage {
                     .as_ref()
                     .ok_or_else(|| contract("owned typed declaration absent"))?
                     .clone();
-                let lease = self.runtime.shared.math().reserve(
+                let lease = services.math().reserve(
                     "modeling:delta-declaration-copy",
                     source.0.owned_bytes().saturating_add(8192),
                 )?;
                 index.insert(source)?;
                 leases.push(lease);
             } else if object.kind == "document" {
-                let (row, lease) = self.source_decode::<document_wire::Row>(object)?;
+                let (row, lease) = self.source_decode::<document_wire::Row>(services, object)?;
                 if row.content.is_some() {
                     return Err(contract(
                         "document metadata unexpectedly contains data bytes",
@@ -274,7 +279,7 @@ impl ModelingPackage {
                 documents.insert(row.document_id, row);
                 leases.push(lease);
             } else if object.kind == "physical_scope_document" {
-                let (entry, lease) = self.source_decode::<PhysicalScope>(object)?;
+                let (entry, lease) = self.source_decode::<PhysicalScope>(services, object)?;
                 if entry.package != physical.package {
                     return Err(contract("delta physical package differs"));
                 }
@@ -329,7 +334,7 @@ impl ModelingPackage {
             _leases: leases,
             product_owner: None,
         };
-        let owner = self.runtime.shared.math().reserve(
+        let owner = services.math().reserve(
             "modeling:delta-products",
             parent
                 .rows
@@ -366,11 +371,7 @@ impl ModelingPackage {
         index.requests.clear();
         let data = index.data_closure()?;
         let extent = product_extent(&self.revision.admitted, &dependencies)?;
-        let retained = self
-            .runtime
-            .shared
-            .math()
-            .reserve("modeling:delta-products", extent)?;
+        let retained = services.math().reserve("modeling:delta-products", extent)?;
         parent._leases = vec![retained.clone()];
         parent.product_owner = Some(retained);
         let products = Arc::new(Products {
@@ -387,24 +388,26 @@ impl ModelingPackage {
             .delta_products
             .get()
             .unwrap_or(&products)
-            .copy_parent(&self.runtime)
+            .copy_parent(&services)
     }
     /// Stage an exact local parent edit; durable recording is a separate CAS effect.
     pub async fn with_delta(
         &self,
+        services: &crate::workflow::SourceServices,
         delta: SourceDelta,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
                 if delta.parent != self.revision_id() {
                     return Err(contract("source delta names a different local parent"));
                 }
-                let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
+                let deadline = services.preparation().math().preparation_deadline(cancel)?;
                 let scoped = cancel.with_deadline(Some(deadline));
-                let parent = self.delta_parent(&scoped).await?;
-                self.apply_delta_parent(delta, parent, &scoped, None).await
+                let parent = self.delta_parent(services.preparation(), &scoped).await?;
+                self.apply_delta_parent(services, delta, parent, &scoped, None)
+                    .await
             })
             .await
     }
@@ -413,6 +416,7 @@ impl ModelingPackage {
     /// A composed IR state lacking an exact preimage uses the existing absent-text convention.
     pub(in crate::workflow::modeling) async fn project_compose_documents(
         &self,
+        services: &crate::workflow::SourceServices,
         delta: &SourceDelta,
         sources: &[&Self],
         cancel: &crate::CancelSource,
@@ -427,7 +431,7 @@ impl ModelingPackage {
         if delta.parent != self.revision_id() {
             return Err(contract("composed delta names another exact parent"));
         }
-        let parent = self.delta_parent(cancel).await?;
+        let parent = self.delta_parent(services.preparation(), cancel).await?;
         let mut rows = parent
             .rows
             .iter()
@@ -453,7 +457,7 @@ impl ModelingPackage {
             documents.insert(row.document_id, row.clone());
         }
         let mut fits = self
-            .fit_declarations()
+            .fit_declarations(services.preparation())
             .await?
             .fits
             .iter()
@@ -497,9 +501,9 @@ impl ModelingPackage {
             if source.physical.key != self.physical.key {
                 return Err(contract("composed source physical context differs"));
             }
-            owners.push(source.delta_parent(cancel).await?);
+            owners.push(source.delta_parent(services.preparation(), cancel).await?);
             let rows = source
-                .fit_declarations()
+                .fit_declarations(services.preparation())
                 .await?
                 .fits
                 .iter()
@@ -679,6 +683,7 @@ impl ModelingPackage {
     }
     pub(in crate::workflow::modeling) async fn project_admit_composed_delta(
         &self,
+        services: &crate::workflow::SourceServices,
         delta: SourceDelta,
         composition: AdmittedDocumentComposition,
         cancel: &crate::CancelSource,
@@ -686,8 +691,9 @@ impl ModelingPackage {
         if delta.parent != self.revision_id() {
             return Err(contract("composed delta names another exact parent"));
         }
-        let parent = self.delta_parent(cancel).await?;
+        let parent = self.delta_parent(services.preparation(), cancel).await?;
         self.apply_delta_parent_ordered_mode(
+            services,
             delta,
             parent,
             cancel,
@@ -703,29 +709,41 @@ impl ModelingPackage {
     /// issue their separately retained publication intent only after this succeeds.
     pub(crate) async fn project_admit_delta(
         &self,
+        services: &crate::workflow::SourceServices,
         delta: &SourceDelta,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
         if delta.parent != self.revision_id() {
             return Err(contract("project delta names a different exact parent"));
         }
-        let parent = self.delta_parent(cancel).await?;
-        self.apply_delta_parent_ordered_mode(delta.clone(), parent, cancel, None, None, false, None)
-            .await
+        let parent = self.delta_parent(services.preparation(), cancel).await?;
+        self.apply_delta_parent_ordered_mode(
+            services,
+            delta.clone(),
+            parent,
+            cancel,
+            None,
+            None,
+            false,
+            None,
+        )
+        .await
     }
 
     pub(super) async fn apply_delta_parent(
         &self,
+        services: &crate::workflow::SourceServices,
         delta: SourceDelta,
         parent: Parent,
         cancel: &crate::CancelSource,
         parsed: Option<reload::ParsedEdit>,
     ) -> Result<Self, WorkflowError> {
-        self.apply_delta_parent_ordered(delta, parent, cancel, parsed, None)
+        self.apply_delta_parent_ordered(services, delta, parent, cancel, parsed, None)
             .await
     }
     pub(in crate::workflow) async fn construct_study_variant(
         &self,
+        services: &crate::workflow::SourceServices,
         source: &crate::workflow::OperationSource,
         mut delta: SourceDelta,
         cancel: &crate::CancelSource,
@@ -734,23 +752,28 @@ impl ModelingPackage {
         // The descriptor already checked its original local parent token. Reconstruction
         // rebinds only after the complete immutable source/context identity agrees.
         delta.parent = self.revision_id().into();
-        let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
+        let deadline = services.preparation().math().preparation_deadline(cancel)?;
         let scoped = cancel.with_deadline(Some(deadline));
-        let parent = self.delta_parent(&scoped).await?;
-        self.apply_delta_parent_ordered_mode(delta, parent, &scoped, None, None, false, None)
-            .await
+        let parent = self.delta_parent(services.preparation(), &scoped).await?;
+        self.apply_delta_parent_ordered_mode(
+            services, delta, parent, &scoped, None, None, false, None,
+        )
+        .await
     }
 
     pub(in crate::workflow::modeling) async fn apply_delta_parent_ordered(
         &self,
+        services: &crate::workflow::SourceServices,
         delta: SourceDelta,
         parent: Parent,
         cancel: &crate::CancelSource,
         parsed: Option<reload::ParsedEdit>,
         order: Option<Vec<DeclarationId>>,
     ) -> Result<Self, WorkflowError> {
-        self.apply_delta_parent_ordered_mode(delta, parent, cancel, parsed, order, true, None)
-            .await
+        self.apply_delta_parent_ordered_mode(
+            services, delta, parent, cancel, parsed, order, true, None,
+        )
+        .await
     }
 
     #[expect(
@@ -759,6 +782,7 @@ impl ModelingPackage {
     )]
     async fn apply_delta_parent_ordered_mode(
         &self,
+        services: &crate::workflow::SourceServices,
         delta: SourceDelta,
         mut parent: Parent,
         cancel: &crate::CancelSource,
@@ -767,7 +791,7 @@ impl ModelingPackage {
         record: bool,
         composition: Option<AdmittedDocumentComposition>,
     ) -> Result<Self, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity.scope(async {
         let original_physical = parent.physical.clone();
         let fit_intents = delta
@@ -844,15 +868,13 @@ impl ModelingPackage {
             .and_then(|n| n.checked_add(delta.fits.replacements.owned_bytes()))
             .and_then(|n| n.checked_mul(16))
             .ok_or_else(|| contract("source delta extent"))?;
-        let _scratch = self
-            .runtime
-            .shared
+        let _scratch = services.preparation()
             .math()
             .reserve("modeling:source-delta", extent)?;
-        let validation = self.runtime.admission_context();
+        let validation = services.preparation().admission_context();
         let mut declarations =
             pse_relations::generated::authored::modeling_declarations::Builder::with_registry(
-                self.runtime.registry(),
+                services.preparation().registry(),
                 delta.additions.len() + delta.replacements.len(),
                 &validation,
             )
@@ -870,7 +892,7 @@ impl ModelingPackage {
         );
         let mut document_builder =
             pse_relations::generated::authored::documents::Builder::with_registry(
-                self.runtime.registry(),
+                services.preparation().registry(),
                 delta.documents.additions.len() + delta.documents.replacements.len(),
                 &validation,
             )
@@ -902,7 +924,7 @@ impl ModelingPackage {
         );
         let mut fit_builder =
             pse_relations::generated::authored::fit_cases::Builder::with_registry(
-                self.runtime.registry(),
+                services.preparation().registry(),
                 delta.fits.additions.len() + delta.fits.replacements.len(),
                 &validation,
             )
@@ -1023,7 +1045,7 @@ impl ModelingPackage {
                             row.path.clone(),
                             bytes.as_slice().to_vec().into(),
                             Default::default(),
-                            &self.runtime.shared.pool(),
+                            &services.preparation().pool(),
                             &cancel.token(),
                         )?;
                     parent.frame.data.insert(id, document.content_hash);
@@ -1108,7 +1130,7 @@ impl ModelingPackage {
             if let Some(row) = after {
                 let fields = parent.fields.get(&id).cloned();
                 index.insert((row.clone(), fields.clone()))?;
-                index.parsed_fields.insert(id, parsed_fields(&self.runtime, row, fields.as_ref())?);
+                index.parsed_fields.insert(id, parsed_fields(&services.preparation(), row, fields.as_ref())?);
                 index.complete_scope(id); index.complete_imports(id);
             }
         }
@@ -1196,7 +1218,7 @@ impl ModelingPackage {
                                 metadata.path.clone(),
                                 bytes.into(),
                                 Default::default(),
-                                &self.runtime.shared.pool(),
+                                &services.preparation().pool(),
                                 &cancel.token(),
                             )?;
                         if parent.frame.data.get(&id) != Some(&document.content_hash) {
@@ -1211,11 +1233,11 @@ impl ModelingPackage {
             }
             let mut records = BTreeSet::new();
             if !new_data.is_empty() {
-                let workspace = self.runtime.shared.math().workspace(
+                let workspace = services.preparation().math().workspace(
                     super::super::compiler_context(&self.physical, &BTreeMap::new()),
                     pse_compiler::workspace::WorkspaceLimits::default(),
                 )?;
-                let data = self.runtime.shared.math().modeling_revision(
+                let data = services.preparation().math().modeling_revision(
                     &workspace,
                     new_data.clone(),
                     parent.physical.clone(),
@@ -1332,7 +1354,7 @@ impl ModelingPackage {
             origins.invalidate_fits(&fit_intents);
         }
         if let Some(proof)=&composition {
-            let mut builder=pse_relations::generated::authored::packages::Builder::with_registry(self.runtime.registry(),proof.packages.len(),&validation).map_err(super::super::super::relation)?;
+            let mut builder=pse_relations::generated::authored::packages::Builder::with_registry(services.preparation().registry(),proof.packages.len(),&validation).map_err(super::super::super::relation)?;
             for package in &proof.packages {builder.push(package.clone()).map_err(super::super::super::relation)?;}
             drop(builder.finish().map_err(super::super::super::relation)?);
             for package in &proof.packages {let entry=typed.package(package.clone())?;edits.insert(entry.logical.clone(),entry);}
@@ -1390,15 +1412,15 @@ impl ModelingPackage {
         }
         checkpoint(cancel)?;
         let revision = if record {
-            admit_revision(&self.runtime, Some(&self.revision), identity, &edits, &typed, Some(cancel)).await?
+            admit_revision(services, Some(&self.revision), identity, &edits, &typed, Some(cancel)).await?
         } else {
-            let admitted = AdmittedModelRevision::apply_inputs(&self.runtime, Some(&self.revision.admitted), &edits, &typed, Some(cancel))?;
-            SourceRevision::admitted(admitted, identity, None, None)?
+            let admitted = AdmittedModelRevision::apply_inputs(&services.preparation(), Some(&self.revision.admitted), &edits, &typed, Some(cancel))?;
+            SourceRevision::admitted(admitted, identity, None, None, self.revision.issuer.clone())?
         };
         let extent = product_extent(&revision.admitted, &dependencies)?;
         let retained = match parent.product_owner.take().filter(|owner| owner.size() >= extent) {
             Some(owner) => owner,
-            None => self.runtime.shared.math().reserve("modeling:delta-products", extent)?,
+            None => services.preparation().math().reserve("modeling:delta-products", extent)?,
         };
         parent._leases = vec![retained.clone()];
         parent.product_owner = Some(retained);
@@ -1426,7 +1448,11 @@ mod tests {
     use super::*;
     use crate::workflow::SourceDocumentDelta;
 
-    async fn document_package(text: &str, data: Option<Vec<u8>>) -> ModelingPackage {
+    async fn document_package(
+        runtime: &Runtime,
+        text: &str,
+        data: Option<Vec<u8>>,
+    ) -> ModelingPackage {
         let mut sources = BTreeMap::from([
             (
                 "package.toml".into(),
@@ -1440,7 +1466,7 @@ mod tests {
         if let Some(data) = data {
             sources.insert("data/bank.parquet".into(), data);
         }
-        crate::workflow::tests::runtime()
+        runtime
             .package_from_sources(
                 &[sources],
                 crate::workflow::tests::physical(),
@@ -1450,9 +1476,12 @@ mod tests {
             .unwrap()
     }
 
-    async fn parent_metadata(package: &ModelingPackage) -> Parent {
+    async fn parent_metadata(
+        services: &crate::workflow::PreparationServices,
+        package: &ModelingPackage,
+    ) -> Parent {
         package
-            .delta_parent(&crate::CancelSource::new())
+            .delta_parent(services, &crate::CancelSource::new())
             .await
             .unwrap()
     }
@@ -1466,14 +1495,20 @@ mod tests {
         )
         .unwrap()
     }
-    async fn compare_fresh(package: &ModelingPackage, rows: Vec<Declaration>) {
-        let fresh = package
-            .runtime
+    async fn compare_fresh(
+        services: &crate::workflow::SourceServices,
+        package: &ModelingPackage,
+        rows: Vec<Declaration>,
+    ) {
+        let fresh = services
             .modeling_package(rows.clone(), crate::workflow::tests::physical())
             .await
             .unwrap();
         assert_eq!(package.revision.identity(), fresh.revision.identity());
-        assert_eq!(&*package.declarations().await.unwrap(), rows.as_slice());
+        assert_eq!(
+            &*package.declarations(services.preparation()).await.unwrap(),
+            rows.as_slice()
+        );
         for row in rows {
             let key = logical(row.declaration_id);
             assert_eq!(
@@ -1505,7 +1540,7 @@ mod tests {
                 .await
                 .unwrap();
             let _ = original
-                .delta_parent(&crate::CancelSource::new())
+                .delta_parent(&runtime.preparation_services(), &crate::CancelSource::new())
                 .await
                 .unwrap();
             let retained = original.revision.delta_products.get().unwrap();
@@ -1532,6 +1567,7 @@ mod tests {
             *old = replacement.clone();
             let changed = original
                 .with_delta(
+                    &runtime.source_services(),
                     SourceDelta {
                         parent: original.revision_id().into(),
                         replacements: vec![replacement],
@@ -1563,7 +1599,7 @@ mod tests {
                 products.index.rows.len(),
                 products.parent.product_owner.as_ref().unwrap().size()
             );
-            compare_fresh(&changed, rows).await;
+            compare_fresh(&runtime.source_services(), &changed, rows).await;
         }
     }
 
@@ -1583,25 +1619,44 @@ mod tests {
             .unwrap();
         for source in &sources[1..] {
             let rows = parse(source);
-            current = current.with_declarations(rows.clone()).await.unwrap();
-            compare_fresh(&current, rows).await;
+            current = current
+                .with_declarations(&runtime.source_services(), rows.clone())
+                .await
+                .unwrap();
+            compare_fresh(&runtime.source_services(), &current, rows).await;
         }
-        let mut rows = current.declarations().await.unwrap().to_vec();
+        let mut rows = current
+            .declarations(&runtime.preparation_services())
+            .await
+            .unwrap()
+            .to_vec();
         rows.reverse();
-        current = current.with_declarations(rows.clone()).await.unwrap();
-        compare_fresh(&current, rows.clone()).await;
+        current = current
+            .with_declarations(&runtime.source_services(), rows.clone())
+            .await
+            .unwrap();
+        compare_fresh(&runtime.source_services(), &current, rows.clone()).await;
         for row in &mut rows {
             row.source_start += 7;
             row.source_end += 7;
         }
-        current = current.with_declarations(rows.clone()).await.unwrap();
-        compare_fresh(&current, rows).await;
+        current = current
+            .with_declarations(&runtime.source_services(), rows.clone())
+            .await
+            .unwrap();
+        compare_fresh(&runtime.source_services(), &current, rows).await;
     }
 
     #[tokio::test]
     async fn local_delta_document_only_replacement_retires_exact_text_and_spans() {
-        let package = document_package("package minimal_named { param a:Scalar=1; }", None).await;
-        let before = parent_metadata(&package).await;
+        let runtime = crate::workflow::tests::runtime();
+        let package = document_package(
+            &runtime,
+            "package minimal_named { param a:Scalar=1; }",
+            None,
+        )
+        .await;
+        let before = parent_metadata(&runtime.preparation_services(), &package).await;
         let mut document = before
             .documents
             .values()
@@ -1620,6 +1675,7 @@ mod tests {
         document.source_text = None;
         let changed = package
             .with_delta(
+                &runtime.source_services(),
                 SourceDelta {
                     parent: package.revision_id().into(),
                     documents: SourceDocumentDelta {
@@ -1632,7 +1688,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let after = parent_metadata(&changed).await;
+        let after = parent_metadata(&runtime.preparation_services(), &changed).await;
         assert_eq!(
             before.rows, after.rows,
             "document intent does not alter declaration values or order"
@@ -1645,7 +1701,9 @@ mod tests {
         assert_eq!(changed.revision.identity, package.revision.identity);
         assert_ne!(changed.revision_id(), package.revision_id());
         assert!(
-            parent_metadata(&package).await.documents[&document_id]
+            parent_metadata(&runtime.preparation_services(), &package)
+                .await
+                .documents[&document_id]
                 .source_text
                 .is_some(),
             "the admitted parent remains immutable"
@@ -1654,6 +1712,7 @@ mod tests {
 
     #[tokio::test]
     async fn local_delta_unrelated_document_edit_retains_data_without_readmission() {
+        let runtime = crate::workflow::tests::runtime();
         use datafusion::arrow::{
             array::Int64Array,
             datatypes::{DataType, Field, Schema},
@@ -1675,8 +1734,8 @@ mod tests {
             parquet::arrow::ArrowWriter::try_new(&mut bytes, batch.schema(), None).unwrap();
         writer.write(&batch).unwrap();
         writer.close().unwrap();
-        let package = document_package("package minimal_named { entity kind source provenance {} entity source s {} enum role {given} entity kind node {key n:Integer; attribute value:Integer;} dataset bank:node provenance(s,role.given) from \"data/bank.parquet\"; }", Some(bytes)).await;
-        let before = parent_metadata(&package).await;
+        let package = document_package(&runtime, "package minimal_named { entity kind source provenance {} entity source s {} enum role {given} entity kind node {key n:Integer; attribute value:Integer;} dataset bank:node provenance(s,role.given) from \"data/bank.parquet\"; }", Some(bytes)).await;
+        let before = parent_metadata(&runtime.preparation_services(), &package).await;
         let owner = before.documents.values().next().unwrap().package_id;
         let path = "models/unrelated.pse";
         let document = document_wire::Row {
@@ -1697,16 +1756,17 @@ mod tests {
         );
         let receiver =
             Runtime::from_shared_local(small.shared.clone(), small.model.clone()).unwrap();
-        let confined = ModelingPackage {
-            runtime: receiver,
-            ..package.clone()
-        };
+        let confined = package.clone();
         assert!(
-            confined.all_revision().await.is_err(),
+            confined
+                .all_revision(&receiver.preparation_services())
+                .await
+                .is_err(),
             "the control really refuses full data admission"
         );
         let changed = confined
             .with_delta(
+                &receiver.source_services(),
                 SourceDelta {
                     parent: package.revision_id().into(),
                     documents: SourceDocumentDelta {
@@ -1719,7 +1779,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let after = parent_metadata(&changed).await;
+        let after = parent_metadata(&runtime.preparation_services(), &changed).await;
         let retained = before
             .members
             .iter()
@@ -1796,6 +1856,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let unchanged = package
             .with_delta(
+                &runtime.source_services(),
                 SourceDelta {
                     parent: package.revision_id().into(),
                     ..Default::default()
@@ -1808,6 +1869,7 @@ mod tests {
         let new_equation = fresh.iter().find(|row| row.name == "e").unwrap().clone();
         let changed = package
             .with_delta(
+                &runtime.source_services(),
                 SourceDelta {
                     parent: package.revision_id().into(),
                     replacements: vec![new_equation],
@@ -1823,9 +1885,26 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(changed.revision.identity, independent.revision.identity);
-        assert_eq!(changed.full_source().await.unwrap().0, fresh);
-        assert_eq!(package.full_source().await.unwrap().0, old);
-        let selected = changed.checked_selection(&[root], &cancel).await.unwrap();
+        assert_eq!(
+            changed
+                .full_source(&runtime.preparation_services(),)
+                .await
+                .unwrap()
+                .0,
+            fresh
+        );
+        assert_eq!(
+            package
+                .full_source(&runtime.preparation_services(),)
+                .await
+                .unwrap()
+                .0,
+            old
+        );
+        let selected = changed
+            .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+            .await
+            .unwrap();
         let names = selected
             .admission
             .revision
@@ -1837,6 +1916,7 @@ mod tests {
         assert!(!names.contains(&"a"));
         let no_op = changed
             .with_delta(
+                &runtime.source_services(),
                 SourceDelta {
                     parent: changed.revision_id().into(),
                     ..Default::default()
@@ -1849,6 +1929,7 @@ mod tests {
         assert!(
             changed
                 .with_delta(
+                    &runtime.source_services(),
                     SourceDelta {
                         parent: package.revision_id().into(),
                         ..Default::default()

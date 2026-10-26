@@ -199,7 +199,7 @@ impl ModelingInitializationAttempt {
 pub struct ModelingInitializationReport {
     /// Identity of this initialization run.
     pub run_id: RunId,
-    pub(super) runtime: Runtime,
+    pub(super) services: crate::workflow::PreparationServices,
     /// Every attempt in order, including failed and interrupted ones.
     pub attempts: Vec<ModelingInitializationAttempt>,
     /// The original specification was solved and accepted.
@@ -265,13 +265,14 @@ impl ModelingPackage {
     /// Bind an analysis to its prepared structure and values.
     pub async fn prepare_analysis(
         &self,
+        services: &crate::workflow::PreparationServices,
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
-                self.prepare_analysis_attempt(analysis, CaseOverrides::default(), cancel)
+                self.prepare_analysis_attempt(services, analysis, CaseOverrides::default(), cancel)
                     .await
             })
             .await
@@ -281,14 +282,16 @@ impl ModelingPackage {
     /// (A6).
     pub(in crate::workflow) async fn prepare_analysis_attempt(
         &self,
+        services: &crate::workflow::PreparationServices,
         a: &ModelingAnalysis,
         overrides: CaseOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 self.prepare_solve_seed(
+                    services,
                     a.root,
                     a.instance,
                     a.bindings.clone(),
@@ -315,17 +318,19 @@ impl ModelingPackage {
     /// Preparation, a program that is not polynomial, or a relaxation beyond its bounds.
     pub async fn sos_bound(
         &self,
+        services: &crate::workflow::ExecutionServices,
         analysis: &ModelingAnalysis,
         order: Option<usize>,
         cancel: &crate::CancelSource,
     ) -> Result<pse_backend_native::execution::sos::SosBound, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
-                let prepared = self.prepare_analysis(analysis, cancel).await?;
-                Ok(self
-                    .runtime
-                    .shared
+                let prepared = self
+                    .prepare_analysis(services.preparation(), analysis, cancel)
+                    .await?;
+                Ok(services
+                    .preparation()
                     .math()
                     .sos_bound(&prepared.solve, order)
                     .await?)
@@ -338,14 +343,15 @@ impl ModelingPackage {
     /// only, so they share one prepared structure and the retained native session.
     pub async fn initialize_model(
         &self,
+        services: &crate::workflow::ExecutionServices,
         analysis: &ModelingAnalysis,
         policy: ModelingInitialization,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
-                self.initialize_model_with_prepared(analysis, policy, None, cancel)
+                self.initialize_model_with_prepared(services, analysis, policy, None, cancel)
                     .await
             })
             .await
@@ -353,12 +359,13 @@ impl ModelingPackage {
     /// Run initialization from an exact retained declared preparation.
     pub(in crate::workflow) async fn initialize_model_with_prepared(
         &self,
+        services: &crate::workflow::ExecutionServices,
         analysis: &ModelingAnalysis,
         policy: ModelingInitialization,
         prepared: Option<ModelingPreparation>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity.scope(async {
         policy.validate()?;
         if analysis
@@ -373,7 +380,7 @@ impl ModelingPackage {
         }
         let deadline = Instant::now()
             .checked_add(policy.time_limit)
-            .ok_or_else(|| contract("initialization deadline overflow"))?;
+            .ok_or_else(|| crate::workflow::deadline_limit("initialization deadline overflow"))?;
         let base = if let Some(base) = prepared {
             if cancel.token().is_cancelled() {
                 return Err(crate::math::MathRuntimeError::Cancelled.into());
@@ -396,7 +403,7 @@ impl ModelingPackage {
                     );
                     bindings.demand.sort();
                     bindings.demand.dedup();
-                    self.prepare(
+                    self.prepare(services.preparation(),
                         analysis.root,
                         analysis.instance,
                         bindings,
@@ -437,7 +444,7 @@ impl ModelingPackage {
             Some(deadline),
             cancel,
             |child| async move {
-                self.discrete_assignment(analysis, base_ref, discrete, &child)
+                self.discrete_assignment(services.preparation(), analysis, base_ref, discrete, &child)
                     .await
             },
         )
@@ -468,24 +475,24 @@ impl ModelingPackage {
             .and_then(|n| n.checked_add(base.compiled().admitted.inputs.len().checked_mul(128)?))
             .and_then(|n| n.checked_add(assignment.len().checked_mul(64)?))
             .ok_or_else(|| contract("initialization report extent"))?;
-        let owner = self
-            .runtime
-            .shared
+        let owner = services.preparation()
             .math()
             .reserve("modeling:initialization", bytes)?;
         let mut run = Initializer {
+            services,
             package: self,
             analysis,
             policy: &policy,
             deadline,
             cancel,
-            staged: Staged::open(&self.runtime, None)?,
+            staged: Staged::open(services, None)?,
             accepted: None,
             original: base.compiled().model.clone(),
             prepared_original: base,
             report: ModelingInitializationReport {
+                    services: services.preparation().clone(),
                 run_id: pse_operations::mint_id(),
-                runtime: self.runtime.clone(),
+
                 attempts: Vec::with_capacity(policy.maximum_attempts),
                 completed: false,
                 failure: None,
@@ -506,6 +513,7 @@ impl ModelingPackage {
 /// The initialization planner over one staged sequence. Each method returns whether the
 /// next phase may run; a stop records its cause in the report.
 struct Initializer<'a> {
+    services: &'a crate::workflow::ExecutionServices,
     package: &'a ModelingPackage,
     analysis: &'a ModelingAnalysis,
     policy: &'a ModelingInitialization,
@@ -602,7 +610,7 @@ impl Initializer<'_> {
         use pse_model::generated::enums::ModelingDeclarationKind as Kind;
         let revision = self
             .package
-            .selected_revision(self.analysis.root, self.cancel)
+            .selected_revision(self.services.preparation(), self.analysis.root, self.cancel)
             .await?;
         let checked = revision.checked();
         let mut sources = std::collections::BTreeSet::new();
@@ -885,7 +893,12 @@ mod tests {
     async fn continuation_fixture(
         source: &str,
         iterations: u32,
-    ) -> (ModelingPackage, ModelingAnalysis, ModelingInitialization) {
+    ) -> (
+        Runtime,
+        ModelingPackage,
+        ModelingAnalysis,
+        ModelingInitialization,
+    ) {
         let rt = super::super::super::tests::runtime();
         let physical = super::super::super::tests::physical();
         let rows = pse_authoring::language::parse(
@@ -928,26 +941,36 @@ mod tests {
             time_limit: Duration::from_secs(60),
             discrete: Default::default(),
         };
-        (package, analysis, policy)
+        (rt, package, analysis, policy)
     }
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn homotopy_effort_changes_only_displacement_after_native_qualified_endpoints() {
-        let (package, analysis, mut policy) = continuation_fixture(
+        let (runtime, package, analysis, mut policy) = continuation_fixture(
             "package p { def Root { param t: Scalar = 1; var x: Scalar; eq residual: exp(x) == 2+t; annotation start x(0); continue ramp on t from 0 to 1; } }",
             100,
         ).await;
         policy.initial_step = 0.25;
         policy.minimum_step = 0.01;
         let baseline = package
-            .initialize_model(&analysis, policy.clone(), &crate::CancelSource::new())
+            .initialize_model(
+                &runtime.execution_services(),
+                &analysis,
+                policy.clone(),
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         policy.effort = Some(pse_model::strategy::EffortPolicy {
             target_iterations: 1,
         });
         let adapted = package
-            .initialize_model(&analysis, policy.clone(), &crate::CancelSource::new())
+            .initialize_model(
+                &runtime.execution_services(),
+                &analysis,
+                policy.clone(),
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         assert!(baseline.completed, "{}", initialization_summary(&baseline));
@@ -981,12 +1004,17 @@ mod tests {
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn kernel_initialization_retries_typed_preparation_rejections() {
-        let (package, analysis, policy) = continuation_fixture(
+        let (rt, package, analysis, policy) = continuation_fixture(
             "package p { def Root { param t: Scalar = 1; var x: Scalar; eq residual: log(x-t) == 0; annotation start x(1); annotation nominal x(1+log(x-t)*log(x-t)); continue ramp on t from 0 to 1; } }",
             100,
         ).await;
         let report = package
-            .initialize_model(&analysis, policy.clone(), &crate::CancelSource::new())
+            .initialize_model(
+                &rt.execution_services(),
+                &analysis,
+                policy.clone(),
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         assert!(report.completed, "{}", initialization_summary(&report));
@@ -1021,6 +1049,7 @@ mod tests {
         // Failed preparations count toward the attempt cap and never commit a partial result.
         let capped = package
             .initialize_model(
+                &rt.execution_services(),
                 &analysis,
                 ModelingInitialization {
                     maximum_attempts: 2,
@@ -1038,12 +1067,17 @@ mod tests {
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn initialization_iteration_limit_does_not_invent_stagnation_or_subdivision() {
-        let (package, analysis, policy) = continuation_fixture(
+        let (rt, package, analysis, policy) = continuation_fixture(
             "package p { def Root { param t: Scalar = 100; var x: Scalar; eq residual: x*x == t; annotation start x(1); continue ramp on t from 1 to 100; } }",
             1,
         ).await;
         let report = package
-            .initialize_model(&analysis, policy, &crate::CancelSource::new())
+            .initialize_model(
+                &rt.execution_services(),
+                &analysis,
+                policy,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         assert!(!report.completed, "{}", initialization_summary(&report));
@@ -1078,13 +1112,18 @@ mod tests {
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn kernel_initialization_retries_callback_trials_without_event_history() {
-        let (package, mut analysis, policy) = continuation_fixture(
+        let (runtime, package, mut analysis, policy) = continuation_fixture(
             "package p { def Root { param t: Scalar = 1; var x: Scalar; eq residual: log(x-t) == 0; annotation start x(1); continue ramp on t from 0 to 1; } }",
             100,
         ).await;
         analysis.solver.controls.history = 0;
         let report = package
-            .initialize_model(&analysis, policy, &crate::CancelSource::new())
+            .initialize_model(
+                &runtime.execution_services(),
+                &analysis,
+                policy,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         assert!(report.completed, "{}", initialization_summary(&report));
@@ -1150,7 +1189,10 @@ mod tests {
             numerical: NumericalInputs::default(),
         };
         let cancel = crate::CancelSource::new();
-        let before = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let before = package
+            .prepare_analysis(&rt.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
         let policy = ModelingInitialization {
             stages: vec!["easy".into()],
             homotopy: true,
@@ -1163,7 +1205,7 @@ mod tests {
             discrete: Default::default(),
         };
         let initialized = package
-            .initialize_model(&analysis, policy.clone(), &cancel)
+            .initialize_model(&rt.execution_services(), &analysis, policy.clone(), &cancel)
             .await
             .unwrap();
         assert!(initialized.completed, "{:?}", initialized.failure);
@@ -1186,12 +1228,15 @@ mod tests {
         let mut bad = policy;
         bad.stages = vec!["wrong".into()];
         let rejected = package
-            .initialize_model(&analysis, bad, &cancel)
+            .initialize_model(&rt.execution_services(), &analysis, bad, &cancel)
             .await
             .unwrap();
         assert!(!rejected.completed);
         assert!(rejected.committed.is_none());
-        let after = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let after = package
+            .prepare_analysis(&rt.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
         assert_eq!(
             before.model.case.compiled().plan.structure().key(),
             after.model.case.compiled().plan.structure().key()
@@ -1231,7 +1276,7 @@ mod discrete_tests {
             stage wrong {{ override eq link: y == -1; }} }} }}"
         )
     }
-    async fn package(start: &str) -> (ModelingPackage, ModelingAnalysis) {
+    async fn package(start: &str) -> (Runtime, ModelingPackage, ModelingAnalysis) {
         let physical = fixture::physical();
         let rows = pse_authoring::language::parse(
             &source(start),
@@ -1245,10 +1290,8 @@ mod discrete_tests {
             .find(|r| r.name == "Root")
             .unwrap()
             .declaration_id;
-        let package = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30)
-            .modeling_package(rows, physical)
-            .await
-            .unwrap();
+        let runtime = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30);
+        let package = runtime.modeling_package(rows, physical).await.unwrap();
         let mut solver = fixture::profile();
         solver.intent = SolveIntent::Optimize;
         solver.selection = SolverSelection::Auto;
@@ -1263,7 +1306,7 @@ mod discrete_tests {
             solver,
             numerical: NumericalInputs::default(),
         };
-        (package, analysis)
+        (runtime, package, analysis)
     }
     fn policy(stages: &[&str], discrete: DiscreteInitialization) -> ModelingInitialization {
         ModelingInitialization {
@@ -1304,11 +1347,15 @@ mod discrete_tests {
     /// a step fixed survives it, whether initialization completes or fails (PS-08).
     #[tokio::test]
     async fn initialization_fixes_and_restores_integers() {
-        let (package, analysis) = package("1").await;
+        let (runtime, package, analysis) = package("1").await;
         let cancel = crate::CancelSource::new();
-        let before = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let before = package
+            .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
         let report = package
             .initialize_model(
+                &runtime.execution_services(),
                 &analysis,
                 policy(&["loose"], DiscreteInitialization::FixAtStart),
                 &cancel,
@@ -1360,6 +1407,7 @@ mod discrete_tests {
         // A failed stage stops initialization; its fix does not outlive it either.
         let failed = package
             .initialize_model(
+                &runtime.execution_services(),
                 &analysis,
                 policy(&["wrong"], DiscreteInitialization::FixAtStart),
                 &cancel,
@@ -1371,7 +1419,10 @@ mod discrete_tests {
         if let Ok(result) = &failed.attempts[0].result {
             assert!(!free(result, n));
         }
-        let after = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let after = package
+            .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
         assert_eq!(
             before.model.case.compiled().plan.structure().key(),
             after.model.case.compiled().plan.structure().key()
@@ -1401,9 +1452,10 @@ mod discrete_tests {
             text("reason")
         };
         let cancel = crate::CancelSource::new();
-        let (package, analysis) = package("1.5").await;
+        let (runtime, package, analysis) = package("1.5").await;
         let error = package
             .initialize_model(
+                &runtime.execution_services(),
                 &analysis,
                 policy(&["loose"], DiscreteInitialization::FixAtStart),
                 &cancel,
@@ -1423,7 +1475,12 @@ mod discrete_tests {
             )
         };
         let error = package
-            .initialize_model(&analysis, declared(&[("n", 2.5)]), &cancel)
+            .initialize_model(
+                &runtime.execution_services(),
+                &analysis,
+                declared(&[("n", 2.5)]),
+                &cancel,
+            )
             .await
             .unwrap_err();
         assert_eq!(
@@ -1431,7 +1488,12 @@ mod discrete_tests {
             pse_modeling::DomainRefusal::NotMember.as_str()
         );
         let error = package
-            .initialize_model(&analysis, declared(&[]), &cancel)
+            .initialize_model(
+                &runtime.execution_services(),
+                &analysis,
+                declared(&[]),
+                &cancel,
+            )
             .await
             .unwrap_err();
         assert_eq!(
@@ -1440,13 +1502,23 @@ mod discrete_tests {
         );
         assert!(
             package
-                .initialize_model(&analysis, declared(&[("n", 2.), ("x", 1.)]), &cancel)
+                .initialize_model(
+                    &runtime.execution_services(),
+                    &analysis,
+                    declared(&[("n", 2.), ("x", 1.)]),
+                    &cancel
+                )
                 .await
                 .is_err_and(|e| matches!(e, WorkflowError::Input(_)))
         );
         // A declared integral value overrides the non-integral start.
         let report = package
-            .initialize_model(&analysis, declared(&[("n", 2.)]), &cancel)
+            .initialize_model(
+                &runtime.execution_services(),
+                &analysis,
+                declared(&[("n", 2.)]),
+                &cancel,
+            )
             .await
             .unwrap();
         assert!(report.completed, "{:?}", report.failure);

@@ -850,7 +850,7 @@ mod lane_tests {
             let prior = Arc::new(contract("original scientific or completion failure"));
             let mut result = RunResult::joined(
                 RunId::from_id(SemanticId::NIL),
-                runtime.clone(),
+                runtime.execution_services(),
                 crate::workflow::RunOutcome::Modeling {
                     request: vec![],
                     result: if report_failed {
@@ -2020,7 +2020,7 @@ impl Runtime {
         }
         let launch_extent = prepared
             .operation
-            .start_attempt_extent(self, cancel)
+            .start_attempt_extent(&self.execution_services(), cancel)
             .ok_or_else(|| contract("worker launch storage extent"))?;
         let diagnostics = prepared.diagnostics.take();
         let seed = prepared.seed.clone();
@@ -2110,11 +2110,14 @@ impl Runtime {
             let held = lane
                 .scope()
                 .ok_or_else(|| contract("worker native lane source permission absent"))?;
+            let execution_services = self.execution_services();
             let result = held
-                .during(cancel, async {
+                .during(execution_services.preparation(), cancel, async {
                     let mut launch: futures_util::future::BoxFuture<'_, _> =
                         boxed_worker_action(|| {
-                            prepared.operation.start_attempt(self, cancel, attempt)
+                            prepared
+                                .operation
+                                .start_attempt(&execution_services, cancel, attempt)
                         });
                     let handle = futures_util::future::poll_fn(|context| {
                         poll_worker_action(launch.as_mut(), context)
@@ -2513,9 +2516,11 @@ impl Runtime {
                     .modeling_from_documents(&documents, physical, cancel)
                     .await?;
                 token.checkpoint().map_err(pse_engine::EngineError::from)?;
-                service
-                    .modeling_cache
-                    .retain_package(generation, identity, package.admission()?);
+                service.modeling_cache.retain_package(
+                    generation,
+                    identity,
+                    package.admission(&self.preparation_services())?,
+                );
                 Ok(package)
             })
             .await

@@ -155,6 +155,7 @@ impl ReportSource for pse_runtime::workflow::WorkflowError {
         match self {
             Self::DocumentDecode(error) => Some(error.location().clone()),
             Self::Shared(error) => error.report_decode_location(),
+            Self::Admission { cause, .. } => cause.report_decode_location(),
             Self::StudyCreationUnsettled { source, .. }
             | Self::ArtifactTransferUnsettled { source, .. } => source.report_decode_location(),
             _ => None,
@@ -164,6 +165,7 @@ impl ReportSource for pse_runtime::workflow::WorkflowError {
         match self {
             Self::Canonical(error) => error.report_analysis_key(),
             Self::Shared(error) => error.report_analysis_key(),
+            Self::Admission { cause, .. } => cause.report_analysis_key(),
             Self::ArtifactTransferUnsettled {
                 analysis, source, ..
             } => analysis.clone().or_else(|| source.report_analysis_key()),
@@ -175,6 +177,7 @@ impl ReportSource for pse_runtime::workflow::WorkflowError {
         match self {
             Self::Canonical(error) => error.report_artifact_key(),
             Self::Shared(error) => error.report_artifact_key(),
+            Self::Admission { cause, .. } => cause.report_artifact_key(),
             Self::StudyCreationUnsettled { source, .. } => source.report_artifact_key(),
             Self::ArtifactTransferUnsettled { artifact, .. } => Some(artifact.key.clone()),
             _ => None,
@@ -184,6 +187,7 @@ impl ReportSource for pse_runtime::workflow::WorkflowError {
         match self {
             Self::Canonical(error) => error.report_artifact_intent(),
             Self::Shared(error) => error.report_artifact_intent(),
+            Self::Admission { cause, .. } => cause.report_artifact_intent(),
             Self::StudyCreationUnsettled { source, .. } => source.report_artifact_intent(),
             Self::ArtifactTransferUnsettled { artifact, .. } => Some((**artifact).clone()),
             _ => None,
@@ -198,6 +202,7 @@ impl ReportSource for pse_runtime::workflow::WorkflowError {
                 ..
             } => Some((owner_kind.clone(), owner.clone(), read.clone())),
             Self::Shared(error) => error.report_artifact_cleanup(),
+            Self::Admission { cause, .. } => cause.report_artifact_cleanup(),
             Self::StudyCreationUnsettled { source, .. } => source.report_artifact_cleanup(),
             _ => None,
         }
@@ -206,6 +211,7 @@ impl ReportSource for pse_runtime::workflow::WorkflowError {
         match self {
             Self::StudyCreationUnsettled { study, .. } => Some(study.to_string()),
             Self::Shared(error) => error.report_study_key(),
+            Self::Admission { cause, .. } => cause.report_study_key(),
             _ => None,
         }
     }
@@ -213,6 +219,7 @@ impl ReportSource for pse_runtime::workflow::WorkflowError {
         match self {
             Self::Canonical(error) => error.report_source_problem(),
             Self::Shared(error) => error.report_source_problem(),
+            Self::Admission { cause, .. } => cause.report_source_problem(),
             Self::StudyCreationUnsettled { source, .. }
             | Self::ArtifactTransferUnsettled { source, .. } => source.report_source_problem(),
             _ => None,
@@ -222,6 +229,7 @@ impl ReportSource for pse_runtime::workflow::WorkflowError {
         match self {
             Self::Canonical(error) => error.report_source_operation(),
             Self::Shared(error) => error.report_source_operation(),
+            Self::Admission { cause, .. } => cause.report_source_operation(),
             Self::StudyCreationUnsettled { source, .. }
             | Self::ArtifactTransferUnsettled { source, .. } => source.report_source_operation(),
             _ => None,
@@ -232,6 +240,7 @@ impl ReportSource for pse_runtime::workflow::WorkflowError {
         match self {
             Self::Canonical(error) => error.report_source_refusal_proved(),
             Self::Shared(error) => error.report_source_refusal_proved(),
+            Self::Admission { cause, .. } => cause.report_source_refusal_proved(),
             Self::StudyCreationUnsettled { source, .. }
             | Self::ArtifactTransferUnsettled { source, .. } => {
                 source.report_source_refusal_proved()

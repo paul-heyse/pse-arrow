@@ -12,14 +12,14 @@ use pse_compiler::workspace::ModelingCaseBindings;
 use pse_kernels::DerivativeOrder;
 use pse_model::{forms::NativeConstraint, generated::enums::NativeConstraintForm};
 
-async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+async fn package(text: &str) -> (Runtime, ModelingPackage, DeclarationId) {
     package_on(text, fixture::runtime()).await
 }
 /// A package whose native jobs admit a foreign allowance SCIP can take as its memory limit.
-async fn scip_package(text: &str) -> (ModelingPackage, DeclarationId) {
+async fn scip_package(text: &str) -> (Runtime, ModelingPackage, DeclarationId) {
     package_on(text, fixture::runtime_with(16 << 20, 16 << 20, 2 << 30)).await
 }
-async fn package_on(text: &str, runtime: Runtime) -> (ModelingPackage, DeclarationId) {
+async fn package_on(text: &str, runtime: Runtime) -> (Runtime, ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
         text,
@@ -34,7 +34,7 @@ async fn package_on(text: &str, runtime: Runtime) -> (ModelingPackage, Declarati
         .unwrap()
         .declaration_id;
     let package = runtime.modeling_package(rows, physical).await.unwrap();
-    (package, root)
+    (runtime, package, root)
 }
 fn profile(selection: SolverSelection) -> crate::math::solves::SolverProfile {
     let mut profile = fixture::profile();
@@ -50,6 +50,7 @@ fn case(values: &[(&str, f64)]) -> ModelingCaseBindings {
     }
 }
 async fn prepare(
+    services: &crate::workflow::ExecutionServices,
     package: &ModelingPackage,
     root: DeclarationId,
     case: ModelingCaseBindings,
@@ -57,6 +58,7 @@ async fn prepare(
 ) -> Result<ModelingSolvePreparation, WorkflowError> {
     package
         .prepare_solve(
+            services.preparation(),
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -149,38 +151,42 @@ fn objective_accuracy(result: &ModelingResult) -> ObjectiveAccuracy {
 }
 /// Solve with automatic routing, require HiGHS and an accepted candidate, and return a report.
 async fn optimum(
+    services: &crate::workflow::ExecutionServices,
     package: &ModelingPackage,
     root: DeclarationId,
     case: ModelingCaseBindings,
     report: &str,
 ) -> (f64, ObjectiveAccuracy) {
-    let ([value], accuracy) = optimal(package, root, case, [report]).await;
+    let ([value], accuracy) = optimal(&services, package, root, case, [report]).await;
     (value, accuracy)
 }
 /// Solve as [`optimum`] and return several reports, in the order requested.
 async fn optimal<const N: usize>(
+    services: &crate::workflow::ExecutionServices,
     package: &ModelingPackage,
     root: DeclarationId,
     case: ModelingCaseBindings,
     reports: [&str; N],
 ) -> ([f64; N], ObjectiveAccuracy) {
-    optimal_on(package, root, case, reports, Backend::Highs).await
+    optimal_on(&services, package, root, case, reports, Backend::Highs).await
 }
 /// Solve with automatic routing, require `backend` and an accepted candidate, and return
 /// reports in the order requested. HiGHS solves the linear lowerings as a discrete
 /// coefficient model; SCIP consumes native forms through the factorable export.
 async fn optimal_on<const N: usize>(
+    services: &crate::workflow::ExecutionServices,
     package: &ModelingPackage,
     root: DeclarationId,
     case: ModelingCaseBindings,
     reports: [&str; N],
     backend: Backend,
 ) -> ([f64; N], ObjectiveAccuracy) {
-    let prepared = prepare(package, root, case, SolverSelection::Auto)
+    let prepared = prepare(&services, package, root, case, SolverSelection::Auto)
         .await
         .unwrap();
     let result = package
         .solve_case(
+            &services,
             prepared,
             fixture::compiler_profile(),
             &crate::CancelSource::new(),
@@ -298,10 +304,17 @@ fn gdp_oracle(demand: f64) -> f64 {
 #[tokio::test]
 async fn gdp_hull_and_bigm_same_optimum() {
     for realization in ["hull", "bigm(derived)", "bigm(500{W})", "hull(0.0001)"] {
-        let (package, root) = package(&GDP.replace("REALIZATION", realization)).await;
+        let (runtime, package, root) = package(&GDP.replace("REALIZATION", realization)).await;
+        let services = runtime.execution_services();
         for demand in [40.0, 60.0, 0.0] {
-            let (cost, accuracy) =
-                optimum(&package, root, case(&[("demand", demand)]), "cost").await;
+            let (cost, accuracy) = optimum(
+                &services,
+                &package,
+                root,
+                case(&[("demand", demand)]),
+                "cost",
+            )
+            .await;
             assert!(
                 (cost - gdp_oracle(demand)).abs() <= accuracy.allowance(gdp_oracle(demand)),
                 "{realization} at {demand}: {cost}"
@@ -312,10 +325,12 @@ async fn gdp_hull_and_bigm_same_optimum() {
 
 #[tokio::test]
 async fn gdp_indicator_matches_hull() {
-    let (package, root) = scip_package(&GDP.replace("REALIZATION", "indicator")).await;
+    let (runtime, package, root) = scip_package(&GDP.replace("REALIZATION", "indicator")).await;
+    let services = runtime.execution_services();
     // Preparation records one native indicator per disjunct row, over its alternative.
     let resolution = package
         .resolve_case(
+            services.preparation(),
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -343,6 +358,7 @@ async fn gdp_indicator_matches_hull() {
     // Adapters without the handler refuse the native realization, with no conversion.
     for backend in [Backend::Highs, Backend::Ipopt] {
         let error = prepare(
+            &services,
             &package,
             root,
             case(&[]),
@@ -358,9 +374,10 @@ async fn gdp_indicator_matches_hull() {
     }
     // Automatic routing selects SCIP, which consumes the indicators natively and reaches
     // the hull reformulation's optimum on HiGHS at every demand.
-    let (hull, hull_root) = self::package(&GDP.replace("REALIZATION", "hull")).await;
+    let (hull_runtime, hull, hull_root) = self::package(&GDP.replace("REALIZATION", "hull")).await;
     for demand in [40.0, 60.0, 0.0] {
         let ([cost], accuracy) = optimal_on(
+            &services,
             &package,
             root,
             case(&[("demand", demand)]),
@@ -368,8 +385,14 @@ async fn gdp_indicator_matches_hull() {
             Backend::Scip,
         )
         .await;
-        let (reference, reference_accuracy) =
-            optimum(&hull, hull_root, case(&[("demand", demand)]), "cost").await;
+        let (reference, reference_accuracy) = optimum(
+            &hull_runtime.execution_services(),
+            &hull,
+            hull_root,
+            case(&[("demand", demand)]),
+            "cost",
+        )
+        .await;
         assert!(
             (cost - reference).abs()
                 <= accuracy.allowance(reference) + reference_accuracy.allowance(cost),
@@ -387,7 +410,7 @@ async fn gdp_indicator_matches_hull() {
 /// that depend on it, and never prepares the structure again (ADR-0104).
 #[tokio::test]
 async fn derived_big_m_follows_value_only_bindings() {
-    let (package, root) = package(
+    let (runtime, package, root) = package(
         &GDP.replace("REALIZATION", "bigm(derived)")
             .replace(
                 "var output: Power;",
@@ -399,6 +422,7 @@ async fn derived_big_m_follows_value_only_bindings() {
             ),
     )
     .await;
+    let services = runtime.execution_services();
     let analysis = ModelingAnalysis {
         root,
         instance: pse_modeling::specialize::root_instance(root),
@@ -412,14 +436,17 @@ async fn derived_big_m_follows_value_only_bindings() {
     };
     let limits = [50.0, 70.0, 90.0];
     let cancel = crate::CancelSource::new();
-    let service = package.runtime.native().clone();
+    let service = services.preparation().math().clone();
     let before = service.preparations();
-    let mut staged = crate::workflow::staged::Staged::open(&package.runtime, None).unwrap();
+    let mut staged = crate::workflow::staged::Staged::open(&services, None).unwrap();
     let mut results = Vec::new();
     for (index, limit) in limits.iter().enumerate() {
         let mut analysis = analysis.clone();
         analysis.case.values.insert("limit".into(), *limit);
-        let preparation = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let preparation = package
+            .prepare_analysis(services.preparation(), &analysis, &cancel)
+            .await
+            .unwrap();
         results.push(
             staged
                 .run(
@@ -489,7 +516,8 @@ async fn indicator_linear_lowering_matches_native() {
     // Enumerated oracle: fixing the indicator leaves a linear program per branch. Running
     // the unit is optimal below an 80 W charge and idling above it; the idle charge guards
     // the MIP whose presolve HiGHS 1.14.3 solved as running (net −10 W, zero gap).
-    let (linear, root) = package(&INDICATOR.replace("REALIZE", "")).await;
+    let (runtime, linear, root) = package(&INDICATOR.replace("REALIZE", "")).await;
+    let services = runtime.execution_services();
     let linear_root = root;
     for charge in [20.0, 50.0, 90.0] {
         let mut branches = Vec::new();
@@ -502,11 +530,12 @@ async fn indicator_linear_lowering_matches_native() {
                     ..Default::default()
                 },
             );
-            let prepared = prepare(&linear, root, fixed, SolverSelection::Auto)
+            let prepared = prepare(&services, &linear, root, fixed, SolverSelection::Auto)
                 .await
                 .unwrap();
             let result = linear
                 .solve_case(
+                    &services,
                     prepared,
                     fixture::compiler_profile(),
                     &crate::CancelSource::new(),
@@ -525,8 +554,14 @@ async fn indicator_linear_lowering_matches_native() {
             branches.push((value, objective_accuracy(&result)));
         }
         // Off forces x to zero; on admits x up to 80 W.
-        let ([net, on], accuracy) =
-            optimal(&linear, root, case(&[("charge", charge)]), ["net", "on"]).await;
+        let ([net, on], accuracy) = optimal(
+            &services,
+            &linear,
+            root,
+            case(&[("charge", charge)]),
+            ["net", "on"],
+        )
+        .await;
         let (best, branch_accuracy) = branches.iter().max_by(|a, b| a.0.total_cmp(&b.0)).unwrap();
         assert!(
             (net - best).abs() <= accuracy.allowance(*best) + branch_accuracy.allowance(net),
@@ -539,13 +574,15 @@ async fn indicator_linear_lowering_matches_native() {
         );
     }
     // The native realization keeps the authored rows with their indicator metadata.
-    let (native, root) = scip_package(&INDICATOR.replace(
+    let (runtime, native, root) = scip_package(&INDICATOR.replace(
         "REALIZE",
         "realize r1 on cap using indicator; realize r2 on off using indicator;",
     ))
     .await;
+    let services = runtime.execution_services();
     let resolution = native
         .resolve_case(
+            services.preparation(),
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -578,6 +615,7 @@ async fn indicator_linear_lowering_matches_native() {
     // linear lowering at every charge.
     assert_eq!(compiled.plan.structure().rows().len(), 2);
     let error = prepare(
+        &services,
         &native,
         root,
         case(&[]),
@@ -589,6 +627,7 @@ async fn indicator_linear_lowering_matches_native() {
     assert!(native_refusal(&error).contains("indicator"), "{error}");
     for charge in [20.0, 50.0, 90.0] {
         let ([net, on], accuracy) = optimal_on(
+            &services,
             &native,
             root,
             case(&[("charge", charge)]),
@@ -597,6 +636,7 @@ async fn indicator_linear_lowering_matches_native() {
         )
         .await;
         let ([lowered, lowered_on], lowered_accuracy) = optimal(
+            &services,
             &linear,
             linear_root,
             case(&[("charge", charge)]),
@@ -640,9 +680,10 @@ fn interpolate(x: f64) -> f64 {
 #[tokio::test]
 async fn piecewise_sos2_matches_incremental() {
     for realize in ["", "realize r on curve using incremental;"] {
-        let (package, root) = package(&PIECEWISE.replace("REALIZE", realize)).await;
+        let (runtime, package, root) = package(&PIECEWISE.replace("REALIZE", realize)).await;
+        let services = runtime.execution_services();
         for at in [20.0, 25.0, 7.5] {
-            let (y, accuracy) = optimum(&package, root, case(&[("at", at)]), "y").await;
+            let (y, accuracy) = optimum(&services, &package, root, case(&[("at", at)]), "y").await;
             assert!(
                 (y - interpolate(at)).abs() <= accuracy.allowance(interpolate(at)),
                 "{realize:?} at {at}: {y}"
@@ -667,12 +708,15 @@ const SOS: &str = "package p { entity kind source provenance { attribute title: 
 #[tokio::test]
 async fn native_only_realization_refused_on_highs() {
     // The linear SOS1 lowering admits one nonzero member: the best is 3 × 4 W.
-    let (linear, root) = package(&SOS.replace("REALIZE", "")).await;
-    let (value, accuracy) = optimum(&linear, root, case(&[]), "value").await;
+    let (runtime, linear, root) = package(&SOS.replace("REALIZE", "")).await;
+    let services = runtime.execution_services();
+    let (value, accuracy) = optimum(&services, &linear, root, case(&[]), "value").await;
     assert!((value - 12.0).abs() <= accuracy.allowance(12.), "{value}");
-    let (native, root) =
+    let (runtime, native, root) =
         scip_package(&SOS.replace("REALIZE", "realize r on pick using native;")).await;
+    let services = runtime.execution_services();
     let error = prepare(
+        &services,
         &native,
         root,
         case(&[]),
@@ -686,8 +730,15 @@ async fn native_only_realization_refused_on_highs() {
         "{error}"
     );
     // Automatic routing selects SCIP's SOS1 handler, which agrees with the lowering.
-    let ([native_value], native_accuracy) =
-        optimal_on(&native, root, case(&[]), ["value"], Backend::Scip).await;
+    let ([native_value], native_accuracy) = optimal_on(
+        &services,
+        &native,
+        root,
+        case(&[]),
+        ["value"],
+        Backend::Scip,
+    )
+    .await;
     assert!(
         (native_value - value).abs()
             <= native_accuracy.allowance(value) + accuracy.allowance(native_value),
@@ -699,12 +750,14 @@ async fn native_only_realization_refused_on_highs() {
 async fn indicator_realization_requires_native_backend() {
     // The native realization keeps its rows for SCIP's indicator handler, which HiGHS
     // lacks: an explicit HiGHS solve is refused before any native work.
-    let (native, root) = scip_package(&INDICATOR.replace(
+    let (runtime, native, root) = scip_package(&INDICATOR.replace(
         "REALIZE",
         "realize r1 on cap using indicator; realize r2 on off using indicator;",
     ))
     .await;
+    let services = runtime.execution_services();
     let error = prepare(
+        &services,
         &native,
         root,
         case(&[]),
@@ -721,6 +774,8 @@ async fn indicator_realization_requires_native_backend() {
 
 #[tokio::test]
 async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
+    let runtime = crate::workflow::tests::runtime();
+    let services = runtime.execution_services();
     use pse_model::generated::enums::ModelingConformanceStatus as Status;
     // The fixture's oracle is declared by the seed's references and the domain's
     // provenance module (ADR-0123 Outcome 5).
@@ -752,7 +807,7 @@ async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
     };
     policy.solver.intent = SolveIntent::Optimize;
     let report = package
-        .conform(policy, &crate::CancelSource::new())
+        .conform(&services, policy, &crate::CancelSource::new())
         .await
         .unwrap();
     assert!(report.passed(), "{:?}", report.checks);
@@ -788,16 +843,18 @@ const SMOOTH_MIN: &str = "fn smooth_min<Q>(a: Q, b: Q, eps: Delta<Q>) -> Q valid
 async fn smooth_complementarity_product_equals_eps_sq_over_4() {
     // Check the exact manufactured identity separately from the approximate native
     // point's original pin and smoothing rows. Continuing width reuses the structure.
-    let (package, root) = package(&format!(
+    let (runtime, package, root) = package(&format!(
         "package p {{ {SMOOTH_MIN} def Root {{ param eps: Scalar = 0.1; param a0: Scalar = 0.2; var a: Scalar; var b: Scalar; eq pin: a == a0;
         complements c: (a >= 0, b >= 0); realize r on c using smooth(smooth_min, eps);
         annotation bounds b(0, 10); annotation start a(0.2); annotation start b(1);
         annotation objective b(minimize); annotation report a(\"a\"); annotation report b(\"b\"); }} }}"
     )).await;
+    let services = runtime.execution_services();
     let mut structures = std::collections::BTreeSet::new();
     for eps in [0.1, 0.02, 0.004] {
         let prepared = package
             .prepare_solve(
+                services.preparation(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -814,6 +871,7 @@ async fn smooth_complementarity_product_equals_eps_sq_over_4() {
         structures.insert(prepared.model.case.compiled().plan.structure().key());
         let result = package
             .solve_case(
+                &services,
                 prepared,
                 fixture::compiler_profile(),
                 &crate::CancelSource::new(),
@@ -884,8 +942,10 @@ async fn disjunctive_complementarity_refused_on_highs() {
         eq total: a + b <= 1; complements c: (a >= 0, b >= 0); realize r on c using disjunctive;
         annotation bounds a(0, 0.6); annotation bounds b(0, 0.7); annotation start a(0); annotation start b(0);
         annotation objective value(maximize); annotation report a(\"a\"); annotation report b(\"b\"); } }";
-    let (native, root) = scip_package(text).await;
+    let (runtime, native, root) = scip_package(text).await;
+    let services = runtime.execution_services();
     let error = prepare(
+        &services,
         &native,
         root,
         case(&[]),
@@ -899,7 +959,15 @@ async fn disjunctive_complementarity_refused_on_highs() {
         "{error}"
     );
     // Automatic routing selects SCIP's SOS1 handler.
-    let ([a, b], accuracy) = optimal_on(&native, root, case(&[]), ["a", "b"], Backend::Scip).await;
+    let ([a, b], accuracy) = optimal_on(
+        &services,
+        &native,
+        root,
+        case(&[]),
+        ["a", "b"],
+        Backend::Scip,
+    )
+    .await;
     assert!(
         a.abs() <= accuracy.allowance(0.7) && (b - 0.7).abs() <= accuracy.allowance(0.7),
         "a={a} b={b}"
@@ -920,16 +988,18 @@ async fn authored_l1_realization_selects_route() {
         settings::pounce::{Method, Settings},
         solve::OptionValue,
     };
-    let (package, root) = package(
+    let (runtime, package, root) = package(
         "package p { def Root { param a0: Scalar = 0.2; var a: Scalar; var b: Scalar; eq pin: a == a0;
         complements c: (a >= 0, b >= 0); realize r on c using penalty(l1);
         annotation bounds b(0, 10); annotation start a(0.2); annotation start b(1);
         annotation objective b(minimize); annotation report a(\"a\"); annotation report b(\"b\"); } }",
     ).await;
+    let services = runtime.execution_services();
     // POUNCE takes second derivatives.
     let cancel = crate::CancelSource::new();
     let second = |profile| {
         package.prepare_solve(
+            services.preparation(),
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -953,6 +1023,7 @@ async fn authored_l1_realization_selects_route() {
     }
     let result = package
         .solve_case(
+            &services,
             prepared,
             fixture::compiler_profile(),
             &crate::CancelSource::new(),

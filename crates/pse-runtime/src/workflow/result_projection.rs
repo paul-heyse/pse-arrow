@@ -1300,10 +1300,19 @@ mod result_projection_unit {
         )
         .await;
         let prepared = package
-            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .prepare_analysis(
+                &ephemeral.preparation_services(),
+                &analysis,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
-        let result = prepared.start().unwrap().wait().await.unwrap();
+        let result = prepared
+            .start(&ephemeral.execution_services())
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
         assert!(result.usable(), "{:?}", result.report());
         let super::super::Durability::Durable(operations) = runtime.durability() else {
             panic!("canonical projection fixture requires durable operations")

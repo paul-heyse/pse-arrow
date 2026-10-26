@@ -159,7 +159,10 @@ async fn prepared_native_request_is_idle_and_cannot_start_after_caller_close() {
         .await
         .unwrap();
     runtime.close();
-    assert!(matches!(prepared.start(), Err(WorkflowError::CallerClosed)));
+    assert!(matches!(
+        prepared.start(&runtime.preparation_services()),
+        Err(WorkflowError::CallerClosed)
+    ));
     runtime
         .canonical_store()
         .unwrap()
@@ -250,7 +253,7 @@ async fn cancel_prepared_family_at_worker_entry(
     let cancel = crate::CancelSource::new();
     let handle = run::observed_family_worker_entry(
         Arc::new(move |flag| observed.enter(flag)),
-        prepared.start(runtime, &cancel),
+        prepared.start(&runtime.execution_services(), &cancel),
     )
     .await
     .unwrap();
@@ -332,6 +335,7 @@ async fn prepared_simulation(runtime: &Runtime) -> PreparedStudyOperation {
     let package = runtime.modeling_package(rows, physical).await.unwrap();
     let simulation = package
         .declared_simulation(
+            &runtime.preparation_services(),
             case,
             tests::compiler_profile(),
             None,
@@ -350,7 +354,7 @@ async fn prepared_study_simulation_forwards_caller_cancel_after_worker_dispatch_
     let prepared = prepared_simulation(&runtime).await;
     cancel_prepared_family_at_worker_entry(&runtime, &prepared).await;
     let rerun = prepared
-        .start(&runtime, &crate::CancelSource::new())
+        .start(&runtime.execution_services(), &crate::CancelSource::new())
         .await
         .unwrap()
         .wait()
@@ -378,7 +382,7 @@ async fn prepared_simulation_original_deadline_retains_native_drain_without_canc
     let sibling = caller.child_with_deadline(None);
     let handle = run::observed_family_worker_entry(
         Arc::new(move |flag| observed.enter(flag)),
-        prepared.start(&runtime, &caller),
+        prepared.start(&runtime.execution_services(), &caller),
     )
     .await
     .unwrap();
@@ -427,10 +431,10 @@ async fn prepared_study_fit_forwards_caller_cancel_after_worker_dispatch_and_joi
     use super::fitting::regression;
     use pse_backend_native::solve::HessianMode;
     let runtime = tests::runtime();
-    let package =
-        regression::package_on(runtime.clone(), false, regression::declared(), [1.; 4]).await;
+    let package = regression::package_on(&runtime, false, regression::declared(), [1.; 4]).await;
     let fit = package
         .prepare_fit(
+            &runtime.preparation_services(),
             tests::id(32).into(),
             regression::profile(HessianMode::Exact, None),
             tests::compiler_profile(),
@@ -442,7 +446,7 @@ async fn prepared_study_fit_forwards_caller_cancel_after_worker_dispatch_and_joi
     let prepared = PreparedStudyOperation::Fit(Box::new(fit));
     cancel_prepared_family_at_worker_entry(&runtime, &prepared).await;
     let rerun = prepared
-        .start(&runtime, &crate::CancelSource::new())
+        .start(&runtime.execution_services(), &crate::CancelSource::new())
         .await
         .unwrap()
         .wait()

@@ -168,7 +168,8 @@ def test_retained_attempt_summary_and_replay_use_original_inputs(
     assert document.coverage.usable == result.usable
     assert not document.native_continuation
     assert document.sources
-    assert document.case_constructors
+    assert isinstance(document.constructor, documents.ReplayConstructorModeling)
+    assert document.constructor.cases
     assert (
         codec.decode_json(codec.encode_json(document), documents.ReplayDocument)
         == document
@@ -249,10 +250,11 @@ def test_frozen_advice_uses_actual_native_cohort_and_survives_replay(
         == summary
     )
     exported = result.replay().document(bytes=128 * 1024 * 1024)
+    assert isinstance(exported.constructor, documents.ReplayConstructorModeling)
     assert (
         codec.convert_document(
             codec.document_builtins(
-                exported.case_constructors[0].settings.composition.advice
+                exported.constructor.cases[0].settings.composition.advice
             ),
             documents.FrozenAdviceOutput,
         )

@@ -1972,8 +1972,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `newton_trust_region` | `` | false |
-| `nonlinear_additive_schwarz` | `` | false |
-| `pseudo_transient` | `` | false |
 
 ## `NativePetscPreconditioner`
 

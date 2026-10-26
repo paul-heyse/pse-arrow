@@ -564,7 +564,10 @@ impl Runtime {
             }
             let mut documents = Vec::new();
             // Typed edits can deliberately invalidate loader text. The exact replay source remains the ordinary source owner.
-            if let Some(sources) = package.portability_documents(cancel).await? {
+            if let Some(sources) = package
+                .portability_documents(&self.source_services(), cancel)
+                .await?
+            {
                 for (package_index, bundle) in sources.iter().enumerate() {
                     for (index, (path, bytes)) in bundle.iter().enumerate() {
                         let id = format!("document-{ordinal}-{package_index}-{index}");

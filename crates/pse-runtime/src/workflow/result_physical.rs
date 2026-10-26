@@ -7,6 +7,10 @@ use pse_operations::{canonical::Revision, canonical_results::ResultRead};
 use pse_relations::columnar::FieldCheckedBatch;
 use std::{collections::BTreeMap, sync::Arc};
 
+fn integrity(message: impl Into<String>) -> WorkflowError {
+    WorkflowError::Integrity(message.into())
+}
+
 /// Physical publication records the full versioned RelationKey display, not a
 /// latest-version qualified-name selector. Recover the exact declared key before
 /// admitting the original Arrow schema and rows.
@@ -16,13 +20,13 @@ fn retained_physical_relation<'a>(
 ) -> Result<&'a pse_schema::model::RelationSpec, WorkflowError> {
     let (qualified, version) = scope
         .rsplit_once('@')
-        .ok_or_else(|| contract("original physical relation locator lacks its version"))?;
+        .ok_or_else(|| integrity("original physical relation locator lacks its version"))?;
     let family = registry
         .relation(qualified)
         .ok_or_else(|| contract("original physical relation unavailable"))?;
     let version = version
         .parse::<u32>()
-        .map_err(|_| contract("original physical relation version is invalid"))?;
+        .map_err(|_| integrity("original physical relation version is invalid"))?;
     let key = pse_schema::model::RelationKey {
         version,
         ..family.key
@@ -31,7 +35,7 @@ fn retained_physical_relation<'a>(
         .relation_by_key(key)
         .ok_or_else(|| contract("original physical relation version unavailable"))?;
     if relation.key.to_string() != scope {
-        return Err(contract(
+        return Err(integrity(
             "original physical relation locator spelling differs",
         ));
     }
@@ -134,41 +138,41 @@ impl Runtime {
                     .await?
                     .ok_or_else(|| contract("original physical object unavailable"))?;
                     if pin.revision() == *receipt && object.kind != "physical:context:v1" {
-                        return Err(contract(
+                        return Err(integrity(
                             "original physical context receipt contains a non-context payload",
                         ));
                     }
                     if object.kind == "physical:context:v1" {
                         if pin.revision() != *receipt || receipt_seen {
-                            return Err(contract(
+                            return Err(integrity(
                                 "original physical context receipt is misplaced or duplicated",
                             ));
                         }
                         let (version, actual): (u8, pse_ids::ContentHash) =
                             serde_json::from_slice(object.payload.as_slice())
-                                .map_err(|e| contract(e.to_string()))?;
+                                .map_err(|e| integrity(e.to_string()))?;
                         if version != 1 || actual != expected || pin.revision() != *receipt {
-                            return Err(contract("original physical context receipt differs"));
+                            return Err(integrity("original physical context receipt differs"));
                         }
                         receipt_seen = true;
                         continue;
                     }
                     if object.kind != "physical:rows:v1" {
-                        return Err(contract("original physical row interpretation differs"));
+                        return Err(integrity("original physical row interpretation differs"));
                     }
                     let spec = retained_physical_relation(self.registry(), &member.scope)?;
                     let mut stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
                         std::io::Cursor::new(object.payload.as_slice()),
                         None,
                     )
-                    .map_err(|e| contract(e.to_string()))?;
+                    .map_err(|e| integrity(e.to_string()))?;
                     let mut count = 0;
                     for batch in &mut stream {
                         count += 1;
                         if count > 1 {
-                            return Err(contract("original physical block has multiple batches"));
+                            return Err(integrity("original physical block has multiple batches"));
                         }
-                        let batch = batch.map_err(|e| contract(e.to_string()))?;
+                        let batch = batch.map_err(|e| integrity(e.to_string()))?;
                         let checked = FieldCheckedBatch::admit(
                             self.registry(),
                             spec,
@@ -184,11 +188,11 @@ impl Runtime {
                             .insert(member.logical.clone(), checked)
                             .is_some()
                         {
-                            return Err(contract("duplicate original physical row coordinate"));
+                            return Err(integrity("duplicate original physical row coordinate"));
                         }
                     }
                     if count != 1 {
-                        return Err(contract("original physical block is empty"));
+                        return Err(integrity("original physical block is empty"));
                     }
                 }
             }
@@ -226,7 +230,7 @@ impl Runtime {
         .map_err(|e| WorkflowError::Engine(pse_engine::EngineError::Semantic(Arc::new(e))))?;
         let mut physical = PhysicalContext::admitted(Arc::new(inventory));
         if physical.identity() != expected {
-            return Err(contract(
+            return Err(integrity(
                 "original physical rows do not reconstruct the original context",
             ));
         }

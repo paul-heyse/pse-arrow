@@ -18,6 +18,7 @@ impl ModelingPackage {
     )]
     pub async fn solve_bound(
         &self,
+        services: &crate::workflow::ExecutionServices,
         case: DeclarationId,
         overlay: &PointOverlay,
         compiler: pse_compiler::workspace::Profile,
@@ -26,13 +27,22 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
                 let prepared = self
-                    .prepare_bound_solve(case, overlay, compiler, solver, numerical, limits, cancel)
+                    .prepare_bound_solve(
+                        services.preparation(),
+                        case,
+                        overlay,
+                        compiler,
+                        solver,
+                        numerical,
+                        limits,
+                        cancel,
+                    )
                     .await?;
-                self.solve_case(prepared, compiler, cancel).await
+                self.solve_case(services, prepared, compiler, cancel).await
             })
             .await
     }
@@ -40,6 +50,7 @@ impl ModelingPackage {
     /// Retain a stored, already admitted binding under its own allocation owner.
     pub(in crate::workflow) fn retain_bound_source(
         &self,
+        services: &crate::workflow::PreparationServices,
         binding: &AdmittedBinding,
     ) -> Result<Arc<pse_columnar::Leased<AdmittedBinding>>, WorkflowError> {
         let extent = binding
@@ -62,9 +73,7 @@ impl ModelingPackage {
                 },
             )
             .ok_or_else(|| contract("retained bound source extent"))?;
-        let owner = self
-            .runtime
-            .shared
+        let owner = services
             .math()
             .reserve("modeling:retained-bound-source", extent)?;
         Ok(Arc::new(pse_columnar::Leased::new(
@@ -79,6 +88,7 @@ impl ModelingPackage {
     )]
     pub(in crate::workflow) async fn prepare_bound_solve(
         &self,
+        services: &crate::workflow::PreparationServices,
         case: DeclarationId,
         overlay: &PointOverlay,
         compiler: pse_compiler::workspace::Profile,
@@ -87,7 +97,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 cancel
@@ -120,11 +130,7 @@ impl ModelingPackage {
                         },
                     )
                     .ok_or_else(|| contract("bound solve attribution extent"))?;
-                let owner = self
-                    .runtime
-                    .shared
-                    .math()
-                    .reserve("modeling:bound-source", extent)?;
+                let owner = services.math().reserve("modeling:bound-source", extent)?;
                 let demand = overlay
                     .assignments
                     .iter()
@@ -135,7 +141,7 @@ impl ModelingPackage {
                     .collect();
                 let mut execution = self
                     .declared_execution_with_demand(
-                        case, compiler, solver, numerical, limits, demand, cancel,
+                        services, case, compiler, solver, numerical, limits, demand, cancel,
                     )
                     .await?;
                 if !matches!(execution.procedure, DeclaredProcedure::Solve) {
@@ -149,6 +155,7 @@ impl ModelingPackage {
                 let analysis = execution.analysis;
                 let resolution = self
                     .resolve_prepared_case(
+                        services,
                         execution.model,
                         analysis.case,
                         analysis.order,
@@ -160,7 +167,7 @@ impl ModelingPackage {
                         cancel,
                     )
                     .await?;
-                let mut prepared = self.finish_case(resolution, cancel).await?;
+                let mut prepared = self.finish_case(services, resolution, cancel).await?;
                 prepared.bound_source = Some(Arc::new(pse_columnar::Leased::new(
                     Arc::new(binding),
                     owner,
@@ -199,6 +206,7 @@ mod tests {
         profile
     }
     async fn package(
+        runtime: &Runtime,
         parameter: f64,
         fixed: f64,
         start: f64,
@@ -211,7 +219,7 @@ mod tests {
             .unwrap()
             .declaration_id;
         (
-            fixture::runtime()
+            runtime
                 .modeling_package(rows, fixture::physical())
                 .await
                 .unwrap(),
@@ -238,12 +246,14 @@ mod tests {
         }
     }
     async fn prepare(
+        services: &crate::workflow::PreparationServices,
         package: &ModelingPackage,
         root: DeclarationId,
         overlay: &PointOverlay,
     ) -> ModelingSolvePreparation {
         package
             .prepare_bound_solve(
+                services,
                 root,
                 overlay,
                 fixture::compiler_profile(),
@@ -274,9 +284,16 @@ mod tests {
 
     #[tokio::test]
     async fn bound_parameter_fixed_value_and_free_start_match_fresh_without_editing_parent() {
-        let (parent, root) = package(3., 2., 1., 0.).await;
+        let runtime = fixture::runtime();
+        let (parent, root) = package(&runtime, 3., 2., 1., 0.).await;
         let original_revision = parent.revision.identity();
-        let original = prepare(&parent, root, &PointOverlay::default()).await;
+        let original = prepare(
+            &runtime.preparation_services(),
+            &parent,
+            root,
+            &PointOverlay::default(),
+        )
+        .await;
         let (p, f, x) = (
             member(&original.model.model, "p"),
             member(&original.model.model, "f"),
@@ -291,6 +308,7 @@ mod tests {
         };
         let bound = parent
             .solve_bound(
+                &runtime.execution_services(),
                 root,
                 &overlay,
                 fixture::compiler_profile(),
@@ -301,9 +319,11 @@ mod tests {
             )
             .await
             .unwrap();
-        let (fresh, fresh_root) = package(4., 5., 7., 0.).await;
+        let fresh_runtime = fixture::runtime();
+        let (fresh, fresh_root) = package(&fresh_runtime, 4., 5., 7., 0.).await;
         let fresh = fresh
             .solve_bound(
+                &fresh_runtime.execution_services(),
                 fresh_root,
                 &PointOverlay::default(),
                 fixture::compiler_profile(),
@@ -333,7 +353,13 @@ mod tests {
             StartSource::Binding { member: x }
         );
         assert_eq!(parent.revision.identity(), original_revision);
-        let reopened = prepare(&parent, root, &PointOverlay::default()).await;
+        let reopened = prepare(
+            &runtime.preparation_services(),
+            &parent,
+            root,
+            &PointOverlay::default(),
+        )
+        .await;
         assert_eq!(reopened.model.values.scalars[&p], 3.);
         assert_eq!(reopened.model.values.scalars[&f], 2.);
         assert_eq!(reopened.model.values.scalars[&x], 1.);
@@ -370,14 +396,21 @@ mod tests {
 
     #[tokio::test]
     async fn bound_warm_point_reuses_structure_and_structural_literals_stay_authored() {
-        let (parent, root) = package(3., 2., 1., 0.).await;
+        let runtime = fixture::runtime();
+        let (parent, root) = package(&runtime, 3., 2., 1., 0.).await;
         let overlay = PointOverlay {
             assignments: vec![assignment(&parent, BindingTarget::Path("x".into()), 7.)],
         };
-        let first = prepare(&parent, root, &overlay).await;
-        let math = parent.runtime.shared.math();
+        let first = prepare(&runtime.preparation_services(), &parent, root, &overlay).await;
+        let math = runtime.shared.math();
         let before = math.preparation_effects();
-        let (second, counts) = crate::math::counted(prepare(&parent, root, &overlay)).await;
+        let (second, counts) = crate::math::counted(prepare(
+            &runtime.preparation_services(),
+            &parent,
+            root,
+            &overlay,
+        ))
+        .await;
         assert_eq!(counts.views, 0);
         let effects = math.preparation_effects().since(before);
         assert_eq!(effects.workspaces, 0);
@@ -391,9 +424,11 @@ mod tests {
             first.model.model.compiled().model.allocation_identity(),
             second.model.model.compiled().model.allocation_identity()
         );
-        let (changed, changed_root) = package(3., 2., 1., 1.).await;
+        let changed_runtime = fixture::runtime();
+        let (changed, changed_root) = package(&changed_runtime, 3., 2., 1., 1.).await;
         let changed = changed
             .solve_bound(
+                &changed_runtime.execution_services(),
                 changed_root,
                 &PointOverlay::default(),
                 fixture::compiler_profile(),
@@ -412,6 +447,7 @@ mod tests {
         assert!(
             parent
                 .prepare_bound_solve(
+                    &runtime.preparation_services(),
                     root,
                     &illegal,
                     fixture::compiler_profile(),
@@ -443,14 +479,16 @@ mod tests {
                 .find(|row| row.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let package = fixture::runtime()
+            let runtime = fixture::runtime();
+            let package = runtime
                 .modeling_package(rows, fixture::physical())
                 .await
                 .unwrap();
-            let math = package.runtime.shared.math();
+            let math = runtime.shared.math();
             let before = math.preparation_effects();
             let execution = package
                 .declared_execution(
+                    &runtime.preparation_services(),
                     root,
                     fixture::compiler_profile(),
                     profile(),
@@ -473,7 +511,11 @@ mod tests {
             }
             let before = math.preparation_effects();
             let prepared = package
-                .prepare_declared(&execution, &crate::CancelSource::new())
+                .prepare_declared(
+                    &runtime.preparation_services(),
+                    &execution,
+                    &crate::CancelSource::new(),
+                )
                 .await
                 .unwrap();
             let effects = math.preparation_effects().since(before);

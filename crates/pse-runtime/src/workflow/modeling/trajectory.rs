@@ -64,7 +64,7 @@ impl ModelingTrajectory {
         &self,
     ) -> Result<Arc<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>>, WorkflowError>
     {
-        let runtime = &self.inner.prepared.runtime;
+        let runtime = &self.inner.services;
         crate::workflow::result_export::collect_tables(self.table_ids(), runtime, |id| {
             self.cursor_by_id(id, 1024, crate::workflow::ResultOrder::Public)
                 .map_err(Arc::new)
@@ -77,7 +77,7 @@ impl ModelingTrajectory {
         &self,
         name: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let runtime = &self.inner.prepared.runtime;
+        let runtime = &self.inner.services;
         let id = runtime
             .registry()
             .relation(name)
@@ -98,8 +98,7 @@ impl ModelingTrajectory {
     ) -> Result<crate::workflow::ResultCursor<'_>, WorkflowError> {
         let id = self
             .inner
-            .prepared
-            .runtime
+            .services
             .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown trajectory relation"))?
@@ -112,7 +111,7 @@ impl ModelingTrajectory {
         name: &str,
         rows: usize,
     ) -> Result<crate::workflow::ResultCursor<'static>, WorkflowError> {
-        let runtime = &self.inner.prepared.runtime;
+        let runtime = &self.inner.services;
         let id = runtime
             .registry()
             .relation(name)
@@ -155,7 +154,7 @@ impl ModelingTrajectory {
         if let Some(error) = self.inner.encodings.failure(id) {
             return Err(WorkflowError::Shared(error));
         }
-        let runtime = &self.inner.prepared.runtime;
+        let runtime = &self.inner.services;
         let spec = runtime
             .registry()
             .relation_by_id(id)
@@ -189,12 +188,12 @@ impl ModelingTrajectory {
         };
         let p = &self.inner.prepared;
         let product = p.model().compiled();
-        let pool = p.runtime.shared.pool();
+        let pool = self.inner.services.pool();
         let cancel = request.cancel.clone();
-        let validation = p.runtime.validation_context();
+        let validation = self.inner.services.validation_context();
         let mut columns = crate::workflow::result_export::SelectedCollection::new(
             request,
-            p.runtime.registry(),
+            self.inner.services.registry(),
             &pool,
             &cancel,
             &validation,
@@ -616,6 +615,7 @@ impl ModelingSimulation {
     /// and every inventory/projection step checks the original run stop scope.
     pub(in crate::workflow) fn live_projection(
         &self,
+        services: &crate::workflow::PreparationServices,
         cancel: &pse_diagnostics::Cancellation,
         deadline: std::time::Instant,
     ) -> Result<crate::workflow::live_simulation::LiveProjection, WorkflowError> {
@@ -634,9 +634,8 @@ impl ModelingSimulation {
             .and_then(|count| count.checked_mul(size_of::<SemanticId>() + size_of::<usize>() + 256))
             .and_then(|bytes| bytes.checked_add(4096))
             .ok_or_else(|| contract("live projection scratch extent"))?;
-        let _scratch = self
-            .runtime
-            .native()
+        let _scratch = services
+            .math()
             .reserve("simulation:live-projection-scratch", scratch_bytes)?;
         let retained_bytes = selected
             .checked_mul(size_of::<LiveOutputLineage>())
@@ -647,9 +646,8 @@ impl ModelingSimulation {
                 bytes.checked_add(size_of::<LiveProjection>() + 2 * size_of::<usize>())
             })
             .ok_or_else(|| contract("live projection retained extent"))?;
-        let owner = self
-            .runtime
-            .native()
+        let owner = services
+            .math()
             .reserve("simulation:live-projection", retained_bytes)?;
         let mut positions = BTreeMap::new();
         for (position, id) in self.contract.outputs.iter().enumerate() {

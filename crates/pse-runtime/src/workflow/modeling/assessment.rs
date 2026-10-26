@@ -124,6 +124,7 @@ pub(in crate::workflow) enum Obligations {
 /// The prepared original-model assessment of one bound case.
 #[derive(Debug)]
 pub(in crate::workflow) struct Assessment {
+    math: Arc<crate::math::MathService>,
     program: Option<Arc<ExecutableCase>>,
     rows: Vec<SemanticId>,
     scope: AssessmentScope,
@@ -134,11 +135,12 @@ impl ModelingPackage {
     /// is value-independent and shared by every step of the same structure.
     pub(in crate::workflow) async fn assessment(
         &self,
+        services: &crate::workflow::PreparationServices,
         prepared: &ModelingSolvePreparation,
         obligations: Obligations,
         cancel: &crate::CancelSource,
     ) -> Result<Assessment, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.admit_activity()?;
         activity
             .scope(async {
                 let product = prepared.model.model.compiled();
@@ -158,6 +160,7 @@ impl ModelingPackage {
                 } else {
                     Some(
                         self.observation_program(
+                            services,
                             &prepared.model.model,
                             &rows,
                             prepared.compiler,
@@ -171,6 +174,7 @@ impl ModelingPackage {
                     .map(|p| p.assembly.structure().rows().iter().map(|r| r.id).collect())
                     .unwrap_or_default();
                 Ok(Assessment {
+                    math: services.math().clone(),
                     program,
                     rows,
                     scope,
@@ -291,7 +295,7 @@ impl Assessment {
         if !policy.goals.is_empty() {
             if original.permits_use() {
                 match prepared.solve.coordinate_accuracy(
-                    prepared.source.runtime.native(),
+                    &self.math,
                     outcome,
                     &point.values,
                     execution,
@@ -361,7 +365,7 @@ impl Assessment {
         checkpoint()?;
         let mut applicability = Vec::new();
         let observed = if let Some(program) = &self.program {
-            let mut evaluator = prepared.source.runtime.native().worker(
+            let mut evaluator = self.math.worker(
                 program.clone(),
                 &prepared.providers,
                 execution.clone(),

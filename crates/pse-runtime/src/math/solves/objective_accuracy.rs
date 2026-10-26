@@ -360,7 +360,8 @@ mod tests {
                 .find(|row| row.name == "Root")
                 .unwrap()
                 .declaration_id;
-            let package = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30)
+            let runtime = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30);
+            let package = runtime
                 .modeling_package(rows, fixture::physical())
                 .await
                 .unwrap();
@@ -377,6 +378,7 @@ mod tests {
             let compiler = fixture::compiler_profile();
             let mut prepared = package
                 .prepare_solve(
+                    &runtime.preparation_services(),
                     root,
                     pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
@@ -404,7 +406,12 @@ mod tests {
                 .clone()
                 .with_strategy(declaration, vec![prepared.solve.clone().into()])
                 .unwrap();
-            let run = prepared.start().unwrap().wait().await.unwrap();
+            let run = prepared
+                .start(&runtime.execution_services())
+                .unwrap()
+                .wait()
+                .await
+                .unwrap();
             let crate::workflow::RunReport::Modeling(results) = run.report().unwrap() else {
                 panic!("expected actual modeling report");
             };

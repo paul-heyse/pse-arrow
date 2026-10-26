@@ -464,7 +464,7 @@ impl pse_math::construction::ConstructionAdmission for ConstructionOwner {
             return Err(pse_math::MathError::Cancelled);
         }
         let mut additional = self.additional.lock().map_err(|_| {
-            pse_math::MathError::Contract("construction admission lock poisoned".into())
+            MathRuntimeError::Internal("construction admission lock poisoned".into()).into_math()
         })?;
         let required = self
             .initial

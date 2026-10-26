@@ -663,6 +663,7 @@ mod refinement_tests {
         bindings.demand.push("q".into());
         let report_only = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 bindings.clone(),
@@ -719,6 +720,7 @@ mod refinement_tests {
             });
         let prepared = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 bindings,
@@ -844,6 +846,7 @@ mod refinement_tests {
         let cancel = crate::CancelSource::new();
         let baseline = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
@@ -909,6 +912,7 @@ mod refinement_tests {
             });
         let prepared = package
             .prepare_solve(
+                &runtime.preparation_services(),
                 root,
                 pse_modeling::specialize::root_instance(root),
                 Bindings::default(),

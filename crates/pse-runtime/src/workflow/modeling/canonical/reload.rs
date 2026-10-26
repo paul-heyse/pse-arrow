@@ -200,25 +200,32 @@ impl RetainedIngress {
         }
     }
 }
-fn owners(package: &ModelingPackage) -> (usize, usize) {
+fn owners(services: &crate::workflow::PreparationServices) -> (usize, usize) {
     (
-        Arc::as_ptr(&package.runtime.validation_context()) as usize,
-        Arc::as_ptr(package.runtime.registry()) as usize,
+        Arc::as_ptr(&services.validation_context()) as usize,
+        Arc::as_ptr(services.registry()) as usize,
     )
 }
 pub(in crate::workflow::modeling) fn retain_initial(
+    services: &crate::workflow::PreparationServices,
     package: &ModelingPackage,
     documents: &OwnedDocumentSet,
 ) -> Result<(), WorkflowError> {
     let bytes = pse_admission::authoring_driver::document::workspace_extent(documents)?;
-    retain(package, ParsedOwner::Initial(documents.clone()), bytes)
+    retain(
+        services,
+        package,
+        ParsedOwner::Initial(documents.clone()),
+        bytes,
+    )
 }
 fn retain(
+    services: &crate::workflow::PreparationServices,
     package: &ModelingPackage,
     source: ParsedOwner,
     bytes: usize,
 ) -> Result<(), WorkflowError> {
-    let math = package.runtime.shared.math();
+    let math = services.math();
     let generation = math.modeling_cache.generation();
     let extent = package
         .revision_id()
@@ -234,7 +241,7 @@ fn retain(
         bytes: bytes.saturating_add(extent),
         _lease: lease,
     });
-    let (validation, registry) = owners(package);
+    let (validation, registry) = owners(services);
     math.modeling_cache.retain_ingress(
         generation,
         package.revision_id().into(),
@@ -282,20 +289,22 @@ impl ParsedEdit {
 }
 
 fn source_rows(
+    services: &crate::workflow::PreparationServices,
     parsed: &ParsedReload,
     package: &ModelingPackage,
     cancel: &crate::CancelSource,
 ) -> Result<super::super::DocumentCompilerContext, WorkflowError> {
     super::super::document_inputs_bundles(
         parsed.bundles(),
-        package.runtime.registry(),
+        services.registry(),
         &package.physical,
-        package.runtime.shared.budget().math.workspace_bytes,
-        &package.runtime.shared.pool(),
+        services.math().policy().workspace_bytes,
+        &services.pool(),
         &cancel.token(),
     )
 }
 fn exact_document_sources(
+    services: &crate::workflow::PreparationServices,
     package: &ModelingPackage,
     parent: &delta::Parent,
     cancel: &crate::CancelSource,
@@ -313,7 +322,7 @@ fn exact_document_sources(
                 return Err(contract("cold loader data bytes differ from ingress frame"));
             }
             data_leases.push(
-                package.runtime.shared.math().reserve(
+                services.math().reserve(
                     "modeling:cold-encoded-copy",
                     value
                         .payload
@@ -366,9 +375,10 @@ impl ModelingPackage {
     /// Exact loader-owned source/data closure. The caller retains canonical protection through publication.
     pub(in crate::workflow) async fn portability_documents(
         &self,
+        services: &crate::workflow::SourceServices,
         cancel: &crate::CancelSource,
     ) -> Result<Option<pse_columnar::Leased<Vec<BTreeMap<String, Vec<u8>>>>>, WorkflowError> {
-        let parent = self.delta_parent(cancel).await?;
+        let parent = self.delta_parent(services.preparation(), cancel).await?;
         if parent.documents.is_empty()
             || parent.documents.values().any(|document| {
                 document.source_text.is_none()
@@ -393,17 +403,17 @@ impl ModelingPackage {
                     .and_then(|n| n.checked_add(document.path.len() + 1024))
                     .ok_or_else(|| contract("portable source extent"))
             })?;
-        let owner = self
-            .runtime
-            .shared
+        let owner = services
+            .preparation()
             .math()
             .reserve("project:portable-documents", extent)?;
-        let sources = exact_document_sources(self, &parent, cancel)?;
+        let sources = exact_document_sources(services.preparation(), self, &parent, cancel)?;
         Ok(Some(pse_columnar::Leased::new(Arc::new(sources), owner)))
     }
 }
 
 async fn cold_owner(
+    services: &crate::workflow::PreparationServices,
     package: &ModelingPackage,
     parent: &delta::Parent,
     cancel: &crate::CancelSource,
@@ -414,22 +424,20 @@ async fn cold_owner(
         .try_fold(0usize, |n, row| n.checked_add(row.owned_bytes()))
         .and_then(|n| n.checked_mul(4))
         .ok_or_else(|| contract("cold parser source extent"))?;
-    let _scratch = package
-        .runtime
-        .shared
+    let _scratch = services
         .math()
         .reserve("modeling:cold-parser-source", extent)?;
-    let sources = exact_document_sources(package, parent, cancel)?;
+    let sources = exact_document_sources(services, package, parent, cancel)?;
     let parsed = Arc::new(ParsedReload::load(
         &sources,
         &[],
-        package.runtime.registry(),
+        services.registry(),
         Default::default(),
-        &package.runtime.shared.pool(),
+        &services.pool(),
         &cancel.token(),
-        &package.runtime.admission_context(),
+        &services.admission_context(),
     )?);
-    let (rows, _, fits, _, inventory, _lease) = source_rows(&parsed, package, cancel)?;
+    let (rows, _, fits, _, inventory, _lease) = source_rows(services, &parsed, package, cancel)?;
     let expected = rows
         .iter()
         .map(|row| (row.declaration_id, row))
@@ -472,6 +480,7 @@ async fn cold_owner(
 }
 
 fn make_edit(
+    services: &crate::workflow::PreparationServices,
     package: &ModelingPackage,
     parent: &delta::Parent,
     parsed: Arc<ParsedReload>,
@@ -484,13 +493,11 @@ fn make_edit(
         .and_then(|n| n.checked_mul(8))
         .and_then(|n| n.checked_add(8192))
         .ok_or_else(|| contract("parsed reload edit extent"))?;
-    let edit_lease = package
-        .runtime
-        .shared
+    let edit_lease = services
         .math()
         .reserve("modeling:parsed-reload-edit", extent)?;
     let (rows, mut physical, fits, sources, inventory, _lease) =
-        source_rows(&parsed, package, cancel)?;
+        source_rows(services, &parsed, package, cancel)?;
     let mut documents = BTreeMap::new();
     if let Some(batch) = sources.get(&pse_relations::generated::authored::documents::RELATION_ID) {
         for row in pse_relations::generated::authored::documents::Row::rows(batch)
@@ -638,17 +645,19 @@ impl ModelingPackage {
     /// changed texts receive fresh complete reference resolution before one CAS.
     pub async fn reload_from_parent(
         &self,
+        services: &crate::workflow::SourceServices,
         sources: &[BTreeMap<String, Vec<u8>>],
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
-        let activity = self.runtime.admit_activity()?;
+        let activity = services.preparation().admit_activity()?;
         activity
             .scope(async {
-                let deadline = self.runtime.shared.math().preparation_deadline(cancel)?;
+                let deadline = services.preparation().math().preparation_deadline(cancel)?;
                 let scoped = cancel.with_deadline(Some(deadline));
                 checkpoint(&scoped)?;
-                let (package, parsed) = self.reload_protected(sources, &scoped).await?;
+                let (package, parsed) = self.reload_protected(services, sources, &scoped).await?;
                 let _ = retain(
+                    services.preparation(),
                     &package,
                     ParsedOwner::Reload(parsed.clone()),
                     parsed.retained_bytes(),
@@ -659,14 +668,14 @@ impl ModelingPackage {
     }
     async fn reload_protected(
         &self,
+        services: &crate::workflow::SourceServices,
         sources: &[BTreeMap<String, Vec<u8>>],
         cancel: &crate::CancelSource,
     ) -> Result<(Self, Arc<ParsedReload>), WorkflowError> {
-        let parent = self.delta_parent(cancel).await?;
-        let (validation, registry) = owners(self);
-        let warm = self
-            .runtime
-            .shared
+        let parent = self.delta_parent(services.preparation(), cancel).await?;
+        let (validation, registry) = owners(services.preparation());
+        let warm = services
+            .preparation()
             .math()
             .modeling_cache
             .ingress(self.revision_id(), validation, registry, self.physical.key)
@@ -675,7 +684,7 @@ impl ModelingPackage {
             document.source_text.is_some() || parent.frame.data.contains_key(&document.document_id)
         });
         let cold = if warm.is_none() && (parent.frame.origins.is_none() || exact_texts) {
-            Some(cold_owner(self, &parent, cancel).await?)
+            Some(cold_owner(services.preparation(), self, &parent, cancel).await?)
         } else {
             None
         };
@@ -702,15 +711,22 @@ impl ModelingPackage {
         let parsed = Arc::new(ParsedReload::load(
             sources,
             previous,
-            self.runtime.registry(),
+            services.preparation().registry(),
             Default::default(),
-            &self.runtime.shared.pool(),
+            &services.preparation().pool(),
             &cancel.token(),
-            &self.runtime.admission_context(),
+            &services.preparation().admission_context(),
         )?);
-        let (delta, extras) = make_edit(self, &parent, parsed.clone(), &origins, cancel)?;
+        let (delta, extras) = make_edit(
+            services.preparation(),
+            self,
+            &parent,
+            parsed.clone(),
+            &origins,
+            cancel,
+        )?;
         let result = self
-            .apply_delta_parent(delta, parent, cancel, Some(extras))
+            .apply_delta_parent(services, delta, parent, cancel, Some(extras))
             .await?;
         Ok((result, parsed))
     }
@@ -731,9 +747,12 @@ mod tests {
             ("models/bank.pse".into(), text.as_bytes().to_vec()),
         ])
     }
-    async fn parent(package: &ModelingPackage) -> delta::Parent {
+    async fn parent(
+        services: &crate::workflow::PreparationServices,
+        package: &ModelingPackage,
+    ) -> delta::Parent {
         package
-            .delta_parent(&crate::CancelSource::new())
+            .delta_parent(services, &crate::CancelSource::new())
             .await
             .unwrap()
     }
@@ -773,7 +792,11 @@ mod tests {
             .await
             .unwrap();
         let no_op = package
-            .reload_from_parent(std::slice::from_ref(&original), &cancel)
+            .reload_from_parent(
+                &runtime.source_services(),
+                std::slice::from_ref(&original),
+                &cancel,
+            )
             .await
             .unwrap();
         assert_eq!(no_op.revision_id(), package.revision_id());
@@ -783,15 +806,15 @@ mod tests {
             b"package earlier {param b:Scalar=2;}".to_vec(),
         );
         let reloaded = package
-            .reload_from_parent(&[expanded.clone()], &cancel)
+            .reload_from_parent(&runtime.source_services(), &[expanded.clone()], &cancel)
             .await
             .unwrap();
         let fresh = runtime
             .package_from_sources(&[expanded], physical, &cancel)
             .await
             .unwrap();
-        let actual = parent(&reloaded).await;
-        let expected = parent(&fresh).await;
+        let actual = parent(&runtime.preparation_services(), &reloaded).await;
+        let expected = parent(&runtime.preparation_services(), &fresh).await;
         assert_eq!(reloaded.revision.identity, fresh.revision.identity);
         assert_eq!(
             actual.rows, expected.rows,
@@ -803,7 +826,10 @@ mod tests {
             reloaded.revision.lineage_id(),
             package.revision.lineage_id()
         );
-        for (logical, member) in &parent(&package).await.members {
+        for (logical, member) in &parent(&runtime.preparation_services(), &package)
+            .await
+            .members
+        {
             if logical.starts_with("modeling:")
                 && logical != CONTEXT_LOGICAL
                 && logical != PHYSICAL_SCOPE_LOGICAL
@@ -812,13 +838,16 @@ mod tests {
             }
         }
         let removed = reloaded
-            .reload_from_parent(&[original], &cancel)
+            .reload_from_parent(&runtime.source_services(), &[original], &cancel)
             .await
             .unwrap();
         assert_eq!(removed.revision.identity, package.revision.identity);
-        assert_eq!(parent(&removed).await.rows, parent(&package).await.rows);
+        assert_eq!(
+            parent(&runtime.preparation_services(), &removed).await.rows,
+            parent(&runtime.preparation_services(), &package).await.rows
+        );
         assert!(
-            parent(&package)
+            parent(&runtime.preparation_services(), &package)
                 .await
                 .documents
                 .values()
@@ -840,7 +869,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let root = parent(&package)
+        let root = parent(&runtime.preparation_services(), &package)
             .await
             .rows
             .iter()
@@ -851,10 +880,13 @@ mod tests {
             "package minimal_named {param a:Scalar=1; param b:Scalar=2; def Root {var x:Scalar; eq e:x==b;}}",
         );
         let result = package
-            .reload_from_parent(&[changed], &cancel)
+            .reload_from_parent(&runtime.source_services(), &[changed], &cancel)
             .await
             .unwrap();
-        let selected = result.checked_selection(&[root], &cancel).await.unwrap();
+        let selected = result
+            .checked_selection(&runtime.preparation_services(), &[root], &cancel)
+            .await
+            .unwrap();
         assert!(
             selected
                 .admission
@@ -875,12 +907,12 @@ mod tests {
         let unresolved =
             sources("package minimal_named {def Root {var x:Scalar; eq e:x==missing;}}");
         let unresolved = result
-            .reload_from_parent(&[unresolved], &cancel)
+            .reload_from_parent(&runtime.source_services(), &[unresolved], &cancel)
             .await
             .unwrap();
         assert!(
             unresolved
-                .checked_selection(&[root], &cancel)
+                .checked_selection(&runtime.preparation_services(), &[root], &cancel)
                 .await
                 .is_err()
         );
@@ -888,7 +920,7 @@ mod tests {
         let invalid = sources("package minimal_named {def Root {var x:Scalar; eq e:;}}");
         let before = unresolved.revision.head.lock().unwrap().revision.clone();
         let error = unresolved
-            .reload_from_parent(&[invalid], &cancel)
+            .reload_from_parent(&runtime.source_services(), &[invalid], &cancel)
             .await
             .unwrap_err();
         assert!(
@@ -902,7 +934,7 @@ mod tests {
         );
         assert_eq!(unresolved.revision.head.lock().unwrap().revision, before);
         assert_eq!(
-            parent(&result)
+            parent(&runtime.preparation_services(), &result)
                 .await
                 .rows
                 .iter()
@@ -916,7 +948,7 @@ mod tests {
             "x==b"
         );
         assert_eq!(
-            parent(&package)
+            parent(&runtime.preparation_services(), &package)
                 .await
                 .rows
                 .iter()
@@ -933,7 +965,7 @@ mod tests {
         cancelled.cancel();
         assert!(
             result
-                .reload_from_parent(&[original], &cancelled)
+                .reload_from_parent(&runtime.source_services(), &[original], &cancelled)
                 .await
                 .is_err()
         );
@@ -951,10 +983,12 @@ mod tests {
             )
             .await
             .unwrap();
-        let mut frame = parent(&package).await.frame;
+        let mut frame = parent(&runtime.preparation_services(), &package)
+            .await
+            .frame;
         frame.origins = None;
         let revision = admit_revision(
-            &runtime,
+            &runtime.source_services(),
             Some(&package.revision),
             package.revision.identity,
             &[edit(
@@ -976,14 +1010,25 @@ mod tests {
         };
         runtime.clear_program_cache();
         let loaded = older
-            .reload_from_parent(std::slice::from_ref(&original), &cancel)
+            .reload_from_parent(
+                &runtime.source_services(),
+                std::slice::from_ref(&original),
+                &cancel,
+            )
             .await
             .unwrap();
         assert_eq!(loaded.revision.identity, older.revision.identity);
-        assert!(parent(&loaded).await.frame.origins.is_some());
+        assert!(
+            parent(&runtime.preparation_services(), &loaded)
+                .await
+                .frame
+                .origins
+                .is_some()
+        );
         let id = FitId::from(SemanticId::from_bytes([77; 16]));
         let with_fit = loaded
             .with_delta(
+                &runtime.source_services(),
                 crate::workflow::SourceDelta {
                     parent: loaded.revision_id().into(),
                     fits: crate::workflow::SourceFitDelta {
@@ -1001,13 +1046,26 @@ mod tests {
             )
             .await
             .unwrap();
-        let before = parent(&with_fit).await.members[&format!("fit:{id}")]
+        let before = parent(&runtime.preparation_services(), &with_fit)
+            .await
+            .members[&format!("fit:{id}")]
             .version
             .clone();
-        let removed = with_fit.reload_from_parent(&[], &cancel).await.unwrap();
-        assert!(parent(&removed).await.rows.is_empty());
+        let removed = with_fit
+            .reload_from_parent(&runtime.source_services(), &[], &cancel)
+            .await
+            .unwrap();
+        assert!(
+            parent(&runtime.preparation_services(), &removed)
+                .await
+                .rows
+                .is_empty()
+        );
         assert_eq!(
-            parent(&removed).await.members[&format!("fit:{id}")].version,
+            parent(&runtime.preparation_services(), &removed)
+                .await
+                .members[&format!("fit:{id}")]
+                .version,
             before,
             "full parsed inventory is no authority to delete unrelated IR fits"
         );
@@ -1040,7 +1098,8 @@ mod tests {
         );
         inventory.insert("data/bank.parquet".into(), bytes);
         let cancel = crate::CancelSource::new();
-        let package = crate::workflow::tests::runtime()
+        let runtime = crate::workflow::tests::runtime();
+        let package = runtime
             .package_from_sources(
                 &[inventory.clone()],
                 crate::workflow::tests::physical(),
@@ -1048,7 +1107,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let before = parent(&package).await;
+        let before = parent(&runtime.preparation_services(), &package).await;
         let small = crate::workflow::tests::runtime_on(
             256 << 20,
             crate::math::MathPolicy {
@@ -1058,12 +1117,12 @@ mod tests {
         );
         let receiver =
             Runtime::from_shared_local(small.shared.clone(), small.model.clone()).unwrap();
-        let confined = ModelingPackage {
-            runtime: receiver,
-            ..package.clone()
-        };
+        let confined = package.clone();
         assert!(
-            confined.all_revision().await.is_err(),
+            confined
+                .all_revision(&receiver.preparation_services())
+                .await
+                .is_err(),
             "the independent full-data compiler control must refuse"
         );
         inventory.insert(
@@ -1071,10 +1130,10 @@ mod tests {
             b"package unrelated {param a:Scalar=1;}".to_vec(),
         );
         let changed = confined
-            .reload_from_parent(&[inventory], &cancel)
+            .reload_from_parent(&receiver.source_services(), &[inventory], &cancel)
             .await
             .unwrap();
-        let after = parent(&changed).await;
+        let after = parent(&runtime.preparation_services(), &changed).await;
         assert_eq!(before.frame.data, after.frame.data);
         for (logical, member) in before
             .members
@@ -1122,7 +1181,7 @@ mod tests {
             .package_from_sources(&[inventory.clone()], physical.clone(), &cancel)
             .await
             .unwrap();
-        let data_id = parent(&original)
+        let data_id = parent(&runtime.preparation_services(), &original)
             .await
             .documents
             .values()
@@ -1132,7 +1191,7 @@ mod tests {
         let new_bytes = encoded(3);
         inventory.insert("data/bank.parquet".into(), new_bytes.clone());
         let changed = original
-            .reload_from_parent(&[inventory.clone()], &cancel)
+            .reload_from_parent(&runtime.source_services(), &[inventory.clone()], &cancel)
             .await
             .unwrap();
         let fresh = runtime
@@ -1141,8 +1200,14 @@ mod tests {
             .unwrap();
         assert_eq!(changed.revision.identity(), fresh.revision.identity());
         assert_eq!(
-            parent(&changed).await.frame.data,
-            parent(&fresh).await.frame.data
+            parent(&runtime.preparation_services(), &changed)
+                .await
+                .frame
+                .data,
+            parent(&runtime.preparation_services(), &fresh)
+                .await
+                .frame
+                .data
         );
         let logical = format!("data:{data_id}");
         assert_eq!(original.local_object(&logical).unwrap().payload, old_bytes);
@@ -1150,7 +1215,7 @@ mod tests {
         inventory.remove("data/bank.parquet");
         assert!(
             changed
-                .reload_from_parent(&[inventory], &cancel)
+                .reload_from_parent(&runtime.source_services(), &[inventory], &cancel)
                 .await
                 .is_err()
         );
@@ -1172,16 +1237,16 @@ mod tests {
             .await
             .unwrap();
         let id: FitId = SemanticId::parse_hex(fit).unwrap().into();
-        let old = parent(&original).await;
+        let old = parent(&runtime.preparation_services(), &original).await;
         assert!(old.members.contains_key(&format!("fit:{id}")));
         let mut removed_inventory = inventory.clone();
         removed_inventory.remove("cases/fit.yaml");
         let removed = original
-            .reload_from_parent(&[removed_inventory], &cancel)
+            .reload_from_parent(&runtime.source_services(), &[removed_inventory], &cancel)
             .await
             .unwrap();
         assert!(
-            !parent(&removed)
+            !parent(&runtime.preparation_services(), &removed)
                 .await
                 .members
                 .contains_key(&format!("fit:{id}")),
@@ -1190,10 +1255,13 @@ mod tests {
         // Restore the loader-owned document on the current head before replacing
         // its fit through IR. Historical packages cannot authorize a later edit.
         let current = removed
-            .reload_from_parent(&[inventory.clone()], &cancel)
+            .reload_from_parent(&runtime.source_services(), &[inventory.clone()], &cancel)
             .await
             .unwrap();
-        let mut ir = current.fit_declaration(id).await.unwrap();
+        let mut ir = current
+            .fit_declaration(&runtime.preparation_services(), id)
+            .await
+            .unwrap();
         ir.parameters.push(
             pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldParametersItem {
                 symbol_id: SemanticId::from_bytes([55; 16]),
@@ -1206,6 +1274,7 @@ mod tests {
         );
         let replaced = current
             .with_delta(
+                &runtime.source_services(),
                 crate::workflow::SourceDelta {
                     parent: current.revision_id().into(),
                     fits: crate::workflow::SourceFitDelta {
@@ -1220,7 +1289,7 @@ mod tests {
             .unwrap();
         inventory.remove("cases/fit.yaml");
         let preserved = replaced
-            .reload_from_parent(&[inventory], &cancel)
+            .reload_from_parent(&runtime.source_services(), &[inventory], &cancel)
             .await
             .unwrap();
         // Independent initial ingress also advances this problem's head, so it
@@ -1233,10 +1302,13 @@ mod tests {
             )
             .await
             .unwrap();
-        let actual = parent(&preserved).await;
+        let actual = parent(&runtime.preparation_services(), &preserved).await;
         assert_eq!(
             actual.members[&format!("fit:{id}")].version,
-            parent(&replaced).await.members[&format!("fit:{id}")].version
+            parent(&runtime.preparation_services(), &replaced)
+                .await
+                .members[&format!("fit:{id}")]
+                .version
         );
         assert_eq!(
             preserved.revision.identity, owned.revision.identity,

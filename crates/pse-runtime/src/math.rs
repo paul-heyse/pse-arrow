@@ -196,6 +196,9 @@ pub enum MathRuntimeError {
     /// A caught worker panic, distinct from resource or infrastructure refusal.
     #[error("math worker panic: {0}")]
     Panic(String),
+    /// An invariant of the mathematical runtime failed independently of supplied input.
+    #[error("math runtime invariant: {0}")]
+    Internal(String),
     /// Supervisor/thread failure.
     #[error("math infrastructure: {0}")]
     Infrastructure(String),
@@ -265,7 +268,9 @@ impl MathRuntimeError {
                 add(4 * size_of::<usize>(), cause.retained_bytes()?)?,
                 refusal.retained_bytes(),
             )?,
-            Self::Panic(text) | Self::Infrastructure(text) => text.capacity(),
+            Self::Panic(text) | Self::Internal(text) | Self::Infrastructure(text) => {
+                text.capacity()
+            }
             Self::Limit(_) | Self::PreparationExpired | Self::Cancelled | Self::Retiring => 0,
         };
         add(size_of::<Self>(), payload)
@@ -294,6 +299,14 @@ impl MathRuntimeError {
             retained,
             cause: pse_model::diagnostic::DiagnosticCause::new(self),
         })
+    }
+    /// Carry an exact runtime failure through a mathematical callback without changing its class.
+    pub(crate) fn into_math(self) -> pse_math::MathError {
+        let retained = self.retained_bytes().unwrap_or(usize::MAX);
+        pse_math::MathError::Typed {
+            retained,
+            cause: pse_model::diagnostic::DiagnosticCause::new(self),
+        }
     }
     /// Carry a runtime failure into the native report's single typed validation record,
     /// keeping its class: cancellation, limits and native causes stay typed.
@@ -339,20 +352,33 @@ impl MathRuntimeError {
                 retained: e.retained_bytes(),
                 cause: pse_model::diagnostic::DiagnosticCause::new(e),
             }),
-            Self::Retiring | Self::Infrastructure(_) | Self::Panic(_) => {
+            Self::Retiring | Self::Infrastructure(_) | Self::Internal(_) | Self::Panic(_) => {
                 self.into_retained_problem()
             }
         }
     }
 }
+fn pool_diagnostic_code(
+    error: &datafusion::common::DataFusionError,
+) -> pse_diagnostics::DiagnosticCode {
+    use datafusion::common::DataFusionError as E;
+    use pse_diagnostics::DiagnosticCode as C;
+    match error {
+        E::ResourcesExhausted(_) => C::RuntimeResourceLimit,
+        E::Internal(_) => C::InternalInvariant,
+        E::Context(_, cause) => pool_diagnostic_code(cause),
+        E::Shared(cause) => pool_diagnostic_code(cause),
+        _ => C::RuntimeInfrastructure,
+    }
+}
 pse_diagnostics::impl_diagnostic! {
     MathRuntimeError,
-    code(this) { match this {Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::PreparationExpired|Self::Limit(_)|Self::Pool(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Panic(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),_=>None} },
+    code(this) { match this {Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::PreparationExpired|Self::Limit(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Pool(error)=>Some(pool_diagnostic_code(error)),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::InternalInvariant),Self::Panic(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),_=>None} },
     forward(this) { match this {Self::Solve(e)=>Some(e),Self::Compile(e)=>Some(e),Self::Math(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Strategy {cause,..}|Self::StrategyTraceUnavailable {cause,..}=>Some(cause.as_ref()),_=>None} },
     help(_this) { None },related(_this) { None },source(_this) { None },
     facts(this) {
         use pse_diagnostics::{DiagnosticRule as R, DiagnosticFacts, DiagnosticObservation as O};
-        let mut facts=DiagnosticFacts { rule: match this { Self::Cancelled=>Some(R::MathCancelled), Self::Retiring|Self::PreparationExpired|Self::Limit(_)|Self::Pool(_)=>Some(R::MathLimit), Self::Panic(_)=>Some(R::WorkflowPanic), Self::Infrastructure(_)=>Some(R::MathLibrary), Self::Solve(_) | Self::Compile(_) | Self::Math(_) | Self::Shared(_) | Self::Strategy {..}|Self::StrategyTraceUnavailable {..}=>None },..Default::default() };
+        let mut facts=DiagnosticFacts { rule: match this { Self::Cancelled=>Some(R::MathCancelled), Self::Retiring|Self::PreparationExpired|Self::Limit(_)=>Some(R::MathLimit),Self::Pool(error)=>Some(match pool_diagnostic_code(error) { pse_diagnostics::DiagnosticCode::RuntimeResourceLimit=>R::MathLimit,pse_diagnostics::DiagnosticCode::InternalInvariant=>R::WorkflowInternal,_=>R::MathLibrary }), Self::Panic(_)=>Some(R::WorkflowPanic), Self::Infrastructure(_)=>Some(R::MathLibrary), Self::Internal(_)=>Some(R::WorkflowInternal), Self::Solve(_) | Self::Compile(_) | Self::Math(_) | Self::Shared(_) | Self::Strategy {..}|Self::StrategyTraceUnavailable {..}=>None },..Default::default() };
         if !matches!(this,Self::Solve(_)|Self::Compile(_)|Self::Math(_)|Self::Shared(_)|Self::Strategy {..}|Self::StrategyTraceUnavailable {..}) {facts.observe("detail",O::Text(this.to_string()));}
         facts
     }
@@ -542,6 +568,14 @@ impl MathService {
     /// The cores one native job may admit.
     pub(crate) fn cores(&self) -> usize {
         self.cores
+    }
+    /// Existing resource policy used by explicit mathematical attempt owners.
+    pub(crate) fn policy(&self) -> &MathPolicy {
+        &self.policy
+    }
+    /// Existing accounted allocation pool; no additional owner is constructed.
+    pub(crate) fn pool(&self) -> &Arc<dyn MemoryPool> {
+        &self.pool
     }
     #[cfg(test)]
     pub(crate) fn test_admission_snapshot(&self) -> (usize, usize, usize) {
@@ -1093,6 +1127,7 @@ impl pse_model::diagnostic::DiagnosticProjection for MathRuntimeError {
             | Self::Cancelled
             | Self::Retiring
             | Self::Infrastructure(_)
+            | Self::Internal(_)
             | Self::Panic(_) => {
                 project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage)
             }

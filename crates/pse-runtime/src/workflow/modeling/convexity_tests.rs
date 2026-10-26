@@ -19,7 +19,7 @@ use pse_compiler::workspace::ModelingCaseBindings;
 use pse_kernels::DerivativeOrder;
 use pse_math::convexity::{ConvexityAssessment, ConvexityClass, Unrecognized};
 
-async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+async fn package(text: &str) -> (Runtime, ModelingPackage, DeclarationId) {
     let runtime = fixture::runtime();
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
@@ -35,7 +35,7 @@ async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
         .unwrap()
         .declaration_id;
     let package = runtime.modeling_package(rows, physical).await.unwrap();
-    (package, root)
+    (runtime, package, root)
 }
 fn profile(selection: SolverSelection, convexity: ConvexityPolicy) -> SolverProfile {
     let mut profile = fixture::profile();
@@ -71,12 +71,14 @@ fn refused_class(error: &WorkflowError, backend: Backend) -> &[ProblemClass] {
         .unwrap()
 }
 async fn prepare(
+    services: &crate::workflow::ExecutionServices,
     package: &ModelingPackage,
     root: DeclarationId,
     profile: SolverProfile,
 ) -> Result<ModelingSolvePreparation, WorkflowError> {
     package
         .prepare_solve(
+            services.preparation(),
             root,
             pse_modeling::specialize::root_instance(root),
             Bindings::default(),
@@ -91,12 +93,14 @@ async fn prepare(
         .await
 }
 async fn reports(
+    services: &crate::workflow::ExecutionServices,
     package: &ModelingPackage,
     prepared: ModelingSolvePreparation,
     labels: &[&str],
 ) -> (ModelingResult, Vec<f64>) {
     let result = package
         .solve_case(
+            &services,
             prepared,
             fixture::compiler_profile(),
             &crate::CancelSource::new(),
@@ -149,8 +153,10 @@ const GIBBS: &str = "package p { def Root {
 /// is the analytic minimum `nᵢ ∝ exp(−μᵢ)`.
 #[tokio::test]
 async fn recognized_exp_cone_routes_to_clarabel() {
-    let (package, root) = package(GIBBS).await;
+    let (runtime, package, root) = package(GIBBS).await;
+    let services = runtime.execution_services();
     let prepared = prepare(
+        &services,
         &package,
         root,
         profile(SolverSelection::Auto, ConvexityPolicy::Exact),
@@ -163,7 +169,7 @@ async fn recognized_exp_cone_routes_to_clarabel() {
     };
     assert_eq!(summary.exponential, 2, "{summary:?}");
     assert_eq!(prepared.solve.route(), Route::Native(Backend::Clarabel));
-    let (result, values) = reports(&package, prepared, &["a", "b", "g"]).await;
+    let (result, values) = reports(&services, &package, prepared, &["a", "b", "g"]).await;
     let Outcome::Native(native) = &result.outcome else {
         unreachable!()
     };
@@ -216,8 +222,10 @@ async fn recognized_exp_cone_routes_to_clarabel() {
 /// objective as unrecognized, and no route reaches Clarabel.
 #[tokio::test]
 async fn unrecognized_gibbs_maximization_not_routed_to_clarabel() {
-    let (package, root) = package(&GIBBS.replace("g(minimize)", "g(maximize)")).await;
+    let (runtime, package, root) = package(&GIBBS.replace("g(minimize)", "g(maximize)")).await;
+    let services = runtime.execution_services();
     let explicit = prepare(
+        &services,
         &package,
         root,
         profile(
@@ -229,6 +237,7 @@ async fn unrecognized_gibbs_maximization_not_routed_to_clarabel() {
     let error = explicit.unwrap_err();
     assert!(!refused_class(&error, Backend::Clarabel).is_empty());
     if let Ok(prepared) = prepare(
+        &services,
         &package,
         root,
         profile(SolverSelection::Auto, ConvexityPolicy::Exact),
@@ -263,26 +272,34 @@ const NEARLY_PSD: &str = "package p { def Root {
 /// changed, and the next request without the policy is refused again.
 #[tokio::test]
 async fn numerical_psd_only_under_explicit_policy() {
-    let (package, root) = package(NEARLY_PSD).await;
+    let (runtime, package, root) = package(NEARLY_PSD).await;
+    let services = runtime.execution_services();
     let highs = SolverSelection::Explicit(Backend::Highs);
     let refused = |result: Result<ModelingSolvePreparation, WorkflowError>| {
         let error = result.unwrap_err();
         assert!(refused_class(&error, Backend::Highs).contains(&ProblemClass::NonconvexQuadratic));
     };
-    refused(prepare(&package, root, profile(highs, ConvexityPolicy::Exact)).await);
+    refused(
+        prepare(
+            &services,
+            &package,
+            root,
+            profile(highs, ConvexityPolicy::Exact),
+        )
+        .await,
+    );
     let numerical = ConvexityPolicy::Numerical {
         absolute: 1e-9,
         relative: 1e-9,
     };
-    let prepared = prepare(&package, root, profile(highs, numerical))
+    let prepared = prepare(&services, &package, root, profile(highs, numerical))
         .await
         .unwrap();
     assert_eq!(prepared.solve.route(), Route::Native(Backend::Highs));
     // Exact coefficient evidence is an explicit class demand, independent of
     // this selected solve's numerical PSD qualification.
-    let exact = package
-        .runtime
-        .shared
+    let exact = services
+        .preparation()
         .math()
         .discover_class(
             prepared.model.case.clone(),
@@ -311,9 +328,16 @@ async fn numerical_psd_only_under_explicit_policy() {
             .is_some_and(|e| e.reasons.is_empty())
     );
     // The qualification served that request only.
-    let again = prepare(&package, root, profile(highs, ConvexityPolicy::Exact)).await;
+    let again = prepare(
+        &services,
+        &package,
+        root,
+        profile(highs, ConvexityPolicy::Exact),
+    )
+    .await;
     refused(again);
     if let Ok(auto) = prepare(
+        &services,
         &package,
         root,
         profile(SolverSelection::Auto, ConvexityPolicy::Exact),

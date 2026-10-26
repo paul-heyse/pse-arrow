@@ -40,6 +40,7 @@ async fn recycle_short_controls_compare_same_map_and_preserve_original_accuracy(
         let cancel = crate::CancelSource::new();
         let analysis = package
             .declared_execution(
+                &runtime.preparation_services(),
                 root,
                 compiler_profile(),
                 super::super::tests::profile(SolveIntent::Root),
@@ -52,6 +53,7 @@ async fn recycle_short_controls_compare_same_map_and_preserve_original_accuracy(
             .analysis;
         let model = package
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 analysis.instance,
                 analysis.bindings.clone(),
@@ -116,7 +118,13 @@ async fn recycle_short_controls_compare_same_map_and_preserve_original_accuracy(
             selected.damping = pse_model::scalars::Fraction::try_new(damping).unwrap();
             selected.orthogonalization = orthogonalization;
             let prepared = package
-                .prepare_recycle(&analysis, selection.clone(), selected, &cancel)
+                .prepare_recycle(
+                    &runtime.preparation_services(),
+                    &analysis,
+                    selection.clone(),
+                    selected,
+                    &cancel,
+                )
                 .await
                 .unwrap();
             assert_eq!(
@@ -136,7 +144,12 @@ async fn recycle_short_controls_compare_same_map_and_preserve_original_accuracy(
                 })
                 .collect();
             let started = std::time::Instant::now();
-            let result = prepared.start().unwrap().finish().await.unwrap();
+            let result = prepared
+                .start(&runtime.preparation_services())
+                .unwrap()
+                .finish()
+                .await
+                .unwrap();
             let elapsed = started.elapsed();
             eprintln!(
                 "recycle rho={rho} depth={depth} delay={delay} damping={damping} orthogonalization={orthogonalization:?} elapsed={elapsed:?} map={:?} iterations={:?} qualification={:?}",
@@ -153,7 +166,9 @@ async fn recycle_short_controls_compare_same_map_and_preserve_original_accuracy(
             if depth == 0 {
                 use pse_relations::columnar::RelationRow;
                 use pse_relations::generated::runtime::primal_values;
-                let physical = prepared.primal_coordinates().unwrap();
+                let physical = prepared
+                    .primal_coordinates(&runtime.preparation_services())
+                    .unwrap();
                 let mut reordered = result.report.clone();
                 reordered.variables.reverse();
                 reordered.candidate.as_mut().unwrap().primal.reverse();
@@ -186,7 +201,7 @@ async fn recycle_short_controls_compare_same_map_and_preserve_original_accuracy(
                 missing.contract.variables[0].id = id(200);
                 assert!(
                     missing
-                        .primal_coordinates()
+                        .primal_coordinates(&runtime.preparation_services())
                         .unwrap_err()
                         .to_string()
                         .contains("recycle tear lacks admitted physical port meaning")
@@ -210,7 +225,13 @@ async fn recycle_short_controls_compare_same_map_and_preserve_original_accuracy(
         invalid.orthogonalization = Some(Orthogonalization::InverseCompactWy);
         assert!(
             package
-                .prepare_recycle(&analysis, selection, invalid, &cancel)
+                .prepare_recycle(
+                    &runtime.preparation_services(),
+                    &analysis,
+                    selection,
+                    invalid,
+                    &cancel
+                )
                 .await
                 .unwrap_err()
                 .to_string()
@@ -250,6 +271,7 @@ async fn construction_source(runtime: Runtime, internal_rows: usize) -> Prepared
     let cancel = crate::CancelSource::new();
     let analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler_profile(),
             super::super::tests::profile(SolveIntent::Root),
@@ -262,6 +284,7 @@ async fn construction_source(runtime: Runtime, internal_rows: usize) -> Prepared
         .analysis;
     let model = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             analysis.instance,
             analysis.bindings.clone(),
@@ -346,7 +369,13 @@ async fn construction_source(runtime: Runtime, internal_rows: usize) -> Prepared
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };
     package
-        .prepare_recycle(&analysis, selection, request, &cancel)
+        .prepare_recycle(
+            &runtime.preparation_services(),
+            &analysis,
+            selection,
+            request,
+            &cancel,
+        )
         .await
         .unwrap()
 }
@@ -499,7 +528,12 @@ async fn conditional_schedule_and_first_binding_enter_with_source_demand() {
     // The public recycle constructor consumes the same source-issued factory
     // bound, including its first conditional binding and live unit evaluators.
     let original = prepared._source.values.identity();
-    let result = prepared.start().unwrap().finish().await.unwrap();
+    let result = prepared
+        .start(&runtime.preparation_services())
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
     let candidate = result.original_candidate.as_ref().unwrap();
     assert_eq!(
         candidate.scalars.len(),
@@ -528,11 +562,10 @@ async fn conditional_construction_oversized_and_overflow_refuse_before_dispatch(
             ..Default::default()
         },
     );
-    let mut oversized = prepared.clone();
-    oversized.runtime = limited.clone();
+    let oversized = prepared.clone();
     let baseline = limited.shared.pool().reserved();
     assert!(matches!(
-        oversized.start(),
+        oversized.start(&limited.preparation_services()),
         Err(WorkflowError::Math(MathRuntimeError::Limit(
             "declared root construction capacity"
         )))
@@ -578,7 +611,8 @@ async fn automatic_workflow_causal_acyclic_refusal_retains_original_alternatives
         .find(|row| row.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime()
+    let runtime = runtime();
+    let package = runtime
         .modeling_package(declarations, physical())
         .await
         .unwrap();
@@ -587,6 +621,7 @@ async fn automatic_workflow_causal_acyclic_refusal_retains_original_alternatives
     profile.selection = SolverSelection::Explicit(Backend::Kinsol);
     let prepared = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Default::default(),
@@ -611,7 +646,12 @@ async fn automatic_workflow_causal_acyclic_refusal_retains_original_alternatives
         .unwrap()
         .id;
     let result = package
-        .solve_case(prepared, compiler_profile(), &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            prepared,
+            compiler_profile(),
+            &cancel,
+        )
         .await
         .unwrap();
     assert!(
@@ -649,7 +689,8 @@ async fn automatic_workflow_causal_missing_locality_preserves_original_completio
         .find(|row| row.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime()
+    let runtime = runtime();
+    let package = runtime
         .modeling_package(declarations, physical())
         .await
         .unwrap();
@@ -658,6 +699,7 @@ async fn automatic_workflow_causal_missing_locality_preserves_original_completio
     profile.selection = SolverSelection::Explicit(Backend::Kinsol);
     let prepared = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Default::default(),
@@ -683,7 +725,12 @@ async fn automatic_workflow_causal_missing_locality_preserves_original_completio
         .unwrap()
         .id;
     let result = package
-        .solve_case(prepared.clone(), compiler_profile(), &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            prepared.clone(),
+            compiler_profile(),
+            &cancel,
+        )
         .await
         .unwrap();
     assert!(
@@ -731,6 +778,7 @@ async fn automatic_workflow_causal_missing_locality_preserves_original_completio
 async fn causal_reconstruction_case(
     nonzero: bool,
 ) -> (
+    Runtime,
     ModelingPackage,
     crate::workflow::ModelingSolvePreparation,
     SolverProfile,
@@ -745,7 +793,8 @@ async fn causal_reconstruction_case(
         .find(|row| row.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = runtime()
+    let runtime = runtime();
+    let package = runtime
         .modeling_package(declarations, physical())
         .await
         .unwrap();
@@ -754,6 +803,7 @@ async fn causal_reconstruction_case(
     profile.selection = SolverSelection::Explicit(Backend::Kinsol);
     let prepared = package
         .prepare_solve(
+            &runtime.preparation_services(),
             root,
             pse_modeling::specialize::root_instance(root),
             Default::default(),
@@ -767,13 +817,13 @@ async fn causal_reconstruction_case(
         )
         .await
         .unwrap();
-    (package, prepared, profile)
+    (runtime, package, prepared, profile)
 }
 
 #[tokio::test]
 async fn automatic_workflow_causal_native_failure_does_not_commit_partial_state() {
     use pse_model::strategy::MechanismKind;
-    let (package, prepared, _) = causal_reconstruction_case(false).await;
+    let (runtime, package, prepared, _) = causal_reconstruction_case(false).await;
     let frozen = prepared.model.values.identity();
     let hidden = prepared
         .model
@@ -787,6 +837,7 @@ async fn automatic_workflow_causal_native_failure_does_not_commit_partial_state(
         .id;
     let result = package
         .solve_case(
+            &runtime.execution_services(),
             prepared.clone(),
             compiler_profile(),
             &crate::CancelSource::new(),
@@ -855,7 +906,7 @@ async fn automatic_workflow_causal_native_failure_does_not_commit_partial_state(
 async fn automatic_workflow_causal_dispatch_reconstructs_nonport_original_state() {
     use crate::math::solves::Outcome;
     use pse_model::strategy::MechanismKind;
-    let (package, prepared, profile) = causal_reconstruction_case(true).await;
+    let (runtime, package, prepared, profile) = causal_reconstruction_case(true).await;
     let cancel = crate::CancelSource::new();
     let original_start = prepared.model.values.identity();
     let hidden = prepared
@@ -869,7 +920,12 @@ async fn automatic_workflow_causal_dispatch_reconstructs_nonport_original_state(
         .unwrap()
         .id;
     let result = package
-        .solve_case(prepared.clone(), compiler_profile(), &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            prepared.clone(),
+            compiler_profile(),
+            &cancel,
+        )
         .await
         .unwrap();
     assert!(
@@ -967,7 +1023,12 @@ async fn automatic_workflow_causal_dispatch_reconstructs_nonport_original_state(
         .collect();
     explicit.solve = explicit.solve.with_primal_start(seed).unwrap();
     let result = package
-        .solve_case(explicit, compiler_profile(), &cancel)
+        .solve_case(
+            &runtime.execution_services(),
+            explicit,
+            compiler_profile(),
+            &cancel,
+        )
         .await
         .unwrap();
     assert!(
@@ -1019,6 +1080,7 @@ async fn explicit_map_admission_requires_free_branch_controls_without_promoting_
         let cancel = crate::CancelSource::new();
         let analysis = package
             .declared_execution(
+                &runtime.preparation_services(),
                 root,
                 compiler_profile(),
                 super::super::tests::profile(SolveIntent::Root),
@@ -1031,6 +1093,7 @@ async fn explicit_map_admission_requires_free_branch_controls_without_promoting_
             .analysis;
         let prepared = package
             .prepare(
+                &runtime.preparation_services(),
                 root,
                 analysis.instance,
                 analysis.bindings.clone(),
@@ -1080,7 +1143,13 @@ async fn explicit_map_admission_requires_free_branch_controls_without_promoting_
             damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
         };
         let result = package
-            .prepare_recycle(&analysis, selection.clone(), request, &cancel)
+            .prepare_recycle(
+                &runtime.preparation_services(),
+                &analysis,
+                selection.clone(),
+                request,
+                &cancel,
+            )
             .await;
         if allowed {
             let admitted = result.unwrap();
@@ -1156,6 +1225,7 @@ async fn conditional_retention_control(ambiguous: bool) {
     let cancel = crate::CancelSource::new();
     let analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler_profile(),
             super::super::tests::profile(SolveIntent::Root),
@@ -1168,6 +1238,7 @@ async fn conditional_retention_control(ambiguous: bool) {
         .analysis;
     let model = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             analysis.instance,
             analysis.bindings.clone(),
@@ -1301,7 +1372,13 @@ async fn conditional_retention_control(ambiguous: bool) {
     let mut overlapping = request.clone();
     overlapping.units[0].inputs.insert(inlet);
     let refusal = package
-        .prepare_recycle(&analysis, selection.clone(), overlapping, &cancel)
+        .prepare_recycle(
+            &runtime.preparation_services(),
+            &analysis,
+            selection.clone(),
+            overlapping,
+            &cancel,
+        )
         .await
         .unwrap_err();
     let WorkflowError::ConditionalAdmission { diagnostic, .. } = refusal else {
@@ -1316,7 +1393,13 @@ async fn conditional_retention_control(ambiguous: bool) {
     assert!(unknowns.iter().all(|id| diagnostic.sources.contains(id)));
     assert!(rows.iter().all(|id| diagnostic.sources.contains(id)));
     let prepared = package
-        .prepare_recycle(&analysis, selection.clone(), request.clone(), &cancel)
+        .prepare_recycle(
+            &runtime.preparation_services(),
+            &analysis,
+            selection.clone(),
+            request.clone(),
+            &cancel,
+        )
         .await
         .unwrap();
     assert_eq!(prepared.native_backends, vec![Backend::Kinsol]);
@@ -1522,7 +1605,13 @@ async fn conditional_retention_control(ambiguous: bool) {
     explicit.units[0].realization = CausalUnitRealization::ExplicitMap;
     assert!(
         package
-            .prepare_recycle(&analysis, selection.clone(), explicit, &cancel)
+            .prepare_recycle(
+                &runtime.preparation_services(),
+                &analysis,
+                selection.clone(),
+                explicit,
+                &cancel
+            )
             .await
             .is_err()
     );
@@ -1532,7 +1621,13 @@ async fn conditional_retention_control(ambiguous: bool) {
     }
     assert!(
         package
-            .prepare_recycle(&analysis, selection, invalid, &cancel)
+            .prepare_recycle(
+                &runtime.preparation_services(),
+                &analysis,
+                selection,
+                invalid,
+                &cancel
+            )
             .await
             .is_err()
     );
@@ -1557,6 +1652,7 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
     let cancel = crate::CancelSource::new();
     let analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler_profile(),
             super::super::tests::profile(SolveIntent::Root),
@@ -1569,6 +1665,7 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
         .analysis;
     let model = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             analysis.instance,
             analysis.bindings.clone(),
@@ -1657,7 +1754,13 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };
     let prepared = package
-        .prepare_recycle(&analysis, selection.clone(), request.clone(), &cancel)
+        .prepare_recycle(
+            &runtime.preparation_services(),
+            &analysis,
+            selection.clone(),
+            request.clone(),
+            &cancel,
+        )
         .await
         .unwrap();
     let program = prepared.programs[0].clone();
@@ -1782,7 +1885,13 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
     explicit.units[0].realization = CausalUnitRealization::ExplicitMap;
     assert!(
         package
-            .prepare_recycle(&analysis, selection.clone(), explicit, &cancel)
+            .prepare_recycle(
+                &runtime.preparation_services(),
+                &analysis,
+                selection.clone(),
+                explicit,
+                &cancel
+            )
             .await
             .is_err()
     );
@@ -1792,7 +1901,13 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
     }
     assert!(
         package
-            .prepare_recycle(&analysis, selection, invalid, &cancel)
+            .prepare_recycle(
+                &runtime.preparation_services(),
+                &analysis,
+                selection,
+                invalid,
+                &cancel
+            )
             .await
             .is_err()
     );
@@ -1974,6 +2089,7 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
     let cancel = crate::CancelSource::new();
     let mut analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler_profile(),
             super::super::tests::profile(SolveIntent::Root),
@@ -1986,6 +2102,7 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
         .analysis;
     let prepared_model = package
         .prepare(
+            &runtime.preparation_services(),
             root,
             analysis.instance,
             analysis.bindings.clone(),
@@ -2098,7 +2215,13 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };
     let prepared = package
-        .prepare_recycle(&analysis, selection, request, &cancel)
+        .prepare_recycle(
+            &runtime.preparation_services(),
+            &analysis,
+            selection,
+            request,
+            &cancel,
+        )
         .await
         .unwrap();
     let program = prepared.programs[0].clone();
@@ -2213,6 +2336,7 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
     let cancel = crate::CancelSource::new();
     let mut analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler_profile(),
             super::super::tests::profile(SolveIntent::Initialize),
@@ -2224,12 +2348,22 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
         .unwrap()
         .analysis;
     let serial = package
-        .prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel)
+        .prepare_block_initialization(
+            &runtime.preparation_services(),
+            &analysis,
+            vec![BTreeMap::new()],
+            &cancel,
+        )
         .await
         .unwrap();
     let stable: Vec<_> = serial.blocks().boundaries().map(|block| block.id).collect();
     assert!(stable.len() >= 3);
-    let expected = serial.start().unwrap().finish().await.unwrap();
+    let expected = serial
+        .start(&runtime.preparation_services())
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
     assert_eq!(expected.completed_stages, 1, "{expected:#?}");
     analysis.solver.block_workers = 2;
     analysis.solver.block_overrides.insert(
@@ -2246,7 +2380,12 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
         },
     );
     let ready = package
-        .prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel)
+        .prepare_block_initialization(
+            &runtime.preparation_services(),
+            &analysis,
+            vec![BTreeMap::new()],
+            &cancel,
+        )
         .await
         .unwrap();
     assert_eq!(
@@ -2257,7 +2396,12 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
             .collect::<Vec<_>>(),
         stable
     );
-    let actual = ready.start().unwrap().finish().await.unwrap();
+    let actual = ready
+        .start(&runtime.preparation_services())
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
     assert_eq!(actual.completed_stages, 1);
     assert_eq!(actual.original.identity(), expected.original.identity());
     assert_eq!(actual.values.scalars.len(), expected.values.scalars.len());
@@ -2265,12 +2409,16 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
         assert!((actual.values.scalars[id] - expected).abs() < 1e-8);
     }
     assert!(actual.attempts.iter().all(|attempt| attempt.committed));
-    let original = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let original = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     let original_source = original.model.case.compiled();
     let parameter = original_source.plan.structure().parameters()[0].id;
     let before = runtime.native().preparation_effects();
     let rebound = package
         .prepare_analysis_attempt(
+            &runtime.preparation_services(),
             &analysis,
             crate::workflow::modeling::cases::CaseOverrides {
                 parameters: BTreeMap::from([(parameter, 1.25)]),
@@ -2317,14 +2465,20 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
         );
         // Generic original preparation validates the dormant override even if its
         // direct KINSOL route is selected. Auto belongs to the request, not Ipopt.
-        package.prepare_analysis(&auto, &cancel).await.unwrap();
+        package
+            .prepare_analysis(&runtime.preparation_services(), &auto, &cancel)
+            .await
+            .unwrap();
         auto.solver.controls.hessian = HessianMode::Exact;
         auto.solver
             .block_overrides
             .get_mut(&stable[0])
             .unwrap()
             .controls = Some(auto.solver.controls.clone());
-        package.prepare_analysis(&auto, &cancel).await.unwrap();
+        package
+            .prepare_analysis(&runtime.preparation_services(), &auto, &cancel)
+            .await
+            .unwrap();
         auto.solver
             .block_overrides
             .get_mut(&stable[0])
@@ -2334,7 +2488,10 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
             .unwrap()
             .hessian = HessianMode::LimitedMemory;
         assert!(
-            package.prepare_analysis(&auto, &cancel).await.is_err(),
+            package
+                .prepare_analysis(&runtime.preparation_services(), &auto, &cancel)
+                .await
+                .is_err(),
             "explicit curvature override cannot change original request permission"
         );
     }
@@ -2348,14 +2505,19 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
     );
     assert!(
         package
-            .prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel)
+            .prepare_block_initialization(
+                &runtime.preparation_services(),
+                &analysis,
+                vec![BTreeMap::new()],
+                &cancel
+            )
             .await
             .is_err()
     );
     analysis.solver.selection = SolverSelection::Explicit(Backend::Kinsol);
     analysis.solver.composition.policy = pse_model::strategy::CompositionPolicy::Declared;
     let direct_error = package
-        .prepare_analysis(&analysis, &cancel)
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
         .await
         .unwrap_err();
     assert!(
@@ -2574,6 +2736,7 @@ async fn ready_initialization_releases_successor_before_unrelated_sibling_delive
         let cancel = crate::CancelSource::new();
         let mut analysis = package
             .declared_execution(
+                &runtime.preparation_services(),
                 root,
                 compiler_profile(),
                 super::super::tests::profile(SolveIntent::Initialize),
@@ -2593,12 +2756,17 @@ async fn ready_initialization_releases_successor_before_unrelated_sibling_delive
             proof_steps: None,
         });
         let mut prepared = package
-            .prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel)
+            .prepare_block_initialization(
+                &runtime.preparation_services(),
+                &analysis,
+                vec![BTreeMap::new()],
+                &cancel,
+            )
             .await
             .unwrap();
         let (fast, slow, child) = prepared.prepared.independent_test_chain();
         let (release, mut completed) = prepared.prepared.fence_completion(slow);
-        let handle = prepared.start().unwrap();
+        let handle = prepared.start(&runtime.preparation_services()).unwrap();
         assert_eq!(
             tokio::time::timeout(std::time::Duration::from_secs(15), completed.recv())
                 .await

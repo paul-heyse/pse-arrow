@@ -3,7 +3,7 @@
 //! Frozen callable targets use the common resolver, task admission and original assessment.
 use super::super::{MathRuntimeError, MathService, SessionDisposition, StepRetention};
 use super::{self as strategy, admission::TaskAdmission};
-#[cfg(any(test, feature = "solver-pounce"))]
+#[cfg(test)]
 use pse_backend_native::solve::Backend;
 use pse_backend_native::{ProblemError, solve::Controls};
 use pse_ids::ContentHash;
@@ -89,16 +89,12 @@ pub(crate) fn callable<T>(
     let service = context.service;
     let scope = context.scope;
     let mut declaration = declaration(&source);
-    #[cfg(feature = "solver-pounce")]
     if source.request.limits.is_none()
         && source.request.policy == pse_model::strategy::CompositionPolicy::Auto
-        && source.method
-            == Some(pse_model::strategy::NumericalMethod::Backend(
-                Backend::Pounce,
-            ))
+        && let Some(pse_model::strategy::NumericalMethod::Backend(backend)) = source.method
         && let Some(solver) = source.solver
     {
-        let capacity = pse_backend_native::execution::adapter(Backend::Pounce)
+        let capacity = pse_backend_native::execution::adapter(backend)
             .recovery_capacity(
                 &solver.controls,
                 &solver.backend,
@@ -113,11 +109,7 @@ pub(crate) fn callable<T>(
     if let Some(storage) = context.storage.take() {
         admission.retain_storage_allowance(storage)?;
     }
-    #[cfg(feature = "solver-pounce")]
     let mut profiles = vec![source.solver.cloned()];
-    #[cfg(not(feature = "solver-pounce"))]
-    let profiles = [source.solver.cloned()];
-    #[cfg(feature = "solver-pounce")]
     let mut known_profiles = BTreeSet::from([source.profile]);
     let mut attempted = BTreeSet::new();
     let mut last = None;
@@ -385,26 +377,20 @@ pub(crate) fn callable<T>(
                 original: Some(assessment.original.clone()),
                 permission: Some(assessment.retention.candidate.usability),
             });
-        #[cfg(feature = "solver-pounce")]
         if source.request.policy == pse_model::strategy::CompositionPolicy::Auto
-            && source.method
-                == Some(pse_model::strategy::NumericalMethod::Backend(
-                    Backend::Pounce,
-                ))
+            && let Some(pse_model::strategy::NumericalMethod::Backend(backend)) = source.method
             && let Some(baseline) = source.solver
             && let Some(Ok(value)) = result.value.as_ref()
             && let Some(report) = native_report(value)
         {
-            for offered in pse_backend_native::execution::adapter(Backend::Pounce)
-                .recovery_profiles(
-                    &baseline.controls,
-                    &baseline.backend,
-                    report,
-                    pse_backend_native::execution::RecoveryPermission {
-                        replacement_start: false,
-                    },
-                )?
-            {
+            for offered in pse_backend_native::execution::adapter(backend).recovery_profiles(
+                &baseline.controls,
+                &baseline.backend,
+                report,
+                pse_backend_native::execution::RecoveryPermission {
+                    replacement_start: false,
+                },
+            )? {
                 let mut profile = baseline.clone();
                 profile.controls = offered.controls;
                 profile.backend = offered.settings;

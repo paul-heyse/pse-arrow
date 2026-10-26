@@ -1619,9 +1619,10 @@ impl MathService {
         inputs: pse_compiler::workspace::CompilerContext,
     ) -> Result<Workspace, MathRuntimeError> {
         {
-            let mut lanes = self.compiler_lanes.lock().map_err(|_| {
-                MathRuntimeError::Infrastructure("compiler lane map poisoned".into())
-            })?;
+            let mut lanes = self
+                .compiler_lanes
+                .lock()
+                .map_err(|_| MathRuntimeError::Internal("compiler lane map poisoned".into()))?;
             if let Some(index) = lanes
                 .iter()
                 .position(|lane| lane.historical.is_none() && lane.lineage == lineage)
@@ -1658,7 +1659,7 @@ impl MathService {
         let mut lanes = self
             .compiler_lanes
             .lock()
-            .map_err(|_| MathRuntimeError::Infrastructure("compiler lane map poisoned".into()))?;
+            .map_err(|_| MathRuntimeError::Internal("compiler lane map poisoned".into()))?;
         if let Some(lane) = lanes
             .iter()
             .find(|lane| lane.historical.is_none() && lane.lineage == lineage)
@@ -1701,9 +1702,10 @@ impl MathService {
         inputs: pse_compiler::workspace::CompilerContext,
     ) -> Result<(Workspace, tokio::sync::OwnedSemaphorePermit), MathRuntimeError> {
         let lineage = {
-            let mut lanes = self.compiler_lanes.lock().map_err(|_| {
-                MathRuntimeError::Infrastructure("compiler lane map poisoned".into())
-            })?;
+            let mut lanes = self
+                .compiler_lanes
+                .lock()
+                .map_err(|_| MathRuntimeError::Internal("compiler lane map poisoned".into()))?;
             let lineage = lanes
                 .iter()
                 .find(|lane| {
@@ -1751,9 +1753,10 @@ impl MathService {
                     .saturating_add(inputs.provider_allocation_extent()),
             )
         {
-            let mut lanes = self.compiler_lanes.lock().map_err(|_| {
-                MathRuntimeError::Infrastructure("compiler lane map poisoned".into())
-            })?;
+            let mut lanes = self
+                .compiler_lanes
+                .lock()
+                .map_err(|_| MathRuntimeError::Internal("compiler lane map poisoned".into()))?;
             // Never create a second retained writer for one exact historical key.
             // An active peer retains its own authority; this caller stays private.
             if !lanes.iter().any(|lane| {
@@ -1842,10 +1845,11 @@ impl MathService {
             pse_columnar::MemoryConsumer::new("modeling:source-revision").register(&self.pool);
         self.pressure
             .try_grow(&reservation, self.policy.workspace_bytes / 2)?;
-        let mut head =
-            authority.workspace.lane_head.lock().map_err(|_| {
-                MathRuntimeError::Infrastructure("compiler lane head poisoned".into())
-            })?;
+        let mut head = authority
+            .workspace
+            .lane_head
+            .lock()
+            .map_err(|_| MathRuntimeError::Internal("compiler lane head poisoned".into()))?;
         if head.as_ref().is_some_and(|prior| stamp.precedes(prior)) {
             drop(head);
             let inputs = authority

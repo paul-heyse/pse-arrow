@@ -8,7 +8,7 @@ type Tables = BTreeMap<SemanticId, FieldCheckedBatch>;
 
 /// Publish retained admission without requiring a numerical attempt.
 pub(super) fn admission_tables(
-    runtime: &Runtime,
+    runtime: &crate::workflow::PreparationServices,
     decision: &pse_backend_native::routing::Decision,
     request_identity: pse_ids::ContentHash,
     step: i64,
@@ -35,6 +35,7 @@ impl ModelingSolvePreparation {
     /// Checked route and original structural facts, keyed by the owning request and step.
     pub fn admission_tables(
         &self,
+        services: &crate::workflow::PreparationServices,
         request_identity: pse_ids::ContentHash,
         step: i64,
     ) -> Result<Tables, WorkflowError> {
@@ -42,14 +43,14 @@ impl ModelingSolvePreparation {
             .solve
             .route_decision()
             .ok_or_else(|| contract("algebraic preparation admission facts absent"))?;
-        admission_tables(&self.source.runtime, decision, request_identity, step)
+        admission_tables(services, decision, request_identity, step)
     }
 }
 impl ModelingDiagnosticPreparation {
     /// Checked retained refusal or admission facts; preparing these tables executes no native solver.
     pub fn admission_tables(
         &self,
-        runtime: &Runtime,
+        runtime: &crate::workflow::PreparationServices,
         request_identity: pse_ids::ContentHash,
         step: i64,
     ) -> Result<Tables, WorkflowError> {
@@ -63,7 +64,7 @@ impl ModelingDiagnostics {
         request_identity: pse_ids::ContentHash,
         step: i64,
     ) -> Result<Tables, WorkflowError> {
-        admission_tables(&self.runtime, &self.route_decision, request_identity, step)
+        admission_tables(&self.services, &self.route_decision, request_identity, step)
     }
 }
 
@@ -106,18 +107,18 @@ pub struct ModelingNativeAnalysis {
 mod native_analysis;
 
 fn export(
-    runtime: &Runtime,
+    runtime: &crate::workflow::PreparationServices,
     bytes: usize,
     build: impl FnOnce(&mut Collection<'_>) -> Result<(), WorkflowError>,
 ) -> Result<Tables, WorkflowError> {
-    let _scratch = runtime.shared.math().reserve(
+    let _scratch = runtime.math().reserve(
         "modeling:analysis-row-copy",
         bytes
             .checked_mul(2)
             .and_then(|n| n.checked_add(4096))
             .ok_or_else(|| contract("analysis row copy extent"))?,
     )?;
-    let pool = runtime.shared.pool();
+    let pool = runtime.pool();
     let cancel = pse_columnar::CancellationToken::new();
     let validation = runtime.validation_context();
     let mut columns = Collection::new(runtime.registry(), &pool, &cancel, &validation);
@@ -130,7 +131,7 @@ fn export(
         .collect())
 }
 fn one<T: RelationRow>(
-    runtime: &Runtime,
+    runtime: &crate::workflow::PreparationServices,
     bytes: usize,
     row: impl FnOnce() -> T,
 ) -> Result<FieldCheckedBatch, WorkflowError> {
@@ -152,7 +153,7 @@ pub(in crate::workflow) fn finding_row(
 }
 
 fn export_finding_rows(
-    runtime: &Runtime,
+    runtime: &crate::workflow::PreparationServices,
     bytes: usize,
     rows: impl Iterator<Item = pse_model::generated::runtime::modeling_findings::Row>,
 ) -> Result<FieldCheckedBatch, WorkflowError> {
@@ -221,19 +222,19 @@ impl ModelingDiagnostics {
     }
     /// Every advertised relation through its selected cursor.
     pub fn tables(&self) -> Result<Tables, WorkflowError> {
-        crate::workflow::result_export::collect_tables(self.table_ids(), &self.runtime, |id| {
+        crate::workflow::result_export::collect_tables(self.table_ids(), &self.services, |id| {
             self.cursor_by_id(id, 1024).map_err(Arc::new)
         })
         .map_err(WorkflowError::Shared)
     }
     fn table_by_id(&self, id: SemanticId) -> Result<FieldCheckedBatch, WorkflowError> {
-        crate::workflow::result_export::collect(self.cursor_by_id(id, 1024)?, &self.runtime, id)
+        crate::workflow::result_export::collect(self.cursor_by_id(id, 1024)?, &self.services, id)
             .map_err(WorkflowError::Shared)
     }
     /// The selected relation; an unrelated intrinsic defect is not consulted.
     pub fn table(&self, name: &str) -> Result<FieldCheckedBatch, WorkflowError> {
         let id = self
-            .runtime
+            .services
             .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown diagnostic relation"))?
@@ -247,7 +248,7 @@ impl ModelingDiagnostics {
         rows: usize,
     ) -> Result<crate::workflow::ResultCursor<'_>, WorkflowError> {
         let id = self
-            .runtime
+            .services
             .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown diagnostic relation"))?
@@ -260,7 +261,7 @@ impl ModelingDiagnostics {
         name: &str,
         rows: usize,
     ) -> Result<crate::workflow::ResultCursor<'static>, WorkflowError> {
-        let runtime = &self.runtime;
+        let runtime = &self.services;
         let id = runtime
             .registry()
             .relation(name)
@@ -303,11 +304,11 @@ impl ModelingDiagnostics {
             return Err(WorkflowError::Shared(error));
         }
         let spec = self
-            .runtime
+            .services
             .registry()
             .relation_by_id(id)
             .ok_or_else(|| contract("diagnostic declaration absent"))?;
-        let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
+        let schema = pse_schema::arrow::relation_schema_ref(self.services.registry(), spec)
             .map_err(pse_relations::RelationError::from)
             .map_err(relation)?;
         crate::workflow::ResultCursor::new(
@@ -335,12 +336,12 @@ impl ModelingDiagnostics {
             self.rows.as_slice().as_ref(),
             self.columns.as_slice().as_ref(),
         );
-        let pool = self.runtime.shared.pool();
+        let pool = self.services.pool();
         let cancel = request.cancel.clone();
-        let validation = self.runtime.validation_context();
+        let validation = self.services.validation_context();
         let mut columns = crate::workflow::result_export::SelectedCollection::new(
             request,
-            self.runtime.registry(),
+            self.services.registry(),
             &pool,
             &cancel,
             &validation,
@@ -611,7 +612,7 @@ impl ModelingInitializationReport {
     /// The findings of the initialization run as a checked `modeling_findings` relation.
     pub fn findings_table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         export_finding_rows(
-            &self.runtime,
+            &self.services,
             self._owner.size(),
             self.failure
                 .iter()
@@ -631,7 +632,7 @@ impl ModelingInitializationReport {
     /// The modeling initialization row as a checked `modeling_initializations` relation.
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         use pse_model::generated::runtime::modeling_initializations::*;
-        one(&self.runtime, self._owner.size(), || {
+        one(&self.services, self._owner.size(), || {
             RuntimeModelingInitializationsRow {
                 run_id: self.run_id,
                 complete: self.completed,
@@ -691,7 +692,7 @@ impl ModelingDiagnosticSamples {
     /// The findings of the diagnostic samples as a checked `modeling_findings` relation.
     pub fn findings_table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         export_finding_rows(
-            &self.runtime,
+            &self.services,
             self._owner.size(),
             self.outcomes
                 .iter()
@@ -713,7 +714,7 @@ impl ModelingDiagnosticSamples {
             .map(serde_json::to_string)
             .transpose()
             .map_err(|e| contract(e.to_string()))?;
-        one(&self.runtime, self._owner.size(), || {
+        one(&self.services, self._owner.size(), || {
             RuntimeModelingDiagnosticSamplesRow {
                 origin_json,
                 run_id: self.run_id,
@@ -741,7 +742,7 @@ impl ModelingNonlinearExplanation {
     /// The findings of the nonlinear explanation as a checked `modeling_findings` relation.
     pub fn findings_table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         export_finding_rows(
-            &self.runtime,
+            &self.services,
             self._owner.size(),
             self.stop
                 .iter()
@@ -761,7 +762,7 @@ impl ModelingNonlinearExplanation {
     /// The modeling nonlinear explanation row as a checked `modeling_nonlinear_explanations` relation.
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         use pse_model::generated::runtime::modeling_nonlinear_explanations::*;
-        one(&self.runtime, self._owner.size(), || {
+        one(&self.services, self._owner.size(), || {
             RuntimeModelingNonlinearExplanationsRow {
                 run_id: self.run_id,
                 source_identity: self.source_identity,

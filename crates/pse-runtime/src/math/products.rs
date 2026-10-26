@@ -138,9 +138,10 @@ impl MathService {
         lease: Arc<pse_columnar::AllocationLease>,
         parents: Vec<Arc<ProductOwner>>,
     ) -> Result<Arc<ProductOwner>, MathRuntimeError> {
-        let mut products = self.products.lock().map_err(|_| {
-            MathRuntimeError::Infrastructure("product ownership lock poisoned".into())
-        })?;
+        let mut products = self
+            .products
+            .lock()
+            .map_err(|_| MathRuntimeError::Internal("product ownership lock poisoned".into()))?;
         products.retain(|_, owner| owner.strong_count() != 0);
         if let Some(owner) = products.get(&key).and_then(std::sync::Weak::upgrade) {
             return Ok(owner);
@@ -330,7 +331,7 @@ impl MathService {
         self.products
             .lock()
             .map_err(|_| {
-                MathRuntimeError::Infrastructure("body descriptor ownership lock poisoned".into())
+                MathRuntimeError::Internal("body descriptor ownership lock poisoned".into())
             })?
             .insert(
                 vec![31, Arc::as_ptr(&owned) as usize],
@@ -520,7 +521,7 @@ impl MathService {
         // job's lease only for newly allocated fields, leaving wrappers independent.
         let existing = {
             let products = self.products.lock().map_err(|_| {
-                MathRuntimeError::Infrastructure("product ownership lock poisoned".into())
+                MathRuntimeError::Internal("product ownership lock poisoned".into())
             })?;
             components
                 .iter()

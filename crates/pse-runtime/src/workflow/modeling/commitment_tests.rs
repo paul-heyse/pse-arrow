@@ -70,7 +70,7 @@ fn quadratic(build: bool) -> String {
     )
 }
 
-async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
+async fn package(text: &str) -> (Runtime, ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let rows = pse_authoring::language::parse(
         text,
@@ -84,11 +84,9 @@ async fn package(text: &str) -> (ModelingPackage, DeclarationId) {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30)
-        .modeling_package(rows, physical)
-        .await
-        .unwrap();
-    (package, root)
+    let runtime = fixture::runtime_with(16 << 20, 16 << 20, 2 << 30);
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
+    (runtime, package, root)
 }
 fn analysis(root: DeclarationId, solver: SolverProfile, demand: &[&str]) -> ModelingAnalysis {
     ModelingAnalysis {
@@ -116,12 +114,16 @@ fn profile(selection: SolverSelection, backend: BackendSettings) -> SolverProfil
 /// Solve `analysis` as a one-step run; returns the result and the identities of `names`:
 /// a demanded symbol path or an equation's name.
 async fn solve(
+    services: &crate::workflow::ExecutionServices,
     package: &ModelingPackage,
     analysis: &ModelingAnalysis,
     names: &[&str],
 ) -> (Arc<crate::workflow::RunResult>, Vec<SemanticId>) {
     let cancel = crate::CancelSource::new();
-    let prepared = package.prepare_analysis(analysis, &cancel).await.unwrap();
+    let prepared = package
+        .prepare_analysis(services.preparation(), analysis, &cancel)
+        .await
+        .unwrap();
     let model = &prepared.model.model.compiled().model;
     let ids = names
         .iter()
@@ -136,7 +138,7 @@ async fn solve(
             })
         })
         .collect();
-    let result = prepared.start().unwrap().wait().await.unwrap();
+    let result = prepared.start(&services).unwrap().wait().await.unwrap();
     (result, ids)
 }
 fn rows<R: RelationRow>(result: &crate::workflow::RunResult, name: &str) -> Vec<R> {
@@ -182,7 +184,8 @@ fn dual(result: &crate::workflow::RunResult, row: SemanticId) -> Option<f64> {
 /// Without either, no commitment is stated and a MIP candidate has no multipliers.
 #[tokio::test]
 async fn duals_conditional_on_assignment() {
-    let (package, root) = package(MILP).await;
+    let (runtime, package, root) = package(MILP).await;
+    let services = runtime.execution_services();
     let paths = ["y", "total", "cap"];
     let priced = BackendSettings::Highs(highs::Settings {
         diagnostics: highs::Request {
@@ -193,6 +196,7 @@ async fn duals_conditional_on_assignment() {
     });
     let explicit = SolverSelection::Explicit(Backend::Highs);
     let (result, ids) = solve(
+        &services,
         &package,
         &analysis(root, profile(explicit, priced), &paths[..1]),
         &paths,
@@ -211,6 +215,7 @@ async fn duals_conditional_on_assignment() {
     );
     // Without the fixed-commitment LP the MIP candidate has neither.
     let (plain, _) = solve(
+        &services,
         &package,
         &analysis(
             root,
@@ -226,18 +231,32 @@ async fn duals_conditional_on_assignment() {
     // The MIQP routes to SCIP; its candidate is the re-solve under build = 0, whose coupling
     // multiplier is the continuous case's.
     let paths = ["build", "coupling"];
-    let (package, root) = self::package(&quadratic(true)).await;
+    let (runtime, package, root) = self::package(&quadratic(true)).await;
+    let services = runtime.execution_services();
     let auto = profile(SolverSelection::Auto, BackendSettings::Default);
-    let (result, ids) = solve(&package, &analysis(root, auto, &paths[..1]), &paths).await;
+    let (result, ids) = solve(
+        &services,
+        &package,
+        &analysis(root, auto, &paths[..1]),
+        &paths,
+    )
+    .await;
     assert_eq!(backend(&result), NativeBackend::Scip);
     assert_eq!(commitment(&result), Some(vec![(ids[0], 0.0)]));
     let conditional = dual(&result, ids[1]).unwrap();
-    let (package, root) = self::package(&quadratic(false)).await;
+    let (runtime, package, root) = self::package(&quadratic(false)).await;
+    let services = runtime.execution_services();
     let ipopt = profile(
         SolverSelection::Explicit(Backend::Ipopt),
         BackendSettings::Default,
     );
-    let (continuous, ids) = solve(&package, &analysis(root, ipopt, &[]), &paths[1..]).await;
+    let (continuous, ids) = solve(
+        &services,
+        &package,
+        &analysis(root, ipopt, &[]),
+        &paths[1..],
+    )
+    .await;
     assert_eq!(backend(&continuous), NativeBackend::Ipopt);
     assert_eq!(commitment(&continuous), None);
     let reference = dual(&continuous, ids[0]).unwrap();
@@ -301,7 +320,8 @@ async fn sensitivity_conditional_on_assignment() {
     ) {
         let paths = ["a", "b", "x", "build"];
         let paths = if build { &paths[..] } else { &paths[..3] };
-        let (package, root) = package(&quadratic(build)).await;
+        let (runtime, package, root) = package(&quadratic(build)).await;
+        let services = runtime.execution_services();
         // The continuous reference runs on the NLP backend the re-solve routes to.
         let selection = if build {
             SolverSelection::Auto
@@ -310,7 +330,11 @@ async fn sensitivity_conditional_on_assignment() {
         };
         let mut analysis = analysis(root, profile(selection, BackendSettings::Default), paths);
         let plain = package
-            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .prepare_analysis(
+                services.preparation(),
+                &analysis,
+                &crate::CancelSource::new(),
+            )
             .await
             .unwrap();
         let known = &plain.model.model.compiled().model.paths;
@@ -320,7 +344,7 @@ async fn sensitivity_conditional_on_assignment() {
             reduced_hessian: true,
             propagation: None,
         });
-        let (result, ids) = solve(&package, &analysis, paths).await;
+        let (result, ids) = solve(&services, &package, &analysis, paths).await;
         let rows = rows(&result, "runtime.parametric_sensitivities");
         (result, ids, rows)
     }

@@ -27,6 +27,8 @@ pub struct RuntimeParameterIntervalsRow {
     pub r#value: Option<f64>,
     ///outcome
     pub r#outcome: crate::generated::enums::IntervalOutcome,
+    ///Original estimate and accepted pin applicability/incumbent qualifiers retained at this exact end.
+    pub r#qualifiers: Vec<crate::generated::enums::CandidateQualifier>,
     ///Pinned fits the end's profile chain solved; zero for a Wald end.
     pub r#points: i64,
     ///Why a chain stopped: the typed cause of its last failure.
@@ -45,6 +47,7 @@ impl crate::SemanticEq for RuntimeParameterIntervalsRow {
             && crate::SemanticEq::semantic_eq(&self.r#estimate, &other.r#estimate)
             && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
             && crate::SemanticEq::semantic_eq(&self.r#outcome, &other.r#outcome)
+            && crate::SemanticEq::semantic_eq(&self.r#qualifiers, &other.r#qualifiers)
             && crate::SemanticEq::semantic_eq(&self.r#points, &other.r#points)
             && crate::SemanticEq::semantic_eq(&self.r#detail, &other.r#detail)
     }
@@ -76,6 +79,8 @@ impl crate::SemanticFrame for RuntimeParameterIntervalsRow {
         crate::SemanticFrame::frame(&self.r#value, hash);
         hash.str(stringify!(r#outcome));
         crate::SemanticFrame::frame(&self.r#outcome, hash);
+        hash.str(stringify!(r#qualifiers));
+        crate::SemanticFrame::frame(&self.r#qualifiers, hash);
         hash.str(stringify!(r#points));
         crate::SemanticFrame::frame(&self.r#points, hash);
         hash.str(stringify!(r#detail));
@@ -94,6 +99,7 @@ impl crate::HeapUsage for RuntimeParameterIntervalsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#estimate))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#outcome))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#qualifiers))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#points))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#detail))
     }

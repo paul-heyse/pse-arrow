@@ -43,6 +43,7 @@ async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance()
     let cancel = crate::CancelSource::new();
     let mut analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler_profile(),
             profile(SolveIntent::Root),
@@ -53,9 +54,15 @@ async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance()
         .await
         .unwrap()
         .analysis;
-    let positive = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let positive = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     analysis.case.values.insert("x".into(), -1.0);
-    let negative = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let negative = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     for reuse in [
         ReusePolicy::Fresh,
         ReusePolicy::AllowRebuild,
@@ -64,7 +71,10 @@ async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance()
         for policy in [StartPolicy::NoPriorStart, StartPolicy::PreviousAccepted] {
             analysis.solver.controls.start = policy;
             analysis.solver.controls.reuse = reuse;
-            let next = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+            let next = package
+                .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+                .await
+                .unwrap();
             let result = runtime
                 .start_modeling(vec![positive.clone(), next], false, &cancel)
                 .await
@@ -108,11 +118,17 @@ async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance()
     analysis.solver.controls.reuse = ReusePolicy::AllowRebuild;
     analysis.case.values.insert("threshold".into(), 0.0);
     analysis.solver.numerics.closure = pse_model::generated::enums::ClosurePolicy::AllowUnclosed;
-    let rejected = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let rejected = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     for independent in [false, true] {
         analysis.case.values.insert("x".into(), 1.0);
         analysis.solver.controls.start = StartPolicy::PreviousAccepted;
-        let next = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+        let next = package
+            .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+            .await
+            .unwrap();
         let result = runtime
             .start_modeling(vec![rejected.clone(), next], independent, &cancel)
             .await
@@ -148,17 +164,20 @@ async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance()
         );
     }
     let x = negative.model.case.compiled().plan.columns()[0];
-    let batch =
-        crate::workflow::physical_values::test_primal_batch(&negative, BTreeMap::from([(x, 1.0)]))
-            .unwrap();
+    let batch = crate::workflow::physical_values::test_primal_batch(
+        &runtime.preparation_services(),
+        &negative,
+        BTreeMap::from([(x, 1.0)]),
+    )
+    .unwrap();
     let schema = batch.schema();
     let result = negative
-        .with_primal_start(datafusion::arrow::record_batch::RecordBatchIterator::new(
-            vec![Ok(batch)],
-            schema,
-        ))
+        .with_primal_start(
+            &runtime.preparation_services(),
+            datafusion::arrow::record_batch::RecordBatchIterator::new(vec![Ok(batch)], schema),
+        )
         .unwrap()
-        .start()
+        .start(&runtime.execution_services())
         .unwrap()
         .wait()
         .await
@@ -194,6 +213,7 @@ async fn root_package() -> (
     let cancel = crate::CancelSource::new();
     let analysis = package
         .declared_execution(
+            &runtime.preparation_services(),
             root,
             compiler_profile(),
             profile(SolveIntent::Root),
@@ -211,7 +231,10 @@ async fn root_package() -> (
 async fn native_option_change_keeps_seed_compatible() {
     use pse_backend_native::{execution::BackendSettings, kinsol, solve::SeedTransformation};
     let (runtime, package, mut analysis, cancel) = root_package().await;
-    let positive = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let positive = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     // The next step changes a native setting and starts where the authored start leads
     // to the other root; only the predecessor's seed can take it to +2.
     analysis.solver.controls.start = StartPolicy::PreviousAccepted;
@@ -221,7 +244,10 @@ async fn native_option_change_keeps_seed_compatible() {
         ..Default::default()
     });
     analysis.case.values.insert("x".into(), -1.0);
-    let next = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let next = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     let (a, b) = (
         positive.solve.compatibility().unwrap(),
         next.solve.compatibility().unwrap(),
@@ -262,12 +288,21 @@ async fn native_option_change_keeps_seed_compatible() {
 #[tokio::test]
 async fn lineage_identity_changes_with_seed() {
     let (runtime, package, mut analysis, cancel) = root_package().await;
-    let positive = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let positive = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     analysis.case.values.insert("x".into(), -1.0);
-    let negative = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let negative = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     analysis.case.values.remove("x");
     analysis.solver.controls.start = StartPolicy::PreviousAccepted;
-    let next = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let next = package
+        .prepare_analysis(&runtime.preparation_services(), &analysis, &cancel)
+        .await
+        .unwrap();
     let lineage = |steps: Vec<crate::workflow::ModelingSolvePreparation>| {
         let runtime = runtime.clone();
         let cancel = &cancel;

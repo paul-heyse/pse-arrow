@@ -41,7 +41,9 @@ pub use pse_model::generated::enums::{
 /// Automatic selection has not yet resolved a method.
 pub fn backend(method: Method) -> Result<crate::solve::Backend, ProblemError> {
     match method {
-        Method::Auto => Err(contract("automatic dynamic method has no executing backend")),
+        Method::Auto => Err(contract(
+            "automatic dynamic method has no executing backend",
+        )),
         Method::Diffsol => Ok(crate::solve::Backend::Diffsol),
         Method::Idas => Ok(crate::solve::Backend::Idas),
     }

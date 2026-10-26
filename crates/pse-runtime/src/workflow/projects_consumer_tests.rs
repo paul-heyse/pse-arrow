@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 async fn recorded(runtime: &Runtime, package: &ModelingPackage) -> StudyHandle {
     let cancel = crate::CancelSource::new();
     let root = package
-        .declarations()
+        .declarations(&runtime.preparation_services())
         .await
         .unwrap()
         .iter()
@@ -40,6 +40,7 @@ async fn recorded(runtime: &Runtime, package: &ModelingPackage) -> StudyHandle {
     };
     let local = package
         .admit_study(
+            &runtime.execution_services(),
             &StudyInputs::Explicit(vec![point]),
             &StudyOutputDemand::Full {},
             &cancel,
@@ -103,7 +104,10 @@ async fn project_admitted_draft_run_cancellation_and_undo_preserve_original_reco
             .unwrap();
     let project = store.project("project").await.unwrap().unwrap();
     let branch = store.project_branch("main").await.unwrap().unwrap();
-    let declarations = original.declarations().await.unwrap();
+    let declarations = original
+        .declarations(&runtime.preparation_services())
+        .await
+        .unwrap();
     let mut parameter = declarations
         .iter()
         .find(|row| row.name == "x")

@@ -233,7 +233,7 @@ impl serde::Serialize for StoredCompletionDocument {
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativeStoredResult {
-    pub(crate) inner: native::Runtime,
+    pub(crate) inner: native::SourceServices,
     pub(crate) owner: Arc<runtime::Runtime>,
     pub(crate) run_id: pse_model::generated::identities::RunId,
     pub(crate) run: String,
@@ -261,16 +261,10 @@ impl NativeStoredResult {
             self.inner.stored_completion(&self.run, &self.attempt),
             || {},
         )?;
-        Ok(matches!(
-            stored.termination.cause,
-            native::TerminationCause::Assessment { usable: true, .. }
-        ) && stored.completion.as_ref().is_some_and(|completion| {
-            !completion.assessments.is_empty()
-                && completion
-                    .assessments
-                    .iter()
-                    .all(|assessment| assessment.permits_result)
-        }))
+        Ok(stored
+            .completion
+            .as_ref()
+            .is_some_and(native::Completion::permits_result))
     }
     fn completion(
         &self,
@@ -924,6 +918,7 @@ impl NativeRuntime {
         )?;
         Ok(NativeModelingPackage::from_revision(
             self.owner.clone(),
+            self.recording_runtime(py)?.execution_services(),
             inner,
         ))
     }
@@ -1013,6 +1008,7 @@ impl NativeRuntime {
         )?;
         Ok(NativeModelingPackage::from_revision(
             self.owner.clone(),
+            self.recording_runtime(py)?.execution_services(),
             value,
         ))
     }
@@ -1184,6 +1180,7 @@ impl NativeRuntime {
         )?;
         Ok(NativeModelingPackage::from_revision(
             self.owner.clone(),
+            self.recording_runtime(py)?.execution_services(),
             value,
         ))
     }
@@ -1509,6 +1506,7 @@ impl NativeRuntime {
         )?;
         Ok(NativeModelingPackage::from_revision(
             self.owner.clone(),
+            self.recording_runtime(py)?.execution_services(),
             value,
         ))
     }
@@ -1634,6 +1632,7 @@ impl NativeRuntime {
         )?;
         Ok(NativeModelingPackage::from_revision(
             self.owner.clone(),
+            self.recording_runtime(py)?.execution_services(),
             value,
         ))
     }
@@ -1680,6 +1679,7 @@ impl NativeRuntime {
         )?;
         Ok(NativeModelingPackage::from_revision(
             self.owner.clone(),
+            self.recording_runtime(py)?.execution_services(),
             value,
         ))
     }
@@ -1821,6 +1821,7 @@ impl NativeRuntime {
         )?;
         Ok(NativeModelingPackage::from_revision(
             self.owner.clone(),
+            self.recording_runtime(py)?.execution_services(),
             value,
         ))
     }
@@ -1857,6 +1858,7 @@ impl NativeRuntime {
             || {},
         )?;
         Ok(NativePreparedStrategy {
+            services: self.inner.preparation_services(),
             owner: self.owner.clone(),
             inner: strategies::Strategy::Cone(Box::new(inner)),
         })
@@ -2142,7 +2144,7 @@ impl NativeRuntime {
             &self.owner,
             self.recording_operation(&stop, |recording| async move {
                 pse_runtime::tooling::review_export::export_review_pack(
-                    &recording,
+                    &recording.source_services(),
                     &destination,
                     &evidence.0,
                     &analysis.0,
@@ -3699,7 +3701,7 @@ impl SimulationSettings {
             parameters.coordinates(),
         );
         let request = native::PhysicalSimulationRequest::new(controls)
-            .retain(&runtime.inner)
+            .retain(&runtime.inner.preparation_services())
             .map_err(|error| errors::diagnostic(py, &error))?;
         Ok(Self { request })
     }
@@ -3734,7 +3736,7 @@ impl SimulationSettings {
         Ok(Self {
             request: request
                 .0
-                .retain(&runtime.inner)
+                .retain(&runtime.inner.preparation_services())
                 .map_err(|error| errors::diagnostic(py, &error))?,
         })
     }
@@ -3744,6 +3746,7 @@ use native::{PreparedOperation, PreparedStudyOperation};
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativePreparedOperation {
+    services: native::ExecutionServices,
     owner: Arc<runtime::Runtime>,
     inner: PreparedOperation,
 }
@@ -3817,7 +3820,7 @@ impl NativePreparedOperation {
             inner: blocking_analysis(
                 py,
                 &self.owner,
-                prepared.dependency_analysis(&controls, cancel.clone()),
+                prepared.dependency_analysis(&self.services, &controls, cancel.clone()),
                 || cancel.cancel(),
             )?,
             owner: self.owner.clone(),
@@ -3945,6 +3948,7 @@ impl NativePreparedOperation {
             .with_strategy(declaration.strategy, rungs)
             .map_err(|error| errors::diagnostic(py, &error))?;
         Ok(Self {
+            services: self.services.clone(),
             owner: self.owner.clone(),
             inner: PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(Box::new(
                 prepared,
@@ -3970,6 +3974,7 @@ impl NativePreparedOperation {
             || {},
         )?;
         Ok(Self {
+            services: self.services.clone(),
             owner: self.owner.clone(),
             inner: PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(Box::new(inner))),
         })
@@ -3984,6 +3989,7 @@ impl NativePreparedOperation {
             .with_start(seed.inner.clone())
             .map_err(|e| errors::diagnostic(py, &e))?;
         Ok(Self {
+            services: self.services.clone(),
             owner: self.owner.clone(),
             inner: PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(Box::new(inner))),
         })
@@ -3999,9 +4005,10 @@ impl NativePreparedOperation {
         let inner = p
             .as_ref()
             .clone()
-            .with_primal_start(values.0.into_reader()?)
+            .with_primal_start(self.services.preparation(), values.0.into_reader()?)
             .map_err(|e| errors::diagnostic(py, &e))?;
         Ok(Self {
+            services: self.services.clone(),
             owner: self.owner.clone(),
             inner: PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(Box::new(inner))),
         })
@@ -4018,7 +4025,7 @@ impl NativePreparedOperation {
         let inner = blocking(
             py,
             &self.owner,
-            self.inner.start(self.inner.runtime(), &cancel),
+            self.inner.start(&self.services, &cancel),
             || cancel.cancel(),
         )?;
         Ok(NativeRunHandle {
@@ -4041,14 +4048,17 @@ impl NativePreparedOperation {
         let (inner, cursor) = py
             .detach(|| {
                 let _enter = self.owner.executor.enter();
-                simulation.start_live(native::LiveSimulationOptions {
-                    capacity,
-                    retention: if compact {
-                        pse_backend_native::dynamics::SampleRetention::Compact
-                    } else {
-                        pse_backend_native::dynamics::SampleRetention::Full
+                simulation.start_live(
+                    &self.services,
+                    native::LiveSimulationOptions {
+                        capacity,
+                        retention: if compact {
+                            pse_backend_native::dynamics::SampleRetention::Compact
+                        } else {
+                            pse_backend_native::dynamics::SampleRetention::Full
+                        },
                     },
-                })
+                )
             })
             .map_err(|error| errors::diagnostic(py, &error))?;
         Ok((
