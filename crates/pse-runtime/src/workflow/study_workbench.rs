@@ -233,6 +233,71 @@ pub struct StudyKpiAnalysis {
     pub batches: Vec<datafusion::arrow::record_batch::RecordBatch>,
     pub(super) state: Arc<super::cohort_provider::CohortAnalysisState>,
 }
+/// Exact compact result of an explicitly requested existing cohort-analysis export.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StudyKpiExport {
+    /// Original frozen cohort receipt; not an acquisition capability.
+    pub cohort: StudyCohortReceipt,
+    /// Original included members.
+    pub included: u64,
+    /// Original unavailable members.
+    pub unavailable: u64,
+    /// Fresh explicit output; absent when the aggregate has no batches.
+    pub output: Option<std::path::PathBuf>,
+}
+impl Runtime {
+    /// Freeze, aggregate and export the selected existing study operation under one owner.
+    /// Original capture/canonical guards remain live through encoding and synced output.
+    /// # Errors
+    /// Original capture/analysis, accounted memory, IPC and create-new/sync failures.
+    pub async fn export_study_analysis(
+        &self,
+        request: StudyCohortRequest,
+        kpi: &StudyKpiRequest,
+        output: &std::path::Path,
+        cancel: &CancellationToken,
+    ) -> Result<StudyKpiExport, WorkflowError> {
+        let cohort = self.freeze_study_cohort(request).await?;
+        let analysis = cohort.aggregate(kpi, cancel.clone()).await?;
+        let written = write_analysis_ipc(&self.shared.pool(), &analysis.batches, output)?;
+        Ok(StudyKpiExport {
+            cohort: analysis.cohort,
+            included: analysis.included,
+            unavailable: analysis.unavailable,
+            output: written.then(|| output.to_owned()),
+        })
+    }
+}
+fn write_analysis_ipc(
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
+    batches: &[datafusion::arrow::record_batch::RecordBatch],
+    output: &std::path::Path,
+) -> Result<bool, WorkflowError> {
+    use std::io::Write;
+    if batches.is_empty() {
+        return Ok(false);
+    }
+    let owner = MemoryConsumer::new("study:analysis-export").register(pool);
+    owner
+        .try_grow(8 * 1024 * 1024)
+        .map_err(pse_engine::EngineError::from)?;
+    let content = pse_columnar::ipc_file::encode(batches, 4 * 1024 * 1024)
+        .map_err(datafusion::error::DataFusionError::from)
+        .map_err(pse_engine::EngineError::from)?;
+    let io = |source| pse_engine::EngineError::Infrastructure {
+        op: "export selected study aggregate".into(),
+        source: Box::new(source),
+    };
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(output)
+        .map_err(io)?;
+    file.write_all(&content).map_err(io)?;
+    file.sync_all().map_err(io)?;
+    Ok(true)
+}
 impl StudyKpiAnalysis {
     /// Read one bounded original membership/classification page under retained custody.
     pub async fn classification_page(
@@ -777,6 +842,52 @@ fn compatible_rows(rows: &[CapturedStudyRow<StudyWorkbenchHeader>]) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn project_analysis_export_preserves_exact_ipc_empty_and_existing_file_rules() {
+        use datafusion::arrow::{
+            array::{ArrayRef, Int64Array},
+            datatypes::{DataType, Field, Schema},
+            ipc::reader::FileReader,
+            record_batch::RecordBatch,
+        };
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("aggregate.arrow");
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(16 << 20));
+        assert!(!write_analysis_ipc(&pool, &[], &destination).unwrap());
+        assert!(!destination.exists());
+        let counts: ArrayRef = Arc::new(Int64Array::from(vec![3, 5]));
+        let batch = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new(
+                "original_count",
+                DataType::Int64,
+                false,
+            )])),
+            vec![counts],
+        )
+        .unwrap();
+        assert!(write_analysis_ipc(&pool, &[batch], &destination).unwrap());
+        let original = std::fs::read(&destination).unwrap();
+        let mut reader = FileReader::try_new(std::io::Cursor::new(&original), None).unwrap();
+        let observed = reader.next().unwrap().unwrap();
+        assert_eq!(observed.num_rows(), 2);
+        assert_eq!(observed.schema().field(0).name(), "original_count");
+        assert_eq!(
+            observed
+                .column(0)
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap()
+                .values(),
+            &[3, 5]
+        );
+        assert!(reader.next().is_none());
+        let batch = RecordBatch::new_empty(observed.schema());
+        assert!(write_analysis_ipc(&pool, &[batch], &destination).is_err());
+        assert_eq!(std::fs::read(&destination).unwrap(), original);
+        assert_eq!(pool.reserved(), 0);
+    }
+
     #[test]
     fn cohort_export_names_both_actual_generic_row_instantiations() {
         let schema = schemars::schema_for!(StudyCohortExportRecord).to_value();

@@ -503,9 +503,22 @@ impl surrealdb::method::QueryStatisticsObserver for CanonicalStatistics {
     }
     fn observe(&self, statement: usize, stats: surrealdb::method::Stats, succeeded: bool) {
         self.metrics.add(CanonicalQueryEvent::Statement, 1);
-        self.metrics.add(if succeeded { CanonicalQueryEvent::StatementSucceeded } else { CanonicalQueryEvent::StatementFailed }, 1);
-        self.metrics
-            .add(if stats.execution_time.is_some() { CanonicalQueryEvent::StatementTimed } else { CanonicalQueryEvent::StatementUntimed }, 1);
+        self.metrics.add(
+            if succeeded {
+                CanonicalQueryEvent::StatementSucceeded
+            } else {
+                CanonicalQueryEvent::StatementFailed
+            },
+            1,
+        );
+        self.metrics.add(
+            if stats.execution_time.is_some() {
+                CanonicalQueryEvent::StatementTimed
+            } else {
+                CanonicalQueryEvent::StatementUntimed
+            },
+            1,
+        );
         if let Some(duration) = stats.execution_time {
             let nanos = duration.as_nanos();
             let value = u64::try_from(nanos).unwrap_or(u64::MAX);
@@ -564,7 +577,15 @@ pub enum CanonicalQueryEvent {
 }
 impl CanonicalQueryEvent {
     /// Complete finite event domain, independent of observation order.
-    pub const ALL: [Self; 7] = [Self::Builder, Self::RequestFailed, Self::Statement, Self::StatementSucceeded, Self::StatementFailed, Self::StatementTimed, Self::StatementUntimed];
+    pub const ALL: [Self; 7] = [
+        Self::Builder,
+        Self::RequestFailed,
+        Self::Statement,
+        Self::StatementSucceeded,
+        Self::StatementFailed,
+        Self::StatementTimed,
+        Self::StatementUntimed,
+    ];
     /// Stable telemetry attribute value issued by this owner.
     pub fn as_str(self) -> &'static str {
         match self {
@@ -601,7 +622,8 @@ struct CanonicalMetricState {
 impl CanonicalMetricState {
     const fn new() -> Self {
         Self {
-            counts: [const { std::sync::atomic::AtomicU64::new(0) }; CanonicalQueryEvent::ALL.len()],
+            counts: [const { std::sync::atomic::AtomicU64::new(0) };
+                CanonicalQueryEvent::ALL.len()],
             duration: std::sync::atomic::AtomicU64::new(0),
             started: std::sync::OnceLock::new(),
             saturated: AtomicBool::new(false),

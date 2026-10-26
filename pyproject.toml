@@ -247,7 +247,11 @@ extend-exclude = [
 docstring-code-format = true
 # Generated contracts are formatted by the generator; formatting them here would make
 # `rust / codegen-diff` fail. Lint still runs on them.
-exclude = ["python/pse/contracts/**", "scripts/generated/**"]
+exclude = [
+  "python/pse/contracts/**",
+  "python/pse/generated/**",
+  "scripts/generated/**",
+]
 
 [tool.ruff.lint]
 # Explicit selection: a ruff upgrade cannot silently change what the gate means.
@@ -360,6 +364,8 @@ allow-star-arg-any = false
 runtime-evaluated-base-classes = [
   "msgspec.Struct",
   "scripts.capabilities.model.Contract",
+  "scripts.host_contracts.Contract",
+  "scripts.generated.native_operations.ProfileCaptureRequest",
   "scripts.capabilities.read_contracts.Contract",
   "scripts.capabilities.read_contracts.ReadAnswer",
 ]

@@ -1378,6 +1378,118 @@
     }
   ],
   [
+    "EffectFacts",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/EffectScope",
+          "description": "Actual operation scope."
+        },
+        "read_only": {
+          "type": "boolean",
+          "description": "The operation requests observation rather than mutation/admission/capture."
+        },
+        "idempotent": {
+          "type": "boolean",
+          "description": "Repeating the original request has the owner's stated repeatability contract."
+        },
+        "destructive": {
+          "type": "boolean",
+          "description": "The operation explicitly releases retained data/custody."
+        }
+      },
+      "required": [
+        "scope",
+        "read_only",
+        "idempotent",
+        "destructive"
+      ],
+      "description": "Machine-readable facts used by host annotations and operation schema metadata.",
+      "title": "EffectFacts",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "EffectScope": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "observation",
+              "description": "Read original supplied or protected facts without a requested mutation."
+            },
+            {
+              "type": "string",
+              "const": "source_admission",
+              "description": "Admit original source and its actual providers into a local native owner."
+            },
+            {
+              "type": "string",
+              "const": "canonical_command",
+              "description": "Original caller-issued canonical command or publication."
+            },
+            {
+              "type": "string",
+              "const": "retention_release",
+              "description": "Explicit release of retained canonical custody."
+            },
+            {
+              "type": "string",
+              "const": "file_export",
+              "description": "Create a new bounded requested output file."
+            },
+            {
+              "type": "string",
+              "const": "capture",
+              "description": "Explicit finite runtime sampling/capture."
+            }
+          ],
+          "description": "Finite observable effect scope, never inferred from presentation or helper lifetime."
+        }
+      }
+    }
+  ],
+  [
+    "ExtensionRequirement",
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/ExtensionMode",
+          "description": "Actual allowed image selection contract."
+        },
+        "validated": {
+          "type": "boolean",
+          "description": "Correctness validation is required independently of selected dev/native mode."
+        }
+      },
+      "required": [
+        "mode",
+        "validated"
+      ],
+      "description": "Extension requirements, distinct from source/runtime prerequisites and effect scope.",
+      "title": "ExtensionRequirement",
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$defs": {
+        "ExtensionMode": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "installed_correctness",
+              "description": "The actual installed dev/native correctness image, preserving its own provider requirements."
+            },
+            {
+              "type": "string",
+              "const": "native_correctness",
+              "description": "An operation actually requiring linked backend execution."
+            }
+          ],
+          "description": "Actual selected extension interpretation; installed mode comes from its producing receipt."
+        }
+      }
+    }
+  ],
+  [
     "OperationDeclaration",
     {
       "type": "object",
@@ -1416,7 +1528,22 @@
         },
         "effects": {
           "type": "string",
-          "description": "Actual effects, independently of observation wording."
+          "description": "Human explanation only; structured facts below drive host semantics."
+        },
+        "effect_facts": {
+          "$ref": "#/$defs/EffectFacts",
+          "description": "Finite effect facts, independent of helper preparation or lifetime."
+        },
+        "extension": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExtensionRequirement"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Actual extension interpretation, absent for supplied-only tooling."
         },
         "output_document": {
           "anyOf": [
@@ -1485,6 +1612,7 @@
         "description",
         "domain",
         "effects",
+        "effect_facts",
         "output_many",
         "worker",
         "prerequisites",
@@ -1652,6 +1780,104 @@
             "output"
           ],
           "description": "A responsibility-local reference to an existing Rust-owned document."
+        },
+        "EffectFacts": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "$ref": "#/$defs/EffectScope",
+              "description": "Actual operation scope."
+            },
+            "read_only": {
+              "type": "boolean",
+              "description": "The operation requests observation rather than mutation/admission/capture."
+            },
+            "idempotent": {
+              "type": "boolean",
+              "description": "Repeating the original request has the owner's stated repeatability contract."
+            },
+            "destructive": {
+              "type": "boolean",
+              "description": "The operation explicitly releases retained data/custody."
+            }
+          },
+          "required": [
+            "scope",
+            "read_only",
+            "idempotent",
+            "destructive"
+          ],
+          "description": "Machine-readable facts used by host annotations and operation schema metadata."
+        },
+        "EffectScope": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "observation",
+              "description": "Read original supplied or protected facts without a requested mutation."
+            },
+            {
+              "type": "string",
+              "const": "source_admission",
+              "description": "Admit original source and its actual providers into a local native owner."
+            },
+            {
+              "type": "string",
+              "const": "canonical_command",
+              "description": "Original caller-issued canonical command or publication."
+            },
+            {
+              "type": "string",
+              "const": "retention_release",
+              "description": "Explicit release of retained canonical custody."
+            },
+            {
+              "type": "string",
+              "const": "file_export",
+              "description": "Create a new bounded requested output file."
+            },
+            {
+              "type": "string",
+              "const": "capture",
+              "description": "Explicit finite runtime sampling/capture."
+            }
+          ],
+          "description": "Finite observable effect scope, never inferred from presentation or helper lifetime."
+        },
+        "ExtensionRequirement": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "$ref": "#/$defs/ExtensionMode",
+              "description": "Actual allowed image selection contract."
+            },
+            "validated": {
+              "type": "boolean",
+              "description": "Correctness validation is required independently of selected dev/native mode."
+            }
+          },
+          "required": [
+            "mode",
+            "validated"
+          ],
+          "description": "Extension requirements, distinct from source/runtime prerequisites and effect scope."
+        },
+        "ExtensionMode": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "installed_correctness",
+              "description": "The actual installed dev/native correctness image, preserving its own provider requirements."
+            },
+            {
+              "type": "string",
+              "const": "native_correctness",
+              "description": "An operation actually requiring linked backend execution."
+            }
+          ],
+          "description": "Actual selected extension interpretation; installed mode comes from its producing receipt."
         },
         "WorkerFamily": {
           "oneOf": [
@@ -1829,7 +2055,22 @@
             },
             "effects": {
               "type": "string",
-              "description": "Actual effects, independently of observation wording."
+              "description": "Human explanation only; structured facts below drive host semantics."
+            },
+            "effect_facts": {
+              "$ref": "#/$defs/EffectFacts",
+              "description": "Finite effect facts, independent of helper preparation or lifetime."
+            },
+            "extension": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ExtensionRequirement"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Actual extension interpretation, absent for supplied-only tooling."
             },
             "output_document": {
               "anyOf": [
@@ -1898,6 +2139,7 @@
             "description",
             "domain",
             "effects",
+            "effect_facts",
             "output_many",
             "worker",
             "prerequisites",
@@ -2063,6 +2305,104 @@
             "output"
           ],
           "description": "A responsibility-local reference to an existing Rust-owned document."
+        },
+        "EffectFacts": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scope": {
+              "$ref": "#/$defs/EffectScope",
+              "description": "Actual operation scope."
+            },
+            "read_only": {
+              "type": "boolean",
+              "description": "The operation requests observation rather than mutation/admission/capture."
+            },
+            "idempotent": {
+              "type": "boolean",
+              "description": "Repeating the original request has the owner's stated repeatability contract."
+            },
+            "destructive": {
+              "type": "boolean",
+              "description": "The operation explicitly releases retained data/custody."
+            }
+          },
+          "required": [
+            "scope",
+            "read_only",
+            "idempotent",
+            "destructive"
+          ],
+          "description": "Machine-readable facts used by host annotations and operation schema metadata."
+        },
+        "EffectScope": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "observation",
+              "description": "Read original supplied or protected facts without a requested mutation."
+            },
+            {
+              "type": "string",
+              "const": "source_admission",
+              "description": "Admit original source and its actual providers into a local native owner."
+            },
+            {
+              "type": "string",
+              "const": "canonical_command",
+              "description": "Original caller-issued canonical command or publication."
+            },
+            {
+              "type": "string",
+              "const": "retention_release",
+              "description": "Explicit release of retained canonical custody."
+            },
+            {
+              "type": "string",
+              "const": "file_export",
+              "description": "Create a new bounded requested output file."
+            },
+            {
+              "type": "string",
+              "const": "capture",
+              "description": "Explicit finite runtime sampling/capture."
+            }
+          ],
+          "description": "Finite observable effect scope, never inferred from presentation or helper lifetime."
+        },
+        "ExtensionRequirement": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "$ref": "#/$defs/ExtensionMode",
+              "description": "Actual allowed image selection contract."
+            },
+            "validated": {
+              "type": "boolean",
+              "description": "Correctness validation is required independently of selected dev/native mode."
+            }
+          },
+          "required": [
+            "mode",
+            "validated"
+          ],
+          "description": "Extension requirements, distinct from source/runtime prerequisites and effect scope."
+        },
+        "ExtensionMode": {
+          "oneOf": [
+            {
+              "type": "string",
+              "const": "installed_correctness",
+              "description": "The actual installed dev/native correctness image, preserving its own provider requirements."
+            },
+            {
+              "type": "string",
+              "const": "native_correctness",
+              "description": "An operation actually requiring linked backend execution."
+            }
+          ],
+          "description": "Actual selected extension interpretation; installed mode comes from its producing receipt."
         },
         "WorkerFamily": {
           "oneOf": [

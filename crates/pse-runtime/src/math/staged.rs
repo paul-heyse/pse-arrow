@@ -1414,7 +1414,8 @@ impl NativeSession {
         let waiting = observation
             .as_ref()
             .map(|context| context.phase("native.session.admission.wait"));
-        let admission_span = tracing::info_span!("pse.native.session.admission.wait", pse.owner.stage = true);
+        let admission_span =
+            tracing::info_span!("pse.native.session.admission.wait", pse.owner.stage = true);
         if cores == 0 || cores > self.service.cores || cores > u32::MAX as usize {
             return Err(MathRuntimeError::Limit("optimizer cores"));
         }
@@ -1540,7 +1541,9 @@ impl NativeSession {
                 let _trace_dispatch = tracing::dispatcher::set_default(&trace_dispatch);
                 let _trace_span = trace_span.enter();
                 let phase = pse_diagnostics::observation::phase("native.session.work");
-                let _work_span = tracing::info_span!("pse.native.session.execute", pse.owner.stage = true).entered();
+                let _work_span =
+                    tracing::info_span!("pse.native.session.execute", pse.owner.stage = true)
+                        .entered();
                 let mut context = OperationContext {
                     #[cfg(any(test, feature = "solver-kinsol"))]
                     lane,

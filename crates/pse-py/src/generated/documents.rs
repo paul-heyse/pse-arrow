@@ -902,6 +902,14 @@ for pse_operations::canonical_projects::ProjectAcknowledgement {
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
+impl crate::documents::DocumentType
+for pse_runtime::host_operations::project::ProjectAction {
+    const INPUT_NAME: &'static str = "ProjectAction";
+    const OUTPUT_NAME: &'static str = "ProjectActionOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
 impl crate::documents::DocumentType for pse_operations::canonical_projects::BranchPage {
     const INPUT_NAME: &'static str = "ProjectBranchPage";
     const OUTPUT_NAME: &'static str = "ProjectBranchPageOutput";
@@ -1069,6 +1077,14 @@ for pse_operations::canonical_projects::ProjectNavigationRequest {
     const INPUT_NAME: &'static str = "ProjectNavigationRequest";
     const OUTPUT_NAME: &'static str = "ProjectNavigationRequest";
     const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = Some(1);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType
+for pse_runtime::host_operations::project::ProjectOperationRequest {
+    const INPUT_NAME: &'static str = "ProjectOperationRequest";
+    const OUTPUT_NAME: &'static str = "ProjectOperationRequestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
@@ -1669,6 +1685,13 @@ impl crate::documents::DocumentType for pse_runtime::workflow::StudyDefinition {
     const OUTPUT_NAME: &'static str = "StudyDefinitionOutput";
     const DISTINCT_DIRECTIONS: bool = true;
     const VERSION: Option<u32> = Some(14);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::StudyKpiExport {
+    const INPUT_NAME: &'static str = "StudyKpiExport";
+    const OUTPUT_NAME: &'static str = "StudyKpiExport";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = None;
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
 }
 impl crate::documents::DocumentType for pse_runtime::workflow::StudyKpiRequest {

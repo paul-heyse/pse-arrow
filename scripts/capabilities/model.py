@@ -8,11 +8,10 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
-from scripts.host_contracts import Contract as Contract
+from scripts.capabilities.workers import WorkerCall
+from scripts.host_contracts import Contract
 
-from scripts.capabilities.workers import (
-    WorkerCall,
-)
+__all__ = ("Contract",)
 
 Identifier = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,95}$")]
 

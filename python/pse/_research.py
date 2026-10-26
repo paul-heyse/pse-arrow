@@ -21,7 +21,7 @@ from pse.contracts.documents import (
 )
 
 
-class ResearchRuntime:
+class ResearchRuntimeGlue:
     """Typed facade composed into the ordinary Runtime; no separate engine."""
 
     @property
@@ -29,44 +29,46 @@ class ResearchRuntime:
         """Read-only native owner supplied by the concrete Runtime facade."""
         raise NotImplementedError
 
-    def research_dataset_create(
+    def _host_research_dataset_create(
         self, request: ResearchDatasetRequest
     ) -> ResearchDatasetOutput:
         """Admit original typed attribute references into an immutable version."""
         return self._handle.research_dataset_create(request)
 
-    def research_selection_create(
+    def _host_research_selection_create(
         self, request: ResearchSelectionRequest
     ) -> ResearchSelection:
         """Freeze complete original observations, exclusions and calibration context."""
         return self._handle.research_selection_create(request)
 
-    def research_read(self, request: ResearchReadRequest) -> ResearchReadResultOutput:
+    def _host_research_read(
+        self, request: ResearchReadRequest
+    ) -> ResearchReadResultOutput:
         """Read bounded metadata without granting measurement or result lifetime."""
         return self._handle.research_read(request)
 
-    def research_dataset_open(
+    def _host_research_dataset_open(
         self, key: str, context: ContextSelection | ContextSelectionOutput
     ) -> ModelingPackage:
         """Reopen selected original typed data through source protections."""
         return ModelingPackage(self._handle.research_dataset_open(key, context))
 
-    def research_selection_open(self, key: str) -> ModelingPackage:
+    def _host_research_selection_open(self, key: str) -> ModelingPackage:
         """Reopen exact fitting inputs carrying their original research ancestry."""
         return ModelingPackage(self._handle.research_selection_open(key))
 
-    def research_publication_preview(
+    def _host_research_publication_preview(
         self, request: ResearchPublicationRequest
     ) -> ResearchPublicationPreviewOutput:
         """Inspect an admitted authored delta from original qualified fitted cells."""
         return self._handle.research_publication_preview(request)
 
-    def research_publish(
+    def _host_research_publish(
         self, intent: ResearchPublicationIntent | ResearchPublicationIntentOutput
     ) -> ResearchPublication:
         """Settle or execute one retained exact source publication intent."""
         return self._handle.research_publish(intent)
 
-    def research_publication_open(self, key: str) -> ModelingPackage:
+    def _host_research_publication_open(self, key: str) -> ModelingPackage:
         """Open the admitted parameter source with ancestry for downstream studies."""
         return ModelingPackage(self._handle.research_publication_open(key))

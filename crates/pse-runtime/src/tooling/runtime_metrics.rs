@@ -194,7 +194,16 @@ pub(crate) enum TaskEvent {
     LongDelay,
 }
 impl TaskEvent {
-    pub(crate) const ALL: [Self; 8] = [Self::Instrumented, Self::Dropped, Self::Poll, Self::Scheduled, Self::Idle, Self::FirstPoll, Self::SlowPoll, Self::LongDelay];
+    pub(crate) const ALL: [Self; 8] = [
+        Self::Instrumented,
+        Self::Dropped,
+        Self::Poll,
+        Self::Scheduled,
+        Self::Idle,
+        Self::FirstPoll,
+        Self::SlowPoll,
+        Self::LongDelay,
+    ];
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::Instrumented => "instrumented",
@@ -240,7 +249,14 @@ pub(crate) enum TaskPhase {
     LongDelay,
 }
 impl TaskPhase {
-    pub(crate) const ALL: [Self; 6] = [Self::Poll, Self::Scheduled, Self::Idle, Self::FirstPoll, Self::SlowPoll, Self::LongDelay];
+    pub(crate) const ALL: [Self; 6] = [
+        Self::Poll,
+        Self::Scheduled,
+        Self::Idle,
+        Self::FirstPoll,
+        Self::SlowPoll,
+        Self::LongDelay,
+    ];
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::Poll => "poll",
@@ -293,16 +309,26 @@ impl TaskThreshold {
 
 /// Source-generation identities kept distinct from SDK activation.
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum OperationalSource { NativePreparation, CanonicalQuery }
+pub(crate) enum OperationalSource {
+    NativePreparation,
+    CanonicalQuery,
+}
 impl OperationalSource {
     pub(crate) const ALL: [Self; 2] = [Self::NativePreparation, Self::CanonicalQuery];
     pub(crate) fn as_str(self) -> &'static str {
-        match self { Self::NativePreparation => "native_preparation", Self::CanonicalQuery => "canonical_query" }
+        match self {
+            Self::NativePreparation => "native_preparation",
+            Self::CanonicalQuery => "canonical_query",
+        }
     }
     pub(crate) fn started(self) -> Option<u128> {
         match self {
-            Self::NativePreparation => super::operational_metrics::snapshot().source_started_unix_micros,
-            Self::CanonicalQuery => pse_operations::canonical::query_metrics().source_started_unix_micros,
+            Self::NativePreparation => {
+                super::operational_metrics::snapshot().source_started_unix_micros
+            }
+            Self::CanonicalQuery => {
+                pse_operations::canonical::query_metrics().source_started_unix_micros
+            }
         }
     }
 }
@@ -437,23 +463,65 @@ mod tests {
     #[test]
     fn runtime_metrics_task_keys_preserve_distinct_library_populations() {
         let sample = TaskClassMetricsSnapshot {
-            class: NativeTaskClass::MathJob, source_started_unix_micros: 1,
-            slow_poll_threshold_nanos: 2, long_delay_threshold_nanos: 3,
-            instrumented_count: 5, dropped_count: 7, poll_count: 11,
-            scheduled_count: 13, idle_count: 17, first_poll_count: 19,
-            slow_poll_count: 23, long_delay_count: 29,
-            poll_nanos: 31, scheduled_nanos: 37, idle_nanos: 41,
-            first_poll_delay_nanos: 43, slow_poll_nanos: 47, long_delay_nanos: 53,
+            class: NativeTaskClass::MathJob,
+            source_started_unix_micros: 1,
+            slow_poll_threshold_nanos: 2,
+            long_delay_threshold_nanos: 3,
+            instrumented_count: 5,
+            dropped_count: 7,
+            poll_count: 11,
+            scheduled_count: 13,
+            idle_count: 17,
+            first_poll_count: 19,
+            slow_poll_count: 23,
+            long_delay_count: 29,
+            poll_nanos: 31,
+            scheduled_nanos: 37,
+            idle_nanos: 41,
+            first_poll_delay_nanos: 43,
+            slow_poll_nanos: 47,
+            long_delay_nanos: 53,
         };
-        let events = TaskEvent::ALL.into_iter().rev().map(|key| (key.as_str(), key.value(&sample)))
+        let events = TaskEvent::ALL
+            .into_iter()
+            .rev()
+            .map(|key| (key.as_str(), key.value(&sample)))
             .collect::<std::collections::BTreeMap<_, _>>();
-        assert_eq!(events, [("instrumented", 5), ("dropped", 7), ("poll", 11), ("scheduled", 13),
-            ("idle", 17), ("first_poll", 19), ("slow_poll", 23), ("long_delay", 29)].into());
-        let phases = TaskPhase::ALL.into_iter().rev().map(|key| (key.as_str(), key.value(&sample)))
+        assert_eq!(
+            events,
+            [
+                ("instrumented", 5),
+                ("dropped", 7),
+                ("poll", 11),
+                ("scheduled", 13),
+                ("idle", 17),
+                ("first_poll", 19),
+                ("slow_poll", 23),
+                ("long_delay", 29)
+            ]
+            .into()
+        );
+        let phases = TaskPhase::ALL
+            .into_iter()
+            .rev()
+            .map(|key| (key.as_str(), key.value(&sample)))
             .collect::<std::collections::BTreeMap<_, _>>();
-        assert_eq!(phases, [("poll", 31), ("scheduled", 37), ("idle", 41),
-            ("first_poll", 43), ("slow_poll", 47), ("long_delay", 53)].into());
-        let thresholds = TaskThreshold::ALL.into_iter().rev().map(|key| (key.as_str(), key.value(&sample)))
+        assert_eq!(
+            phases,
+            [
+                ("poll", 31),
+                ("scheduled", 37),
+                ("idle", 41),
+                ("first_poll", 43),
+                ("slow_poll", 47),
+                ("long_delay", 53)
+            ]
+            .into()
+        );
+        let thresholds = TaskThreshold::ALL
+            .into_iter()
+            .rev()
+            .map(|key| (key.as_str(), key.value(&sample)))
             .collect::<std::collections::BTreeMap<_, _>>();
         assert_eq!(thresholds, [("slow_poll", 2), ("long_delay", 3)].into());
     }

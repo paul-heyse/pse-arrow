@@ -19,7 +19,9 @@ from fastmcp.exceptions import ToolError
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
 from scripts.capabilities import execution_basis
+from scripts.capabilities.native_extension import ExtensionSelectionError
 from scripts.capabilities.worker_progress import ProgressObserver
+from scripts.capabilities.workers import selected_worker_environment
 from scripts.telemetry_process import helper_environment
 
 if TYPE_CHECKING:
@@ -52,6 +54,13 @@ async def run_worker(
     operation = call.operation
     if call.lifetime != "attached" or operation not in declaration.operations:
         raise ValueError("unsupported fixed worker operation")
+    environment = helper_environment()
+    try:
+        selected_environment = selected_worker_environment(
+            call.worker, operation, environment
+        )
+    except ExtensionSelectionError as error:
+        return error.detail()
     with tempfile.TemporaryDirectory(prefix="pse-capability-host-") as temporary:
         directory = Path(temporary)
         observer = ProgressObserver(directory / "progress.json", operation)
@@ -71,7 +80,7 @@ async def run_worker(
         if declaration.launch == "environment":
             command = [
                 str(root / "scripts/pse-env"),
-                *declaration.environment,
+                *selected_environment,
                 "--",
                 *command,
             ]
@@ -83,7 +92,7 @@ async def run_worker(
                     str(source),
                     str(destination),
                     cwd=root,
-                    env={**helper_environment(), **admitted},
+                    env={**environment, **admitted},
                     stdout=log,
                     stderr=log,
                 )

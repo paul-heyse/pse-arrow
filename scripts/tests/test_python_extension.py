@@ -356,7 +356,9 @@ class PreparationCurrencyTests(unittest.TestCase):
         self.enterContext(patch.object(native_tests, "ROOT", self.root))
         # These controls isolate installation/reuse from explicit preparation of
         # the Cargo observer. Its real command and races have separate controls.
-        self.enterContext(patch.object(python_extension, "prepare_extractor", return_value=(0, None)))
+        self.enterContext(
+            patch.object(python_extension, "prepare_extractor", return_value=(0, None))
+        )
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
         (self.root / "pyproject.toml").write_text(
             '[tool.maturin]\nbindings="pyo3"\nmanifest-path="crates/pse-py/Cargo.toml"\n'

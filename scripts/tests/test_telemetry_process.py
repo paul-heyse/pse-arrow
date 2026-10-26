@@ -17,6 +17,7 @@ import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import patch
 
 from opentelemetry import context, trace
@@ -526,6 +527,7 @@ print("native-result-retained")
                 result = self.child(
                     """import asyncio,json,os,sys
 from pathlib import Path
+from typing import ClassVar
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 async def main():
@@ -596,7 +598,11 @@ asyncio.run(main())
     def test_local_status_is_passive_and_unknown_is_not_zero(self) -> None:
         with (
             patch("scripts.telemetry_process._STATE.active", None),
-            patch.object(telemetry_process.importlib, "import_module", side_effect=AssertionError("cold read cannot import native")),
+            patch.object(
+                telemetry_process.importlib,
+                "import_module",
+                side_effect=AssertionError("cold read cannot import native"),
+            ),
             patch.object(
                 telemetry_process,
                 "resolve_process",
@@ -619,9 +625,11 @@ asyncio.run(main())
             owner.shutdown()
             self.assertTrue(telemetry_process.local_status()["closed"])
 
-    def test_native_loss_snapshot_survives_shutdown_without_claiming_python_or_delivery(self) -> None:
+    def test_native_loss_snapshot_survives_shutdown_without_claiming_python_or_delivery(
+        self,
+    ) -> None:
         class Native:
-            activation: dict[str, str | None] = {"status": "initialized"}
+            activation: ClassVar[dict[str, str | None]] = {"status": "initialized"}
             closed = False
 
             def shutdown(self) -> None:
@@ -647,10 +655,12 @@ asyncio.run(main())
             final = telemetry_process.local_status()
         live_loss = live["dropped_records"]
         final_loss = final["dropped_records"]
-        assert isinstance(live_loss, dict) and isinstance(final_loss, dict)
+        assert isinstance(live_loss, dict)
+        assert isinstance(final_loss, dict)
         live_native = live_loss["native_rust"]
         final_native = final_loss["native_rust"]
-        assert isinstance(live_native, dict) and isinstance(final_native, dict)
+        assert isinstance(live_native, dict)
+        assert isinstance(final_native, dict)
         self.assertIsNone(live_native["sdk_reported_dropped_span_count"])
         self.assertEqual(final_native["sdk_reported_dropped_span_count"], 7)
         self.assertEqual(final_native["shutdown"], "failed")
@@ -663,7 +673,7 @@ asyncio.run(main())
 
     def test_native_loss_read_failure_is_passive_unavailable(self) -> None:
         class Native:
-            activation: dict[str, str | None] = {"status": "initialized"}
+            activation: ClassVar[dict[str, str | None]] = {"status": "initialized"}
 
             def shutdown(self) -> None:
                 pass
@@ -674,13 +684,20 @@ asyncio.run(main())
         owner = telemetry_process.ProcessLifetime(None, "initialized", native=Native())
         with (
             patch("scripts.telemetry_process._STATE.active", owner),
-            patch.object(telemetry_process.importlib, "import_module", side_effect=AssertionError("passive read cannot import native")),
+            patch.object(
+                telemetry_process.importlib,
+                "import_module",
+                side_effect=AssertionError("passive read cannot import native"),
+            ),
         ):
             value = telemetry_process.local_status()
         self.assertNotIn("private-failure", repr(value))
         loss = value["dropped_records"]
         assert isinstance(loss, dict)
-        self.assertEqual(loss["native_rust"], {"status": "unavailable", "reason": "native_trace_observer_read_failed"})
+        self.assertEqual(
+            loss["native_rust"],
+            {"status": "unavailable", "reason": "native_trace_observer_read_failed"},
+        )
 
     def test_actual_disabled_native_bridge_retains_typed_passive_health(self) -> None:
         result = self.child(

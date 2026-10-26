@@ -370,11 +370,27 @@ RUST_INPUTS = (
     "scripts",
 )
 PYTHON_EXTENSION_SUPPORT_INPUTS = (
-    "rust-toolchain.toml", ".python-version", "pyproject.toml", "uv.lock", ".envrc", ".envrc.local",
-    ".config/build.toml", ".config/sccache.toml", "scripts/sccache", "scripts/compiler_cache.py",
-    "scripts/python_extension.py", "scripts/native_tests.py", "scripts/arrow_validation.py",
-    "scripts/pse_env.py", "scripts/build_environment.py", "scripts/native_cache.py", "scripts/native_operation.py",
-    "scripts/producer-cargo", "scripts/producer_cargo.py", "scripts/producing_currency.py", "scripts/installed_artifact.py",
+    "rust-toolchain.toml",
+    ".python-version",
+    "pyproject.toml",
+    "uv.lock",
+    ".envrc",
+    ".envrc.local",
+    ".config/build.toml",
+    ".config/sccache.toml",
+    "scripts/sccache",
+    "scripts/compiler_cache.py",
+    "scripts/python_extension.py",
+    "scripts/native_tests.py",
+    "scripts/arrow_validation.py",
+    "scripts/pse_env.py",
+    "scripts/build_environment.py",
+    "scripts/native_cache.py",
+    "scripts/native_operation.py",
+    "scripts/producer-cargo",
+    "scripts/producer_cargo.py",
+    "scripts/producing_currency.py",
+    "scripts/installed_artifact.py",
 )
 
 INPUT_SCOPES = {
@@ -383,7 +399,11 @@ INPUT_SCOPES = {
     "python-extension": (
         "Cargo.toml",
         "Cargo.lock",
-        *(name for name in PYTHON_EXTENSION_SUPPORT_INPUTS if not name.startswith(".envrc")),
+        *(
+            name
+            for name in PYTHON_EXTENSION_SUPPORT_INPUTS
+            if not name.startswith(".envrc")
+        ),
         ".cargo",
         "crates",
         "vendor",

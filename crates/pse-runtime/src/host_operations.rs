@@ -54,7 +54,10 @@ pub struct DocumentField {
 impl DocumentField {
     /// Bind a field to its actual compiled scientific Rust owner.
     pub const fn of<T: RegisteredDocument>(field: &'static str) -> Self {
-        Self { field, document: T::REFERENCE }
+        Self {
+            field,
+            document: T::REFERENCE,
+        }
     }
 }
 
@@ -162,6 +165,98 @@ pub struct ContinuationField {
     /// Original field's semantics.
     pub kind: ContinuationKind,
 }
+/// Finite observable effect scope, never inferred from presentation or helper lifetime.
+#[derive(Clone, Copy, Debug, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EffectScope {
+    /// Read original supplied or protected facts without a requested mutation.
+    Observation,
+    /// Admit original source and its actual providers into a local native owner.
+    SourceAdmission,
+    /// Original caller-issued canonical command or publication.
+    CanonicalCommand,
+    /// Explicit release of retained canonical custody.
+    RetentionRelease,
+    /// Create a new bounded requested output file.
+    FileExport,
+    /// Explicit finite runtime sampling/capture.
+    Capture,
+}
+/// Machine-readable facts used by host annotations and operation schema metadata.
+#[derive(Clone, Copy, Debug, Serialize, schemars::JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct EffectFacts {
+    /// Actual operation scope.
+    pub scope: EffectScope,
+    /// The operation requests observation rather than mutation/admission/capture.
+    pub read_only: bool,
+    /// Repeating the original request has the owner's stated repeatability contract.
+    pub idempotent: bool,
+    /// The operation explicitly releases retained data/custody.
+    pub destructive: bool,
+}
+impl EffectFacts {
+    /// Ordinary supplied/protected observation, without granting source completeness.
+    pub const OBSERVATION: Self = Self {
+        scope: EffectScope::Observation,
+        read_only: true,
+        idempotent: true,
+        destructive: false,
+    };
+    /// Native original-source admission; no scientific solve is implied.
+    pub const SOURCE_ADMISSION: Self = Self {
+        scope: EffectScope::SourceAdmission,
+        read_only: false,
+        idempotent: true,
+        destructive: false,
+    };
+    /// Canonical command under its original exact-operation/intent owner.
+    pub const CANONICAL_COMMAND: Self = Self {
+        scope: EffectScope::CanonicalCommand,
+        read_only: false,
+        idempotent: true,
+        destructive: false,
+    };
+    /// Explicit retained-custody release, independently admitted by its original owner.
+    pub const RETENTION_RELEASE: Self = Self {
+        scope: EffectScope::RetentionRelease,
+        read_only: false,
+        idempotent: false,
+        destructive: true,
+    };
+    /// Fresh explicit output; existing destinations refuse, with no overwrite fallback.
+    pub const FILE_EXPORT: Self = Self {
+        scope: EffectScope::FileExport,
+        read_only: false,
+        idempotent: false,
+        destructive: false,
+    };
+    /// A new finite capture cannot replay an earlier time interval.
+    pub const CAPTURE: Self = Self {
+        scope: EffectScope::Capture,
+        read_only: false,
+        idempotent: false,
+        destructive: false,
+    };
+}
+/// Actual selected extension interpretation; installed mode comes from its producing receipt.
+#[derive(Clone, Copy, Debug, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ExtensionMode {
+    /// The actual installed dev/native correctness image, preserving its own provider requirements.
+    InstalledCorrectness,
+    /// An operation actually requiring linked backend execution.
+    NativeCorrectness,
+}
+/// Extension requirements, distinct from source/runtime prerequisites and effect scope.
+#[derive(Clone, Copy, Debug, Serialize, schemars::JsonSchema)]
+#[schemars(deny_unknown_fields)]
+pub struct ExtensionRequirement {
+    /// Actual allowed image selection contract.
+    pub mode: ExtensionMode,
+    /// Correctness validation is required independently of selected dev/native mode.
+    pub validated: bool,
+}
 /// One finite supported host operation, linked to actual typed receiver inputs/results.
 #[derive(Clone, Copy, Debug, Serialize, schemars::JsonSchema)]
 #[schemars(deny_unknown_fields)]
@@ -180,8 +275,12 @@ pub struct OperationDeclaration {
     pub description: &'static str,
     /// Existing capability domain.
     pub domain: &'static str,
-    /// Actual effects, independently of observation wording.
+    /// Human explanation only; structured facts below drive host semantics.
     pub effects: &'static str,
+    /// Finite effect facts, independent of helper preparation or lifetime.
+    pub effect_facts: EffectFacts,
+    /// Actual extension interpretation, absent for supplied-only tooling.
+    pub extension: Option<ExtensionRequirement>,
     /// Original result document when one exists; Arrow IPC has no fake JSON document.
     pub output_document: Option<DocumentReference>,
     /// Whether the original result is a bounded array of the declared document.
@@ -214,7 +313,9 @@ pub struct OperationCatalogue {
 }
 /// Read the same declaration consumed by codegen and the actual extension/facade/worker.
 pub fn catalogue() -> OperationCatalogue {
-    OperationCatalogue { operations: operations().to_vec() }
+    OperationCatalogue {
+        operations: operations().to_vec(),
+    }
 }
 
 /// Existing finite host header bound, independent of actual machine CPU placement.
@@ -505,15 +606,27 @@ pub struct ConfiguredCapabilities {
     pub resources: Resources,
 }
 
-fn document_default() -> usize { HOST_DOCUMENT_MAX }
-fn result_default() -> usize { HOST_RESULT_MAX }
+fn document_default() -> usize {
+    HOST_DOCUMENT_MAX
+}
+fn result_default() -> usize {
+    HOST_RESULT_MAX
+}
 /// Directional host input schemas; all scientific bodies remain original document references.
 pub fn header_schemas() -> Vec<(&'static str, Value)> {
     let mut schemas = Vec::new();
-    macro_rules! header { ($ty:ty) => {
-        schemas.push((stringify!($ty), schemars::generate::SchemaSettings::draft2020_12()
-            .for_deserialize().into_generator().into_root_schema_for::<$ty>().to_value()));
-    }; }
+    macro_rules! header {
+        ($ty:ty) => {
+            schemas.push((
+                stringify!($ty),
+                schemars::generate::SchemaSettings::draft2020_12()
+                    .for_deserialize()
+                    .into_generator()
+                    .into_root_schema_for::<$ty>()
+                    .to_value(),
+            ));
+        };
+    }
     header!(Resources);
     header!(Source);
     header!(Preparation);
@@ -538,6 +651,8 @@ pub fn header_schemas() -> Vec<(&'static str, Value)> {
     header!(DocumentReference);
     header!(DocumentField);
     header!(ContinuationField);
+    header!(EffectFacts);
+    header!(ExtensionRequirement);
     header!(OperationDeclaration);
     header!(OperationCatalogue);
     schemas
@@ -554,6 +669,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Associate a selected bounded telemetry observation with an explicit original native CaptureRequest and CheckpointIdentity. Start only the requested finite Timeline/CPU capture against its exact checkpoint/OperationId, then return the intact original CaptureDocument. The original native owner validates operation/liveness; preflight and postcheck preserve process/start association but are not atomic expected-identity admission. Elapsed telemetry time is not CPU time, and late attachment cannot recover preceding samples. Cancelling this attached helper drains capture only; it never cancels or restarts science, starts telemetry services, changes permissions/tuning or launches a profiler UI. Existing output directories refuse. Capture failure, symbols, overlap and loss remain independent of scientific outcomes.",
             domain: "diagnostics",
             effects: "Explicit bounded native Timeline/CPU capture and fresh retained output only; native capture owns samplers/exporters and drains them independently of target science.",
+            effect_facts: EffectFacts::CAPTURE,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::tooling::capture::CaptureDocument as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -575,6 +692,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Admit finite supplied scientific source and read an exact selected declaration page; local revision handles expire with the child.",
             domain: "projects",
             effects: "Native source admission and selected declaration observation; no solve.",
+            effect_facts: EffectFacts::SOURCE_ADMISSION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::workflow::ModelingDeclarationPage as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -596,6 +715,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Inspect selected instantiated lineage under an explicit native preparation policy; contextual admission can prepare providers, but no procedure is dispatched.",
             domain: "projects",
             effects: "Native source/provider admission and selected observation, not universally passive.",
+            effect_facts: EffectFacts::SOURCE_ADMISSION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::workflow::ModelingInspection as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -617,6 +738,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Admit two finite sources in one Runtime and compare selected native changes/details; source-only mode preserves unknown scientific impact across physical contexts.",
             domain: "projects",
             effects: "Native source admission and finite comparison; no solve or numerical equivalence claim.",
+            effect_facts: EffectFacts::SOURCE_ADMISSION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::workflow::ModelingComparisonObservation as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -638,6 +761,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Admit original raw package bytes through the native physical and modeling source loaders. JSON schemas describe the byte container; authoring.schema is guidance for applicable authored TOML sections, not a parser for TOML/.pse/Parquet. The returned local revision is an observation and cannot be reopened after this call.",
             domain: "projects",
             effects: "Prepare native import providers through their existing owner as needed, then admit ephemeral source; no canonical database or publication.",
+            effect_facts: EffectFacts::SOURCE_ADMISSION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: None,
             output_many: false,
             worker: WorkerFamily::Native,
@@ -659,6 +784,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Admit original supplied source and inspect exact preparation availability within the same Runtime lifetime. This passively observes availability without preparing mathematics or opening canonical storage.",
             domain: "projects",
             effects: "Prepare native import providers through their existing owner as needed, then admit source and passively observe preparations.",
+            effect_facts: EffectFacts::SOURCE_ADMISSION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::workflow::PreparationDiscoveryReport as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -680,6 +807,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Select a branch or bookmark through its actual native receiver, freezing source and physical identities. Uses the explicitly selected existing canonical database and original physical source bytes.",
             domain: "projects",
             effects: "Read selected canonical store; native physical admission, no publication.",
+            effect_facts: EffectFacts::SOURCE_ADMISSION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::workflow::ProjectSelection as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -701,6 +830,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Read the original bounded project/draft/bookmark/savepoint/diagnostic metadata page, preserving the issuing store and owner-bound continuation.",
             domain: "projects",
             effects: "Read explicitly selected existing canonical database; no provisioning.",
+            effect_facts: EffectFacts::OBSERVATION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_operations::canonical_projects::ProjectMetadataPage as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -722,6 +853,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Reopen the explicitly retained canonical revision with its original physical closure and read selected logical source detail. Source and binary identities remain native; a local revision token from an earlier ephemeral call cannot be used here.",
             domain: "projects",
             effects: "Protected canonical source read and native source admission; no source edit or publication.",
+            effect_facts: EffectFacts::SOURCE_ADMISSION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: None,
             output_many: false,
             worker: WorkerFamily::Native,
@@ -743,6 +876,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Reopen an exact retained canonical revision and passively inspect its preparation/publication headers. Durable presence preserves unchecked receiving eligibility; no numerical preparation is requested.",
             domain: "projects",
             effects: "Protected canonical source/preparation metadata read, no numerical preparation.",
+            effect_facts: EffectFacts::SOURCE_ADMISSION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::workflow::PreparationDiscoveryReport as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -764,6 +899,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Verify and inspect a supplied copied project closure through the ordinary native bundle owner. Reads its original manifest and digest without opening a canonical database or provisioning storage.",
             domain: "projects",
             effects: "Read and digest-check supplied project pack only.",
+            effect_facts: EffectFacts::OBSERVATION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::workflow::ProjectManifest as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -785,6 +922,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Read bounded immutable scientific research dataset, selection or publication metadata through the original native owner. Metadata grants no measurement or result lifetime.",
             domain: "projects",
             effects: "Bounded read of explicitly selected canonical research metadata.",
+            effect_facts: EffectFacts::OBSERVATION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::workflow::ResearchReadResult as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -806,6 +945,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Read one bounded page of native process checkpoint summaries from the selected diagnostic directory through the original native reader. Retains process/start locators, recorded target runtime_metrics and operation IDs when available. Directory discovery is not an atomic snapshot or live-process/attachment authority; no Runtime construction, service startup or capture.",
             domain: "diagnostics",
             effects: "Read bounded selected native diagnostic process summaries only; no subject execution or settlement.",
+            effect_facts: EffectFacts::OBSERVATION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::tooling::inspection::DiagnosticProcessPage as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -827,6 +968,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Decode one exact bounded published native checkpoint, including target runtime_metrics and registration coverage, without requiring an operation ID. Optional expected identity validates the same decoded image's original diagnostic process/start association. Recorded observations do not prove current liveness or grant attachment, cancellation or settlement authority. No Runtime construction, service startup or capture.",
             domain: "diagnostics",
             effects: "Read supplied native checkpoint and optionally validate its exact original association; no execution or publication.",
+            effect_facts: EffectFacts::OBSERVATION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::observation::ProcessCheckpoint as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -848,6 +991,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Inspect an exact published checkpoint through native decoding and interpretation, including target runtime_metrics with original target locator, executor role and registration coverage when present. These are recorded target observations, not calling/helper-process metrics. Does not construct a Runtime, start a service, or cancel the observed subject.",
             domain: "diagnostics",
             effects: "Read supplied native checkpoint only.",
+            effect_facts: EffectFacts::OBSERVATION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::tooling::inspection::InspectionDocument as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -869,6 +1014,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Read a supplied bounded saved evidence set and interpret its immutable members at recorded source time. Embedded paths do not authorize lookup; canonical storage is not acquired.",
             domain: "diagnostics",
             effects: "Read and interpret supplied frozen evidence only.",
+            effect_facts: EffectFacts::OBSERVATION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::tooling::frozen_inspection::FrozenInspectionDocument as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -890,6 +1037,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Decode descriptive invocation facts through the native saved-evidence reader. This grants no live result handle and does not replay the invocation.",
             domain: "diagnostics",
             effects: "Read supplied invocation evidence only.",
+            effect_facts: EffectFacts::OBSERVATION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::invocation::InvocationEvidenceDocument as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -911,6 +1060,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Read a bounded original run/attempt/relation row window through the protected native Arrow reader. Returns Arrow IPC stream bytes, preserving IEEE payloads, units and schema metadata. A detail bound asks for a narrower exact window; it never silently substitutes rows or attempts.",
             domain: "projects",
             effects: "Protected read of explicitly selected canonical results; no scientific execution or publication.",
+            effect_facts: EffectFacts::OBSERVATION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: None,
             output_many: false,
             worker: WorkerFamily::Native,
@@ -932,6 +1083,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Admit the supplied physical document closure through the ordinary native owner and describe a bounded quantity or named reference-state page. Names, typed identities, exact dimension, basis, datum, subject and affine point/difference conversion come from that same Rust contract.",
             domain: "projects",
             effects: "Native physical admission and bounded observation; no canonical publication or scientific execution.",
+            effect_facts: EffectFacts::SOURCE_ADMISSION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::workflow::PhysicalInspectionDocument as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -953,6 +1106,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Inspect an exact protected run/attempt/relation. Schema view does not acquire data batches. Values view selects bounded fields and rows natively, retains original identity, units, basis and quality context, and represents null/nonfinite/unsupported cells explicitly. Exact original Arrow IPC remains native_result_read. No scientific usability is inferred.",
             domain: "projects",
             effects: "Protected read of the explicitly selected existing canonical result; no execution, provision or publication.",
+            effect_facts: EffectFacts::OBSERVATION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_runtime::workflow::ResultInspectionDocument as RegisteredDocument>::REFERENCE),
             output_many: false,
             worker: WorkerFamily::Native,
@@ -974,6 +1129,8 @@ const OPERATIONS: &[OperationDeclaration] = &[
             description: "Read actual linked native adapter rows, or select one backend with its original typed BackendSettings to inspect that configured adapter. This creates no scientific model, prepares no numerical product and opens no canonical store. A capability row does not establish model eligibility or solve outcome.",
             domain: "projects",
             effects: "Observe the existing linked or configured native adapter capability only; no numerical execution or canonical publication.",
+            effect_facts: EffectFacts::OBSERVATION,
+            extension: Some(ExtensionRequirement { mode: ExtensionMode::InstalledCorrectness, validated: true }),
             output_document: Some(<pse_model::generated::runtime::solver_capabilities::Row as RegisteredDocument>::REFERENCE),
             output_many: true,
             worker: WorkerFamily::Native,
@@ -988,7 +1145,9 @@ const OPERATIONS: &[OperationDeclaration] = &[
         },
 ];
 /// The finite source-owned operation declarations.
-pub fn operations() -> &'static [OperationDeclaration] { OPERATIONS }
+pub fn operations() -> &'static [OperationDeclaration] {
+    OPERATIONS
+}
 
 #[cfg(test)]
 mod tests {
@@ -1001,18 +1160,40 @@ mod tests {
         for operation in operations {
             assert!(identities.insert(operation.operation));
             assert!(operation.documents.iter().all(|field| field.document.input));
-            assert!(operation.output_document.is_none_or(|reference| reference.output));
+            assert!(
+                operation
+                    .output_document
+                    .is_none_or(|reference| reference.output)
+            );
             assert!(!matches!(operation.worker, WorkerFamily::Evidence));
         }
-        let capture = operations.iter().find(|op| op.operation == "telemetry_profile_capture").unwrap();
+        let capture = operations
+            .iter()
+            .find(|op| op.operation == "telemetry_profile_capture")
+            .unwrap();
         assert!(capture.preserve_document);
-        assert!(matches!(capture.read_eligibility, ReadEligibility::Dedicated));
-        let capability = operations.iter().find(|op| op.operation == "configured_capabilities").unwrap();
+        assert!(matches!(
+            capture.read_eligibility,
+            ReadEligibility::Dedicated
+        ));
+        let capability = operations
+            .iter()
+            .find(|op| op.operation == "configured_capabilities")
+            .unwrap();
         assert!(matches!(capability.prerequisites, Prerequisites::Extension));
         assert_eq!(capability.documents[0].document.slug, "backend-settings");
-        assert_eq!(capability.output_document.unwrap().slug, "solver-capability");
+        assert_eq!(
+            capability.output_document.unwrap().slug,
+            "solver-capability"
+        );
         assert!(capability.output_many);
         assert!(!capability.preserve_document);
-        assert!(matches!(capability.read_eligibility, ReadEligibility::ExactContext));
+        assert!(matches!(
+            capability.read_eligibility,
+            ReadEligibility::ExactContext
+        ));
     }
 }
+
+/// Existing typed project operator protocol and public host projection declarations.
+pub mod project;

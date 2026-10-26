@@ -825,6 +825,21 @@ impl Runtime {
     pub fn simulation_available(&self) -> bool {
         cfg!(feature = "solver-diffsol")
     }
+    /// Explicitly provision the selected canonical database through its original owner.
+    /// Host bindings supply the already admitted shared runtime/environment; no retry is implied.
+    /// # Errors
+    /// Original selected-state/options and canonical schema installation failures.
+    pub async fn initialize_database(
+        state: &std::path::Path,
+        database: &str,
+    ) -> Result<(), WorkflowError> {
+        let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(
+            state,
+            Some(database),
+        )?;
+        pse_operations::canonical::CanonicalStore::initialize_database(&options).await?;
+        Ok(())
+    }
     /// Actual linked implementations; model eligibility is separately reported by preparation.
     /// The published rows are the capability records routing reads (F21).
     pub fn capabilities(&self) -> Vec<pse_model::generated::runtime::solver_capabilities::Row> {
@@ -1353,7 +1368,7 @@ pub use study_workbench::{
     StudyCohortClassificationPage, StudyCohortCursor, StudyCohortExportRecord,
     StudyCohortHeaderPage, StudyCohortMember, StudyCohortMemberPage, StudyCohortPageRequest,
     StudyCohortReceipt, StudyCohortRequest, StudyCohortScanProgress, StudyCohortScanState,
-    StudyKpiAnalysis, StudyKpiRequest, StudyWorkbenchCursor, StudyWorkbenchFilter,
+    StudyKpiAnalysis, StudyKpiExport, StudyKpiRequest, StudyWorkbenchCursor, StudyWorkbenchFilter,
     StudyWorkbenchHeader, StudyWorkbenchPage, StudyWorkbenchRequest,
 };
 

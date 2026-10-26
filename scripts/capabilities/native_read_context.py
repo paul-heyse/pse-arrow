@@ -8,13 +8,15 @@ we retain their actual objects, never serialized substitutes or a cross-page tra
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import TypeVar, cast
+from typing import TYPE_CHECKING, TypeVar, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 T = TypeVar("T")
 
 
-class ReadContextChanged(ValueError):
+class ReadContextChangedError(ValueError):
     """A retained receiver cannot adopt different immutable premises."""
 
 
@@ -41,7 +43,9 @@ class NativeReadContext:
 
     def require(self, identity: str) -> None:
         if self._closed or identity != self.identity:
-            raise ReadContextChanged("retained native read context changed or retired")
+            raise ReadContextChangedError(
+                "retained native read context changed or retired"
+            )
 
     def runtime(
         self, identity: str, create: Callable[[], T], close: Callable[[T], None]
@@ -50,7 +54,9 @@ class NativeReadContext:
         self.require(self.identity)
         if self._runtime is not None:
             if self._runtime[0] != identity:
-                raise ReadContextChanged("retained native Runtime premises changed")
+                raise ReadContextChangedError(
+                    "retained native Runtime premises changed"
+                )
             return cast("T", self._runtime[1])
         runtime = create()
         self._runtime = (identity, runtime)

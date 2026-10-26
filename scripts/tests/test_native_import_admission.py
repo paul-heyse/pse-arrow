@@ -49,14 +49,15 @@ class NativeImportTests(unittest.TestCase):
                 patch.dict(
                     os.environ, {execution_basis.ENVIRONMENT: "/private/admission.json"}
                 ),
-                patch.object(
-                    python_extension, "currency_check_installed", return_value=current
-                ),
+                patch.object(native_worker, "extension_currency", return_value=current),
                 patch.object(telemetry_process, "activate_native") as activate,
             ):
                 result = native_worker.execute(
                     "diagnostic_checkpoint",
-                    {"schema_set_fingerprint": "same-schema"},
+                    {
+                        "schema_set_fingerprint": "same-schema",
+                        "checkpoint": "/original/checkpoint",
+                    },
                     scratch=Path(directory),
                 )
             self.assertEqual(result["code"], "pse.native.unbound_loaded_artifact")

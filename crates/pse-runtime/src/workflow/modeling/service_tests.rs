@@ -4,6 +4,98 @@
 use super::*;
 
 #[tokio::test]
+async fn modeling_limits_refuse_each_zero_before_runtime_effects_and_cache_inspection() {
+    let runtime = crate::workflow::tests::runtime();
+    let declarations = pse_authoring::language::parse(
+        "package p { def Root { var x:Scalar; eq e:x==1; } }",
+        SemanticId::NIL,
+        pse_authoring::language::IdentityPolicy::Named,
+        Default::default(),
+    )
+    .unwrap();
+    let root = declarations
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let instance = pse_modeling::specialize::root_instance(root);
+    let package = runtime
+        .modeling_package(declarations, crate::workflow::tests::physical())
+        .await
+        .unwrap();
+    let scope = engagement::HeldPreparationScope::new();
+    let held = scope.package(&package);
+    let prepared = held
+        .prepare(
+            &runtime.preparation_services(),
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    scope.freeze().unwrap();
+    let effects = runtime.native().preparation_effects();
+    let reserved = runtime.shared.pool().reserved();
+    let admission = runtime.native().test_admission_snapshot();
+    for field in 0..5 {
+        let mut limits = Limits::default();
+        match field {
+            0 => limits.depth = 0,
+            1 => limits.items = 0,
+            2 => limits.members = 0,
+            3 => limits.body_occurrences = Some(0),
+            _ => limits.body_slots = Some(0),
+        }
+        for source in [&package, &held] {
+            let error = source
+                .prepare(
+                    &runtime.preparation_services(),
+                    root,
+                    instance,
+                    Bindings::default(),
+                    limits,
+                    &crate::CancelSource::new(),
+                )
+                .await
+                .unwrap_err();
+            assert!(matches!(
+                error,
+                WorkflowError::Math(crate::math::MathRuntimeError::Compile(
+                    pse_compiler::workspace::CompileError::Modeling(
+                        pse_modeling::ModelingError::Budget(_)
+                    )
+                ))
+            ));
+        }
+        let request = PreparationDiscoveryRequest {
+            root,
+            instance,
+            bindings: Bindings::default(),
+            limits,
+            durable_after: None,
+        };
+        assert!(
+            package
+                .preparation_discovery(
+                    &runtime.source_services(),
+                    &request,
+                    &crate::CancelSource::new(),
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(runtime.native().preparation_effects(), effects);
+        assert_eq!(runtime.shared.pool().reserved(), reserved);
+        assert_eq!(runtime.native().test_admission_snapshot(), admission);
+    }
+    drop(prepared);
+    scope.close().await.unwrap();
+}
+
+#[tokio::test]
 async fn immutable_source_uses_explicit_receiver_after_original_caller_closes() {
     let runtime = crate::workflow::tests::runtime();
     let receiver =

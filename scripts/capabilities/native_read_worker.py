@@ -9,27 +9,44 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
 
 from scripts import python_extension
 from scripts.capabilities import execution_basis, native_contracts, native_worker
-from scripts.capabilities.native_read_context import NativeReadContext, ReadContextChanged
-from scripts.capabilities.native_read_image import LoadedReadImage, ReadImageChanged
+from scripts.capabilities.native_extension import (
+    ExtensionSelectionError,
+    extension_currency,
+)
+from scripts.capabilities.native_read_context import (
+    NativeReadContext,
+    ReadContextChangedError,
+)
+from scripts.capabilities.native_read_image import (
+    LoadedReadImage,
+    ReadImageChangedError,
+)
 from scripts.capabilities.native_read_protocol import (
-    MAXIMUM_ADMISSION_BYTES, MAXIMUM_REQUEST_BYTES, MAXIMUM_REQUEST_FRAME_BYTES,
-    MAXIMUM_RESPONSE_FRAME_BYTES, SESSION_ENVIRONMENT,
-    ReadDeadlineExpired, ReadRequest, ReadResponse, SessionAdmission, SessionProtocolError, decode, read, write,
+    MAXIMUM_ADMISSION_BYTES,
+    MAXIMUM_REQUEST_BYTES,
+    MAXIMUM_REQUEST_FRAME_BYTES,
+    MAXIMUM_RESPONSE_FRAME_BYTES,
+    SESSION_ENVIRONMENT,
+    ReadDeadlineExpiredError,
+    ReadRequest,
+    ReadResponse,
+    SessionAdmission,
+    SessionProtocolError,
+    decode,
+    read,
+    write,
 )
 from scripts.capabilities.native_read_sessions import context_identity
 from scripts.capabilities.workers import WORKERS
 from scripts.producing_currency import Witness
 
-if TYPE_CHECKING:
-    from pydantic import JsonValue
 
-
-class ReadCurrencyUnavailable(ReadImageChanged):
+class ReadCurrencyError(ReadImageChangedError):
     """Keep the producing owner's redacted refusal rather than inventing a cause."""
+
     def __init__(self, current: python_extension.ExtensionCurrency) -> None:
         super().__init__("native read artifact is not currently admitted")
         self.current = current
@@ -38,47 +55,100 @@ class ReadCurrencyUnavailable(ReadImageChanged):
 def _startup() -> SessionAdmission:
     supplied = os.environ.get(SESSION_ENVIRONMENT)
     if supplied is None:
-        raise SessionProtocolError("native read worker requires explicit foreground session admission")
+        raise SessionProtocolError(
+            "native read worker requires explicit foreground session admission"
+        )
     source = Path(supplied)
-    if source.is_symlink() or not source.is_file() or source.stat().st_size > MAXIMUM_ADMISSION_BYTES:
+    if (
+        source.is_symlink()
+        or not source.is_file()
+        or source.stat().st_size > MAXIMUM_ADMISSION_BYTES
+    ):
         raise SessionProtocolError("native read session admission file refused")
     return decode(source.read_bytes(), SessionAdmission, MAXIMUM_ADMISSION_BYTES)
 
 
-def _verify(startup: SessionAdmission, request: ReadRequest, witness: Witness, root: Path, *, entering: bool = True) -> native_contracts.Binding:
-    if (startup.incarnation != request.session or Path(startup.checkout) != root
-        or startup.route_revision != execution_basis.route_revision(startup.worker)):
-        raise SessionProtocolError("native read session incarnation or fixed route changed")
+def _verify(
+    startup: SessionAdmission,
+    request: ReadRequest,
+    witness: Witness,
+    root: Path,
+    *,
+    entering: bool = True,
+) -> native_contracts.Binding:
+    if (
+        startup.incarnation != request.session
+        or Path(startup.checkout) != root
+        or startup.route_revision != execution_basis.route_revision(startup.worker)
+    ):
+        raise SessionProtocolError(
+            "native read session incarnation or fixed route changed"
+        )
     if request.operation not in WORKERS[startup.worker].operations:
-        raise SessionProtocolError("operation is outside the declared retained read route")
+        raise SessionProtocolError(
+            "operation is outside the declared retained read route"
+        )
     binding = native_contracts.binding_for(request.operation)
     if binding.read_eligibility != "exact_context":
-        raise SessionProtocolError("operation does not declare exact-context read eligibility")
+        raise SessionProtocolError(
+            "operation does not declare exact-context read eligibility"
+        )
     raw = request.original_document()
-    if len(raw) > MAXIMUM_REQUEST_BYTES or request.context != context_identity(binding, request.arguments):
-        raise SessionProtocolError("native read request extent or immutable context changed")
-    if any(startup.definition.sources.get(name, "not-loaded") != digest
-           for name, digest in request.admission.definition.sources.items()):
-        raise SessionProtocolError("native read selected definition differs from loaded session sources")
-    execution_basis.verify_handoff(root, startup.worker, request.operation, raw, request.admission, witness=witness)
+    if len(raw) > MAXIMUM_REQUEST_BYTES or request.context != context_identity(
+        binding, request.arguments
+    ):
+        raise SessionProtocolError(
+            "native read request extent or immutable context changed"
+        )
+    if any(
+        startup.definition.sources.get(name, "not-loaded") != digest
+        for name, digest in request.admission.definition.sources.items()
+    ):
+        raise SessionProtocolError(
+            "native read selected definition differs from loaded session sources"
+        )
+    execution_basis.verify_handoff(
+        root, startup.worker, request.operation, raw, request.admission, witness=witness
+    )
     # The route/import closure was loaded under this separate startup admission.
     # A later operation cannot bless new on-disk bytes underneath already loaded code.
     loaded = request.admission.model_copy(update={"definition": startup.definition})
-    execution_basis.verify_handoff(root, startup.worker, request.operation, raw, loaded, witness=witness)
+    execution_basis.verify_handoff(
+        root, startup.worker, request.operation, raw, loaded, witness=witness
+    )
     if entering:
         request.require_live_deadline()
     return binding
 
 
 def _currency(binding: native_contracts.Binding) -> python_extension.ExtensionCurrency:
-    requirement = next((item for item in binding.requirements if item.kind == "python-extension"), None)
+    requirement = binding.extension_requirement
     if requirement is None:
-        raise ReadImageChanged("retained native read lacks its declared extension prerequisite")
-    return python_extension.currency_check_installed(
+        raise ReadImageChangedError(
+            "retained native read lacks its declared extension prerequisite"
+        )
+    current = extension_currency(
         python_extension.bind_interpreter(os.environ),
-        mode=cast("python_extension.Mode", requirement.mode or "dev"),
-        validated=requirement.validated is True,
+        requirement.mode,
+        validated=requirement.validated,
     )
+    if current.state != "current":
+        raise ReadCurrencyError(current)
+    return current
+
+
+def _admit_image(current: python_extension.ExtensionCurrency) -> LoadedReadImage:
+    if "pse._native" in sys.modules:
+        raise ReadImageChangedError(
+            "already loaded image lacks this session's original import witness"
+        )
+    image = LoadedReadImage.admit(current)
+    image.require_loaded(image.artifact.binary)
+    import pse  # noqa: PLC0415, F401 -- original import after explicit image admission
+
+    loaded = sys.modules.get("pse._native")
+    image.require_loaded(str(getattr(loaded, "__file__", "")))
+    return image
 
 
 def main() -> int:
@@ -92,23 +162,17 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="pse-native-read-context-") as temporary:
         scratch = Path(temporary)
         try:
-            while (request := read(sys.stdin.buffer, ReadRequest, MAXIMUM_REQUEST_FRAME_BYTES)) is not None:
+            while (
+                request := read(
+                    sys.stdin.buffer, ReadRequest, MAXIMUM_REQUEST_FRAME_BYTES
+                )
+            ) is not None:
                 retired = False
                 try:
                     binding = _verify(startup, request, witness, root)
                     current = _currency(binding)
-                    if current.state != "current":
-                        raise ReadCurrencyUnavailable(current)
                     if image is None:
-                        if "pse._native" in sys.modules:
-                            raise ReadImageChanged("already loaded image lacks this session's original import witness")
-                        image = LoadedReadImage.admit(current)
-                        # Fence the path immediately before the original import as well
-                        # as immediately after, without a secondary interpreter import.
-                        image.require_loaded(image.artifact.binary)
-                        import pse  # noqa: PLC0415, F401 -- deliberate original facade import after explicit image admission
-                        loaded = sys.modules.get("pse._native")
-                        image.require_loaded(str(getattr(loaded, "__file__", "")))
+                        image = _admit_image(current)
                     else:
                         image.require_current(current)
                         loaded = sys.modules.get("pse._native")
@@ -119,35 +183,76 @@ def main() -> int:
                     context.require(bound_context)
                     # Native request/header decoding still runs on every request. Only
                     # successfully admitted immutable receiver objects are retained.
-                    value = native_worker.execute(request.operation, request.arguments, scratch=scratch, context=context)
+                    value = native_worker.execute(
+                        request.operation,
+                        request.arguments,
+                        scratch=scratch,
+                        context=context,
+                    )
                     loaded = sys.modules.get("pse._native")
                     image.require_loaded(str(getattr(loaded, "__file__", "")))
                     _verify(startup, request, witness, root, entering=False)
-                    if value.get("outcome") in {"stale_interface", "prerequisite_unavailable"}:
+                    if value.get("outcome") in {
+                        "stale_interface",
+                        "prerequisite_unavailable",
+                    }:
                         retired = True
-                except ReadCurrencyUnavailable as error:
+                except ExtensionSelectionError as error:
                     retired = True
-                    value = {"outcome": "prerequisite_unavailable", "code": "pse.native.artifact_not_current",
-                             "currency": error.current.model_dump(mode="json")}
+                    value = error.detail()
+                except ReadCurrencyError as error:
+                    retired = True
+                    value = {
+                        "outcome": "prerequisite_unavailable",
+                        "code": "pse.native.artifact_not_current",
+                        "currency": error.current.model_dump(mode="json"),
+                    }
                 except (ImportError, ModuleNotFoundError) as error:
                     retired = True
-                    value = {"outcome": "prerequisite_unavailable", "code": "pse.native.extension_unavailable",
-                             "cause": type(error).__name__}
-                except ReadDeadlineExpired:
-                    value = {"outcome": "deadline_expired", "code": "pse.native.read_deadline_expired",
-                             "native_receiver": "not_entered"}
-                except (ReadImageChanged, ReadContextChanged, execution_basis.AdmissionRefusedError, SessionProtocolError):
+                    value = {
+                        "outcome": "prerequisite_unavailable",
+                        "code": "pse.native.extension_unavailable",
+                        "cause": type(error).__name__,
+                    }
+                except ReadDeadlineExpiredError:
+                    value = {
+                        "outcome": "deadline_expired",
+                        "code": "pse.native.read_deadline_expired",
+                        "native_receiver": "not_entered",
+                    }
+                except (
+                    ReadImageChangedError,
+                    ReadContextChangedError,
+                    execution_basis.AdmissionRefusedError,
+                    SessionProtocolError,
+                ):
                     retired = True
-                    value = {"outcome": "stale_interface", "code": "pse.native.retained_read_context_changed",
-                             "remedy": "The original session is retired; reselect the current context explicitly. No receiver replay or native drain is inferred."}
+                    value = {
+                        "outcome": "stale_interface",
+                        "code": "pse.native.retained_read_context_changed",
+                        "remedy": "The original session is retired; reselect the current context explicitly. No receiver replay or native drain is inferred.",
+                    }
                 except Exception as error:
-                    value = {"outcome": "native_refusal" if native_worker.native_report(error) is not None else "unexpected_error",
-                             "error": native_worker.scientific_error(error, operation=request.operation)}
+                    value = {
+                        "outcome": "native_refusal"
+                        if native_worker.native_report(error) is not None
+                        else "unexpected_error",
+                        "error": native_worker.scientific_error(
+                            error, operation=request.operation
+                        ),
+                    }
                 projected = native_worker.project_result(request.operation, value)
-                response = ReadResponse(session=startup.incarnation, request=request.request,
-                                        context=request.context, request_sha256=hashlib.sha256(request.original_document()).hexdigest(),
-                                        deadline_monotonic_ns=request.deadline_monotonic_ns,
-                                        result=projected, retired=retired)
+                response = ReadResponse(
+                    session=startup.incarnation,
+                    request=request.request,
+                    context=request.context,
+                    request_sha256=hashlib.sha256(
+                        request.original_document()
+                    ).hexdigest(),
+                    deadline_monotonic_ns=request.deadline_monotonic_ns,
+                    result=projected,
+                    retired=retired,
+                )
                 write(sys.stdout.buffer, response, MAXIMUM_RESPONSE_FRAME_BYTES)
                 if retired:
                     break

@@ -20,6 +20,10 @@ from scripts.capabilities import preparation
 from scripts.capabilities.diagnostics import refusal, safe_path, schema_keys
 from scripts.capabilities.execution_basis import digest, wire
 from scripts.capabilities.model import Capability, Contract, Identifier, Prerequisite
+from scripts.capabilities.native_extension import (
+    ExtensionSelectionError,
+    selected_extension,
+)
 from scripts.capabilities.qualification_contracts import CompilationRequest
 
 if TYPE_CHECKING:
@@ -92,7 +96,10 @@ class ReadinessCheckRequest(Contract):
     file_path: str | None = Field(default=None, min_length=1)
     mode: python_extension.Mode | None = None
     validated: bool | None = None
-    profile: python_extension.Profile = "dev"
+    profile: python_extension.Profile | None = Field(
+        default=None,
+        description="Explicit producing profile; omission consumes the existing installed receipt.",
+    )
 
     @model_validator(mode="after")
     def distinct_checks(self) -> ReadinessCheckRequest:
@@ -314,6 +321,7 @@ def bindings(
                 raise refusal("pse.readiness.language_selection_required")
         mode = None
         validated = None
+        selected_profile = None
         if set(request.checks) & {"import-compatible", "native-currency"}:
             extensions = [
                 item
@@ -323,29 +331,48 @@ def bindings(
             if len(extensions) != 1:
                 raise refusal("pse.readiness.extension_selection_required")
             requirement = extensions[0]
-            mode = requirement.mode or request.mode
             validated = (
                 request.validated
                 if request.validated is not None
                 else requirement.validated
             )
             if (
-                mode is None
-                or validated is None
+                validated is None
                 or (
-                    request.mode is not None
-                    and requirement.mode is not None
-                    and request.mode != requirement.mode
+                    requirement.mode is not None
+                    and request.mode is not None
+                    and requirement.mode != request.mode
                 )
                 or (requirement.validated is True and request.validated is False)
             ):
                 raise refusal("pse.readiness.extension_selection_required")
+            mode = requirement.mode if requirement.mode is not None else request.mode
+            # A compatibility-only capture with an explicit/owned concrete mode needs
+            # no invented producing profile. Currency always consumes an actual
+            # recorded profile unless the operator explicitly selected one.
+            if "native-currency" in request.checks or mode is None:
+                try:
+                    selection = selected_extension(
+                        os.environ,
+                        "native_correctness"
+                        if requirement.mode == "native"
+                        else "installed_correctness",
+                        validated=validated,
+                        explicit_mode=mode,
+                        explicit_profile=request.profile,
+                        root=root,
+                    )
+                except ExtensionSelectionError:
+                    raise refusal(
+                        "pse.readiness.extension_selection_required"
+                    ) from None
+                mode, selected_profile = selection.mode, selection.profile
         if "native-currency" in request.checks:
-            if mode is None or validated is None:
+            if mode is None or validated is None or selected_profile is None:
                 raise refusal("pse.readiness.extension_selection_required")
             try:
                 currency = await preparation.currency_check(
-                    root, mode, profile=request.profile, validated=validated
+                    root, mode, profile=selected_profile, validated=validated
                 )
             except (
                 OSError,
@@ -360,7 +387,7 @@ def bindings(
                     checkout=str(root.resolve()),
                     interpreter=str((root / ".venv/bin/python").absolute()),
                     mode=mode,
-                    profile=request.profile,
+                    profile=selected_profile,
                     validated=validated,
                     cause="check-unavailable",
                     remedy="Inspect the selected existing environment and preparation owner; explicitly prepare if required, then restart or reattach and check again. No preparation or effect replay was attempted.",

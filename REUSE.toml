@@ -118,6 +118,7 @@ path = [
   "crates/pse-operations/test-fixtures/**/*.sql",
   "python/pse/contracts/GENERATED.sha256",
   "python/pse/contracts/documents/GENERATED.sha256",
+  "python/pse/generated/**",
   "crates/*/src/generated/**",
   "xtask/src/generated/**",
   "crates/pse-operations-queries/**",

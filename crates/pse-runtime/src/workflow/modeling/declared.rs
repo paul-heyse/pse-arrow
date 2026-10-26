@@ -321,6 +321,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
+        limits.validate().map_err(modeling_error)?;
         self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
@@ -359,6 +360,7 @@ impl ModelingPackage {
         demand: Vec<String>,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
+        limits.validate().map_err(modeling_error)?;
         self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
@@ -367,7 +369,7 @@ impl ModelingPackage {
             .scope(async {
                 let row = self.declaration(root).await?;
                 let choice = pse_modeling::analysis::declared_policy(root, authored_fixture(&row))
-                    .map_err(super::super::modeling_error)?;
+                    .map_err(modeling_error)?;
                 let limits = declared_limits(&row, limits)?;
                 let solver = declared_solver(&row, &solver)?;
                 let requested_start = solver.controls.start;

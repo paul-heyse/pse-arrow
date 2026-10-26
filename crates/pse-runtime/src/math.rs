@@ -497,7 +497,12 @@ pub(crate) enum PreparationProduct {
     ValueShared,
 }
 impl PreparationProduct {
-    pub(crate) const ALL: [Self; 4] = [Self::StructuralView, Self::ObservationProgram, Self::ValueRebuilt, Self::ValueShared];
+    pub(crate) const ALL: [Self; 4] = [
+        Self::StructuralView,
+        Self::ObservationProgram,
+        Self::ValueRebuilt,
+        Self::ValueShared,
+    ];
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::StructuralView => "structural_view",
@@ -535,13 +540,36 @@ mod preparation_metric_tests {
             (PreparationProduct::ObservationProgram, 5),
             (PreparationProduct::StructuralView, 3),
             (PreparationProduct::ValueRebuilt, 7),
-        ] { product.counter(&owner).fetch_add(count, std::sync::atomic::Ordering::Relaxed); }
+        ] {
+            product
+                .counter(&owner)
+                .fetch_add(count, std::sync::atomic::Ordering::Relaxed);
+        }
         let sample = owner.snapshot();
-        assert_eq!((sample.views, sample.observations, sample.rebuilt, sample.shared), (3, 5, 7, 11));
-        let selected = PreparationProduct::ALL.into_iter().rev().map(|key| (key.as_str(), key.count(&sample)))
+        assert_eq!(
+            (
+                sample.views,
+                sample.observations,
+                sample.rebuilt,
+                sample.shared
+            ),
+            (3, 5, 7, 11)
+        );
+        let selected = PreparationProduct::ALL
+            .into_iter()
+            .rev()
+            .map(|key| (key.as_str(), key.count(&sample)))
             .collect::<BTreeMap<_, _>>();
-        assert_eq!(selected, [("structural_view", 3), ("observation_program", 5),
-            ("value_rebuilt", 7), ("value_shared", 11)].into());
+        assert_eq!(
+            selected,
+            [
+                ("structural_view", 3),
+                ("observation_program", 5),
+                ("value_rebuilt", 7),
+                ("value_shared", 11)
+            ]
+            .into()
+        );
     }
 }
 static PROCESS_PREPARATIONS: std::sync::OnceLock<Preparations> = std::sync::OnceLock::new();
@@ -553,7 +581,11 @@ pub fn preparation_metrics() -> PreparationCounts {
 }
 impl Preparations {
     fn snapshot(&self) -> PreparationCounts {
-        let read = |product: PreparationProduct| product.counter(self).load(std::sync::atomic::Ordering::Relaxed);
+        let read = |product: PreparationProduct| {
+            product
+                .counter(self)
+                .load(std::sync::atomic::Ordering::Relaxed)
+        };
         PreparationCounts {
             views: read(PreparationProduct::StructuralView),
             observations: read(PreparationProduct::ObservationProgram),
@@ -939,7 +971,9 @@ impl MathService {
     fn count(&self, product: PreparationProduct) {
         use std::sync::atomic::Ordering::Relaxed;
         crate::tooling::operational_metrics::preparation_activity();
-        product.counter(PROCESS_PREPARATIONS.get_or_init(Preparations::default)).fetch_add(1, Relaxed);
+        product
+            .counter(PROCESS_PREPARATIONS.get_or_init(Preparations::default))
+            .fetch_add(1, Relaxed);
         product.counter(&self.preparations).fetch_add(1, Relaxed);
         let _ = SCOPES.try_with(|scopes| {
             for scope in scopes {
@@ -982,7 +1016,8 @@ impl MathService {
         let artifacts = self
             .prepare_artifacts(prepared.prepared.artifacts.iter(), driver)
             .await?;
-        let _span = tracing::info_span!("pse.case.program_assembly", pse.owner.stage = true).entered();
+        let _span =
+            tracing::info_span!("pse.case.program_assembly", pse.owner.stage = true).entered();
         let assembly =
             Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);
         let _ = self.preparation_driver(driver)?;

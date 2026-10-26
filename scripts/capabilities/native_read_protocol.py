@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import struct
@@ -17,12 +16,15 @@ from scripts.capabilities.execution_basis import Definition, Handoff
 from scripts.capabilities.model import Contract
 
 if TYPE_CHECKING:
+    import asyncio
     from typing import BinaryIO
 
 MAXIMUM_REQUEST_BYTES = 16 << 20
 MAXIMUM_RESPONSE_BYTES = 1 << 20
 MAXIMUM_ADMISSION_BYTES = 256 << 10
-MAXIMUM_REQUEST_FRAME_BYTES = MAXIMUM_REQUEST_BYTES + MAXIMUM_ADMISSION_BYTES + (4 << 10)
+MAXIMUM_REQUEST_FRAME_BYTES = (
+    MAXIMUM_REQUEST_BYTES + MAXIMUM_ADMISSION_BYTES + (4 << 10)
+)
 MAXIMUM_RESPONSE_FRAME_BYTES = MAXIMUM_RESPONSE_BYTES + (4 << 10)
 SESSION_ENVIRONMENT = "PSE_NATIVE_READ_SESSION"
 Token = Annotated[str, Field(pattern=r"^[a-f0-9]{32}$")]
@@ -34,7 +36,7 @@ class SessionProtocolError(ValueError):
     """A private transport mismatch; supplied bytes are never rendered."""
 
 
-class ReadDeadlineExpired(SessionProtocolError):
+class ReadDeadlineExpiredError(SessionProtocolError):
     """The original observer budget expired before native receiver entry."""
 
 
@@ -63,8 +65,11 @@ class ReadRequest(Contract):
 
     def require_live_deadline(self) -> None:
         # A queued/read observer never receives a fresh budget upon dispatch.
-        if self.deadline_monotonic_ns is not None and time.monotonic_ns() >= self.deadline_monotonic_ns:
-            raise ReadDeadlineExpired("native read original deadline expired")
+        if (
+            self.deadline_monotonic_ns is not None
+            and time.monotonic_ns() >= self.deadline_monotonic_ns
+        ):
+            raise ReadDeadlineExpiredError("native read original deadline expired")
 
 
 class ReadResponse(Contract):
@@ -83,14 +88,22 @@ class ReadResponse(Contract):
             or self.request != request.request
             or self.context != request.context
             or self.deadline_monotonic_ns != request.deadline_monotonic_ns
-            or self.request_sha256 != hashlib.sha256(request.original_document()).hexdigest()
+            or self.request_sha256
+            != hashlib.sha256(request.original_document()).hexdigest()
         ):
-            raise SessionProtocolError("native read response belongs to another admitted request")
+            raise SessionProtocolError(
+                "native read response belongs to another admitted request"
+            )
 
 
 def operation_document(operation: str, arguments: dict[str, JsonValue]) -> bytes:
-    return json.dumps({"operation": operation, "arguments": arguments}, allow_nan=False,
-                      ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode()
+    return json.dumps(
+        {"operation": operation, "arguments": arguments},
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
 
 
 def _unique(pairs: list[tuple[str, JsonValue]]) -> dict[str, JsonValue]:
@@ -108,7 +121,9 @@ def _constant(_value: str) -> None:
 
 def decode(raw: bytes, document: type[T], maximum: int) -> T:
     if not raw or len(raw) > maximum:
-        raise SessionProtocolError("private native read frame exceeds its original bound")
+        raise SessionProtocolError(
+            "private native read frame exceeds its original bound"
+        )
     try:
         value = json.loads(raw, object_pairs_hook=_unique, parse_constant=_constant)
         return document.model_validate(value, strict=True)
@@ -119,7 +134,9 @@ def decode(raw: bytes, document: type[T], maximum: int) -> T:
 def encoded(document: Contract, maximum: int) -> bytes:
     raw = document.model_dump_json().encode()
     if not raw or len(raw) > maximum:
-        raise SessionProtocolError("private native read frame exceeds its original bound")
+        raise SessionProtocolError(
+            "private native read frame exceeds its original bound"
+        )
     return struct.pack("!I", len(raw)) + raw
 
 

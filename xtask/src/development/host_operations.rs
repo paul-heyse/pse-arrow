@@ -13,6 +13,8 @@ pub fn declaration() -> serde_json::Value {
         "domain": "diagnostics",
         "effects": "Bounded supplied-only native evidence analysis; no build or service startup.",
         "envelope": "EvidenceCompare",
+        "effect_facts": {"scope": "observation", "read_only": true, "idempotent": true, "destructive": false},
+        "extension": null,
         "document_slugs": {"request": "evidence-comparison-request", "snapshots": "evidence-snapshot"},
         "output_slug": "evidence-comparison",
         "output_many": false,

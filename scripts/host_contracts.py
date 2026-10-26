@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Source-only strict host record base, independent of capability composition."""
+
 from pydantic import BaseModel, ConfigDict
 
 

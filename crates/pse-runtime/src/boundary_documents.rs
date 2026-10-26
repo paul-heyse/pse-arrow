@@ -13,6 +13,9 @@ macro_rules! for_each_boundary_document {
     ($callback:ident) => { $callback! {
             (DeploymentRequest, pse_runtime::workflow::DeploymentRequest, "deployment-request", Both, FlatV1),
             (DeploymentResponse, pse_runtime::workflow::DeploymentResponse, "deployment-response", Both, FlatV1),
+            (StudyKpiExport, pse_runtime::workflow::StudyKpiExport, "study-kpi-export", Output, Native),
+            (ProjectOperationRequest, pse_runtime::host_operations::project::ProjectOperationRequest, "project-operation-request", Both, Native),
+            (ProjectAction, pse_runtime::host_operations::project::ProjectAction, "project-action", Both, Native),
             (OperationCatalogue, pse_runtime::host_operations::OperationCatalogue, "host-operation-catalogue", Output, Native),
             (ProductionProfiles, pse_runtime::workflow::ProductionProfiles, "production-profiles", Both, Native),
             (RegisteredNativeContext, pse_runtime::workflow::RegisteredNativeContext, "registered-native-context", Both, Native),

@@ -147,7 +147,7 @@ class StudyObserver:
         self.close()
 
 
-class StudyWorkbenchMixin:
+class StudyWorkbenchGlue:
     """Public runtime composition; the native owner performs selection and admission."""
 
     @property
@@ -155,21 +155,23 @@ class StudyWorkbenchMixin:
         """Read-only native owner supplied by the concrete Runtime facade."""
         raise NotImplementedError
 
-    def study_workbench_page(
+    def _host_study_workbench_page(
         self, request: StudyWorkbenchRequest
     ) -> StudyWorkbenchPageOutput:
         return self._handle.study_workbench_page(codec.encode_json(request))
 
-    def freeze_study_cohort(self, request: StudyCohortRequest) -> FrozenStudyCohort:
+    def _host_freeze_study_cohort(
+        self, request: StudyCohortRequest
+    ) -> FrozenStudyCohort:
         return FrozenStudyCohort(
             self._handle.freeze_study_cohort(codec.encode_json(request))
         )
 
-    def observe_study(
+    def _host_observe_study(
         self,
         request: StudyObservationRequest,
         *,
-        cursor: StudyObservationCursor | StudyObservationCursorOutput | None = None,
+        cursor: StudyObservationCursor | StudyObservationCursorOutput | None,
     ) -> StudyObserver:
         return StudyObserver(
             self._handle.observe_study(

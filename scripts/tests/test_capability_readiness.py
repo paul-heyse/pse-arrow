@@ -35,7 +35,7 @@ def capability(*requirements: Prerequisite, identifier: str = "selected") -> Cap
 
 
 def extension(
-    mode: python_extension.Mode = "dev", *, validated: bool = True
+    mode: python_extension.Mode | None = "dev", *, validated: bool = True
 ) -> Prerequisite:
     return Prerequisite(
         kind="python-extension",
@@ -78,17 +78,24 @@ class ReadinessTests(unittest.IsolatedAsyncioTestCase):
         )
         return tools
 
-    def receipt(self, *, mode: str = "dev", validated: bool = True) -> None:
+    def receipt(
+        self, *, mode: str = "dev", validated: bool = True, profile: str = "dev"
+    ) -> None:
         path = python_extension.stage_receipt("extension", os.environ, root=self.root)
         path.parent.mkdir(parents=True)
         path.write_text(
             json.dumps(
                 {
-                    "inputs": {"mode": mode, "validated": validated, "profile": "dev"},
+                    "inputs": {
+                        "mode": mode,
+                        "validated": validated,
+                        "profile": profile,
+                    },
                     "artifact": {
                         "binary": str(self.root / "python/pse/_native.so"),
                         "sha256": "recorded",
-                        "features": ["force-validate"] if validated else [],
+                        "features": (["force-validate"] if validated else [])
+                        + (["native-solvers"] if mode == "native" else []),
                     },
                 }
             )
@@ -160,6 +167,7 @@ class ReadinessTests(unittest.IsolatedAsyncioTestCase):
                         "request": {
                             "capability": "selected",
                             "checks": ["native-currency"],
+                            "profile": "selected-producer",
                         }
                     }
                 )
@@ -168,6 +176,76 @@ class ReadinessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.native_currency.state, "unknown")
         self.assertEqual(result.native_currency.cause, "check-unavailable")
         self.assertNotIn("private credential", result.model_dump_json())
+        stages.assert_not_called()
+
+    async def test_installed_selection_uses_receipt_and_preserves_explicit_fields(
+        self,
+    ) -> None:
+        self.receipt(mode="native", profile="actual-producer")
+        tools = self.tools(capability(extension(None)))
+        for supplied, mode, profile in (
+            ({}, "native", "actual-producer"),
+            ({"mode": "dev"}, "dev", "actual-producer"),
+            ({"profile": "explicit"}, "native", "explicit"),
+            ({"mode": "dev", "profile": "explicit"}, "dev", "explicit"),
+        ):
+            currency = python_extension.ExtensionCurrency(
+                state="unknown",
+                checkout=str(self.root),
+                interpreter=str(self.root / ".venv/bin/python"),
+                mode=mode,
+                profile=profile,
+                validated=True,
+                cause="check-unavailable",
+                remedy="Inspect owner.",
+            )
+            with (
+                patch.object(
+                    preparation,
+                    "currency_check",
+                    new_callable=AsyncMock,
+                    return_value=currency,
+                ) as check,
+                patch.object(python_extension, "run_stages") as stages,
+                patch.object(
+                    preparation, "import_check", new_callable=AsyncMock
+                ) as imported,
+            ):
+                await tools["capability_readiness_check"].run(
+                    {
+                        "request": {
+                            "capability": "selected",
+                            "checks": ["native-currency"],
+                            **supplied,
+                        }
+                    }
+                )
+            check.assert_awaited_once_with(
+                self.root, mode, profile=profile, validated=True
+            )
+            stages.assert_not_called()
+            imported.assert_not_called()
+
+    async def test_installed_missing_receipt_refuses_without_guessed_mode_or_live_owner(
+        self,
+    ) -> None:
+        tools = self.tools(capability(extension(None)))
+        with (
+            patch.object(
+                preparation, "currency_check", new_callable=AsyncMock
+            ) as check,
+            patch.object(
+                preparation, "import_check", new_callable=AsyncMock
+            ) as imported,
+            patch.object(python_extension, "run_stages") as stages,
+        ):
+            for checks in (["native-currency"], ["import-compatible"]):
+                with self.assertRaises(ToolError):
+                    await tools["capability_readiness_check"].run(
+                        {"request": {"capability": "selected", "checks": checks}}
+                    )
+        check.assert_not_called()
+        imported.assert_not_called()
         stages.assert_not_called()
 
     async def test_currency_selection_is_validated_before_any_live_check(self) -> None:

@@ -5,7 +5,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 @dataclass(frozen=True)
@@ -33,6 +36,7 @@ class Worker:
     binding_family: str | None = None
     read_eligibility: str | None = None
     prepare_import: bool | None = None
+    environment_selection: Literal["fixed", "installed-extension"] = "fixed"
 
     @property
     def operations(self) -> frozenset[str]:
@@ -48,8 +52,14 @@ class Worker:
             binding.operation
             for binding in worker_bindings()
             if binding.worker.worker == self.binding_family
-            and (self.read_eligibility is None or binding.read_eligibility == self.read_eligibility)
-            and (self.prepare_import is None or binding.prepare_import is self.prepare_import)
+            and (
+                self.read_eligibility is None
+                or binding.read_eligibility == self.read_eligibility
+            )
+            and (
+                self.prepare_import is None
+                or binding.prepare_import is self.prepare_import
+            )
         )
 
 
@@ -113,6 +123,7 @@ WORKERS = {
         None,
         _NATIVE_ENVIRONMENT,
         binding_family="native",
+        environment_selection="installed-extension",
     ),
     "native-read": Worker(
         "scripts.capabilities.native_read_worker",
@@ -128,5 +139,39 @@ WORKERS = {
         binding_family="native",
         read_eligibility="exact_context",
         prepare_import=True,
+        environment_selection="installed-extension",
     ),
 }
+
+
+def selected_worker_environment(
+    worker: str, operation: str, environment: Mapping[str, str]
+) -> tuple[str, ...]:
+    """Select only the environment policy declared for this fixed worker route."""
+    declaration = WORKERS[worker]
+    if declaration.environment_selection == "fixed":
+        return declaration.environment
+    from scripts import python_extension  # noqa: PLC0415 -- selected native route only
+    from scripts.capabilities.native_contracts import (
+        binding_for,
+    )
+    from scripts.capabilities.native_extension import (  # noqa: PLC0415 -- receipt read only
+        ExtensionSelectionError,
+        selected_extension,
+    )
+
+    requirement = binding_for(operation).extension_requirement
+    if requirement is None or requirement.validated is not True:
+        raise ExtensionSelectionError("missing_owned_correctness_requirement")
+    # Environment preparation is permitted only by the actual installed image,
+    # even if a future operation requires a stronger correctness mode.
+    selection = selected_extension(
+        python_extension.bind_interpreter(environment),
+        "installed_correctness",
+        validated=requirement.validated,
+    )
+    if requirement.mode not in {"installed_correctness", "native_correctness"}:
+        raise ExtensionSelectionError("unknown_owned_mode_requirement")
+    if requirement.mode == "native_correctness" and selection.mode != "native":
+        raise ExtensionSelectionError("installed_mode_conflicts_with_owner")
+    return declaration.environment if selection.mode == "native" else ()

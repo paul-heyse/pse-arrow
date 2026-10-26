@@ -76,8 +76,6 @@ pub struct PreparationSettings {
     #[schemars(with = "ProfileWire")]
     pub compiler: Profile,
     /// Existing expansion admission limits.
-    #[serde(with = "LimitsWire")]
-    #[schemars(with = "LimitsWire")]
     pub limits: Limits,
 }
 impl PreparationSettings {
@@ -120,16 +118,6 @@ struct EvaluationWire {
     scratch_bytes: usize,
     provider_calls: usize,
 }
-#[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(remote = "Limits", deny_unknown_fields)]
-pub(in crate::workflow) struct LimitsWire {
-    depth: usize,
-    items: usize,
-    members: usize,
-    body_occurrences: Option<usize>,
-    body_slots: Option<usize>,
-}
-
 /// One authored solve operation under its admitted route and existing settings document.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -397,6 +385,11 @@ impl DeclaredStudyAdmission {
         operation: &StudyOperation,
         overlay: &super::PointOverlay,
     ) -> Result<(ContentHash, Vec<String>), WorkflowError> {
+        operation
+            .preparation
+            .limits
+            .validate()
+            .map_err(super::modeling_error)?;
         // This is a private reuse key, not the canonical stored study identity.
         // Exhaustive destructuring requires every added field's consumption to
         // be reviewed. Output selects later capture and does not prepare science.
@@ -452,6 +445,11 @@ impl DeclaredStudyAdmission {
         key: (ContentHash, Vec<String>),
         cancel: &CancelSource,
     ) -> Result<Self, WorkflowError> {
+        operation
+            .preparation
+            .limits
+            .validate()
+            .map_err(super::modeling_error)?;
         #[cfg(test)]
         count_declared_admission();
         let OperationRequest::DeclaredCase(case) = &operation.operation else {
@@ -606,6 +604,10 @@ impl OperationPreparation<'_> {
         package: &ModelingPackage,
         cancel: &CancelSource,
     ) -> Result<PreparedStudyOperation, WorkflowError> {
+        self.preparation
+            .limits
+            .validate()
+            .map_err(super::modeling_error)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         self.source.check(package)?;
@@ -982,6 +984,10 @@ impl StudyOperation {
         admission: &mut Option<DeclaredStudyAdmission>,
         cancel: &CancelSource,
     ) -> Result<SeedNeed, WorkflowError> {
+        self.preparation
+            .limits
+            .validate()
+            .map_err(super::modeling_error)?;
         cancel
             .token()
             .checkpoint()
@@ -1643,6 +1649,31 @@ mod study_operation_unit {
     }
 
     #[test]
+    fn modeling_limits_zero_is_refused_before_study_preparation_key() {
+        let baseline = operation(OperationRequest::DeclaredCase(case()));
+        for field in 0..5 {
+            let mut operation = baseline.clone();
+            match field {
+                0 => operation.preparation.limits.depth = 0,
+                1 => operation.preparation.limits.items = 0,
+                2 => operation.preparation.limits.members = 0,
+                3 => operation.preparation.limits.body_occurrences = Some(0),
+                _ => operation.preparation.limits.body_slots = Some(0),
+            }
+            let error = DeclaredStudyAdmission::key(&operation, &Default::default()).unwrap_err();
+            assert!(matches!(
+                error,
+                WorkflowError::Math(crate::math::MathRuntimeError::Compile(
+                    pse_compiler::workspace::CompileError::Modeling(
+                        pse_modeling::ModelingError::Budget(_)
+                    )
+                ))
+            ));
+        }
+        DeclaredStudyAdmission::key(&baseline, &Default::default()).unwrap();
+    }
+
+    #[test]
     fn preparation_document_preserves_all_existing_controls() {
         let settings = PreparationSettings {
             compiler: Profile {
@@ -1674,6 +1705,8 @@ mod study_operation_unit {
             },
         };
         let bytes = serde_json::to_vec(&settings).unwrap();
+        // Literal former ProfileWire/LimitsWire bytes, independent of the new owner.
+        assert_eq!(bytes, br#"{"compiler":{"optimization":{"cores":2,"horner_iterations":31,"cpe_iterations":9,"evaluator":{"kind":"interpreted"}},"evaluation":{"derivative_components":7,"operations":13,"scratch_bytes":19,"provider_calls":23},"assembly":{"contributions":101,"native_index":103,"worker_bytes":107},"class_proof_work":83},"limits":{"depth":17,"items":29,"members":43,"body_occurrences":71,"body_slots":97}}"#);
         let decoded: PreparationSettings = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(decoded.compiler, settings.compiler);
         assert_eq!(decoded.limits, settings.limits);

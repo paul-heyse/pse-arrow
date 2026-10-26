@@ -83,7 +83,11 @@ pub(crate) fn _telemetry_initialize(
             ));
         }
         return Ok(activation(
-            if existing.host.is_some() { "already_initialized" } else { "initialization_refused_shutdown" },
+            if existing.host.is_some() {
+                "already_initialized"
+            } else {
+                "initialization_refused_shutdown"
+            },
             Some(&existing.incarnation),
         ));
     }
@@ -134,7 +138,9 @@ pub(crate) fn _telemetry_initialize(
 /// The process host calls this only after native ownership and result publication settle.
 #[pyfunction]
 pub(crate) fn _telemetry_shutdown(py: Python<'_>) -> PyResult<String> {
-    let mut guard = state().lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut guard = state()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let Some(registration) = guard.as_mut() else {
         return Ok(activation("not_initialized", None));
     };
@@ -160,9 +166,14 @@ pub(crate) fn _telemetry_shutdown(py: Python<'_>) -> PyResult<String> {
 /// Read retained local SDK loss observations without constructing or flushing a host.
 #[pyfunction]
 pub(crate) fn _telemetry_status() -> PyResult<String> {
-    let snapshot = state().lock().unwrap_or_else(std::sync::PoisonError::into_inner)
-        .as_ref().map(|registration| registration.loss.snapshot());
-    serde_json::to_string(&snapshot).map_err(|_| pyo3::exceptions::PyRuntimeError::new_err("native telemetry status encoding failed"))
+    let snapshot = state()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .as_ref()
+        .map(|registration| registration.loss.snapshot());
+    serde_json::to_string(&snapshot).map_err(|_| {
+        pyo3::exceptions::PyRuntimeError::new_err("native telemetry status encoding failed")
+    })
 }
 /// Resolve CURRENT Python context before detach, never cached during initialization.
 /// Invalid/missing diagnostic context cannot reject native scientific work.
@@ -172,7 +183,12 @@ pub(crate) fn ingress(py: Python<'_>, owner: &'static str) -> tracing::Span {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .as_ref()
         .filter(|registration| registration.active)
-        .and_then(|registration| registration.injector.as_ref().map(|injector| injector.clone_ref(py)));
+        .and_then(|registration| {
+            registration
+                .injector
+                .as_ref()
+                .map(|injector| injector.clone_ref(py))
+        });
     let Some(injector) = injector else {
         return tracing::Span::current();
     };

@@ -94,6 +94,70 @@
       ],
       "type": "object"
     },
+    "EffectFacts": {
+      "additionalProperties": false,
+      "description": "Machine-readable facts used by host annotations and operation schema metadata.",
+      "properties": {
+        "destructive": {
+          "description": "The operation explicitly releases retained data/custody.",
+          "type": "boolean"
+        },
+        "idempotent": {
+          "description": "Repeating the original request has the owner's stated repeatability contract.",
+          "type": "boolean"
+        },
+        "read_only": {
+          "description": "The operation requests observation rather than mutation/admission/capture.",
+          "type": "boolean"
+        },
+        "scope": {
+          "$ref": "#/$defs/EffectScope",
+          "description": "Actual operation scope."
+        }
+      },
+      "required": [
+        "scope",
+        "read_only",
+        "idempotent",
+        "destructive"
+      ],
+      "type": "object"
+    },
+    "EffectScope": {
+      "description": "Finite observable effect scope, never inferred from presentation or helper lifetime.",
+      "oneOf": [
+        {
+          "const": "observation",
+          "description": "Read original supplied or protected facts without a requested mutation.",
+          "type": "string"
+        },
+        {
+          "const": "source_admission",
+          "description": "Admit original source and its actual providers into a local native owner.",
+          "type": "string"
+        },
+        {
+          "const": "canonical_command",
+          "description": "Original caller-issued canonical command or publication.",
+          "type": "string"
+        },
+        {
+          "const": "retention_release",
+          "description": "Explicit release of retained canonical custody.",
+          "type": "string"
+        },
+        {
+          "const": "file_export",
+          "description": "Create a new bounded requested output file.",
+          "type": "string"
+        },
+        {
+          "const": "capture",
+          "description": "Explicit finite runtime sampling/capture.",
+          "type": "string"
+        }
+      ]
+    },
     "EnvelopeKind": {
       "description": "Closed host header shapes; their schemas below are the sole field/bound declaration.",
       "oneOf": [
@@ -199,6 +263,40 @@
         }
       ]
     },
+    "ExtensionMode": {
+      "description": "Actual selected extension interpretation; installed mode comes from its producing receipt.",
+      "oneOf": [
+        {
+          "const": "installed_correctness",
+          "description": "The actual installed dev/native correctness image, preserving its own provider requirements.",
+          "type": "string"
+        },
+        {
+          "const": "native_correctness",
+          "description": "An operation actually requiring linked backend execution.",
+          "type": "string"
+        }
+      ]
+    },
+    "ExtensionRequirement": {
+      "additionalProperties": false,
+      "description": "Extension requirements, distinct from source/runtime prerequisites and effect scope.",
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/ExtensionMode",
+          "description": "Actual allowed image selection contract."
+        },
+        "validated": {
+          "description": "Correctness validation is required independently of selected dev/native mode.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mode",
+        "validated"
+      ],
+      "type": "object"
+    },
     "InvocationLifetime": {
       "description": "Existing helper cancellation behavior, separate from original-document preservation.",
       "oneOf": [
@@ -247,13 +345,28 @@
           "description": "Existing capability domain.",
           "type": "string"
         },
+        "effect_facts": {
+          "$ref": "#/$defs/EffectFacts",
+          "description": "Finite effect facts, independent of helper preparation or lifetime."
+        },
         "effects": {
-          "description": "Actual effects, independently of observation wording.",
+          "description": "Human explanation only; structured facts below drive host semantics.",
           "type": "string"
         },
         "envelope": {
           "$ref": "#/$defs/EnvelopeKind",
           "description": "Owned host header shape."
+        },
+        "extension": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExtensionRequirement"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Actual extension interpretation, absent for supplied-only tooling."
         },
         "invocation_lifetime": {
           "$ref": "#/$defs/InvocationLifetime",
@@ -320,6 +433,8 @@
         "description",
         "domain",
         "effects",
+        "effect_facts",
+        "extension",
         "output_document",
         "output_many",
         "worker",

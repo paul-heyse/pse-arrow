@@ -11,8 +11,8 @@ import subprocess
 import sys
 import time
 import uuid
-from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scripts import (
     host_admission,
@@ -20,6 +20,9 @@ from scripts import (
     resource_store,
     telemetry_metrics,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def processes(pid: int, start: str) -> list[dict]:

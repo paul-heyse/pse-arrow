@@ -15,8 +15,8 @@ from unittest.mock import patch
 
 from scripts import evidence_store
 from scripts.capabilities import evidence_worker
-from scripts.tests.producing_receipt_fixture import executable
 from scripts.capabilities.native_contracts import BINDINGS
+from scripts.tests.producing_receipt_fixture import executable
 
 
 class EvidenceComparisonDispatchTests(unittest.TestCase):

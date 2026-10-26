@@ -1361,7 +1361,9 @@ fn deployment_association(
 /// The finite text inventory is for source review association, not input proof:
 /// dep-info alone does not discharge native include-search or executor obligations.
 fn build_script_stdout_paths(out: &Path) -> Result<[PathBuf; 2]> {
-    let parent = out.parent().context("actual build script output parent missing")?;
+    let parent = out
+        .parent()
+        .context("actual build script output parent missing")?;
     Ok([parent.join("run/stdout"), parent.join("output")])
 }
 
@@ -1386,10 +1388,10 @@ fn selected_build_output_observations(
         let parent = out
             .parent()
             .context("actual build script output parent missing")?;
-        for log in build_script_stdout_paths(&out)?.into_iter().chain([
-            parent.join("run/stderr"),
-            parent.join("stderr"),
-        ]) {
+        for log in build_script_stdout_paths(&out)?
+            .into_iter()
+            .chain([parent.join("run/stderr"), parent.join("stderr")])
+        {
             if log.is_file() {
                 paths.insert(log);
             }

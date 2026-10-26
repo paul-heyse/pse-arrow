@@ -16,18 +16,18 @@ from mcp.types import ToolAnnotations
 from pydantic import JsonValue, PrivateAttr, ValidationError
 
 from scripts.capabilities import execution_basis, schema_bindings
+from scripts.capabilities.cleanup import settle
 from scripts.capabilities.diagnostics import safe_path, schema_keys
 from scripts.capabilities.model import Capability
 from scripts.capabilities.native_contracts import (
     BINDINGS,
     Binding,
 )
-from scripts.capabilities.workers import WorkerCall
+from scripts.capabilities.native_read_sessions import ReadSessions
 from scripts.capabilities.native_schema import JSON_OBJECT, SchemaSet
 from scripts.capabilities.process import run_worker
-from scripts.capabilities.native_read_sessions import ReadSessions
-from scripts.capabilities.cleanup import settle
 from scripts.capabilities.responses import ReadResult, bounded
+from scripts.capabilities.workers import WorkerCall
 
 
 def intact_result(value: dict[str, JsonValue], operation: str) -> ReadResult:
@@ -61,7 +61,9 @@ def intact_result(value: dict[str, JsonValue], operation: str) -> ReadResult:
     )
 
 
-def document_output_schema(schemas: SchemaSet, slug: str, *, many: bool = False) -> dict[str, JsonValue]:
+def document_output_schema(
+    schemas: SchemaSet, slug: str, *, many: bool = False
+) -> dict[str, JsonValue]:
     """Compose the transport with its original directional Rust document schema."""
     document = schemas.document(slug, "output")
     definitions = document.pop("$defs", {})
@@ -166,7 +168,13 @@ class NativeTool(Tool):
     _schemas: SchemaSet = PrivateAttr()
     _reads: ReadSessions = PrivateAttr()
 
-    def bind_context(self, root: Path, binding: Binding, schemas: SchemaSet, reads: ReadSessions | None = None) -> None:
+    def bind_context(
+        self,
+        root: Path,
+        binding: Binding,
+        schemas: SchemaSet,
+        reads: ReadSessions | None = None,
+    ) -> None:
         self._root = root
         self._binding = binding
         self._schemas = schemas
@@ -209,16 +217,21 @@ class NativeTool(Tool):
                 }
             else:
                 data["schema_set_fingerprint"] = self._schemas.fingerprint
-                if self._binding.read_eligibility == "exact_context" and self._reads.foreground_selected:
+                if (
+                    self._binding.read_eligibility == "exact_context"
+                    and self._reads.foreground_selected
+                ):
                     value = await self._reads.run(self._binding, data)
                 elif self._binding.prepare_import:
                     # Actions use the shared settled transport: cancellation
                     # signals only this admitted helper and joins native drain.
                     value = await run_worker(self._root, self._binding.worker, data)
                 else:
-                    task = self._reads.observe(asyncio.to_thread(
-                        run_child, self._root, self._binding.operation, data
-                    ))
+                    task = self._reads.observe(
+                        asyncio.to_thread(
+                            run_child, self._root, self._binding.operation, data
+                        )
+                    )
                     # Cancelling a read detaches this observer. Its native read
                     # and source protection finish under their existing owner.
                     value = await asyncio.shield(task)
@@ -246,7 +259,9 @@ def open_bound(tools: dict[str, Tool]) -> None:
 
 async def close_bound(tools: dict[str, Tool]) -> None:
     """Settle every distinct native read owner after endpoint EOF, including dedicated reads."""
-    owners = {tool.read_lifetime() for tool in tools.values() if isinstance(tool, NativeTool)}
+    owners = {
+        tool.read_lifetime() for tool in tools.values() if isinstance(tool, NativeTool)
+    }
     await settle(*(owner.close() for owner in owners))
 
 
@@ -289,10 +304,15 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             exposure="tool",
             invocation_lifetime="single",
             effects=binding.effects,
-            worker_calls=(WorkerCall(
-                "native-read-prepared" if binding.prepare_import else "native-read",
-                binding.operation, "detached",
-            ),) if binding.read_eligibility == "exact_context" else (binding.worker,),
+            worker_calls=(
+                WorkerCall(
+                    "native-read-prepared" if binding.prepare_import else "native-read",
+                    binding.operation,
+                    "detached",
+                ),
+            )
+            if binding.read_eligibility == "exact_context"
+            else (binding.worker,),
             requirements=binding.requirements,
             prerequisites=(
                 (
@@ -300,11 +320,11 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 )
                 if binding.declaration.worker == "evidence"
                 else (
-                    "Existing compatible native Python extension; this selected action may prepare native import providers through the existing environment owner.",
+                    "Current installed correctness extension in its recorded mode/profile; source admission may prepare native providers through their existing owner only when that installed selection needs them.",
                 )
                 if binding.prepare_import
                 else (
-                    "Existing compatible prebuilt extension and already prepared linked import environment. Explicitly prepare with just py-sync-native-correctness, attach from scripts/pse-env --native -- <endpoint>, and reattach after preparation. This read never builds import providers.",
+                    "Current installed correctness extension and its original recorded mode/profile/provider evidence. For a native-mode receipt attach from its already admitted native environment; this passive read prepares no providers.",
                 )
             ),
             guides=("root", "tooling"),
@@ -314,7 +334,9 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             description=binding.description,
             parameters=parameters,
             output_schema=(
-                document_output_schema(schemas, binding.output_document, many=binding.output_many)
+                document_output_schema(
+                    schemas, binding.output_document, many=binding.output_many
+                )
                 if binding.output_document is not None
                 else ReadResult.model_json_schema(mode="serialization")
             ),
@@ -337,9 +359,9 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 }
             },
             annotations=ToolAnnotations(
-                read_only_hint=not binding.prepare_import,
-                destructive_hint=False,
-                idempotent_hint=True,
+                read_only_hint=binding.effect_facts.read_only,
+                destructive_hint=binding.effect_facts.destructive,
+                idempotent_hint=binding.effect_facts.idempotent,
                 open_world_hint=False,
             ),
         )

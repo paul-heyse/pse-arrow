@@ -76,6 +76,7 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
         deadline: Instant,
     ) -> Result<(ModelingPreparation, Arc<PreparedBasis>), WorkflowError> {
+        limits.validate().map_err(modeling_error)?;
         self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity

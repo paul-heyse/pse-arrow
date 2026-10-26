@@ -15,13 +15,14 @@ from typing import TYPE_CHECKING
 from scripts.capabilities.model import Contract
 from scripts.capabilities.source_basis import Sources
 from scripts.capabilities.workers import WORKERS
-from scripts.producing_currency import Witness
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
     from fastmcp.tools import Tool
     from pydantic import JsonValue
+
+    from scripts.producing_currency import Witness
 
 ENVIRONMENT = "PSE_CAPABILITY_ADMISSION"
 MAXIMUM_BYTES = 256 << 10
@@ -89,6 +90,7 @@ def route_revision(worker: str) -> str:
             "environment": declaration.environment,
             "sources": declaration.sources,
             "launch": declaration.launch,
+            "environment_selection": declaration.environment_selection,
         }
     )
 
@@ -143,9 +145,31 @@ def verify(root: Path, worker: str, operation: str, request: bytes) -> None:
     verify_handoff(root, worker, operation, request, received)
 
 
+def _source_digest(root: Path, name: str, witness: Witness) -> str | None:
+    path = root / name
+    if path.is_symlink() or not path.resolve().is_relative_to(root):
+        raise ValueError("admitted source is outside the selected checkout")
+    if path.exists() and path.stat().st_size > 4 << 20:
+        raise ValueError("admitted source exceeds its original extent")
+    value = witness.file(path)
+    if value.get("link") is not None or not Path(str(value["resolved"])).is_relative_to(
+        root
+    ):
+        raise ValueError("admitted source changed its link selection")
+    digest = value.get("sha256")
+    if digest is not None and not isinstance(digest, str):
+        raise ValueError("admitted source witness is malformed")
+    return digest
+
+
 def verify_handoff(
-    root: Path, worker: str, operation: str, request: bytes, received: Handoff,
-    *, witness: Witness | None = None,
+    root: Path,
+    worker: str,
+    operation: str,
+    request: bytes,
+    received: Handoff,
+    *,
+    witness: Witness | None = None,
 ) -> None:
     """Verify one independent request, including inside an admitted foreground session.
 
@@ -176,18 +200,7 @@ def verify_handoff(
             actual = {}
             selected_root = root.resolve(strict=True)
             for name in expected.sources:
-                path = selected_root / name
-                if path.is_symlink() or not path.resolve().is_relative_to(selected_root):
-                    raise ValueError("admitted source is outside the selected checkout")
-                if path.exists() and path.stat().st_size > 4 << 20:
-                    raise ValueError("admitted source exceeds its original extent")
-                value = witness.file(path)
-                if value.get("link") is not None or not Path(str(value["resolved"])).is_relative_to(selected_root):
-                    raise ValueError("admitted source changed its link selection")
-                digest = value.get("sha256")
-                if digest is not None and not isinstance(digest, str):
-                    raise ValueError("admitted source witness is malformed")
-                actual[name] = digest
+                actual[name] = _source_digest(selected_root, name, witness)
     except (OSError, ValueError, SyntaxError):
         raise AdmissionRefusedError(
             "Admitted source changed or became unreadable; reattach before further effects"

@@ -74,7 +74,7 @@ meaning and reuse identities independent of telemetry selection.
 
 Select SDK `internal-logs` diagnostics for loss observation using the pinned processor's own
 structured events: first queue-drop observed during life; exact cumulative count only if the
-orderly shutdown event is observed. Store incarnation/time/scope in existing passive health and
+SDK shutdown-attempt diagnostic is observed, independently of shutdown success. Store incarnation/time/scope in existing passive health and
 do not feed these diagnostics back into the failing exporter. Sampling, queue loss, export failure,
 confirmed ingestion, unavailable and abrupt-loss unknown remain distinct. No continuous exact drop
 counter or completeness claim is made.
@@ -184,7 +184,7 @@ redundant imports only when their current guarantees are supplied by the retaine
 | Package | Status | Owner | Completion |
 |---|---|---|---|
 | F01 | implemented boundary and keyed metric adoption; composed acceptance remains | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
-| F02 | in-progress; native agent projections delivered, existing project-operation migration remains | 56f | Intended public hosts agree on contracts/defaults/effects and actual prerequisites without parallel operation lists |
+| F02 | implemented full finite native/project/research/study projections; installed composed acceptance remains | 56f | Intended public hosts agree on contracts/defaults/effects and actual prerequisites without parallel operation lists |
 | F03 | implemented typed remedies and instrument-query admission; composed acceptance remains | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
 | F04 | implemented; local Rust SDK/filter controls passed, installed bridge acceptance remains | 56f | Ordinary export follows stage policy; SDK queue loss observed with truthful lifetime/final-count precision |
 | F05 | in-progress; actual Cargo extraction controls passed, actual installed/executable receipts remain | 56f | Supported producing receipt and actual image witness replace per-read supersets/deny-lists without lost inputs |
@@ -229,7 +229,7 @@ provides context, not a claim of complete ingestion. No library was bumped; the 
 
 **Planned:** independent expected schema keys/defaults/effects across actual hosts; unknown enum/map
 keys and invalid numeric/cross-field values; metric reordering and inadmissible queries; coarse
-versus finite inner spans; deterministic queue pressure showing first-drop versus orderly final
+versus finite inner spans; deterministic queue pressure showing first-drop versus shutdown-attempt cumulative
 count and abrupt-loss unknown. Currency controls separately change consumed source/env/native
 inputs and an unrelated workspace leaf, replace the installed image during admission, reuse pages,
 cancel reads and replace workers while protections survive. A supplied-only comparison must work
@@ -298,3 +298,26 @@ F02 still includes the existing project/research/study operation surface. Its pr
 command envelope and repeated host adapters/defaults remain to be migrated; the native-agent
 projection alone does not close DA-015. This is Plan56 work on existing functionality; Plan51
 stays closed and has no remaining work. Root retains generation, Cargo, integration and status.
+
+
+## Full operation migration and qualification checkpoint — 2026-10-26
+
+The remaining existing project/research/study surface now uses the runtime-owned command protocol
+and finite public method declarations. All 53 Python/PyO3 wrappers project their original typed
+receiver glue, defaults and public metadata; the old wrapper bodies and private command envelope
+are removed. Structured effect facts reach public help, including source admission versus canonical
+diagnostic writes and retained cohort capture. Independent review exposed three effect mismatches
+and a copied engine batch default; those are corrected at the owner and projected consumer.
+Plan51 remains closed: this is F02 alignment of existing functionality.
+
+The shared modeling `Limits` owner now validates positivity before compilation, reuse or native
+specialization. The duplicated remote declaration is removed; valid historical wire meaning remains.
+Targeted runtime, schema/wire and native-specialization controls have exercised that boundary.
+Actual Cargo extraction now also refuses missing associated compiler dep-info rather than supplying
+an incomplete optimized receipt. The isolated actual Cargo fixture passes changed consumed and
+unchanged unselected controls; this does not establish Maturin or executable installation acceptance.
+
+All selected functional source is integrated. Scope-end generation/static repair and actual installed
+extension, executable, retained endpoint/CLI/canonical and reference-deployment journeys remain in
+progress. Independent source review found no additional material currency/lifetime defect in the
+examined paths; its final correction reassessment and G evidence reconciliation remain open.

@@ -20,8 +20,11 @@ from pydantic import JsonValue
 
 from scripts.capabilities.diagnostics import safe_path, schema_keys
 from scripts.capabilities.execution_basis import AdmissionRefusedError
+from scripts.capabilities.native_extension import (
+    ExtensionSelectionError,
+    extension_currency,
+)
 from scripts.capabilities.native_schema import JSON_OBJECT
-from scripts.capabilities.native_read_context import NativeReadContext
 from scripts.capabilities.responses import bounded
 from scripts.capabilities.telemetry_profile_worker import capture
 from scripts.capabilities.worker_progress import ProgressReporter
@@ -32,8 +35,9 @@ if TYPE_CHECKING:
 
     from jsonschema.exceptions import ValidationError as SchemaValidationError
 
-    from pse import DiagnosticReport, Runtime, PhysicalContext, ModelingPackage
+    from pse import DiagnosticReport, ModelingPackage, PhysicalContext, Runtime
     from scripts.capabilities.native_contracts import Result
+    from scripts.capabilities.native_read_context import NativeReadContext
 
 T = TypeVar("T")
 
@@ -355,7 +359,10 @@ def _source_identity(packages: list[dict[str, bytes]]) -> str:
 
 
 def execute(
-    operation: str, arguments: Mapping[str, object], *, scratch: Path,
+    operation: str,
+    arguments: Mapping[str, object],
+    *,
+    scratch: Path,
     context: NativeReadContext | None = None,
 ) -> dict[str, object]:
     from scripts import (  # noqa: PLC0415 -- selected owner loads only at this boundary
@@ -370,7 +377,10 @@ def execute(
     if not isinstance(fingerprint, str):
         raise TypeError("fixed native request requires its loaded schema fingerprint")
     header = host.validate_arguments(operation, supplied)
-    if context is not None and host.binding_for(operation).read_eligibility != "exact_context":
+    if (
+        context is not None
+        and host.binding_for(operation).read_eligibility != "exact_context"
+    ):
         raise ValueError("operation does not declare retained read eligibility")
     current = None
     if os.environ.get("PSE_CAPABILITY_ADMISSION"):
@@ -378,24 +388,16 @@ def execute(
             (item for item in host.worker_bindings() if item.operation == operation),
             None,
         )
-        requirement = (
-            next(
-                (
-                    item
-                    for item in binding.requirements
-                    if item.kind == "python-extension"
-                ),
-                None,
-            )
-            if binding
-            else None
-        )
+        requirement = binding.extension_requirement if binding is not None else None
         if requirement is not None:
-            current = python_extension.currency_check_installed(
-                python_extension.bind_interpreter(os.environ),
-                mode=requirement.mode or "dev",
-                validated=requirement.validated is True,
-            )
+            try:
+                current = extension_currency(
+                    python_extension.bind_interpreter(os.environ),
+                    requirement.mode,
+                    validated=requirement.validated,
+                )
+            except ExtensionSelectionError as error:
+                return error.detail()
             if current.state != "current":
                 return {
                     "outcome": "prerequisite_unavailable",
@@ -451,7 +453,11 @@ def execute(
         activate_native,
     )
 
-    if (os.environ.get("PSE_CAPABILITY_ADMISSION") or context is not None) and codec.document_builtins(pse.host_operation_catalogue()) != host.native_catalogue():
+    if (
+        os.environ.get("PSE_CAPABILITY_ADMISSION") or context is not None
+    ) and codec.document_builtins(
+        pse.host_operation_catalogue()
+    ) != host.native_catalogue():
         return {
             "outcome": "stale_interface",
             "code": "pse.native.operation_catalogue_mismatch",
@@ -498,10 +504,18 @@ def execute(
         packages = source_documents(source.documents)
         resources = source.resources
         if isinstance(source, host.Preparation):
-            discovery = decoded(source.request, host.document_type(operation, "request", contracts.PreparationDiscoveryRequest))
+            discovery = decoded(
+                source.request,
+                host.document_type(
+                    operation, "request", contracts.PreparationDiscoveryRequest
+                ),
+            )
     elif operation == "project_select":
         selected = cast("host.Select", header)
-        selection = decoded(selected.request, host.document_type(operation, "request", contracts.ProjectSelectRequest))
+        selection = decoded(
+            selected.request,
+            host.document_type(operation, "request", contracts.ProjectSelectRequest),
+        )
         physical_packages = source_documents(selected.physical)
         deployment = selected
     elif operation in {"revision_source", "revision_preparation_discover"}:
@@ -509,7 +523,12 @@ def execute(
         physical_packages = source_documents(revision.physical)
         deployment = revision
         if isinstance(revision, host.RevisionPreparation):
-            discovery = decoded(revision.request, host.document_type(operation, "request", contracts.PreparationDiscoveryRequest))
+            discovery = decoded(
+                revision.request,
+                host.document_type(
+                    operation, "request", contracts.PreparationDiscoveryRequest
+                ),
+            )
     elif operation == "project_bundle_inspect":
         bundle_request = cast("host.Bundle", header)
         bundle = pse.ProjectBundle(
@@ -525,12 +544,23 @@ def execute(
         page = cast("host.Metadata", header)
         deployment = page
         if operation == "research_read":
-            research = decoded(page.request, host.document_type(operation, "request", contracts.ResearchReadRequest))
+            research = decoded(
+                page.request,
+                host.document_type(operation, "request", contracts.ResearchReadRequest),
+            )
         else:
-            metadata = decoded(page.request, host.document_type(operation, "request", contracts.ProjectMetadataRequest))
+            metadata = decoded(
+                page.request,
+                host.document_type(
+                    operation, "request", contracts.ProjectMetadataRequest
+                ),
+            )
     elif operation == "diagnostic_processes":
         processes = cast("host.DiagnosticProcesses", header)
-        listing = decoded(processes.request, host.document_type(operation, "request", contracts.DiagnosticListRequest))
+        listing = decoded(
+            processes.request,
+            host.document_type(operation, "request", contracts.DiagnosticListRequest),
+        )
         return {
             "outcome": "observed",
             "document": codec.document_builtins(
@@ -542,7 +572,10 @@ def execute(
         expected = (
             None
             if checkpoint.expected is None
-            else decoded(checkpoint.expected, host.document_type(operation, "expected", contracts.CheckpointIdentity))
+            else decoded(
+                checkpoint.expected,
+                host.document_type(operation, "expected", contracts.CheckpointIdentity),
+            )
         )
         return {
             "outcome": "observed",
@@ -554,7 +587,10 @@ def execute(
         }
     elif operation == "diagnostic_inspect":
         diagnostic = cast("host.Diagnostic", header)
-        inspection = decoded(diagnostic.request, host.document_type(operation, "request", contracts.InspectionRequest))
+        inspection = decoded(
+            diagnostic.request,
+            host.document_type(operation, "request", contracts.InspectionRequest),
+        )
         return {
             "outcome": "observed",
             "document": codec.document_builtins(
@@ -563,7 +599,10 @@ def execute(
         }
     elif operation == "evidence_inspect":
         frozen = cast("host.Evidence", header)
-        frozen_inspection = decoded(frozen.request, host.document_type(operation, "request", contracts.FrozenInspectionRequest))
+        frozen_inspection = decoded(
+            frozen.request,
+            host.document_type(operation, "request", contracts.FrozenInspectionRequest),
+        )
         evidence = diagnostics.read_evidence(Path(frozen.path))
         return {
             "outcome": "observed",
@@ -583,13 +622,17 @@ def execute(
         selected_physical = cast("host.PhysicalInspection", header)
         physical_packages = source_documents(selected_physical.physical)
         physical_inspection = decoded(
-            selected_physical.request, host.document_type(operation, "request", contracts.PhysicalInspectionRequest)
+            selected_physical.request,
+            host.document_type(
+                operation, "request", contracts.PhysicalInspectionRequest
+            ),
         )
         resources = selected_physical.resources
     elif operation == "result_inspect":
         selected_result = cast("host.ResultInspection", header)
         result_inspection = decoded(
-            selected_result.request, host.document_type(operation, "request", contracts.ResultInspectionRequest)
+            selected_result.request,
+            host.document_type(operation, "request", contracts.ResultInspectionRequest),
         )
         deployment = selected_result
     elif operation == "configured_capabilities":
@@ -597,9 +640,12 @@ def execute(
         resources = configured.resources
         if configured.settings is not None:
             if configured.backend is None:
-                raise ValueError("configured settings require an explicitly selected backend")
+                raise ValueError(
+                    "configured settings require an explicitly selected backend"
+                )
             capability_settings = decoded(
-                configured.settings, host.document_type(operation, "settings", contracts.BackendSettings)
+                configured.settings,
+                host.document_type(operation, "settings", contracts.BackendSettings),
             )
     elif operation == "result_read":
         result = cast("host.Result", header)
@@ -635,8 +681,9 @@ def execute(
         threads=resources.threads,
         spill_dir=str(spill),
         max_spill_bytes=resources.max_spill_bytes,
-        batch_size=8192,
+        batch_size=host.generated.DEFAULT_BATCH_SIZE,
     )
+
     def create_runtime() -> Runtime:
         return pse.Runtime(
             settings,
@@ -645,21 +692,46 @@ def execute(
             database=deployment.database if deployment is not None else None,
         )
 
-    runtime_identity = hashlib.sha256(json.dumps({
-        "resources": resources.model_dump(mode="json"),
-        "state": deployment.state if deployment is not None else None,
-        "database": deployment.database if deployment is not None else None,
-    }, sort_keys=True, allow_nan=False).encode()).hexdigest()
-    runtime = (create_runtime() if context is None else
-               context.runtime(runtime_identity, create_runtime, lambda owned: owned.close()))
+    runtime_identity = hashlib.sha256(
+        json.dumps(
+            {
+                "resources": resources.model_dump(mode="json"),
+                "state": deployment.state if deployment is not None else None,
+                "database": deployment.database if deployment is not None else None,
+            },
+            sort_keys=True,
+            allow_nan=False,
+        ).encode()
+    ).hexdigest()
+    runtime = (
+        create_runtime()
+        if context is None
+        else context.runtime(
+            runtime_identity, create_runtime, lambda owned: owned.close()
+        )
+    )
 
     def retained_physical(document: dict[str, bytes]) -> PhysicalContext:
-        create = lambda: runtime.physical_from_documents(document)
-        return create() if context is None else context.physical(_source_identity([document]), create)
+        def create() -> PhysicalContext:
+            return runtime.physical_from_documents(document)
 
-    def modeling(documents: list[dict[str, bytes]], original_physical: dict[str, bytes], admitted_physical: PhysicalContext) -> ModelingPackage:
-        create = lambda: runtime.modeling_from_documents(documents, admitted_physical)
-        identity = _source_identity([original_physical]) + ":" + _source_identity(documents)
+        return (
+            create()
+            if context is None
+            else context.physical(_source_identity([document]), create)
+        )
+
+    def modeling(
+        documents: list[dict[str, bytes]],
+        original_physical: dict[str, bytes],
+        admitted_physical: PhysicalContext,
+    ) -> ModelingPackage:
+        def create() -> ModelingPackage:
+            return runtime.modeling_from_documents(documents, admitted_physical)
+
+        identity = (
+            _source_identity([original_physical]) + ":" + _source_identity(documents)
+        )
         return create() if context is None else context.modeling(identity, create)
 
     try:
@@ -667,9 +739,19 @@ def execute(
             if configured.backend is None:
                 rows = runtime.capabilities()
             else:
-                from pse.contracts.enums import NativeBackend  # noqa: PLC0415 -- actual native backend identity owner
-                rows = (runtime.capability_for(NativeBackend(configured.backend), settings=capability_settings),)
-            return {"outcome": "observed", "document": [codec.document_builtins(row) for row in rows]}
+                from pse.contracts.enums import (
+                    NativeBackend,
+                )
+
+                rows = (
+                    runtime.capability_for(
+                        NativeBackend(configured.backend), settings=capability_settings
+                    ),
+                )
+            return {
+                "outcome": "observed",
+                "document": [codec.document_builtins(row) for row in rows],
+            }
         if physical_inspection is not None:
             physical = retained_physical(physical_packages[0])
             return {
@@ -691,7 +773,9 @@ def execute(
                 )
             else:
                 other_physical = retained_physical(other_physical_packages[0])
-                other = modeling(other_packages, other_physical_packages[0], other_physical)
+                other = modeling(
+                    other_packages, other_physical_packages[0], other_physical
+                )
                 observed = package.comparison_observation(
                     other, cast("contracts.ModelingComparisonRequest", model_request)
                 )
@@ -706,7 +790,9 @@ def execute(
                 "outcome": "admitted",
                 "revision": {
                     "identity": package.revision_id,
-                    "lifetime": "completed_child" if context is None else "foreground_session",
+                    "lifetime": "completed_child"
+                    if context is None
+                    else "foreground_session",
                     "reopenable": False,
                 },
                 "durable": False,
@@ -728,10 +814,21 @@ def execute(
         if revision is not None:
             physical = retained_physical(physical_packages[0])
             revision_id = revision.revision
+
             def create_revision() -> ModelingPackage:
                 return runtime.modeling_revision(revision_id, physical)
-            package = (create_revision() if context is None else context.modeling(
-                "revision:" + revision_id + ":" + _source_identity(physical_packages), create_revision))
+
+            package = (
+                create_revision()
+                if context is None
+                else context.modeling(
+                    "revision:"
+                    + revision_id
+                    + ":"
+                    + _source_identity(physical_packages),
+                    create_revision,
+                )
+            )
             if discovery is not None:
                 return {
                     "outcome": "observed",
@@ -882,7 +979,10 @@ def project_result(operation: str, value: object) -> dict[str, JsonValue]:
                 "message": "Native output was not an admitted JSON value; no object stringification or nonfinite normalization was applied.",
             }
         )
-    from scripts.capabilities.native_contracts import binding_for  # noqa: PLC0415 -- selected original output owner
+    from scripts.capabilities.native_contracts import (
+        binding_for,
+    )
+
     try:
         preserve = binding_for(operation).preserve_document
     except ValueError:

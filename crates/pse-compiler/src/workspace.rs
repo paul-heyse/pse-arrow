@@ -320,7 +320,8 @@ fn structural_plan(
     p: &CasePlan,
     cancel: &Arc<AtomicBool>,
 ) -> Result<Arc<StructuralAnalysis>> {
-    let _span = tracing::info_span!("pse.case.structural_analysis", pse.owner.stage = true).entered();
+    let _span =
+        tracing::info_span!("pse.case.structural_analysis", pse.owner.stage = true).entered();
     let rows = p
         .structure()
         .rows()
@@ -515,7 +516,8 @@ impl ArtifactRequest {
         &self,
         scope: &pse_kernels::ExecutionScope,
     ) -> std::result::Result<CompiledBody, MathError> {
-        let _span = tracing::info_span!("pse.case.program_optimization", pse.owner.stage = true).entered();
+        let _span =
+            tracing::info_span!("pse.case.program_optimization", pse.owner.stage = true).entered();
         let compiled = if self.local_branches {
             self.support
                 .compile_branch_local(self.optimization, self.evaluation, scope)

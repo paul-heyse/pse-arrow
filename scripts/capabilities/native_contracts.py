@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Thin host adapters over generated Rust operation/header declarations."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,31 +14,57 @@ from scripts.capabilities.native_schema import JSON_OBJECT
 from scripts.capabilities.workers import WorkerCall
 from scripts.generated import native_operations as generated
 from scripts.generated.native_operations import (
-    Resources as Resources,
-    Source as Source,
-    Preparation as Preparation,
-    ModelingComparison as ModelingComparison,
-    Deployment as Deployment,
-    Metadata as Metadata,
-    Select as Select,
-    Revision as Revision,
-    RevisionPreparation as RevisionPreparation,
-    Bundle as Bundle,
-    Diagnostic as Diagnostic,
-    DiagnosticProcesses as DiagnosticProcesses,
-    DiagnosticCheckpoint as DiagnosticCheckpoint,
-    Evidence as Evidence,
-    Invocation as Invocation,
-    Result as Result,
-    PhysicalInspection as PhysicalInspection,
-    ResultInspection as ResultInspection,
-    EvidenceCompare as EvidenceCompare,
-    ConfiguredCapabilities as ConfiguredCapabilities,
+    Bundle,
+    ConfiguredCapabilities,
+    Deployment,
+    Diagnostic,
+    DiagnosticCheckpoint,
+    DiagnosticProcesses,
+    Evidence,
+    EvidenceCompare,
+    Invocation,
+    Metadata,
+    ModelingComparison,
+    PhysicalInspection,
+    Preparation,
+    Resources,
+    Result,
+    ResultInspection,
+    Revision,
+    RevisionPreparation,
+    Select,
+    Source,
 )
 from scripts.telemetry_investigation import QueryAnswer
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+__all__ = (
+    "Binding",
+    "Bundle",
+    "ConfiguredCapabilities",
+    "Deployment",
+    "Diagnostic",
+    "DiagnosticCheckpoint",
+    "DiagnosticProcesses",
+    "Evidence",
+    "EvidenceCompare",
+    "Invocation",
+    "Metadata",
+    "ModelingComparison",
+    "PhysicalInspection",
+    "Preparation",
+    "ProfileCaptureRequest",
+    "Resources",
+    "Result",
+    "ResultInspection",
+    "Revision",
+    "RevisionPreparation",
+    "Select",
+    "Source",
+    "worker_bindings",
+)
 
 T = TypeVar("T")
 
@@ -147,6 +174,14 @@ class Binding:
         )
 
     @property
+    def extension_requirement(self) -> generated.ExtensionRequirement | None:
+        return self.declaration.extension
+
+    @property
+    def effect_facts(self) -> generated.EffectFacts:
+        return self.declaration.effect_facts
+
+    @property
     def requirements(self) -> tuple[Prerequisite, ...]:
         if self.declaration.prerequisites == "evidence_executable":
             return (
@@ -157,12 +192,20 @@ class Binding:
                     preparation=("just", "evidence-build"),
                 ),
             )
+        owned = self.extension_requirement
+        if owned is None or owned.validated is not True:
+            raise ValueError(
+                "product operation requires its owned correctness extension declaration"
+            )
         extension = Prerequisite(
             kind="python-extension",
             owner="scripts/python_extension.py",
-            mode="native",
-            validated=True,
-            preparation=("python_extension_native_stage",),
+            mode="native" if owned.mode == "native_correctness" else None,
+            validated=owned.validated,
+            provider=owned.mode,
+            preparation=("python_extension_native_stage",)
+            if owned.mode == "native_correctness"
+            else (),
         )
         if self.declaration.prerequisites == "extension_and_canonical":
             return (
@@ -184,10 +227,16 @@ _WORKER_BINDINGS = tuple(
 _BY_OPERATION = {binding.operation: binding for binding in _WORKER_BINDINGS}
 if len(_BY_OPERATION) != len(_WORKER_BINDINGS):
     raise ValueError("generated native operation identities must be unique")
-BINDINGS = tuple(binding for binding in _WORKER_BINDINGS if binding.declaration.public_binding)
-PROFILE_BINDING = next(binding for binding in _WORKER_BINDINGS if binding.request is ProfileCaptureRequest)
+BINDINGS = tuple(
+    binding for binding in _WORKER_BINDINGS if binding.declaration.public_binding
+)
+PROFILE_BINDING = next(
+    binding for binding in _WORKER_BINDINGS if binding.request is ProfileCaptureRequest
+)
 # Original-document preservation is a projection, never read-lifetime policy.
-EXACT_READS = frozenset(binding.operation for binding in _WORKER_BINDINGS if binding.preserve_document)
+EXACT_READS = frozenset(
+    binding.operation for binding in _WORKER_BINDINGS if binding.preserve_document
+)
 
 
 def worker_bindings() -> tuple[Binding, ...]:
@@ -210,7 +259,9 @@ def validate_arguments(operation: str, arguments: Mapping[str, object]) -> Contr
 
 def selected_document_type(operation: str, field: str) -> type[object]:
     """Resolve an original scientific owner lazily, only inside its selected worker."""
-    from pse.contracts import documents  # noqa: PLC0415 -- original body owner after native admission
+    from pse.contracts import (
+        documents,
+    )
 
     name = binding_for(operation).document_types[field]
     return cast("type[object]", getattr(documents, name))
@@ -219,10 +270,14 @@ def selected_document_type(operation: str, field: str) -> type[object]:
 def document_type(operation: str, field: str, expected: type[T]) -> type[T]:
     """Keep each small typed receiver glue honest against its generated declaration."""
     if selected_document_type(operation, field) is not expected:
-        raise TypeError("receiver document type differs from its owned operation declaration")
+        raise TypeError(
+            "receiver document type differs from its owned operation declaration"
+        )
     return expected
 
 
 def native_catalogue() -> dict[str, JsonValue]:
     """Expected compiled native metadata, excluding the independent tooling family."""
-    return JSON_OBJECT.validate_python(generated.NATIVE_CATALOGUE.model_dump(mode="json"))
+    return JSON_OBJECT.validate_python(
+        generated.NATIVE_CATALOGUE.model_dump(mode="json")
+    )

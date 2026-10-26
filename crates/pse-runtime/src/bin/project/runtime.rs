@@ -3,36 +3,25 @@
 //! One typed operator adapter to existing source, admission and preparation owners.
 use super::operator_error::{Context, Result, ensure};
 use clap::Args;
-use pse_operations::{
-    canonical::CanonicalStore,
-    canonical_contexts::{ContextCut, ContextSelection},
-    canonical_projects::{Branch, Draft, DraftVersion, Project, ProjectPublication},
+use pse_operations::{canonical::CanonicalStore, canonical_contexts::ContextSelection};
+#[cfg(all(test, feature = "canonical-tests"))]
+use pse_runtime::workflow::{
+    PreparationDiscoveryRequest, ResearchReadRequest, StudyCohortRequest, StudyWorkbenchRequest,
 };
 use pse_runtime::{
     CancelSource, SharedRuntime,
     workflow::{
-        CanonicalDeployment, LifecycleSelection, LifecycleTarget, ModelingPackage,
-        OuterAttestation, PhysicalContext, PreparationDiscoveryRequest, ProjectBundleReader,
-        ProjectDraftDocuments, ProjectDraftSaveIntent, ProjectExportRequest, ProjectImportIntent,
-        ProjectMergeIntent, ProjectMergeResolution, ProjectSelectRequest, ProjectSelection,
-        ResearchDatasetRequest, ResearchPublicationIntent, ResearchPublicationRequest,
-        ResearchReadRequest, ResearchSelectionRequest, Runtime, StudyCohortRequest,
-        StudyKpiRequest, StudyObservationCursor, StudyObservationRequest, StudyWorkbenchRequest,
+        CanonicalDeployment, ModelingPackage, OuterAttestation, PhysicalContext,
+        ProjectBundleReader, ProjectDraftDocuments, Runtime,
     },
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::{collections::BTreeMap, io::Read, path::PathBuf, sync::Arc, time::Instant};
 
-pub(super) const PROJECT_DOCUMENT_BYTES: usize = 16 << 20;
-fn project_document_bytes() -> usize {
-    PROJECT_DOCUMENT_BYTES
-}
-fn cohort_export_bytes() -> u64 {
-    16 * 1024 * 1024
-}
-fn project_branch_name() -> String {
-    "main".into()
-}
+pub(super) use pse_runtime::host_operations::project::PROJECT_DOCUMENT_BYTES;
+use pse_runtime::host_operations::project::{
+    PROJECT_OPERATOR_DEFAULTS, ProjectAction as Action, ProjectOperationRequest as Request,
+};
 
 #[derive(Debug, Args)]
 pub(crate) struct RuntimeArgs {
@@ -40,247 +29,16 @@ pub(crate) struct RuntimeArgs {
     #[arg(long)]
     request: PathBuf,
     /// Accounted runtime capacity, independent of the environment's OS build policy.
-    #[arg(long,default_value_t=16usize*1024*1024*1024)]
+    #[arg(long,default_value_t=PROJECT_OPERATOR_DEFAULTS.memory_limit_bytes)]
     memory_limit_bytes: usize,
-    #[arg(long, default_value_t = 16)]
+    #[arg(long, default_value_t = PROJECT_OPERATOR_DEFAULTS.threads)]
     threads: usize,
     #[arg(long)]
     spill_dir: PathBuf,
-    #[arg(long,default_value_t=16u64*1024*1024*1024)]
+    #[arg(long,default_value_t=PROJECT_OPERATOR_DEFAULTS.max_spill_bytes)]
     max_spill_bytes: u64,
-    #[arg(long, default_value_t = 8192)]
+    #[arg(long, default_value_t = pse_runtime::host_operations::project::default_batch_size())]
     batch_size: usize,
-}
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Request {
-    version: pse_model::document::Version<1>,
-    /// Required only for scientific source loading/admission; ordinary authored documents.
-    physical: Option<ProjectDraftDocuments>,
-    action: Action,
-}
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-enum Action {
-    ProjectClosure {
-        request: ProjectExportRequest,
-    },
-    ProjectExport {
-        destination: PathBuf,
-        request: ProjectExportRequest,
-    },
-    ProjectImportIssue {
-        input: PathBuf,
-        title: String,
-        #[serde(default = "project_branch_name")]
-        branch_name: String,
-        #[serde(default = "project_document_bytes")]
-        maximum_document_bytes: usize,
-    },
-    ProjectImportStatus {
-        intent: ProjectImportIntent,
-    },
-    ProjectImport {
-        input: PathBuf,
-        intent: ProjectImportIntent,
-        #[serde(default = "project_document_bytes")]
-        maximum_document_bytes: usize,
-    },
-    ProjectImportRecover {
-        intent: ProjectImportIntent,
-        original: pse_operations::canonical_artifacts::Artifact,
-    },
-    ProjectImportOpen {
-        intent: ProjectImportIntent,
-    },
-    LifecycleSelect {
-        target: LifecycleTarget,
-    },
-    LifecycleExplain {
-        selection: LifecycleSelection,
-    },
-    LifecycleRelease {
-        selection: LifecycleSelection,
-    },
-    ResearchDatasetCreate {
-        request: ResearchDatasetRequest,
-    },
-    ResearchSelectionCreate {
-        request: ResearchSelectionRequest,
-    },
-    ResearchRead {
-        request: ResearchReadRequest,
-    },
-    ResearchDatasetOpen {
-        key: String,
-        context: ContextSelection,
-    },
-    ResearchSelectionOpen {
-        key: String,
-    },
-    ResearchPublicationPreview {
-        request: ResearchPublicationRequest,
-    },
-    ResearchPublish {
-        intent: Box<ResearchPublicationIntent>,
-    },
-    ResearchPublicationOpen {
-        key: String,
-    },
-    StudyWorkbench {
-        request: StudyWorkbenchRequest,
-    },
-    /// Capture counts only, or publish bounded NDJSON pages under the same live cut.
-    StudyCohort {
-        request: StudyCohortRequest,
-        /// Optional page export; receipt identifiers alone never reopen a capture.
-        output: Option<PathBuf>,
-        #[serde(default = "cohort_export_bytes")]
-        maximum_bytes: u64,
-    },
-    StudyAnalyze {
-        request: StudyCohortRequest,
-        kpi: StudyKpiRequest,
-        output: PathBuf,
-    },
-    StudyResult {
-        request: StudyCohortRequest,
-        member: usize,
-        relation: String,
-        start: u64,
-        end: u64,
-        output: PathBuf,
-        maximum_bytes: u64,
-    },
-    StudyObserve {
-        request: StudyObservationRequest,
-        cursor: Option<StudyObservationCursor>,
-        delay_ms: Option<u64>,
-    },
-    Import {
-        documents: ProjectDraftDocuments,
-    },
-    ImportFiles {
-        packages: Vec<PathBuf>,
-        physical_packages: Vec<PathBuf>,
-    },
-    Load {
-        revision: String,
-    },
-    Select {
-        request: ProjectSelectRequest,
-    },
-    OpenSelection {
-        selection: ProjectSelection,
-    },
-    Fork {
-        project: Project,
-        branch: String,
-        problem: String,
-        operation: String,
-        source: String,
-    },
-    DraftRead {
-        key: String,
-    },
-    DraftIssue {
-        operation: String,
-        project: Project,
-        branch: Branch,
-        key: String,
-        base: String,
-        expected: Option<u64>,
-        input: PathBuf,
-    },
-    DraftSave {
-        intent: ProjectDraftSaveIntent,
-        input: PathBuf,
-    },
-    DraftAdmit {
-        operation: String,
-        key: String,
-    },
-    DraftAdmitVersion {
-        version: DraftVersion,
-    },
-    PublicationIssue {
-        project: Project,
-        branch: Branch,
-        expected: String,
-        draft: Option<Draft>,
-        operation: String,
-    },
-    DraftPublish {
-        intent: ProjectPublication,
-    },
-    Compare {
-        left: String,
-        right: String,
-        #[serde(default)]
-        source_only: bool,
-        #[serde(default)]
-        right_physical: Option<ProjectDraftDocuments>,
-    },
-    SourceDetail {
-        revision: String,
-        logical: Vec<String>,
-    },
-    MergePreview {
-        base: String,
-        target: String,
-        proposal: String,
-        resolutions: Vec<ProjectMergeResolution>,
-    },
-    MergeIssue {
-        publication: ProjectPublication,
-        base: String,
-        target: String,
-        proposal: String,
-        resolutions: Vec<ProjectMergeResolution>,
-    },
-    MergeDraftIssue {
-        publication: ProjectPublication,
-        base: String,
-        target: String,
-        version: DraftVersion,
-        resolutions: Vec<ProjectMergeResolution>,
-    },
-    MergePublish {
-        intent: ProjectMergeIntent,
-    },
-    UndoIssue {
-        publication: ProjectPublication,
-        target: String,
-        restore: String,
-    },
-    ContextRecord {
-        operation: String,
-        project: Project,
-        scope: String,
-        revision: String,
-        effective_from_us: i64,
-        effective_to_us: Option<i64>,
-        corrects: Option<String>,
-        deleted: bool,
-    },
-    ContextCut {
-        project: String,
-    },
-    ContextSelect {
-        cut: ContextCut,
-        scope: String,
-        effective_at_us: i64,
-    },
-    ContextLoad {
-        selection: ContextSelection,
-    },
-    ContextReopen {
-        selection: ContextSelection,
-    },
-    PreparationDiscovery {
-        revision: String,
-        request: PreparationDiscoveryRequest,
-    },
 }
 macro_rules! field {
     (memory_limit_bytes,$args:ident) => {
@@ -496,6 +254,9 @@ pub(crate) async fn run(
         } else {
             None
         };
+        let effects = request.action.effect_facts();
+        tracing::debug!(target: "pse.project.operator", scope = ?effects.scope, read_only = effects.read_only,
+            idempotent = effects.idempotent, destructive = effects.destructive, "selected original project operation effects");
         // Erase each operation's deeply nested source/preparation future separately.
         // A generic action must not reserve every workflow's stack frame at once.
         let operation: std::pin::Pin<Box<dyn Future<Output = Result<serde_json::Value>> + '_>> =
@@ -570,18 +331,7 @@ pub(crate) async fn run(
                     Ok(serde_json::json!({"receipt":cohort.receipt(),"output":output,"bytes":bytes}))
                 })?,
                 Action::StudyAnalyze { request, kpi, output } => boxed(shared, async move {
-                    let cohort = runtime.freeze_study_cohort(request).await?;
-                    let analysis = cohort.aggregate(&kpi, cancel.token()).await?;
-                    if !analysis.batches.is_empty() {
-                        let owner = datafusion::execution::memory_pool::MemoryConsumer::new("study:cli-analysis-export").register(&shared.pool());
-                        owner.try_grow(8 * 1024 * 1024)?;
-                        let content = pse_columnar::ipc_file::encode(&analysis.batches, 4 * 1024 * 1024)?;
-                        use std::io::Write;
-                        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&output)?;
-                        file.write_all(&content)?;
-                        file.sync_all()?;
-                    }
-                    Ok(serde_json::json!({"cohort": analysis.cohort, "included": analysis.included, "unavailable": analysis.unavailable, "output": if analysis.batches.is_empty() { None } else { Some(output) }}))
+                    value(runtime.export_study_analysis(request, &kpi, &output, &cancel.token()).await?)
                 })?,
                 Action::StudyResult { request, member, relation, start, end, output, maximum_bytes } => boxed(shared, async move {
                     let cohort = runtime.freeze_study_cohort(request).await?;

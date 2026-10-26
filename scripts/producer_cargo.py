@@ -31,22 +31,42 @@ PYTHON = "PSE_PRODUCER_CARGO_PYTHON"
 PREPARATION_GUARD_FD = "PSE_PRODUCER_PREPARATION_GUARD_FD"
 CURRENCY_CAPTURE = "PSE_ORDINARY_CARGO_CAPTURE"
 OBSERVER_SOURCE_INPUTS = (
-    "Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "xtask/Cargo.toml",
-    "xtask/src/main.rs", "xtask/src/producer_identity.rs", "xtask/src/producing_inputs.rs",
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "xtask/Cargo.toml",
+    "xtask/src/main.rs",
+    "xtask/src/producer_identity.rs",
+    "xtask/src/producing_inputs.rs",
     "scripts/workspace.rs",
 )
 
 
 def configure_currency(
-    root: Path, directory: Path, environment: Mapping[str, str], *, observer: Mapping[str, object]
+    root: Path,
+    directory: Path,
+    environment: Mapping[str, str],
+    *,
+    observer: Mapping[str, object],
 ) -> dict[str, str]:
     """Observe the actual installer Cargo child without replacing its compiler."""
     path = directory / "ordinary-cargo.json"
-    write_new(path, {"version": 1, "workspace_root": str(root.resolve()),
-                     "cargo": cargo_executable(environment), "capture_options": [],
-                     "observer_preparation": dict(observer)})
-    return {**environment, CURRENCY_CAPTURE: str(path), PYTHON: sys.executable,
-            "CARGO": str(root / "scripts/producer-cargo")}
+    write_new(
+        path,
+        {
+            "version": 1,
+            "workspace_root": str(root.resolve()),
+            "cargo": cargo_executable(environment),
+            "capture_options": [],
+            "observer_preparation": dict(observer),
+        },
+    )
+    return {
+        **environment,
+        CURRENCY_CAPTURE: str(path),
+        PYTHON: sys.executable,
+        "CARGO": str(root / "scripts/producer-cargo"),
+    }
 
 
 def observe_currency(arguments: list[str], environment: Mapping[str, str]) -> int:
@@ -63,8 +83,11 @@ def observe_currency(arguments: list[str], environment: Mapping[str, str]) -> in
     root = Path(str(configuration["workspace_root"]))
     if Path.cwd().resolve() != root.resolve():
         raise ValueError("ordinary Cargo observer belongs to another checkout")
-    child_environment = {name: value for name, value in environment.items()
-                         if name not in {"CARGO", CURRENCY_CAPTURE, PYTHON}}
+    child_environment = {
+        name: value
+        for name, value in environment.items()
+        if name not in {"CARGO", CURRENCY_CAPTURE, PYTHON}
+    }
     cargo = str(configuration["cargo"])
     if cargo_executable(child_environment) != cargo:
         raise ValueError("ordinary installer selected another Cargo executable")
@@ -80,86 +103,189 @@ def observe_currency(arguments: list[str], environment: Mapping[str, str]) -> in
     extractor = root / "target/debug/xtask"
     observer_witness = producing_currency.Witness()
     observer_artifact = observer_witness.file(extractor)
-    observer_stamp = producing_currency.stamp(extractor) if extractor.is_file() else None
-    observer_sources = {str(root / name): observer_witness.file(root / name)
-                        for name in OBSERVER_SOURCE_INPUTS}
+    observer_stamp = (
+        producing_currency.stamp(extractor) if extractor.is_file() else None
+    )
+    observer_sources = {
+        str(root / name): observer_witness.file(root / name)
+        for name in OBSERVER_SOURCE_INPUTS
+    }
     prepared = configuration.get("observer_preparation")
-    prepared_current = (observer_stamp is not None and isinstance(prepared, dict)
-                        and prepared.get("source_basis") == producing_currency.basis(observer_sources)
-                        and prepared.get("artifact_stamp") == list(observer_stamp))
-    code = subprocess.call([str(extractor), "producing-graph", "--arguments",
-                            str(arguments_path), "--output", str(graph)], env=child_environment)
+    prepared_current = (
+        observer_stamp is not None
+        and isinstance(prepared, dict)
+        and prepared.get("source_basis") == producing_currency.basis(observer_sources)
+        and prepared.get("artifact_stamp") == list(observer_stamp)
+    )
+    code = subprocess.call(
+        [
+            str(extractor),
+            "producing-graph",
+            "--arguments",
+            str(arguments_path),
+            "--output",
+            str(graph),
+        ],
+        env=child_environment,
+    )
     observed_graph = code == 0
-    observed_graph = observed_graph and prepared_current and observer_artifact["sha256"] is not None and all(
-        value["sha256"] is not None for value in observer_sources.values())
+    observed_graph = (
+        observed_graph
+        and prepared_current
+        and observer_artifact["sha256"] is not None
+        and all(value["sha256"] is not None for value in observer_sources.values())
+    )
     if observed_graph:
-        metadata.write_bytes(subprocess.check_output(
-            [cargo, "metadata", "--format-version=1", "--locked", "--offline", "--all-features"],
-            env=child_environment))
+        metadata.write_bytes(
+            subprocess.check_output(
+                [
+                    cargo,
+                    "metadata",
+                    "--format-version=1",
+                    "--locked",
+                    "--offline",
+                    "--all-features",
+                ],
+                env=child_environment,
+            )
+        )
     package_witness = None
     package_selection = None
     before_packages = None
     if observed_graph:
-        actual_graph, actual_metadata = json.loads(graph.read_bytes()), json.loads(metadata.read_bytes())
+        actual_graph, actual_metadata = (
+            json.loads(graph.read_bytes()),
+            json.loads(metadata.read_bytes()),
+        )
         pending, selected = list(actual_graph["roots"]), set()
         while pending:
             index = pending.pop()
             if index not in selected:
                 selected.add(index)
-                pending.extend(edge["index"] for edge in actual_graph["units"][index]["dependencies"])
+                pending.extend(
+                    edge["index"]
+                    for edge in actual_graph["units"][index]["dependencies"]
+                )
         package_ids = {actual_graph["units"][index]["pkg_id"] for index in selected}
-        package_selection = {"version": 1, "scope": "ordinary-cargo-inputs", "files": [], "environment": [],
-            "directories": sorted({str(Path(package["manifest_path"]).parent)
-                                   for package in actual_metadata["packages"] if package["id"] in package_ids})}
+        package_selection = {
+            "version": 1,
+            "scope": "ordinary-cargo-inputs",
+            "files": [],
+            "environment": [],
+            "directories": sorted(
+                {
+                    str(Path(package["manifest_path"]).parent)
+                    for package in actual_metadata["packages"]
+                    if package["id"] in package_ids
+                }
+            ),
+        }
         package_witness = producing_currency.Witness()
         try:
-            before_packages = package_witness.inputs(package_selection, child_environment)
+            before_packages = package_witness.inputs(
+                package_selection, child_environment
+            )
         except (OSError, ValueError):
             observed_graph = False
     records = path.with_suffix(".messages.jsonl")
     with records.open("wb") as output:
+
         def record(line: bytes, stream: str) -> None:
             if stream == "stdout":
                 output.write(line + b"\n")
-        code = build_observation.run_command([cargo, *arguments], env=child_environment, record=record)
+
+        code = build_observation.run_command(
+            [cargo, *arguments], env=child_environment, record=record
+        )
     if code:
         return code
     if not observed_graph:
-        write_new(path.with_suffix(".status.json"), {"supported": False,
-            "cause": "observer-preparation-changed" if not prepared_current else "graph-unavailable"})
+        write_new(
+            path.with_suffix(".status.json"),
+            {
+                "supported": False,
+                "cause": "observer-preparation-changed"
+                if not prepared_current
+                else "graph-unavailable",
+            },
+        )
         return 0
-    if package_witness is None or package_selection is None or before_packages != package_witness.inputs(package_selection, child_environment):
-        write_new(path.with_suffix(".status.json"), {"supported": False, "cause": "package-inputs-raced"})
+    if (
+        package_witness is None
+        or package_selection is None
+        or before_packages
+        != package_witness.inputs(package_selection, child_environment)
+    ):
+        write_new(
+            path.with_suffix(".status.json"),
+            {"supported": False, "cause": "package-inputs-raced"},
+        )
         return 0
-    code = subprocess.call([str(extractor), "producing-inputs", "--graph", str(graph),
-                            "--messages", str(records), "--metadata", str(metadata),
-                            "--output", str(path.with_suffix(".inputs.json"))], env=child_environment)
-    if (observer_witness.file(extractor) != observer_artifact
-            or producing_currency.stamp(extractor) != observer_stamp
-            or observer_sources != {name: observer_witness.file(Path(name)) for name in observer_sources}):
-        write_new(path.with_suffix(".status.json"), {"supported": False, "cause": "observer-changed"})
+    code = subprocess.call(
+        [
+            str(extractor),
+            "producing-inputs",
+            "--graph",
+            str(graph),
+            "--messages",
+            str(records),
+            "--metadata",
+            str(metadata),
+            "--output",
+            str(path.with_suffix(".inputs.json")),
+        ],
+        env=child_environment,
+    )
+    if (
+        observer_witness.file(extractor) != observer_artifact
+        or producing_currency.stamp(extractor) != observer_stamp
+        or observer_sources
+        != {name: observer_witness.file(Path(name)) for name in observer_sources}
+    ):
+        write_new(
+            path.with_suffix(".status.json"),
+            {"supported": False, "cause": "observer-changed"},
+        )
         return 0
     if code == 0:
         actual_inputs = json.loads(path.with_suffix(".inputs.json").read_bytes())
         # The binary is historical observer metadata, not a mutable ongoing
         # input alias. Its source and selected toolchain remain current inputs.
-        actual_inputs["files"] = sorted(set(producing_currency.string_list(actual_inputs.get("files", []))) | set(observer_sources))
+        actual_inputs["files"] = sorted(
+            set(producing_currency.string_list(actual_inputs.get("files", [])))
+            | set(observer_sources)
+        )
         path.with_suffix(".inputs.json").write_text(json.dumps(actual_inputs))
         artifact_witness = producing_currency.Witness()
-        artifacts = {name: artifact_witness.file(Path(name))
-                     for message in actual_inputs["root_artifacts"] for name in message["filenames"]
-                     if Path(name).is_file()}
-        write_new(path.with_suffix(".selection.json"), {
-            "arguments": arguments,
-            "effective_environment": effective_environment(child_environment),
-            "artifacts": artifacts,
-            "observer": {"artifact": observer_artifact,
-                         "artifact_stamp": observer_stamp,
-                         "preparation_command": prepared.get("command") if isinstance(prepared, dict) else None,
-                         "source_basis": producing_currency.basis(observer_sources)},
-        })
-    write_new(path.with_suffix(".status.json"), {"supported": code == 0,
-                                               "cause": "extracted" if code == 0 else "extraction-unavailable"})
+        artifacts = {
+            name: artifact_witness.file(Path(name))
+            for message in actual_inputs["root_artifacts"]
+            for name in message["filenames"]
+            if Path(name).is_file()
+        }
+        write_new(
+            path.with_suffix(".selection.json"),
+            {
+                "arguments": arguments,
+                "effective_environment": effective_environment(child_environment),
+                "artifacts": artifacts,
+                "observer": {
+                    "artifact": observer_artifact,
+                    "artifact_stamp": observer_stamp,
+                    "preparation_command": prepared.get("command")
+                    if isinstance(prepared, dict)
+                    else None,
+                    "source_basis": producing_currency.basis(observer_sources),
+                },
+            },
+        )
+    write_new(
+        path.with_suffix(".status.json"),
+        {
+            "supported": code == 0,
+            "cause": "extracted" if code == 0 else "extraction-unavailable",
+        },
+    )
     # Missing supported extraction retains the preparation owner's conservative
     # checks. It never turns successful Cargo output into an installation error.
     return 0

@@ -8,15 +8,17 @@ mod physical;
 
 mod private_store;
 
+#[cfg(feature = "product-schemas")]
+mod host_operations;
 #[cfg(feature = "native-abi")]
 mod ipopt;
 #[cfg(feature = "evidence-tools")]
 mod private_documents;
+#[cfg(feature = "product-schemas")]
+mod project_operations;
 pub(super) mod python_stubs;
 #[cfg(feature = "product-schemas")]
 mod schemas;
-#[cfg(feature = "product-schemas")]
-mod host_operations;
 
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -448,6 +450,7 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
         contract_sections: Vec::new(),
         basis: "declared".into(),
     });
+    project_operations::append(&mut tree)?;
     let fixtures = schemas::boundary_fixtures()?;
     tree.roots.extend(fixtures.roots);
     tree.files.extend(fixtures.files);

@@ -79,7 +79,11 @@ def execute(
                     operation="compare-offline",
                     stdout=output,
                 )
-            except (OSError, subprocess.TimeoutExpired, evidence_store.ExecutableCurrencyError):
+            except (
+                OSError,
+                subprocess.TimeoutExpired,
+                evidence_store.ExecutableCurrencyError,
+            ):
                 return {
                     "outcome": "prerequisite_unavailable",
                     "code": "pse.evidence.owner_unavailable",

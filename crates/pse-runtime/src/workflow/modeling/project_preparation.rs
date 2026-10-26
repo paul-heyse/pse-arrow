@@ -19,8 +19,6 @@ pub struct PreparationDiscoveryRequest {
     #[schemars(with = "wire::PreparationBindings")]
     pub bindings: Bindings,
     /// Exact specialization limits.
-    #[serde(with = "crate::workflow::study_operations::LimitsWire")]
-    #[schemars(with = "crate::workflow::study_operations::LimitsWire")]
     pub limits: Limits,
     /// Continue durable publication headers under the same immutable source.
     pub durable_after: Option<ProductHeaderCursor>,
@@ -75,6 +73,7 @@ impl ModelingPackage {
         request: &PreparationDiscoveryRequest,
         cancel: &crate::CancelSource,
     ) -> Result<PreparationDiscoveryReport, WorkflowError> {
+        request.limits.validate().map_err(modeling_error)?;
         self.check_service_bindings(services.preparation())?;
         let activity = services.preparation().admit_activity()?;
         activity

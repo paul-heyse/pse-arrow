@@ -1478,7 +1478,7 @@ pub(super) fn dynamic_ports(
             states.iter().copied(),
             pse_modeling::DomainAnalysis::IntegratedDynamics,
         )
-        .map_err(crate::workflow::modeling_error)?;
+        .map_err(modeling_error)?;
     if product
         .model
         .derivatives

@@ -94,9 +94,9 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
             }
         },
         annotations=ToolAnnotations(
-            read_only_hint=False,
-            destructive_hint=False,
-            idempotent_hint=False,
+            read_only_hint=binding.effect_facts.read_only,
+            destructive_hint=binding.effect_facts.destructive,
+            idempotent_hint=binding.effect_facts.idempotent,
             open_world_hint=False,
         ),
     )

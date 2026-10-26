@@ -12,7 +12,7 @@ pub(crate) struct NativeProjectBundle {
 #[pymethods]
 impl NativeProjectBundle {
     #[new]
-    #[pyo3(signature=(path, *, maximum_document_bytes=16_777_216))]
+    #[pyo3(signature=(path, *, maximum_document_bytes=pse_runtime::host_operations::project::DEFAULT_DOCUMENT_BYTES))]
     fn new(py: Python<'_>, path: PathBuf, maximum_document_bytes: usize) -> PyResult<Self> {
         py.detach(|| native::ProjectBundleReader::open(&path, maximum_document_bytes))
             .map(|inner| Self {
@@ -28,7 +28,7 @@ impl NativeProjectBundle {
     fn digest(&self) -> &str {
         self.inner.digest()
     }
-    #[pyo3(signature=(member, *, maximum_bytes=16_777_216))]
+    #[pyo3(signature=(member, *, maximum_bytes=pse_runtime::host_operations::project::DEFAULT_DOCUMENT_BYTES))]
     fn member_bytes<'py>(
         &self,
         py: Python<'py>,

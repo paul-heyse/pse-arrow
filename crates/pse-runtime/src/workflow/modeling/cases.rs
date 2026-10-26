@@ -704,7 +704,7 @@ impl ModelingPackage {
         free.values()
             .map(|variable| {
                 let refuse = |reason| {
-                    crate::workflow::modeling_error(specialized.domain_refusal(
+                    modeling_error(specialized.domain_refusal(
                         variable.port.id,
                         DomainAnalysis::Initialization,
                         reason,
@@ -1295,7 +1295,7 @@ impl ModelingPackage {
                     prepared.case.compiled().plan.columns().iter().copied(),
                     analysis,
                 )
-                .map_err(crate::workflow::modeling_error)?;
+                .map_err(modeling_error)?;
         }
         let operation_targets = match parametric.as_ref() {
             Some(ParametricPreparation::Available(program)) => program.assembly.parameter_targets(),

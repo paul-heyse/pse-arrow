@@ -19,9 +19,9 @@ from pydantic import ValidationError
 from scripts import telemetry_service
 from scripts.telemetry_investigation import (
     BackendClient,
+    MetricQueryRefusalError,
     QueryAnswer,
     QueryRequest,
-    MetricQueryRefusal,
     backend_request,
 )
 
@@ -277,7 +277,10 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
             ("p95", "estimated_quantile"),
             ("exemplars", "related_examples"),
         ]:
-            selected = self.request(kind=kind, metric="pse_build_duration" if kind == "p95" else "pse_build_records")
+            selected = self.request(
+                kind=kind,
+                metric="pse_build_duration" if kind == "p95" else "pse_build_records",
+            )
             response = {
                 "status": "success",
                 "data": [{"exemplars": [{"value": 4}]}]
@@ -345,7 +348,9 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(ValidationError):
                 self.request(**override)
         path, body = backend_request(
-            "default", "pse_build_records", self.request(metric="pse_build_records", kind="rate")
+            "default",
+            "pse_build_records",
+            self.request(metric="pse_build_records", kind="rate"),
         )
         self.assertIn("start=1.0", path)
         self.assertIn("end=121.0", path)
@@ -368,8 +373,12 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
         ):
             for metric, kind, reason in cases:
                 with self.subTest(metric=metric, kind=kind):
-                    answer = await self.client.query(None, self.request(metric=metric, kind=kind))
-                    self.assertEqual((answer.status, answer.reason), ("unsupported", reason))
+                    answer = await self.client.query(
+                        None, self.request(metric=metric, kind=kind)
+                    )
+                    self.assertEqual(
+                        (answer.status, answer.reason), ("unsupported", reason)
+                    )
                     self.assertEqual(answer.records, [])
                     self.assertIsNone(answer.source)
                     self.assertFalse(answer.complete)
@@ -391,28 +400,53 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
             ({"temporality": "delta"}, "metric_temporality_not_cumulative"),
             ({"unit": None}, "metric_unit_not_declared"),
         ]:
-            with self.subTest(changed=changed), patch(
-                "scripts.telemetry_investigation.metric_declarations", return_value=[{**base, **changed}]
-            ), self.assertRaises(MetricQueryRefusal) as caught:
-                backend_request("default", "fixture", self.request(metric="fixture", kind="rate"))
+            with (
+                self.subTest(changed=changed),
+                patch(
+                    "scripts.telemetry_investigation.metric_declarations",
+                    return_value=[{**base, **changed}],
+                ),
+                self.assertRaises(MetricQueryRefusalError) as caught,
+            ):
+                backend_request(
+                    "default", "fixture", self.request(metric="fixture", kind="rate")
+                )
             self.assertEqual(caught.exception.reason, reason)
         for buckets in [[], [1.0, 1.0], [2.0, 1.0], [float("inf")], [True]]:
-            with self.subTest(buckets=buckets), patch(
-                "scripts.telemetry_investigation.metric_declarations",
-                return_value=[{**base, "kind": "histogram", "buckets": buckets}],
-            ), self.assertRaises(MetricQueryRefusal) as caught:
-                backend_request("default", "fixture", self.request(metric="fixture", kind="p95"))
-            self.assertEqual(caught.exception.reason, "metric_histogram_buckets_invalid")
+            with (
+                self.subTest(buckets=buckets),
+                patch(
+                    "scripts.telemetry_investigation.metric_declarations",
+                    return_value=[{**base, "kind": "histogram", "buckets": buckets}],
+                ),
+                self.assertRaises(MetricQueryRefusalError) as caught,
+            ):
+                backend_request(
+                    "default", "fixture", self.request(metric="fixture", kind="p95")
+                )
+            self.assertEqual(
+                caught.exception.reason, "metric_histogram_buckets_invalid"
+            )
 
-    def test_exemplar_support_comes_from_owner_capability_without_name_inference(self) -> None:
+    def test_exemplar_support_comes_from_owner_capability_without_name_inference(
+        self,
+    ) -> None:
         for stream, support in [
             ("pse_runtime_fixture", True),
             ("host_fixture", False),
             ("unknown_sdk_fixture", None),
         ]:
-            declaration = {"backend_name": stream, "unit": "{event}", "exemplars": support}
-            with self.subTest(stream=stream), patch(
-                "scripts.telemetry_investigation.metric_declarations", return_value=[declaration]
+            declaration = {
+                "backend_name": stream,
+                "unit": "{event}",
+                "exemplars": support,
+            }
+            with (
+                self.subTest(stream=stream),
+                patch(
+                    "scripts.telemetry_investigation.metric_declarations",
+                    return_value=[declaration],
+                ),
             ):
                 selected = self.request(metric=stream, kind="exemplars")
                 if support is True:
@@ -420,15 +454,21 @@ class QueryTests(unittest.IsolatedAsyncioTestCase):
                     self.assertIn("/query_exemplars?", path)
                     self.assertIsNone(body)
                 else:
-                    with self.assertRaises(MetricQueryRefusal) as caught:
+                    with self.assertRaises(MetricQueryRefusalError) as caught:
                         backend_request("default", stream, selected)
-                    self.assertEqual(caught.exception.reason, "metric_exemplars_not_supported")
+                    self.assertEqual(
+                        caught.exception.reason, "metric_exemplars_not_supported"
+                    )
 
     async def test_unknown_absent_and_observed_zero_remain_distinct(self) -> None:
         zero = await self.answer({"hits": [{"value": 0}]})
         absent = await self.answer({"hits": []})
-        self.assertEqual((zero.status, zero.records, zero.unit), ("available", [{"value": 0}], None))
-        self.assertEqual((absent.status, absent.records, absent.unit), ("empty", [], None))
+        self.assertEqual(
+            (zero.status, zero.records, zero.unit), ("available", [{"value": 0}], None)
+        )
+        self.assertEqual(
+            (absent.status, absent.records, absent.unit), ("empty", [], None)
+        )
 
     def test_trace_points_do_not_require_unemitted_optional_attribute_columns(
         self,

@@ -280,7 +280,7 @@ MetricRefusalReason = Literal[
 ]
 
 
-class MetricQueryRefusal(ValueError):
+class MetricQueryRefusalError(ValueError):
     """A declared instrument cannot support the selected estimator."""
 
     def __init__(self, reason: MetricRefusalReason) -> None:
@@ -297,44 +297,56 @@ def admit_metric_query(request: QueryRequest) -> dict[str, JsonValue] | None:
     if request.signal != "metrics":
         return None
     declaration = next(
-        (item for item in metric_declarations() if item["backend_name"] == request.metric),
+        (
+            item
+            for item in metric_declarations()
+            if item["backend_name"] == request.metric
+        ),
         None,
     )
     if request.kind == "points":
         return declaration
     if declaration is None:
-        raise MetricQueryRefusal("metric_instrument_not_declared")
+        raise MetricQueryRefusalError("metric_instrument_not_declared")
     unit = declaration.get("unit")
     if not isinstance(unit, str) or not unit.strip():
-        raise MetricQueryRefusal("metric_unit_not_declared")
+        raise MetricQueryRefusalError("metric_unit_not_declared")
     if request.kind == "exemplars":
         if declaration.get("exemplars") is not True:
-            raise MetricQueryRefusal("metric_exemplars_not_supported")
+            raise MetricQueryRefusalError("metric_exemplars_not_supported")
         return declaration
     if declaration.get("temporality") != "cumulative":
-        raise MetricQueryRefusal("metric_temporality_not_cumulative")
+        raise MetricQueryRefusalError("metric_temporality_not_cumulative")
     if request.kind in {"rate", "increase"}:
-        if declaration.get("kind") not in {"counter", "observable_counter"} or declaration.get("monotonic") is not True:
-            raise MetricQueryRefusal("metric_requires_monotonic_counter")
+        if (
+            declaration.get("kind") not in {"counter", "observable_counter"}
+            or declaration.get("monotonic") is not True
+        ):
+            raise MetricQueryRefusalError("metric_requires_monotonic_counter")
     else:
-        if declaration.get("kind") != "histogram" or declaration.get("monotonic") is not True:
-            raise MetricQueryRefusal("metric_requires_monotonic_histogram")
+        if (
+            declaration.get("kind") != "histogram"
+            or declaration.get("monotonic") is not True
+        ):
+            raise MetricQueryRefusalError("metric_requires_monotonic_histogram")
         raw_boundaries = declaration.get("buckets")
         if not isinstance(raw_boundaries, list) or not raw_boundaries:
-            raise MetricQueryRefusal("metric_histogram_buckets_invalid")
+            raise MetricQueryRefusalError("metric_histogram_buckets_invalid")
         boundaries: list[float] = []
         for bound in raw_boundaries:
             if isinstance(bound, bool) or not isinstance(bound, (int, float)):
-                raise MetricQueryRefusal("metric_histogram_buckets_invalid")
+                raise MetricQueryRefusalError("metric_histogram_buckets_invalid")
             try:
                 numeric = float(bound)
             except OverflowError as error:
-                raise MetricQueryRefusal("metric_histogram_buckets_invalid") from error
+                raise MetricQueryRefusalError(
+                    "metric_histogram_buckets_invalid"
+                ) from error
             if not math.isfinite(numeric) or (boundaries and numeric <= boundaries[-1]):
-                raise MetricQueryRefusal("metric_histogram_buckets_invalid")
+                raise MetricQueryRefusalError("metric_histogram_buckets_invalid")
             boundaries.append(numeric)
         if request.kind == "fraction_below" and request.threshold not in boundaries:
-            raise MetricQueryRefusal("selected_histogram_boundary_not_declared")
+            raise MetricQueryRefusalError("selected_histogram_boundary_not_declared")
     return declaration
 
 
@@ -412,7 +424,7 @@ class BackendClient:
 
         try:
             declaration = admit_metric_query(selected)
-        except MetricQueryRefusal as refusal:
+        except MetricQueryRefusalError as refusal:
             return QueryAnswer(
                 request=selected,
                 status="unsupported",
@@ -596,7 +608,7 @@ def _backend_request(
 ) -> tuple[str, dict[str, object] | None]:
     """Lower a semantically admitted question to the selected backend vocabulary."""
     if request.signal == "metrics" and stream != request.metric:
-        raise MetricQueryRefusal("metric_instrument_not_declared")
+        raise MetricQueryRefusalError("metric_instrument_not_declared")
     predicates = []
     fields = {
         "trace_id": request.trace_id,

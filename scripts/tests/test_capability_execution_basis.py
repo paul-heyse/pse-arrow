@@ -85,8 +85,12 @@ class AdmissionTests(unittest.TestCase):
             with self.assertRaises(basis.AdmissionRefusedError):
                 basis.verify(self.root, "host", "archive", self.document)
 
-    def test_new_facade_glue_and_generated_defaults_remain_in_the_admitted_import_closure(self) -> None:
-        from scripts.capabilities.source_basis import Sources  # noqa: PLC0415 -- selected source-only owner
+    def test_new_facade_glue_and_generated_defaults_remain_in_the_admitted_import_closure(
+        self,
+    ) -> None:
+        from scripts.capabilities.source_basis import (
+            Sources,
+        )
 
         files = {
             "scripts/bridge.py": "from pse.generated.project_operations import ProjectRuntimeOperations\n",
@@ -102,15 +106,23 @@ class AdmissionTests(unittest.TestCase):
         captured = Sources(self.root, ("scripts/bridge.py",))
         closure = captured.closure(("scripts/bridge.py",))
         self.assertTrue(set(files).issubset(closure))
-        self.definition = self.definition.model_copy(update={"sources": {path: captured.sources[path].digest for path in closure}})
+        self.definition = self.definition.model_copy(
+            update={
+                "sources": {path: captured.sources[path].digest for path in closure}
+            }
+        )
         with patch.dict(os.environ, self.publish()):
             basis.verify(self.root, "host", "archive", self.document)
-            (self.root / "python/pse/_project_bundle.py").write_text("class ProjectBundle: changed = True\n")
+            (self.root / "python/pse/_project_bundle.py").write_text(
+                "class ProjectBundle: changed = True\n"
+            )
             with self.assertRaisesRegex(basis.AdmissionRefusedError, "source changed"):
                 basis.verify(self.root, "host", "archive", self.document)
 
     def test_bare_package_import_captures_its_relative_private_owner(self) -> None:
-        from scripts.capabilities.source_basis import Sources  # noqa: PLC0415 -- source-only capture
+        from scripts.capabilities.source_basis import (
+            Sources,
+        )
 
         files = {
             "scripts/bridge.py": "import pse\n",
@@ -124,9 +136,11 @@ class AdmissionTests(unittest.TestCase):
         captured = Sources(self.root, ("scripts/bridge.py",))
         closure = captured.closure(("scripts/bridge.py",))
         self.assertTrue(set(files).issubset(closure))
-        self.definition = self.definition.model_copy(update={"sources": {
-            path: captured.sources[path].digest for path in closure
-        }})
+        self.definition = self.definition.model_copy(
+            update={
+                "sources": {path: captured.sources[path].digest for path in closure}
+            }
+        )
         with patch.dict(os.environ, self.publish()):
             basis.verify(self.root, "host", "archive", self.document)
             (self.root / "python/pse/_private.py").write_text("value = 2\n")
@@ -145,7 +159,11 @@ class AdmissionTests(unittest.TestCase):
 
         self.assertEqual(
             WORKERS["native"].operations,
-            frozenset(binding.operation for binding in worker_bindings() if binding.worker.worker == "native"),
+            frozenset(
+                binding.operation
+                for binding in worker_bindings()
+                if binding.worker.worker == "native"
+            ),
         )
         self.assertEqual(
             WORKERS["native"].operations,
@@ -189,7 +207,12 @@ class AdmissionTests(unittest.TestCase):
                         self.document,
                     )
                 with patch.dict(os.environ, supplied):
-                    basis.verify(self.root, binding.worker.worker, binding.operation, self.document)
+                    basis.verify(
+                        self.root,
+                        binding.worker.worker,
+                        binding.operation,
+                        self.document,
+                    )
 
     def test_annotations_metadata_and_description_affect_wire(self) -> None:
         def read() -> str:
@@ -259,7 +282,9 @@ class NativeCurrencyAdmissionTests(unittest.TestCase):
             cause="missing-preparation-evidence",
             remedy="Explicitly prepare and reattach.",
         )
-        from scripts.tests.test_telemetry_profiles import envelope  # noqa: PLC0415 -- shared valid host-only fixture
+        from scripts.tests.test_telemetry_profiles import (
+            envelope,
+        )
 
         for operation in ("diagnostic_checkpoint", "telemetry_profile_capture"):
             with (
@@ -267,15 +292,19 @@ class NativeCurrencyAdmissionTests(unittest.TestCase):
                 patch.dict(sys.modules, {"pse": fake, "pse.contracts": contracts}),
                 patch.dict(os.environ, {basis.ENVIRONMENT: "/private/admission.json"}),
                 patch.object(
-                    python_extension,
-                    "currency_check_installed",
+                    native_worker,
+                    "extension_currency",
                     return_value=observation,
                 ) as checked,
             ):
                 result = native_worker.execute(
                     operation,
                     {
-                        **(envelope() if operation == "telemetry_profile_capture" else {"checkpoint": "/selected/native.json"}),
+                        **(
+                            envelope()
+                            if operation == "telemetry_profile_capture"
+                            else {"checkpoint": "/selected/native.json"}
+                        ),
                         "schema_set_fingerprint": "same-schema",
                     },
                     scratch=Path("/unused"),

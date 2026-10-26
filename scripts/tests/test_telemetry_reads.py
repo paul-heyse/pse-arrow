@@ -14,6 +14,7 @@ import unittest
 from contextlib import ExitStack, redirect_stdout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import AsyncMock, patch
 
 from scripts import (
@@ -155,11 +156,15 @@ class TelemetryReadTests(unittest.TestCase):
         with patch.object(telemetry_service, "inspect", return_value=self.inspected):
             return telemetry.health(self.state)
 
-    def test_health_host_projection_preserves_local_sdk_loss_without_native_import(self) -> None:
-        from scripts.capabilities import telemetry_contracts  # noqa: PLC0415 -- selected projection test
+    def test_health_host_projection_preserves_local_sdk_loss_without_native_import(
+        self,
+    ) -> None:
+        from scripts.capabilities import (
+            telemetry_contracts,
+        )
 
         class Native:
-            activation: dict[str, str | None] = {"status": "initialized"}
+            activation: ClassVar[dict[str, str | None]] = {"status": "initialized"}
 
             def shutdown(self) -> None:
                 pass
@@ -176,12 +181,24 @@ class TelemetryReadTests(unittest.TestCase):
                     "abrupt_exit_loss": "unknown",
                 }
 
-        lifetime = telemetry_process.ProcessLifetime(None, "initialized", native=Native())
+        lifetime = telemetry_process.ProcessLifetime(
+            None, "initialized", native=Native()
+        )
         with (
             patch("scripts.telemetry_process._STATE.active", lifetime),
-            patch.object(telemetry_service, "inspect", return_value={"status": "unavailable"}),
-            patch.object(telemetry_process.importlib, "import_module", side_effect=AssertionError("passive health cannot import native")),
-            patch.object(telemetry_process, "bootstrap", side_effect=AssertionError("passive health cannot bootstrap")),
+            patch.object(
+                telemetry_service, "inspect", return_value={"status": "unavailable"}
+            ),
+            patch.object(
+                telemetry_process.importlib,
+                "import_module",
+                side_effect=AssertionError("passive health cannot import native"),
+            ),
+            patch.object(
+                telemetry_process,
+                "bootstrap",
+                side_effect=AssertionError("passive health cannot bootstrap"),
+            ),
         ):
             answer = telemetry.health(self.state)
             projected = telemetry_contracts.health(answer).model_dump(mode="json")

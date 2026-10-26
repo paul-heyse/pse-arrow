@@ -575,7 +575,10 @@ def _loss_status(owner: ProcessLifetime) -> dict[str, object]:
         try:
             snapshot = owner.native.loss_health()
         except Exception:
-            native = {"status": "unavailable", "reason": "native_trace_observer_read_failed"}
+            native = {
+                "status": "unavailable",
+                "reason": "native_trace_observer_read_failed",
+            }
         else:
             if snapshot is not None:
                 native = snapshot

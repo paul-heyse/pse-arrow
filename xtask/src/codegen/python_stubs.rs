@@ -130,7 +130,7 @@ fn venv(root: &Path) -> PathBuf {
     }
 }
 
-fn tool(root: &Path, name: &str) -> PathBuf {
+pub(super) fn tool(root: &Path, name: &str) -> PathBuf {
     if cfg!(windows) {
         venv(root).join("Scripts").join(format!("{name}.exe"))
     } else {
@@ -168,10 +168,32 @@ fn format(root: &Path, source: &str) -> Result<Vec<u8>> {
     ruff(root, &normalized, &["format"])
 }
 fn ruff(root: &Path, source: &[u8], args: &[&str]) -> Result<Vec<u8>> {
+    ruff_for(root, source, args, OUTPUT)
+}
+/// Canonical generated implementation publication; retain ordinary lint visibility.
+#[cfg(feature = "full-codegen")]
+pub(super) fn format_projection(root: &Path, source: &[u8], output: &str) -> Result<Vec<u8>> {
+    let initial = ruff_for(
+        root,
+        source,
+        &["format", "--config", "format.exclude=[]"],
+        output,
+    )?;
+    let normalized = ruff_for(root, &initial, &["check", "--fix"], output)?;
+    let formatted = ruff_for(
+        root,
+        &normalized,
+        &["format", "--config", "format.exclude=[]"],
+        output,
+    )?;
+    ruff_for(root, &formatted, &["check"], output)?;
+    Ok(formatted)
+}
+fn ruff_for(root: &Path, source: &[u8], args: &[&str], output: &str) -> Result<Vec<u8>> {
     let mut child = Command::new(tool(root, "ruff"))
         .current_dir(root)
         .args(args)
-        .args(["--stdin-filename", OUTPUT, "-"])
+        .args(["--stdin-filename", output, "-"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

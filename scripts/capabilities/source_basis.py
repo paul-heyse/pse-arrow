@@ -44,9 +44,14 @@ def local_imports(raw: bytes, relative: str) -> tuple[str, ...]:
                 try:
                     module = resolve_name("." * node.level + module, package)
                 except (ImportError, ValueError) as error:
-                    raise ValueError("Serving source relative import escapes its package") from error
+                    raise ValueError(
+                        "Serving source relative import escapes its package"
+                    ) from error
             if module:
-                names = [module, *(module + "." + a.name for a in node.names if a.name != "*")]
+                names = [
+                    module,
+                    *(module + "." + a.name for a in node.names if a.name != "*"),
+                ]
         for name in names:
             if name in {"scripts", "pse"} or name.startswith(("scripts.", "pse.")):
                 paths.update(module_candidates(name))

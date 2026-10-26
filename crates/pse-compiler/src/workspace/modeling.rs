@@ -1040,6 +1040,7 @@ impl CompilerWorkspace {
         bindings: Bindings,
         limits: Limits,
     ) -> Result<(Catalog, Request)> {
+        limits.validate()?;
         let hash = request_hash(root, instance, &bindings, limits);
         if bindings.demand.is_empty() {
             return self.modeling_request_in_bucket(root, instance, bindings, limits, hash);

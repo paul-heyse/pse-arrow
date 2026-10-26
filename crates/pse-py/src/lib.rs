@@ -5,6 +5,8 @@
 // the default compiler depth. Match the runtime's finite checking depth without boxing
 // its futures or weakening auto-trait requirements.
 #![recursion_limit = "512"]
+// Generated Rust projections retain inner rustfmt::skip under the pinned nightly.
+#![feature(custom_inner_attributes)]
 #![allow(
     unsafe_code,
     reason = "pyo3 CPython ABI glue (blueprint §21) and ADR-0164 controlled deployment qualification"
@@ -24,8 +26,8 @@ use pyo3::prelude::*;
 mod diagnostics;
 mod documents;
 mod enums;
-mod identities;
 mod host_operations;
+mod identities;
 mod inspection;
 mod telemetry;
 mod workflow;

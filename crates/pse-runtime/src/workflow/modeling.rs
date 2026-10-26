@@ -89,7 +89,9 @@ mod project_comparison;
 mod project_preparation;
 pub(super) mod results;
 mod views;
-use super::{PhysicalContext, Runtime, SourceDelta, WorkflowError, contract, relation};
+use super::{
+    PhysicalContext, Runtime, SourceDelta, WorkflowError, contract, modeling_error, relation,
+};
 use crate::math::{Workspace, modeling::ModelingPreparation};
 pub use analysis_tables::ModelingNativeAnalysis;
 pub use cases::{ModelingObservations, ModelingSolvePreparation, StartSource};
@@ -1208,6 +1210,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPreparation, WorkflowError> {
+        limits.validate().map_err(modeling_error)?;
         self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity

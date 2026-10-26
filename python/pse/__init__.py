@@ -38,6 +38,7 @@ from pse._build import (
     build_info,
     native_version,
 )
+from pse._host_operations import host_operation_catalogue
 from pse._inspection import TableStream, registry_table
 from pse._modeling import (
     CompactStudyResult,
@@ -73,7 +74,6 @@ from pse._runs import (
 from pse._strategies import PreparedFlow, PreparedStrategy, StrategyResult
 from pse._study_workbench import FrozenStudyCohort, StudyKpiAnalysis, StudyObserver
 from pse._transfer import FieldTransfer
-from pse._host_operations import host_operation_catalogue
 from pse._workflow import (
     PhysicalContext,
     ProjectBundle,

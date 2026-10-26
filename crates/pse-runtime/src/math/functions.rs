@@ -30,7 +30,8 @@ impl MathService {
         self.preparation_effects
             .function_assemblies
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let _span = tracing::info_span!("pse.case.function_assembly", pse.owner.stage = true).entered();
+        let _span =
+            tracing::info_span!("pse.case.function_assembly", pse.owner.stage = true).entered();
         let assembly =
             Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);
         let _ = self.preparation_driver(&driver)?;

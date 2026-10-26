@@ -486,8 +486,12 @@ fn launch(
     payload: Vec<u8>,
     scope: &ExecutionScope,
 ) -> Result<PortableRootResult, MathRuntimeError> {
-    let _telemetry =
-        tracing::info_span!("pse.native.child.launch", pse.owner.stage = true, owner = "native.child.launch").entered();
+    let _telemetry = tracing::info_span!(
+        "pse.native.child.launch",
+        pse.owner.stage = true,
+        owner = "native.child.launch"
+    )
+    .entered();
     checkpoint(scope)?;
     let observed = pse_buildinfo::FileObservation::capture_scoped(&child.executable, &|| {
         scope.check().map_err(|e| io::Error::other(e.to_string()))

@@ -377,11 +377,13 @@ pub enum AttributeValues {
 
 impl AttributeValues {
     fn domains(self) -> std::collections::BTreeMap<&'static str, Vec<&'static str>> {
-        use super::operational_metrics::{NativeEvent, PreparationEvent, PreparationStage, OwnerIntervalFamily, SUPERVISOR_STAGE};
-        use super::runtime_metrics::{TaskEvent, TaskPhase, TaskThreshold, OperationalSource};
+        use super::operational_metrics::{
+            NativeEvent, OwnerIntervalFamily, PreparationEvent, PreparationStage, SUPERVISOR_STAGE,
+        };
+        use super::runtime_metrics::{OperationalSource, TaskEvent, TaskPhase, TaskThreshold};
         use crate::math::PreparationProduct;
-        use pse_operations::canonical::CanonicalQueryEvent;
         use pse_diagnostics::{ExecutorRole, NativeTaskClass};
+        use pse_operations::canonical::CanonicalQueryEvent;
         let tasks = || {
             NativeTaskClass::ALL
                 .iter()
@@ -401,23 +403,85 @@ impl AttributeValues {
                 ExecutorRole::ALL.iter().map(|role| role.as_str()).collect(),
             )]
             .into(),
-            Self::NativeEvents => [("event", NativeEvent::ALL.into_iter().map(NativeEvent::as_str).collect())].into(),
-            Self::PreparationEvents => {
-                [("stage", stages()), ("event", PreparationEvent::ALL.into_iter().map(PreparationEvent::as_str).collect())].into()
-            }
-            Self::Products => [("product", PreparationProduct::ALL.into_iter().map(PreparationProduct::as_str).collect())].into(),
-            Self::QueryEvents => [("event", CanonicalQueryEvent::ALL.into_iter().map(CanonicalQueryEvent::as_str).collect())].into(),
-            Self::Owners => [("owner", OperationalSource::ALL.into_iter().map(OperationalSource::as_str).collect())].into(),
-            Self::TaskEvents => [("task.class", tasks()), ("event", TaskEvent::ALL.into_iter().map(TaskEvent::as_str).collect())].into(),
-            Self::TaskPhases => [("task.class", tasks()), ("phase", TaskPhase::ALL.into_iter().map(TaskPhase::as_str).collect())].into(),
+            Self::NativeEvents => [(
+                "event",
+                NativeEvent::ALL
+                    .into_iter()
+                    .map(NativeEvent::as_str)
+                    .collect(),
+            )]
+            .into(),
+            Self::PreparationEvents => [
+                ("stage", stages()),
+                (
+                    "event",
+                    PreparationEvent::ALL
+                        .into_iter()
+                        .map(PreparationEvent::as_str)
+                        .collect(),
+                ),
+            ]
+            .into(),
+            Self::Products => [(
+                "product",
+                PreparationProduct::ALL
+                    .into_iter()
+                    .map(PreparationProduct::as_str)
+                    .collect(),
+            )]
+            .into(),
+            Self::QueryEvents => [(
+                "event",
+                CanonicalQueryEvent::ALL
+                    .into_iter()
+                    .map(CanonicalQueryEvent::as_str)
+                    .collect(),
+            )]
+            .into(),
+            Self::Owners => [(
+                "owner",
+                OperationalSource::ALL
+                    .into_iter()
+                    .map(OperationalSource::as_str)
+                    .collect(),
+            )]
+            .into(),
+            Self::TaskEvents => [
+                ("task.class", tasks()),
+                (
+                    "event",
+                    TaskEvent::ALL.into_iter().map(TaskEvent::as_str).collect(),
+                ),
+            ]
+            .into(),
+            Self::TaskPhases => [
+                ("task.class", tasks()),
+                (
+                    "phase",
+                    TaskPhase::ALL.into_iter().map(TaskPhase::as_str).collect(),
+                ),
+            ]
+            .into(),
             Self::TaskThresholds => [
                 ("task.class", tasks()),
-                ("threshold", TaskThreshold::ALL.into_iter().map(TaskThreshold::as_str).collect()),
+                (
+                    "threshold",
+                    TaskThreshold::ALL
+                        .into_iter()
+                        .map(TaskThreshold::as_str)
+                        .collect(),
+                ),
             ]
             .into(),
             Self::TaskClasses => [("task.class", tasks())].into(),
             Self::OwnerIntervals => [
-                ("owner.family", OwnerIntervalFamily::ALL.into_iter().map(OwnerIntervalFamily::as_str).collect()),
+                (
+                    "owner.family",
+                    OwnerIntervalFamily::ALL
+                        .into_iter()
+                        .map(OwnerIntervalFamily::as_str)
+                        .collect(),
+                ),
                 (
                     "stage",
                     std::iter::once(SUPERVISOR_STAGE).chain(stages()).collect(),

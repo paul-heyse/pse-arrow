@@ -268,6 +268,9 @@ impl MathService {
         bindings: Bindings,
         limits: Limits,
     ) -> Result<Arc<BasisKey>, MathRuntimeError> {
+        limits
+            .validate()
+            .map_err(pse_compiler::workspace::CompileError::from)?;
         let bytes = size_of::<BasisKey>() + 128 + bindings_bytes(&bindings);
         let owner = self.reserve("math:exact-preparation-key", bytes)?;
         let mut key = BasisKey {
@@ -357,7 +360,11 @@ impl MathService {
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let product =
                         service.with_modeling_compiler(authority, &revision, |compiler| {
-                            let _stage = tracing::info_span!("pse.model.specialization", pse.owner.stage = true).entered();
+                            let _stage = tracing::info_span!(
+                                "pse.model.specialization",
+                                pse.owner.stage = true
+                            )
+                            .entered();
                             Ok(compiler.plan_modeling_cancellable(
                                 root,
                                 instance,
@@ -506,7 +513,9 @@ impl MathService {
                     effects
                         .completions
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    let _stage = tracing::info_span!("pse.compiler.materialization", pse.owner.stage = true).entered();
+                    let _stage =
+                        tracing::info_span!("pse.compiler.materialization", pse.owner.stage = true)
+                            .entered();
                     let product = compiler
                         .complete_modeling_cancellable(frontier.product.clone(), flag.flag())?;
                     let bytes = product.retained_bytes();

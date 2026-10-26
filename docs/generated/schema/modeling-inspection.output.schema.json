@@ -427,36 +427,42 @@
     },
     "LimitsOutput": {
       "additionalProperties": false,
+      "description": "Explicit limits checked before expansion/allocation.",
       "properties": {
         "body_occurrences": {
+          "description": "Optional operation/occurrence allowance for each lowered mathematical body.\nNone uses the mathematical backend's default, independently of mesh extent.",
           "format": "uint",
-          "minimum": 0,
+          "minimum": 1,
           "type": [
             "integer",
             "null"
           ]
         },
         "body_slots": {
+          "description": "Optional formal-slot allowance (inputs plus stage results) for each lowered\nmathematical body; the process-global formal pool extends up to it, and a body\nneeding more is refused with its required and available slots. None uses the\nmathematical backend's default, the initially registered pool chunk.",
           "format": "uint",
-          "minimum": 0,
+          "minimum": 1,
           "type": [
             "integer",
             "null"
           ]
         },
         "depth": {
+          "description": "Maximum nested definitions.",
           "format": "uint",
-          "minimum": 0,
+          "minimum": 1,
           "type": "integer"
         },
         "items": {
+          "description": "Maximum instances, indexed members and generated equations.",
           "format": "uint",
-          "minimum": 0,
+          "minimum": 1,
           "type": "integer"
         },
         "members": {
+          "description": "Maximum members of one derived finite set/product.",
           "format": "uint",
-          "minimum": 0,
+          "minimum": 1,
           "type": "integer"
         }
       },

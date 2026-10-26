@@ -419,6 +419,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<PreparationEngagement>, WorkflowError> {
+        limits.validate().map_err(modeling_error)?;
         self.check_service_bindings(services)?;
         let activity = services.admit_activity()?;
         activity
@@ -538,6 +539,7 @@ impl HeldPreparationScope {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPreparation, WorkflowError> {
+        limits.validate().map_err(modeling_error)?;
         let mut entries = self.entries.lock().await;
         let state = self.state.load(Ordering::Acquire);
         if state != ESTABLISHING && state != ACTIVE {

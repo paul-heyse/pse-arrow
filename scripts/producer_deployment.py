@@ -18,7 +18,12 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, TypeAlias
 
-from scripts import installed_artifact, producer_cargo, producer_receipts, python_extension
+from scripts import (
+    installed_artifact,
+    producer_cargo,
+    producer_receipts,
+    python_extension,
+)
 from scripts.producer_cargo import EFFECTIVE_ENVIRONMENT as DECLARED_ENVIRONMENT
 
 if TYPE_CHECKING:
@@ -203,8 +208,12 @@ def bind_python_artifact(
         if line.startswith("{")
     ]
     transformation = installed_artifact.associate(
-        original, imported, str(built["sha256"]), str(installed["sha256"]),
-        messages, environment=environment,
+        original,
+        imported,
+        str(built["sha256"]),
+        str(installed["sha256"]),
+        messages,
+        environment=environment,
     )
     association = receipt["deployment"]
     if not isinstance(association, dict):

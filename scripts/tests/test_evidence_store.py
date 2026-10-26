@@ -16,8 +16,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts import evidence_store, resource_store, service_borrowers, surreal_server
-from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
 from scripts.tests.producing_receipt_fixture import executable
+from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
 
 
 class EvidenceStoreTests(unittest.TestCase):
@@ -191,9 +191,7 @@ class EvidenceStoreTests(unittest.TestCase):
                 7,
             )
         command = run.call_args.args[0]
-        self.assertEqual(
-            command[1:4], ["evidence", "--state", str(self.state)]
-        )
+        self.assertEqual(command[1:4], ["evidence", "--state", str(self.state)])
         self.assertIn("--timeout-ms", command)
         self.assertNotIn("cargo", command)
         self.assertEqual(command[-3:], ["query", "--limit", "3"])
@@ -208,7 +206,9 @@ class EvidenceStoreTests(unittest.TestCase):
             run.call_args.kwargs["pass_fds"][0],
         )
         self.assertEqual(len(run.call_args.kwargs["pass_fds"]), 2)
-        self.assertEqual(command[0], f"/proc/self/fd/{run.call_args.kwargs['pass_fds'][1]}")
+        self.assertEqual(
+            command[0], f"/proc/self/fd/{run.call_args.kwargs['pass_fds'][1]}"
+        )
 
     def test_foreign_or_unavailable_listener_refuses_before_native_launch(self) -> None:
         self.prepare()

@@ -143,6 +143,15 @@ class DetailRequirement(StrEnum):
     COMPLETE = "complete"
 
 
+class EffectScope(StrEnum):
+    OBSERVATION = "observation"
+    SOURCE_ADMISSION = "source_admission"
+    CANONICAL_COMMAND = "canonical_command"
+    RETENTION_RELEASE = "retention_release"
+    FILE_EXPORT = "file_export"
+    CAPTURE = "capture"
+
+
 class EnvelopeKind(StrEnum):
     SOURCE = "Source"
     PREPARATION = "Preparation"
@@ -173,6 +182,11 @@ class EvaluationDemand(StrEnum):
     DIRECTIONAL = "directional"
     TRANSPOSE_DIRECTIONAL = "transpose_directional"
     HESSIAN_ACTION = "hessian_action"
+
+
+class ExtensionMode(StrEnum):
+    INSTALLED_CORRECTNESS = "installed_correctness"
+    NATIVE_CORRECTNESS = "native_correctness"
 
 
 class FitOptimizer(StrEnum):
@@ -9094,6 +9108,22 @@ class DurationSummaryOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=T
         return (type(self), (v.optional_key(v.scalar_key)(self.maximum_ns), v.optional_key(v.scalar_key)(self.minimum_ns), v.scalar_key(self.overflow), v.scalar_key(self.samples),))
 
 
+class EffectFacts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Machine-readable facts used by host annotations and operation schema metadata."""
+
+    #: The operation explicitly releases retained data/custody.
+    destructive: bool
+    #: Repeating the original request has the owner's stated repeatability contract.
+    idempotent: bool
+    #: The operation requests observation rather than mutation/admission/capture.
+    read_only: bool
+    #: Actual operation scope.
+    scope: EffectScope
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.destructive), v.scalar_key(self.idempotent), v.scalar_key(self.read_only), v.scalar_key(self.scope),))
+
+
 class EffortPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Opt-in adaptation from comparable native nonlinear iteration counts."""
 
@@ -9465,6 +9495,18 @@ class ExtensionQuantityValue(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.quantity_type_id), v.scalar_key(self.unit_id), v.scalar_key(self.value),))
+
+
+class ExtensionRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Extension requirements, distinct from source/runtime prerequisites and effect scope."""
+
+    #: Actual allowed image selection contract.
+    mode: ExtensionMode
+    #: Correctness validation is required independently of selected dev/native mode.
+    validated: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.mode), v.scalar_key(self.validated),))
 
 
 class FeralSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -13023,26 +13065,44 @@ class LifecycleTargetBody(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
 
 class Limits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """The `Limits` document type."""
+    """Explicit limits checked before expansion/allocation."""
 
-    body_occurrences: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    body_slots: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    depth: Annotated[int, msgspec.Meta(ge=0)]
-    items: Annotated[int, msgspec.Meta(ge=0)]
-    members: Annotated[int, msgspec.Meta(ge=0)]
+    #: Optional operation/occurrence allowance for each lowered mathematical body.
+    #: None uses the mathematical backend's default, independently of mesh extent.
+    body_occurrences: Annotated[int, msgspec.Meta(ge=1)] | None = None
+    #: Optional formal-slot allowance (inputs plus stage results) for each lowered
+    #: mathematical body; the process-global formal pool extends up to it, and a body
+    #: needing more is refused with its required and available slots. None uses the
+    #: mathematical backend's default, the initially registered pool chunk.
+    body_slots: Annotated[int, msgspec.Meta(ge=1)] | None = None
+    #: Maximum nested definitions.
+    depth: Annotated[int, msgspec.Meta(ge=1)]
+    #: Maximum instances, indexed members and generated equations.
+    items: Annotated[int, msgspec.Meta(ge=1)]
+    #: Maximum members of one derived finite set/product.
+    members: Annotated[int, msgspec.Meta(ge=1)]
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.body_occurrences), v.optional_key(v.scalar_key)(self.body_slots), v.scalar_key(self.depth), v.scalar_key(self.items), v.scalar_key(self.members),))
 
 
 class LimitsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """The `LimitsOutput` document type."""
+    """Explicit limits checked before expansion/allocation."""
 
-    body_occurrences: Annotated[int, msgspec.Meta(ge=0)] | None
-    body_slots: Annotated[int, msgspec.Meta(ge=0)] | None
-    depth: Annotated[int, msgspec.Meta(ge=0)]
-    items: Annotated[int, msgspec.Meta(ge=0)]
-    members: Annotated[int, msgspec.Meta(ge=0)]
+    #: Optional operation/occurrence allowance for each lowered mathematical body.
+    #: None uses the mathematical backend's default, independently of mesh extent.
+    body_occurrences: Annotated[int, msgspec.Meta(ge=1)] | None
+    #: Optional formal-slot allowance (inputs plus stage results) for each lowered
+    #: mathematical body; the process-global formal pool extends up to it, and a body
+    #: needing more is refused with its required and available slots. None uses the
+    #: mathematical backend's default, the initially registered pool chunk.
+    body_slots: Annotated[int, msgspec.Meta(ge=1)] | None
+    #: Maximum nested definitions.
+    depth: Annotated[int, msgspec.Meta(ge=1)]
+    #: Maximum instances, indexed members and generated equations.
+    items: Annotated[int, msgspec.Meta(ge=1)]
+    #: Maximum members of one derived finite set/product.
+    members: Annotated[int, msgspec.Meta(ge=1)]
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.body_occurrences), v.optional_key(v.scalar_key)(self.body_slots), v.scalar_key(self.depth), v.scalar_key(self.items), v.scalar_key(self.members),))
@@ -15296,10 +15356,14 @@ class OperationDeclaration(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     documents: tuple[DocumentField, ...]
     #: Existing capability domain.
     domain: str
-    #: Actual effects, independently of observation wording.
+    #: Finite effect facts, independent of helper preparation or lifetime.
+    effect_facts: EffectFacts
+    #: Human explanation only; structured facts below drive host semantics.
     effects: str
     #: Owned host header shape.
     envelope: EnvelopeKind
+    #: Actual extension interpretation, absent for supplied-only tooling.
+    extension: ExtensionRequirement | None
     #: Existing attached/detached cancellation selection.
     invocation_lifetime: InvocationLifetime
     #: Stable selected operation identity.
@@ -15326,7 +15390,7 @@ class OperationDeclaration(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     worker: WorkerFamily
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.sequence_key(v.scalar_key)(self.context_fields), v.sequence_key(v.record_key)(self.continuations), v.scalar_key(self.description), v.sequence_key(v.record_key)(self.documents), v.scalar_key(self.domain), v.scalar_key(self.effects), v.scalar_key(self.envelope), v.scalar_key(self.invocation_lifetime), v.scalar_key(self.operation), v.optional_key(v.record_key)(self.output_document), v.scalar_key(self.output_many), v.scalar_key(self.prepare_import), v.scalar_key(self.prerequisites), v.scalar_key(self.preserve_document), v.scalar_key(self.public_binding), v.scalar_key(self.read_eligibility), v.scalar_key(self.receiver), v.scalar_key(self.title), v.scalar_key(self.worker),))
+        return (type(self), (v.sequence_key(v.scalar_key)(self.context_fields), v.sequence_key(v.record_key)(self.continuations), v.scalar_key(self.description), v.sequence_key(v.record_key)(self.documents), v.scalar_key(self.domain), v.record_key(self.effect_facts), v.scalar_key(self.effects), v.scalar_key(self.envelope), v.optional_key(v.record_key)(self.extension), v.scalar_key(self.invocation_lifetime), v.scalar_key(self.operation), v.optional_key(v.record_key)(self.output_document), v.scalar_key(self.output_many), v.scalar_key(self.prepare_import), v.scalar_key(self.prerequisites), v.scalar_key(self.preserve_document), v.scalar_key(self.public_binding), v.scalar_key(self.read_eligibility), v.scalar_key(self.receiver), v.scalar_key(self.title), v.scalar_key(self.worker),))
 
 
 class OperationId(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -17466,6 +17530,42 @@ class PreparationDiscoveryRequest(msgspec.Struct, frozen=True, forbid_unknown_fi
         return (type(self), (v.scalar_key(self.document_version), v.record_key(self.bindings), v.optional_key(v.record_key)(self.durable_after), v.scalar_key(self.instance), v.record_key(self.limits), v.scalar_key(self.root),))
 
 
+class PreparationDiscoveryRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact specialization to inspect without preparing it."""
+
+    #: Exact specialization premises, including demand and formulation.
+    bindings: PreparationBindings
+    #: Continue durable publication headers under the same immutable source.
+    durable_after: ProductHeaderCursor | None = None
+    #: Selected occurrence identity.
+    instance: identities.InstanceId
+    #: Exact specialization limits.
+    limits: Limits
+    #: Selected authored root.
+    root: identities.DeclarationId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.bindings), v.optional_key(v.record_key)(self.durable_after), v.scalar_key(self.instance), v.record_key(self.limits), v.scalar_key(self.root),))
+
+
+class PreparationDiscoveryRequestBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact specialization to inspect without preparing it."""
+
+    #: Exact specialization premises, including demand and formulation.
+    bindings: PreparationBindings
+    #: Continue durable publication headers under the same immutable source.
+    durable_after: ProductHeaderCursor | None
+    #: Selected occurrence identity.
+    instance: identities.InstanceId
+    #: Exact specialization limits.
+    limits: LimitsOutput
+    #: Selected authored root.
+    root: identities.DeclarationId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.bindings), v.optional_key(v.record_key)(self.durable_after), v.scalar_key(self.instance), v.record_key(self.limits), v.scalar_key(self.root),))
+
+
 class PreparationDiscoveryRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Exact specialization to inspect without preparing it."""
 
@@ -18705,6 +18805,1248 @@ class ProjectAcknowledgementOutput(msgspec.Struct, frozen=True, forbid_unknown_f
         return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.scalar_key)(self.branch), v.scalar_key(self.generation), v.scalar_key(self.key), v.scalar_key(self.kind), v.scalar_key(self.project), v.sequence_key(v.scalar_key)(self.request), v.optional_key(v.scalar_key)(self.revision),))
 
 
+class ProjectActionCompare(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="compare"):
+    """Existing Compare operation."""
+
+    #: Original left input.
+    left: str
+    #: Original right input.
+    right: str
+    #: Original right_physical input.
+    right_physical: ProjectDraftDocuments | None = None
+    #: Original source_only input.
+    source_only: bool = False
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.left), v.scalar_key(self.right), v.optional_key(v.record_key)(self.right_physical), v.scalar_key(self.source_only),))
+
+
+class ProjectActionContextCut(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="context_cut"):
+    """Existing ContextCut operation."""
+
+    #: Original project input.
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.project),))
+
+
+class ProjectActionContextLoad(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="context_load"):
+    """Existing ContextLoad operation."""
+
+    #: Original selection input.
+    selection: ContextSelectionBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.selection),))
+
+
+class ProjectActionContextRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="context_record"):
+    """Existing ContextRecord operation."""
+
+    #: Original corrects input.
+    corrects: str | None = None
+    #: Original deleted input.
+    deleted: bool
+    #: Original effective_from_us input.
+    effective_from_us: int
+    #: Original effective_to_us input.
+    effective_to_us: int | None = None
+    #: Original operation input.
+    operation: str
+    #: Original project input.
+    project: ProjectRecordBody
+    #: Original revision input.
+    revision: str
+    #: Original scope input.
+    scope: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.corrects), v.scalar_key(self.deleted), v.scalar_key(self.effective_from_us), v.optional_key(v.scalar_key)(self.effective_to_us), v.scalar_key(self.operation), v.record_key(self.project), v.scalar_key(self.revision), v.scalar_key(self.scope),))
+
+
+class ProjectActionContextReopen(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="context_reopen"):
+    """Existing ContextReopen operation."""
+
+    #: Original selection input.
+    selection: ContextSelectionBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.selection),))
+
+
+class ProjectActionContextSelect(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="context_select"):
+    """Existing ContextSelect operation."""
+
+    #: Original cut input.
+    cut: ContextCutBody
+    #: Original effective_at_us input.
+    effective_at_us: int
+    #: Original scope input.
+    scope: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.cut), v.scalar_key(self.effective_at_us), v.scalar_key(self.scope),))
+
+
+class ProjectActionDraftAdmit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft_admit"):
+    """Existing DraftAdmit operation."""
+
+    #: Original key input.
+    key: str
+    #: Original operation input.
+    operation: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.operation),))
+
+
+class ProjectActionDraftAdmitVersion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft_admit_version"):
+    """Existing DraftAdmitVersion operation."""
+
+    #: Original version input.
+    version: ProjectDraftVersionBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.version),))
+
+
+class ProjectActionDraftIssue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft_issue"):
+    """Existing DraftIssue operation."""
+
+    #: Original base input.
+    base: str
+    #: Original branch input.
+    branch: ProjectBranchRecordBody
+    #: Original expected input.
+    expected: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Original input input.
+    input: str
+    #: Original key input.
+    key: str
+    #: Original operation input.
+    operation: str
+    #: Original project input.
+    project: ProjectRecordBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.base), v.record_key(self.branch), v.optional_key(v.scalar_key)(self.expected), v.scalar_key(self.input), v.scalar_key(self.key), v.scalar_key(self.operation), v.record_key(self.project),))
+
+
+class ProjectActionDraftPublish(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft_publish"):
+    """Existing DraftPublish operation."""
+
+    #: Original intent input.
+    intent: ProjectPublicationBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.intent),))
+
+
+class ProjectActionDraftRead(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft_read"):
+    """Existing DraftRead operation."""
+
+    #: Original key input.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key),))
+
+
+class ProjectActionDraftSave(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft_save"):
+    """Existing DraftSave operation."""
+
+    #: Original input input.
+    input: str
+    #: Original intent input.
+    intent: ProjectDraftSaveIntentBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.input), v.record_key(self.intent),))
+
+
+class ProjectActionFork(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fork"):
+    """Existing Fork operation."""
+
+    #: Original branch input.
+    branch: str
+    #: Original operation input.
+    operation: str
+    #: Original problem input.
+    problem: str
+    #: Original project input.
+    project: ProjectRecordBody
+    #: Original source input.
+    source: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.branch), v.scalar_key(self.operation), v.scalar_key(self.problem), v.record_key(self.project), v.scalar_key(self.source),))
+
+
+class ProjectActionImport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="import"):
+    """Existing Import operation."""
+
+    #: Original documents input.
+    documents: ProjectDraftDocuments
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.documents),))
+
+
+class ProjectActionImportFiles(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="import_files"):
+    """Existing ImportFiles operation."""
+
+    #: Original packages input.
+    packages: tuple[str, ...]
+    #: Original physical_packages input.
+    physical_packages: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.packages), v.sequence_key(v.scalar_key)(self.physical_packages),))
+
+
+class ProjectActionLifecycleExplain(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="lifecycle_explain"):
+    """Existing LifecycleExplain operation."""
+
+    #: Original selection input.
+    selection: LifecycleSelectionBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.selection),))
+
+
+class ProjectActionLifecycleRelease(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="lifecycle_release"):
+    """Existing LifecycleRelease operation."""
+
+    #: Original selection input.
+    selection: LifecycleSelectionBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.selection),))
+
+
+class ProjectActionLifecycleSelect(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="lifecycle_select"):
+    """Existing LifecycleSelect operation."""
+
+    #: Original target input.
+    target: LifecycleTargetBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.target),))
+
+
+class ProjectActionLoad(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="load"):
+    """Existing Load operation."""
+
+    #: Original revision input.
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.revision),))
+
+
+class ProjectActionMergeDraftIssue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="merge_draft_issue"):
+    """Existing MergeDraftIssue operation."""
+
+    #: Original version input.
+    version: ProjectDraftVersionBody
+    #: Original base input.
+    base: str
+    #: Original publication input.
+    publication: ProjectPublicationBody
+    #: Original resolutions input.
+    resolutions: tuple[ProjectMergeResolutionBody, ...]
+    #: Original target input.
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.version), v.scalar_key(self.base), v.record_key(self.publication), v.sequence_key(v.record_key)(self.resolutions), v.scalar_key(self.target),))
+
+
+class ProjectActionMergeIssue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="merge_issue"):
+    """Existing MergeIssue operation."""
+
+    #: Original base input.
+    base: str
+    #: Original proposal input.
+    proposal: str
+    #: Original publication input.
+    publication: ProjectPublicationBody
+    #: Original resolutions input.
+    resolutions: tuple[ProjectMergeResolutionBody, ...]
+    #: Original target input.
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.base), v.scalar_key(self.proposal), v.record_key(self.publication), v.sequence_key(v.record_key)(self.resolutions), v.scalar_key(self.target),))
+
+
+class ProjectActionMergePreview(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="merge_preview"):
+    """Existing MergePreview operation."""
+
+    #: Original base input.
+    base: str
+    #: Original proposal input.
+    proposal: str
+    #: Original resolutions input.
+    resolutions: tuple[ProjectMergeResolutionBody, ...]
+    #: Original target input.
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.base), v.scalar_key(self.proposal), v.sequence_key(v.record_key)(self.resolutions), v.scalar_key(self.target),))
+
+
+class ProjectActionMergePublish(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="merge_publish"):
+    """Existing MergePublish operation."""
+
+    #: Original intent input.
+    intent: ProjectMergeIntent
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.intent),))
+
+
+class ProjectActionOpenSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="open_selection"):
+    """Existing OpenSelection operation."""
+
+    #: Original selection input.
+    selection: ProjectSelectionBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.selection),))
+
+
+class ProjectActionOutputCompare(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="compare"):
+    """Existing Compare operation."""
+
+    #: Original left input.
+    left: str
+    #: Original right input.
+    right: str
+    #: Original right_physical input.
+    right_physical: ProjectDraftDocuments | None = None
+    #: Original source_only input.
+    source_only: bool = False
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.left), v.scalar_key(self.right), v.optional_key(v.record_key)(self.right_physical), v.scalar_key(self.source_only),))
+
+
+class ProjectActionOutputContextCut(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="context_cut"):
+    """Existing ContextCut operation."""
+
+    #: Original project input.
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.project),))
+
+
+class ProjectActionOutputContextLoad(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="context_load"):
+    """Existing ContextLoad operation."""
+
+    #: Original selection input.
+    selection: ContextSelectionBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.selection),))
+
+
+class ProjectActionOutputContextRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="context_record"):
+    """Existing ContextRecord operation."""
+
+    #: Original corrects input.
+    corrects: str | None
+    #: Original deleted input.
+    deleted: bool
+    #: Original effective_from_us input.
+    effective_from_us: int
+    #: Original effective_to_us input.
+    effective_to_us: int | None
+    #: Original operation input.
+    operation: str
+    #: Original project input.
+    project: ProjectRecordBody
+    #: Original revision input.
+    revision: str
+    #: Original scope input.
+    scope: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.corrects), v.scalar_key(self.deleted), v.scalar_key(self.effective_from_us), v.optional_key(v.scalar_key)(self.effective_to_us), v.scalar_key(self.operation), v.record_key(self.project), v.scalar_key(self.revision), v.scalar_key(self.scope),))
+
+
+class ProjectActionOutputContextReopen(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="context_reopen"):
+    """Existing ContextReopen operation."""
+
+    #: Original selection input.
+    selection: ContextSelectionBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.selection),))
+
+
+class ProjectActionOutputContextSelect(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="context_select"):
+    """Existing ContextSelect operation."""
+
+    #: Original cut input.
+    cut: ContextCutBody
+    #: Original effective_at_us input.
+    effective_at_us: int
+    #: Original scope input.
+    scope: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.cut), v.scalar_key(self.effective_at_us), v.scalar_key(self.scope),))
+
+
+class ProjectActionOutputDraftAdmit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft_admit"):
+    """Existing DraftAdmit operation."""
+
+    #: Original key input.
+    key: str
+    #: Original operation input.
+    operation: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.operation),))
+
+
+class ProjectActionOutputDraftAdmitVersion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft_admit_version"):
+    """Existing DraftAdmitVersion operation."""
+
+    #: Original version input.
+    version: ProjectDraftVersionBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.version),))
+
+
+class ProjectActionOutputDraftIssue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft_issue"):
+    """Existing DraftIssue operation."""
+
+    #: Original base input.
+    base: str
+    #: Original branch input.
+    branch: ProjectBranchRecordBodyOutput
+    #: Original expected input.
+    expected: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Original input input.
+    input: str
+    #: Original key input.
+    key: str
+    #: Original operation input.
+    operation: str
+    #: Original project input.
+    project: ProjectRecordBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.base), v.record_key(self.branch), v.optional_key(v.scalar_key)(self.expected), v.scalar_key(self.input), v.scalar_key(self.key), v.scalar_key(self.operation), v.record_key(self.project),))
+
+
+class ProjectActionOutputDraftPublish(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft_publish"):
+    """Existing DraftPublish operation."""
+
+    #: Original intent input.
+    intent: ProjectPublicationBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.intent),))
+
+
+class ProjectActionOutputDraftRead(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft_read"):
+    """Existing DraftRead operation."""
+
+    #: Original key input.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key),))
+
+
+class ProjectActionOutputDraftSave(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="draft_save"):
+    """Existing DraftSave operation."""
+
+    #: Original input input.
+    input: str
+    #: Original intent input.
+    intent: ProjectDraftSaveIntentBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.input), v.record_key(self.intent),))
+
+
+class ProjectActionOutputFork(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fork"):
+    """Existing Fork operation."""
+
+    #: Original branch input.
+    branch: str
+    #: Original operation input.
+    operation: str
+    #: Original problem input.
+    problem: str
+    #: Original project input.
+    project: ProjectRecordBody
+    #: Original source input.
+    source: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.branch), v.scalar_key(self.operation), v.scalar_key(self.problem), v.record_key(self.project), v.scalar_key(self.source),))
+
+
+class ProjectActionOutputImport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="import"):
+    """Existing Import operation."""
+
+    #: Original documents input.
+    documents: ProjectDraftDocuments
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.documents),))
+
+
+class ProjectActionOutputImportFiles(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="import_files"):
+    """Existing ImportFiles operation."""
+
+    #: Original packages input.
+    packages: tuple[str, ...]
+    #: Original physical_packages input.
+    physical_packages: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.packages), v.sequence_key(v.scalar_key)(self.physical_packages),))
+
+
+class ProjectActionOutputLifecycleExplain(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="lifecycle_explain"):
+    """Existing LifecycleExplain operation."""
+
+    #: Original selection input.
+    selection: LifecycleSelectionBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.selection),))
+
+
+class ProjectActionOutputLifecycleRelease(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="lifecycle_release"):
+    """Existing LifecycleRelease operation."""
+
+    #: Original selection input.
+    selection: LifecycleSelectionBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.selection),))
+
+
+class ProjectActionOutputLifecycleSelect(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="lifecycle_select"):
+    """Existing LifecycleSelect operation."""
+
+    #: Original target input.
+    target: LifecycleTargetBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.target),))
+
+
+class ProjectActionOutputLoad(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="load"):
+    """Existing Load operation."""
+
+    #: Original revision input.
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.revision),))
+
+
+class ProjectActionOutputMergeDraftIssue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="merge_draft_issue"):
+    """Existing MergeDraftIssue operation."""
+
+    #: Original version input.
+    version: ProjectDraftVersionBodyOutput
+    #: Original base input.
+    base: str
+    #: Original publication input.
+    publication: ProjectPublicationBodyOutput
+    #: Original resolutions input.
+    resolutions: tuple[ProjectMergeResolutionBody, ...]
+    #: Original target input.
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.version), v.scalar_key(self.base), v.record_key(self.publication), v.sequence_key(v.record_key)(self.resolutions), v.scalar_key(self.target),))
+
+
+class ProjectActionOutputMergeIssue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="merge_issue"):
+    """Existing MergeIssue operation."""
+
+    #: Original base input.
+    base: str
+    #: Original proposal input.
+    proposal: str
+    #: Original publication input.
+    publication: ProjectPublicationBodyOutput
+    #: Original resolutions input.
+    resolutions: tuple[ProjectMergeResolutionBody, ...]
+    #: Original target input.
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.base), v.scalar_key(self.proposal), v.record_key(self.publication), v.sequence_key(v.record_key)(self.resolutions), v.scalar_key(self.target),))
+
+
+class ProjectActionOutputMergePreview(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="merge_preview"):
+    """Existing MergePreview operation."""
+
+    #: Original base input.
+    base: str
+    #: Original proposal input.
+    proposal: str
+    #: Original resolutions input.
+    resolutions: tuple[ProjectMergeResolutionBody, ...]
+    #: Original target input.
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.base), v.scalar_key(self.proposal), v.sequence_key(v.record_key)(self.resolutions), v.scalar_key(self.target),))
+
+
+class ProjectActionOutputMergePublish(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="merge_publish"):
+    """Existing MergePublish operation."""
+
+    #: Original intent input.
+    intent: ProjectMergeIntentOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.intent),))
+
+
+class ProjectActionOutputOpenSelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="open_selection"):
+    """Existing OpenSelection operation."""
+
+    #: Original selection input.
+    selection: ProjectSelectionBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.selection),))
+
+
+class ProjectActionOutputPreparationDiscovery(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="preparation_discovery"):
+    """Existing PreparationDiscovery operation."""
+
+    #: Original request input.
+    request: PreparationDiscoveryRequestBodyOutput
+    #: Original revision input.
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request), v.scalar_key(self.revision),))
+
+
+class ProjectActionOutputProjectClosure(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_closure"):
+    """Existing ProjectClosure operation."""
+
+    #: Original request input.
+    request: ProjectExportRequestOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionOutputProjectExport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_export"):
+    """Existing ProjectExport operation."""
+
+    #: Original destination input.
+    destination: str
+    #: Original request input.
+    request: ProjectExportRequestOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.destination), v.record_key(self.request),))
+
+
+class ProjectActionOutputProjectImport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_import"):
+    """Existing ProjectImport operation."""
+
+    #: Original input input.
+    input: str
+    #: Original intent input.
+    intent: ProjectImportIntentBodyOutput
+    #: Original maximum_document_bytes input.
+    maximum_document_bytes: Annotated[int, msgspec.Meta(ge=0)] = 16777216
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.input), v.record_key(self.intent), v.scalar_key(self.maximum_document_bytes),))
+
+
+class ProjectActionOutputProjectImportIssue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_import_issue"):
+    """Existing ProjectImportIssue operation."""
+
+    #: Original branch_name input.
+    branch_name: str = "main"
+    #: Original input input.
+    input: str
+    #: Original maximum_document_bytes input.
+    maximum_document_bytes: Annotated[int, msgspec.Meta(ge=0)] = 16777216
+    #: Original title input.
+    title: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.branch_name), v.scalar_key(self.input), v.scalar_key(self.maximum_document_bytes), v.scalar_key(self.title),))
+
+
+class ProjectActionOutputProjectImportOpen(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_import_open"):
+    """Existing ProjectImportOpen operation."""
+
+    #: Original intent input.
+    intent: ProjectImportIntentBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.intent),))
+
+
+class ProjectActionOutputProjectImportRecover(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_import_recover"):
+    """Existing ProjectImportRecover operation."""
+
+    #: Original intent input.
+    intent: ProjectImportIntentBodyOutput
+    #: Original original input.
+    original: ArtifactIntentBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.intent), v.record_key(self.original),))
+
+
+class ProjectActionOutputProjectImportStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_import_status"):
+    """Existing ProjectImportStatus operation."""
+
+    #: Original intent input.
+    intent: ProjectImportIntentBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.intent),))
+
+
+class ProjectActionOutputPublicationIssue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="publication_issue"):
+    """Existing PublicationIssue operation."""
+
+    #: Original branch input.
+    branch: ProjectBranchRecordBodyOutput
+    #: Original draft input.
+    draft: ProjectDraftRecordBodyOutput | None
+    #: Original expected input.
+    expected: str
+    #: Original operation input.
+    operation: str
+    #: Original project input.
+    project: ProjectRecordBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.branch), v.optional_key(v.record_key)(self.draft), v.scalar_key(self.expected), v.scalar_key(self.operation), v.record_key(self.project),))
+
+
+class ProjectActionOutputResearchDatasetCreate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_dataset_create"):
+    """Existing ResearchDatasetCreate operation."""
+
+    #: Original request input.
+    request: ResearchDatasetRequestBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionOutputResearchDatasetOpen(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_dataset_open"):
+    """Existing ResearchDatasetOpen operation."""
+
+    #: Original context input.
+    context: ContextSelectionBodyOutput
+    #: Original key input.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.context), v.scalar_key(self.key),))
+
+
+class ProjectActionOutputResearchPublicationOpen(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_publication_open"):
+    """Existing ResearchPublicationOpen operation."""
+
+    #: Original key input.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key),))
+
+
+class ProjectActionOutputResearchPublicationPreview(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_publication_preview"):
+    """Existing ResearchPublicationPreview operation."""
+
+    #: Original request input.
+    request: ResearchPublicationRequestBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionOutputResearchPublish(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_publish"):
+    """Existing ResearchPublish operation."""
+
+    #: Original intent input.
+    intent: ResearchPublicationIntentBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.intent),))
+
+
+class ProjectActionOutputResearchRead(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_read"):
+    """Existing ResearchRead operation."""
+
+    #: Original request input.
+    request: ResearchReadRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionOutputResearchSelectionCreate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_selection_create"):
+    """Existing ResearchSelectionCreate operation."""
+
+    #: Original request input.
+    request: ResearchSelectionRequestBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionOutputResearchSelectionOpen(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_selection_open"):
+    """Existing ResearchSelectionOpen operation."""
+
+    #: Original key input.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key),))
+
+
+class ProjectActionOutputSelect(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="select"):
+    """Existing Select operation."""
+
+    #: Original request input.
+    request: ProjectSelectRequest
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionOutputSourceDetail(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="source_detail"):
+    """Existing SourceDetail operation."""
+
+    #: Original logical input.
+    logical: tuple[str, ...]
+    #: Original revision input.
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.logical), v.scalar_key(self.revision),))
+
+
+class ProjectActionOutputStudyAnalyze(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_analyze"):
+    """Existing StudyAnalyze operation."""
+
+    #: Original kpi input.
+    kpi: StudyKpiRequestBody
+    #: Original output input.
+    output: str
+    #: Original request input.
+    request: StudyCohortRequestBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.kpi), v.scalar_key(self.output), v.record_key(self.request),))
+
+
+class ProjectActionOutputStudyCohort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_cohort"):
+    """Capture counts only, or publish bounded NDJSON pages under the same live cut.
+    Existing StudyCohort operation.
+    """
+
+    #: Original maximum_bytes input.
+    maximum_bytes: Annotated[int, msgspec.Meta(ge=0)] = 16777216
+    #: Optional page export; receipt identifiers alone never reopen a capture.
+    #: Original output input.
+    output: str | None
+    #: Original request input.
+    request: StudyCohortRequestBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.maximum_bytes), v.optional_key(v.scalar_key)(self.output), v.record_key(self.request),))
+
+
+class ProjectActionOutputStudyObserve(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_observe"):
+    """Existing StudyObserve operation."""
+
+    #: Original cursor input.
+    cursor: StudyObservationCursorBodyOutput | None
+    #: Original delay_ms input.
+    delay_ms: Annotated[int, msgspec.Meta(ge=0)] | None
+    #: Original request input.
+    request: StudyObservationRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.cursor), v.optional_key(v.scalar_key)(self.delay_ms), v.record_key(self.request),))
+
+
+class ProjectActionOutputStudyResult(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_result"):
+    """Existing StudyResult operation."""
+
+    #: Original end input.
+    end: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original maximum_bytes input.
+    maximum_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original member input.
+    member: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original output input.
+    output: str
+    #: Original relation input.
+    relation: str
+    #: Original request input.
+    request: StudyCohortRequestBodyOutput
+    #: Original start input.
+    start: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.end), v.scalar_key(self.maximum_bytes), v.scalar_key(self.member), v.scalar_key(self.output), v.scalar_key(self.relation), v.record_key(self.request), v.scalar_key(self.start),))
+
+
+class ProjectActionOutputStudyWorkbench(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_workbench"):
+    """Existing StudyWorkbench operation."""
+
+    #: Original request input.
+    request: StudyWorkbenchRequestBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionOutputUndoIssue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="undo_issue"):
+    """Existing UndoIssue operation."""
+
+    #: Original publication input.
+    publication: ProjectPublicationBodyOutput
+    #: Original restore input.
+    restore: str
+    #: Original target input.
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.publication), v.scalar_key(self.restore), v.scalar_key(self.target),))
+
+
+class ProjectActionPreparationDiscovery(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="preparation_discovery"):
+    """Existing PreparationDiscovery operation."""
+
+    #: Original request input.
+    request: PreparationDiscoveryRequestBody
+    #: Original revision input.
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request), v.scalar_key(self.revision),))
+
+
+class ProjectActionProjectClosure(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_closure"):
+    """Existing ProjectClosure operation."""
+
+    #: Original request input.
+    request: ProjectExportRequest
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionProjectExport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_export"):
+    """Existing ProjectExport operation."""
+
+    #: Original destination input.
+    destination: str
+    #: Original request input.
+    request: ProjectExportRequest
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.destination), v.record_key(self.request),))
+
+
+class ProjectActionProjectImport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_import"):
+    """Existing ProjectImport operation."""
+
+    #: Original input input.
+    input: str
+    #: Original intent input.
+    intent: ProjectImportIntentBody
+    #: Original maximum_document_bytes input.
+    maximum_document_bytes: Annotated[int, msgspec.Meta(ge=0)] = 16777216
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.input), v.record_key(self.intent), v.scalar_key(self.maximum_document_bytes),))
+
+
+class ProjectActionProjectImportIssue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_import_issue"):
+    """Existing ProjectImportIssue operation."""
+
+    #: Original branch_name input.
+    branch_name: str = "main"
+    #: Original input input.
+    input: str
+    #: Original maximum_document_bytes input.
+    maximum_document_bytes: Annotated[int, msgspec.Meta(ge=0)] = 16777216
+    #: Original title input.
+    title: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.branch_name), v.scalar_key(self.input), v.scalar_key(self.maximum_document_bytes), v.scalar_key(self.title),))
+
+
+class ProjectActionProjectImportOpen(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_import_open"):
+    """Existing ProjectImportOpen operation."""
+
+    #: Original intent input.
+    intent: ProjectImportIntentBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.intent),))
+
+
+class ProjectActionProjectImportRecover(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_import_recover"):
+    """Existing ProjectImportRecover operation."""
+
+    #: Original intent input.
+    intent: ProjectImportIntentBody
+    #: Original original input.
+    original: ArtifactIntentBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.intent), v.record_key(self.original),))
+
+
+class ProjectActionProjectImportStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="project_import_status"):
+    """Existing ProjectImportStatus operation."""
+
+    #: Original intent input.
+    intent: ProjectImportIntentBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.intent),))
+
+
+class ProjectActionPublicationIssue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="publication_issue"):
+    """Existing PublicationIssue operation."""
+
+    #: Original branch input.
+    branch: ProjectBranchRecordBody
+    #: Original draft input.
+    draft: ProjectDraftRecordBody | None = None
+    #: Original expected input.
+    expected: str
+    #: Original operation input.
+    operation: str
+    #: Original project input.
+    project: ProjectRecordBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.branch), v.optional_key(v.record_key)(self.draft), v.scalar_key(self.expected), v.scalar_key(self.operation), v.record_key(self.project),))
+
+
+class ProjectActionResearchDatasetCreate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_dataset_create"):
+    """Existing ResearchDatasetCreate operation."""
+
+    #: Original request input.
+    request: ResearchDatasetRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionResearchDatasetOpen(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_dataset_open"):
+    """Existing ResearchDatasetOpen operation."""
+
+    #: Original context input.
+    context: ContextSelectionBody
+    #: Original key input.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.context), v.scalar_key(self.key),))
+
+
+class ProjectActionResearchPublicationOpen(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_publication_open"):
+    """Existing ResearchPublicationOpen operation."""
+
+    #: Original key input.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key),))
+
+
+class ProjectActionResearchPublicationPreview(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_publication_preview"):
+    """Existing ResearchPublicationPreview operation."""
+
+    #: Original request input.
+    request: ResearchPublicationRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionResearchPublish(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_publish"):
+    """Existing ResearchPublish operation."""
+
+    #: Original intent input.
+    intent: ResearchPublicationIntentBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.intent),))
+
+
+class ProjectActionResearchRead(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_read"):
+    """Existing ResearchRead operation."""
+
+    #: Original request input.
+    request: ResearchReadRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionResearchSelectionCreate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_selection_create"):
+    """Existing ResearchSelectionCreate operation."""
+
+    #: Original request input.
+    request: ResearchSelectionRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionResearchSelectionOpen(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="research_selection_open"):
+    """Existing ResearchSelectionOpen operation."""
+
+    #: Original key input.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key),))
+
+
+class ProjectActionSelect(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="select"):
+    """Existing Select operation."""
+
+    #: Original request input.
+    request: ProjectSelectRequest
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionSourceDetail(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="source_detail"):
+    """Existing SourceDetail operation."""
+
+    #: Original logical input.
+    logical: tuple[str, ...]
+    #: Original revision input.
+    revision: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.logical), v.scalar_key(self.revision),))
+
+
+class ProjectActionStudyAnalyze(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_analyze"):
+    """Existing StudyAnalyze operation."""
+
+    #: Original kpi input.
+    kpi: StudyKpiRequestBody
+    #: Original output input.
+    output: str
+    #: Original request input.
+    request: StudyCohortRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.kpi), v.scalar_key(self.output), v.record_key(self.request),))
+
+
+class ProjectActionStudyCohort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_cohort"):
+    """Capture counts only, or publish bounded NDJSON pages under the same live cut.
+    Existing StudyCohort operation.
+    """
+
+    #: Original maximum_bytes input.
+    maximum_bytes: Annotated[int, msgspec.Meta(ge=0)] = 16777216
+    #: Optional page export; receipt identifiers alone never reopen a capture.
+    #: Original output input.
+    output: str | None = None
+    #: Original request input.
+    request: StudyCohortRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.maximum_bytes), v.optional_key(v.scalar_key)(self.output), v.record_key(self.request),))
+
+
+class ProjectActionStudyObserve(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_observe"):
+    """Existing StudyObserve operation."""
+
+    #: Original cursor input.
+    cursor: StudyObservationCursorBody | None = None
+    #: Original delay_ms input.
+    delay_ms: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Original request input.
+    request: StudyObservationRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.cursor), v.optional_key(v.scalar_key)(self.delay_ms), v.record_key(self.request),))
+
+
+class ProjectActionStudyResult(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_result"):
+    """Existing StudyResult operation."""
+
+    #: Original end input.
+    end: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original maximum_bytes input.
+    maximum_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original member input.
+    member: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original output input.
+    output: str
+    #: Original relation input.
+    relation: str
+    #: Original request input.
+    request: StudyCohortRequestBody
+    #: Original start input.
+    start: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.end), v.scalar_key(self.maximum_bytes), v.scalar_key(self.member), v.scalar_key(self.output), v.scalar_key(self.relation), v.record_key(self.request), v.scalar_key(self.start),))
+
+
+class ProjectActionStudyWorkbench(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_workbench"):
+    """Existing StudyWorkbench operation."""
+
+    #: Original request input.
+    request: StudyWorkbenchRequestBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.request),))
+
+
+class ProjectActionUndoIssue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="undo_issue"):
+    """Existing UndoIssue operation."""
+
+    #: Original publication input.
+    publication: ProjectPublicationBody
+    #: Original restore input.
+    restore: str
+    #: Original target input.
+    target: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.publication), v.scalar_key(self.restore), v.scalar_key(self.target),))
+
+
 class ProjectArtifactBlockMetadata(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Original artifact block interpretation and scientific extent, preserved independently of copied integrity."""
 
@@ -19339,6 +20681,30 @@ class ProjectDraftRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True
         return (type(self), (v.scalar_key(self.document_version), v.record_key(self.version), v.record_key(self.head),))
 
 
+class ProjectDraftRecordBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One atomic draft-head and immutable-version selection."""
+
+    #: Original immutable raw version.
+    version: ProjectDraftVersionBody
+    #: Selected mutable editing head.
+    head: RuntimeCanonicalProjectDraftsRow
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.version), v.record_key(self.head),))
+
+
+class ProjectDraftRecordBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One atomic draft-head and immutable-version selection."""
+
+    #: Original immutable raw version.
+    version: ProjectDraftVersionBodyOutput
+    #: Selected mutable editing head.
+    head: RuntimeCanonicalProjectDraftsRow
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.version), v.record_key(self.head),))
+
+
 class ProjectDraftRecordOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One atomic draft-head and immutable-version selection."""
 
@@ -19377,6 +20743,46 @@ class ProjectDraftSaveIntent(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.artifact), v.scalar_key(self.base), v.record_key(self.branch), v.scalar_key(self.bytes), v.scalar_key(self.digest), v.optional_key(v.scalar_key)(self.expected), v.scalar_key(self.issuing_store), v.scalar_key(self.key), v.scalar_key(self.operation), v.record_key(self.project),))
+
+
+class ProjectDraftSaveIntentBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original, read-only issued large-draft custody intent. Preserve this value unchanged
+    until exact project and artifact receipts settle; it grants no scientific execution.
+    """
+
+    artifact: ArtifactIntentBody | None = None
+    base: str
+    branch: ProjectBranchRecordBody
+    bytes: Annotated[int, msgspec.Meta(ge=0)]
+    digest: str
+    expected: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    issuing_store: str
+    key: str
+    operation: str
+    project: ProjectRecordBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.artifact), v.scalar_key(self.base), v.record_key(self.branch), v.scalar_key(self.bytes), v.scalar_key(self.digest), v.optional_key(v.scalar_key)(self.expected), v.scalar_key(self.issuing_store), v.scalar_key(self.key), v.scalar_key(self.operation), v.record_key(self.project),))
+
+
+class ProjectDraftSaveIntentBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original, read-only issued large-draft custody intent. Preserve this value unchanged
+    until exact project and artifact receipts settle; it grants no scientific execution.
+    """
+
+    artifact: ArtifactIntentBody | None
+    base: str
+    branch: ProjectBranchRecordBodyOutput
+    bytes: Annotated[int, msgspec.Meta(ge=0)]
+    digest: str
+    expected: Annotated[int, msgspec.Meta(ge=0)] | None
+    issuing_store: str
+    key: str
+    operation: str
+    project: ProjectRecordBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.artifact), v.scalar_key(self.base), v.record_key(self.branch), v.scalar_key(self.bytes), v.scalar_key(self.digest), v.optional_key(v.scalar_key)(self.expected), v.scalar_key(self.issuing_store), v.scalar_key(self.key), v.scalar_key(self.operation), v.record_key(self.project),))
 
 
 class ProjectDraftSaveIntentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -19594,6 +21000,24 @@ class ProjectImportIntent(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.record_key(self.publication),))
+
+
+class ProjectImportIntentBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original immutable operation. Retry this exact intent after cancellation or a lost reply."""
+
+    publication: ProjectPublicationBody
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.publication),))
+
+
+class ProjectImportIntentBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original immutable operation. Retry this exact intent after cancellation or a lost reply."""
+
+    publication: ProjectPublicationBodyOutput
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.publication),))
 
 
 class ProjectImportIntentOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -20281,6 +21705,38 @@ class ProjectOmission(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.reason), v.scalar_key(self.required_for_execution), v.scalar_key(self.selection),))
+
+
+class ProjectOperationRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original bounded operator request and its finite typed action."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Existing operator wire interpretation.
+    version: Literal[1] = 1
+    #: One original typed operation.
+    action: ProjectAction
+    #: Required only for scientific source loading/admission; ordinary authored documents.
+    physical: ProjectDraftDocuments | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.action), v.optional_key(v.record_key)(self.physical),))
+
+
+class ProjectOperationRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original bounded operator request and its finite typed action."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Existing operator wire interpretation.
+    version: Literal[1] = 1
+    #: One original typed operation.
+    action: ProjectActionOutput
+    #: Required only for scientific source loading/admission; ordinary authored documents.
+    physical: ProjectDraftDocuments | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.action), v.optional_key(v.record_key)(self.physical),))
 
 
 class ProjectProviderRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -23366,6 +24822,46 @@ class ResearchDatasetRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=
         return (type(self), (v.scalar_key(self.document_version), v.record_key(self.context), v.scalar_key(self.key), v.sequence_key(v.record_key)(self.members), v.optional_key(v.scalar_key)(self.parent), v.record_key(self.project), v.scalar_key(self.role),))
 
 
+class ResearchDatasetRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Create one immutable research version from an exact temporal context."""
+
+    #: Exact effective-time and recorded-cut selection.
+    context: ContextSelectionBody
+    #: Original caller operation/version identity.
+    key: str
+    #: Bounded exact selections; data remains in original sources.
+    members: tuple[ResearchDataObject, ...]
+    #: Original parent version, never a floating latest selector.
+    parent: str | None = None
+    #: Exact project generation.
+    project: ProjectRecordBody
+    #: raw, curated or derived.
+    role: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.context), v.scalar_key(self.key), v.sequence_key(v.record_key)(self.members), v.optional_key(v.scalar_key)(self.parent), v.record_key(self.project), v.scalar_key(self.role),))
+
+
+class ResearchDatasetRequestBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Create one immutable research version from an exact temporal context."""
+
+    #: Exact effective-time and recorded-cut selection.
+    context: ContextSelectionBodyOutput
+    #: Original caller operation/version identity.
+    key: str
+    #: Bounded exact selections; data remains in original sources.
+    members: tuple[ResearchDataObjectOutput, ...]
+    #: Original parent version, never a floating latest selector.
+    parent: str | None
+    #: Exact project generation.
+    project: ProjectRecordBody
+    #: raw, curated or derived.
+    role: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.context), v.scalar_key(self.key), v.sequence_key(v.record_key)(self.members), v.optional_key(v.scalar_key)(self.parent), v.record_key(self.project), v.scalar_key(self.role),))
+
+
 class ResearchDatasetRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Create one immutable research version from an exact temporal context."""
 
@@ -23726,6 +25222,40 @@ class ResearchPublicationRequestOutput(msgspec.Struct, frozen=True, forbid_unkno
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.attempt), v.record_key(self.branch), v.scalar_key(self.operation), v.record_key(self.project), v.scalar_key(self.run), v.scalar_key(self.selection), v.record_key(self.target), v.sequence_key(v.record_key)(self.targets),))
+
+
+class ResearchReadRequestBodyDataset(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="dataset"):
+    """One exact version."""
+
+    #: Original version key.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key),))
+
+
+class ResearchReadRequestBodyDatasets(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="datasets"):
+    """Indexed immutable-key seek page."""
+
+    #: Exclusive immutable key.
+    after: str
+    #: At most128metadata records.
+    limit: Annotated[int, msgspec.Meta(ge=0)]
+    #: Project owner.
+    project: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.after), v.scalar_key(self.limit), v.scalar_key(self.project),))
+
+
+class ResearchReadRequestBodySelection(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="selection"):
+    """One exact frozen selection."""
+
+    #: Original selection key.
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key),))
 
 
 class ResearchReadRequestDataset(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="dataset"):
@@ -29314,6 +30844,22 @@ class StudyInputsOutputLazy(msgspec.Struct, frozen=True, forbid_unknown_fields=T
         return (type(self), (v.record_key(self.value),))
 
 
+class StudyKpiExport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact compact result of an explicitly requested existing cohort-analysis export."""
+
+    #: Original frozen cohort receipt; not an acquisition capability.
+    cohort: StudyCohortReceiptBodyOutput
+    #: Original included members.
+    included: Annotated[int, msgspec.Meta(ge=0)]
+    #: Fresh explicit output; absent when the aggregate has no batches.
+    output: str | None
+    #: Original unavailable members.
+    unavailable: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.cohort), v.scalar_key(self.included), v.optional_key(v.scalar_key)(self.output), v.scalar_key(self.unavailable),))
+
+
 class StudyKpiRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One identically selected original scientific output across the immutable population."""
 
@@ -29336,6 +30882,26 @@ class StudyKpiRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.end), v.scalar_key(self.field), v.scalar_key(self.owner), v.scalar_key(self.partition), v.scalar_key(self.relation), v.scalar_key(self.start),))
+
+
+class StudyKpiRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One identically selected original scientific output across the immutable population."""
+
+    #: Exclusive original relation row coordinate.
+    end: Annotated[int, msgspec.Meta(ge=0)]
+    #: Existing declared numeric field.
+    field: str
+    #: Exact authored scientific output owner.
+    owner: v.SemanticId
+    #: Exact original output partition.
+    partition: str
+    #: Existing registered result relation.
+    relation: str
+    #: Inclusive original relation row coordinate.
+    start: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.end), v.scalar_key(self.field), v.scalar_key(self.owner), v.scalar_key(self.partition), v.scalar_key(self.relation), v.scalar_key(self.start),))
 
 
 class StudyMemberDemandConstraint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="constraint"):
@@ -30303,6 +31869,34 @@ class StudyWorkbenchRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.cursor), v.record_key(self.filter), v.scalar_key(self.maximum),))
+
+
+class StudyWorkbenchRequestBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded live header selection; continuation pages can observe newer metadata."""
+
+    #: Issuer- and predicate-bound continuation.
+    cursor: StudyWorkbenchCursorBody | None = None
+    #: Exact scientific and engineering predicates.
+    filter: StudyWorkbenchFilter
+    #: Maximum headers, from one through 64.
+    maximum: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.cursor), v.record_key(self.filter), v.scalar_key(self.maximum),))
+
+
+class StudyWorkbenchRequestBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded live header selection; continuation pages can observe newer metadata."""
+
+    #: Issuer- and predicate-bound continuation.
+    cursor: StudyWorkbenchCursorBodyOutput | None
+    #: Exact scientific and engineering predicates.
+    filter: StudyWorkbenchFilterOutput
+    #: Maximum headers, from one through 64.
+    maximum: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.cursor), v.record_key(self.filter), v.scalar_key(self.maximum),))
 
 
 class StudyWorkbenchRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -31679,6 +33273,10 @@ ProgressWriteStage = ProgressWriteStageClaim | ProgressWriteStageAllocation | Pr
 
 ProgressWriterOutcome = ProgressWriterOutcomeComplete | ProgressWriterOutcomeMemoryRefused | ProgressWriterOutcomeFailed | ProgressWriterOutcomeJoinFailed
 
+ProjectAction = ProjectActionProjectClosure | ProjectActionProjectExport | ProjectActionProjectImportIssue | ProjectActionProjectImportStatus | ProjectActionProjectImport | ProjectActionProjectImportRecover | ProjectActionProjectImportOpen | ProjectActionLifecycleSelect | ProjectActionLifecycleExplain | ProjectActionLifecycleRelease | ProjectActionResearchDatasetCreate | ProjectActionResearchSelectionCreate | ProjectActionResearchRead | ProjectActionResearchDatasetOpen | ProjectActionResearchSelectionOpen | ProjectActionResearchPublicationPreview | ProjectActionResearchPublish | ProjectActionResearchPublicationOpen | ProjectActionStudyWorkbench | ProjectActionStudyCohort | ProjectActionStudyAnalyze | ProjectActionStudyResult | ProjectActionStudyObserve | ProjectActionImport | ProjectActionImportFiles | ProjectActionLoad | ProjectActionSelect | ProjectActionOpenSelection | ProjectActionFork | ProjectActionDraftRead | ProjectActionDraftIssue | ProjectActionDraftSave | ProjectActionDraftAdmit | ProjectActionDraftAdmitVersion | ProjectActionPublicationIssue | ProjectActionDraftPublish | ProjectActionCompare | ProjectActionSourceDetail | ProjectActionMergePreview | ProjectActionMergeIssue | ProjectActionMergeDraftIssue | ProjectActionMergePublish | ProjectActionUndoIssue | ProjectActionContextRecord | ProjectActionContextCut | ProjectActionContextSelect | ProjectActionContextLoad | ProjectActionContextReopen | ProjectActionPreparationDiscovery
+
+ProjectActionOutput = ProjectActionOutputProjectClosure | ProjectActionOutputProjectExport | ProjectActionOutputProjectImportIssue | ProjectActionOutputProjectImportStatus | ProjectActionOutputProjectImport | ProjectActionOutputProjectImportRecover | ProjectActionOutputProjectImportOpen | ProjectActionOutputLifecycleSelect | ProjectActionOutputLifecycleExplain | ProjectActionOutputLifecycleRelease | ProjectActionOutputResearchDatasetCreate | ProjectActionOutputResearchSelectionCreate | ProjectActionOutputResearchRead | ProjectActionOutputResearchDatasetOpen | ProjectActionOutputResearchSelectionOpen | ProjectActionOutputResearchPublicationPreview | ProjectActionOutputResearchPublish | ProjectActionOutputResearchPublicationOpen | ProjectActionOutputStudyWorkbench | ProjectActionOutputStudyCohort | ProjectActionOutputStudyAnalyze | ProjectActionOutputStudyResult | ProjectActionOutputStudyObserve | ProjectActionOutputImport | ProjectActionOutputImportFiles | ProjectActionOutputLoad | ProjectActionOutputSelect | ProjectActionOutputOpenSelection | ProjectActionOutputFork | ProjectActionOutputDraftRead | ProjectActionOutputDraftIssue | ProjectActionOutputDraftSave | ProjectActionOutputDraftAdmit | ProjectActionOutputDraftAdmitVersion | ProjectActionOutputPublicationIssue | ProjectActionOutputDraftPublish | ProjectActionOutputCompare | ProjectActionOutputSourceDetail | ProjectActionOutputMergePreview | ProjectActionOutputMergeIssue | ProjectActionOutputMergeDraftIssue | ProjectActionOutputMergePublish | ProjectActionOutputUndoIssue | ProjectActionOutputContextRecord | ProjectActionOutputContextCut | ProjectActionOutputContextSelect | ProjectActionOutputContextLoad | ProjectActionOutputContextReopen | ProjectActionOutputPreparationDiscovery
+
 ProjectBranchKey = str
 
 ProjectDraftKey = str
@@ -31730,6 +33328,8 @@ ReproducerInputBodyOutput = ReproducerInputBodyOutputOriginalText | ReproducerIn
 ReproducerInputOutput = ReproducerInputOutputOriginalText | ReproducerInputOutputFrozenAlgebraic
 
 ResearchReadRequest = ResearchReadRequestDatasets | ResearchReadRequestDataset | ResearchReadRequestSelection
+
+ResearchReadRequestBody = ResearchReadRequestBodyDatasets | ResearchReadRequestBodyDataset | ResearchReadRequestBodySelection
 
 ResearchReadResult = ResearchReadResultDatasets | ResearchReadResultDataset | ResearchReadResultSelection
 
@@ -32284,6 +33884,8 @@ __all__ = [
     "DocumentReference",
     "DurationSummary",
     "DurationSummaryOutput",
+    "EffectFacts",
+    "EffectScope",
     "EffortPolicy",
     "EffortPolicyBody",
     "EligibilityDocument",
@@ -32307,7 +33909,9 @@ __all__ = [
     "ExecutorMetricsSnapshotOutput",
     "ExplanatoryRequirement",
     "ExplanatoryRequirementOutput",
+    "ExtensionMode",
     "ExtensionQuantityValue",
+    "ExtensionRequirement",
     "FeralSettings",
     "FeralSettingsOutput",
     "FiniteBound",
@@ -32781,6 +34385,8 @@ __all__ = [
     "PreparationDiscoveryReport",
     "PreparationDiscoveryReportOutput",
     "PreparationDiscoveryRequest",
+    "PreparationDiscoveryRequestBody",
+    "PreparationDiscoveryRequestBodyOutput",
     "PreparationDiscoveryRequestOutput",
     "PreparationFact",
     "PreparationFactDynamic",
@@ -32883,6 +34489,106 @@ __all__ = [
     "ProgressWriterOutcomeMemoryRefused",
     "ProjectAcknowledgement",
     "ProjectAcknowledgementOutput",
+    "ProjectAction",
+    "ProjectActionCompare",
+    "ProjectActionContextCut",
+    "ProjectActionContextLoad",
+    "ProjectActionContextRecord",
+    "ProjectActionContextReopen",
+    "ProjectActionContextSelect",
+    "ProjectActionDraftAdmit",
+    "ProjectActionDraftAdmitVersion",
+    "ProjectActionDraftIssue",
+    "ProjectActionDraftPublish",
+    "ProjectActionDraftRead",
+    "ProjectActionDraftSave",
+    "ProjectActionFork",
+    "ProjectActionImport",
+    "ProjectActionImportFiles",
+    "ProjectActionLifecycleExplain",
+    "ProjectActionLifecycleRelease",
+    "ProjectActionLifecycleSelect",
+    "ProjectActionLoad",
+    "ProjectActionMergeDraftIssue",
+    "ProjectActionMergeIssue",
+    "ProjectActionMergePreview",
+    "ProjectActionMergePublish",
+    "ProjectActionOpenSelection",
+    "ProjectActionOutput",
+    "ProjectActionOutputCompare",
+    "ProjectActionOutputContextCut",
+    "ProjectActionOutputContextLoad",
+    "ProjectActionOutputContextRecord",
+    "ProjectActionOutputContextReopen",
+    "ProjectActionOutputContextSelect",
+    "ProjectActionOutputDraftAdmit",
+    "ProjectActionOutputDraftAdmitVersion",
+    "ProjectActionOutputDraftIssue",
+    "ProjectActionOutputDraftPublish",
+    "ProjectActionOutputDraftRead",
+    "ProjectActionOutputDraftSave",
+    "ProjectActionOutputFork",
+    "ProjectActionOutputImport",
+    "ProjectActionOutputImportFiles",
+    "ProjectActionOutputLifecycleExplain",
+    "ProjectActionOutputLifecycleRelease",
+    "ProjectActionOutputLifecycleSelect",
+    "ProjectActionOutputLoad",
+    "ProjectActionOutputMergeDraftIssue",
+    "ProjectActionOutputMergeIssue",
+    "ProjectActionOutputMergePreview",
+    "ProjectActionOutputMergePublish",
+    "ProjectActionOutputOpenSelection",
+    "ProjectActionOutputPreparationDiscovery",
+    "ProjectActionOutputProjectClosure",
+    "ProjectActionOutputProjectExport",
+    "ProjectActionOutputProjectImport",
+    "ProjectActionOutputProjectImportIssue",
+    "ProjectActionOutputProjectImportOpen",
+    "ProjectActionOutputProjectImportRecover",
+    "ProjectActionOutputProjectImportStatus",
+    "ProjectActionOutputPublicationIssue",
+    "ProjectActionOutputResearchDatasetCreate",
+    "ProjectActionOutputResearchDatasetOpen",
+    "ProjectActionOutputResearchPublicationOpen",
+    "ProjectActionOutputResearchPublicationPreview",
+    "ProjectActionOutputResearchPublish",
+    "ProjectActionOutputResearchRead",
+    "ProjectActionOutputResearchSelectionCreate",
+    "ProjectActionOutputResearchSelectionOpen",
+    "ProjectActionOutputSelect",
+    "ProjectActionOutputSourceDetail",
+    "ProjectActionOutputStudyAnalyze",
+    "ProjectActionOutputStudyCohort",
+    "ProjectActionOutputStudyObserve",
+    "ProjectActionOutputStudyResult",
+    "ProjectActionOutputStudyWorkbench",
+    "ProjectActionOutputUndoIssue",
+    "ProjectActionPreparationDiscovery",
+    "ProjectActionProjectClosure",
+    "ProjectActionProjectExport",
+    "ProjectActionProjectImport",
+    "ProjectActionProjectImportIssue",
+    "ProjectActionProjectImportOpen",
+    "ProjectActionProjectImportRecover",
+    "ProjectActionProjectImportStatus",
+    "ProjectActionPublicationIssue",
+    "ProjectActionResearchDatasetCreate",
+    "ProjectActionResearchDatasetOpen",
+    "ProjectActionResearchPublicationOpen",
+    "ProjectActionResearchPublicationPreview",
+    "ProjectActionResearchPublish",
+    "ProjectActionResearchRead",
+    "ProjectActionResearchSelectionCreate",
+    "ProjectActionResearchSelectionOpen",
+    "ProjectActionSelect",
+    "ProjectActionSourceDetail",
+    "ProjectActionStudyAnalyze",
+    "ProjectActionStudyCohort",
+    "ProjectActionStudyObserve",
+    "ProjectActionStudyResult",
+    "ProjectActionStudyWorkbench",
+    "ProjectActionUndoIssue",
     "ProjectArtifactBlockMetadata",
     "ProjectBranchKey",
     "ProjectBranchPage",
@@ -32915,8 +34621,12 @@ __all__ = [
     "ProjectDraftDocuments",
     "ProjectDraftKey",
     "ProjectDraftRecord",
+    "ProjectDraftRecordBody",
+    "ProjectDraftRecordBodyOutput",
     "ProjectDraftRecordOutput",
     "ProjectDraftSaveIntent",
+    "ProjectDraftSaveIntentBody",
+    "ProjectDraftSaveIntentBodyOutput",
     "ProjectDraftSaveIntentOutput",
     "ProjectDraftVersion",
     "ProjectDraftVersionBody",
@@ -32925,6 +34635,8 @@ __all__ = [
     "ProjectExportRequest",
     "ProjectExportRequestOutput",
     "ProjectImportIntent",
+    "ProjectImportIntentBody",
+    "ProjectImportIntentBodyOutput",
     "ProjectImportIntentOutput",
     "ProjectImportRecoveryReport",
     "ProjectImportRecoveryReportOutput",
@@ -32966,6 +34678,8 @@ __all__ = [
     "ProjectNavigationSavepointVisibility",
     "ProjectObjectChange",
     "ProjectOmission",
+    "ProjectOperationRequest",
+    "ProjectOperationRequestOutput",
     "ProjectProviderRequirement",
     "ProjectPublication",
     "ProjectPublicationBody",
@@ -33169,6 +34883,8 @@ __all__ = [
     "ResearchDatasetBodyOutput",
     "ResearchDatasetOutput",
     "ResearchDatasetRequest",
+    "ResearchDatasetRequestBody",
+    "ResearchDatasetRequestBodyOutput",
     "ResearchDatasetRequestOutput",
     "ResearchObservation",
     "ResearchParameterTarget",
@@ -33187,6 +34903,10 @@ __all__ = [
     "ResearchPublicationRequestBodyOutput",
     "ResearchPublicationRequestOutput",
     "ResearchReadRequest",
+    "ResearchReadRequestBody",
+    "ResearchReadRequestBodyDataset",
+    "ResearchReadRequestBodyDatasets",
+    "ResearchReadRequestBodySelection",
     "ResearchReadRequestDataset",
     "ResearchReadRequestDatasets",
     "ResearchReadRequestSelection",
@@ -33503,7 +35223,9 @@ __all__ = [
     "StudyInputsOutput",
     "StudyInputsOutputExplicit",
     "StudyInputsOutputLazy",
+    "StudyKpiExport",
     "StudyKpiRequest",
+    "StudyKpiRequestBody",
     "StudyMemberDemand",
     "StudyMemberDemandConstraint",
     "StudyMemberDemandFitObservation",
@@ -33561,6 +35283,8 @@ __all__ = [
     "StudyWorkbenchPage",
     "StudyWorkbenchPageOutput",
     "StudyWorkbenchRequest",
+    "StudyWorkbenchRequestBody",
+    "StudyWorkbenchRequestBodyOutput",
     "StudyWorkbenchRequestOutput",
     "SubmittedStartRecord",
     "SubmittedStartRecordBody",
@@ -33649,4 +35373,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:5802c38ec6dd8bbc45c5095c591b2da6a5a7ea38547131c37853eef845fc37b0"
+SCHEMA_SET_FINGERPRINT = "blake3:1b3eea510cac8e12694f5124d2de8c142f470b42b1d77bd5769270ca9e7608f6"

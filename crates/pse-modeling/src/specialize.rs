@@ -67,19 +67,44 @@ use value::{Evaluator, value_type};
 #[serde(deny_unknown_fields)]
 pub struct Limits {
     /// Maximum nested definitions.
+    #[schemars(range(min = 1))]
     pub depth: usize,
     /// Maximum instances, indexed members and generated equations.
+    #[schemars(range(min = 1))]
     pub items: usize,
     /// Maximum members of one derived finite set/product.
+    #[schemars(range(min = 1))]
     pub members: usize,
     /// Optional operation/occurrence allowance for each lowered mathematical body.
     /// None uses the mathematical backend's default, independently of mesh extent.
+    #[schemars(range(min = 1))]
     pub body_occurrences: Option<usize>,
     /// Optional formal-slot allowance (inputs plus stage results) for each lowered
     /// mathematical body; the process-global formal pool extends up to it, and a body
     /// needing more is refused with its required and available slots. None uses the
     /// mathematical backend's default, the initially registered pool chunk.
+    #[schemars(range(min = 1))]
     pub body_slots: Option<usize>,
+}
+impl Limits {
+    /// Admit the caller's expansion and mathematical-body allowances.
+    ///
+    /// # Errors
+    /// Returns the existing typed budget refusal if any supplied allowance is zero.
+    pub fn validate(&self) -> Result<()> {
+        for (value, reason) in [
+            (Some(self.depth), "depth must be positive"),
+            (Some(self.items), "items must be positive"),
+            (Some(self.members), "members must be positive"),
+            (self.body_occurrences, "body_occurrences must be positive"),
+            (self.body_slots, "body_slots must be positive"),
+        ] {
+            if value == Some(0) {
+                return Err(ModelingError::Budget(reason.into()));
+            }
+        }
+        Ok(())
+    }
 }
 impl Default for Limits {
     fn default() -> Self {
@@ -89,6 +114,131 @@ impl Default for Limits {
             members: 100_000,
             body_occurrences: None,
             body_slots: None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod limits_tests {
+    use super::*;
+
+    fn supplied(value: usize) -> Limits {
+        Limits {
+            depth: value,
+            items: value,
+            members: value,
+            body_occurrences: Some(value),
+            body_slots: Some(value),
+        }
+    }
+
+    #[test]
+    fn modeling_limits_refuse_each_zero_before_native_specialization() {
+        let (registry, _) = crate::kernel_types::physical();
+        let preconditions = pse_quantity::PhysicalPreconditions::new(vec![]).unwrap();
+        let scope = crate::PhysicalScope::default();
+        let context = TypeContext {
+            admissions: None,
+            formula_authority: None,
+            preconditions: &preconditions,
+            quantities: &registry,
+            scope: &scope,
+        };
+        let rows = crate::kernel_types::source("package p { def Root {} }");
+        let package = crate::check(&rows, &context).unwrap();
+        let root = package.names["p.Root"];
+        for index in 0..5 {
+            let mut limits = supplied(1);
+            match index {
+                0 => limits.depth = 0,
+                1 => limits.items = 0,
+                2 => limits.members = 0,
+                3 => limits.body_occurrences = Some(0),
+                _ => limits.body_slots = Some(0),
+            }
+            let entered = std::cell::Cell::new(false);
+            let error = specialize_with_fragments(
+                &package,
+                root,
+                root_instance(root),
+                &Bindings::default(),
+                limits,
+                &|| {
+                    entered.set(true);
+                    false
+                },
+                &crate::continuous::FiniteDifference,
+                None,
+            )
+            .unwrap_err();
+            assert_eq!(error, limits.validate().unwrap_err());
+            assert!(matches!(error, ModelingError::Budget(_)));
+            assert!(!entered.get(), "zero field {index} reached expansion");
+        }
+        for limits in [Limits::default(), supplied(1), supplied(usize::MAX)] {
+            limits.validate().unwrap();
+        }
+        // A positive allowance is a valid policy, not a promise that this model
+        // fits within one member/item. Exercise actual successful admission with
+        // the unchanged default policy; minimum/maximum wire values are separate.
+        specialize(
+            &package,
+            root,
+            root_instance(root),
+            &Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn modeling_limits_preserve_historical_wire_bytes_and_capacity() {
+        // Independent literal oracle for the retired remote LimitsWire projection:
+        // the declared field order, explicit nulls and full usize range are unchanged.
+        for (limits, expected) in [
+            (Limits::default(), "{\"depth\":64,\"items\":100000,\"members\":100000,\"body_occurrences\":null,\"body_slots\":null}".to_owned()),
+            (supplied(1), "{\"depth\":1,\"items\":1,\"members\":1,\"body_occurrences\":1,\"body_slots\":1}".to_owned()),
+            (supplied(usize::MAX), format!("{{\"depth\":{0},\"items\":{0},\"members\":{0},\"body_occurrences\":{0},\"body_slots\":{0}}}", usize::MAX)),
+        ] {
+            assert_eq!(serde_json::to_string(&limits).unwrap(), expected);
+            assert_eq!(serde_json::from_str::<Limits>(&expected).unwrap(), limits);
+        }
+        assert_eq!(
+            serde_json::from_str::<Limits>(r#"{"depth":64,"items":100000,"members":100000}"#)
+                .unwrap(),
+            Limits::default(),
+        );
+        assert!(
+            serde_json::from_str::<Limits>(r#"{"depth":1,"items":1,"members":1,"extra":1}"#)
+                .is_err()
+        );
+        assert!(serde_json::from_str::<Limits>(r#"{"items":1,"members":1}"#).is_err());
+    }
+
+    #[test]
+    fn modeling_limits_schema_requires_positive_supplied_allowances() {
+        let schema = serde_json::to_value(schemars::schema_for!(Limits)).unwrap();
+        assert_eq!(schema["additionalProperties"], false);
+        for name in [
+            "depth",
+            "items",
+            "members",
+            "body_occurrences",
+            "body_slots",
+        ] {
+            assert_eq!(schema["properties"][name]["minimum"], 1, "{name}");
+        }
+        assert_eq!(
+            schema["required"],
+            serde_json::json!(["depth", "items", "members"])
+        );
+        for name in ["body_occurrences", "body_slots"] {
+            assert!(
+                schema["properties"][name]["type"]
+                    .as_array()
+                    .unwrap()
+                    .contains(&serde_json::json!("null"))
+            );
         }
     }
 }
@@ -647,6 +797,7 @@ pub fn specialize_with_fragments(
     discretizer: &dyn crate::continuous::Discretizer,
     fragments: Option<&dyn prelude::Fragments>,
 ) -> Result<SpecializedModel> {
+    limits.validate()?;
     let _phase = pse_diagnostics::observation::phase("modeling.specialization");
     if bindings
         .arguments

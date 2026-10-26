@@ -17,9 +17,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import build_observation, producing_currency
 from scripts import producer_cargo as observer
-from scripts import build_observation
-from scripts import producing_currency
 
 
 class ProducerCargoTests(unittest.TestCase):
@@ -85,35 +84,58 @@ class ProducerCargoTests(unittest.TestCase):
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_text("selected observer fixture")
         witness = producing_currency.Witness()
-        sources = {str(self.root / name): witness.file(self.root / name) for name in observer.OBSERVER_SOURCE_INPUTS}
-        prepared = {"source_basis": producing_currency.basis(sources),
-                    "artifact_stamp": list(producing_currency.stamp(self.root / "target/debug/xtask")),
-                    "command": ["fixture: explicitly prepared observer"]}
-        return observer.configure_currency(self.root, self.output if output is None else output, os.environ, observer=prepared)
+        sources = {
+            str(self.root / name): witness.file(self.root / name)
+            for name in observer.OBSERVER_SOURCE_INPUTS
+        }
+        prepared = {
+            "source_basis": producing_currency.basis(sources),
+            "artifact_stamp": list(
+                producing_currency.stamp(self.root / "target/debug/xtask")
+            ),
+            "command": ["fixture: explicitly prepared observer"],
+        }
+        return observer.configure_currency(
+            self.root,
+            self.output if output is None else output,
+            os.environ,
+            observer=prepared,
+        )
 
-    def test_ordinary_observer_forwards_actual_installer_command_and_compiler_selection(self) -> None:
+    def test_ordinary_observer_forwards_actual_installer_command_and_compiler_selection(
+        self,
+    ) -> None:
         environment = self.ordinary_environment()
         environment["RUSTC_WRAPPER"] = "selected-sccache-wrapper"
         environment["RUSTC_WORKSPACE_WRAPPER"] = "selected-workspace-wrapper"
         selected = Path(environment[observer.CURRENCY_CAPTURE])
         calls = []
+
         def run(command: list[str], **kwargs: object) -> int:
             calls.append((command, kwargs))
             record = kwargs["record"]
-            record(b'{"reason":"compiler-artifact","filenames":["selected.so"]}', "stdout")
+            record(
+                b'{"reason":"compiler-artifact","filenames":["selected.so"]}', "stdout"
+            )
             record(b'{"reason":"build-finished","success":true}', "stdout")
-            record(b'installer text is not a Cargo record', "stderr")
+            record(b"installer text is not a Cargo record", "stderr")
             return 0
+
         def extract(command: list[str], **_kwargs: object) -> int:
             if command[1] == "producing-graph":
-                Path(command[-1]).write_text('{"roots":[0],"units":[{"pkg_id":"fixture","dependencies":[]}]}')
+                Path(command[-1]).write_text(
+                    '{"roots":[0],"units":[{"pkg_id":"fixture","dependencies":[]}]}'
+                )
             elif command[1] == "producing-inputs":
                 Path(command[-1]).write_text('{"root_artifacts":[]}')
             return 0
+
         with (
             contextlib.chdir(self.root),
             patch.object(observer.subprocess, "call", side_effect=extract) as extractor,
-            patch.object(observer.subprocess, "check_output", return_value=b'{"packages":[]}'),
+            patch.object(
+                observer.subprocess, "check_output", return_value=b'{"packages":[]}'
+            ),
             patch.object(build_observation, "run_command", side_effect=run),
             patch.object(hashlib, "file_digest", wraps=hashlib.file_digest) as digest,
         ):
@@ -128,42 +150,85 @@ class ProducerCargoTests(unittest.TestCase):
         records = selected.with_suffix(".messages.jsonl").read_text()
         self.assertIn('"reason":"compiler-artifact"', records)
         self.assertNotIn("installer text", records)
-        self.assertTrue(json.loads(selected.with_suffix(".status.json").read_text())["supported"])
+        self.assertTrue(
+            json.loads(selected.with_suffix(".status.json").read_text())["supported"]
+        )
         invocation = json.loads(selected.with_suffix(".selection.json").read_text())
         actual_observer = invocation["observer"]["artifact"]
-        self.assertEqual(actual_observer["sha256"], hashlib.sha256(b"selected observer fixture").hexdigest())
+        self.assertEqual(
+            actual_observer["sha256"],
+            hashlib.sha256(b"selected observer fixture").hexdigest(),
+        )
         inputs = json.loads(selected.with_suffix(".inputs.json").read_text())
         self.assertNotIn(str(self.root / "target/debug/xtask"), inputs["files"])
-        self.assertTrue(all(str(self.root / name) in inputs["files"] for name in observer.OBSERVER_SOURCE_INPUTS))
-        self.assertEqual(sum(call.args[0].name == str(self.root / "target/debug/xtask") for call in digest.call_args_list), 1)
+        self.assertTrue(
+            all(
+                str(self.root / name) in inputs["files"]
+                for name in observer.OBSERVER_SOURCE_INPUTS
+            )
+        )
+        self.assertEqual(
+            sum(
+                call.args[0].name == str(self.root / "target/debug/xtask")
+                for call in digest.call_args_list
+            ),
+            1,
+        )
 
-    def test_ordinary_observer_keeps_conservative_path_when_extraction_is_unavailable(self) -> None:
+    def test_ordinary_observer_keeps_conservative_path_when_extraction_is_unavailable(
+        self,
+    ) -> None:
         environment = self.ordinary_environment()
+
         def extract(command: list[str], **_kwargs: object) -> int:
             if command[1] == "producing-graph":
-                Path(command[-1]).write_text('{"roots":[0],"units":[{"pkg_id":"fixture","dependencies":[]}]}')
+                Path(command[-1]).write_text(
+                    '{"roots":[0],"units":[{"pkg_id":"fixture","dependencies":[]}]}'
+                )
                 return 0
             return 7
+
         with (
             contextlib.chdir(self.root),
             patch.object(observer.subprocess, "call", side_effect=extract),
-            patch.object(observer.subprocess, "check_output", return_value=b'{"packages":[]}'),
+            patch.object(
+                observer.subprocess, "check_output", return_value=b'{"packages":[]}'
+            ),
             patch.object(build_observation, "run_command", return_value=0),
         ):
             self.assertEqual(observer.observe(self.arguments, environment), 0)
         selected = Path(environment[observer.CURRENCY_CAPTURE])
-        self.assertFalse(json.loads(selected.with_suffix(".status.json").read_text())["supported"])
+        self.assertFalse(
+            json.loads(selected.with_suffix(".status.json").read_text())["supported"]
+        )
         self.assertFalse(selected.with_suffix(".selection.json").exists())
 
-    def test_ordinary_observer_refuses_binary_or_source_replacement_during_extraction(self) -> None:
-        for index, (changed, identical) in enumerate((("target/debug/xtask", False), ("xtask/src/producing_inputs.rs", False), ("target/debug/xtask", True))):
+    def test_ordinary_observer_refuses_binary_or_source_replacement_during_extraction(
+        self,
+    ) -> None:
+        for index, (changed, identical) in enumerate(
+            (
+                ("target/debug/xtask", False),
+                ("xtask/src/producing_inputs.rs", False),
+                ("target/debug/xtask", True),
+            )
+        ):
             with self.subTest(changed=changed, identical=identical):
                 output = self.output / str(index)
                 output.mkdir(mode=0o700)
                 environment = self.ordinary_environment(output)
-                def extract(command: list[str], **_kwargs: object) -> int:
+
+                def extract(
+                    command: list[str],
+                    *,
+                    changed: str = changed,
+                    identical: bool = identical,
+                    **_kwargs: object,
+                ) -> int:
                     if command[1] == "producing-graph":
-                        Path(command[-1]).write_text('{"roots":[0],"units":[{"pkg_id":"fixture","dependencies":[]}]}')
+                        Path(command[-1]).write_text(
+                            '{"roots":[0],"units":[{"pkg_id":"fixture","dependencies":[]}]}'
+                        )
                     else:
                         Path(command[-1]).write_text('{"root_artifacts":[]}')
                         changed_path = self.root / changed
@@ -175,21 +240,32 @@ class ProducerCargoTests(unittest.TestCase):
                         else:
                             changed_path.write_text("raced observer fixture")
                     return 0
+
                 with (
                     contextlib.chdir(self.root),
                     patch.object(observer.subprocess, "call", side_effect=extract),
-                    patch.object(observer.subprocess, "check_output", return_value=b'{"packages":[]}'),
+                    patch.object(
+                        observer.subprocess,
+                        "check_output",
+                        return_value=b'{"packages":[]}',
+                    ),
                     patch.object(build_observation, "run_command", return_value=0),
                 ):
                     self.assertEqual(observer.observe(self.arguments, environment), 0)
                 selected = Path(environment[observer.CURRENCY_CAPTURE])
                 status = json.loads(selected.with_suffix(".status.json").read_text())
-                self.assertEqual(status, {"supported": False, "cause": "observer-changed"})
+                self.assertEqual(
+                    status, {"supported": False, "cause": "observer-changed"}
+                )
                 self.assertFalse(selected.with_suffix(".selection.json").exists())
 
-    def test_ordinary_observer_refuses_source_change_after_helper_preparation(self) -> None:
+    def test_ordinary_observer_refuses_source_change_after_helper_preparation(
+        self,
+    ) -> None:
         environment = self.ordinary_environment()
-        (self.root / "xtask/src/producing_inputs.rs").write_text("new source after explicit helper build")
+        (self.root / "xtask/src/producing_inputs.rs").write_text(
+            "new source after explicit helper build"
+        )
         with (
             contextlib.chdir(self.root),
             patch.object(observer.subprocess, "call", return_value=0),
@@ -197,8 +273,10 @@ class ProducerCargoTests(unittest.TestCase):
         ):
             self.assertEqual(observer.observe(self.arguments, environment), 0)
         selected = Path(environment[observer.CURRENCY_CAPTURE])
-        self.assertEqual(json.loads(selected.with_suffix(".status.json").read_text()),
-                         {"supported": False, "cause": "observer-preparation-changed"})
+        self.assertEqual(
+            json.loads(selected.with_suffix(".status.json").read_text()),
+            {"supported": False, "cause": "observer-preparation-changed"},
+        )
         self.assertFalse(selected.with_suffix(".selection.json").exists())
 
     def test_target_guard_remains_charged_until_actual_writer_descendant_exits(

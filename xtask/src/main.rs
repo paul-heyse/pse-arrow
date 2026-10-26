@@ -388,9 +388,12 @@ fn main() -> Result<()> {
             producer_identity::qualified_fixture(&root, &output)?;
             Ok(())
         }
-        Cmd::ProducingInputs { graph, messages, metadata, output } => {
-            producer_identity::currency_inputs(&root, &graph, &messages, &metadata, &output)
-        }
+        Cmd::ProducingInputs {
+            graph,
+            messages,
+            metadata,
+            output,
+        } => producer_identity::currency_inputs(&root, &graph, &messages, &metadata, &output),
         Cmd::ProducingGraph { arguments, output } => {
             producer_identity::currency_graph(&root, &arguments, &output)
         }

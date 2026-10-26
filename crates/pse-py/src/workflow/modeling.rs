@@ -207,14 +207,9 @@ impl ModelingLimits {
             body_occurrences,
             body_slots,
         };
-        if limits.depth == 0
-            || limits.items == 0
-            || limits.members == 0
-            || limits.body_occurrences == Some(0)
-            || limits.body_slots == Some(0)
-        {
-            return Err(invalid(py, "modeling expansion limits must be positive"));
-        }
+        limits
+            .validate()
+            .map_err(|error| invalid(py, &error.to_string()))?;
         Ok(Self { limits })
     }
     #[getter]

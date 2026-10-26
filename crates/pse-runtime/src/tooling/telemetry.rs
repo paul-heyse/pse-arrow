@@ -11,8 +11,11 @@ use opentelemetry::{
 };
 use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::{
-    Resource, logs::SdkLoggerProvider, metrics::SdkMeterProvider,
-    propagation::TraceContextPropagator, trace::{SdkTracerProvider, SpanProcessor},
+    Resource,
+    logs::SdkLoggerProvider,
+    metrics::SdkMeterProvider,
+    propagation::TraceContextPropagator,
+    trace::{SdkTracerProvider, SpanProcessor},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -166,19 +169,29 @@ impl LossObserver {
     }
     /// Copy current local state without initialization, exporting or flushing.
     pub fn snapshot(&self) -> SdkLossHealth {
-        let mut snapshot = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
+        let mut snapshot = self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
         snapshot.observed_at_unix_ns = observation_time_unix_ns();
         snapshot
     }
     fn shutdown(&self, status: TraceShutdown) {
-        self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).shutdown = status;
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .shutdown = status;
     }
 }
 
 fn sdk_loss_event(metadata: &tracing::Metadata<'_>) -> bool {
     metadata.is_event()
         && metadata.target() == "opentelemetry_sdk"
-        && matches!(metadata.name(), "BatchSpanProcessor.SpanDroppingStarted" | "BatchSpanProcessor.SpansDropped")
+        && matches!(
+            metadata.name(),
+            "BatchSpanProcessor.SpanDroppingStarted" | "BatchSpanProcessor.SpansDropped"
+        )
 }
 
 #[derive(Default)]
@@ -191,7 +204,9 @@ impl tracing::field::Visit for LossFields {
     fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
         if field.name() == "name" {
             self.name = match value {
-                "BatchSpanProcessor.SpanDroppingStarted" => Some("BatchSpanProcessor.SpanDroppingStarted"),
+                "BatchSpanProcessor.SpanDroppingStarted" => {
+                    Some("BatchSpanProcessor.SpanDroppingStarted")
+                }
                 "BatchSpanProcessor.SpansDropped" => Some("BatchSpanProcessor.SpansDropped"),
                 _ => None,
             };
@@ -216,7 +231,11 @@ impl tracing::field::Visit for LossFields {
 #[derive(Clone, Debug)]
 struct SdkLossLayer(LossObserver);
 impl<S: tracing::Subscriber> Layer<S> for SdkLossLayer {
-    fn on_event(&self, event: &tracing::Event<'_>, _context: tracing_subscriber::layer::Context<'_, S>) {
+    fn on_event(
+        &self,
+        event: &tracing::Event<'_>,
+        _context: tracing_subscriber::layer::Context<'_, S>,
+    ) {
         if !sdk_loss_event(event.metadata()) {
             return;
         }
@@ -225,7 +244,11 @@ impl<S: tracing::Subscriber> Layer<S> for SdkLossLayer {
         if fields.name != Some(event.metadata().name()) {
             return;
         }
-        let mut state = self.0.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut state = self
+            .0
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         match fields.name {
             Some("BatchSpanProcessor.SpanDroppingStarted") => {
                 if !state.first_drop_observed {
@@ -234,7 +257,8 @@ impl<S: tracing::Subscriber> Layer<S> for SdkLossLayer {
                 }
             }
             Some("BatchSpanProcessor.SpansDropped")
-                if fields.capacity == u64::try_from(state.max_queue_size).ok() => {
+                if fields.capacity == u64::try_from(state.max_queue_size).ok() =>
+            {
                 if let Some(count) = fields.count.filter(|count| *count > 0) {
                     state.sdk_reported_dropped_span_count = Some(count);
                     state.cumulative_count_observed_at_unix_ns = observation_time_unix_ns();
@@ -257,10 +281,17 @@ struct ObservedBatchProcessor {
 }
 impl ObservedBatchProcessor {
     fn new(batch: opentelemetry_sdk::trace::BatchSpanProcessor, observer: LossObserver) -> Self {
-        let diagnostics = tracing::Dispatch::new(tracing_subscriber::registry().with(
-            SdkLossLayer(observer.clone()).with_filter(tracing_subscriber::filter::filter_fn(sdk_loss_event)),
-        ));
-        Self { batch, diagnostics, observer }
+        let diagnostics = tracing::Dispatch::new(
+            tracing_subscriber::registry().with(
+                SdkLossLayer(observer.clone())
+                    .with_filter(tracing_subscriber::filter::filter_fn(sdk_loss_event)),
+            ),
+        );
+        Self {
+            batch,
+            diagnostics,
+            observer,
+        }
     }
 }
 impl SpanProcessor for ObservedBatchProcessor {
@@ -275,8 +306,14 @@ impl SpanProcessor for ObservedBatchProcessor {
     }
     fn shutdown_with_timeout(&self, timeout: Duration) -> opentelemetry_sdk::error::OTelSdkResult {
         self.observer.shutdown(TraceShutdown::Attempted);
-        let result = tracing::dispatcher::with_default(&self.diagnostics, || self.batch.shutdown_with_timeout(timeout));
-        self.observer.shutdown(if result.is_ok() { TraceShutdown::Succeeded } else { TraceShutdown::Failed });
+        let result = tracing::dispatcher::with_default(&self.diagnostics, || {
+            self.batch.shutdown_with_timeout(timeout)
+        });
+        self.observer.shutdown(if result.is_ok() {
+            TraceShutdown::Succeeded
+        } else {
+            TraceShutdown::Failed
+        });
         result
     }
     fn set_resource(&mut self, resource: &Resource) {
@@ -754,7 +791,7 @@ pub(super) fn install_runtime_metrics(provider: &SdkMeterProvider) {
                 return;
             }
             for event in super::operational_metrics::NativeEvent::ALL {
-                    let count = event.count(&sample);
+                let count = event.count(&sample);
                 observer.observe(count, &[KeyValue::new("event", event.as_str())]);
             }
         })
@@ -806,7 +843,7 @@ pub(super) fn install_runtime_metrics(provider: &SdkMeterProvider) {
             }
             let sample = crate::math::preparation_metrics();
             for product in crate::math::PreparationProduct::ALL {
-                    let count = product.count(&sample);
+                let count = product.count(&sample);
                 observer.observe(count as u64, &[KeyValue::new("product", product.as_str())]);
             }
         })
@@ -821,7 +858,7 @@ pub(super) fn install_runtime_metrics(provider: &SdkMeterProvider) {
                 return;
             }
             for event in pse_operations::canonical::CanonicalQueryEvent::ALL {
-                    let count = event.count(&sample);
+                let count = event.count(&sample);
                 observer.observe(count, &[KeyValue::new("event", event.as_str())]);
             }
         })
@@ -847,7 +884,10 @@ pub(super) fn install_runtime_metrics(provider: &SdkMeterProvider) {
         .with_callback(|observer| {
             for owner in super::runtime_metrics::OperationalSource::ALL {
                 if let Some(start) = owner.started() {
-                    observer.observe(start as f64 / 1_000_000.0, &[KeyValue::new("owner", owner.as_str())]);
+                    observer.observe(
+                        start as f64 / 1_000_000.0,
+                        &[KeyValue::new("owner", owner.as_str())],
+                    );
                 }
             }
         })
@@ -997,14 +1037,12 @@ impl Host {
                 SdkTracerProvider::builder()
                     .with_resource(resource.clone())
                     .with_sampler(settings.sampler()?)
-                    .with_span_processor(
-                        ObservedBatchProcessor::new(
-                            opentelemetry_sdk::trace::BatchSpanProcessor::builder(exporter)
-                                .with_batch_config(batch)
-                                .build(),
-                            loss.clone(),
-                        ),
-                    )
+                    .with_span_processor(ObservedBatchProcessor::new(
+                        opentelemetry_sdk::trace::BatchSpanProcessor::builder(exporter)
+                            .with_batch_config(batch)
+                            .build(),
+                        loss.clone(),
+                    ))
                     .build(),
             )
         } else {
@@ -1338,11 +1376,14 @@ mod tests {
     }
     #[test]
     fn production_span_filter_preserves_inner_spans_in_finite_capture() {
-        use crate::tooling::capture::{CaptureRequest, CaptureKind, CaptureOutputKind, start_capture};
+        use crate::tooling::capture::{
+            CaptureKind, CaptureOutputKind, CaptureRequest, start_capture,
+        };
         use prost::Message;
         use tracing_perfetto_sdk_schema::{Trace, trace_packet, track_event};
         let directory = tempfile::tempdir().unwrap();
-        let diagnostics = crate::observation::Diagnostics::new(Default::default(), directory.path().to_owned());
+        let diagnostics =
+            crate::observation::Diagnostics::new(Default::default(), directory.path().to_owned());
         let operation = diagnostics.hub().start("finite-capture-owner");
         diagnostics.publish().unwrap();
         let session = start_capture(CaptureRequest {
@@ -1353,17 +1394,22 @@ mod tests {
             output: directory.path().join("capture"),
             duration: Duration::from_millis(100),
             budget: Default::default(),
-        }).unwrap();
+        })
+        .unwrap();
         let recorded = Recorded::default();
-        let provider = SdkTracerProvider::builder().with_simple_exporter(recorded.clone()).build();
-        let subscriber = tracing_subscriber::registry()
-            .with(session.layer())
-            .with(tracing_opentelemetry::layer().with_tracer(provider.tracer("fixture"))
-                .with_filter(tracing_subscriber::filter::filter_fn(exported_owner_span)));
+        let provider = SdkTracerProvider::builder()
+            .with_simple_exporter(recorded.clone())
+            .build();
+        let subscriber = tracing_subscriber::registry().with(session.layer()).with(
+            tracing_opentelemetry::layer()
+                .with_tracer(provider.tracer("fixture"))
+                .with_filter(tracing_subscriber::filter::filter_fn(exported_owner_span)),
+        );
         tracing::subscriber::with_default(subscriber, || {
             let owner = Carrier::default().operation_span("fixture.capture");
             owner.in_scope(|| {
-                let inner = tracing::info_span!(target: "pse_runtime::math", "fixture.inner.expression");
+                let inner =
+                    tracing::info_span!(target: "pse_runtime::math", "fixture.inner.expression");
                 assert!(!inner.is_disabled());
                 inner.in_scope(|| {});
             });
@@ -1374,7 +1420,11 @@ mod tests {
         assert_eq!(exported[0].name, "pse.native.operation");
         drop(exported);
         let captured = session.wait().unwrap();
-        let output = captured.outputs.iter().find(|output| output.kind == CaptureOutputKind::Perfetto).unwrap();
+        let output = captured
+            .outputs
+            .iter()
+            .find(|output| output.kind == CaptureOutputKind::Perfetto)
+            .unwrap();
         let mut bytes = std::fs::read(&output.path).unwrap();
         bytes.truncate(output.readable_prefix_bytes as usize);
         let timeline = Trace::decode(bytes.as_slice()).unwrap();
@@ -1395,8 +1445,14 @@ mod tests {
     impl ExportGate {
         fn wait_started(&self) {
             let state = self.state.lock().unwrap();
-            let (state, _) = self.changed.wait_timeout_while(state, Duration::from_secs(5), |state| !state.0).unwrap();
-            assert!(state.0, "SDK exporter did not begin its first blocked batch");
+            let (state, _) = self
+                .changed
+                .wait_timeout_while(state, Duration::from_secs(5), |state| !state.0)
+                .unwrap();
+            assert!(
+                state.0,
+                "SDK exporter did not begin its first blocked batch"
+            );
         }
         fn release(&self) {
             self.state.lock().unwrap().1 = true;
@@ -1406,7 +1462,10 @@ mod tests {
     #[derive(Clone, Debug)]
     struct BlockedExporter(Arc<ExportGate>);
     impl opentelemetry_sdk::trace::SpanExporter for BlockedExporter {
-        async fn export(&self, _batch: Vec<opentelemetry_sdk::trace::SpanData>) -> opentelemetry_sdk::error::OTelSdkResult {
+        async fn export(
+            &self,
+            _batch: Vec<opentelemetry_sdk::trace::SpanData>,
+        ) -> opentelemetry_sdk::error::OTelSdkResult {
             let mut state = self.0.state.lock().unwrap();
             state.0 = true;
             self.0.changed.notify_all();
@@ -1418,27 +1477,42 @@ mod tests {
     }
     struct ReleaseExporter(Arc<ExportGate>);
     impl Drop for ReleaseExporter {
-        fn drop(&mut self) { self.0.release(); }
+        fn drop(&mut self) {
+            self.0.release();
+        }
     }
-    fn pressured_trace_processor() -> (SdkTracerProvider, LossObserver, Arc<ExportGate>, ReleaseExporter) {
+    fn pressured_trace_processor() -> (
+        SdkTracerProvider,
+        LossObserver,
+        Arc<ExportGate>,
+        ReleaseExporter,
+    ) {
         let mut selected = settings();
         selected.disabled = false;
         selected.traces.enabled = true;
         selected.max_queue_size = 2;
         let observer = LossObserver::new(&selected);
         let gate = Arc::new(ExportGate::default());
-        let batch = opentelemetry_sdk::trace::BatchSpanProcessor::builder(BlockedExporter(gate.clone()))
-            .with_batch_config(opentelemetry_sdk::trace::BatchConfigBuilder::default()
-                .with_max_queue_size(2)
-                .with_max_export_batch_size(1)
-                .with_scheduled_delay(Duration::from_secs(60)).build()).build();
+        let batch =
+            opentelemetry_sdk::trace::BatchSpanProcessor::builder(BlockedExporter(gate.clone()))
+                .with_batch_config(
+                    opentelemetry_sdk::trace::BatchConfigBuilder::default()
+                        .with_max_queue_size(2)
+                        .with_max_export_batch_size(1)
+                        .with_scheduled_delay(Duration::from_secs(60))
+                        .build(),
+                )
+                .build();
         let processor = ObservedBatchProcessor::new(batch, observer.clone());
-        let provider = SdkTracerProvider::builder().with_span_processor(processor).build();
+        let provider = SdkTracerProvider::builder()
+            .with_span_processor(processor)
+            .build();
         // Construct the release guard before assertion/timeout paths so test failure
         // cannot leave an SDK thread blocked on a test-owned gate.
         let release = ReleaseExporter(gate.clone());
         let subscriber = tracing_subscriber::registry().with(
-            tracing_opentelemetry::layer().with_tracer(provider.tracer("queue-pressure"))
+            tracing_opentelemetry::layer()
+                .with_tracer(provider.tracer("queue-pressure"))
                 .with_filter(tracing_subscriber::filter::filter_fn(exported_owner_span)),
         );
         // Exercise the production tracing layer's on_close path, including nested
@@ -1447,7 +1521,8 @@ mod tests {
             tracing::info_span!("fixture.in-flight", pse.owner.stage = true).in_scope(|| {});
             gate.wait_started();
             for _ in 0..7 {
-                tracing::info_span!("fixture.queued-or-dropped", pse.owner.stage = true).in_scope(|| {});
+                tracing::info_span!("fixture.queued-or-dropped", pse.owner.stage = true)
+                    .in_scope(|| {});
             }
         });
         (provider, observer, gate, release)
@@ -1458,7 +1533,10 @@ mod tests {
         let live = observer.snapshot();
         assert_eq!(live.process_incarnation, "fixture-instance");
         assert!(matches!(live.signal, SdkLossSignal::Traces));
-        assert!(matches!(live.processor, SdkLossProcessor::BatchSpanProcessor));
+        assert!(matches!(
+            live.processor,
+            SdkLossProcessor::BatchSpanProcessor
+        ));
         assert!(live.first_drop_observed);
         assert!(live.first_drop_observed_at_unix_ns.is_some());
         assert_eq!(live.sdk_reported_dropped_span_count, None);
@@ -1468,7 +1546,11 @@ mod tests {
         provider.shutdown().unwrap();
         let final_observation = observer.snapshot();
         assert_eq!(final_observation.sdk_reported_dropped_span_count, Some(5));
-        assert!(final_observation.cumulative_count_observed_at_unix_ns.is_some());
+        assert!(
+            final_observation
+                .cumulative_count_observed_at_unix_ns
+                .is_some()
+        );
         assert_eq!(final_observation.shutdown, TraceShutdown::Succeeded);
         assert_eq!(final_observation.delivery, SdkLossDelivery::NotObserved);
         assert_eq!(final_observation.abrupt_exit_loss, SdkAbruptLoss::Unknown);
@@ -1486,7 +1568,9 @@ mod tests {
     }
     #[test]
     fn sdk_loss_abrupt_exit_control() {
-        let Some(output) = std::env::var_os("PSE_SDK_LOSS_ABRUPT_SNAPSHOT") else { return; };
+        let Some(output) = std::env::var_os("PSE_SDK_LOSS_ABRUPT_SNAPSHOT") else {
+            return;
+        };
         let (_provider, observer, _gate, _release) = pressured_trace_processor();
         std::fs::write(output, serde_json::to_vec(&observer.snapshot()).unwrap()).unwrap();
         // Deliberately omit all SDK shutdown and Rust drops, as a process exit does.
@@ -1497,10 +1581,21 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let snapshot = directory.path().join("abrupt-observation.json");
         let result = std::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "tooling::telemetry::tests::sdk_loss_abrupt_exit_control", "--nocapture"])
-            .env("PSE_SDK_LOSS_ABRUPT_SNAPSHOT", &snapshot).output().unwrap();
-        assert!(result.status.success(), "abrupt-loss control failed: {}", String::from_utf8_lossy(&result.stderr));
-        let retained: serde_json::Value = serde_json::from_slice(&std::fs::read(snapshot).unwrap()).unwrap();
+            .args([
+                "--exact",
+                "tooling::telemetry::tests::sdk_loss_abrupt_exit_control",
+                "--nocapture",
+            ])
+            .env("PSE_SDK_LOSS_ABRUPT_SNAPSHOT", &snapshot)
+            .output()
+            .unwrap();
+        assert!(
+            result.status.success(),
+            "abrupt-loss control failed: {}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        let retained: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(snapshot).unwrap()).unwrap();
         assert_eq!(retained["first_drop_observed"], true);
         assert!(retained["sdk_reported_dropped_span_count"].is_null());
         assert_eq!(retained["shutdown"], "not_attempted");
@@ -1510,7 +1605,9 @@ mod tests {
     #[test]
     fn sdk_loss_observer_ignores_prose_other_targets_processors_and_malformed_fields() {
         let observer = LossObserver::new(&settings());
-        let diagnostics = tracing::Dispatch::new(tracing_subscriber::registry().with(SdkLossLayer(observer.clone())));
+        let diagnostics = tracing::Dispatch::new(
+            tracing_subscriber::registry().with(SdkLossLayer(observer.clone())),
+        );
         tracing::dispatcher::with_default(&diagnostics, || {
             tracing::warn!(name: "BatchSpanProcessor.SpanDroppingStarted", target: "other_sdk", name = "BatchSpanProcessor.SpanDroppingStarted");
             tracing::warn!(name: "BatchLogProcessor.LogsDropped", target: "opentelemetry_sdk", name = "BatchLogProcessor.LogsDropped", dropped_span_count = 999u64);
@@ -1521,7 +1618,11 @@ mod tests {
         assert_eq!(snapshot.first_drop_observed_at_unix_ns, None);
         assert_eq!(snapshot.sdk_reported_dropped_span_count, None);
         assert_eq!(snapshot.shutdown, TraceShutdown::Unselected);
-        assert!(!serde_json::to_string(&snapshot).unwrap().contains("private-secret"));
+        assert!(
+            !serde_json::to_string(&snapshot)
+                .unwrap()
+                .contains("private-secret")
+        );
     }
 
     #[test]
@@ -1689,9 +1790,7 @@ mod tests {
     }
 
     #[derive(Clone, Debug, Default)]
-    struct RecordedLogs(
-        Arc<Mutex<Vec<opentelemetry_sdk::logs::TraceContext>>>,
-    );
+    struct RecordedLogs(Arc<Mutex<Vec<opentelemetry_sdk::logs::TraceContext>>>);
     impl opentelemetry_sdk::logs::LogExporter for RecordedLogs {
         async fn export(
             &self,
