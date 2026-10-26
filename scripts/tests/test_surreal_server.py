@@ -2244,6 +2244,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertEqual(selected["admission"], "validation_required")
         self.assertFalse(selected["accepting_writes"])
         self.assertEqual(selected["endpoint"], "grpc://127.0.0.1:18080")
+        self.assertEqual(selected["telemetry_state"], old["telemetry_state"])
         self.assertFalse((self.state / "database").exists())
         self.assertFalse(old_payload.exists())
         self.assertFalse((self.state / "fresh-engine-pending.json").exists())
@@ -2390,9 +2391,10 @@ class SurrealSupervisorTests(unittest.TestCase):
         self,
     ) -> None:
         old = self.initialized()
-        old.update(admission="quiesced", accepting_writes=False)
+        old.update(admission="quiesced", accepting_writes=False, telemetry_state=str(self.root / "retained-telemetry"))
         server.write_json(self.state / "config.json", old)
         with (
+            patch.dict(os.environ, {"PSE_TELEMETRY_STATE": str(self.root / "foreign-telemetry")}),
             patch.object(server, "install", return_value=old["server"]) as build,
             patch.object(server, "all_contexts_drained"),
             patch.object(server, "active", return_value=False),
@@ -2414,6 +2416,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             build.assert_called_once()
         selected = server.config_for(self.state)
         self.assertEqual(selected, pending["target"])
+        self.assertEqual(selected["telemetry_state"], old["telemetry_state"])
         self.assertEqual(
             server.read_json(self.state / "credentials.json"), pending["credentials"]
         )
@@ -5101,6 +5104,110 @@ class SurrealSupervisorTests(unittest.TestCase):
             producer.call_args_list, [call({"PSE_TELEMETRY_STATE": selected})] * 2
         )
         self.assertFalse(Path(selected).exists())
+
+    def test_readmit_closed_initialize_target_admits_current_artifacts_without_opening(self) -> None:
+        config = self.initialized(fresh=True)
+        config.pop("telemetry_state")
+        pending = {
+            "kind": "initialize", "phase": "initializing", "nonce": "original-initializer",
+            "target_namespace": config["namespace"], "target_database": config["database"],
+        }
+        config.update(admission="validation_required", accepting_writes=False, derived_rebuild_pending=pending)
+        server.write_json(self.state / "config.json", config)
+        credentials = (self.state / "credentials.json").read_bytes()
+        worker, helper = self.root / "current-worker", self.root / "current-helper"
+        for artifact in (worker, helper):
+            artifact.write_bytes(b"#!/bin/sh\nexit 0\n")
+            artifact.chmod(0o700)
+        selected_telemetry = str(self.root / "explicit-telemetry")
+        events = []
+        publish = server.publish_generation
+        def published(state: Path, selected: Path) -> dict[str, str]:
+            self.assertEqual(events, ["drained", "settled"])
+            self.assertEqual(selected, worker)
+            self.assertEqual(server.config_for(state)["derived_rebuild_pending"], pending)
+            events.append("published")
+            return publish(state, selected)
+        args = server.parser().parse_args([
+            "readmit", "--state", str(self.state), "--execution-profile", "functional",
+            "--worker-executable", str(worker), "--payload-verifier", str(helper),
+        ])
+        with (
+            patch.object(server, "active", return_value=False),
+            patch.object(server, "all_contexts_drained", side_effect=lambda _state: events.append("drained")),
+            patch.object(server, "execution_resources", return_value=config["resources"]),
+            patch.object(server, "settle_legacy_telemetry_launch", side_effect=lambda *_args, **_kwargs: events.append("settled")),
+            patch.object(server, "publish_generation", side_effect=published),
+            patch.dict(os.environ, {"PSE_TELEMETRY_STATE": selected_telemetry}),
+            patch("builtins.print"),
+        ):
+            self.assertEqual(server.dispatch(args), 0)
+        selected = server.config_for(self.state)
+        self.assertEqual(events, ["drained", "settled", "published"])
+        self.assertEqual(selected["admission"], "validation_required")
+        self.assertFalse(selected["accepting_writes"])
+        self.assertEqual(selected["derived_rebuild_pending"], pending)
+        self.assertEqual(selected["fresh_root_bootstrap"], config["fresh_root_bootstrap"])
+        for name in ("instance_id", "namespace", "database", "payload_incarnation", "resources"):
+            self.assertEqual(selected[name], config[name])
+        self.assertEqual((self.state / "credentials.json").read_bytes(), credentials)
+        self.assertEqual(selected["telemetry_state"], selected_telemetry)
+        self.assertEqual(selected["payload_verifier"], server.payload_verifier(helper))
+        receiver = server.object_mapping(selected["primary_receiver"])
+        frozen = Path(str(receiver["worker_executable"]))
+        self.assertIn(self.state / ".generations", frozen.parents)
+        self.assertEqual(frozen.read_bytes(), worker.read_bytes())
+        self.assertFalse(Path(selected_telemetry).exists())
+
+    def test_readmit_validation_target_retains_recorded_telemetry_despite_environment(self) -> None:
+        config = self.initialized(fresh=True)
+        config.update(admission="validation_required", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        with (
+            patch.object(server, "active", return_value=False),
+            patch.object(server, "all_contexts_drained"),
+            patch.object(server, "settle_legacy_telemetry_launch") as settle,
+            patch.dict(os.environ, {"PSE_TELEMETRY_STATE": str(self.root / "foreign-telemetry")}),
+        ):
+            server.readmit_supervisor(self.state)
+        settle.assert_not_called()
+        selected = server.config_for(self.state)
+        self.assertEqual(selected["telemetry_state"], config["telemetry_state"])
+        self.assertEqual(selected["fresh_root_bootstrap"], config["fresh_root_bootstrap"])
+        self.assertEqual(selected["admission"], "validation_required")
+        self.assertFalse(selected["accepting_writes"])
+
+    def test_readmit_refuses_active_mismatched_or_invalid_artifacts_before_effects(self) -> None:
+        config = self.initialized(fresh=True)
+        config.update(admission="validation_required", accepting_writes=False)
+        server.write_json(self.state / "config.json", config)
+        worker, helper = self.root / "worker", self.root / "helper"
+        for artifact in (worker, helper):
+            artifact.write_bytes(b"#!/bin/sh\nexit 0\n")
+            artifact.chmod(0o700)
+        before = (self.state / "config.json").read_bytes()
+        credentials = (self.state / "credentials.json").read_bytes()
+        for case in ("active", "profile", "missing-worker", "unexecutable-helper", "worker-without-profile"):
+            offered_worker = self.root / "missing-worker" if case == "missing-worker" else worker
+            helper.chmod(0o600 if case == "unexecutable-helper" else 0o700)
+            offered_profile = None if case == "worker-without-profile" else "functional"
+            allocation = {} if case == "profile" else config["resources"]
+            with (
+                self.subTest(case=case),
+                patch.object(server, "active", return_value=case == "active"),
+                patch.object(server, "execution_resources", return_value=allocation),
+                patch.object(server, "close_context_admission") as close,
+                patch.object(server, "all_contexts_drained") as drain,
+                patch.object(server, "publish_generation") as publish,
+                self.assertRaises((server.SupervisorError, OSError)),
+            ):
+                server.readmit_supervisor(self.state, execution_profile=offered_profile, worker_executable=offered_worker, verifier=helper)
+            close.assert_not_called()
+            drain.assert_not_called()
+            publish.assert_not_called()
+            self.assertEqual((self.state / "config.json").read_bytes(), before)
+            self.assertEqual((self.state / "credentials.json").read_bytes(), credentials)
+            self.assertFalse((self.state / ".profile-history").exists())
 
     def test_legacy_profile_remains_readable_but_requires_offline_telemetry_readmission(
         self,

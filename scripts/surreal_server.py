@@ -661,23 +661,51 @@ def lifecycle_deadline(deadline: float | None) -> Generator[float | None, None, 
 
 
 def readmit_supervisor(
-    state: Path, *, deadline: float | None = None
+    state: Path, *, deadline: float | None = None,
+    execution_profile: str | None = None,
+    worker_executable: Path | None = None,
+    verifier: Path | None = None,
 ) -> dict[str, object]:
-    """Explicitly publish current owned code without modifying retained generations."""
+    """Explicitly readmit current artifacts while preserving the closed target."""
     with lifecycle_deadline(deadline), lifecycle_reservation(state):
-        return _readmit_supervisor(state)
+        return _readmit_supervisor(
+            state, execution_profile=execution_profile,
+            worker_executable=worker_executable, verifier=verifier,
+        )
 
 
-def _readmit_supervisor(state: Path) -> dict[str, object]:
+def _readmit_supervisor(
+    state: Path, *, execution_profile: str | None = None,
+    worker_executable: Path | None = None, verifier: Path | None = None,
+) -> dict[str, object]:
     config = config_for(state)
     if (
         active(state)
         or config.get("accepting_writes")
-        or config.get("admission") != "quiesced"
+        or config.get("admission") not in {"quiesced", "validation_required"}
     ):
         raise SupervisorError(
-            "Readmission requires this selected service stopped and quiesced"
+            "Readmission requires this selected service stopped with closed admission"
         )
+    # Validate every offered artifact and the unchanged allocation before any
+    # publication, history or config effects. Readmission grants no new capacity.
+    receiver = None
+    if execution_profile is not None:
+        if config.get("resources") != execution_resources(execution_profile):
+            raise SupervisorError("Readmission execution profile differs from the selected allocation")
+        expected_class = "timing" if execution_profile == "timing" else "functional"
+        if config.get("service_class", "functional") != expected_class:
+            raise SupervisorError("Readmission execution profile differs from the selected storage lane")
+        receiver = primary_receiver(worker_executable)
+    elif worker_executable is not None:
+        raise SupervisorError("Receiver readmission requires an explicit execution profile")
+    selected_verifier = payload_verifier(verifier) if verifier is not None else None
+    target_fields = (
+        "instance_id", "namespace", "database", "payload_incarnation", "admission",
+        "accepting_writes", "resources", "service_class", "telemetry_state",
+        "derived_rebuild_pending", "surrealkit_rollout_pending", "fresh_root_bootstrap",
+    )
+    original_target = {name: config.get(name) for name in target_fields}
     close_context_admission(state)
     all_contexts_drained(state)
     deadline = getattr(_STARTUP, "deadline", None)
@@ -706,11 +734,22 @@ def _readmit_supervisor(state: Path) -> dict[str, object]:
         write_json(state / "credentials.json", credentials)
     if deadline is not None:
         remaining(deadline)
-    supervisor = publish_generation(state)
+    supervisor = (
+        publish_generation(state, Path(receiver["worker_executable"]))
+        if receiver is not None else publish_generation(state)
+    )
+    if receiver is not None and supervisor.get("worker_sha256") != receiver["worker_sha256"]:
+        raise SupervisorError("Receiver artifact changed during readmission; admission remains closed")
     server = dict(object_mapping(config["server"]))
     server["binary_sha256"] = file_digest(Path(str(server["binary"])))
     with state_lock(state):
         config = config_for(state)
+        if {name: config.get(name) for name in target_fields} != original_target:
+            raise SupervisorError("Readmission target or maintenance intent changed; admission remains closed")
+        if receiver is not None:
+            config["primary_receiver"] = supervisor
+        if selected_verifier is not None:
+            config["payload_verifier"] = selected_verifier
         config.update(
             service_supervisor=supervisor,
             server=server,
@@ -6005,7 +6044,7 @@ def recorded_telemetry_state(config: dict[str, object]) -> str:
         or str(telemetry_service.state_directory(selected)) != selected
     ):
         raise SupervisorError(
-            "Service lacks a recorded telemetry selection; readmit its stopped, quiesced supervisor"
+            "Service lacks a recorded telemetry selection; readmit its stopped supervisor with admission closed"
         )
     return selected
 
@@ -8550,6 +8589,7 @@ def fresh_engine(state: Path, tool_root: Path | None = None) -> dict[str, object
                         "service_class",
                         "resident",
                         "tooling_fixture",
+                        "telemetry_state",
                     )
                     if key in old
                 }
@@ -10483,6 +10523,19 @@ def _dispatch(args: argparse.Namespace) -> int:
             )
         ):
             config = config_for(state)
+            if args.command == "readmit":
+                if any(value is not None for value in (
+                    args.memory_mib, args.server_memory_mib, args.native_workers,
+                    args.native_worker_memory_mib, args.port, args.version,
+                    args.interpretation, args.tool_root,
+                )):
+                    raise SupervisorError("Readmission preserves the selected allocation and state identity")
+                output = readmit_supervisor(
+                    state, execution_profile=args.execution_profile,
+                    worker_executable=args.worker_executable, verifier=args.payload_verifier,
+                )
+                print(json.dumps(output, sort_keys=True))
+                return 0
             if args.payload_verifier is not None:
                 if args.command not in {"backup", "recover-maintenance"}:
                     raise SupervisorError(
@@ -10492,10 +10545,6 @@ def _dispatch(args: argparse.Namespace) -> int:
                 write_json(state / "config.json", config)
             if args.command == "recover-file-owners":
                 output = recover_file_owners(state)
-                print(json.dumps(output, sort_keys=True))
-                return 0
-            if args.command == "readmit":
-                output = readmit_supervisor(state)
                 print(json.dumps(output, sort_keys=True))
                 return 0
             if args.command == "qualify-recovery":

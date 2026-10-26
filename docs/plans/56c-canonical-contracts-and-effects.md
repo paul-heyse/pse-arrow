@@ -136,11 +136,11 @@ compatibility reader or second production path is introduced.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| C01 | in-progress; declarations and typed owner migrations integrated | 56c | Generated canonical meaning and all current typed consumers replace independent spellings/branches |
-| C02 | implemented; pure and owner-effect acceptance pending | 56c | Exact replay and effect knowledge consistent across shared-contract owners with distinct lifetimes preserved |
-| C03 | in-progress; v9 locator and current producer/reader adoption | 56c | Selected locator plus exact completion/replay/context facts consumed by every durable read/write/lifecycle path |
-| C04 | in-progress; native product helper and Python consumer migration | 56c | Online/offline file observations share Rust authority; Python duplicate policy retired |
-| C05 | pending; authenticated v8 baseline seeded and stopped | 56c | Working producers/readers installed together; fresh owned store activation and failure recovery verified |
+| C01 | implemented; database-backed acceptance pending | 56c | Generated canonical meaning and all current typed consumers replace independent spellings/branches |
+| C02 | implemented; pure acceptance passed, owner-effect acceptance pending | 56c | Exact replay and effect knowledge consistent across shared-contract owners with distinct lifetimes preserved |
+| C03 | implemented; v9 source cutover compiled, composed acceptance pending | 56c | Selected locator plus exact completion/replay/context facts consumed by every durable read/write/lifecycle path |
+| C04 | implemented; native/offline controls passed, mixed recovery acceptance pending | 56c | Online/offline file observations share Rust authority; Python duplicate policy retired |
+| C05 | in-progress; interrupted fresh activation resumed to the exact closed v9 target | 56c | Working producers/readers installed together; fresh owned store activation and failure recovery verified |
 
 C01 and B's early fact/constructor declarations enable C03; they do not require all B packages to
 finish. D01 replaces append realization using C03. C04 and E02 share one product-helper boundary;
@@ -189,13 +189,19 @@ implementation and its focused decision review. Preserve the existing selected s
 working shared contracts, all current consumers and fresh owned activation precede acceptance.
 No production package is complete from the earlier 56a/b prerequisite adoption alone.
 
-**Source cutover checkpoint — 2026-10-26:** the focused decision review accepted ADR-0228's proposed
-target before dependent publication. Shared settlement now preserves both failure causes through
-owner protocols. Canonical declarations/projections, nominal decision-bearing keys, explicit
-run/study associations, producer classes and native offline authority are being integrated with
-all current consumers. Inline bodies are selected before file work; descriptor discovery remains
-separate from charged body hydration. Current blockers are source-generation/compile integration,
-not scientific acceptance. No C package is complete yet. The owned v8 fixture
-`build/qualification/56c-v8-PMtzWmL1` retains an actual stored failed-check result and is stopped;
-fresh v9 activation and composed qualification follow functional integration. Other stores and
-prior 56b qualification artifacts remain preserved.
+**Execution checkpoint — 2026-10-26:** the focused decision review accepted ADR-0228's proposed
+target before dependent publication. The source cutover, current consumers and generated outputs
+are integrated. Shared settlement retains both causes through owner protocols and public diagnostic
+projection. Explicit associations and producer classes replace behavioral prefix inference. Inline
+bodies are selected before file work; descriptor discovery remains separate from charged body
+hydration. The product recovery helper shares native file authority with online readers, and the
+duplicate Python file policy is removed. Workspace compilation and focused pure/offline controls
+have passed; they do not establish assembled acceptance.
+
+The owned fixture `build/qualification/56c-v8-PMtzWmL1` first retained an actual v8 failed-check
+result, then underwent authorized fresh regeneration. A real interruption after publishing the
+pending target refused startup; resume reused the exact v9 target and removed the old database.
+Admission remains closed. Initialization exposed a lifecycle gap between the omitted telemetry
+selection and readmission's quiesced-only guard. Repairing that transition, completing current
+receiver admission and running the composed database/public/recovery journeys remain required.
+No C package is complete yet. Other stores and prior 56b artifacts remain preserved.
