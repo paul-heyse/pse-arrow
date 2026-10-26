@@ -28,7 +28,8 @@ also reconstruct kind meaning; immutable scientific values retain the entire Run
 ## Scope
 
 Plan56b B01–B06 and only the required C/F adoption slices. Completion v2, stored completion v3
-and replay v5 replace their current interpretations together. Existing receipt framing and file
+and replay v5 replace their current interpretations together. The standalone fit-profile document
+also advances to v2 because chain/point qualifiers are now required. Existing receipt framing and file
 placement remain; RC01–RC06 are not adopted. Accepted records remain immutable.
 
 ## Drivers
@@ -79,3 +80,4 @@ deployment is qualified independently; the existing selected canonical store is 
 ## Status history
 
 - 2026-10-25: Proposed for maintainer-authorized Plan56b execution; acceptance is not inferred.
+- 2026-10-25: Include standalone fit-profile v2 after focused contract review identified the required qualifier shape change; historical v1 refuses at header admission.

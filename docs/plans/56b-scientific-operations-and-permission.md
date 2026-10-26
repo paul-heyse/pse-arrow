@@ -199,7 +199,7 @@ The maintainer authorized all B01–B06 with only the working C/F prerequisites 
 durable/public adoption. Qualify the new interpretation in a fresh owned deployment and preserve
 the existing selected store. Scientific values use explicit narrow services at effectful Rust
 entry points; existing Python/MCP facades retain convenience. Completion v2, stored completion v3
-and replay v5 publish together; receipt framing and file placement stay unchanged. RC01–RC06
+and replay v5 publish together; standalone fit-profile v2 identifies required chain/point qualifiers. Receipt framing and file placement stay unchanged. RC01–RC06
 remain pending. ADR-0227 records the selected contract before publication. 56a evidence retains
 its original scope; no B package is complete from that prerequisite alone.
 
