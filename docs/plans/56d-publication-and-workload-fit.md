@@ -166,7 +166,7 @@ interpretation.
 | D03 | planned | 56d | Compact outcomes and one lazy relation provider replace descriptor/full-snapshot loops |
 | D04 | planned; capture evidence required | 56d | Coherent live capture and bounded membership read qualify any changed admission cap |
 | D05 | planned | 56d | Inventory/copy progress is resumable and integrity passes reused with distinct guarantees retained |
-| D06 | planned | 56d | Executable explanation/export retain only useful hydrated units, with exact closure and final visibility |
+| D06 | incremental source traversal implemented; targeted units passed, canonical exchange/benefit checks pending | 56d | Executable explanation/export retain only useful hydrated units, with exact closure and final visibility |
 
 D01 consumes C01/C03; D02 consumes C01/C02 and B03 operation facts. D03 needs B01 permission
 and D02's compact admission product, not all population work. D04 may start its engine inquiry
@@ -224,3 +224,31 @@ accepts the revised gated target at Proposed design evidence. ADR-0230 and bluep
 now require complete writer participation, atomic facts/protection/receipt/gate closure, original
 clocks and exact incarnation-changing expiry recovery before dependent implementation. No cap
 change is authorized by surrogate success alone.
+
+## D06 incremental source checkpoint — 2026-10-26
+
+The selected closure now retains compact revision/result/artifact selection and original
+protections. It consumes the admitted origin first, then one useful revision and current encoded
+document, staging or counting/checksumming through the same sink. Sorted revision ordinals retain
+deterministic member ids. Both the all-packages map and retained encoded-document vector are
+removed; borrowed leased source/physical documents are copied directly without extra blob clones.
+Remaining allowance bounds replay encoding and each copy before destination effects. Original
+reader protections, destination verification and final manifest publication remain.
+
+Shared contained-copy and scientific IPC lineage admission now live in product-owned
+`workflow::portable_payload`, beneath diagnostic pack and project consumers. The old development-
+owned module and project-to-review-pack validation dependency are deleted.
+
+**Tested:** `just unit-package pse-runtime 'test(project_portability_tests) | test(review_pack)'`,
+force-validation, default/non-native closure: 24 selected tests passed, zero failed against the
+zero baseline (1,011 unselected tests). This includes exact count/export receipts, refusal before
+copy, cancellation, contained-file mutation and original IPC lineage controls. Compilation took
+3m56s and selected tests14.294s on this local Linux host. Three warnings in concurrent cohort work
+remain for its owner; this is not a zero-warning whole-plan result. Earlier malformed filter,
+stale test-module name and source-fence interruptions were corrected; only the stated final
+selection passed.
+
+The correction was to borrow already leased document collections rather than move or clone their
+backing vectors. Processing the already admitted origin first deliberately bounds live hydration
+while ids retain sorted-source ordinals. Native multi-revision export/explanation, interruption
+and focused benefit measurements remain for joint scope-end qualification.

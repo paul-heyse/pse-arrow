@@ -1,0 +1,227 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! Product-owned contained exchange and bounded scientific IPC admission.
+//! Callers retain selection, reader protection and final publication authority.
+use std::{
+    fs::File,
+    io::{Read, Seek, SeekFrom, Write},
+    path::{Component, Path},
+};
+
+pub(crate) fn safe_relative(path: &str) -> std::io::Result<()> {
+    if path.is_empty()
+        || path.contains('\\')
+        || path
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == "..")
+        || Path::new(path)
+            .components()
+            .any(|c| !matches!(c, Component::Normal(_)))
+    {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "unsafe indexed relative path",
+        ));
+    }
+    Ok(())
+}
+
+/// Every path component is opened relative to its already opened parent without following links.
+pub(crate) fn open_contained(directory: &File, relative: &str) -> std::io::Result<File> {
+    use rustix::fs::{Mode, OFlags};
+    safe_relative(relative)?;
+    let mut directory = directory.try_clone()?;
+    let mut components = Path::new(relative).components().peekable();
+    while let Some(component) = components.next() {
+        let flags = OFlags::RDONLY
+            | OFlags::NOFOLLOW
+            | OFlags::CLOEXEC
+            | OFlags::NONBLOCK
+            | if components.peek().is_some() {
+                OFlags::DIRECTORY
+            } else {
+                OFlags::empty()
+            };
+        directory = File::from(
+            rustix::fs::openat(&directory, component.as_os_str(), flags, Mode::empty())
+                .map_err(std::io::Error::from)?,
+        );
+    }
+    if !directory.metadata()?.is_file() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "indexed member is not an ordinary local file",
+        ));
+    }
+    Ok(directory)
+}
+
+/// Copy exactly a selected prefix with a checkpoint before every bounded read.
+/// The caller owns the original protection and destination publication boundary.
+pub(crate) fn copy_exact(
+    source: &mut impl Read,
+    output: &mut impl Write,
+    bytes: u64,
+    mut checkpoint: impl FnMut() -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    let mut remaining = bytes;
+    let mut buffer = [0_u8; 64 * 1024];
+    while remaining != 0 {
+        checkpoint()?;
+        let requested = remaining.min(buffer.len() as u64) as usize;
+        let read = source.read(&mut buffer[..requested])?;
+        if read == 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "source shorter than acknowledged readable prefix",
+            ));
+        }
+        output.write_all(&buffer[..read])?;
+        remaining -= read as u64;
+    }
+    checkpoint()?;
+    output.flush()
+}
+
+/// Write, synchronize and atomically publish one manifest after the caller's final checkpoint.
+/// Names are single contained relative paths supplied by the owning publication protocol.
+pub(crate) fn publish_document(
+    root: &Path,
+    temporary: &str,
+    destination: &str,
+    bytes: &[u8],
+    checkpoint: impl FnOnce() -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    safe_relative(temporary)?;
+    safe_relative(destination)?;
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(root.join(temporary))?;
+    file.write_all(bytes)?;
+    file.sync_all()?;
+    drop(file);
+    checkpoint()?;
+    std::fs::rename(root.join(temporary), root.join(destination))?;
+    File::open(root)?.sync_all()
+}
+
+use super::PackResultSelection;
+
+fn invalid(reason: impl Into<String>) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::InvalidInput, reason.into())
+}
+
+/// Validate only the bounded IPC schema header, terminal marker and exact original scientific lineage.
+/// Record batches remain streamed by their consumer; this never materializes their arrays.
+pub(crate) fn validate_scientific_ipc(
+    file: File,
+    readable_bytes: u64,
+    maximum_document_bytes: usize,
+    result: &PackResultSelection,
+) -> std::io::Result<()> {
+    let schema = finalized_ipc_schema(file, readable_bytes, maximum_document_bytes)?;
+    validate_scientific_lineage(schema.as_ref(), result)
+}
+pub(crate) fn finalized_ipc_schema(
+    mut file: File,
+    readable_bytes: u64,
+    maximum_document_bytes: usize,
+) -> std::io::Result<datafusion::arrow::datatypes::SchemaRef> {
+    if readable_bytes < 8 {
+        return Err(invalid("short IPC stream"));
+    }
+    file.seek(SeekFrom::Start(readable_bytes - 8))?;
+    let mut end = [0_u8; 8];
+    file.read_exact(&mut end)?;
+    if end != [255, 255, 255, 255, 0, 0, 0, 0] {
+        return Err(invalid("IPC stream lacks finalized end marker"));
+    }
+    file.seek(SeekFrom::Start(0))?;
+    let mut start = [0_u8; 6];
+    file.read_exact(&mut start)?;
+    if &start == b"ARROW1" {
+        return Err(invalid("IPC file supplied as IPC stream"));
+    }
+    file.seek(SeekFrom::Start(0))?;
+    let mut header = [0_u8; 8];
+    file.read_exact(&mut header)?;
+    if header[..4] != [255, 255, 255, 255] {
+        return Err(invalid("IPC stream lacks the selected continuation format"));
+    }
+    let length = u32::from_le_bytes([header[4], header[5], header[6], header[7]]) as usize;
+    if length == 0
+        || length > maximum_document_bytes
+        || length as u64 > readable_bytes.saturating_sub(8)
+    {
+        return Err(invalid("IPC schema metadata exceeds finite read allowance"));
+    }
+    file.seek(SeekFrom::Start(0))?;
+    let stream =
+        datafusion::arrow::ipc::reader::StreamReader::try_new(file.take(length as u64 + 8), None)
+            .map_err(|e| invalid(e.to_string()))?;
+    Ok(stream.schema())
+}
+pub(crate) fn validate_scientific_lineage(
+    schema: &datafusion::arrow::datatypes::Schema,
+    result: &PackResultSelection,
+) -> std::io::Result<()> {
+    if result.schema_version == 0
+        || result.row_start > result.row_end
+        || result.run.is_empty()
+        || result.attempt.is_empty()
+        || result.relation.is_empty()
+    {
+        return Err(invalid("invalid selected scientific coordinates"));
+    }
+    let metadata = schema.metadata();
+    for (key, expected) in [
+        ("pse.canonical.run", result.run.clone()),
+        ("pse.canonical.attempt", result.attempt.clone()),
+        ("pse.canonical.relation", result.relation.clone()),
+        (
+            "pse.canonical.relation-version",
+            result.schema_version.to_string(),
+        ),
+        ("pse.canonical.row-start", result.row_start.to_string()),
+        ("pse.canonical.row-end", result.row_end.to_string()),
+        (
+            "pse.canonical.terminal-class",
+            result.terminal_class.clone(),
+        ),
+    ] {
+        if metadata.get(key) != Some(&expected) {
+            return Err(invalid(format!("IPC lineage differs from selected {key}")));
+        }
+    }
+    if metadata.get("pse.canonical.field") != result.field.as_ref() {
+        return Err(invalid("IPC field differs from selected field"));
+    }
+    if let Some(predicate) = &result.predicate {
+        for (key, expected) in [
+            ("pse.canonical.output", Some(predicate.output.clone())),
+            ("pse.canonical.partition", Some(predicate.partition.clone())),
+            (
+                "pse.canonical.minimum-bits",
+                predicate.minimum_bits.map(|v| v.to_string()),
+            ),
+            (
+                "pse.canonical.maximum-bits",
+                predicate.maximum_bits.map(|v| v.to_string()),
+            ),
+            (
+                "pse.canonical.missing",
+                predicate.missing.map(|v| v.to_string()),
+            ),
+        ] {
+            if metadata.get(key) != expected.as_ref() {
+                return Err(invalid(
+                    "IPC selected predicate differs from declared predicate",
+                ));
+            }
+        }
+    } else if metadata.contains_key("pse.canonical.output") {
+        return Err(invalid("undeclared IPC output predicate"));
+    }
+    Ok(())
+}

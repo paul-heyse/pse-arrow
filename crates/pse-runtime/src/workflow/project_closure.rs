@@ -12,11 +12,9 @@ pub(super) enum ResultMember {
 }
 pub(super) struct ResolvedClosure {
     pub(super) manifest: ProjectManifest,
-    pub(super) documents: Vec<(String, Vec<u8>)>,
     pub(super) results: Vec<(String, ResultMember)>,
     pub(super) artifacts: Vec<pse_operations::canonical_artifacts::ArtifactRead>,
     protections: Vec<ProtectedSelection>,
-    _owners: Vec<std::sync::Arc<pse_columnar::AllocationLease>>,
 }
 impl ResolvedClosure {
     pub(super) async fn renew(&self) -> Result<(), WorkflowError> {
@@ -106,10 +104,11 @@ impl Runtime {
         physical: PhysicalContext,
         cancel: &crate::CancelSource,
     ) -> Result<ProjectClosureExplanation, WorkflowError> {
+        let mut sources = SourceSink::new(None, request.maximum_output_bytes, request.maximum_document_bytes);
         let closure = self
-            .project_boxed(self.resolve_project_closure(request, Some(physical), cancel))?
+            .project_boxed(self.resolve_project_closure(request, Some(physical), cancel, &mut sources))?
             .await?;
-        let known_source_bytes = closure.documents.iter().map(|(_, b)| b.len() as u64).sum();
+        let known_source_bytes = sources.bytes;
         Ok(ProjectClosureExplanation {
             manifest: closure.manifest.clone(),
             known_source_bytes,
@@ -127,8 +126,9 @@ impl Runtime {
                 "metadata closure requires explicit descriptive-only selection",
             ));
         }
+        let mut sources = SourceSink::new(None, request.maximum_output_bytes, request.maximum_document_bytes);
         let closure = self
-            .project_boxed(self.resolve_project_closure(request, None, cancel))?
+            .project_boxed(self.resolve_project_closure(request, None, cancel, &mut sources))?
             .await?;
         Ok(ProjectClosureExplanation {
             manifest: closure.manifest.clone(),
@@ -141,6 +141,7 @@ impl Runtime {
         request: &ProjectExportRequest,
         physical: Option<PhysicalContext>,
         cancel: &crate::CancelSource,
+        sources: &mut SourceSink,
     ) -> Result<ResolvedClosure, WorkflowError> {
         super::study::creation_checkpoint(cancel)?;
         if request.maximum_document_bytes == 0
@@ -208,24 +209,16 @@ impl Runtime {
                 executable_complete: false,
                 descriptive_only: request.descriptive_only,
             },
-            documents: Vec::new(),
             results: Vec::new(),
             artifacts: Vec::new(),
             protections: Vec::new(),
-            _owners: Vec::new(),
         };
-        let mut packages = BTreeMap::new();
-        if let Some(selected) = selected {
-            packages.insert(request.selection.revision.clone(), selected);
-        }
+        let mut selected = selected;
         let mut selections = request.research_selections.clone();
         let mut revisions = BTreeSet::from([request.selection.revision.clone()]);
         let mut datasets = Vec::new();
         let mut contexts = BTreeSet::new();
-        if let Some(research) = packages
-            .values()
-            .next()
-            .and_then(|p| p.research_source.as_ref())
+        if let Some(research) = selected.as_ref().and_then(|p| p.research_source.as_ref())
         {
             selections.push(research.selection.clone());
         }
@@ -235,21 +228,6 @@ impl Runtime {
                 .project_boxed(self.portable_study_definition(key, cancel))?
                 .await?;
             revisions.insert(definition.modeling_revision.clone());
-            if !request.descriptive_only {
-                let physical = self
-                    .project_boxed(self.physical_source(&definition.physical, cancel))?
-                    .await?;
-                if !packages.contains_key(&definition.modeling_revision) {
-                    let revision = store
-                        .revision(&definition.modeling_revision)
-                        .await?
-                        .ok_or_else(|| contract("study source unavailable"))?;
-                    let package = self
-                        .project_boxed(self.modeling_revision(revision, physical, BTreeMap::new()))?
-                        .await?;
-                    packages.insert(definition.modeling_revision.clone(), package);
-                }
-            }
             closure.manifest.studies.push(ProjectStudyClosure {
                 key: key.clone(),
                 definition,
@@ -334,22 +312,7 @@ impl Runtime {
                 .project_context_record(&key)
                 .await?
                 .ok_or_else(|| contract("selected research context unavailable"))?;
-            let selection = pse_operations::canonical_contexts::ContextSelection {
-                cut: pse_operations::canonical_contexts::ContextCut {
-                    issuing_store: store.issuing_store()?.into(),
-                    project: row.project.clone().into(),
-                    sequence: row.recorded_sequence,
-                },
-                effective_at_us: row.effective_from_us,
-                context: row.clone(),
-            };
             revisions.insert(row.revision.clone());
-            if !request.descriptive_only {
-                let package = self
-                    .project_boxed(self.project_context_reopen(&selection, cancel))?
-                    .await?;
-                packages.insert(row.revision.clone(), package);
-            }
             closure.manifest.contexts.push(row);
         }
         if request.descriptive_only {
@@ -448,7 +411,8 @@ impl Runtime {
                 closure.artifacts.push(read);
             }
         }
-        for revision in revisions {
+        // Hold the complete compact revision selection before source encoding.
+        for revision in &revisions {
             let row = store.revision(&revision).await?.ok_or_else(|| {
                 contract("required original source revision metadata unavailable")
             })?;
@@ -468,7 +432,7 @@ impl Runtime {
                     .manifest
                     .contexts
                     .iter()
-                    .find(|c| c.revision == revision);
+                    .find(|c| c.revision.as_str() == revision.as_str());
                 closure.manifest.sources.push(ProjectSourceClosure {
                     revision: revision.clone(),
                     source_identity: context.map(|c| c.source_identity.clone()),
@@ -478,43 +442,47 @@ impl Runtime {
                     physical_documents: Vec::new(),
                 });
                 closure.manifest.omissions.push(ProjectOmission{selection:format!("source:{revision}"),reason:"descriptive-only selection retains authenticated revision metadata; authored source objects, raw/curated data, physical documents and provider premises were not opened or copied".into(),required_for_execution:true});
-            } else if let std::collections::btree_map::Entry::Vacant(entry) =
-                packages.entry(revision)
-            {
-                let package = self
-                    .project_boxed(
-                        self.modeling_revision(
-                            row,
-                            physical
-                                .as_ref()
-                                .ok_or_else(|| {
-                                    contract(
-                                        "executable closure requires admitted physical context",
-                                    )
-                                })?
-                                .clone(),
-                            BTreeMap::new(),
-                        ),
-                    )?
-                    .await?;
-                entry.insert(package);
+            } else {
+                closure.protections.push(store.protect(row, std::time::Duration::from_secs(3600)).await?);
             }
         }
-        for (ordinal, (revision, package)) in packages.into_iter().enumerate() {
+        // Consume the already admitted origin first, preserving sorted revision ordinals for ids.
+        let mut ordered = revisions.into_iter().enumerate().collect::<Vec<_>>();
+        ordered.sort_by_key(|(_, revision)| revision != &request.selection.revision);
+        for (ordinal, revision) in ordered {
+            if request.descriptive_only { continue; }
             super::study::creation_checkpoint(cancel)?;
-            let recorded = store
-                .revision(&revision)
-                .await?
-                .ok_or_else(|| contract("selected original source unavailable"))?;
-            let protection = store
-                .protect(recorded, std::time::Duration::from_secs(3600))
-                .await?;
-            closure.protections.push(protection);
+            let recorded = closure.protections.iter()
+                .find(|protection| protection.revision().key == revision)
+                .ok_or_else(|| contract("selected source lacks original protection"))?
+                .revision().clone();
+            let package = if let Some(context) = closure.manifest.contexts.iter().rev()
+                .find(|context| context.revision == revision) {
+                let selection = pse_operations::canonical_contexts::ContextSelection {
+                    cut: pse_operations::canonical_contexts::ContextCut {
+                        issuing_store: store.issuing_store()?.into(), project: context.project.clone().into(),
+                        sequence: context.recorded_sequence,
+                    },
+                    effective_at_us: context.effective_from_us, context: context.clone(),
+                };
+                if revision == request.selection.revision { drop(selected.take()); }
+                self.project_boxed(self.project_context_reopen(&selection, cancel))?.await?
+            } else if revision == request.selection.revision {
+                selected.take().ok_or_else(|| contract("selected origin was not admitted"))?
+            } else {
+                let physical = if let Some(study) = closure.manifest.studies.iter()
+                    .find(|study| study.definition.modeling_revision == revision) {
+                    self.project_boxed(self.physical_source(&study.definition.physical, cancel))?.await?
+                } else {
+                    physical.as_ref().ok_or_else(|| contract("source requires admitted physical context"))?.clone()
+                };
+                self.project_boxed(self.modeling_revision(recorded, physical, BTreeMap::new()))?.await?
+            };
             let source_extent = package
                 .replay_source_extent()
                 .checked_mul(4)
                 .ok_or_else(|| contract("portable source extent"))?;
-            let owner = self
+            let _owner = self
                 .shared
                 .math()
                 .reserve("project:portable-source", source_extent)?;
@@ -539,10 +507,10 @@ impl Runtime {
                 }
             }
             let replay_id = format!("source-{ordinal}");
-            closure.documents.push((
-                replay_id.clone(),
-                encode(&replay, request.maximum_document_bytes)?,
-            ));
+            let encoded = encode(&replay, sources.document_limit())?;
+            sources.emit(&replay_id, &encoded, &cancel.token())?;
+            drop(encoded);
+            drop(replay);
             closure
                 .manifest
                 .members
@@ -556,7 +524,7 @@ impl Runtime {
                     path: path.clone(),
                     member: id.clone(),
                 });
-                closure.documents.push((id.clone(), bytes.clone()));
+                sources.emit(&id, &bytes, &cancel.token())?;
                 closure
                     .manifest
                     .members
@@ -564,11 +532,11 @@ impl Runtime {
             }
             let mut documents = Vec::new();
             // Typed edits can deliberately invalidate loader text. The exact replay source remains the ordinary source owner.
-            if let Some(sources) = package
+            if let Some(bundles) = package
                 .portability_documents(&self.source_services(), cancel)
                 .await?
             {
-                for (package_index, bundle) in sources.iter().enumerate() {
+                for (package_index, bundle) in bundles.iter().enumerate() {
                     for (index, (path, bytes)) in bundle.iter().enumerate() {
                         let id = format!("document-{ordinal}-{package_index}-{index}");
                         documents.push(ProjectDocumentMember {
@@ -576,7 +544,7 @@ impl Runtime {
                             path: path.clone(),
                             member: id.clone(),
                         });
-                        closure.documents.push((id.clone(), bytes.clone()));
+                        sources.emit(&id, &bytes, &cancel.token())?;
                         closure
                             .manifest
                             .members
@@ -592,8 +560,9 @@ impl Runtime {
                 replay_source: Some(replay_id),
                 physical_documents: physical_members,
             });
-            closure._owners.push(owner);
         }
+        closure.manifest.sources.sort_by(|left, right| left.revision.cmp(&right.revision));
+        closure.manifest.providers.sort_by(|left, right| (&left.name, &left.identity).cmp(&(&right.name, &right.identity)));
         // Artifacts use original protected reads and preserve their original encoding digests and ordinal extent.
         for (artifact_index, read) in closure.artifacts.iter().enumerate() {
             for ordinal in 0..read.header().block_count {

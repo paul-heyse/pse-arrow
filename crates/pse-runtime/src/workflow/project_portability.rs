@@ -2,14 +2,14 @@
 // Copyright (c) 2026 Paul Heyse
 //! Logical project exchange. Origin evidence never becomes receiving execution authority.
 use super::{PhysicalContext, ProjectSelection, Runtime, WorkflowError, contract};
-use crate::tooling::contained_copy;
+use super::portable_payload;
 use pse_model::document::Version;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::File,
     io::{Read, Seek, SeekFrom, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 pub use pse_operations::canonical_project_imports::ProjectImportIntent;
@@ -267,6 +267,62 @@ fn decode<T: serde::de::DeserializeOwned>(
     }
     serde_json::from_slice(&bytes).map_err(|e| contract(format!("project codec: {e}")))
 }
+/// One source traversal targets either contained staging or a checksum/count sink.
+/// Receipts are compact; encoded documents are borrowed only for the current emission.
+pub(super) struct SourceSink {
+    destination: Option<PathBuf>,
+    root: Option<PathBuf>,
+    remaining: u64,
+    maximum_document_bytes: usize,
+    pub(super) bytes: u64,
+    pub(super) receipts: Vec<(String, u64, String)>,
+}
+impl SourceSink {
+    pub(super) fn new(destination: Option<&Path>, maximum: u64, maximum_document_bytes: usize) -> Self {
+        Self { destination: destination.map(Path::to_owned), root: None,
+            remaining: maximum, maximum_document_bytes, bytes: 0, receipts: Vec::new() }
+    }
+    pub(super) fn document_limit(&self) -> usize {
+        self.maximum_document_bytes.min(usize::try_from(self.remaining).unwrap_or(usize::MAX))
+    }
+    pub(super) fn root(&mut self) -> Result<PathBuf, WorkflowError> {
+        if let Some(root) = &self.root { return Ok(root.clone()); }
+        let destination = self.destination.as_ref()
+            .ok_or_else(|| contract("counting source traversal has no destination"))?;
+        std::fs::create_dir(destination).map_err(io)?;
+        let root = destination.canonicalize().map_err(io)?;
+        std::fs::create_dir(root.join("members")).map_err(io)?;
+        std::fs::create_dir(root.join(".staging")).map_err(io)?;
+        self.root = Some(root.clone());
+        Ok(root)
+    }
+    pub(super) fn emit(
+        &mut self, id: &str, bytes: &[u8], token: &pse_columnar::CancellationToken,
+    ) -> Result<(), WorkflowError> {
+        token.checkpoint().map_err(pse_engine::EngineError::from)?;
+        let extent = u64::try_from(bytes.len()).map_err(|_| contract("source document extent"))?;
+        if extent > self.remaining || bytes.len() > self.maximum_document_bytes {
+            return Err(contract("project source document/output allowance exhausted"));
+        }
+        let digest = pse_ids::encoding_checksum(bytes).content_hash().to_hex();
+        if self.destination.is_some() {
+            let root = self.root()?;
+            let mut output = std::fs::OpenOptions::new().write(true).create_new(true)
+                .open(root.join(".staging").join(id)).map_err(io)?;
+            portable_payload::copy_exact(&mut &bytes[..], &mut output, extent, || {
+                if token.is_cancelled() {
+                    Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "project copy cancelled"))
+                } else { Ok(()) }
+            }).map_err(io)?;
+            output.sync_all().map_err(io)?;
+        }
+        self.remaining -= extent;
+        self.bytes = self.bytes.checked_add(extent).ok_or_else(|| contract("source document extent"))?;
+        self.receipts.push((id.to_owned(), extent, digest));
+        Ok(())
+    }
+}
+
 pub(super) fn encode<T: Serialize>(value: &T, maximum: usize) -> Result<Vec<u8>, WorkflowError> {
     // serde's bounded writer avoids allocating an unbounded document before checking it.
     struct Output {
@@ -312,20 +368,20 @@ impl ProjectBundleReader {
             .map_err(io)?,
         );
         let manifest_file =
-            contained_copy::open_contained(&directory, "project.json").map_err(io)?;
+            portable_payload::open_contained(&directory, "project.json").map_err(io)?;
         let (_, digest) = checksum(
             manifest_file.try_clone().map_err(io)?,
             maximum_document_bytes as u64,
         )?;
         // try_clone shares the open description offset; reopen the manifest for decoding.
         let manifest: ProjectManifest = decode(
-            contained_copy::open_contained(&directory, "project.json").map_err(io)?,
+            portable_payload::open_contained(&directory, "project.json").map_err(io)?,
             maximum_document_bytes,
         )?;
         validate_manifest(&manifest)?;
         for member in &manifest.members {
             let file =
-                contained_copy::open_contained(&directory, &member.relative_path).map_err(io)?;
+                portable_payload::open_contained(&directory, &member.relative_path).map_err(io)?;
             if file.metadata().map_err(io)?.len() != member.copied_bytes {
                 return Err(contract("project member extent differs"));
             }
@@ -338,8 +394,8 @@ impl ProjectBundleReader {
                     .result
                     .as_ref()
                     .ok_or_else(|| contract("result member lacks original scientific selection"))?;
-                crate::tooling::review_pack::validate_scientific_ipc(
-                    contained_copy::open_contained(&directory, &member.relative_path)
+                portable_payload::validate_scientific_ipc(
+                    portable_payload::open_contained(&directory, &member.relative_path)
                         .map_err(io)?,
                     member.copied_bytes,
                     maximum_document_bytes,
@@ -352,7 +408,7 @@ impl ProjectBundleReader {
                 hash.str("pse.execution.result-payload.v1");
                 hash.part_reader(
                     member.copied_bytes,
-                    &mut contained_copy::open_contained(&directory, &member.relative_path)
+                    &mut portable_payload::open_contained(&directory, &member.relative_path)
                         .map_err(io)?,
                     &|| Ok(()),
                 )
@@ -462,7 +518,7 @@ impl ProjectBundleReader {
             .find(|m| m.id == id)
             .ok_or_else(|| contract("unindexed project member"))?;
         let file =
-            contained_copy::open_contained(&self.directory, &member.relative_path).map_err(io)?;
+            portable_payload::open_contained(&self.directory, &member.relative_path).map_err(io)?;
         let (bytes, digest) = checksum(file.try_clone().map_err(io)?, member.copied_bytes)?;
         if bytes != member.copied_bytes || digest != member.digest {
             return Err(contract("project member changed after inspection"));
@@ -590,7 +646,7 @@ pub(super) fn validate_manifest(manifest: &ProjectManifest) -> Result<(), Workfl
         {
             return Err(contract("duplicate project member"));
         }
-        contained_copy::safe_relative(&member.relative_path).map_err(io)?;
+        portable_payload::safe_relative(&member.relative_path).map_err(io)?;
         if !member.relative_path.starts_with("members/")
             || !matches!(
                 member.codec.as_str(),
@@ -666,7 +722,7 @@ pub(super) fn validate_manifest(manifest: &ProjectManifest) -> Result<(), Workfl
         for documents in [&source.documents, &source.physical_documents] {
             let mut names = BTreeSet::new();
             for document in documents {
-                contained_copy::safe_relative(&document.path).map_err(io)?;
+                portable_payload::safe_relative(&document.path).map_err(io)?;
                 if document.package >= 1024
                     || !names.insert((document.package, &document.path))
                     || !ids.contains(document.member.as_str())
@@ -893,13 +949,11 @@ impl Runtime {
         physical: Option<PhysicalContext>,
         cancel: &crate::CancelSource,
     ) -> Result<ProjectManifest, WorkflowError> {
+        let mut sources = SourceSink::new(Some(destination), request.maximum_output_bytes, request.maximum_document_bytes);
         let mut closure = self
-            .project_boxed(self.resolve_project_closure(request, physical, cancel))?
+            .project_boxed(self.resolve_project_closure(request, physical, cancel, &mut sources))?
             .await?;
-        std::fs::create_dir(destination).map_err(io)?;
-        let root = destination.canonicalize().map_err(io)?;
-        std::fs::create_dir(root.join("members")).map_err(io)?;
-        std::fs::create_dir(root.join(".staging")).map_err(io)?;
+        let root = sources.root()?;
         let token = cancel.token();
         let mut total = 0u64;
         fn finish_member(
@@ -910,6 +964,7 @@ impl Runtime {
             token: &pse_columnar::CancellationToken,
             id: &str,
             bytes: u64,
+            expected_digest: Option<&str>,
         ) -> Result<(), WorkflowError> {
             *total = total
                 .checked_add(bytes)
@@ -924,8 +979,8 @@ impl Runtime {
                 .ok_or_else(|| contract("unselected project member"))?;
             let staged = root.join(".staging").join(id);
             let (actual, digest) = checksum(File::open(&staged).map_err(io)?, bytes)?;
-            if actual != bytes {
-                return Err(contract("short copied project member"));
+            if actual != bytes || expected_digest.is_some_and(|expected| expected != digest) {
+                return Err(contract("copied project member differs from its source receipt"));
             }
             File::open(&staged).map_err(io)?.sync_all().map_err(io)?;
             token.checkpoint().map_err(pse_engine::EngineError::from)?;
@@ -934,40 +989,10 @@ impl Runtime {
             m.digest = digest;
             Ok(())
         }
-        for (id, bytes) in &closure.documents {
+        for (id, bytes, digest) in &sources.receipts {
             super::study::creation_checkpoint(cancel)?;
-            let mut file = std::fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(root.join(".staging").join(id.as_str()))
-                .map_err(io)?;
-            contained_copy::copy_exact(
-                &mut bytes.as_slice(),
-                &mut file,
-                bytes.len() as u64,
-                || {
-                    if token.is_cancelled() {
-                        Err(std::io::Error::new(
-                            std::io::ErrorKind::Interrupted,
-                            "project copy cancelled",
-                        ))
-                    } else {
-                        Ok(())
-                    }
-                },
-            )
-            .map_err(io)?;
-            file.sync_all().map_err(io)?;
-            drop(file);
-            finish_member(
-                &root,
-                &mut closure.manifest,
-                &mut total,
-                request.maximum_output_bytes,
-                &token,
-                id,
-                bytes.len() as u64,
-            )?;
+            finish_member(&root, &mut closure.manifest, &mut total,
+                request.maximum_output_bytes, &token, id, *bytes, Some(digest))?;
         }
         for (id, reader) in &mut closure.results {
             let staging = root.join(".staging").join(id.as_str());
@@ -988,6 +1013,7 @@ impl Runtime {
                 &token,
                 id,
                 bytes,
+                None,
             )?;
         }
         for (artifact_index, read) in closure.artifacts.iter().enumerate() {
@@ -1014,7 +1040,7 @@ impl Runtime {
                     .create_new(true)
                     .open(root.join(".staging").join(&id))
                     .map_err(io)?;
-                contained_copy::copy_exact(
+                portable_payload::copy_exact(
                     &mut block.payload.as_slice(),
                     &mut file,
                     block.payload.len() as u64,
@@ -1040,6 +1066,7 @@ impl Runtime {
                     &token,
                     &id,
                     block.payload.len() as u64,
+                    None,
                 )?;
             }
         }
@@ -1050,7 +1077,7 @@ impl Runtime {
         let directory = File::open(&root).map_err(io)?;
         for m in &closure.manifest.members {
             let (bytes, digest) = checksum(
-                contained_copy::open_contained(&directory, &m.relative_path).map_err(io)?,
+                portable_payload::open_contained(&directory, &m.relative_path).map_err(io)?,
                 m.copied_bytes,
             )?;
             if bytes != m.copied_bytes || digest != m.digest {
@@ -1060,7 +1087,7 @@ impl Runtime {
         let bytes = encode(&closure.manifest, request.maximum_document_bytes)?;
         closure.renew().await?;
         super::study::creation_checkpoint(cancel)?;
-        contained_copy::publish_document(
+        portable_payload::publish_document(
             &root,
             ".project-manifest",
             "project.json",
@@ -1133,7 +1160,7 @@ pub struct ProjectImportRecoveryReport {
 impl ProjectBundleReader {
     fn manifest_bytes(&self) -> Result<Vec<u8>, WorkflowError> {
         let mut bytes = Vec::new();
-        contained_copy::open_contained(&self.directory, "project.json")
+        portable_payload::open_contained(&self.directory, "project.json")
             .map_err(io)?
             .take(self.maximum_document_bytes as u64 + 1)
             .read_to_end(&mut bytes)
@@ -1182,7 +1209,7 @@ impl ProjectBundleReader {
                 file: &mut file,
                 hash: pse_ids::EncodingHasher::new(),
             };
-            contained_copy::copy_exact(&mut source, &mut output, member.copied_bytes, || {
+            portable_payload::copy_exact(&mut source, &mut output, member.copied_bytes, || {
                 if cancel.token().is_cancelled() {
                     Err(std::io::Error::new(
                         std::io::ErrorKind::Interrupted,

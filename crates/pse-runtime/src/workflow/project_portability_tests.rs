@@ -382,7 +382,7 @@ fn project_portability_interrupted_final_manifest_publication_leaves_only_partia
     let root = tempfile::tempdir().unwrap();
     std::fs::create_dir(root.path().join("members")).unwrap();
     std::fs::write(root.path().join("members/copied.bin"), b"copied bytes").unwrap();
-    let result = contained_copy::publish_document(
+    let result = portable_payload::publish_document(
         root.path(),
         ".project-manifest",
         "project.json",
@@ -968,4 +968,45 @@ async fn project_portability_descriptive_export_never_hydrates_missing_selected_
     drop(reader);
     drop(source);
     drop(runtime);
+}
+
+#[test]
+fn source_sinks_share_exact_receipts_and_refuse_before_copying() {
+    let root = tempfile::tempdir().unwrap();
+    let destination = root.path().join("bundle");
+    let token = pse_columnar::CancellationToken::new();
+    let mut count = SourceSink::new(None, 9, 8);
+    let mut export = SourceSink::new(Some(&destination), 9, 8);
+    for (id, bytes) in [("one", b"abc".as_slice()), ("two", b"defghi".as_slice())] {
+        count.emit(id, bytes, &token).unwrap();
+        export.emit(id, bytes, &token).unwrap();
+    }
+    assert_eq!(count.bytes, 9);
+    assert_eq!(count.receipts, export.receipts);
+    for (id, bytes, digest) in &export.receipts {
+        let stored = std::fs::read(destination.join(".staging").join(id)).unwrap();
+        assert_eq!(stored.len() as u64, *bytes);
+        assert_eq!(&pse_ids::encoding_checksum(&stored).content_hash().to_hex(), digest);
+    }
+    assert!(count.emit("over", b"x", &token).is_err());
+    assert!(export.emit("over", b"x", &token).is_err());
+    assert!(!destination.join(".staging/over").exists());
+    assert!(!destination.join("project.json").exists());
+    let untouched = root.path().join("untouched");
+    let mut short = SourceSink::new(Some(&untouched), 2, 8);
+    assert_eq!(short.document_limit(), 2);
+    assert!(short.emit("one", b"abc", &token).is_err());
+    assert!(!untouched.exists());
+}
+
+#[test]
+fn source_sink_cancellation_leaves_no_published_or_copied_unit() {
+    let root = tempfile::tempdir().unwrap();
+    let destination = root.path().join("bundle");
+    let token = pse_columnar::CancellationToken::new();
+    token.cancel();
+    let mut sink = SourceSink::new(Some(&destination), 10, 10);
+    assert!(sink.emit("one", b"abc", &token).is_err());
+    assert!(sink.receipts.is_empty());
+    assert!(!destination.exists());
 }

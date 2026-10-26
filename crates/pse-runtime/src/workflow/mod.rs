@@ -216,6 +216,7 @@ mod simulation_request;
 pub use simulation_request::{PhysicalFitRequest, PhysicalSimulationRequest};
 mod lifecycle;
 pub(crate) mod modeling;
+pub(crate) mod portable_payload;
 mod project_closure;
 mod project_contexts;
 mod project_portability;
