@@ -130,6 +130,26 @@ def native_report(error: BaseException) -> DiagnosticReport | None:
     return None
 
 
+def failure_remedy(boundary_class: object, failure_class: object) -> str:
+    """Describe the typed failure without inferring effect absence or replay permission."""
+    selected = boundary_class if isinstance(boundary_class, str) else failure_class
+    if not isinstance(selected, str):
+        return "Inspect original owner state and the typed failure before deciding whether another action is safe. No automatic retry is authorized."
+    if selected in {"resource_limit", "runtime.resource_limit", "runtime.timeout", "solve.limit"}:
+        return "Inspect original owner state and the operation's resource, effort and deadline allowances before selecting another action. No automatic retry is authorized."
+    if selected in {"cancelled", "runtime.cancelled"}:
+        return "Inspect original owner state and confirm that admitted work has drained before selecting another action. Cancellation does not prove that effects are absent."
+    if selected in {"internal", "internal.invariant", "infrastructure", "runtime.infrastructure"}:
+        return "Inspect original owner state and the retained failure diagnostics; establish effect and integrity state before selecting another action. Diagnose the owning service before changing supplied input."
+    if selected in {"unsupported", "capability.backend"}:
+        return "Inspect the selected operation's published capabilities and configuration. Preserve the original operation and settle any effects before selecting another action."
+    if selected in {"trial_rejected", "nonfinite", "numerical", "inconclusive", "solve.evaluation_error", "solve.solver_error"}:
+        return "Inspect original owner state, native observations and original scientific assessments. Retained diagnostic values do not grant scientific permission or automatic retry."
+    if selected in {"invalid_model", "incompatible", "input", "authoring.parse", "authoring.reference", "compile.math", "config.invalid", "user.model"}:
+        return "Correct the selected input using its published schema and attributed scientific requirements. Inspect original owner state before deciding whether another action is safe."
+    return "Inspect original owner state and the typed failure before deciding whether another action is safe. No automatic retry is authorized."
+
+
 def scientific_error(
     error: Exception, *, operation: str | None = None
 ) -> dict[str, object]:
@@ -137,8 +157,8 @@ def scientific_error(
     report = native_report(error)
     value: dict[str, object] = {
         "cause": type(error).__name__,
-        "message": "Native receiver refused the selected input; supplied values are redacted.",
-        "remedy": "Correct the selected input using its published schema. Inspect original owner state before deciding whether another action is safe.",
+        "message": "Native operation failed; supplied values and private diagnostics are redacted.",
+        "remedy": "Inspect original owner state and the typed failure before deciding whether another action is safe. No automatic retry is authorized.",
     }
     if isinstance(error, StructuralInputError):
         value.update(
@@ -154,6 +174,8 @@ def scientific_error(
         "code",
         "reported_code",
         "failure_class",
+        "boundary_class",
+        "severity",
         "stage",
         "rule",
         "source_refusal_proved",
@@ -161,6 +183,15 @@ def scientific_error(
         item = getattr(report, field, None)
         if item is not None:
             value[field] = item
+    value["remedy"] = failure_remedy(value.get("boundary_class"), value.get("failure_class"))
+    observations = getattr(report, "observations", None)
+    if isinstance(observations, dict):
+        effect = getattr(observations.get("admission_effect"), "value", None)
+        if isinstance(effect, str) and effect in {"no_publication", "source_acknowledged", "unresolved_publication"}:
+            value["admission_effect"] = effect
+        integrity = getattr(observations.get("integrity_failure"), "value", None)
+        if integrity is True:
+            value["integrity_failure"] = True
     value["causes"] = [
         {
             "index": index,
@@ -245,11 +276,18 @@ def scientific_error(
             and all(c.isascii() and (c.isalnum() or c in "-_:.") for c in item)
         ):
             recovery[field] = item
+    if value.get("admission_effect") == "source_acknowledged" and isinstance(observations, dict):
+        revision = getattr(observations.get("source_revision"), "value", None)
+        if isinstance(revision, str) and revision and len(revision) <= 160 and all(c.isascii() and (c.isalnum() or c in "-_:") for c in revision):
+            recovery["source_revision"] = revision
     if recovery:
         value["recovery"] = recovery
         value["remedy"] = (
-            "Inspect the original owner using these issued references; settle uncertain work before any repeat action. No automatic retry is authorized."
+            str(value["remedy"])
+            + " Inspect the original owner using these issued references; settle uncertain work before any repeat action. No automatic retry is authorized."
         )
+    if value.get("admission_effect") == "unresolved_publication":
+        value["remedy"] = str(value["remedy"]) + " Read back the original publication occurrence; its outcome remains unresolved."
     value["complete"] = (
         len(report.causes) <= 16
         and len(report.source_locations) <= 16

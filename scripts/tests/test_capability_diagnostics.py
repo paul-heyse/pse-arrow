@@ -252,5 +252,45 @@ class DiagnosticTests(unittest.TestCase):
         self.assertNotIn("recovery", native_worker.scientific_error(cycle))
 
 
+
+class NativeFailureRemedyTests(unittest.TestCase):
+    def test_remedies_follow_typed_boundary_class_instead_of_exception_prose(self) -> None:
+        for boundary_class, expected in [
+            ("resource_limit", "resource, effort and deadline"),
+            ("cancelled", "work has drained"),
+            ("internal", "effect and integrity state"),
+            ("infrastructure", "effect and integrity state"),
+            ("unsupported", "published capabilities"),
+            ("trial_rejected", "scientific assessments"),
+            ("invalid_model", "attributed scientific requirements"),
+        ]:
+            report = DiagnosticTests.report(boundary_class=boundary_class)
+            value = native_worker.scientific_error(DiagnosticTests.error(report))
+            self.assertEqual(value["boundary_class"], boundary_class)
+            self.assertIn(expected, text(value["remedy"]))
+            self.assertNotIn("secret", json.dumps(value))
+            self.assertNotIn("forged-operation", json.dumps(value))
+
+    def test_typed_effects_and_integrity_are_allowlisted_without_private_observation_text(self) -> None:
+        report = DiagnosticTests.report(
+            boundary_class="infrastructure",
+            source_problem="original-problem",
+            source_operation="original-operation",
+            observations={
+                "admission_effect": SimpleNamespace(value="unresolved_publication"),
+                "integrity_failure": SimpleNamespace(value=True),
+                "detail": SimpleNamespace(value="secret private source text"),
+            },
+        )
+        value = native_worker.scientific_error(DiagnosticTests.error(report))
+        self.assertEqual(value["admission_effect"], "unresolved_publication")
+        self.assertTrue(value["integrity_failure"])
+        self.assertIn("Read back the original publication occurrence", text(value["remedy"]))
+        self.assertIn("original-operation", json.dumps(value["recovery"]))
+        self.assertNotIn("secret", json.dumps(value))
+        report.observations["admission_effect"] = SimpleNamespace(value="secret forged effect")
+        self.assertNotIn("admission_effect", native_worker.scientific_error(DiagnosticTests.error(report)))
+
+
 if __name__ == "__main__":
     unittest.main()
