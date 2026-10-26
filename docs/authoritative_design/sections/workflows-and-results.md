@@ -129,7 +129,7 @@ declared parts of the prepared profile:
 
 | Need | Current operation |
 |---|---|
-| Change parameter values or horizon | `PreparedSimulation::rebind` prepares new immutable case bindings; unaffected bodies and artifacts are shared by semantic identity |
+| Change parameter values or horizon | `MathService::rebind` prepares new immutable case bindings; unaffected bodies and artifacts are shared by semantic identity |
 | Piecewise-constant inputs | Scheduled inputs (`Profile.schedule`: per input, its contract parameter and strictly increasing change times after the start, a change at the end observed by the final sample only). Each interval's value is its own integration parameter, so forward and adjoint sensitivities are taken with respect to every interval, across every change, on both integrators; IDAS restarts in place at each change ([§13.6](#section-13-6)). An integration fixture declares one as `schedule u at(t₁, …) values(v₀, …);`, and a schedule held `free` (with optional `lower`/`upper`) is a shooting control |
 | Mode switches and state jumps | Authored fixture `mode` and `event guard direction(…) tolerance(…) reset(…) next(…)` clauses: guard row, complete reset rows, crossing direction (`EventDirection`), next mode and guard tolerance, all within one state/parameter layout; a directional event routes to IDAS, and IDAS events run without forward sensitivities |
 | Different initial state | Initial rows evaluated from time and parameters; change the parameters or declaration, not a stored trajectory |
