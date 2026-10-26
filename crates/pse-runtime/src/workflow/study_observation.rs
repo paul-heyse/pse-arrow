@@ -405,6 +405,7 @@ impl StudyObserver {
         let mut output = Vec::new();
         let mut remaining = self.cursor.request.maximum_events;
         for (attempt, _) in attempts {
+            let parent = attempt.run == self.cursor.context.run;
             let position = self
                 .cursor
                 .sources
@@ -416,7 +417,36 @@ impl StudyObserver {
             let mut coverage = None;
             let mut history_refusal = None;
             let mut continuity = StudyObservationContinuity::CatchUp;
-            if attempt.terminal && !position.history_complete && remaining > 0 {
+            let summary = if parent && attempt.terminal {
+                let original = self
+                    .runtime
+                    .canonical_store()?
+                    .canonical_attempt(&attempt.key)
+                    .await?
+                    .ok_or_else(|| contract("observed parent attempt absent"))?;
+                if original.run != attempt.run
+                    || original.key != attempt.key
+                    || !original.terminal()
+                {
+                    return Err(contract("observed parent attempt identity differs"));
+                }
+                original
+                    .completion
+                    .as_ref()
+                    .map(|bytes| super::study::summary_conclusion(bytes.as_slice()))
+                    .transpose()?
+                    .flatten()
+            } else {
+                None
+            };
+            if summary.is_some() {
+                // A parent joins point outcomes; it never ran numerical callbacks.
+                // The selected study status retains its original parent outcome,
+                // while absent progress counters must not become sampled coverage.
+                coverage = Some(super::ProgressCoverage::Unknown {});
+                continuity = StudyObservationContinuity::HistoryUnavailable;
+                position.history_complete = true;
+            } else if attempt.terminal && !position.history_complete && remaining > 0 {
                 let history = match self
                     .runtime
                     .progress(&position.run, &position.attempt, self.cancel.child_token())
@@ -645,6 +675,71 @@ mod canonical_tests {
         canonical_execution::{ResultPayload, SeedEligibility, TerminalClass},
         canonical_studies::point_key,
     };
+    #[tokio::test]
+    async fn study_observer_terminal_parent_conclusion_has_no_numeric_history() {
+        let runtime = crate::workflow::durable_tests::durable_runtime();
+        let physical = crate::workflow::study_workbench::canonical_tests::physical(&runtime).await;
+        let store = runtime.canonical_store().unwrap();
+        let source = store
+            .edit("observed-summary-source", None, "source", &[])
+            .await
+            .unwrap();
+        let study = pse_operations::mint_id::<pse_ids::SemanticId>().to_string();
+        crate::workflow::study_workbench::canonical_tests::create(
+            &runtime, &study, &source, &physical, 1,
+        )
+        .await;
+        // Effect-free cancellation settles the point without constructing a
+        // scientific completion or a numerical progress stream for either run.
+        store.cancel_study(&study).await.unwrap();
+        let scope = store
+            .study_scope(&point_key(&study, OccurrenceKey(0)))
+            .await
+            .unwrap();
+        store
+            .refuse_study_point(&scope, &scope.action(None).unwrap(), None)
+            .await
+            .unwrap();
+        assert!(runtime.finalize_canonical_study(&study).await.unwrap());
+        let mut observer = runtime
+            .observe_study(
+                StudyObservationRequest {
+                    study: study.clone(),
+                    maximum_members: 1,
+                    maximum_events: 1,
+                },
+                None,
+            )
+            .await
+            .unwrap();
+        for _ in 0..2 {
+            let page = observer.poll().await.unwrap();
+            assert_eq!(page.status.header.study, study);
+            assert!(page.status.header.cancelled);
+            assert!(page.status.header.terminal);
+            assert_eq!(page.status.receipt.member_count, 1);
+            let parent = page
+                .sources
+                .iter()
+                .find(|source| source.position.run == page.status.header.run)
+                .unwrap();
+            assert_eq!(
+                parent.continuity,
+                StudyObservationContinuity::HistoryUnavailable
+            );
+            assert!(parent.position.history_complete);
+            assert!(parent.events.is_empty());
+            assert!(parent.checkpoint.is_none());
+            assert!(matches!(
+                parent.coverage,
+                Some(crate::workflow::ProgressCoverage::Unknown {})
+            ));
+            assert!(parent.history_refusal.is_none());
+        }
+        drop(observer);
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
     #[tokio::test]
     async fn study_observer_public_disconnect_reconnect_reads_full_history_or_reports_missing_prefix()
      {

@@ -1121,14 +1121,15 @@ impl ResultReader {
                     .ok_or_else(|| contract("selected output block lacks index"))?;
                 let Some((selected, rows)) = select_original_rows(
                     &self.services,
-                    self.relation,
-                    filter,
-                    self.native_selection.as_deref(),
+                    OriginalRowSelection {
+                        relation: self.relation,
+                        filter,
+                        native: self.native_selection.as_deref(),
+                    },
                     &metadata,
                     indexes,
                     checked,
-                    self.start,
-                    self.end,
+                    self.start..self.end,
                     &self.cancel,
                 )?
                 else {
@@ -1796,16 +1797,21 @@ pub(super) fn output_filter(
     Ok(Arc::new(filter))
 }
 
+/// One relation-shaped scientific predicate shared by original and cohort readers.
+#[derive(Debug)]
+pub(super) struct OriginalRowSelection<'a> {
+    pub relation: pse_ids::SemanticId,
+    pub filter: &'a OutputFilter,
+    pub native: Option<&'a super::result_snapshot::NativeResultSelection>,
+}
+
 pub(super) fn select_original_rows(
     services: &SourceServices,
-    relation: pse_ids::SemanticId,
-    filter: &OutputFilter,
-    native_selection: Option<&super::result_snapshot::NativeResultSelection>,
+    selection: OriginalRowSelection<'_>,
     metadata: &BlockMetadata,
     indexes: OutputRows,
     checked: pse_relations::columnar::FieldCheckedBatch,
-    start: u64,
-    end: u64,
+    range: std::ops::Range<u64>,
     cancel: &CancellationToken,
 ) -> Result<
     Option<(
@@ -1814,8 +1820,13 @@ pub(super) fn select_original_rows(
     )>,
     WorkflowError,
 > {
-    let lower = start.max(metadata.start);
-    let upper = end.min(metadata.end);
+    let OriginalRowSelection {
+        relation,
+        filter,
+        native: native_selection,
+    } = selection;
+    let lower = range.start.max(metadata.start);
+    let upper = range.end.min(metadata.end);
     if lower >= upper {
         return Ok(None);
     }
@@ -1906,8 +1917,8 @@ pub(super) fn select_original_rows(
                 min = min.min(value.time);
                 max = max.max(value.time);
                 let coordinate = metadata.start + row as u64;
-                if coordinate >= start
-                    && coordinate < end
+                if coordinate >= range.start
+                    && coordinate < range.end
                     && filter.minimum.is_none_or(|lower| value.time >= lower)
                     && filter.maximum.is_none_or(|upper| value.time <= upper)
                 {

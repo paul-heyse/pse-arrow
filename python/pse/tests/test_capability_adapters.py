@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -14,6 +15,7 @@ from unittest.mock import patch
 
 import pytest
 from fastmcp import Client
+from fastmcp.client.transports import StdioTransport
 from scripts.capabilities import native_worker
 from scripts.capabilities.native_schema import JSON_OBJECT
 from scripts.capabilities.server import build
@@ -38,7 +40,9 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def invoke(operation: str, arguments: dict[str, JsonValue]) -> dict[str, JsonValue]:
+def invoke(
+    operation: str, arguments: dict[str, JsonValue], *, stdio: bool = False
+) -> dict[str, JsonValue]:
     async def consume() -> dict[str, JsonValue]:
         runtime = build(ROOT)
         capability = "native_" + operation
@@ -49,7 +53,18 @@ def invoke(operation: str, arguments: dict[str, JsonValue]) -> dict[str, JsonVal
             if tool.annotations.read_only_hint
             else "capabilities_invoke_action"
         )
-        async with Client(runtime.server) as client:
+        transport = (
+            StdioTransport(
+                command=sys.executable,
+                args=["-B", "-m", "scripts.capabilities"],
+                cwd=str(ROOT),
+                env=dict(os.environ),
+                keep_alive=False,
+            )
+            if stdio
+            else runtime.server
+        )
+        async with Client(transport) as client:
             await client.call_tool(
                 "capabilities_select", {"capabilities": [capability]}
             )
@@ -256,6 +271,7 @@ def test_capability_project_selection_metadata_and_retained_revision(
                 "reference": {"kind": "branch", "key": "capability-main"},
             },
         },
+        stdio=True,
     )
     assert selected["outcome"] == "selected", selected
     decoded = codec.decode_json(
@@ -267,7 +283,7 @@ def test_capability_project_selection_metadata_and_retained_revision(
     missing = tmp_path / "never-opened-offline-store"
     with monkeypatch.context() as offline:
         offline.setenv("PSE_SURREAL_STATE", str(missing))
-        bundle = invoke("project_bundle_inspect", {"path": str(pack)})
+        bundle = invoke("project_bundle_inspect", {"path": str(pack)}, stdio=True)
     assert bundle["outcome"] == "observed", bundle
     manifest = codec.decode_json(
         codec.encode_json(bundle["document"]), documents.ProjectManifestOutput
@@ -286,6 +302,7 @@ def test_capability_project_selection_metadata_and_retained_revision(
                 "cursor": None,
             },
         },
+        stdio=True,
     )
     assert metadata["outcome"] == "observed", metadata
     page = codec.decode_json(
@@ -300,6 +317,7 @@ def test_capability_project_selection_metadata_and_retained_revision(
             "revision": canonical,
             "logical": ["models/fixed.pse"],
         },
+        stdio=True,
     )
     assert source["outcome"] == "observed", source
     assert source["canonical_revision"] == canonical

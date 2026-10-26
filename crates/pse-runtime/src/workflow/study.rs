@@ -25,6 +25,56 @@ use std::{collections::BTreeMap, mem::size_of, sync::Arc, time::Duration};
 /// The most points one study holds.
 pub const MAXIMUM_STUDY_POINTS: usize = 100_000;
 
+/// The study owner seals a conclusion tuple, distinct from a scientific
+/// completion receipt. Object receipts belong to the existing recovery owner.
+pub(super) fn summary_conclusion(
+    bytes: &[u8],
+) -> Result<Option<pse_model::study::Conclusion>, WorkflowError> {
+    let value: serde_json::Value = serde_json::from_slice(bytes)
+        .map_err(|error| contract(format!("study summary conclusion: {error}")))?;
+    if !value.is_array() {
+        return Ok(None);
+    }
+    let (_, conclusion): (Version<1>, pse_model::study::Conclusion) = serde_json::from_value(value)
+        .map_err(|error| contract(format!("study summary conclusion: {error}")))?;
+    Ok(Some(conclusion))
+}
+
+#[cfg(test)]
+mod summary_conclusion_tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "finite owner-codec controls assert successful current decoding"
+    )]
+    use super::*;
+
+    #[test]
+    fn study_summary_conclusion_keeps_its_owner_and_current_version() {
+        let conclusion = pse_model::study::Conclusion {
+            availability: pse_model::study::Availability::None,
+            lifecycle: pse_model::study::StudyLifecycle::Terminal,
+        };
+        let bytes = serde_json::to_vec(&(Version::<1>, conclusion)).unwrap();
+        assert_eq!(summary_conclusion(&bytes).unwrap(), Some(conclusion));
+        assert!(
+            summary_conclusion(br#"[2,{"availability":"none","lifecycle":"terminal"}]"#).is_err()
+        );
+        assert!(summary_conclusion(br#"[1,{"availability":"none"}]"#).is_err());
+        assert!(
+            summary_conclusion(br#"[1,{"availability":"none","lifecycle":"terminal"},0]"#).is_err()
+        );
+    }
+
+    #[test]
+    fn study_summary_conclusion_leaves_object_receipts_with_recovery() {
+        assert_eq!(
+            summary_conclusion(br#"{"version":1,"inline":null}"#).unwrap(),
+            None
+        );
+        assert!(summary_conclusion(b"invalid completion").is_err());
+    }
+}
+
 /// The authored sources of a package closure, each document's exact bytes by path (a
 /// data document's included, ADR-0125): initial authored ingress only.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -1821,12 +1871,8 @@ impl Runtime {
                         .canonical_attempt(attempt)
                         .await?
                         .ok_or_else(|| contract("parent terminal attempt absent"))?;
-                    if actual.completion.as_ref().is_some_and(|bytes| {
-                        serde_json::from_slice::<(u8, pse_model::study::Conclusion)>(
-                            bytes.as_slice(),
-                        )
-                        .is_ok()
-                    }) {
+                    if actual.completion.as_ref().map(|bytes| summary_conclusion(bytes.as_slice()))
+                        .transpose()?.flatten().is_some() {
                         store.conclude_study(key).await?;
                         return Ok(true);
                     }

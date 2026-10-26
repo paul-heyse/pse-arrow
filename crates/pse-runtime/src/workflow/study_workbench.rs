@@ -445,13 +445,12 @@ impl FrozenStudyCohort {
         if request.maximum == 0 || request.maximum > maximum {
             return Err(contract("cohort page allowance outside bounds"));
         }
-        if let Some(cursor) = &request.cursor {
-            if cursor.issuing_store != self.receipt.issuing_store
+        if let Some(cursor) = &request.cursor
+            && (cursor.issuing_store != self.receipt.issuing_store
                 || cursor.capture != self.receipt.capture
-                || cursor.after >= count
-            {
-                return Err(contract("cohort cursor issuer or exact capture differs"));
-            }
+                || cursor.after >= count)
+        {
+            return Err(contract("cohort cursor issuer or exact capture differs"));
         }
         Ok(request.cursor.as_ref().map(|cursor| cursor.after))
     }

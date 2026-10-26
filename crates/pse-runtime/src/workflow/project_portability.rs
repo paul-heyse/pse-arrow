@@ -998,10 +998,9 @@ impl Runtime {
             total: &mut u64,
             maximum: u64,
             token: &pse_columnar::CancellationToken,
-            id: &str,
-            bytes: u64,
-            expected_digest: Option<&str>,
+            receipt: (&str, u64, Option<&str>),
         ) -> Result<(), WorkflowError> {
+            let (id, bytes, expected_digest) = receipt;
             *total = total
                 .checked_add(bytes)
                 .ok_or_else(|| contract("project copied extent"))?;
@@ -1035,9 +1034,7 @@ impl Runtime {
                 &mut total,
                 request.maximum_output_bytes,
                 &token,
-                id,
-                *bytes,
-                Some(digest),
+                (id, *bytes, Some(digest)),
             )?;
         }
         for (id, reader) in &mut closure.results {
@@ -1057,9 +1054,7 @@ impl Runtime {
                 &mut total,
                 request.maximum_output_bytes,
                 &token,
-                id,
-                bytes,
-                None,
+                (id, bytes, None),
             )?;
         }
         for (artifact_index, read) in closure.artifacts.iter().enumerate() {
@@ -1110,9 +1105,7 @@ impl Runtime {
                     &mut total,
                     request.maximum_output_bytes,
                     &token,
-                    &id,
-                    block.payload.len() as u64,
-                    None,
+                    (&id, block.payload.len() as u64, None),
                 )?;
             }
         }

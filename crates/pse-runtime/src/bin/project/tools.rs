@@ -174,7 +174,7 @@ pub(crate) fn run(args: ProjectArgs) -> Result<()> {
                 store.open().await?;
                 match args.command {
                     ProjectCommand::InspectPack { .. } => {
-                        return Err("offline project inspection was not dispatched".into());
+                        Err("offline project inspection was not dispatched".into())
                     }
                     ProjectCommand::Navigate {
                         operation,
@@ -257,10 +257,10 @@ pub(crate) fn run(args: ProjectArgs) -> Result<()> {
                 }
             }
             .await;
-            let drained = store.disconnect().await;
-            let result = result?;
-            drained?;
-            Ok::<_, super::operator_error::Error>(result)
+            let drained = store
+                .drain_owned_connection_until(tokio::time::Instant::from_std(deadline))
+                .await;
+            super::operator_error::settle_action(result, drained.map_err(Into::into))
         },
     ))?;
     output(result)

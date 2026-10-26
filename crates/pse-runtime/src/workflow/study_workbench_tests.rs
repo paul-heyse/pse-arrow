@@ -88,15 +88,17 @@ async fn finish(
     owner: pse_ids::SemanticId,
     value: Option<f64>,
 ) {
-    finish_batched(runtime, study, key, quantity, unit, owner, value, 1).await;
+    finish_batched(runtime, study, key, (quantity, unit, owner), value, 1).await;
 }
 async fn finish_batched(
     runtime: &Runtime,
     study: &str,
     key: u32,
-    quantity: pse_ids::SemanticId,
-    unit: pse_ids::SemanticId,
-    owner: pse_ids::SemanticId,
+    coordinates: (
+        pse_ids::SemanticId,
+        pse_ids::SemanticId,
+        pse_ids::SemanticId,
+    ),
     value: Option<f64>,
     batch_count: usize,
 ) {
@@ -113,30 +115,22 @@ async fn finish_batched(
         )
         .await
         .unwrap();
-    finish_claimed(
-        runtime,
-        study,
-        key,
-        quantity,
-        unit,
-        owner,
-        value,
-        batch_count,
-        claim,
-    )
-    .await;
+    finish_claimed(runtime, study, key, coordinates, value, batch_count, claim).await;
 }
 async fn finish_claimed(
     runtime: &Runtime,
     study: &str,
     key: u32,
-    quantity: pse_ids::SemanticId,
-    unit: pse_ids::SemanticId,
-    owner: pse_ids::SemanticId,
+    coordinates: (
+        pse_ids::SemanticId,
+        pse_ids::SemanticId,
+        pse_ids::SemanticId,
+    ),
     value: Option<f64>,
     batch_count: usize,
     claim: pse_operations::canonical_studies::StudyClaim,
 ) {
+    let (quantity, unit, owner) = coordinates;
     let store = runtime.canonical_store().unwrap();
     let point = point_key(study, OccurrenceKey(key));
     if let Some(value) = value {
@@ -291,9 +285,7 @@ async fn workbench_actual_10000_mixed_members_compact_summary_and_shared_provide
             &runtime,
             &study,
             key,
-            quantity,
-            unit,
-            owner,
+            (quantity, unit, owner),
             Some(f64::from(key)),
             if key == 0 { 65 } else { 1 },
         )
@@ -407,9 +399,7 @@ async fn workbench_actual_10000_mixed_members_compact_summary_and_shared_provide
                     &writer,
                     &selected,
                     4096,
-                    quantity,
-                    unit,
-                    owner,
+                    (quantity, unit, owner),
                     Some(100000.0),
                     1,
                     claim,
@@ -1031,5 +1021,34 @@ async fn study_observer_public_reconnect_checks_authority_and_exit_preserves_sci
     let capture = page.status.receipt.capture.clone();
     drop(page);
     store.recover_study_capture(&capture).await.unwrap();
+    store.remove_isolated_fixture().await.unwrap();
+}
+
+#[tokio::test]
+async fn workbench_capture_continuation_survives_caller_close_and_terminal_drain_joins_release() {
+    use pse_operations::canonical::CanonicalError;
+    let runtime = flow::durable_tests::durable_runtime();
+    let store = runtime.canonical_store().unwrap().clone();
+    let capture = runtime
+        .freeze_study_cohort(StudyCohortRequest {
+            filter: StudyWorkbenchFilter::default(),
+            maximum_studies: 1,
+            maximum_members: 1,
+        })
+        .await
+        .unwrap();
+    runtime.close();
+    assert!(matches!(
+        store.disconnect().await,
+        Err(CanonicalError::ConnectionBusy { .. })
+    ));
+    drop(capture);
+    store
+        .drain_owned_connection_until(tokio::time::Instant::now() + Duration::from_secs(30))
+        .await
+        .unwrap();
+    // The original physical owner has completed every tracked release and SDK
+    // callback; a second close is idempotent, never evidence of scientific work.
+    store.disconnect().await.unwrap();
     store.remove_isolated_fixture().await.unwrap();
 }

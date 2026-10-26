@@ -172,9 +172,10 @@ fn capture_owner(
             })?;
         return Ok(StudyCapture(existing));
     }
+    let store = store.activity_store()?;
     store.result_read_drain.retain()?;
     let capture = Arc::new(CaptureOwner {
-        store: store.clone(),
+        store,
         key: key.into(),
         owner: owner.into(),
         request: request.to_vec(),
@@ -205,7 +206,7 @@ impl StudyCapture {
                 bytes.checked_add(
                     size_of::<CaptureOwner>()
                         + size_of::<((String, String, String), CaptureCustody)>()
-                        + 8 * size_of::<usize>()
+                        + size_of::<[usize; 8]>()
                         + self.0.key.capacity() * 2
                         + self.0.owner.capacity() * 2
                         + self.0.request.capacity() * 2

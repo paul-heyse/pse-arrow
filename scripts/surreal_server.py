@@ -451,7 +451,6 @@ def drain_borrowed_services(
                 or launch.get("binding") != expected
             ):
                 raise host_admission.AdmissionError("Borrowed storage binding changed")
-            expected = cast("host_admission.BoundUnit", expected)
             config = config_for(state, **options)
             if config.get("instance_id") != launch.get("generation"):
                 raise host_admission.AdmissionError(
@@ -8117,7 +8116,7 @@ def resume_backup(
     draft = read_json(directory / "backup.json")
     files = string_mapping(draft["files"])
     metadata = {
-        name: str(digest)
+        name: digest
         for name, digest in files.items()
         if Path(name).parts[0] != "payloads"
     }

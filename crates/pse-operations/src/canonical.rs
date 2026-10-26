@@ -2362,7 +2362,7 @@ impl CanonicalStore {
             return Err(CanonicalError::Timeout);
         }
         let deadline = sampled + std::time::Duration::from_nanos(expiry_monotonic_ns - now);
-        self.drain_connection_until(deadline).await
+        self.drain_owned_connection_until(deadline).await
     }
     /// Final fixture ownership may join terminal SDK callbacks after their reply
     /// woke the caller. Seal new admission before waiting for actual activity;
@@ -2374,10 +2374,16 @@ impl CanonicalStore {
     /// Only private initialization or final fixture ownership establishes that
     /// no caller can escape. Ordinary disconnect keeps its live-activity refusal.
     async fn drain_owned_connection(&self) -> Result<(), CanonicalError> {
-        self.drain_connection_until(original_deadline(REQUEST_TIMEOUT))
+        self.drain_owned_connection_until(original_deadline(REQUEST_TIMEOUT))
             .await
     }
-    async fn drain_connection_until(
+    /// Seal terminal-owner admission, join dropped-reader releases and SDK callbacks,
+    /// then disconnect under the original shutdown allowance. Live protected readers
+    /// still refuse; this grants no cancellation or early release of escaped work.
+    /// Ordinary shared callers should retain `disconnect`'s immediate busy refusal.
+    /// # Errors
+    /// Live readers, original release failures, deadline expiry or SDK drain failure.
+    pub async fn drain_owned_connection_until(
         &self,
         deadline: tokio::time::Instant,
     ) -> Result<(), CanonicalError> {

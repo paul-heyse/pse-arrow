@@ -260,8 +260,7 @@ mod tests {
                     .unwrap()
                     .columns
                     .len()
-                    + 1
-                    <= fields,
+                    < fields,
                 "{name}: native id plus actual declared fields must fit the locator allowance"
             );
         }

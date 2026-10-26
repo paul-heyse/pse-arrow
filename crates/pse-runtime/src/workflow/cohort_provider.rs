@@ -550,14 +550,15 @@ impl Scan {
                     .await?;
                 let Some((selected, _rows)) = connected_results::select_original_rows(
                     &self.state.services,
-                    self.state.relation,
-                    &self.state.filter,
-                    self.state.native.as_deref(),
+                    connected_results::OriginalRowSelection {
+                        relation: self.state.relation,
+                        filter: &self.state.filter,
+                        native: self.state.native.as_deref(),
+                    },
                     &item.block,
                     item.output,
                     checked,
-                    self.state.request.start,
-                    self.state.request.end,
+                    self.state.request.start..self.state.request.end,
                     &self.state.cancel,
                 )?
                 else {

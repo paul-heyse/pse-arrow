@@ -425,7 +425,7 @@ impl Runtime {
         }
         // Hold the complete compact revision selection before source encoding.
         for revision in &revisions {
-            let row = store.revision(&revision).await?.ok_or_else(|| {
+            let row = store.revision(revision).await?.ok_or_else(|| {
                 contract("required original source revision metadata unavailable")
             })?;
             closure
@@ -566,7 +566,7 @@ impl Runtime {
                     path: path.clone(),
                     member: id.clone(),
                 });
-                sources.emit(&id, &bytes, &cancel.token())?;
+                sources.emit(&id, bytes, &cancel.token())?;
                 closure
                     .manifest
                     .members
@@ -586,7 +586,7 @@ impl Runtime {
                             path: path.clone(),
                             member: id.clone(),
                         });
-                        sources.emit(&id, &bytes, &cancel.token())?;
+                        sources.emit(&id, bytes, &cancel.token())?;
                         closure
                             .manifest
                             .members

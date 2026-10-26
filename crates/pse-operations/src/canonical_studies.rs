@@ -1069,7 +1069,7 @@ impl CanonicalStore {
                                 if cancelled() {
                                     return self.stop_study_creation(&row, run, points).await;
                                 }
-                                self.install_study_page(&row.key, &digest, "nodes", node_cursor, &batch, &runs, &[]).await?;
+                                self.install_study_page(&row.key, &digest, "nodes", node_cursor, [&batch, &runs, &[]]).await?;
                                 node_cursor += batch.len() as u64;
                                 #[cfg(test)]
                                 creation_observed(CreationBoundary::BatchAppended);
@@ -1088,7 +1088,7 @@ impl CanonicalStore {
                             if cancelled() {
                                 return self.stop_study_creation(&row, run, points).await;
                             }
-                            self.install_study_page(&row.key, &digest, "nodes", node_cursor, &batch, &runs, &[]).await?;
+                            self.install_study_page(&row.key, &digest, "nodes", node_cursor, [&batch, &runs, &[]]).await?;
                             #[cfg(test)]
                             creation_observed(CreationBoundary::BatchAppended);
                         }
@@ -1109,7 +1109,7 @@ impl CanonicalStore {
                                 }
                                 edges.push(edge);
                                 if edges.len() == 64 {
-                                    self.install_study_page(&row.key, &digest, "edges", edge_cursor, &[], &[], &edges).await?;
+                                    self.install_study_page(&row.key, &digest, "edges", edge_cursor, [&[], &[], &edges]).await?;
                                     edge_cursor += edges.len() as u64;
                                     #[cfg(test)]
                                     creation_observed(CreationBoundary::DependencyBatchInstalled);
@@ -1118,7 +1118,7 @@ impl CanonicalStore {
                             }
                         }
                         if !edges.is_empty() {
-                            self.install_study_page(&row.key, &digest, "edges", edge_cursor, &[], &[], &edges).await?;
+                            self.install_study_page(&row.key, &digest, "edges", edge_cursor, [&[], &[], &edges]).await?;
                         }
                         #[cfg(test)]
                         creation_observed(CreationBoundary::BeforeActivation);
@@ -1281,10 +1281,9 @@ impl CanonicalStore {
         digest: &str,
         phase: &str,
         cursor: u64,
-        points: &[Object],
-        runs: &[Object],
-        edges: &[Object],
+        groups: [&[Object]; 3],
     ) -> Result<(), CanonicalError> {
+        let [points, runs, edges] = groups;
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut framing=pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
             framing.str("pse.study.installation.page.v1").str(study).str(digest).str(phase).u64(cursor);

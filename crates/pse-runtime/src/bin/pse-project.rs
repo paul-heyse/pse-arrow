@@ -31,6 +31,16 @@ fn main() -> std::process::ExitCode {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("pse-project: {error}");
+            let mut cause = error.source();
+            // Keep the original operation cause visible through typed wrappers.
+            // A malformed cyclic external source chain cannot loop the operator.
+            for _ in 0..16 {
+                let Some(source) = cause else {
+                    break;
+                };
+                eprintln!("  caused by: {source}");
+                cause = source.source();
+            }
             std::process::ExitCode::FAILURE
         }
     }
