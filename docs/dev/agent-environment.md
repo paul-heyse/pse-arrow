@@ -58,7 +58,10 @@ scripts/pse-env --print                    # shell exports (direnv, the Claude h
 
 The launcher itself uses the checkout `.venv/bin/python` when available, before
 performing host admission or inspecting native module archives. System Python is only
-a bootstrap fallback before that environment exists.
+a bootstrap fallback before that environment exists. Allocation-binding reentry retains that
+same controller interpreter, independently of the selected workload environment. A docs-only
+command therefore uses `.venv-docs` for publication while host allocation control keeps its
+checkout-installed typed contracts.
 
 **Composition, in precedence order:** command options, then values the caller already has,
 then `.envrc.local` (personal, gitignored) for anything unset, then repository defaults:

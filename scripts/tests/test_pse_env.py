@@ -1048,6 +1048,37 @@ class PseEnvTests(unittest.TestCase):
         self.assertEqual(env["CARGO_BUILD_JOBS"], "4")
         self.assertEqual(env[pse_env.CARGO_DEFAULT_JOBS], "4")
 
+    def test_docs_placement_retains_host_interpreter_and_selected_workload(
+        self,
+    ) -> None:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.profile = pse_env.host.select("light")
+        owner.directory = self.root / "allocation"
+        owner.nonce = "a" * 32
+        owner.environment.return_value = {
+            pse_env.host.MARKER: str(owner.directory / owner.nonce)
+        }
+        selected = str(self.root / ".venv-docs")
+        env = {
+            "UV_PROJECT_ENVIRONMENT": selected,
+            "PSE_NATIVE_SETUP_PYTHON": selected + "/bin/python",
+            "PSE_RESOURCE_CLASS": "light",
+        }
+        with (
+            patch.object(pse_env.host, "inherit", return_value=None),
+            patch.object(pse_env.host, "acquire", return_value=owner),
+            patch.object(pse_env.host, "enforce_parent"),
+            patch.object(pse_env.host, "enforce_allocation"),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
+            patch.object(pse_env, "manager_available", return_value=True),
+        ):
+            prefix = pse_env.placement(env, native=False)
+        binding = prefix.index("--bind-allocation")
+        self.assertEqual(prefix[binding - 2], sys.executable)
+        self.assertNotEqual(prefix[binding - 2], env["PSE_NATIVE_SETUP_PYTHON"])
+        self.assertEqual(env["UV_PROJECT_ENVIRONMENT"], selected)
+        self.assertEqual(prefix[-1], "--")
+
     def test_control_environment_does_not_prepare_compiler(self) -> None:
         deadline = time.monotonic() + 1
         with patch.object(

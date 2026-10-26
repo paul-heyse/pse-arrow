@@ -619,7 +619,9 @@ def placement(env: dict[str, str], *, native: bool) -> list[str]:
     return [
         *command,
         "--",
-        setup_python(ROOT, env),
+        # Allocation control retains this boundary's interpreter. A selected
+        # workload environment (for example docs-only) need not install host contracts.
+        sys.executable,
         str(ROOT / "scripts/pse_env.py"),
         "--bind-allocation",
         unit,
