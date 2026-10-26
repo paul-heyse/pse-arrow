@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 289
+revision: 290
 date: 2026-10-26
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 290 | 2026-10-26 | Select finite operation projections, actual producing/installed currency and foreground-owned admitted read lifetime (§21.1/§24.1). | Maintainer-selected RC06 and authorized remaining Plan56e/f/g; proposed ADR-0231 independently Accept at Proposed design evidence. PSE_DESIGN_EDIT=1; actual implementation and qualification remain with F/G. |
 | 289 | 2026-10-26 | Publish implemented product/private ownership, prepared frozen launch, bounded capture and fused offline integrity contracts (§3.2/§19.3/§20.6), with selected public 10,000-point acceptance and qualification limits (§24.2). | Authorized joint Plan56d/56e execution under proposed ADR-0229/0230; PSE_DESIGN_EDIT=1. Owning Outcomes retain assembled qualification and exclusions; prior data/receipts and formal ADR status are preserved. |
 | 288 | 2026-10-26 | Name selected Plan56d fresh `pse.substrate.v10` target for installation/capture meaning (§20.5/§20.6), preserving prior v9 qualification. | Authorized joint D/E execution and proposed ADR-0230; PSE_DESIGN_EDIT=1. No old store or qualification artifact is migrated; current product/native acceptance remains open. |
 | 287 | 2026-10-26 | Select bounded population/publication and gated immutable cohort capture, exact protection/recovery and incremental exchange targets (§19.3/§20). | Authorized Plan56d execution; proposed ADR-0230 amended after failed ungated SSI and passing gated surrogate, independently reassessed Accept at Proposed design evidence; PSE_DESIGN_EDIT=1. Actual product delivery/10,000-point qualification and cap changes remain open. |

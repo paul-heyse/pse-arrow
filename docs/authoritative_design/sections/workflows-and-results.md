@@ -1546,6 +1546,10 @@ invent completion, redispatch native work or promise returned physical disk spac
 
 ### 21.1 Extension module, canonical operations and Arrow streams
 
+> Decision: [ADR-0231](../../adr/0231-retained-native-read-currency.md) (proposed; maintainer-selected Plan56 F02/F05/F06 target).
+
+A finite responsibility-owned operation declaration supplies stable public identity, typed request/result references, receiver category, defaults/bounds, effects, prerequisites and read-lifetime eligibility. Generate mechanical host projections while preserving typed receiver glue. Supplied-only tooling evidence comparison retains executable currency without acquiring a scientific extension or store prerequisite. Actual producer association and retained read qualification remain with Plan56f; declarations alone do not complete them.
+
 > Decision: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md) (proposed):
 > product and private declaration publication follow responsibility; scientific meaning stays
 > canonical. Plan56e owns migration and actual dependency/import qualification.

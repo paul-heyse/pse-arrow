@@ -628,6 +628,10 @@ owners cannot adequately serve; task integration also needs a compatible actual 
 positive selection preserves original provenance, native outcome and cancellation/drain authority
 and requires its own integration/acceptance. Framework availability alone is insufficient.
 
+> Decision: [ADR-0231](../../adr/0231-retained-native-read-currency.md) (proposed; maintainer-selected RC06 target).
+
+Qualified producing inputs and actual installed/loaded-image witnesses may support a foreground endpoint/workload-owned native read worker. Each bounded request retains its identity, original clock and worker/context incarnation. Unchanged source/physical/provider/preparation/deployment premises permit reuse; changed premises retire and physically drain before replacement, with stale cursors refused. Retained state, queued bytes, outputs and native protections remain charged under existing admission. Effects and crash isolation retain dedicated execution. No database transaction spans pages, daemon or persistent compiler cache follows. Current one-shot checks remain until their qualified replacement is integrated; Plan56f owns implementation and Plan56g assembled acceptance.
+
 Each attachment names its checkout and interpreter. Selected launch defaults refresh through the
 existing environment owner while intentional overrides and disclosed process-owned settings retain
 their meanings. The complete exposed tool contract and selected source/route/request basis travel

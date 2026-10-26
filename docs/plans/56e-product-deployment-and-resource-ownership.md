@@ -421,3 +421,7 @@ numerical qualification. The narrowly required orphan recovery action was added 
 acceptance exposed the missing owner operation; it adds no ledger or collector. Full F/G work,
 505-case feature matrix, fleet/parity, distribution and other-platform qualification remain outside
 this selected scope. No measured build-time or general latency improvement is claimed.
+
+## Remaining activation prerequisite — 2026-10-26
+
+The maintainer authorized authenticated drain of the exact legacy service at `surreal-b1-hcqo_3r2/restored`. Its original immutable supervisor, configured interpreter, service invocation, supervisor/child process lifetimes and kernel cgroup were authenticated. The first modern-receipt probe refused before effects because this v2 receipt has only child PID/instance; the corrected observer retained that legacy meaning and independently authenticated current kernel lifetimes. Original-owner quiesce and drained stop both passed; the original processes are gone and the service is inactive with empty cgroup. Its database, v2 interpretation, frozen generation and receipts remain retained. No fresh-engine, data conversion or allocation bypass was applied. Actual current reference activation remains pending at G02, now without this live blocker. Evidence: `/tmp/pse-56efg-authenticated-legacy-drain-v2.log`.

@@ -1,6 +1,6 @@
 ---
 title: "Plan 56f: Host, agent and observability contracts"
-status: draft
+status: in-progress
 date: 2026-10-25
 adrs: [ADR-0227]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -273,3 +273,7 @@ Outcome; actual receiver activation is unqualified. Finite generated operation d
 typed metric populations/questions, span/loss telemetry, producing-artifact currency and retained
 read/page lifetimes remain open. RC06 remains a separate rule choice with the coordinator; no
 worker retention or full F acceptance follows from the D/E prerequisites.
+
+## Remaining-scope execution — 2026-10-26
+
+The maintainer authorized the remaining 56e/56f/56g scope and selected RC06 retained foreground native read workers, authenticated drain of the exact blocking legacy service with its data/receipts preserved, and the single `RDER` typo correction while preserving other history edits. Rust SDK span-processor loss observations are selected; Python SDK queues remain explicitly unknown. Proposed ADR-0231 precedes dependent retention changes. Root owns shared contracts, generation, integration, Cargo and status; independent producer-metric/query, SDK-health and currency slices are underway. Current source implementation and targeted controls do not establish assembled G acceptance.

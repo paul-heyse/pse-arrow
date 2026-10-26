@@ -1,6 +1,6 @@
 ---
 title: "Plan 56g: Qualification and publication"
-status: draft
+status: in-progress
 date: 2026-10-25
 adrs: []
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -231,3 +231,7 @@ retention/RC06 work, full-series independent reconciliation and the rest of G re
 coordinator retains the single rule/finding disposition account. No full feature matrix,
 solver-fleet/parity, desktop attachment, distribution, other-platform qualification or comparative
 performance claim follows.
+
+## Remaining-scope execution — 2026-10-26
+
+The maintainer authorized the remaining 56e/56f/56g scope and selected RC06 retained foreground native read workers, authenticated drain of the exact blocking legacy service with its data/receipts preserved, and the single `RDER` typo correction while preserving other history edits. Rust SDK span-processor loss observations are selected; Python SDK queues remain explicitly unknown. Proposed ADR-0231 precedes dependent retention changes. Root owns shared contracts, generation, integration, Cargo and status; independent producer-metric/query, SDK-health and currency slices are underway. Current source implementation and targeted controls do not establish assembled G acceptance.
