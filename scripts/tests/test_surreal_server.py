@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, call, patch
 
+from scripts import operation_lifetime
 from scripts import host_admission as host
 from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_check as recovery
@@ -480,7 +481,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             selected = {
                 "nonce": "selected",
                 "pid": os.getpid(),
-                "start": server.native_operation.start_identity(os.getpid()),
+                "start": operation_lifetime.start_identity(os.getpid()),
                 "purpose": purpose,
             }
             server.write_json(self.state / "lifecycle-owner.json", selected)
@@ -583,7 +584,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         child = subprocess.Popen([sys.executable, "-c", "pass"])
         self.addCleanup(child.wait)
         os.waitid(os.P_PID, child.pid, os.WEXITED | os.WNOWAIT)
-        identity = server.native_operation.start_identity(child.pid)
+        identity = operation_lifetime.start_identity(child.pid)
         self.assertEqual(
             Path(f"/proc/{child.pid}/stat").read_text().rsplit(")", 1)[1].split()[0],
             "Z",
@@ -611,7 +612,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             released.assert_not_called()
             self.assertEqual(server._STARTUP.deadline, deadline)  # noqa: SLF001 -- verify the original stop clock is retained
             self.assertEqual(
-                server.native_operation.start_identity(child.pid), identity
+                operation_lifetime.start_identity(child.pid), identity
             )
             child.wait()
 
@@ -645,7 +646,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 self.subTest(identity=identity),
                 patch.object(server, "all_contexts_drained"),
                 patch.object(
-                    server.native_operation,
+                    operation_lifetime,
                     "start_identity",
                     side_effect=[identity],
                 ),
@@ -664,7 +665,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         deadline = server.time.monotonic() - 1
         with (
             patch.object(server, "all_contexts_drained"),
-            patch.object(server.native_operation, "start_identity", return_value="old"),
+            patch.object(operation_lifetime, "start_identity", return_value="old"),
             patch.object(server._STARTUP, "deadline", deadline, create=True),  # noqa: SLF001 -- inject the expired original stop clock
             patch.object(server, "release_stopped_service") as released,
             patch.object(server.time, "sleep") as wait,
@@ -886,7 +887,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             {
                 "nonce": "owner",
                 "pid": os.getpid(),
-                "start": server.native_operation.start_identity(os.getpid()),
+                "start": operation_lifetime.start_identity(os.getpid()),
                 "boot": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
             },
         )
@@ -943,7 +944,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             {
                 "nonce": "owner",
                 "pid": os.getpid(),
-                "start": server.native_operation.start_identity(os.getpid()),
+                "start": operation_lifetime.start_identity(os.getpid()),
                 "boot": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
             },
         )
@@ -1092,12 +1093,12 @@ class SurrealSupervisorTests(unittest.TestCase):
             with (
                 self.subTest(changes=changes),
                 patch.object(
-                    server.test_resources,
+                    server.service_borrowers,
                     "service_resources",
                     return_value={"retained": record},
                 ),
                 patch.object(
-                    server.test_resources,
+                    server.service_borrowers,
                     "borrower_alive",
                     side_effect=lambda row: row.get("live", False),
                 ),
@@ -1315,7 +1316,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         server.write_json(self.state / "config.json", config)
         with (
             patch.object(
-                server.native_operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={"LoadState": "loaded", "ActiveState": "inactive"},
             ),
@@ -1339,7 +1340,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         }
         with (
             patch.object(
-                server.native_operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={
                     "LoadState": "loaded",
@@ -1373,7 +1374,7 @@ class SurrealSupervisorTests(unittest.TestCase):
 
         with (
             patch.object(
-                server.native_operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={
                     "LoadState": "loaded",
@@ -1422,7 +1423,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             with (
                 self.subTest(changed=changed),
                 patch.object(
-                    server.native_operation,
+                    operation_lifetime,
                     "unit_observation",
                     side_effect=lambda _, observed=observed: dict(observed),
                 ),
@@ -3045,7 +3046,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             self.assertGreater(digest.call_count, previous)
             previous = digest.call_count
             with patch.object(
-                server.native_operation, "start_identity", return_value="new-start"
+                operation_lifetime, "start_identity", return_value="new-start"
             ):
                 server.primary_ready(self.state, config, observation, "other-database")
             self.assertGreater(digest.call_count, previous)
@@ -3297,7 +3298,7 @@ class SurrealSupervisorTests(unittest.TestCase):
 
         with (
             patch.object(host, "allocation_metadata", side_effect=metadata),
-            patch.object(server.native_operation, "process_group", return_value=group),
+            patch.object(operation_lifetime, "process_group", return_value=group),
             patch.object(host, "group_identity", side_effect=lambda _: state["inode"]),
             patch.object(server, "systemctl", side_effect=manager) as calls,
             patch.object(
@@ -3338,9 +3339,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         self,
     ) -> None:
         self.reference_fixture()
-        server.native_operation.write_json(
+        operation_lifetime.write_json(
             self.root / "handoff",
-            {"version": server.native_operation.VERSION, "admissions": {}},
+            {"version": operation_lifetime.VERSION, "admissions": {}},
         )
         with (
             self.observer_control_fixture(),
@@ -3552,9 +3553,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                     patch.object(host, "allocation_metadata", side_effect=metadata),
                     patch.object(host, "boot", return_value=record["boot"]),
                     patch.object(host, "group_identity", return_value=identity),
-                    patch.object(host.operation, "populated", return_value=populated),
+                    patch.object(operation_lifetime, "populated", return_value=populated),
                     patch.object(
-                        host.operation,
+                        operation_lifetime,
                         "unit_observation",
                         return_value={
                             "LoadState": "not-found"
@@ -4270,7 +4271,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                     server, "storage_unit_observation", return_value=observed
                 ) as observe,
                 patch.object(
-                    server.native_operation,
+                    operation_lifetime,
                     "process_group",
                     return_value="/outside"
                     if scenario == "outside-membership"
@@ -5352,7 +5353,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         with (
             patch.object(server, "active", return_value=False),
             patch.object(
-                server.host_admission,
+                server,
                 "unadmitted_service_launch_drained",
                 return_value=False,
             ),
@@ -5372,7 +5373,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         with (
             patch.object(server, "active", return_value=False),
             patch.object(
-                server.host_admission,
+                server,
                 "unadmitted_service_launch_drained",
                 return_value=True,
             ),
@@ -5476,7 +5477,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             "units": {server.unit_name(self.state): {}, "unrelated.service": {}},
         }
         with (
-            patch.object(host, "unadmitted_service_launch_drained", return_value=True),
+            patch.object(server, "unadmitted_service_launch_drained", return_value=True),
             patch.object(
                 host, "readonly_snapshot", return_value={"owners": {nonce: shared}}
             ),
@@ -5491,7 +5492,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         retained.assert_not_called()
         self.assertEqual(server.read_json(path), launch)
         with (
-            patch.object(host, "unadmitted_service_launch_drained", return_value=True),
+            patch.object(server, "unadmitted_service_launch_drained", return_value=True),
             patch.object(
                 host,
                 "readonly_snapshot",
@@ -5557,7 +5558,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 patch.object(server, "active", return_value=False),
                 patch.object(server, "stop"),
                 patch.object(
-                    host, "unadmitted_service_launch_drained", return_value=True
+                    server, "unadmitted_service_launch_drained", return_value=True
                 ),
                 patch.object(host, "inherit", side_effect=self.host_inherit),
                 patch.object(host, "readonly_snapshot", side_effect=self.host_snapshot),
@@ -6350,11 +6351,11 @@ class SurrealSupervisorTests(unittest.TestCase):
                         actual["InvocationID"] = "b" * 32
                     if completion == "replacement-group":
                         actual["ControlGroup"] = "/replacement"
-                    drained = server.native_operation.DrainObservation(
+                    drained = operation_lifetime.DrainObservation(
                         {"unit": unit, **binding},
-                        server.native_operation.DrainPhase.COMPLETE
+                        operation_lifetime.DrainPhase.COMPLETE
                         if completion == "complete"
-                        else server.native_operation.DrainPhase.UNAVAILABLE,
+                        else operation_lifetime.DrainPhase.UNAVAILABLE,
                         "controlled cleanup observation",
                     )
                     with (
@@ -6391,12 +6392,12 @@ class SurrealSupervisorTests(unittest.TestCase):
                             else 17,
                         ),
                         patch.object(
-                            server.native_operation,
+                            operation_lifetime,
                             "unit_observation",
                             return_value=actual,
                         ),
                         patch.object(
-                            server.native_operation, "drained", return_value=drained
+                            operation_lifetime, "drained", return_value=drained
                         ),
                         patch.object(
                             server,
@@ -6510,11 +6511,11 @@ class SurrealSupervisorTests(unittest.TestCase):
                 }
                 if completion == "replacement":
                     actual["InvocationID"] = "b" * 32
-                drained = server.native_operation.DrainObservation(
+                drained = operation_lifetime.DrainObservation(
                     {"unit": unit, **binding},
-                    server.native_operation.DrainPhase.COMPLETE
+                    operation_lifetime.DrainPhase.COMPLETE
                     if completion == "complete"
-                    else server.native_operation.DrainPhase.UNAVAILABLE,
+                    else operation_lifetime.DrainPhase.UNAVAILABLE,
                     "controlled cleanup observation",
                 )
                 with (
@@ -6551,10 +6552,10 @@ class SurrealSupervisorTests(unittest.TestCase):
                     patch.object(host, "allocation_metadata", side_effect=ledger),
                     patch.object(host, "group_identity", return_value=17),
                     patch.object(
-                        server.native_operation, "unit_observation", return_value=actual
+                        operation_lifetime, "unit_observation", return_value=actual
                     ),
                     patch.object(
-                        server.native_operation, "drained", return_value=drained
+                        operation_lifetime, "drained", return_value=drained
                     ),
                     patch.object(
                         server,
@@ -6648,16 +6649,16 @@ class SurrealSupervisorTests(unittest.TestCase):
                         patch.object(host, "allocation_metadata", side_effect=ledger),
                         patch.object(host, "group_identity", return_value=None),
                         patch.object(
-                            server.native_operation,
+                            operation_lifetime,
                             "unit_observation",
                             return_value=inactive,
                         ),
                         patch.object(
-                            server.native_operation,
+                            operation_lifetime,
                             "drained",
-                            return_value=server.native_operation.DrainObservation(
+                            return_value=operation_lifetime.DrainObservation(
                                 binding,
-                                server.native_operation.DrainPhase.COMPLETE,
+                                operation_lifetime.DrainPhase.COMPLETE,
                                 "fresh owner drained",
                             ),
                         ),
@@ -6710,16 +6711,16 @@ class SurrealSupervisorTests(unittest.TestCase):
                     with (
                         patch.object(host, "allocation_metadata", side_effect=ledger),
                         patch.object(
-                            server.native_operation,
+                            operation_lifetime,
                             "unit_observation",
                             return_value={"LoadState": "not-found"},
                         ) as observe,
                         patch.object(
-                            server.native_operation,
+                            operation_lifetime,
                             "drained",
-                            return_value=server.native_operation.DrainObservation(
+                            return_value=operation_lifetime.DrainObservation(
                                 binding,
-                                server.native_operation.DrainPhase.COMPLETE,
+                                operation_lifetime.DrainPhase.COMPLETE,
                                 "old owner drained",
                             ),
                         ) as drain,
@@ -6776,11 +6777,11 @@ class SurrealSupervisorTests(unittest.TestCase):
             }
             if completion == "replacement":
                 actual["InvocationID"] = "c" * 32
-            drained = server.native_operation.DrainObservation(
+            drained = operation_lifetime.DrainObservation(
                 binding,
-                server.native_operation.DrainPhase.COMPLETE
+                operation_lifetime.DrainPhase.COMPLETE
                 if completion == "complete"
-                else server.native_operation.DrainPhase.UNAVAILABLE,
+                else operation_lifetime.DrainPhase.UNAVAILABLE,
                 "retry owner drain",
             )
             with (
@@ -6790,9 +6791,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                 patch.object(host, "allocation_metadata", side_effect=ledger),
                 patch.object(host, "group_identity", return_value=17),
                 patch.object(
-                    server.native_operation, "unit_observation", return_value=actual
+                    operation_lifetime, "unit_observation", return_value=actual
                 ),
-                patch.object(server.native_operation, "drained", return_value=drained),
+                patch.object(operation_lifetime, "drained", return_value=drained),
                 patch.object(
                     server, "systemctl", return_value=subprocess.CompletedProcess([], 0)
                 ) as control,
@@ -6844,8 +6845,8 @@ class SurrealSupervisorTests(unittest.TestCase):
             with (
                 patch.object(server._STARTUP, "deadline", deadline, create=True),  # noqa: SLF001 -- exercise the original inherited admission clock
                 patch.object(server, "require_borrowers_drained"),
-                patch.object(server.native_operation, "unit_observation") as observe,
-                patch.object(server.native_operation, "drained") as drain,
+                patch.object(operation_lifetime, "unit_observation") as observe,
+                patch.object(operation_lifetime, "drained") as drain,
                 self.assertRaises(host.AdmissionError),
             ):
                 server.all_contexts_drained(self.state)
@@ -6903,11 +6904,11 @@ class SurrealSupervisorTests(unittest.TestCase):
                     "InvocationID": "c" * 32,
                     "ControlGroup": "/owned",
                 }
-            completion = server.native_operation.DrainObservation(
+            completion = operation_lifetime.DrainObservation(
                 binding,
-                server.native_operation.DrainPhase.UNAVAILABLE
+                operation_lifetime.DrainPhase.UNAVAILABLE
                 if scenario == "unknown"
-                else server.native_operation.DrainPhase.COMPLETE,
+                else operation_lifetime.DrainPhase.COMPLETE,
                 "retired owner observation",
             )
             with (
@@ -6919,10 +6920,10 @@ class SurrealSupervisorTests(unittest.TestCase):
                     return_value=18 if scenario == "replacement-inode" else None,
                 ),
                 patch.object(
-                    server.native_operation, "unit_observation", return_value=observed
+                    operation_lifetime, "unit_observation", return_value=observed
                 ),
                 patch.object(
-                    server.native_operation, "drained", return_value=completion
+                    operation_lifetime, "drained", return_value=completion
                 ) as drain,
                 patch.object(server, "systemctl") as control,
             ):
@@ -6992,14 +6993,14 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(host, "allocation_metadata", side_effect=ledger),
             patch.object(host, "group_identity", return_value=None),
             patch.object(
-                server.native_operation, "unit_observation", side_effect=observe
+                operation_lifetime, "unit_observation", side_effect=observe
             ),
             patch.object(
-                server.native_operation,
+                operation_lifetime,
                 "drained",
-                return_value=server.native_operation.DrainObservation(
+                return_value=operation_lifetime.DrainObservation(
                     binding,
-                    server.native_operation.DrainPhase.UNAVAILABLE,
+                    operation_lifetime.DrainPhase.UNAVAILABLE,
                     "transient observation",
                 ),
             ) as drain,
@@ -7010,9 +7011,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                 )
             retired = True
             handoff.unlink()
-            drain.return_value = server.native_operation.DrainObservation(
+            drain.return_value = operation_lifetime.DrainObservation(
                 binding,
-                server.native_operation.DrainPhase.COMPLETE,
+                operation_lifetime.DrainPhase.COMPLETE,
                 "retired exact owner empty",
             )
             server.reconcile_registration(
@@ -7055,7 +7056,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                     server.write_json(pending, selected)
                     with (
                         patch.dict(os.environ, {"PSE_NATIVE_CACHE": str(base)}),
-                        patch.object(operation, "scope_owner", return_value=None),
+                        patch.object(operation_lifetime, "scope_owner", return_value=None),
                         operation.Operation(base)
                         if enclosing_parent
                         else contextlib.nullcontext(),
@@ -7102,7 +7103,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                         "invocation": "b" * 32,
                     }
                     with (
-                        patch.object(operation, "scope_owner", return_value=scope),
+                        patch.object(operation_lifetime, "scope_owner", return_value=scope),
                         patch.object(host, "group_identity", return_value=17),
                     ):
                         operation.bind_handoff(handoff)
@@ -7111,9 +7112,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                     with (
                         patch.object(host, "allocation_metadata", side_effect=ledger),
                         patch.object(host, "group_identity", return_value=None),
-                        patch.object(operation, "populated", return_value=False),
+                        patch.object(operation_lifetime, "populated", return_value=False),
                         patch.object(
-                            operation,
+                            operation_lifetime,
                             "unit_observation",
                             return_value={"LoadState": "not-found"},
                         ),
@@ -7165,10 +7166,10 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.reference_fixture()
         operation = server.native_operation
         parent = self.root / "parent-operation.json"
-        operation.write_json(
+        operation_lifetime.write_json(
             parent,
             {
-                "version": operation.VERSION,
+                "version": operation_lifetime.VERSION,
                 "scope": None,
                 "admissions": {},
                 "generations": [],
@@ -7871,7 +7872,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         self.assertGreater(actions.index(disposals[0][2]), actions.index("import"))
         self.assertEqual(disposals[0][:2], (prior["namespace"], "None"))
         self.assertFalse(config.get("derived_rebuild_pending"))
-        self.assertEqual(server.test_resources.service_resources(restored), {})
+        self.assertEqual(server.service_borrowers.service_resources(restored), {})
         with self.assertRaises(server.SupervisorError):
             server.start(restored, config)
 
@@ -7887,7 +7888,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             self.native_maintenance(),
         ):
             server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
-            self.assertEqual(server.test_resources.service_resources(restored), {})
+            self.assertEqual(server.service_borrowers.service_resources(restored), {})
         destination_binding = server.read_json(
             restored / ".resource-owner/registry.json"
         )
@@ -7907,7 +7908,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         with (
             patch.object(server, "freeze_payloads") as freeze,
             self.assertRaisesRegex(
-                server.test_resources.ResourceError, "coverage is unestablished"
+                server.service_borrowers.resource_store.StoreError, "coverage is unestablished"
             ),
         ):
             server.backup(self.state, config, destination)
@@ -7951,7 +7952,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                     selection,
                     patch.object(server, "complete_backup_copy") as copy,
                     self.assertRaisesRegex(
-                        server.test_resources.ResourceError, "coverage"
+                        server.service_borrowers.resource_store.StoreError, "coverage"
                     ),
                 ):
                     server.recover_maintenance(restored, [])
@@ -10025,7 +10026,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             owner: dict[str, object] = {
                 "nonce": "retained-owner",
                 "pid": owner_process.pid,
-                "start": server.native_operation.start_identity(owner_process.pid),
+                "start": operation_lifetime.start_identity(owner_process.pid),
                 "boot": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
             }
             server.write_json(self.state / "lifecycle-owner.json", owner)
@@ -10056,7 +10057,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 "Z",
             )
             self.assertEqual(
-                server.native_operation.start_identity(owner_process.pid),
+                operation_lifetime.start_identity(owner_process.pid),
                 owner["start"],
             )
             self.assertFalse(server.reservation_live(owner))

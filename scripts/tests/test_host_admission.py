@@ -21,8 +21,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
+from scripts import operation_lifetime
 from scripts import host_admission as host
-from scripts import surreal_server
+from scripts import surreal_server, operation_lifetime
 from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
 from scripts.tests.test_surrealism_module import fixture_module
 
@@ -105,7 +106,7 @@ class HostAdmissionTests(unittest.TestCase):
                 host.select("store-functional"),
                 directory=self.directory,
                 deadline=time.monotonic() + 10,
-            )
+            services=surreal_server.ServiceAdmission())
         service = self.directory / "service"
         service.mkdir()
         unit = surreal_server.unit_name(service)
@@ -136,13 +137,23 @@ class HostAdmissionTests(unittest.TestCase):
         )
         return owner, service, unit
 
+    def test_service_affiliation_without_composed_policy_stays_charged(self) -> None:
+        owner, _state, _unit = self.storage_process_fixture()
+        with host.allocation_metadata(self.directory) as ledger:
+            record = dict(ledger["owners"][owner.nonce])
+        with patch.object(operation_lifetime, "unit_observation", return_value={"LoadState": "not-found"}):
+            self.assertFalse(host.drained(record, allocation=self.directory / owner.nonce))
+            host.reconcile(self.directory, resume_parked=False)
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertEqual(ledger["owners"][owner.nonce], record)
+
     def test_concurrent_acquisition_retains_exact_zombie_while_stop_waits(self) -> None:
         owner, service, _unit = self.storage_process_fixture()
         child = subprocess.Popen([sys.executable, "-c", "pass"])
         self.addCleanup(child.wait)
         os.waitid(os.P_PID, child.pid, os.WEXITED | os.WNOWAIT)
         process = surreal_server.read_json(service / "server-process.json")
-        process.update(pid=child.pid, start=host.operation.start_identity(child.pid))
+        process.update(pid=child.pid, start=operation_lifetime.start_identity(child.pid))
         surreal_server.write_json(service / "server-process.json", process)
         entered, resume = threading.Event(), threading.Event()
         config: dict[str, object] = {"admission": "quiesced", "accepting_writes": False}
@@ -172,9 +183,9 @@ class HostAdmissionTests(unittest.TestCase):
             patch.object(surreal_server, "release_stopped_service") as released,
             patch.object(surreal_server.time, "sleep", side_effect=wait),
             patch.object(host, "group_identity", return_value=123),
-            patch.object(host.operation, "populated", return_value=False),
+            patch.object(operation_lifetime, "populated", return_value=False),
             patch.object(
-                host.operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={
                     "LoadState": "loaded",
@@ -191,7 +202,7 @@ class HostAdmissionTests(unittest.TestCase):
                     host.select("light"),
                     directory=self.directory,
                     deadline=time.monotonic() + 5,
-                )
+                services=surreal_server.ServiceAdmission())
                 with host.allocation_metadata(self.directory) as ledger:
                     self.assertIn(owner.nonce, ledger["owners"])
                 released.assert_not_called()
@@ -200,7 +211,7 @@ class HostAdmissionTests(unittest.TestCase):
                 resume.set()
             pending.result(timeout=5)
             released.assert_called_once_with(service, config)
-            host.reconcile(self.directory, resume_parked=False)
+            host.reconcile(self.directory, resume_parked=False, services=surreal_server.ServiceAdmission())
             with host.allocation_metadata(self.directory) as ledger:
                 self.assertNotIn(owner.nonce, ledger["owners"])
                 self.assertIn(observer.nonce, ledger["owners"])
@@ -220,24 +231,24 @@ class HostAdmissionTests(unittest.TestCase):
                     service / "server-process.json", {**original, **changes}
                 )
                 self.assertFalse(
-                    host.drained(record, allocation=self.directory / owner.nonce)
+                    host.drained(record, allocation=self.directory / owner.nonce, services=surreal_server.ServiceAdmission())
                 )
         (service / "server-process.json").unlink()
-        self.assertFalse(host.drained(record, allocation=self.directory / owner.nonce))
+        self.assertFalse(host.drained(record, allocation=self.directory / owner.nonce, services=surreal_server.ServiceAdmission()))
         (service / "server-process.json").write_text("not JSON")
-        self.assertFalse(host.drained(record, allocation=self.directory / owner.nonce))
+        self.assertFalse(host.drained(record, allocation=self.directory / owner.nonce, services=surreal_server.ServiceAdmission()))
         surreal_server.write_json(service / "server-process.json", original)
         with patch.object(
-            host.operation, "start_identity", side_effect=PermissionError("unavailable")
+            operation_lifetime, "start_identity", side_effect=PermissionError("unavailable")
         ):
             self.assertFalse(
-                host.drained(record, allocation=self.directory / owner.nonce)
+                host.drained(record, allocation=self.directory / owner.nonce, services=surreal_server.ServiceAdmission())
             )
         with patch.object(
             host, "boot", return_value="00000000-0000-0000-0000-000000000000"
         ):
             self.assertTrue(
-                host.drained(record, allocation=self.directory / owner.nonce)
+                host.drained(record, allocation=self.directory / owner.nonce, services=surreal_server.ServiceAdmission())
             )
 
     def test_stale_service_descriptor_does_not_pin_different_allocation(self) -> None:
@@ -247,14 +258,14 @@ class HostAdmissionTests(unittest.TestCase):
         surreal_server.write_json(service / "service-launch.json", launch)
         with (
             patch.object(host, "group_identity", return_value=123),
-            patch.object(host.operation, "populated", return_value=False),
+            patch.object(operation_lifetime, "populated", return_value=False),
             patch.object(
-                host.operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={"LoadState": "loaded", "ActiveState": "inactive"},
             ),
         ):
-            host.reconcile(self.directory, resume_parked=False)
+            host.reconcile(self.directory, resume_parked=False, services=surreal_server.ServiceAdmission())
         with host.allocation_metadata(self.directory) as ledger:
             self.assertNotIn(owner.nonce, ledger["owners"])
 
@@ -262,19 +273,19 @@ class HostAdmissionTests(unittest.TestCase):
         owner, _service, _unit = self.storage_process_fixture(borrowed=True)
         with host.allocation_metadata(self.directory) as ledger:
             record = cast("host.AllocationRecord", dict(ledger["owners"][owner.nonce]))
-        with patch.object(host.operation, "start_identity", return_value="child"):
+        with patch.object(operation_lifetime, "start_identity", return_value="child"):
             self.assertFalse(
-                host.drained(record, allocation=self.directory / owner.nonce)
+                host.drained(record, allocation=self.directory / owner.nonce, services=surreal_server.ServiceAdmission())
             )
-            self.assertFalse(host.drained(record))
+            self.assertFalse(host.drained(record, services=surreal_server.ServiceAdmission()))
         observer = {**record, "units": {}, "released": True}
-        self.assertTrue(host.drained(observer))
+        self.assertTrue(host.drained(observer, services=surreal_server.ServiceAdmission()))
 
     def test_stopped_borrowed_storage_keeps_execution_ack_guard_on_parent(self) -> None:
         owner, service, unit = self.storage_process_fixture(borrowed=True)
         exclusive = host.Allocation(
             owner.directory, owner.nonce, host.select("exclusive"), owner.deadline
-        )
+        , services=surreal_server.ServiceAdmission())
         execution = "execution.scope"
         guard: dict[str, object] = {"scope": {"unit": execution}, "phase": "registered"}
         with host.allocation_metadata(self.directory) as ledger:
@@ -288,11 +299,11 @@ class HostAdmissionTests(unittest.TestCase):
         with (
             patch.object(host, "inherit", return_value=exclusive),
             patch.object(
-                host.operation, "start_identity", side_effect=FileNotFoundError
+                operation_lifetime, "start_identity", side_effect=FileNotFoundError
             ),
             patch.object(host, "group_identity", return_value=None),
             patch.object(
-                host.operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={"LoadState": "not-found"},
             ),
@@ -303,7 +314,7 @@ class HostAdmissionTests(unittest.TestCase):
                 self.assertEqual(retained["borrowed_services"], [])
                 self.assertEqual(retained["terminal_guards"], {"f" * 32: guard})
             self.assertFalse(
-                host.drained(retained, allocation=self.directory / owner.nonce)
+                host.drained(retained, allocation=self.directory / owner.nonce, services=surreal_server.ServiceAdmission())
             )
             storage_guard: dict[str, object] = {
                 "scope": {
@@ -319,7 +330,7 @@ class HostAdmissionTests(unittest.TestCase):
                 record["terminal_guards"] = {"e" * 32: storage_guard}
             with (
                 patch.object(
-                    host.operation, "terminal_guard_complete", return_value=False
+                    operation_lifetime, "terminal_guard_complete", return_value=False
                 ),
                 self.assertRaisesRegex(
                     surreal_server.SupervisorError, "lifetime is undrained"
@@ -339,9 +350,9 @@ class HostAdmissionTests(unittest.TestCase):
         with host.allocation_metadata(self.directory) as ledger:
             ledger["owners"][owner.nonce]["units"][unit] = {}
         with patch.object(
-            host.operation, "unit_observation", return_value={"LoadState": "not-found"}
+            operation_lifetime, "unit_observation", return_value={"LoadState": "not-found"}
         ):
-            host.reconcile(self.directory, resume_parked=False)
+            host.reconcile(self.directory, resume_parked=False, services=surreal_server.ServiceAdmission())
         with host.allocation_metadata(self.directory) as ledger:
             self.assertNotIn(owner.nonce, ledger["owners"])
 
@@ -392,9 +403,9 @@ class HostAdmissionTests(unittest.TestCase):
         with (
             patch.object(surreal_server, "config_for", return_value=config),
             patch.object(surreal_server, "service_readiness", return_value=absent),
-            patch.object(host.operation, "unit_observation", return_value=manager),
+            patch.object(operation_lifetime, "unit_observation", return_value=manager),
         ):
-            host.reconcile(self.directory, resume_parked=False)
+            host.reconcile(self.directory, resume_parked=False, services=surreal_server.ServiceAdmission())
         with host.allocation_metadata(self.directory) as ledger:
             self.assertNotIn(owner.nonce, ledger["owners"])
         self.assertFalse((service / "server-process.json").exists())
@@ -513,14 +524,14 @@ class HostAdmissionTests(unittest.TestCase):
                     surreal_server, "service_readiness", side_effect=readiness
                 ),
                 patch.object(
-                    host.operation,
+                    operation_lifetime,
                     "unit_observation",
                     return_value=current_manager,
                     side_effect=observation_effect,
                 ),
             ):
                 self.assertFalse(
-                    host.service_processes_drained(
+                    surreal_server.service_processes_drained(
                         selected, self.directory / owner.nonce
                     )
                 )
@@ -555,11 +566,11 @@ class HostAdmissionTests(unittest.TestCase):
                 surreal_server, "service_readiness", return_value=absent
             ) as readiness,
             patch.object(
-                host.operation, "unit_observation", return_value=manager
+                operation_lifetime, "unit_observation", return_value=manager
             ) as observe,
         ):
             self.assertTrue(
-                host.service_processes_drained(
+                surreal_server.service_processes_drained(
                     record, self.directory / owner.nonce, deadline=deadline
                 )
             )
@@ -708,7 +719,7 @@ class HostAdmissionTests(unittest.TestCase):
                         surreal_server, "service_readiness", return_value=readiness
                     ),
                     patch.object(
-                        host.operation,
+                        operation_lifetime,
                         "unit_observation",
                         return_value=current_manager,
                         side_effect=subprocess.TimeoutExpired("controlled-manager", 1)
@@ -716,7 +727,7 @@ class HostAdmissionTests(unittest.TestCase):
                         else None,
                     ),
                     patch.object(
-                        host.operation,
+                        operation_lifetime,
                         "start_identity",
                         side_effect=identity
                         if isinstance(identity, BaseException)
@@ -725,7 +736,7 @@ class HostAdmissionTests(unittest.TestCase):
                     ),
                 ):
                     self.assertEqual(
-                        host.drained(selected, allocation=self.directory / owner.nonce),
+                        host.drained(selected, allocation=self.directory / owner.nonce, services=surreal_server.ServiceAdmission()),
                         case == "drained",
                     )
                 self.assertEqual(
@@ -843,9 +854,9 @@ class HostAdmissionTests(unittest.TestCase):
             patch.object(
                 surreal_server, "service_readiness", return_value=absent
             ) as readiness,
-            patch.object(host.operation, "unit_observation", return_value=manager),
+            patch.object(operation_lifetime, "unit_observation", return_value=manager),
             patch.object(
-                host.operation, "start_identity", side_effect=FileNotFoundError()
+                operation_lifetime, "start_identity", side_effect=FileNotFoundError()
             ),
         ):
             with host.allocation_metadata(self.directory) as ledger:
@@ -853,10 +864,10 @@ class HostAdmissionTests(unittest.TestCase):
             self.assertTrue(
                 host.drained(
                     record, allocation=self.directory / owner.nonce, deadline=deadline
-                )
+                , services=surreal_server.ServiceAdmission())
             )
             readiness.assert_called_once_with(service, prior, deadline=deadline)
-            host.reconcile(self.directory, resume_parked=False)
+            host.reconcile(self.directory, resume_parked=False, services=surreal_server.ServiceAdmission())
         with host.allocation_metadata(self.directory) as ledger:
             self.assertNotIn(owner.nonce, ledger["owners"])
         for path, raw in retained.items():
@@ -935,13 +946,13 @@ class HostAdmissionTests(unittest.TestCase):
                 self.subTest(case=case),
                 patch.object(surreal_server, "config_for", return_value=config),
                 patch.object(surreal_server, "service_readiness", side_effect=observe),
-                patch.object(host.operation, "unit_observation", return_value=manager),
+                patch.object(operation_lifetime, "unit_observation", return_value=manager),
                 patch.object(
-                    host.operation, "start_identity", side_effect=FileNotFoundError()
+                    operation_lifetime, "start_identity", side_effect=FileNotFoundError()
                 ),
             ):
                 self.assertFalse(
-                    host.drained(original, allocation=self.directory / owner.nonce)
+                    host.drained(original, allocation=self.directory / owner.nonce, services=surreal_server.ServiceAdmission())
                 )
             with host.allocation_metadata(self.directory) as ledger:
                 self.assertIn(owner.nonce, ledger["owners"])
@@ -954,10 +965,10 @@ class HostAdmissionTests(unittest.TestCase):
         record["units"] = {unit: {}}
         deadline = time.monotonic() + 1
         with patch.object(
-            host.operation, "unit_observation", return_value={"LoadState": "not-found"}
+            operation_lifetime, "unit_observation", return_value={"LoadState": "not-found"}
         ) as observe:
             self.assertTrue(
-                host.service_processes_drained(
+                surreal_server.service_processes_drained(
                     record, self.directory / owner.nonce, deadline=deadline
                 )
             )
@@ -978,7 +989,7 @@ class HostAdmissionTests(unittest.TestCase):
                 host.select("store-functional"),
                 directory=self.directory,
                 deadline=time.monotonic() + 5,
-            )
+            services=surreal_server.ServiceAdmission())
             with host.allocation_metadata(self.directory) as ledger:
                 ledger["owners"][replacement.nonce].update(
                     borrowed_services=[str(service)],
@@ -1015,7 +1026,7 @@ class HostAdmissionTests(unittest.TestCase):
             ),
             patch.object(host, "group_identity", return_value=456),
             patch.object(
-                host.operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={
                     "LoadState": "loaded",
@@ -1028,9 +1039,9 @@ class HostAdmissionTests(unittest.TestCase):
             patch.object(surreal_server, "workers_drained") as workers,
             patch.object(surreal_server, "stop") as stop,
             patch.object(surreal_server, "park_service") as park,
-            patch.object(host, "queue_parked_service") as queue,
+            patch.object(surreal_server, "queue_parked_service") as queue,
         ):
-            host.reconcile(self.directory, resume_parked=False)
+            host.reconcile(self.directory, resume_parked=False, services=surreal_server.ServiceAdmission())
         self.assertIsNotNone(replacement)
         assert replacement is not None
         with host.allocation_metadata(self.directory) as ledger:
@@ -1072,7 +1083,7 @@ class HostAdmissionTests(unittest.TestCase):
                 ),
                 patch.object(host, "group_identity", return_value=inode),
                 patch.object(
-                    host.operation, "unit_observation", side_effect=[observed]
+                    operation_lifetime, "unit_observation", side_effect=[observed]
                 ),
                 patch.object(
                     surreal_server,
@@ -1082,10 +1093,10 @@ class HostAdmissionTests(unittest.TestCase):
                 patch.object(surreal_server, "workers_drained") as workers,
                 patch.object(surreal_server, "stop") as stop,
                 patch.object(surreal_server, "park_service") as park,
-                patch.object(host, "queue_parked_service") as queue,
+                patch.object(surreal_server, "queue_parked_service") as queue,
                 self.assertRaises((host.AdmissionError, OSError)),
             ):
-                host.drain_borrowed_services(
+                surreal_server.drain_borrowed_services(
                     self.directory,
                     record,
                     allocation=self.directory / owner.nonce,
@@ -1120,7 +1131,7 @@ class HostAdmissionTests(unittest.TestCase):
                 ):
                     owner = host.acquire(
                         host.select(name), directory=directory, deadline=deadline
-                    )
+                    , services=surreal_server.ServiceAdmission())
                 self.assertEqual(owner.deadline, deadline)
                 resume.assert_not_called()
                 with host.allocation_metadata(directory) as ledger:
@@ -1142,7 +1153,7 @@ class HostAdmissionTests(unittest.TestCase):
             ledger["parked_services"] = ["/unrelated-parked-service"]
         with (
             patch.object(
-                host.operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={
                     "LoadState": "loaded",
@@ -1150,7 +1161,7 @@ class HostAdmissionTests(unittest.TestCase):
                     "InvocationID": "a" * 32,
                 },
             ),
-            patch.object(host.operation, "populated", return_value=True),
+            patch.object(operation_lifetime, "populated", return_value=True),
             patch.object(
                 surreal_server,
                 "unpark_service",
@@ -1161,16 +1172,16 @@ class HostAdmissionTests(unittest.TestCase):
                 host.select("light"),
                 directory=self.directory,
                 deadline=time.monotonic() + 1,
-            )
+            services=surreal_server.ServiceAdmission())
         with host.allocation_metadata(self.directory) as ledger:
             self.assertIn(owner.nonce, ledger["owners"])
         with (
             patch.object(
-                host.operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={"LoadState": "not-found"},
             ),
-            patch.object(host.operation, "populated", return_value=False),
+            patch.object(operation_lifetime, "populated", return_value=False),
             patch.object(
                 surreal_server,
                 "unpark_service",
@@ -1181,7 +1192,7 @@ class HostAdmissionTests(unittest.TestCase):
                 host.select("light"),
                 directory=self.directory,
                 deadline=time.monotonic() + 1,
-            )
+            services=surreal_server.ServiceAdmission())
         with host.allocation_metadata(self.directory) as ledger:
             self.assertNotIn(owner.nonce, ledger["owners"])
             self.assertEqual(ledger["parked_services"], ["/unrelated-parked-service"])
@@ -1240,11 +1251,11 @@ class HostAdmissionTests(unittest.TestCase):
             "accepting_writes": False,
         }
         surreal_server.write_json(service / "config.json", config)
-        host.queue_parked_service(self.directory, service)
+        surreal_server.queue_parked_service(self.directory, service)
         admitted = False
         owner: host.Allocation | None = None
 
-        def inherit(_environment: object, *, deadline: float) -> host.Allocation | None:
+        def inherit(_environment: object, *, deadline: float, services: host.ServicePolicy | None = None) -> host.Allocation | None:
             nonlocal owner
             self.assertGreater(deadline, time.monotonic())
             if not admitted:
@@ -1253,7 +1264,7 @@ class HostAdmissionTests(unittest.TestCase):
             # Registering it beforehand would correctly defer reconciliation entirely.
             owner = host.acquire(
                 host.select("reference"), directory=self.directory, deadline=deadline
-            )
+            , services=surreal_server.ServiceAdmission())
             return owner
 
         def materialize(
@@ -1302,7 +1313,7 @@ class HostAdmissionTests(unittest.TestCase):
             )
             for attempt in range(2):
                 with self.subTest(attempt=attempt):
-                    host.reconcile(self.directory)
+                    host.reconcile(self.directory, services=surreal_server.ServiceAdmission())
                     current = surreal_server.config_for(service)
                     self.assertTrue(current["parked"])
                     self.assertFalse(current["accepting_writes"])
@@ -1313,7 +1324,7 @@ class HostAdmissionTests(unittest.TestCase):
             self.assertEqual(inherited.call_count, 2)
             self.assertNotIn("start", [call.args[0] for call in manager.call_args_list])
             admitted = True
-            host.reconcile(self.directory)
+            host.reconcile(self.directory, services=surreal_server.ServiceAdmission())
         ready.assert_called_once()
         self.assertEqual(inherited.call_count, 3)
         self.assertIsNotNone(owner)
@@ -1347,7 +1358,7 @@ class HostAdmissionTests(unittest.TestCase):
             "ControlGroup": "/owned-service",
             "InvocationID": "a" * 32,
         }
-        owner = host.acquire(host.select("store-functional"), directory=self.directory)
+        owner = host.acquire(host.select("store-functional"), directory=self.directory, services=surreal_server.ServiceAdmission())
         surreal_server.write_json(
             service / "service-launch.json",
             {
@@ -1361,7 +1372,7 @@ class HostAdmissionTests(unittest.TestCase):
                 "allocation": str(self.directory / owner.nonce),
                 "instance_id": "stopped-fixture",
                 "pid": os.getpid(),
-                "start": str(int(host.operation.start_identity(os.getpid())) - 1),
+                "start": str(int(operation_lifetime.start_identity(os.getpid())) - 1),
             },
         )
         with host.allocation_metadata(self.directory) as ledger:
@@ -1408,9 +1419,9 @@ class HostAdmissionTests(unittest.TestCase):
             ),
             patch.object(host, "retire_empty_allocation"),
             patch.object(host, "group_identity", return_value=123),
-            patch.object(host.operation, "populated", return_value=False),
+            patch.object(operation_lifetime, "populated", return_value=False),
             patch.object(
-                host.operation, "unit_observation", side_effect=lambda _: dict(observed)
+                operation_lifetime, "unit_observation", side_effect=lambda _: dict(observed)
             ),
             patch.object(host, "control_unit_observation", side_effect=observation),
             patch.object(
@@ -1430,11 +1441,11 @@ class HostAdmissionTests(unittest.TestCase):
             patch.object(surreal_server, "start") as restarted,
             patch("builtins.print"),
         ):
-            selected = host.acquire(host.select("reference"), directory=self.directory)
+            selected = host.acquire(host.select("reference"), directory=self.directory, services=surreal_server.ServiceAdmission())
             self.assertTrue(interleaved)
             self.assertEqual(parking_deadlines, [selected.deadline])
             self.assertTrue(selected.release())
-            host.reconcile(self.directory)
+            host.reconcile(self.directory, services=surreal_server.ServiceAdmission())
         self.assertFalse(config["parked"])
         self.assertEqual(observed["ActiveState"], "inactive")
         stopped.assert_called_once()
@@ -1524,7 +1535,7 @@ class HostAdmissionTests(unittest.TestCase):
         with (
             patch.object(host, "reconcile", side_effect=AssertionError("reconcile")),
             patch.object(
-                host, "drain_borrowed_services", side_effect=AssertionError("drain")
+                surreal_server, "drain_borrowed_services", side_effect=AssertionError("drain")
             ),
             patch.object(
                 surreal_server, "unpark_service", side_effect=AssertionError("unpark")
@@ -1672,7 +1683,7 @@ class HostAdmissionTests(unittest.TestCase):
         owner = host.acquire_light_control(
             directory=self.directory, deadline=time.monotonic() + 1
         )
-        group = host.operation.process_group(os.getpid())
+        group = operation_lifetime.process_group(os.getpid())
         with host.allocation_metadata(self.directory) as state:
             state["owners"][owner.nonce]["units"]["pse-owned.scope"] = {
                 "group": group,
@@ -1689,7 +1700,7 @@ class HostAdmissionTests(unittest.TestCase):
 
         before = (self.directory / "allocations.json").read_bytes()
         with patch.object(host, "control_unit_observation", side_effect=observe):
-            inherited = host.inherit(owner.environment(), deadline=time.monotonic() + 1)
+            inherited = host.inherit(owner.environment(), deadline=time.monotonic() + 1, services=surreal_server.ServiceAdmission())
         assert inherited is not None
         self.assertEqual(inherited.nonce, owner.nonce)
         self.assertEqual((self.directory / "allocations.json").read_bytes(), before)
@@ -1703,7 +1714,7 @@ class HostAdmissionTests(unittest.TestCase):
         )
         with (
             patch.object(
-                host.operation, "process_group", return_value="/control/child"
+                operation_lifetime, "process_group", return_value="/control/child"
             ),
             patch.object(
                 host,
@@ -1730,7 +1741,7 @@ class HostAdmissionTests(unittest.TestCase):
             },
         )
         with (
-            patch.object(host.operation, "process_group", return_value="/outside"),
+            patch.object(operation_lifetime, "process_group", return_value="/outside"),
             patch.object(
                 host,
                 "control_unit_observation",
@@ -1753,7 +1764,7 @@ class HostAdmissionTests(unittest.TestCase):
         with host.allocation_metadata(self.directory) as state:
             record = state["owners"][owner.nonce]
             record["pid"] = os.getppid()
-            record["start"] = host.operation.start_identity(os.getppid())
+            record["start"] = operation_lifetime.start_identity(os.getppid())
             record["units"][unit] = {
                 "group": "/control",
                 "invocation": "c" * 32,
@@ -1765,7 +1776,7 @@ class HostAdmissionTests(unittest.TestCase):
             with (
                 self.subTest(invocation=invocation, inode=inode),
                 patch.object(
-                    host.operation, "process_group", return_value="/control/child"
+                    operation_lifetime, "process_group", return_value="/control/child"
                 ),
                 patch.object(
                     host,
@@ -1778,7 +1789,7 @@ class HostAdmissionTests(unittest.TestCase):
                 patch.object(host, "group_identity", return_value=inode),
             ):
                 with self.assertRaisesRegex(host.AdmissionError, "actual cgroup"):
-                    host.inherit(owner.environment(), deadline=time.monotonic() + 1)
+                    host.inherit(owner.environment(), deadline=time.monotonic() + 1, services=surreal_server.ServiceAdmission())
                 with self.assertRaisesRegex(host.AdmissionError, "outside"):
                     host.verify_light_control_child(
                         owner.environment(), deadline=time.monotonic() + 1
@@ -1786,7 +1797,7 @@ class HostAdmissionTests(unittest.TestCase):
             self.assertEqual((ledger.read_bytes(), ledger.stat().st_ino), before)
         with (
             patch.object(
-                host.operation, "process_group", return_value="/control/child"
+                operation_lifetime, "process_group", return_value="/control/child"
             ),
             patch.object(
                 host,
@@ -1795,7 +1806,7 @@ class HostAdmissionTests(unittest.TestCase):
             ),
             patch.object(host, "group_identity", return_value=91),
         ):
-            inherited = host.inherit(owner.environment(), deadline=time.monotonic() + 1)
+            inherited = host.inherit(owner.environment(), deadline=time.monotonic() + 1, services=surreal_server.ServiceAdmission())
             assert inherited is not None
             self.assertEqual(inherited.nonce, owner.nonce)
             with self.assertRaisesRegex(host.AdmissionError, "already bound"):
@@ -1820,7 +1831,7 @@ class HostAdmissionTests(unittest.TestCase):
                 "control_unit_observation",
                 return_value={"ControlGroup": "/owned", "InvocationID": "b" * 32},
             ) as observe,
-            patch.object(host.operation, "process_group", return_value="/owned/child"),
+            patch.object(operation_lifetime, "process_group", return_value="/owned/child"),
             patch.object(host, "group_identity", return_value=18),
         ):
             with self.assertRaisesRegex(host.AdmissionError, "already bound"):
@@ -1839,7 +1850,7 @@ class HostAdmissionTests(unittest.TestCase):
                 "control_unit_observation",
                 return_value={"ControlGroup": "/owned", "InvocationID": "c" * 32},
             ),
-            patch.object(host.operation, "process_group", return_value="/outside"),
+            patch.object(operation_lifetime, "process_group", return_value="/outside"),
             self.assertRaisesRegex(host.AdmissionError, "actual unit"),
         ):
             owner.bind(unit, deadline=time.monotonic() + 1)
@@ -1878,7 +1889,7 @@ class HostAdmissionTests(unittest.TestCase):
                     return_value={"ControlGroup": "/owned", "InvocationID": "b" * 32},
                 ),
                 patch.object(
-                    host.operation, "process_group", return_value="/owned/child"
+                    operation_lifetime, "process_group", return_value="/owned/child"
                 ),
                 patch.object(host, "group_identity", return_value=18),
                 self.assertRaises(host.AdmissionError),
@@ -1923,7 +1934,7 @@ class HostAdmissionTests(unittest.TestCase):
             }
         with (
             patch.object(host, "group_identity", return_value=91),
-            patch.object(host.operation, "populated", return_value=False),
+            patch.object(operation_lifetime, "populated", return_value=False),
             patch.object(
                 host,
                 "control_unit_observation",
@@ -1974,7 +1985,7 @@ class HostAdmissionTests(unittest.TestCase):
                 "group_identity",
                 side_effect=lambda selected: 92 if selected == parent else 91,
             ),
-            patch.object(host.operation, "populated", return_value=False),
+            patch.object(operation_lifetime, "populated", return_value=False),
             patch.object(
                 host,
                 "control_run",
@@ -2021,7 +2032,7 @@ class HostAdmissionTests(unittest.TestCase):
                     ),
                 ),
                 patch.object(
-                    host.operation,
+                    operation_lifetime,
                     "populated",
                     side_effect=lambda selected, selected_case=invalid: (
                         selected_case == "parent-populated" and selected == parent
@@ -2062,7 +2073,7 @@ class HostAdmissionTests(unittest.TestCase):
                 "control_run",
                 return_value=subprocess.CompletedProcess([], 0, "", ""),
             ) as run,
-            patch("scripts.pse_env.limits", return_value=[]),
+            patch("scripts.systemd_environment.limits", return_value=[]),
             patch.object(host, "root_path", return_value=self.directory),
         ):
             host.enforce_parent(owner.profile, {}, deadline=deadline)
@@ -2103,7 +2114,7 @@ class HostAdmissionTests(unittest.TestCase):
     ) -> None:
         self.assertEqual(host.settings("functional")["slots"], 16)
         owners = [
-            host.acquire(host.select("functional"), directory=self.directory)
+            host.acquire(host.select("functional"), directory=self.directory, services=surreal_server.ServiceAdmission())
             for _ in range(16)
         ]
         self.assertTrue(
@@ -2116,10 +2127,10 @@ class HostAdmissionTests(unittest.TestCase):
                 host.select("functional"),
                 directory=self.directory,
                 deadline=begun + 0.03,
-            )
+            services=surreal_server.ServiceAdmission())
         self.assertLess(time.monotonic() - begun, 0.2)
         self.assertTrue(owners[0].release())
-        replacement = host.acquire(host.select("functional"), directory=self.directory)
+        replacement = host.acquire(host.select("functional"), directory=self.directory, services=surreal_server.ServiceAdmission())
         self.assertEqual(replacement.profile.cores, owners[0].profile.cores)
         for owner in [*owners[1:], replacement]:
             self.assertTrue(owner.release())
@@ -2146,7 +2157,7 @@ class HostAdmissionTests(unittest.TestCase):
         slots = host.settings("functional")["store_slots"]
         self.assertEqual(profile.memory, 16 * host.GIB)
         self.assertEqual(host.select("store-functional", "16G"), profile)
-        owners = [host.acquire(profile, directory=self.directory) for _ in range(slots)]
+        owners = [host.acquire(profile, directory=self.directory, services=surreal_server.ServiceAdmission()) for _ in range(slots)]
         with host.allocation_metadata(self.directory) as ledger:
             self.assertEqual(len(ledger["owners"]), slots)
             self.assertEqual(
@@ -2157,14 +2168,14 @@ class HostAdmissionTests(unittest.TestCase):
         with self.assertRaisesRegex(
             host.AdmissionError, "store-functional slots occupied"
         ):
-            host.acquire(profile, directory=self.directory, deadline=begun + 0.03)
+            host.acquire(profile, directory=self.directory, deadline=begun + 0.03, services=surreal_server.ServiceAdmission())
         self.assertLess(time.monotonic() - begun, 0.2)
         with self.assertRaisesRegex(host.AdmissionError, "exclusive heavy-work owner"):
             host.acquire(
                 host.select("exclusive"),
                 directory=self.directory,
                 deadline=time.monotonic() + 0.03,
-            )
+            services=surreal_server.ServiceAdmission())
         for owner in owners:
             self.assertTrue(owner.release())
         with self.assertRaisesRegex(host.AdmissionError, "declared lane"):
@@ -2175,7 +2186,7 @@ class HostAdmissionTests(unittest.TestCase):
         self.assertEqual(profile.memory, 144 * host.GIB)
         self.assertEqual(host.settings("exclusive")["store_gib"], 16)
         self.assertEqual(host.aggregate(profile), 168 * host.GIB)
-        owner = host.Allocation(self.directory, "a" * 32, profile, time.monotonic() + 1)
+        owner = host.Allocation(self.directory, "a" * 32, profile, time.monotonic() + 1, services=surreal_server.ServiceAdmission())
         host.protected(self.directory)
         group = self.directory / "cgroup"
         group.mkdir(mode=0o700)
@@ -2186,10 +2197,10 @@ class HostAdmissionTests(unittest.TestCase):
                 host.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)
             ) as run,
             patch(
-                "scripts.pse_env.limits",
+                "scripts.systemd_environment.limits",
                 return_value=[("pse.slice", str(168 * host.GIB))],
             ),
-            patch("scripts.pse_env.slice_group", return_value=group),
+            patch("scripts.systemd_environment.slice_group", return_value=group),
         ):
             host.enforce_parent(profile, {})
             host.enforce_allocation(owner, {})
@@ -2202,7 +2213,7 @@ class HostAdmissionTests(unittest.TestCase):
                 host.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)
             ),
             patch(
-                "scripts.pse_env.limits",
+                "scripts.systemd_environment.limits",
                 return_value=[("pse.slice", str(160 * host.GIB))],
             ),
             self.assertRaisesRegex(host.AdmissionError, "ancestor is below"),
@@ -2210,14 +2221,14 @@ class HostAdmissionTests(unittest.TestCase):
             host.enforce_parent(profile, {})
 
     def test_unknown_store_owner_still_occupies_its_declared_slot(self) -> None:
-        first = host.acquire(host.select("store-functional"), directory=self.directory)
+        first = host.acquire(host.select("store-functional"), directory=self.directory, services=surreal_server.ServiceAdmission())
         first.register("pse-unknown-store.service")
         with patch.object(
-            host.operation, "unit_observation", side_effect=ValueError("unknown")
+            operation_lifetime, "unit_observation", side_effect=ValueError("unknown")
         ):
             self.assertFalse(first.release())
             remaining = [
-                host.acquire(host.select("store-functional"), directory=self.directory)
+                host.acquire(host.select("store-functional"), directory=self.directory, services=surreal_server.ServiceAdmission())
                 for _ in range(host.settings("functional")["store_slots"] - 1)
             ]
             with self.assertRaisesRegex(host.AdmissionError, "slots occupied"):
@@ -2225,7 +2236,7 @@ class HostAdmissionTests(unittest.TestCase):
                     host.select("store-functional"),
                     directory=self.directory,
                     deadline=time.monotonic() + 0.03,
-                )
+                services=surreal_server.ServiceAdmission())
             with host.allocation_metadata(self.directory) as ledger:
                 self.assertIn(first.nonce, ledger["owners"])
                 for owner in remaining:
@@ -2236,11 +2247,11 @@ class HostAdmissionTests(unittest.TestCase):
     def test_timing_store_retains_its_single_declared_slot(self) -> None:
         self.assertEqual(host.settings("timing")["store_slots"], 1)
         profile = host.select("store-timing")
-        first = host.acquire(profile, directory=self.directory)
+        first = host.acquire(profile, directory=self.directory, services=surreal_server.ServiceAdmission())
         with self.assertRaisesRegex(host.AdmissionError, "store-timing slots occupied"):
             host.acquire(
                 profile, directory=self.directory, deadline=time.monotonic() + 0.03
-            )
+            , services=surreal_server.ServiceAdmission())
         self.assertTrue(first.release())
 
     def test_store_slot_declarations_are_required_positive_integers(self) -> None:
@@ -2270,15 +2281,15 @@ class HostAdmissionTests(unittest.TestCase):
                 host.policy()
 
     def test_original_deadline_and_actual_membership_required_for_reentry(self) -> None:
-        owner = host.acquire(host.select("compile"), directory=self.directory)
-        nested = host.inherit(owner.environment())
+        owner = host.acquire(host.select("compile"), directory=self.directory, services=surreal_server.ServiceAdmission())
+        nested = host.inherit(owner.environment(), services=surreal_server.ServiceAdmission())
         assert nested is not None
         self.assertEqual(nested.deadline, owner.deadline)
         with (
-            patch.object(host.operation, "start_identity", return_value="reused"),
+            patch.object(operation_lifetime, "start_identity", return_value="reused"),
             self.assertRaisesRegex(host.AdmissionError, "actual cgroup"),
         ):
-            host.inherit(owner.environment())
+            host.inherit(owner.environment(), services=surreal_server.ServiceAdmission())
         self.assertTrue(owner.release())
 
     def test_release_refreshes_returned_affiliation_and_preserves_other_work(
@@ -2288,7 +2299,7 @@ class HostAdmissionTests(unittest.TestCase):
             with self.subTest(surviving=surviving):
                 owner = host.acquire(
                     host.select("functional"), directory=self.directory
-                )
+                , services=surreal_server.ServiceAdmission())
                 with host.allocation_metadata(self.directory) as ledger:
                     ledger["owners"][owner.nonce]["borrowed_services"] = [
                         "/owned/store"
@@ -2315,7 +2326,7 @@ class HostAdmissionTests(unittest.TestCase):
                     return not record["units"]
 
                 with (
-                    patch.object(host, "drain_borrowed_services", side_effect=returned),
+                    patch.object(surreal_server, "drain_borrowed_services", side_effect=returned),
                     patch.object(host, "drained", side_effect=drained),
                     patch.object(host, "retire_empty_allocation"),
                 ):
@@ -2337,7 +2348,7 @@ class HostAdmissionTests(unittest.TestCase):
     def test_release_reports_retention_when_other_work_registers_during_proof(
         self,
     ) -> None:
-        owner = host.acquire(host.select("functional"), directory=self.directory)
+        owner = host.acquire(host.select("functional"), directory=self.directory, services=surreal_server.ServiceAdmission())
 
         def register(_record: dict[str, object], **_kwargs: object) -> bool:
             owner.register("late.scope")
@@ -2358,10 +2369,10 @@ class HostAdmissionTests(unittest.TestCase):
             self.assertTrue(owner.release())
 
     def test_release_preserves_original_deadline_and_expiry_keeps_charge(self) -> None:
-        owner = host.acquire(host.select("light"), directory=self.directory)
+        owner = host.acquire(host.select("light"), directory=self.directory, services=surreal_server.ServiceAdmission())
         expired = time.monotonic() - 1
         with (
-            patch.object(host, "drain_borrowed_services") as borrowed,
+            patch.object(surreal_server, "drain_borrowed_services") as borrowed,
             self.assertRaises(host.AdmissionError),
         ):
             owner.release(deadline=expired)
@@ -2370,7 +2381,7 @@ class HostAdmissionTests(unittest.TestCase):
             self.assertIn(owner.nonce, ledger["owners"])
         deadline = time.monotonic() + 5
         with (
-            patch.object(host, "drain_borrowed_services") as borrowed,
+            patch.object(surreal_server, "drain_borrowed_services") as borrowed,
             patch.object(host, "drained", return_value=True) as proof,
             patch.object(host, "retire_empty_allocation") as retire,
         ):
@@ -2382,7 +2393,7 @@ class HostAdmissionTests(unittest.TestCase):
     def test_missing_terminal_ack_pins_empty_allocation_independently_of_scope_drain(
         self,
     ) -> None:
-        owner = host.acquire(host.select("light"), directory=self.directory)
+        owner = host.acquire(host.select("light"), directory=self.directory, services=surreal_server.ServiceAdmission())
         with host.allocation_metadata(self.directory) as ledger:
             ledger["owners"][owner.nonce]["terminal_guards"] = {
                 "a" * 32: {
@@ -2408,10 +2419,10 @@ class HostAdmissionTests(unittest.TestCase):
             test_resources as resources,
         )
 
-        owner = host.acquire(host.select("light"), directory=self.directory)
+        owner = host.acquire(host.select("light"), directory=self.directory, services=surreal_server.ServiceAdmission())
         scope = {
             "unit": "pse-native-" + "d" * 32 + ".scope",
-            "group": operation.process_group(os.getpid()),
+            "group": operation_lifetime.process_group(os.getpid()),
             "invocation": "e" * 32,
         }
         with host.allocation_metadata(self.directory) as ledger:
@@ -2423,7 +2434,7 @@ class HostAdmissionTests(unittest.TestCase):
         base = self.directory / "fixture"
         with (
             patch.dict(os.environ, {"PSE_TEST_RESOURCE_STATE": str(base / "registry")}),
-            patch.object(operation, "scope_owner", return_value=scope),
+            patch.object(operation_lifetime, "scope_owner", return_value=scope),
             patch.object(host, "inherit", return_value=owner),
             patch.object(
                 resource_store, "publish", wraps=resource_store.publish
@@ -2437,7 +2448,7 @@ class HostAdmissionTests(unittest.TestCase):
                     ledger["owners"][owner.nonce]["terminal_guards"][path.stem]
                 )
                 snapshot = dict(ledger["owners"][owner.nonce])
-            self.assertFalse(operation.terminal_guard_complete(path.stem, guard))
+            self.assertFalse(operation_lifetime.terminal_guard_complete(path.stem, guard))
             resources.finalize(path, {}, complete=False, terminal_owner="runner")
             resource_store.publish(
                 path.with_suffix(".terminal.json"), {"exit_code": None}
@@ -2458,15 +2469,15 @@ class HostAdmissionTests(unittest.TestCase):
         path.with_suffix(".terminal.json").unlink()
         (path.parent.parent / "invocation-state" / path.name).unlink()
         parent.path.unlink()
-        self.assertTrue(operation.terminal_guard_complete(path.stem, guard))
+        self.assertTrue(operation_lifetime.terminal_guard_complete(path.stem, guard))
         snapshot.update(released=True, terminal_guards={path.stem: guard})
         with (
             patch.object(
-                operation, "unit_observation", return_value={"LoadState": "not-found"}
+                operation_lifetime, "unit_observation", return_value={"LoadState": "not-found"}
             ),
             patch.object(host, "group_identity", return_value=None),
         ):
-            self.assertTrue(host.drained(snapshot))
+            self.assertTrue(host.drained(snapshot, services=surreal_server.ServiceAdmission()))
             for changes in (
                 {"scope": {}},
                 {
@@ -2480,10 +2491,10 @@ class HostAdmissionTests(unittest.TestCase):
                     **snapshot,
                     "terminal_guards": {path.stem: {**guard, **changes}},
                 }
-                self.assertFalse(host.drained(corrupted))
+                self.assertFalse(host.drained(corrupted, services=surreal_server.ServiceAdmission()))
 
     def test_parent_death_and_pid_reuse_do_not_release_surviving_unit(self) -> None:
-        owner = host.acquire(host.select("functional"), directory=self.directory)
+        owner = host.acquire(host.select("functional"), directory=self.directory, services=surreal_server.ServiceAdmission())
         owner.register("pse-owned-test.scope")
         with host.allocation_metadata(self.directory) as state:
             record = state["owners"][owner.nonce]
@@ -2493,48 +2504,48 @@ class HostAdmissionTests(unittest.TestCase):
                 "invocation": "a" * 32,
             }
         with (
-            patch.object(host.operation, "populated", return_value=True),
+            patch.object(operation_lifetime, "populated", return_value=True),
             patch.object(
-                host.operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={"LoadState": "loaded", "InvocationID": "a" * 32},
             ),
         ):
-            host.reconcile(self.directory)
+            host.reconcile(self.directory, services=surreal_server.ServiceAdmission())
             with host.allocation_metadata(self.directory) as state:
                 self.assertIn(owner.nonce, state["owners"])
         with (
-            patch.object(host.operation, "populated", return_value=False),
+            patch.object(operation_lifetime, "populated", return_value=False),
             patch.object(
-                host.operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={"LoadState": "not-found"},
             ),
         ):
-            host.reconcile(self.directory)
+            host.reconcile(self.directory, services=surreal_server.ServiceAdmission())
             with host.allocation_metadata(self.directory) as state:
                 self.assertNotIn(owner.nonce, state["owners"])
 
     def test_unknown_unit_and_corrupt_ledger_refuse_capacity_recovery(self) -> None:
-        owner = host.acquire(host.select("functional"), directory=self.directory)
+        owner = host.acquire(host.select("functional"), directory=self.directory, services=surreal_server.ServiceAdmission())
         owner.register("pse-owned-test.scope")
         with patch.object(
-            host.operation, "unit_observation", side_effect=ValueError("unknown")
+            operation_lifetime, "unit_observation", side_effect=ValueError("unknown")
         ):
             self.assertFalse(owner.release())
         (self.directory / "allocations.json").write_text('{"version":99}')
         with self.assertRaisesRegex(host.AdmissionError, "Corrupt"):
-            host.reconcile(self.directory)
+            host.reconcile(self.directory, services=surreal_server.ServiceAdmission())
 
     def test_corrupt_host_owner_cannot_be_released_as_an_old_boot(self) -> None:
-        owner = host.acquire(host.select("functional"), directory=self.directory)
+        owner = host.acquire(host.select("functional"), directory=self.directory, services=surreal_server.ServiceAdmission())
         with host.metadata(self.directory) as ledger:
             ledger["owners"][owner.nonce].pop("boot")
         with self.assertRaisesRegex(host.AdmissionError, "Corrupt host allocation"):
-            host.reconcile(self.directory)
+            host.reconcile(self.directory, services=surreal_server.ServiceAdmission())
         with host.metadata(self.directory) as ledger:
             self.assertIn(owner.nonce, ledger["owners"])
-        self.assertFalse(host.drained({"units": {}, "released": True}))
+        self.assertFalse(host.drained({"units": {}, "released": True}, services=surreal_server.ServiceAdmission()))
 
     def test_persistent_unit_restart_does_not_charge_destroyed_generation(self) -> None:
         record = {
@@ -2552,9 +2563,9 @@ class HostAdmissionTests(unittest.TestCase):
         }
         with (
             patch.object(host, "group_identity", return_value=456),
-            patch.object(host.operation, "populated", return_value=True),
+            patch.object(operation_lifetime, "populated", return_value=True),
             patch.object(
-                host.operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={
                     "LoadState": "loaded",
@@ -2563,7 +2574,7 @@ class HostAdmissionTests(unittest.TestCase):
                 },
             ),
         ):
-            self.assertTrue(host.drained(record))
+            self.assertTrue(host.drained(record, services=surreal_server.ServiceAdmission()))
 
     def test_resident_restart_retains_charge_until_the_service_is_stopped(self) -> None:
         record = {
@@ -2582,24 +2593,24 @@ class HostAdmissionTests(unittest.TestCase):
         with patch.object(host, "group_identity", return_value=456):
             for status in ("activating", "active", "deactivating"):
                 with patch.object(
-                    host.operation,
+                    operation_lifetime,
                     "unit_observation",
                     return_value={"LoadState": "loaded", "ActiveState": status},
                 ):
-                    self.assertFalse(host.drained(record))
+                    self.assertFalse(host.drained(record, services=surreal_server.ServiceAdmission()))
             with patch.object(
-                host.operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={"LoadState": "loaded", "ActiveState": "inactive"},
             ):
-                self.assertTrue(host.drained(record))
+                self.assertTrue(host.drained(record, services=surreal_server.ServiceAdmission()))
         with (
             patch.object(host, "group_identity", return_value=123),
-            patch.object(host.operation, "populated", return_value=False),
+            patch.object(operation_lifetime, "populated", return_value=False),
         ):
             for invocation in ("", "a" * 32):
                 with patch.object(
-                    host.operation,
+                    operation_lifetime,
                     "unit_observation",
                     return_value={
                         "LoadState": "loaded",
@@ -2607,12 +2618,12 @@ class HostAdmissionTests(unittest.TestCase):
                         "InvocationID": invocation,
                     },
                 ):
-                    self.assertFalse(host.drained(record))
+                    self.assertFalse(host.drained(record, services=surreal_server.ServiceAdmission()))
         record["units"]["owned.service"].pop("inode")
         with (
-            patch.object(host.operation, "populated", return_value=False),
+            patch.object(operation_lifetime, "populated", return_value=False),
             patch.object(
-                host.operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={
                     "LoadState": "loaded",
@@ -2621,35 +2632,35 @@ class HostAdmissionTests(unittest.TestCase):
                 },
             ),
         ):
-            self.assertTrue(host.drained(record))
+            self.assertTrue(host.drained(record, services=surreal_server.ServiceAdmission()))
 
     def test_timing_excludes_competing_heavy_work_on_shared_full_host(self) -> None:
-        functional = host.acquire(host.select("wide"), directory=self.directory)
+        functional = host.acquire(host.select("wide"), directory=self.directory, services=surreal_server.ServiceAdmission())
         with self.assertRaisesRegex(host.AdmissionError, "isolated timing owner"):
             host.acquire(
                 host.select("timing"),
                 directory=self.directory,
                 deadline=time.monotonic() + 0.02,
-            )
+            services=surreal_server.ServiceAdmission())
         self.assertTrue(functional.release())
-        timing = host.acquire(host.select("timing"), directory=self.directory)
+        timing = host.acquire(host.select("timing"), directory=self.directory, services=surreal_server.ServiceAdmission())
         with self.assertRaisesRegex(host.AdmissionError, "isolated timing owner"):
             host.acquire(
                 host.select("functional"),
                 directory=self.directory,
                 deadline=time.monotonic() + 0.02,
-            )
-        store = host.acquire(host.select("store-timing"), directory=self.directory)
+            services=surreal_server.ServiceAdmission())
+        store = host.acquire(host.select("store-timing"), directory=self.directory, services=surreal_server.ServiceAdmission())
         self.assertTrue(store.release())
         self.assertTrue(timing.release())
-        reference = host.acquire(host.select("reference"), directory=self.directory)
+        reference = host.acquire(host.select("reference"), directory=self.directory, services=surreal_server.ServiceAdmission())
         with self.assertRaisesRegex(host.AdmissionError, "exclusive"):
             host.acquire(
                 host.select("functional"),
                 directory=self.directory,
                 deadline=time.monotonic() + 0.02,
-            )
-        light = host.acquire(host.select("light"), directory=self.directory)
+            services=surreal_server.ServiceAdmission())
+        light = host.acquire(host.select("light"), directory=self.directory, services=surreal_server.ServiceAdmission())
         self.assertTrue(light.release())
         self.assertTrue(reference.release())
 
@@ -2685,12 +2696,12 @@ class HostAdmissionTests(unittest.TestCase):
     def test_allocation_quota_counts_available_logical_cpus(self) -> None:
         allocation = host.Allocation(
             self.directory, "a" * 32, host.select("build"), time.monotonic() + 1
-        )
+        , services=surreal_server.ServiceAdmission())
         with (
             patch.object(
                 host.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)
             ) as run,
-            patch.object(host.pse_env, "require_unbounded_slice"),
+            patch.object(host.systemd_environment, "require_unbounded_slice"),
         ):
             host.enforce_allocation(allocation, {})
         command = run.call_args_list[1].args[0]
@@ -2762,7 +2773,7 @@ class HostAdmissionTests(unittest.TestCase):
             ),
             patch.object(host, "group_identity", return_value=123),
             patch.object(
-                host.operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={
                     "LoadState": "loaded",
@@ -2775,7 +2786,7 @@ class HostAdmissionTests(unittest.TestCase):
             patch.object(surreal_server, "stop") as stop,
             patch.object(surreal_server, "park_service") as park,
         ):
-            host.drain_borrowed_services(
+            surreal_server.drain_borrowed_services(
                 self.directory,
                 record,
                 allocation=self.directory / owner.nonce,
@@ -2816,7 +2827,7 @@ class HostAdmissionTests(unittest.TestCase):
                 surreal_server, "config_for", side_effect=lambda _: dict(config)
             ),
             patch.object(
-                host.operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={
                     "LoadState": "loaded",
@@ -2830,7 +2841,7 @@ class HostAdmissionTests(unittest.TestCase):
                 surreal_server.SupervisorError, "partial owned stop"
             ),
         ):
-            host.drain_borrowed_services(
+            surreal_server.drain_borrowed_services(
                 self.directory,
                 record,
                 allocation=self.directory / owner.nonce,

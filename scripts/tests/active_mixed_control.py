@@ -17,6 +17,7 @@ from pse.contracts.documents import ReviewContextRequest
 from pse.contracts.enums import NativeBackend, NativeSolveIntent, PresolvePolicyKind
 from pse.tests.test_local_runtime import physical_documents
 from pse.tests.test_native_workflow import package_documents
+from scripts import operation_lifetime
 from scripts import active_diagnostics, native_operation, resource_store
 
 
@@ -68,7 +69,7 @@ def run(output: Path, seconds: float) -> dict:
         )
         subject = {
             "pid": os.getpid(),
-            "start": native_operation.start_identity(os.getpid()),
+            "start": operation_lifetime.start_identity(os.getpid()),
             "boot": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
             "executable": active_diagnostics.regular(Path("/proc/self/exe").readlink()),
             "created_monotonic_ns": time.monotonic_ns(),

@@ -28,6 +28,7 @@ from unittest.mock import patch
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
+from scripts import operation_lifetime
 from scripts import telemetry_service
 from scripts.telemetry_investigation import BackendClient, QueryAnswer, QueryRequest
 from scripts.tests.telemetry_pipeline_acceptance import mapping, records, require
@@ -167,7 +168,7 @@ def producer(
                 return {
                     "sampler": sampler,
                     "pid": os.getpid(),
-                    "process_start": native_operation.start_identity(os.getpid()),
+                    "process_start": operation_lifetime.start_identity(os.getpid()),
                     "service_instance_id": settings.wire.resource[
                         "service.instance.id"
                     ],

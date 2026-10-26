@@ -304,7 +304,7 @@ def execute(
     # The boundary owns exact allocation drain/release. Reconciliation uses the
     # existing parked-service intent and may honestly refuse or defer resumption.
     try:
-        value["normal_resume"] = host_admission.status()
+        value["normal_resume"] = host_admission.status(services=surreal_server.ServiceAdmission())
     except (OSError, ValueError, RuntimeError) as error:
         value["normal_resume"] = {"status": "unavailable", "error": str(error)}
     checkpoint(invocation, value)

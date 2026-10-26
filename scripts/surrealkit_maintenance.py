@@ -29,6 +29,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import cast
 
+from scripts import operation_lifetime
 from scripts import (
     native_operation,
     surreal_rollout_producer,
@@ -244,7 +245,7 @@ def require_child_drains(state: Path, value: dict[str, object]) -> None:
             raise MaintenanceError(
                 "Unresolved child scope requires exact drain recovery"
             )
-        drain = native_operation.drained(native_record)
+        drain = operation_lifetime.drained(native_record)
         if not drain.complete:
             raise MaintenanceError(
                 drain.diagnostic() + "; maintenance listener remains closed"
@@ -1039,7 +1040,7 @@ def owned_child(
     timeout: float,
 ) -> int:
     """Internal admitted child: watch exact owner, stop/reap only this new session."""
-    if native_operation.scope_owner() is None:
+    if operation_lifetime.scope_owner() is None:
         raise MaintenanceError("Internal tool child requires its admitted native scope")
     if not math.isfinite(timeout) or timeout <= 0:
         raise MaintenanceError("Invalid internal child clock")

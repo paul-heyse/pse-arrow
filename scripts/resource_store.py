@@ -21,7 +21,7 @@ import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from scripts import host_admission as host
+from scripts import host_metadata as host
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Mapping, Sequence

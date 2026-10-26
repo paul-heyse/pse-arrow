@@ -5,6 +5,7 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
+
 import hashlib
 import json
 import os
@@ -16,6 +17,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import (
     arrow_validation,
     cargo_tools,
@@ -71,7 +74,7 @@ class Plan30RoutingTests(unittest.TestCase):
         self.addCleanup(scratch.cleanup)
         self.root = Path(scratch.name)
         registry = patch.object(
-            test_resources, "registry", return_value=self.root / "registry"
+            service_borrowers, "registry", return_value=self.root / "registry"
         )
         registry.start()
         self.addCleanup(registry.stop)
@@ -323,7 +326,7 @@ class Plan30RoutingTests(unittest.TestCase):
     ) -> None:
         self.declaration("runner")
         with (
-            patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(native_operation, "run", return_value=0) as execution,
             patch.object(test_run.validation, "compose_terminal"),
             patch.object(test_run, "finish", wraps=test_run.finish) as finish,
@@ -522,7 +525,7 @@ class Plan30RoutingTests(unittest.TestCase):
     def test_standalone_observer_finalizes_existing_runner_invocation(self) -> None:
         self.declaration("runner")
         with (
-            patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(native_operation, "run", return_value=0),
             patch.object(test_run.validation, "compose_terminal"),
             patch.object(test_run, "finish", wraps=test_run.finish) as finish,

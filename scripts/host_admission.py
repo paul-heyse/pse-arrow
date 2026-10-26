@@ -23,10 +23,12 @@ import tomllib
 import uuid
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
+from typing import TYPE_CHECKING, NotRequired, Protocol, TypedDict, cast
 
-from scripts import native_operation as operation
-from scripts import pse_env, resource_store
+from scripts import operation_lifetime as operation
+from scripts import resource_store, systemd_environment, process_observation
+from scripts.process_observation import boot
+from scripts.host_metadata import (AdmissionError, root_path, protected, remaining, control_run, lock_until, validate_private_file)
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping, Sequence
@@ -107,8 +109,6 @@ class AllocationLedger(TypedDict):
     parked_services: NotRequired[list[str]]
 
 
-class AdmissionError(ValueError):
-    """The requested supervised placement could not be established."""
 
 
 @dataclass(frozen=True)
@@ -377,68 +377,12 @@ def classify(command: Sequence[str], native: bool = False) -> str:
     return "functional"
 
 
-def root_path(env: Mapping[str, str] | None = None) -> Path:
-    source = os.environ if env is None else env
-    home = Path(source.get("XDG_STATE_HOME", str(Path.home() / ".local/state")))
-    return home / "pse-arrow/host-admission"
 
 
-def protected(directory: Path) -> None:
-    if any(path.is_symlink() for path in (directory, *directory.parents)):
-        raise AdmissionError("Admission state must not traverse symlinks")
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-    information = directory.stat()
-    if information.st_uid != os.getuid() or stat.S_IMODE(information.st_mode) & 0o077:
-        raise AdmissionError("Admission state must be owned with mode0700")
 
 
-def remaining(deadline: float | None, maximum: float) -> float:
-    """A shared absolute clock; ordinary calls retain their existing timeouts."""
-    if deadline is None:
-        return maximum
-    budget = min(maximum, deadline - time.monotonic())
-    if budget <= 0:
-        raise AdmissionError("Control operation deadline exhausted")
-    return budget
 
 
-def control_run(
-    command: Sequence[str],
-    *,
-    env: Mapping[str, str],
-    deadline: float,
-    maximum: float = 10,
-) -> subprocess.CompletedProcess[str]:
-    """Bound every process wait, including cancellation, without descendant pipe waits."""
-    remaining(deadline, maximum)
-    with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
-        child = subprocess.Popen(
-            command,
-            env=dict(env),
-            stdout=output,
-            stderr=errors,
-        )
-        try:
-            budget = remaining(deadline, maximum)
-            # Reserve part of this same clock for killing/reaping the direct
-            # client. The actual scope remains charged independently of it.
-            status = child.wait(timeout=budget - min(0.05, budget / 4))
-        except BaseException:
-            with contextlib.suppress(ProcessLookupError):
-                child.kill()
-            # The scope stays charged if its client or actual descendants outlive
-            # this clock. Never wait indefinitely for their output or their exit.
-            with contextlib.suppress(subprocess.TimeoutExpired):
-                child.wait(timeout=max(0, deadline - time.monotonic()))
-            raise
-        output.seek(0)
-        errors.seek(0)
-        return subprocess.CompletedProcess(
-            command,
-            status,
-            output.read().decode(errors="replace"),
-            errors.read().decode(errors="replace"),
-        )
 
 
 def verify_light_control_child(
@@ -483,18 +427,6 @@ def verify_light_control_child(
     raise AdmissionError("Fixed control child is outside its registered actual scope")
 
 
-def lock_until(fd: int, kind: int, deadline: float | None) -> None:
-    if deadline is None:
-        fcntl.flock(fd, kind)
-        return
-    while True:
-        remaining(deadline, 1)
-        try:
-            fcntl.flock(fd, kind | fcntl.LOCK_NB)
-        except BlockingIOError:
-            time.sleep(remaining(deadline, 0.01))
-        else:
-            return
 
 
 def validate_ledger(record: object) -> MetadataLedger:
@@ -550,13 +482,6 @@ def readonly_snapshot(
         os.close(fd)
 
 
-def validate_private_file(information: os.stat_result, label: str) -> None:
-    if (
-        not stat.S_ISREG(information.st_mode)
-        or information.st_uid != os.getuid()
-        or information.st_mode & 0o077
-    ):
-        raise AdmissionError(f"Unsafe admission {label}")
 
 
 @contextlib.contextmanager
@@ -597,10 +522,6 @@ def metadata(
         yield record
         remaining(deadline, 1)
         if durable:
-            from scripts import (  # noqa: PLC0415 -- resource store imports the admission owner
-                resource_store,
-            )
-
             resource_store.publish(path, record)
         else:
             operation.write_json(path, record)
@@ -686,8 +607,6 @@ def validate_allocation_record(record: Mapping[str, object]) -> None:
         raise AdmissionError("Corrupt host allocation; retain ownership for inspection")
 
 
-def boot() -> str:
-    return Path("/proc/sys/kernel/random/boot_id").read_text().strip()
 
 
 def integer(value: object) -> int:
@@ -707,249 +626,31 @@ def caller_alive(record: Mapping[str, object]) -> bool:
 
 
 def group_identity(group: str) -> int | None:
-    """Kernel identity distinguishes a recreated unit path from its old owner."""
-    if not group.startswith("/") or group == "/" or ".." in Path(group).parts:
-        raise AdmissionError("Invalid registered cgroup")
     try:
-        return (Path("/sys/fs/cgroup") / group.lstrip("/")).stat().st_ino
-    except FileNotFoundError:
-        return None
+        return process_observation.group_identity(group)
+    except ValueError as error:
+        raise AdmissionError(str(error)) from error
 
 
-def unadmitted_service_launch_drained(
-    state: Path,
-    unit: str,
-    launch: dict[str, object],
-    *,
-    deadline: float | None = None,
-) -> bool:
-    """Authenticate a materialized initial launch that never admitted a process."""
-    from scripts import surreal_server  # noqa: PLC0415 -- reciprocal ownership
-
-    if "binding" in launch:
-        return False
-    config = surreal_server.config_for(state, deadline=deadline)
-    drain_config = surreal_server.storage_launch_drain_config(
-        state, config, launch, deadline=deadline
-    )
-    observed = operation.unit_observation(unit, **operation.deadline_options(deadline))
-    if (
-        observed.get("LoadState") != "loaded"
-        or observed.get("ActiveState") not in {"inactive", "failed"}
-        or observed.get("ControlGroup") != ""
-        or observed.get("InvocationID") != ""
-    ):
-        return False
-    readiness = surreal_server.service_readiness(state, drain_config, deadline=deadline)
-    if (
-        readiness.phase is not surreal_server.Readiness.ACTIONABLE_ABSENT
-        or readiness.state != state
-        or readiness.unit != unit
-        or readiness.instance_id != launch.get("generation")
-        or readiness.listener_owned
-        or any(
-            readiness.manager.get(key) != observed.get(key)
-            for key in ("ActiveState", "ControlGroup", "InvocationID")
-        )
-        or surreal_server.config_for(state, deadline=deadline) != config
-        or surreal_server.storage_launch_drain_config(
-            state, config, launch, deadline=deadline
-        )
-        != drain_config
-        or surreal_server.read_json(state / "service-launch.json", deadline=deadline)
-        != launch
-        or operation.unit_observation(unit, **operation.deadline_options(deadline))
-        != observed
-    ):
-        return False
-    # A concurrent admission or unexpected receipt must keep the allocation held.
-    # Recheck the exact missing path after all selection/manager observations.
-    try:
-        surreal_server.read_json(state / "server-process.json", deadline=deadline)
-    except FileNotFoundError:
-        return True
-    return False
 
 
-def service_processes_drained(
-    record: Mapping[str, object],
-    allocation: Path | None,
-    *,
-    deadline: float | None = None,
-) -> bool:
-    """Do not reclaim an affiliated storage process merely because its cgroup emptied."""
-    from scripts import surreal_server  # noqa: PLC0415 -- reciprocal ownership
 
-    raw_services = record.get("borrowed_services", [])
-    units = record.get("units")
-    if (
-        not isinstance(raw_services, list)
-        or any(not isinstance(value, str) for value in raw_services)
-        or not isinstance(units, dict)
-    ):
-        return False
-    services = list(cast("list[str]", raw_services))
-    if record.get("service"):
-        if not isinstance(record["service"], str):
-            return False
-        services.append(record["service"])
-    for selected in services:
-        if deadline is not None:
-            require_admission_time(deadline, "Original drain clock expired")
-        state = Path(selected)
-        unit = surreal_server.unit_name(state)
-        if unit not in units:
-            continue  # A caller observing another role did not select this storage unit.
-        if allocation is None:
-            return False
-        launch = None
-        try:
-            launch = surreal_server.read_json(
-                state / "service-launch.json", deadline=deadline
-            )
-            affiliation = launch["allocation"]
-            if not isinstance(affiliation, str) or not re.fullmatch(
-                r"[a-f0-9]{32}", Path(affiliation).name
-            ):
-                return False
-            if Path(affiliation).absolute() != allocation.absolute():
-                continue  # A stale service descriptor belongs to a different owner.
-            process = surreal_server.read_json(
-                state / "server-process.json", deadline=deadline
-            )
-            generation = launch["generation"]
-            if (
-                not isinstance(generation, str)
-                or not generation
-                or process["instance_id"] != generation
-                or not isinstance(process["start"], str)
-                or not process["start"]
-            ):
-                return False
-            pid = integer(process["pid"])
-            if pid <= 0:
-                return False
-            if process["allocation"] != affiliation:
-                # A failed pre-bind restart publishes a new launch while the
-                # previous immutable process receipt remains. Authenticate that
-                # precise pending launch; a mismatched bound lifetime stays held.
-                previous = process["allocation"]
-                if (
-                    units[unit]
-                    or "binding" in launch
-                    or not isinstance(previous, str)
-                    or not re.fullmatch(r"[a-f0-9]{32}", Path(previous).name)
-                    or not Path(previous).is_absolute()
-                    or Path(previous).parent != allocation.parent
-                    or Path(previous) == allocation
-                    or str(Path(previous)) != previous
-                ):
-                    return False
-                try:
-                    operation.start_identity(pid)
-                except FileNotFoundError:
-                    pass
-                else:
-                    return False  # Live or reused PID is uncertain, not an ACK.
-                config = surreal_server.config_for(state, deadline=deadline)
-                drain_config = surreal_server.storage_launch_drain_config(
-                    state, config, launch, deadline=deadline
-                )
-                try:
-                    observed = operation.unit_observation(
-                        unit, **operation.deadline_options(deadline)
-                    )
-                except subprocess.SubprocessError:
-                    return False
-                if (
-                    observed.get("LoadState") != "loaded"
-                    or observed.get("ActiveState") not in {"inactive", "failed"}
-                    or observed.get("ControlGroup")
-                ):
-                    return False
-                try:
-                    readiness = surreal_server.service_readiness(
-                        state, drain_config, deadline=deadline
-                    )
-                except subprocess.SubprocessError:
-                    return False
-                if (
-                    readiness.phase is not surreal_server.Readiness.ACTIONABLE_ABSENT
-                    or readiness.state != state
-                    or readiness.unit != unit
-                    or readiness.instance_id != generation
-                    or readiness.listener_owned
-                    or any(
-                        readiness.manager.get(key) != observed.get(key)
-                        for key in ("ActiveState", "ControlGroup", "InvocationID")
-                    )
-                    or surreal_server.config_for(state, deadline=deadline) != config
-                    or surreal_server.storage_launch_drain_config(
-                        state, config, launch, deadline=deadline
-                    )
-                    != drain_config
-                    or surreal_server.read_json(
-                        state / "service-launch.json", deadline=deadline
-                    )
-                    != launch
-                    or surreal_server.read_json(
-                        state / "server-process.json", deadline=deadline
-                    )
-                    != process
-                ):
-                    return False
-                continue
-            try:
-                if operation.start_identity(pid) == process["start"]:
-                    return False
-            except FileNotFoundError:
-                pass
-        except FileNotFoundError:
-            # Registration precedes the launch. No bound lifetime can use this
-            # missing-process proof; a materialized initial unit needs exact
-            # selection and repeated terminal/absence observations as well.
-            if (
-                units[unit]
-                or not isinstance(units[unit], dict)
-                or (launch is not None and "binding" in launch)
-            ):
-                return False
-            try:
-                (state / "server-process.json").read_text()
-            except FileNotFoundError:
-                try:
-                    observed = (
-                        operation.unit_observation(unit)
-                        if deadline is None
-                        else operation.unit_observation(unit, deadline=deadline)
-                    )
-                    if observed.get("LoadState") == "not-found":
-                        continue
-                    if launch is not None and unadmitted_service_launch_drained(
-                        state, unit, launch, deadline=deadline
-                    ):
-                        continue
-                except (
-                    OSError,
-                    ValueError,
-                    TypeError,
-                    KeyError,
-                    subprocess.SubprocessError,
-                    surreal_server.SupervisorError,
-                ):
-                    pass
-            except OSError:
-                pass
-            return False
-        except (
-            OSError,
-            ValueError,
-            TypeError,
-            KeyError,
-            surreal_server.SupervisorError,
-        ):
-            return False
-    return True
+
+
+class ServicePolicy(Protocol):
+    """Explicit service lifetime decisions composed by the service entry point."""
+
+    def processes_drained(self, record: Mapping[str, object], allocation: Path | None,
+                          *, deadline: float | None = None) -> bool: ...
+
+    def return_borrowed(self, directory: Path, record: Mapping[str, object], *,
+                        allocation: Path, explicit: bool = False,
+                        deadline: float | None = None) -> None: ...
+
+    def park(self, directory: Path, owners: Mapping[str, AllocationRecord], *,
+             deadline: float) -> None: ...
+
+    def resume(self, state: Path, *, deadline: float | None = None) -> None: ...
 
 
 def drained(
@@ -957,6 +658,7 @@ def drained(
     *,
     allocation: Path | None = None,
     deadline: float | None = None,
+    services: ServicePolicy | None = None,
 ) -> bool:
     if deadline is not None:
         require_admission_time(deadline, "Original drain clock expired")
@@ -989,7 +691,7 @@ def drained(
             return False
     if (
         record.get("service") or record.get("borrowed_services")
-    ) and not service_processes_drained(record, allocation, deadline=deadline):
+    ) and (services is None or not services.processes_drained(record, allocation, deadline=deadline)):
         return False
     for unit, owner in units.items():
         if not isinstance(owner, dict):
@@ -1038,127 +740,8 @@ def drained(
     return bool(record.get("released")) or not caller_alive(record)
 
 
-def drain_borrowed_services(
-    directory: Path,
-    record: Mapping[str, object],
-    *,
-    allocation: Path,
-    explicit: bool = False,
-    deadline: float | None = None,
-) -> None:
-    """An exclusive caller returns borrowed storage after all other roles drain."""
-    raw_services = record.get("borrowed_services", [])
-    if not isinstance(raw_services, list) or any(
-        not isinstance(value, str) for value in raw_services
-    ):
-        raise AdmissionError("Invalid borrowed service ownership")
-    services = cast("list[str]", raw_services)
-    raw_units = record.get("units")
-    if not isinstance(raw_units, dict):
-        raise AdmissionError("Invalid borrowed service unit ownership")
-    bound_units = cast("dict[str, BoundUnit]", raw_units)
-    if not services or (not explicit and caller_alive(record)):
-        return
-    from scripts import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
-        surreal_server,
-    )
-
-    units = {surreal_server.unit_name(Path(value)) for value in services}
-    other = {
-        **record,
-        "units": {
-            unit: owner for unit, owner in bound_units.items() if unit not in units
-        },
-        "released": True,
-    }
-    options = operation.deadline_options(deadline)
-    if not drained(other, deadline=deadline):
-        return
-    for value in services:
-        state = Path(value)
-        with (
-            surreal_server.lifecycle_deadline(deadline),
-            surreal_server.lifecycle_reservation(state),
-        ):
-            launch = json.loads((state / "service-launch.json").read_text())
-            affiliation = launch["allocation"]
-            if not isinstance(affiliation, str) or not re.fullmatch(
-                r"[a-f0-9]{32}", Path(affiliation).name
-            ):
-                raise AdmissionError("Borrowed storage allocation is unobservable")
-            if Path(affiliation).absolute() != allocation.absolute():
-                continue  # A newer allocation owns this service; the snapshot cannot act on it.
-            unit = surreal_server.unit_name(state)
-            expected = bound_units.get(unit)
-            observed = operation.unit_observation(unit, **options)
-            if (
-                not expected
-                and "binding" not in launch
-                and observed.get("LoadState") == "not-found"
-            ):
-                continue  # No storage lifetime was ever bound for this launch.
-            if (
-                not isinstance(expected, dict)
-                or type(expected.get("inode")) is not int
-                or not isinstance(expected.get("group"), str)
-                or not expected.get("group")
-                or not re.fullmatch(r"[a-f0-9]{32}", expected.get("invocation", ""))
-                or launch.get("binding") != expected
-            ):
-                raise AdmissionError("Borrowed storage binding changed")
-            config = surreal_server.config_for(state, **options)
-            if config.get("instance_id") != launch.get("generation"):
-                raise AdmissionError("Borrowed storage generation changed")
-            if observed.get("LoadState") != "not-found":
-                stopped = observed.get("ActiveState") in {"inactive", "failed"}
-                identity = group_identity(expected["group"])
-                if (
-                    observed.get("ControlGroup")
-                    not in ({"", expected["group"]} if stopped else {expected["group"]})
-                    or observed.get("InvocationID")
-                    not in (
-                        {"", expected["invocation"]}
-                        if stopped
-                        else {expected["invocation"]}
-                    )
-                    or (
-                        not stopped
-                        and observed.get("ActiveState")
-                        not in {"active", "activating", "deactivating"}
-                    )
-                    or identity
-                    not in (
-                        {None, expected["inode"]} if stopped else {expected["inode"]}
-                    )
-                ):
-                    raise AdmissionError("Borrowed storage lifetime changed")
-            # Residency permits borrowing a running service; it does not reverse
-            # an intentional stop or a failed service on allocation release.
-            if not config.get("resident") or observed.get("ActiveState") != "active":
-                surreal_server.workers_drained(state, config)
-                surreal_server.stop(state, config)
-            else:
-                try:
-                    surreal_server.park_service(
-                        state, expected_binding=expected, **options
-                    )
-                finally:
-                    queue_parked_service(directory, state, **options)
 
 
-def queue_parked_service(
-    directory: Path, state: Path, *, deadline: float | None = None
-) -> None:
-    """Publish actual parking intent while the caller owns the service lifecycle."""
-    from scripts import surreal_server  # noqa: PLC0415 -- reciprocal ownership
-
-    if surreal_server.config_for(state, **operation.deadline_options(deadline)).get(
-        "parked"
-    ):
-        selected = str(state)
-        with allocation_metadata(directory, deadline=deadline) as ledger:
-            if selected not in ledger.setdefault("parked_services", []):
-                ledger["parked_services"].append(selected)
 
 
 def withdraw_parked_service(state: Path, *, directory: Path | None = None) -> None:
@@ -1171,7 +754,8 @@ def withdraw_parked_service(state: Path, *, directory: Path | None = None) -> No
 
 
 def reconcile(
-    directory: Path, deadline: float | None = None, *, resume_parked: bool = True
+    directory: Path, deadline: float | None = None, *, resume_parked: bool = True,
+    services: ServicePolicy | None = None,
 ) -> None:
     with allocation_metadata(directory) as state:
         snapshot = dict(state["owners"])
@@ -1180,16 +764,17 @@ def reconcile(
             isinstance(item, dict)
             and item.get("borrowed_services")
             and not caller_alive(item)
+            and services is not None
         ):
             try:
-                drain_borrowed_services(directory, item, allocation=directory / nonce)
+                services.return_borrowed(directory, item, allocation=directory / nonce)
             except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
                 # The living service/receiver still owns capacity, even without caller.
                 continue
     finished = {
         nonce: item
         for nonce, item in snapshot.items()
-        if isinstance(item, dict) and drained(item, allocation=directory / nonce)
+        if isinstance(item, dict) and drained(item, allocation=directory / nonce, services=services)
     }
     with allocation_metadata(directory) as state:
         owners = state["owners"]
@@ -1199,19 +784,15 @@ def reconcile(
         exclusive_live = any(owner["exclusive"] for owner in owners.values())
         parked = (
             list(state.get("parked_services", []))
-            if resume_parked and not exclusive_live
+            if resume_parked and not exclusive_live and services is not None
             else []
         )
         if parked:
             state["parked_services"] = []
     if parked:
-        from scripts import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
-            surreal_server,
-        )
-
         for selected in parked:
             try:
-                surreal_server.unpark_service(Path(selected), deadline=deadline)
+                services.resume(Path(selected), deadline=deadline)
             except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
                 # Retain the explicit parked record; status/recover remains actionable.
                 with allocation_metadata(directory) as state:
@@ -1271,6 +852,7 @@ class Allocation:
     nonce: str
     profile: Profile
     deadline: float
+    services: ServicePolicy | None = None
 
     def environment(self) -> dict[str, str]:
         return {
@@ -1323,13 +905,11 @@ class Allocation:
             owner = state["owners"].get(self.nonce)
         if not isinstance(owner, dict):
             return True
-        drain_borrowed_services(
-            self.directory,
-            owner,
-            allocation=self.directory / self.nonce,
-            explicit=True,
-            **operation.deadline_options(deadline),
-        )
+        if self.services is not None:
+            self.services.return_borrowed(
+                self.directory, owner, allocation=self.directory / self.nonce,
+                explicit=True, **operation.deadline_options(deadline),
+            )
         # Returning a stopped borrowed service can retire only that affiliation.
         # Judge and release the current record, including any other surviving work.
         with allocation_metadata(self.directory, deadline=deadline) as state:
@@ -1343,6 +923,7 @@ class Allocation:
         if not drained(
             snapshot,
             allocation=self.directory / self.nonce,
+            services=self.services,
             **operation.deadline_options(deadline),
         ):
             with allocation_metadata(self.directory, deadline=deadline) as state:
@@ -1360,7 +941,8 @@ class Allocation:
 
 
 def inherit(
-    env: Mapping[str, str], *, handoff: bool = False, deadline: float | None = None
+    env: Mapping[str, str], *, handoff: bool = False, deadline: float | None = None,
+    services: ServicePolicy | None = None,
 ) -> Allocation | None:
     marker = env.get(MARKER)
     if not marker:
@@ -1414,11 +996,11 @@ def inherit(
         tuple(owner["cores"]),
         owner["exclusive"],
     )
-    return Allocation(path.parent, path.name, profile, owner["deadline"])
+    return Allocation(path.parent, path.name, profile, owner["deadline"], services)
 
 
 def control_manager_environment() -> dict[str, str]:
-    from scripts.pse_env import (  # noqa: PLC0415 -- reciprocal environment owner
+    from scripts.systemd_environment import (  # noqa: PLC0415 -- reciprocal environment owner
         manager_environment,
     )
 
@@ -1678,7 +1260,8 @@ def admission_observations(
 
 
 def acquire(
-    profile: Profile, *, directory: Path | None = None, deadline: float | None = None
+    profile: Profile, *, directory: Path | None = None, deadline: float | None = None,
+    services: ServicePolicy | None = None,
 ) -> Allocation:
     directory = root_path() if directory is None else directory
     deadline = (
@@ -1692,7 +1275,7 @@ def acquire(
     while time.monotonic() < deadline:
         # Reclaim ended owners without spending this request's original clock on
         # unrelated service startup. Selected store demand owns its own resume.
-        reconcile(directory, deadline, resume_parked=False)
+        reconcile(directory, deadline, resume_parked=False, services=services)
         if time.monotonic() >= deadline:
             break
         if (
@@ -1733,7 +1316,7 @@ def acquire(
                         "deadline": deadline,
                         "units": {},
                     }
-                    selected = Allocation(directory, nonce, profile, deadline)
+                    selected = Allocation(directory, nonce, profile, deadline, services)
             if selected is not None:
                 checkpoint.publish(
                     "parking" if profile.exclusive and parkable else "admitted",
@@ -1741,36 +1324,11 @@ def acquire(
                     allocation=selected.nonce,
                 )
                 if profile.exclusive and parkable:
-                    from scripts import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
-                        surreal_server,
-                    )
-
                     try:
-                        for owner in parkable.values():
-                            require_admission_time(
-                                deadline,
-                                "Original admission clock expired while parking owned services",
-                            )
-                            service = owner["service"]
-                            path = Path(service)
-                            binding = owner["units"].get(surreal_server.unit_name(path))
-                            if not binding:
-                                raise AdmissionError(  # noqa: TRY301 -- release this selected allocation on a missing parking premise
-                                    "Parkable service lacks its bound lifetime"
-                                )
-                            with surreal_server.lifecycle_reservation(path):
-                                try:
-                                    surreal_server.park_service(
-                                        path,
-                                        deadline=deadline,
-                                        expected_binding=binding,
-                                    )
-                                finally:
-                                    # Publish resume intent under the same lifecycle
-                                    # as parking. Preserve partial-stop recovery,
-                                    # but a stale stopped premise queues nothing.
-                                    queue_parked_service(directory, path)
-                        reconcile(directory, deadline, resume_parked=False)
+                        if services is None:
+                            raise AdmissionError("Service parking requires its composed lifetime policy")
+                        services.park(directory, parkable, deadline=deadline)
+                        reconcile(directory, deadline, resume_parked=False, services=services)
                         require_admission_time(
                             deadline,
                             "Original admission clock expired during service parking",
@@ -1829,11 +1387,11 @@ def retire_empty_allocation(
     observed = operation.unit_observation(name, **options)
     group = observed.get("ControlGroup", "")
     if group and not operation.populated(group):
-        from scripts import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
-            surreal_server,
-        )
-
-        surreal_server.systemctl("stop", name, check=False, **options)
+        result = control_run(["systemctl", "--user", "stop", name],
+                             env=operation.manager_control_environment(),
+                             deadline=time.monotonic() + 10 if deadline is None else deadline)
+        if result.returncode:
+            raise AdmissionError("Cannot retire empty allocation cgroup")
 
 
 def enforce_allocation(
@@ -1878,12 +1436,12 @@ def enforce_allocation(
             )
         if result.returncode:
             raise AdmissionError("Cannot enforce originating allocation ancestor")
-    from scripts.pse_env import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
+    from scripts.systemd_environment import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
         slice_group,
     )
 
     if allocation.profile.unbounded:
-        pse_env.require_unbounded_slice(name)
+        systemd_environment.require_unbounded_slice(name)
     else:
         observed = int((slice_group(name) / "memory.max").read_text().strip())
         if observed != ceiling:
@@ -1944,7 +1502,7 @@ def _enforce_parent(
         )
         if result.returncode:
             raise AdmissionError("Cannot start unbounded build parent")
-        pse_env.require_unbounded_slice("psebuild.slice")
+        systemd_environment.require_unbounded_slice("psebuild.slice")
         return
     cap = aggregate(profile)
     # A concurrent light admission may never lower a widened live heavy envelope.
@@ -1981,7 +1539,7 @@ def _enforce_parent(
         result = control_run(command, env=env, deadline=deadline, maximum=5)
     if result.returncode:
         raise AdmissionError("Cannot enforce admitted aggregate parent")
-    from scripts.pse_env import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
+    from scripts.systemd_environment import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
         limits,
     )
 
@@ -1992,14 +1550,14 @@ def _enforce_parent(
         )
 
 
-def status() -> dict[str, object]:
+def status(*, services: ServicePolicy | None = None) -> dict[str, object]:
     directory = root_path()
-    reconcile(directory)
+    reconcile(directory, services=services)
     with allocation_metadata(directory) as state:
         return {**state, "pressure": memory_info(), "policy": policy()}
 
 
-def measurement_context(env: Mapping[str, str] | None = None) -> dict[str, object]:
+def measurement_context(env: Mapping[str, str] | None = None, *, service: Mapping[str, object] | None = None) -> dict[str, object]:
     """Record conditions without treating snapshots or CPU ceilings as isolation."""
     source = os.environ if env is None else env
     owner = inherit(source)
@@ -2015,7 +1573,7 @@ def measurement_context(env: Mapping[str, str] | None = None) -> dict[str, objec
         try:
             if path.stat().st_uid != os.getuid():
                 continue
-            fields = (path / "stat").read_text().rsplit(")", 1)[1].split()
+            fields = process_observation.process_stat(int(path.name))
             group = operation.process_group(int(path.name))
             if any(
                 group == selected or group.startswith(selected + "/")
@@ -2043,30 +1601,6 @@ def measurement_context(env: Mapping[str, str] | None = None) -> dict[str, objec
                 )
         except (OSError, ValueError, IndexError):
             continue
-    service = None
-    selected = source.get("PSE_SURREAL_STATE")
-    if selected:
-        from scripts import (  # noqa: PLC0415 -- admission and supervisor/environment have reciprocal ownership
-            surreal_server,
-        )
-
-        state_path = Path(selected)
-        config = surreal_server.config_for(state_path)
-        process = state_path / "server-process.json"
-        service = {
-            "state": selected,
-            "generation": config["instance_id"],
-            "resident": bool(config.get("resident")),
-            "server_process": surreal_server.read_json(process)
-            if process.is_file()
-            else None,
-            "supervisor": config.get("service_supervisor"),
-            "receiver": config.get("primary_receiver"),
-            "execution_profile": source.get("PSE_TEST_EXECUTION_PROFILE"),
-            "filesystem_cache": "uncontrolled",
-            "surrealmx_memory": "not independently measured",
-            "schema_provisioning_timed": "declared by selected journey",
-        }
     return {
         "clock": time.monotonic(),
         "class": owner.profile.name if owner else None,

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+
 import contextlib
 import io
 import json
@@ -18,6 +19,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
     from typing import TextIO
 
+from scripts import service_borrowers
 from scripts import assessment_store, test_resources, validation, validation_result
 from scripts.tests import assessment_fixture
 
@@ -54,7 +56,7 @@ class ValidationResultTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         registry = patch.object(
-            test_resources, "registry", return_value=self.root / "registry"
+            service_borrowers, "registry", return_value=self.root / "registry"
         )
         registry.start()
         self.addCleanup(registry.stop)

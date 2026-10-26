@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+
 import contextlib
 import io
 import json
@@ -19,6 +20,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import pse_env, surreal_server, test_resources
 
 
@@ -136,7 +139,7 @@ class PseEnvTests(unittest.TestCase):
         metadata.write_text("corrupt unrelated metadata")
         original = metadata.read_bytes()
         with (
-            patch.object(test_resources, "registry", return_value=registry),
+            patch.object(service_borrowers, "registry", return_value=registry),
             self.assertRaises(ValueError),
         ):
             test_resources.reclaim_reports()
@@ -153,7 +156,7 @@ class PseEnvTests(unittest.TestCase):
                     patch.object(pse_env.host, "inherit", return_value=owner),
                     patch.object(pse_env.operation, "owner_record", return_value=None),
                     patch.object(pse_env.subprocess, "call", return_value=status),
-                    patch.object(test_resources, "registry", return_value=registry),
+                    patch.object(service_borrowers, "registry", return_value=registry),
                     patch.object(
                         test_resources,
                         "reclaim_reports",
@@ -314,9 +317,9 @@ class PseEnvTests(unittest.TestCase):
             patch.object(
                 pse_env.operation, "record_lock", return_value=contextlib.nullcontext()
             ),
-            patch.object(pse_env.operation, "write_json"),
+            patch.object(operation_lifetime, "write_json"),
             patch.object(
-                pse_env.operation, "drained", return_value=MagicMock(complete=True)
+                operation_lifetime, "drained", return_value=MagicMock(complete=True)
             ) as drain,
             patch("scripts.native_cache.cache_root", return_value=self.root),
         ):
@@ -366,14 +369,14 @@ class PseEnvTests(unittest.TestCase):
             patch.object(
                 pse_env.operation, "record_lock", return_value=contextlib.nullcontext()
             ),
-            patch.object(pse_env.operation, "write_json"),
+            patch.object(operation_lifetime, "write_json"),
             patch.object(pse_env.operation.subprocess, "Popen", return_value=child),
             patch.object(
-                pse_env.operation,
+                operation_lifetime,
                 "drained",
-                return_value=pse_env.operation.DrainObservation(
+                return_value=operation_lifetime.DrainObservation(
                     scope,
-                    pse_env.operation.DrainPhase.COMPLETE,
+                    operation_lifetime.DrainPhase.COMPLETE,
                     "exact owned scope terminal",
                 ),
             ) as drain,
@@ -394,14 +397,14 @@ class PseEnvTests(unittest.TestCase):
     ) -> None:
         with self.native_owned_scope() as (owner, record, drain):
             drain.side_effect = [
-                pse_env.operation.DrainObservation(
+                operation_lifetime.DrainObservation(
                     record["scope"],
-                    pse_env.operation.DrainPhase.ACTIVE,
+                    operation_lifetime.DrainPhase.ACTIVE,
                     "manager still active after reaping",
                 ),
-                pse_env.operation.DrainObservation(
+                operation_lifetime.DrainObservation(
                     record["scope"],
-                    pse_env.operation.DrainPhase.COMPLETE,
+                    operation_lifetime.DrainPhase.COMPLETE,
                     "same manager lifetime now terminal",
                 ),
             ]
@@ -424,15 +427,15 @@ class PseEnvTests(unittest.TestCase):
         self,
     ) -> None:
         for phase in (
-            pse_env.operation.DrainPhase.UNAVAILABLE,
-            pse_env.operation.DrainPhase.MISMATCH,
+            operation_lifetime.DrainPhase.UNAVAILABLE,
+            operation_lifetime.DrainPhase.MISMATCH,
         ):
             with (
                 self.subTest(phase=phase),
                 self.native_owned_scope() as (owner, record, drain),
             ):
                 owner.release.return_value = False
-                drain.return_value = pse_env.operation.DrainObservation(
+                drain.return_value = operation_lifetime.DrainObservation(
                     record["scope"], phase, "manager identity not established"
                 )
                 with (
@@ -458,9 +461,9 @@ class PseEnvTests(unittest.TestCase):
                 elapsed = [100.0]
                 if cancellation is not None:
                     record["cancel_deadline"] = cancellation
-                drain.return_value = pse_env.operation.DrainObservation(
+                drain.return_value = operation_lifetime.DrainObservation(
                     record["scope"],
-                    pse_env.operation.DrainPhase.ACTIVE,
+                    operation_lifetime.DrainPhase.ACTIVE,
                     "manager has not settled",
                 )
 
@@ -474,7 +477,7 @@ class PseEnvTests(unittest.TestCase):
                         side_effect=lambda clock=elapsed: clock[0],
                     ),
                     patch.object(pse_env.time, "sleep", side_effect=advance),
-                    self.assertRaises(pse_env.operation.DeadlineExpiredError),
+                    self.assertRaises(operation_lifetime.DeadlineExpiredError),
                 ):
                     pse_env.owned_scope(self.native_scope_command(), {})
                 expected = cancellation if cancellation is not None else 110.0
@@ -499,22 +502,22 @@ class PseEnvTests(unittest.TestCase):
 
             def observe(
                 _record: dict, *, deadline: float
-            ) -> pse_env.operation.DrainObservation:
+            ) -> operation_lifetime.DrainObservation:
                 if drain.call_count == 1:
                     self.assertEqual(deadline, 110.0)
                     handler = signal.getsignal(signal.SIGTERM)
                     if not callable(handler):
                         self.fail("join lost the non-raising native signal handler")
                     handler(signal.SIGTERM, None)
-                    return pse_env.operation.DrainObservation(
+                    return operation_lifetime.DrainObservation(
                         record["scope"],
-                        pse_env.operation.DrainPhase.ACTIVE,
+                        operation_lifetime.DrainPhase.ACTIVE,
                         "first signal arrived while joining",
                     )
                 self.assertEqual(deadline, original)
-                return pse_env.operation.DrainObservation(
+                return operation_lifetime.DrainObservation(
                     record["scope"],
-                    pse_env.operation.DrainPhase.COMPLETE,
+                    operation_lifetime.DrainPhase.COMPLETE,
                     "exact receiver terminal",
                 )
 
@@ -614,7 +617,7 @@ class PseEnvTests(unittest.TestCase):
             with (
                 self.subTest(raw=raw),
                 patch.object(
-                    pse_env.host.operation,
+                    pse_env.operation_lifetime,
                     "unit_observation",
                     return_value={
                         "LoadState": "loaded",
@@ -758,7 +761,7 @@ class PseEnvTests(unittest.TestCase):
         for owner, attribute, value in (
             (pse_env, "cpu_ceiling", 16),
             (pse_env.os, "sched_getaffinity", set(range(256))),
-            (pse_env.operation, "process_group", "/test-allocation"),
+            (operation_lifetime, "process_group", "/test-allocation"),
         ):
             mocked = patch.object(owner, attribute, return_value=value)
             mocked.start()
@@ -1033,7 +1036,7 @@ class PseEnvTests(unittest.TestCase):
             patch.object(pse_env.host, "enforce_parent"),
             patch.object(pse_env.host, "enforce_allocation"),
             patch.object(pse_env.host, "cpu_set", return_value=(1, 2, 3, 4)),
-            patch.object(pse_env.operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(pse_env, "manager_available", return_value=True),
         ):
             prefix = pse_env.placement(env, native=False)
@@ -1207,7 +1210,7 @@ class PseEnvTests(unittest.TestCase):
             patch.object(pse_env.host, "acquire", return_value=owner) as acquire,
             patch.object(pse_env.host, "enforce_parent"),
             patch.object(pse_env.host, "enforce_allocation"),
-            patch.object(pse_env.operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(pse_env, "manager_available", return_value=True),
         ):
             env = {}
@@ -1231,7 +1234,7 @@ class PseEnvTests(unittest.TestCase):
         }
         with (
             patch.object(pse_env.host, "inherit", return_value=None),
-            patch.object(pse_env.operation, "scope_owner", return_value=owner),
+            patch.object(operation_lifetime, "scope_owner", return_value=owner),
             self.assertRaisesRegex(
                 pse_env.BoundaryError, "no verified host allocation"
             ),
@@ -1239,7 +1242,7 @@ class PseEnvTests(unittest.TestCase):
             pse_env.placement({}, native=False)
         with (
             patch.object(pse_env.host, "inherit", return_value=None),
-            patch.object(pse_env.operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(pse_env, "manager_available", return_value=False),
             self.assertRaisesRegex(pse_env.BoundaryError, "systemd user manager"),
         ):
@@ -1253,7 +1256,7 @@ class PseEnvTests(unittest.TestCase):
         with (
             patch.object(pse_env.host, "inherit", return_value=None),
             patch.object(pse_env.host, "acquire", return_value=owner),
-            patch.object(pse_env.operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(pse_env, "manager_available", return_value=True),
             patch.object(
                 pse_env.host,

@@ -5,6 +5,7 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
+
 import json
 import os
 import platform
@@ -13,6 +14,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import service_borrowers
 from scripts import assessment_store, validation
 from scripts import test_archives as archives
 from scripts import test_resources as resources
@@ -186,7 +188,7 @@ class ArchiveClosureTests(unittest.TestCase):
 
     def sealed_archive(self) -> str:
         self.enterContext(
-            patch.object(resources, "registry", return_value=self.root / "registry")
+            patch.object(service_borrowers, "registry", return_value=self.root / "registry")
         )
         self.enterContext(patch.object(resources.host, "inherit", return_value=None))
         resource = resources.register_report(self.archive, root=self.root)

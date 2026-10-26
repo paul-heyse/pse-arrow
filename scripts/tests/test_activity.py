@@ -16,6 +16,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import operation_lifetime
 from scripts import activity
 
 
@@ -87,9 +88,9 @@ class ActivityTests(unittest.TestCase):
         }
         with (
             patch.object(
-                activity.native_operation, "unit_observation", return_value=fields
+                operation_lifetime, "unit_observation", return_value=fields
             ),
-            patch.object(activity.native_operation, "populated", return_value=False),
+            patch.object(operation_lifetime, "populated", return_value=False),
         ):
             observed, errors = activity.units(["pse-empty.scope"])
         self.assertEqual(errors, [])
@@ -135,7 +136,7 @@ class ActivityTests(unittest.TestCase):
         errors = io.StringIO()
         with (
             patch.object(
-                activity.native_operation, "manager_observation", side_effect=responses
+                operation_lifetime, "manager_observation", side_effect=responses
             ),
             patch.object(
                 activity,
@@ -274,7 +275,7 @@ class ActivityTests(unittest.TestCase):
                 activity, "systemctl", side_effect=AssertionError("global list")
             ),
             patch.object(
-                activity.native_operation, "unit_observation", return_value=fields
+                operation_lifetime, "unit_observation", return_value=fields
             ) as observe,
         ):
             status, output, _ = self.observe(
@@ -352,7 +353,7 @@ class ActivityTests(unittest.TestCase):
             output = io.StringIO()
             with (
                 patch.object(
-                    activity.native_operation, "unit_observation", return_value=fields
+                    operation_lifetime, "unit_observation", return_value=fields
                 ),
                 patch.object(activity, "build_processes", return_value=[]),
                 patch.object(activity.pse_env, "limits", return_value=[]),
@@ -392,7 +393,7 @@ class ActivityTests(unittest.TestCase):
                 ),
             ),
             patch.object(
-                activity.native_operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={
                     "LoadState": "loaded",
@@ -430,7 +431,7 @@ class ActivityTests(unittest.TestCase):
         with (
             patch.object(pressure, "sample", return_value=sample),
             patch.object(
-                activity.native_operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={
                     "LoadState": "loaded",

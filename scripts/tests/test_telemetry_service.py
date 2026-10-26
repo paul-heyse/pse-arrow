@@ -314,7 +314,8 @@ class TelemetryServiceTests(unittest.TestCase):
         self.assertNotIn("stop", [call[0] for call in self.calls])
 
     def test_current_process_checks_executable_cgroup_and_incarnation(self) -> None:
-        unit = self.root / "fixture.service"
+        group = Path("/proc/self/cgroup").read_text().strip().split("::", 1)[1]
+        unit = self.root / Path(group).name
         unit.write_text("fixture unit")
         config: dict[str, object] = {
             "owner_id": "selected-owner",

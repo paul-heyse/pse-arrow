@@ -38,6 +38,7 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+from scripts import operation_lifetime
 from scripts import (  # noqa: E402 -- direct-script root routing
     build_environment,
     diagnostic_trace,
@@ -267,7 +268,7 @@ def ready(
         ):
             return None
         if (
-            operation.process_group(pid) != group
+            operation_lifetime.process_group(pid) != group
             or peer(endpoint, deadline) != pid
             or not registered(record, group, invocation)
         ):
@@ -282,7 +283,7 @@ def ready(
         return Service(
             record,
             pid,
-            operation.start_identity(pid),
+            operation_lifetime.start_identity(pid),
             invocation,
             group,
             (info.st_dev, info.st_ino),
@@ -432,7 +433,7 @@ def ensure(env: Mapping[str, str], *, deadline: float | None = None) -> Service:
             with contextlib.suppress(FileNotFoundError, ProcessLookupError):
                 alive = (
                     owner.get("boot") == host.boot()
-                    and operation.start_identity(
+                    and operation_lifetime.start_identity(
                         msgspec.convert(owner.get("pid", -1), type=int)
                     )
                     == owner.get("start")
@@ -440,12 +441,12 @@ def ensure(env: Mapping[str, str], *, deadline: float | None = None) -> Service:
                     > time.monotonic()
                 )
             if not alive:
-                operation.write_json(
+                operation_lifetime.write_json(
                     owner_file,
                     {
                         "nonce": nonce,
                         "pid": os.getpid(),
-                        "start": operation.start_identity(os.getpid()),
+                        "start": operation_lifetime.start_identity(os.getpid()),
                         "boot": host.boot(),
                         "deadline": deadline,
                     },
@@ -500,7 +501,7 @@ def ensure(env: Mapping[str, str], *, deadline: float | None = None) -> Service:
             "allocation": allocation.environment(),
             "record": str(generation / "service.json"),
         }
-        operation.write_json(generation / "service.json", record)
+        operation_lifetime.write_json(generation / "service.json", record)
         units = (
             Path(env.get("XDG_CONFIG_HOME", str(Path.home() / ".config")))
             / "systemd/user"
@@ -521,8 +522,8 @@ def ensure(env: Mapping[str, str], *, deadline: float | None = None) -> Service:
                 with metadata(state, deadline):
                     if read(state / "reservation.json").get("nonce") != nonce:
                         refuse("compiler cache startup reservation changed")
-                    operation.write_json(current, record)
-                    operation.write_json(state / "reservation.json", {})
+                    operation_lifetime.write_json(current, record)
+                    operation_lifetime.write_json(state / "reservation.json", {})
                 return admitted
             time.sleep(min(0.02, remaining(deadline)))
     except BaseException:
@@ -533,7 +534,7 @@ def ensure(env: Mapping[str, str], *, deadline: float | None = None) -> Service:
         with metadata(state, deadline + 1):
             owner_file = state / "reservation.json"
             if owner_file.exists() and read(owner_file).get("nonce") == nonce:
-                operation.write_json(owner_file, {})
+                operation_lifetime.write_json(owner_file, {})
 
 
 def serve(path: Path) -> None:

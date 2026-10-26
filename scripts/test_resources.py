@@ -25,6 +25,8 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, TypedDict, cast, overload
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import host_admission as host
 from scripts import invocation_disposition, resource_store
 from scripts import native_operation as operation
@@ -132,7 +134,7 @@ class InvocationRecord(TypedDict):
 
 
 def storage() -> resource_store.FileStore:
-    return resource_store.FileStore(registry())
+    return resource_store.FileStore(service_borrowers.registry())
 
 
 def resource_phase(record: ResourceRecord) -> str:
@@ -269,95 +271,21 @@ def cli_json(
     return json.loads("\n".join(lines))
 
 
-def registry() -> Path:
-    selected = os.environ.get("PSE_TEST_RESOURCE_STATE")
-    if selected:
-        path = Path(selected)
-        if not path.is_absolute():
-            raise ResourceError(
-                "PSE_TEST_RESOURCE_STATE must be an absolute private directory"
-            )
-        return path
-    return host.root_path().parent / "test-resources"
-
-
-def service_registry_binding(
-    owner: Path, *, establish: bool = False, deadline: float | None = None
-) -> None:
-    """Bind covered discovery to the actual service, including empty cohorts."""
-    path = owner / ".resource-owner" / "registry.json"
-    existing = resource_store.read(path) if path.exists() else None
-    if existing is not None and existing.get("registry") != str(registry().resolve()):
-        raise ResourceError(
-            "Service resource registry coverage differs from selected authority"
-        )
-    if existing is None and not establish:
-        raise ResourceError("Service resource registry coverage is unestablished")
-    store = storage()
-    store.ensure(resource_store.clock(deadline))
-    identity = registry().resolve().stat()
-    activation = resource_store.read(registry() / "activation.json")
-    expected = {
-        "version": 1,
-        "registry": str(registry().resolve()),
-        "identity": [identity.st_dev, identity.st_ino],
-        "activation": activation,
-    }
-    if existing is not None:
-        if existing != expected:
-            raise ResourceError(
-                "Service resource registry coverage differs from selected authority"
-            )
-    elif establish:
-        resource_store.publish(path, expected)
-    else:
-        raise ResourceError("Service resource registry coverage is unestablished")
-
-
-def service_resources(
-    owner: Path, *, deadline: float | None = None
-) -> dict[str, ResourceRecord]:
-    deadline = resource_store.clock(deadline)
-    service_registry_binding(owner, deadline=deadline)
-    store = storage()
-    for resource in store.access_ids(
-        "uncovered-service-access/" + resource_store.digest(str(owner)),
-        deadline=deadline,
-    ):
-        entry = store.lookup(resource, deadline=deadline)
-        if entry.phase == "active" and entry.facts.get("unresolved_service") == str(
-            owner
-        ):
-            raise ResourceError(
-                "Original service association remains unresolved; quiet is unestablished"
-            )
-    result = {}
-    for resource in store.access_ids(
-        "service-access/" + resource_store.digest(str(owner)), deadline=deadline
-    ):
-        entry = store.lookup(resource, deadline=deadline)
-        if entry.phase != "active":
-            continue  # a protected interrupted departure can leave a stale marker
-        record = entry_facts(entry)
-        if record.get("service_owner") != str(owner):
-            raise ResourceError("Service access projection contradicts its authority")
-        result[resource] = record.copy()
-    return result
 
 
 def execution_owner(*, deadline: float | None = None) -> dict | None:
     """Observe native or ordinary command membership through the existing host binding."""
-    selected = operation.scope_owner(**operation.deadline_options(deadline))
+    selected = operation_lifetime.scope_owner(**operation_lifetime.deadline_options(deadline))
     if selected is not None:
         return dict(selected)
-    allocation = host.inherit(os.environ, **operation.deadline_options(deadline))
+    allocation = host.inherit(os.environ, **operation_lifetime.deadline_options(deadline))
     if allocation is None:
         return None
     snapshot = host.readonly_snapshot(
         allocation.directory, deadline=resource_store.clock(deadline)
     )
     record = snapshot["owners"].get(allocation.nonce)
-    group = operation.process_group(os.getpid())
+    group = operation_lifetime.process_group(os.getpid())
     if not isinstance(record, dict):
         return None
     for unit, binding in record["units"].items():
@@ -365,8 +293,8 @@ def execution_owner(*, deadline: float | None = None) -> dict | None:
         if isinstance(control, str) and (
             group == control or group.startswith(control + "/")
         ):
-            observed = operation.unit_observation(
-                unit, **operation.deadline_options(deadline)
+            observed = operation_lifetime.unit_observation(
+                unit, **operation_lifetime.deadline_options(deadline)
             )
             if (
                 observed.get("InvocationID") == binding.get("invocation")
@@ -387,8 +315,8 @@ def invocation(
     terminal_owner: str = "runner",
     requirements: Mapping[str, Mapping[str, object]] | None = None,
 ) -> Path:
-    host.protected(registry())
-    directory = registry() / "invocations"
+    host.protected(service_borrowers.registry())
+    directory = service_borrowers.registry() / "invocations"
     host.protected(directory)
     nonce = uuid.uuid4().hex
     path = directory / f"{nonce}.json"
@@ -402,13 +330,13 @@ def invocation(
     if kind == "python" and selected:
         declaration["collection_owner"] = {
             "pid": os.getpid(),
-            "start": operation.start_identity(os.getpid()),
+            "start": operation_lifetime.start_identity(os.getpid()),
             "boot": host.boot(),
         }
     storage().create_invocation(declaration)
     producer = {
         "pid": os.getpid(),
-        "start": operation.start_identity(os.getpid()),
+        "start": operation_lifetime.start_identity(os.getpid()),
         "boot": host.boot(),
         "scope": execution_owner(),
         "allocation": os.environ.get(host.MARKER),
@@ -586,7 +514,7 @@ def publish_python_collection(path: Path, identities: Sequence[str]) -> bool:
             raise ResourceError(str(error)) from error
         collector = {
             "pid": os.getpid(),
-            "start": operation.start_identity(os.getpid()),
+            "start": operation_lifetime.start_identity(os.getpid()),
             "boot": host.boot(),
         }
         owner = record.get("collection_owner")
@@ -702,7 +630,7 @@ def observe_setup_failure(payload: Mapping[str, object]) -> None:
         "assertion_reach": reach,
         "producer": {
             "pid": producer,
-            "start": operation.start_identity(producer),
+            "start": operation_lifetime.start_identity(producer),
             "boot": host.boot(),
         },
     }
@@ -726,7 +654,7 @@ def observe_peer(payload: Mapping[str, object], child: Path, *, role: str) -> No
     nonce, test = selected_test(payload, declaration=parent)
     root, declaration, image = run_inspection.resolve(str(child))
     if (
-        root != registry()
+        root != service_borrowers.registry()
         or declaration["nonce"] == nonce
         or image["phase"] != "frozen"
     ):
@@ -870,10 +798,10 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
         if not isinstance(generation, str) or not isinstance(namespace, str):
             raise ResourceError("Invalid service generation or namespace")
         service_owner = surreal_server.service_directory(state, deadline=deadline)
-        service_registry_binding(service_owner, establish=True, deadline=deadline)
+        service_borrowers.service_registry_binding(service_owner, establish=True, deadline=deadline)
         facts = {
             "pid": os.getppid() if payload.get("executable") else os.getpid(),
-            "start": operation.start_identity(
+            "start": operation_lifetime.start_identity(
                 os.getppid() if payload.get("executable") else os.getpid()
             ),
             "boot": host.boot(),
@@ -918,17 +846,6 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
     return resource
 
 
-def borrower_alive(record: Mapping[str, object]) -> bool:
-    pid = record.get("pid")
-    if type(pid) is not int:
-        return False
-    try:
-        return (
-            record.get("boot") == host.boot()
-            and operation.start_identity(pid) == record["start"]
-        )
-    except (FileNotFoundError, KeyError):
-        return False
 
 
 def record_drain(
@@ -1145,7 +1062,7 @@ def borrow(
             )
         record["borrows"][token] = {
             "pid": os.getpid(),
-            "start": operation.start_identity(os.getpid()),
+            "start": operation_lifetime.start_identity(os.getpid()),
             "boot": host.boot(),
         }
     try:
@@ -1196,7 +1113,7 @@ def register_report(
     identity = selected.stat()
     facts = {
         "pid": os.getpid(),
-        "start": operation.start_identity(os.getpid()),
+        "start": operation_lifetime.start_identity(os.getpid()),
         "boot": host.boot(),
         "invocation": None,
         "test": None,
@@ -1307,13 +1224,13 @@ def _custody_ready(record: ResourceRecord, *, deadline: float) -> None:
         or record.get("drained") is not True
         or record.get("borrows") != {}
         or record.get("creation_borrower")
-        or borrower_alive(record)
+        or service_borrowers.borrower_alive(record)
     ):
         raise ResourceError(
             "Report conversion requires an owned drained report without live creators or borrowers"
         )
     for unit in record["units"]:
-        if not operation.drained({"scope": unit}, deadline=deadline).complete:
+        if not operation_lifetime.drained({"scope": unit}, deadline=deadline).complete:
             raise ResourceError(
                 "Report conversion requires authenticated descendant drain"
             )
@@ -1711,7 +1628,7 @@ def _custody_relocate(
                 or journal.get("root") != str(root)
             ):
                 raise ResourceError("Report custody journal identity changed")
-            if journal.get("phase") != "complete" and borrower_alive(
+            if journal.get("phase") != "complete" and service_borrowers.borrower_alive(
                 journal.get("owner", {})
             ):
                 raise ResourceError(
@@ -1956,7 +1873,7 @@ def relocate_reports(
     journal_path = store.path("report-custody", batch)
     owner = {
         "pid": os.getpid(),
-        "start": operation.start_identity(os.getpid()),
+        "start": operation_lifetime.start_identity(os.getpid()),
         "boot": host.boot(),
         "nonce": uuid.uuid4().hex,
     }
@@ -2462,7 +2379,7 @@ def reclaim_reports() -> list[str]:
     deadline = resource_store.clock()
     store = storage()
     store.ensure(deadline)
-    cursor_path = registry() / "cleanup-cursor.json"
+    cursor_path = service_borrowers.registry() / "cleanup-cursor.json"
     with store.lock("sweeps", "cleanup", deadline):
         cursors = resource_store.read(cursor_path) if cursor_path.exists() else {}
         candidates = []
@@ -2558,7 +2475,7 @@ def eligible(
         return "protected reference or active borrow"
     if check_units:
         for owner in record["units"]:
-            observed = operation.drained(
+            observed = operation_lifetime.drained(
                 {"scope": owner},
                 **({"deadline": deadline} if deadline is not None else {}),
             )
@@ -2776,7 +2693,7 @@ def cleanup_reason(
         cleaner = record.get("cleaner")
         if not isinstance(cleaner, dict):
             return "unknown cleanup owner"
-        if borrower_alive(cleaner):
+        if service_borrowers.borrower_alive(cleaner):
             return "active cleanup owner"
     return eligible(record, check_units=check_units, deadline=deadline)
 
@@ -2879,7 +2796,7 @@ def reclaim(resource: str, *, deadline: float | None = None) -> str:
                 record["pin"] = True
             record["cleaner"] = {
                 "pid": os.getpid(),
-                "start": operation.start_identity(os.getpid()),
+                "start": operation_lifetime.start_identity(os.getpid()),
                 "boot": host.boot(),
             }
             selected = record.copy()
@@ -2965,7 +2882,7 @@ def main() -> int:
             print(
                 json.dumps(
                     resource_conversion.convert(
-                        registry(),
+                        service_borrowers.registry(),
                         deadline=time.monotonic() + args.seconds,
                         services=services,
                     )
@@ -2974,7 +2891,7 @@ def main() -> int:
         elif not args.resource:
             parser.error("original inspection requires an exact invocation identity")
         else:
-            print(json.dumps(resource_conversion.original(registry(), args.resource)))
+            print(json.dumps(resource_conversion.original(service_borrowers.registry(), args.resource)))
     elif args.action == "migrate":
         if not os.environ.get("PSE_TEST_RESOURCE_STATE"):
             parser.error(

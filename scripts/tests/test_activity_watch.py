@@ -5,6 +5,7 @@
 # ruff: noqa: PT009, PT027 -- stdlib setup controls
 from __future__ import annotations
 
+
 import contextlib
 import io
 import json
@@ -16,6 +17,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import activity, test_resources, test_run
 from scripts import activity_watch as watch
 
@@ -75,7 +78,7 @@ class WatchTests(unittest.TestCase):
             subprocess.TimeoutExpired("systemctl", 0.1),
         ):
             with patch.object(
-                watch.native_operation,
+                operation_lifetime,
                 "unit_observation",
                 side_effect=response if isinstance(response, Exception) else None,
                 return_value=response,
@@ -86,7 +89,7 @@ class WatchTests(unittest.TestCase):
 
     def test_inactive_unit_does_not_claim_result_or_success(self) -> None:
         with patch.object(
-            watch.native_operation,
+            operation_lifetime,
             "unit_observation",
             return_value={
                 "LoadState": "loaded",
@@ -131,7 +134,7 @@ class WatchTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as temporary,
             patch.object(
-                test_resources, "registry", return_value=Path(temporary) / "registry"
+                service_borrowers, "registry", return_value=Path(temporary) / "registry"
             ),
         ):
             path = test_resources.invocation("python", [{"name": "suite::one"}])
@@ -166,7 +169,7 @@ class WatchTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as temporary,
             patch.object(
-                test_resources, "registry", return_value=Path(temporary) / "registry"
+                service_borrowers, "registry", return_value=Path(temporary) / "registry"
             ),
         ):
             path = test_resources.invocation("python", [{"name": "suite::one"}])
@@ -218,7 +221,7 @@ class WatchTests(unittest.TestCase):
                 side_effect=AssertionError("compiler"),
             ),
             patch.object(
-                watch.native_operation,
+                operation_lifetime,
                 "unit_observation",
                 side_effect=OSError("manager unavailable"),
             ),

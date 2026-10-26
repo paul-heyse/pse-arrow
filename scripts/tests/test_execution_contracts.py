@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+
 import json
 import os
 import subprocess
@@ -16,6 +17,8 @@ from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import (
     cargo_tools,
     case_measure,
@@ -210,7 +213,7 @@ class ExecutionContracts(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         self.output = Path(self.directory.name)
         registry = patch.object(
-            test_resources, "registry", return_value=self.output / "registry"
+            service_borrowers, "registry", return_value=self.output / "registry"
         )
         registry.start()
         self.addCleanup(registry.stop)
@@ -524,7 +527,7 @@ class ExecutionContracts(unittest.TestCase):
                 native_tests, "native_provenance", return_value=native
             ) as provenance,
             patch.object(native_operation, "run", side_effect=run) as child,
-            patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(native_tests.scientific_inputs, "prepare_python") as prepare,
             patch.object(
                 validation, "collect_report", wraps=validation.collect_report
@@ -589,7 +592,7 @@ class ExecutionContracts(unittest.TestCase):
                 return_value={"files": {str(ROOT / "python/pse/_native.so"): "digest"}},
             ),
             patch.object(native_operation, "run", side_effect=run),
-            patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(native_tests.scientific_inputs, "prepare_python") as prepare,
         ):
             # The runner refuses the stale report while retaining the actual

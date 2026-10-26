@@ -16,6 +16,7 @@ from typing import Literal, TypedDict
 
 import msgspec
 
+from scripts import operation_lifetime
 from scripts import host_admission, native_operation, pressure_observation
 from scripts import surreal_server as server
 
@@ -320,7 +321,7 @@ def numeric_file(path: Path) -> Observation:
 
 def process_identity(pid: int) -> ProcessIdentity:
     return ProcessIdentity(
-        host_admission.boot(), pid, native_operation.start_identity(pid)
+        host_admission.boot(), pid, operation_lifetime.start_identity(pid)
     )
 
 
@@ -367,7 +368,7 @@ def independent_host(state: Path) -> dict[str, Observation]:
 def selected_process(pid: int, group: str, boot: str) -> ProcessObservation:
     """Read one original member only while its identity and membership remain stable."""
     process = process_identity(pid)
-    if process.boot != boot or native_operation.process_group(pid) != group:
+    if process.boot != boot or operation_lifetime.process_group(pid) != group:
         raise ValueError("process membership changed")
     rss = unavailable("process RSS unavailable")
     for line in Path(f"/proc/{pid}/status").read_text().splitlines():
@@ -377,7 +378,7 @@ def selected_process(pid: int, group: str, boot: str) -> ProcessObservation:
                 rss = Observation(
                     "approximate", int(parts[1]) * 1024, "kernel VmRSS estimate"
                 )
-    if process_identity(pid) != process or native_operation.process_group(pid) != group:
+    if process_identity(pid) != process or operation_lifetime.process_group(pid) != group:
         raise ValueError("process lifetime changed")
     return ProcessObservation(process, rss)
 

@@ -43,8 +43,10 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+from scripts import operation_lifetime
 from scripts import build_environment  # noqa: E402 -- direct-script path routing
 from scripts import host_admission as host  # noqa: E402 -- placement owner
+from scripts.systemd_environment import (BoundaryError, current_memory_ceiling, slice_group, limits, require_unbounded_slice, require_unbounded_group, manager_environment)
 from scripts import native_operation as operation  # noqa: E402 -- same routing
 
 FAILURE = 125
@@ -74,8 +76,6 @@ CONFIGURED = {
 }
 
 
-class BoundaryError(Exception):
-    """This boundary, not the command, failed."""
 
 
 def local_keys(root: Path, *, deadline: float | None = None) -> dict[str, str]:
@@ -314,52 +314,12 @@ def slice_name(env: Mapping[str, str]) -> str | None:
     return name
 
 
-def slice_group(name: str) -> Path:
-    """Systemd nests dashed slice names: pse-x.slice lives inside pse.slice."""
-    stem = name.removesuffix(".slice").split("-")
-    parts = ["-".join(stem[: index + 1]) + ".slice" for index in range(len(stem))]
-    service = f"user.slice/user-{os.getuid()}.slice/user@{os.getuid()}.service"
-    return Path("/sys/fs/cgroup", service, *parts)
 
 
-def limits(name: str | None) -> list[tuple[str, str]]:
-    """Effective memory limits from the selected slice up to the user manager."""
-    if name is None:
-        return []
-    group = slice_group(name)
-    found = []
-    while group != Path("/sys/fs/cgroup") and group.name:
-        limit = group / "memory.max"
-        if limit.is_file():
-            value = limit.read_text().strip()
-            if value != "max":
-                found.append((group.name, value))
-        group = group.parent
-    return found
 
 
-def require_unbounded_slice(name: str) -> None:
-    """Read the actual selected memory cgroup and every ancestor, including root."""
-    require_unbounded_group(slice_group(name))
 
 
-def require_unbounded_group(
-    group: Path, *, root: Path = Path("/sys/fs/cgroup")
-) -> None:
-    """Verify native files rather than inferring absence of a cap from policy."""
-    if not group.is_relative_to(root):
-        raise BoundaryError("Unbounded build group is outside the cgroup hierarchy")
-    if (group / "memory.max").read_text().strip() != "max":
-        raise BoundaryError("Unbounded build allocation has a finite OS memory limit")
-    while group.is_relative_to(root):
-        path = group / "memory.max"
-        if path.is_file() and path.read_text().strip() != "max":
-            raise BoundaryError(
-                "Unbounded build allocation has a finite ancestor memory limit"
-            )
-        if group == root:
-            break
-        group = group.parent
 
 
 def selected_resource_class(
@@ -391,24 +351,6 @@ def selected_resource_class(
     return selected
 
 
-def current_memory_ceiling() -> int | None:
-    """Smallest actual cgroup ancestor, including a narrower observer role."""
-    group = operation.process_group(os.getpid())
-    if not group:
-        raise BoundaryError("Cannot observe actual enclosing memory placement")
-    root = Path("/sys/fs/cgroup")
-    current = root / group.lstrip("/")
-    ceilings = []
-    while current.is_relative_to(root):
-        path = current / "memory.max"
-        if path.is_file():
-            value = path.read_text().strip()
-            if value != "max":
-                ceilings.append(int(value))
-        if current == root:
-            break
-        current = current.parent
-    return min(ceilings) if ceilings else None
 
 
 def require_store(env: Mapping[str, str], *, deadline: float | None = None) -> None:
@@ -478,14 +420,6 @@ def require_store(env: Mapping[str, str], *, deadline: float | None = None) -> N
 SLICE_VALUE = re.compile(r"[A-Za-z0-9_:.-]+\.slice")
 
 
-def manager_environment() -> dict[str, str]:
-    runtime = Path(f"/run/user/{os.getuid()}")
-    return {
-        "XDG_RUNTIME_DIR": os.environ.get("XDG_RUNTIME_DIR", str(runtime)),
-        "DBUS_SESSION_BUS_ADDRESS": os.environ.get(
-            "DBUS_SESSION_BUS_ADDRESS", f"unix:path={runtime}/bus"
-        ),
-    }
 
 
 @functools.cache
@@ -541,7 +475,7 @@ def cpu_widths(
         group = slice_group(selected)
     else:
         cpus.intersection_update(os.sched_getaffinity(0))
-        membership = operation.process_group(os.getpid())
+        membership = operation_lifetime.process_group(os.getpid())
         if not membership:
             raise BoundaryError("Cannot observe actual enclosing CPU placement")
         group = Path("/sys/fs/cgroup") / membership.lstrip("/")
@@ -634,7 +568,7 @@ def placement(env: dict[str, str], *, native: bool) -> list[str]:
                     "Nested resource class exceeds the admitted enclosing allocation; start a new matching allocation"
                 )
         return []
-    if operation.scope_owner() is not None:
+    if operation_lifetime.scope_owner() is not None:
         raise BoundaryError("Native operation has no verified host allocation")
     slice_name(env)  # Validate an explicit caller selection before admission.
     if not manager_available():
@@ -647,7 +581,9 @@ def placement(env: dict[str, str], *, native: bool) -> list[str]:
     profile = host.select(
         env.get("PSE_RESOURCE_CLASS", "functional"), env.get("PSE_MEMORY_MAX")
     )
-    allocation = host.acquire(profile, directory=host.root_path(env))
+    from scripts import surreal_server  # noqa: PLC0415 -- command/service composition
+
+    allocation = host.acquire(profile, directory=host.root_path(env), services=surreal_server.ServiceAdmission())
     env.update(allocation.environment())
     try:
         host.enforce_parent(profile, env)
@@ -803,7 +739,9 @@ def owned_scope(command: Sequence[str], env: dict[str, str]) -> int:
     prefix and never enters this terminal owner. Release refusal is a boundary
     failure; diagnostics retain the independent raw and normalized child status.
     """
-    allocation = host.inherit(env)
+    from scripts import surreal_server  # noqa: PLC0415 -- command/service lifetime composition
+
+    allocation = host.inherit(env, services=surreal_server.ServiceAdmission())
     if allocation is None:
         raise BoundaryError("New scope has no acquired allocation to settle")
     raw_status: int | None = None
@@ -915,17 +853,17 @@ def owned_scope(command: Sequence[str], env: dict[str, str]) -> int:
                                         registered["cancel_deadline"] = (
                                             cancellation_deadline
                                         )
-                                        operation.write_json(observer.path, registered)
+                                        operation_lifetime.write_json(observer.path, registered)
                                     published_deadline = cancellation_deadline
-                            completion = operation.drained(child, deadline=deadline)
+                            completion = operation_lifetime.drained(child, deadline=deadline)
                             if completion.complete:
                                 return
                             if (
                                 cancellation_deadline is None
                                 and completion.phase
                                 in {
-                                    operation.DrainPhase.POPULATED,
-                                    operation.DrainPhase.ACTIVE,
+                                    operation_lifetime.DrainPhase.POPULATED,
+                                    operation_lifetime.DrainPhase.ACTIVE,
                                 }
                                 and observation.get("cancellation_deadline") is not None
                             ):
@@ -933,15 +871,15 @@ def owned_scope(command: Sequence[str], env: dict[str, str]) -> int:
                                 # its original clock before the next join step.
                                 continue
                             if completion.phase not in {
-                                operation.DrainPhase.POPULATED,
-                                operation.DrainPhase.ACTIVE,
+                                operation_lifetime.DrainPhase.POPULATED,
+                                operation_lifetime.DrainPhase.ACTIVE,
                             }:
                                 raise BoundaryError(
                                     completion.diagnostic()
                                     + "; native placement remains charged"
                                 )
                             time.sleep(
-                                min(0.02, operation.admission_remaining(deadline))
+                                min(0.02, operation_lifetime.admission_remaining(deadline))
                             )
                     finally:
                         if previous_mask is not None:

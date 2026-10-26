@@ -5,6 +5,7 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
+
 import contextlib
 import io
 import json
@@ -17,6 +18,8 @@ from unittest.mock import MagicMock, patch
 
 import msgspec
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import evidence_sources, test_resources
 from scripts import pressure_observation as pressure
 from scripts import storage_health as health
@@ -533,7 +536,7 @@ class StorageHealthTests(unittest.TestCase):
                     ),
                     patch.object(health.host_admission, "boot", return_value=BOOT),
                     patch.object(
-                        health.native_operation, "process_group", return_value=group
+                        operation_lifetime, "process_group", return_value=group
                     ),
                     patch.object(
                         health,
@@ -644,12 +647,12 @@ class StorageHealthTests(unittest.TestCase):
         self.assertEqual(action["command"][2], "recover-maintenance")
         self.state.mkdir(mode=0o700)
         with patch.object(
-            test_resources, "registry", return_value=self.root / "registry"
+            service_borrowers, "registry", return_value=self.root / "registry"
         ):
-            test_resources.service_registry_binding(self.state, establish=True)
+            service_borrowers.service_registry_binding(self.state, establish=True)
         with (
             patch.object(
-                test_resources, "registry", return_value=self.root / "registry"
+                service_borrowers, "registry", return_value=self.root / "registry"
             ),
             patch.object(
                 server, "lifecycle_reservation", return_value=contextlib.nullcontext()

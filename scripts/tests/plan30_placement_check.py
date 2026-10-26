@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, TypedDict, cast
 if TYPE_CHECKING:
     from typing import TextIO
 
+from scripts import operation_lifetime
 from scripts import host_admission as host
 from scripts import native_operation as operation
 
@@ -61,7 +62,7 @@ def snapshot() -> PlacementSnapshot:
     allocation = host.inherit(os.environ)
     if allocation is None:
         raise RuntimeError("worker lacks actual allocation")
-    group = operation.process_group(os.getpid())
+    group = operation_lifetime.process_group(os.getpid())
     directory = Path("/sys/fs/cgroup") / group.lstrip("/")
     cpuset_directory = directory
     while not (cpuset_directory / "cpuset.cpus.effective").is_file():
@@ -73,7 +74,7 @@ def snapshot() -> PlacementSnapshot:
         units = dict(owner["units"])
     return {
         "pid": os.getpid(),
-        "start": operation.start_identity(os.getpid()),
+        "start": operation_lifetime.start_identity(os.getpid()),
         "nonce": allocation.nonce,
         "deadline": allocation.deadline,
         "group": group,
@@ -100,10 +101,10 @@ def wait_file(path: Path, deadline: float) -> None:
 def worker(mode: str, directory: Path) -> int:
     deadline = time.monotonic() + LIMIT
     if mode == "nested":
-        operation.write_json(directory / "nested.json", snapshot())
+        operation_lifetime.write_json(directory / "nested.json", snapshot())
         return 0
     if mode == "descendant":
-        operation.write_json(directory / "descendant.json", snapshot())
+        operation_lifetime.write_json(directory / "descendant.json", snapshot())
         wait_file(directory / "release-descendant", deadline)
         return 0
     descendant = None
@@ -143,7 +144,7 @@ def worker(mode: str, directory: Path) -> int:
     (directory / "nested.log").write_text(nested.stdout + nested.stderr)
     if nested.returncode:
         raise RuntimeError(f"nested boundary failed: {nested.returncode}")
-    operation.write_json(directory / "ready.json", snapshot())
+    operation_lifetime.write_json(directory / "ready.json", snapshot())
     wait_file(directory / "release-parent", deadline)
     # The descendant deliberately survives this parent; its own finite lifetime
     # and release file bound it, and actual cgroup population remains authoritative.
@@ -194,17 +195,17 @@ class Plan30PlacementTests(unittest.TestCase):
         wait_file(self.directory / "first/parent-returning", time.monotonic() + 10)
         descendant = json.loads((self.directory / "first/descendant.json").read_text())
         self.assertEqual(
-            operation.start_identity(descendant["pid"]), descendant["start"]
+            operation_lifetime.start_identity(descendant["pid"]), descendant["start"]
         )
-        self.assertEqual(operation.process_group(descendant["pid"]), a["group"])
-        self.assertTrue(operation.populated(a["group"]))
+        self.assertEqual(operation_lifetime.process_group(descendant["pid"]), a["group"])
+        self.assertTrue(operation_lifetime.populated(a["group"]))
         allocation_directory = Path(a["allocation_directory"])
         host.reconcile(allocation_directory)
         with host.allocation_metadata(allocation_directory) as state:
             retained = state["owners"][a["nonce"]]
             self.assertFalse(host.caller_alive(retained))
             self.assertFalse(host.drained(retained))
-            operation.write_json(self.directory / "retained-owner.json", retained)
+            operation_lifetime.write_json(self.directory / "retained-owner.json", retained)
 
         # Actual pse-env entry point uses the original policy admission clock;
         # do not shorten it by replacing the allocator or policy.
@@ -219,7 +220,7 @@ class Plan30PlacementTests(unittest.TestCase):
             check=False,
         )
         elapsed = time.monotonic() - start
-        operation.write_json(
+        operation_lifetime.write_json(
             self.directory / "third-refusal.json",
             {
                 "returncode": third.returncode,
@@ -234,7 +235,7 @@ class Plan30PlacementTests(unittest.TestCase):
         )
         self.assertGreaterEqual(elapsed, host.policy()["admission_seconds"] - 0.5)
         self.assertLess(elapsed, host.policy()["admission_seconds"] + 15)
-        self.assertTrue(operation.populated(a["group"]))
+        self.assertTrue(operation_lifetime.populated(a["group"]))
         host.reconcile(allocation_directory)
         with host.allocation_metadata(allocation_directory) as state:
             self.assertIn(a["nonce"], state["owners"])
@@ -255,7 +256,7 @@ class Plan30PlacementTests(unittest.TestCase):
             (self.directory / name / "release-parent").touch()
             self.assertEqual(child.wait(timeout=15), 0)
             self.wait_drained(receipt)
-        operation.write_json(
+        operation_lifetime.write_json(
             self.directory / "result.json",
             {
                 "result": "passed",
@@ -337,7 +338,7 @@ class Plan30PlacementTests(unittest.TestCase):
         )
         quota, period = map(int, receipt["cpu_max"].split())
         self.assertEqual(quota, period * len(receipt["cores"]))
-        self.assertTrue(operation.populated(receipt["group"]))
+        self.assertTrue(operation_lifetime.populated(receipt["group"]))
         self.assertTrue(
             any(
                 owner.get("group") == receipt["group"]
@@ -347,7 +348,7 @@ class Plan30PlacementTests(unittest.TestCase):
 
     def wait_drained(self, receipt: PlacementSnapshot) -> None:
         deadline = time.monotonic() + 15
-        while operation.populated(receipt["group"]):
+        while operation_lifetime.populated(receipt["group"]):
             if time.monotonic() >= deadline:
                 self.fail(f"owned group did not drain: {receipt['group']}")
             time.sleep(0.1)
@@ -367,9 +368,9 @@ class Plan30PlacementTests(unittest.TestCase):
         # Only receipts authenticated by this test's launched child identify
         # cleanup targets; never signal another runtime unit or remove artifacts.
         for receipt in self.receipts:
-            if operation.populated(receipt["group"]):
+            if operation_lifetime.populated(receipt["group"]):
                 for unit, owner in receipt["units"].items():
-                    observed = operation.unit_observation(unit)
+                    observed = operation_lifetime.unit_observation(unit)
                     if owner.get("group") == receipt["group"] and observed.get(
                         "InvocationID"
                     ) == owner.get("invocation"):

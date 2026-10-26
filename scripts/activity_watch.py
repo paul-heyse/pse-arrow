@@ -9,6 +9,7 @@ No watcher owns, cancels, drains or resumes a workload.
 
 from __future__ import annotations
 
+
 import base64
 import hashlib
 import json
@@ -20,6 +21,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import (
     build_observation,
     host_admission,
@@ -60,7 +63,7 @@ def revision(value: object) -> str:
 def selection(kind: str, handle: str, registry: Path | None = None) -> dict:
     """Bind an invocation handle to its registry, never to a similarly named run."""
     if kind == "run":
-        root = registry if registry is not None else test_resources.registry()
+        root = registry if registry is not None else service_borrowers.registry()
         path = Path(handle)
         # Selection must remain representable when its owner is unavailable.
         # The result reader authenticates registry/declaration correspondence.
@@ -115,7 +118,7 @@ def decode(token: str, selected: dict) -> dict:
 def _snapshot_body(selected: dict, deadline: float) -> dict:
     kind, handle = selected["kind"], selected["handle"]
     if kind == "unit":
-        fields = native_operation.unit_observation(
+        fields = operation_lifetime.unit_observation(
             handle,
             properties=(
                 "SubState",

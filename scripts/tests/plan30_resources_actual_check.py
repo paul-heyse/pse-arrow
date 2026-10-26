@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+
 import ast
 import json
 import os
@@ -13,6 +14,8 @@ import time
 import unittest
 from pathlib import Path
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import native_operation, surreal_server, test_resources, test_run
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def bindings(directory: Path) -> None:
     """Only service configuration is a stand-in: these controls own no database."""
-    test_resources.registry = lambda: directory / "registry"
+    service_borrowers.registry = lambda: directory / "registry"
 
     def configured(state: Path, *, deadline: float | None = None) -> dict[str, object]:
         _ = state, deadline
@@ -58,7 +61,7 @@ def owned(request):
         "kind": "controls", "directory": str(controls), "test": request.node.nodeid})
     controls.mkdir()
     (controls / "same-problem-head").write_text(database)
-    native_operation.write_json(directory / "observed" / (resource + ".json"),
+    operation_lifetime.write_json(directory / "observed" / (resource + ".json"),
         {"resource": resource, "database": database, "controls": str(controls), "nodeid": request.node.nodeid,
          "invocation": test_resources.read_invocation(Path(os.environ[test_resources.MARKER]))["nonce"],
          "worker": os.environ.get("PYTEST_XDIST_WORKER"), "started": time.monotonic()})
@@ -235,7 +238,7 @@ def test_b_later(request, index):
         assert catalog["collection_owner"]["pid"] != int(
             (directory / "nested-pid").read_text()
         )
-        native_operation.write_json(
+        operation_lifetime.write_json(
             directory / "result.json",
             {
                 "status": "passed",
@@ -443,7 +446,7 @@ def test_b_later(request, index):
         assert test_resources.reclaim(resource) == "removed"
         assert (report / "checks.json").exists()
         assert list(report.glob("*.log")) == []
-        native_operation.write_json(
+        operation_lifetime.write_json(
             directory / "result.json",
             {
                 "scope": "actual pytest/xdist + filesystem controls; service configuration stand-in; no canonical database/native science",
@@ -481,8 +484,8 @@ if __name__ == "__main__":
             "scope": [{"name": "filesystem-control"}],
             "checks": [{"gate": "filesystem-control", "status": "passed"}],
         }
-        native_operation.write_json(report / "checks.json", receipt)
-        native_operation.write_json(
+        operation_lifetime.write_json(report / "checks.json", receipt)
+        operation_lifetime.write_json(
             report / "fixture-source.json", {"scope": "filesystem-control"}
         )
         test_resources.finish_report(

@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
+from scripts import operation_lifetime
 from scripts import native_operation, native_tests, scientific_inputs, test_run
 from scripts import resource_store as files
 from scripts import test_resources as resources
@@ -506,7 +507,7 @@ class TerminalComposerTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, environment, clear=True),
-            patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(test_run, "finish", side_effect=finish),
         ):
             code = test_run.execute_selected(
@@ -633,7 +634,7 @@ class TerminalComposerTests(unittest.TestCase):
         with (
             patch.dict(os.environ, environment, clear=True),
             patch.object(files.time, "monotonic", side_effect=lambda: now[0]),
-            patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(
                 native_operation, "note_composer_cancellation"
             ) as cancellation,
@@ -708,7 +709,7 @@ class TerminalComposerTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, environment, clear=True),
-            patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(native_operation, "cancel_foreground_handoffs"),
             patch.object(native_operation, "run", side_effect=bounded_run) as run,
         ):
@@ -747,7 +748,7 @@ class TerminalComposerTests(unittest.TestCase):
         )
         with (
             patch.dict(os.environ, environment, clear=True),
-            patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(native_operation, "cancel_foreground_handoffs"),
         ):
             code = test_run.execute_selected(
@@ -795,7 +796,7 @@ class TerminalComposerTests(unittest.TestCase):
                 "from pathlib import Path",
                 "from scripts import native_operation, native_tests, scientific_inputs, test_run",
                 # This control owns a real process tree without a systemd scope.
-                "native_operation.scope_owner=lambda **_options:None",
+                "operation_lifetime.scope_owner=lambda **_options:None",
                 "native_operation.cancel_foreground_handoffs=lambda **_options:None",
                 f"path=Path({str(self.path)!r})",
                 f"result=test_run.execute_selected(path,[sys.executable,'-c',{child!r}],os.environ,path.with_suffix('.xml'),selected=[{{'nodeid':'control.py::test_case'}}])",

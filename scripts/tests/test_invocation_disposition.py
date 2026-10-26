@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+
 import contextlib
 import os
 import subprocess
@@ -15,6 +16,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import invocation_disposition as disposition
 from scripts import native_operation, resource_store, test_resources
 from scripts.tests.test_test_resources import drain_fixture
@@ -27,10 +30,10 @@ class InvocationDispositionTests(unittest.TestCase):
         self.root = Path(temporary.name)
         for selected in (
             patch.object(
-                test_resources, "registry", return_value=self.root / "registry"
+                service_borrowers, "registry", return_value=self.root / "registry"
             ),
-            patch.object(native_operation, "scope_owner", return_value=None),
-            patch.object(native_operation, "drained", return_value=drain_fixture(True)),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "drained", return_value=drain_fixture(True)),
         ):
             selected.start()
             self.addCleanup(selected.stop)
@@ -118,7 +121,7 @@ class InvocationDispositionTests(unittest.TestCase):
             state["composer"] = {
                 **self.dead,
                 "pid": os.getpid(),
-                "start": native_operation.start_identity(os.getpid()),
+                "start": operation_lifetime.start_identity(os.getpid()),
             }
         result = self.apply()
         self.assertEqual(result["action"], "blocked")
@@ -202,7 +205,7 @@ class InvocationDispositionTests(unittest.TestCase):
         operation = area / ("c" * 32 + ".json")
         token = "d" * 32
         record = {
-            "version": native_operation.VERSION,
+            "version": operation_lifetime.VERSION,
             "scope": scope,
             "selected_composers": {
                 self.path.stem: {
@@ -222,23 +225,23 @@ class InvocationDispositionTests(unittest.TestCase):
             "phase": "registered",
         }
         self.assertFalse(
-            native_operation.terminal_guard_complete(self.path.stem, guard)
+            operation_lifetime.terminal_guard_complete(self.path.stem, guard)
         )
         with patch.object(test_resources, "reclaim", return_value="removed"):
             self.apply()
-        self.assertTrue(native_operation.terminal_guard_complete(self.path.stem, guard))
+        self.assertTrue(operation_lifetime.terminal_guard_complete(self.path.stem, guard))
         self.assertEqual(resource_store.read(operation), record)
         self.assertEqual(guard["phase"], "registered")
         with patch.object(
-            native_operation, "drained", return_value=drain_fixture(False)
+            operation_lifetime, "drained", return_value=drain_fixture(False)
         ):
             self.assertFalse(
-                native_operation.terminal_guard_complete(self.path.stem, guard)
+                operation_lifetime.terminal_guard_complete(self.path.stem, guard)
             )
         with self.store.invocation_edit(self.path.stem) as state:
             state["composer"]["start"] = "changed"
         self.assertFalse(
-            native_operation.terminal_guard_complete(self.path.stem, guard)
+            operation_lifetime.terminal_guard_complete(self.path.stem, guard)
         )
 
     def test_generation_change_and_uncertain_pending_are_retained(self) -> None:

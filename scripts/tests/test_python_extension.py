@@ -19,6 +19,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
+from scripts import operation_lifetime
 from scripts import (
     arrow_validation,
     native_cache,
@@ -1182,7 +1183,7 @@ class PreparationCurrencyTests(unittest.TestCase):
                 prefix / "lib" if name == "SUITESPARSE_LIBRARY_DIR" else prefix
             )
         with (
-            patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(
                 native_cache,
                 "installation_files",

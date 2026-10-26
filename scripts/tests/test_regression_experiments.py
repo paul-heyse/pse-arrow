@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 from unittest.mock import patch
 
+from scripts import operation_lifetime
 from scripts import (
     case_measure,
     native_operation,
@@ -325,7 +326,7 @@ raise SystemExit(driver.main())
             patch.object(
                 native_tests, "prepared_rust_inventory", return_value={}
             ) as prepared,
-            patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(native_operation, "run", side_effect=execute),
             patch.dict(
                 os.environ, {"PSE_TEST_RESOURCE_STATE": str(self.root / "registry")}

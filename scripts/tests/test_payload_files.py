@@ -15,6 +15,7 @@ import uuid
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import operation_lifetime
 from scripts import surreal_server as server
 from scripts.tests import test_surreal_server as supervisor_controls
 
@@ -49,7 +50,7 @@ class PayloadLifecycleTests(unittest.TestCase):
             "boot": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
             "pid_namespace": str(Path("/proc/self/ns/pid").readlink()),
             "pid": str(os.getpid()),
-            "start": server.native_operation.start_identity(os.getpid()),
+            "start": operation_lifetime.start_identity(os.getpid()),
             "drained": False,
         }
         self.instance = {

@@ -10,6 +10,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import operation_lifetime
 from scripts import native_operation as operation
 
 
@@ -20,29 +21,29 @@ class NativePinsTests(unittest.TestCase):
             records = base / ".operations"
             records.mkdir()
             for index in range(100):
-                operation.write_json(
+                operation_lifetime.write_json(
                     records / f"settled-{index}.json",
                     {
-                        "version": operation.VERSION,
+                        "version": operation_lifetime.VERSION,
                         "scope": {"settled": True},
                         "admissions": {},
                         "generations": [f"/old/{index}"],
                     },
                 )
-            operation.write_json(
+            operation_lifetime.write_json(
                 records / "active.json",
                 {
-                    "version": operation.VERSION,
+                    "version": operation_lifetime.VERSION,
                     "scope": {"settled": False},
                     "admissions": {},
                     "generations": ["/live/one", "/live/two"],
                 },
             )
             # Unscoped/unknown authentic drain remains protective.
-            operation.write_json(
+            operation_lifetime.write_json(
                 records / "unknown.json",
                 {
-                    "version": operation.VERSION,
+                    "version": operation_lifetime.VERSION,
                     "scope": None,
                     "admissions": {},
                     "generations": ["/unknown"],
@@ -50,13 +51,13 @@ class NativePinsTests(unittest.TestCase):
             )
             with (
                 patch.object(
-                    operation,
+                    operation_lifetime,
                     "drained",
-                    side_effect=lambda record: operation.DrainObservation(
+                    side_effect=lambda record: operation_lifetime.DrainObservation(
                         record.get("scope"),
-                        operation.DrainPhase.COMPLETE
+                        operation_lifetime.DrainPhase.COMPLETE
                         if record.get("scope", {}) and record["scope"]["settled"]
-                        else operation.DrainPhase.UNAVAILABLE,
+                        else operation_lifetime.DrainPhase.UNAVAILABLE,
                         "controlled pin observation",
                     ),
                 ),
@@ -90,23 +91,23 @@ class NativePinsTests(unittest.TestCase):
             "ActiveState": "activating",
         }
         with (
-            patch.object(operation, "populated", return_value=False),
-            patch.object(operation, "unit_observation", return_value=observed),
+            patch.object(operation_lifetime, "populated", return_value=False),
+            patch.object(operation_lifetime, "unit_observation", return_value=observed),
         ):
-            self.assertFalse(operation.drained({"scope": owner}).complete)
+            self.assertFalse(operation_lifetime.drained({"scope": owner}).complete)
             observed["ActiveState"] = "inactive"
-            self.assertTrue(operation.drained({"scope": owner}).complete)
+            self.assertTrue(operation_lifetime.drained({"scope": owner}).complete)
             observed["InvocationID"] = "replacement"
-            self.assertFalse(operation.drained({"scope": owner}).complete)
+            self.assertFalse(operation_lifetime.drained({"scope": owner}).complete)
         with (
-            patch.object(operation, "populated", side_effect=[False, True]),
+            patch.object(operation_lifetime, "populated", side_effect=[False, True]),
             patch.object(
-                operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={**observed, "InvocationID": "exact"},
             ),
         ):
-            self.assertFalse(operation.drained({"scope": owner}).complete)
+            self.assertFalse(operation_lifetime.drained({"scope": owner}).complete)
 
 
 if __name__ == "__main__":

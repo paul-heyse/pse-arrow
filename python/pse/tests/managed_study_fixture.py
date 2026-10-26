@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Self
 
 import msgspec
-from scripts import native_operation, test_resources
+from scripts import operation_lifetime, test_resources
 from scripts import surreal_server as server
 
 
@@ -108,7 +108,7 @@ class ManagedStudyFixture:
                 prior = _read_object(self.lock)
                 try:
                     alive = (
-                        native_operation.start_identity(
+                        operation_lifetime.start_identity(
                             msgspec.convert(prior["pid"], type=int)
                         )
                         == prior["start"]
@@ -121,7 +121,7 @@ class ManagedStudyFixture:
                 {
                     "nonce": self.nonce,
                     "pid": os.getpid(),
-                    "start": native_operation.start_identity(os.getpid()),
+                    "start": operation_lifetime.start_identity(os.getpid()),
                 },
             )
             self.lock_owned = True

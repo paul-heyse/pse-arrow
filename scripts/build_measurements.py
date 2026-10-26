@@ -23,6 +23,7 @@ import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts import operation_lifetime
 from scripts import (
     arrow_validation,
     build_environment,
@@ -149,7 +150,7 @@ def store_launch_handoff(
         or not isinstance(started, (int, float))
         or not math.isfinite(started)
         or launch.get("output") != str(output.resolve())
-        or native_operation.start_identity(pid) != launch.get("start")
+        or operation_lifetime.start_identity(pid) != launch.get("start")
     ):
         raise ValueError("store preparation outer launch identity differs")
     ancestor = os.getppid()
@@ -1102,7 +1103,7 @@ def complete_operation(output: Path, started: float, exit_code: int) -> int:
                     if not store_prepared:
                         receipt["error"] = "selected store preparation did not complete"
         drain_start = child_end if child_end is not None else setup_end
-        native_drain = native_operation.drained(native["owner"])
+        native_drain = operation_lifetime.drained(native["owner"])
         native_drained = native_drain.complete
         allocation = Path(native["host_allocation"]["path"])
         # Read the current ledger, not a pre-return copy which could miss later
@@ -1207,7 +1208,7 @@ def ensure_capability_operation(
         environment[STORE_LAUNCH] = json.dumps(
             {
                 "pid": os.getpid(),
-                "start": native_operation.start_identity(os.getpid()),
+                "start": operation_lifetime.start_identity(os.getpid()),
                 "started_monotonic": started,
                 "output": str(output),
             }

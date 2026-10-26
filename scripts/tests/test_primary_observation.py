@@ -10,6 +10,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import operation_lifetime
 from scripts import host_admission, native_operation
 from scripts import surreal_server as server
 
@@ -35,7 +36,7 @@ class PrimaryObservationTests(unittest.TestCase):
         }
 
     def diagnostics(self, marker: dict, database: str = "case") -> dict[str, object]:
-        with patch.object(native_operation, "start_identity", return_value="9"):
+        with patch.object(operation_lifetime, "start_identity", return_value="9"):
             return server.primary_diagnostics(self.state, database, marker)
 
     def observation(
@@ -49,9 +50,9 @@ class PrimaryObservationTests(unittest.TestCase):
             patch.object(server, "receiver_context", return_value=self.state),
             patch.object(server, "config_for", return_value={"database": "case"}),
             patch.object(host_admission, "group_identity", return_value=inode),
-            patch.object(native_operation, "populated", return_value=populated),
+            patch.object(operation_lifetime, "populated", return_value=populated),
             patch.object(
-                native_operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value=manager or self.observed,
             ),
@@ -178,7 +179,7 @@ class PrimaryObservationTests(unittest.TestCase):
     def test_optional_copy_requires_launch_nonce_and_actual_start_ticks(self) -> None:
         marker = self.handoff_marker()
         server.write_json(self.state / "primary-receiver.json", marker)
-        with patch.object(native_operation, "start_identity", return_value="10"):
+        with patch.object(operation_lifetime, "start_identity", return_value="10"):
             self.assertFalse(
                 server.primary_diagnostics(self.state, "case", marker)["available"]
             )
@@ -197,7 +198,7 @@ class PrimaryObservationTests(unittest.TestCase):
                 self.assertFalse(self.diagnostics(marker)["available"])
         server.write_json(self.state / "primary-receiver.json", marker)
         with patch.object(
-            native_operation, "start_identity", side_effect=FileNotFoundError("exited")
+            operation_lifetime, "start_identity", side_effect=FileNotFoundError("exited")
         ):
             self.assertFalse(
                 server.primary_diagnostics(self.state, "case", marker)["available"]
@@ -210,14 +211,14 @@ class PrimaryObservationTests(unittest.TestCase):
     def test_manager_failure_cannot_authorize_release(self) -> None:
         with (
             patch.object(
-                native_operation,
+                operation_lifetime,
                 "unit_observation",
                 side_effect=ValueError("unavailable"),
             ),
             patch.object(server, "receiver_context", return_value=self.state),
             patch.object(server, "config_for", return_value={"database": "case"}),
             patch.object(host_admission, "group_identity", return_value=41),
-            patch.object(native_operation, "populated", return_value=False),
+            patch.object(operation_lifetime, "populated", return_value=False),
         ):
             self.assertEqual(
                 server.observe_primary(self.state, "case", self.owner)["phase"],
@@ -237,7 +238,7 @@ class PrimaryObservationTests(unittest.TestCase):
         with (
             patch.object(server, "receiver_context", return_value=self.state),
             patch.object(server, "config_for", return_value={"database": "case"}),
-            patch.object(native_operation, "drained") as drained,
+            patch.object(operation_lifetime, "drained") as drained,
         ):
             with self.assertRaises(server.SupervisorError):
                 server.observe_primary(self.state, "other", self.owner)
@@ -249,7 +250,7 @@ class PrimaryObservationTests(unittest.TestCase):
     def test_dispatch_owner_pins_the_ready_invocation_and_inode(self) -> None:
         observed = {**self.observed, "ActiveState": "active"}
         with (
-            patch.object(native_operation, "unit_observation", return_value=observed),
+            patch.object(operation_lifetime, "unit_observation", return_value=observed),
             patch.object(host_admission, "group_identity", return_value=41),
             patch.object(server, "primary_ready", return_value=True),
         ):
@@ -266,7 +267,7 @@ class PrimaryObservationTests(unittest.TestCase):
             with (
                 self.subTest(replacement=replacement, inodes=inodes),
                 patch.object(
-                    native_operation,
+                    operation_lifetime,
                     "unit_observation",
                     side_effect=[observed, replacement],
                 ),

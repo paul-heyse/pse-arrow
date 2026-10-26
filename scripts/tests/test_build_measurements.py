@@ -18,6 +18,7 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
+from scripts import operation_lifetime
 from scripts import (
     build_environment,
     build_measurements,
@@ -33,12 +34,12 @@ if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
 
-def drain_fixture(complete: bool) -> native_operation.DrainObservation:
-    return native_operation.DrainObservation(
+def drain_fixture(complete: bool) -> operation_lifetime.DrainObservation:
+    return operation_lifetime.DrainObservation(
         None,
-        native_operation.DrainPhase.COMPLETE
+        operation_lifetime.DrainPhase.COMPLETE
         if complete
-        else native_operation.DrainPhase.POPULATED,
+        else operation_lifetime.DrainPhase.POPULATED,
         "controlled observation",
     )
 
@@ -61,7 +62,7 @@ class BuildMeasurementTests(unittest.TestCase):
             build_measurements.STORE_LAUNCH: json.dumps(
                 {
                     "pid": os.getppid(),
-                    "start": native_operation.start_identity(os.getppid()),
+                    "start": operation_lifetime.start_identity(os.getppid()),
                     "started_monotonic": 90,
                     "output": str(output),
                 }
@@ -202,7 +203,7 @@ class BuildMeasurementTests(unittest.TestCase):
             for changed in (
                 {
                     "pid": os.getpid(),
-                    "start": native_operation.start_identity(os.getpid()),
+                    "start": operation_lifetime.start_identity(os.getpid()),
                 },
                 {"start": "replaced-start-identity"},
                 {"output": str(output / "other")},
@@ -251,7 +252,7 @@ class BuildMeasurementTests(unittest.TestCase):
             handoff = json.loads(prepared[build_measurements.STORE_LAUNCH])
             self.assertEqual(handoff["pid"], os.getpid())
             self.assertEqual(
-                handoff["start"], native_operation.start_identity(os.getpid())
+                handoff["start"], operation_lifetime.start_identity(os.getpid())
             )
             self.assertEqual(handoff["output"], "/new")
             self.assertLessEqual(
@@ -910,7 +911,7 @@ class BuildMeasurementTests(unittest.TestCase):
             output = Path(directory)
             owner = output / "operation.json"
             prior = {
-                "version": native_operation.VERSION,
+                "version": operation_lifetime.VERSION,
                 "scope": {"unit": "owned", "group": "/owned", "invocation": "nonce"},
                 "admissions": {
                     "capability:solver": {"inputs": {"IPOPT_DIR": "/solver"}}
@@ -1253,7 +1254,7 @@ class BuildMeasurementTests(unittest.TestCase):
             )
             with (
                 patch.object(
-                    native_operation, "drained", return_value=drain_fixture(True)
+                    operation_lifetime, "drained", return_value=drain_fixture(True)
                 ) as drain,
                 patch.object(
                     host_admission, "readonly_snapshot", return_value={"owners": {}}
@@ -1300,7 +1301,7 @@ class BuildMeasurementTests(unittest.TestCase):
             (output / "native-operation.json").write_text(json.dumps(native))
             with (
                 patch.object(
-                    native_operation, "drained", return_value=drain_fixture(False)
+                    operation_lifetime, "drained", return_value=drain_fixture(False)
                 ),
                 patch.object(
                     host_admission, "readonly_snapshot", return_value={"owners": {}}
@@ -1334,7 +1335,7 @@ class BuildMeasurementTests(unittest.TestCase):
             (output / "native-operation.json").write_text(json.dumps(native))
             with (
                 patch.object(
-                    native_operation, "drained", return_value=drain_fixture(True)
+                    operation_lifetime, "drained", return_value=drain_fixture(True)
                 ),
                 patch.object(
                     host_admission, "readonly_snapshot", return_value={"owners": {}}
@@ -1369,7 +1370,7 @@ class BuildMeasurementTests(unittest.TestCase):
             (output / "native-operation.json").write_text(json.dumps(native))
             with (
                 patch.object(
-                    native_operation, "drained", return_value=drain_fixture(True)
+                    operation_lifetime, "drained", return_value=drain_fixture(True)
                 ),
                 patch.object(
                     host_admission,
@@ -1398,7 +1399,7 @@ class BuildMeasurementTests(unittest.TestCase):
             owner.write_text(
                 json.dumps(
                     {
-                        "version": native_operation.VERSION,
+                        "version": operation_lifetime.VERSION,
                         "admissions": {},
                         "generations": [],
                     }
@@ -1449,7 +1450,7 @@ class BuildMeasurementTests(unittest.TestCase):
             owner.write_text(
                 json.dumps(
                     {
-                        "version": native_operation.VERSION,
+                        "version": operation_lifetime.VERSION,
                         "admissions": {},
                         "generations": ["generation"],
                     }

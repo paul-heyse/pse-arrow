@@ -5,6 +5,7 @@
 # ruff: noqa: PT009, PT027 -- stdlib cross-owner controls
 from __future__ import annotations
 
+
 import tempfile
 import unittest
 from dataclasses import asdict
@@ -15,6 +16,7 @@ from fastmcp import Client
 from fastmcp.exceptions import ToolError
 from jsonschema import Draft202012Validator
 
+from scripts import service_borrowers
 from scripts import (
     assessment_store,
     test_resources,
@@ -37,7 +39,7 @@ class AssessmentBoundaryTests(unittest.IsolatedAsyncioTestCase):
         self.assessment_dir.mkdir(mode=0o700, parents=True)
         self.enterContext(
             patch.object(
-                test_resources, "registry", return_value=self.root / "registry"
+                service_borrowers, "registry", return_value=self.root / "registry"
             )
         )
         self.receipt = assessment_fixture.publish(

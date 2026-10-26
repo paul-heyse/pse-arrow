@@ -5,6 +5,7 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
+
 import contextlib
 import fcntl
 import io
@@ -20,6 +21,8 @@ import unittest
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import surreal_server
 
 if TYPE_CHECKING:
@@ -32,12 +35,12 @@ from scripts import test_resources as resources
 from scripts.tests import assessment_fixture
 
 
-def drain_fixture(complete: bool) -> resources.operation.DrainObservation:
-    return resources.operation.DrainObservation(
+def drain_fixture(complete: bool) -> operation_lifetime.DrainObservation:
+    return operation_lifetime.DrainObservation(
         None,
-        resources.operation.DrainPhase.COMPLETE
+        operation_lifetime.DrainPhase.COMPLETE
         if complete
-        else resources.operation.DrainPhase.POPULATED,
+        else operation_lifetime.DrainPhase.POPULATED,
         "controlled observation",
     )
 
@@ -114,7 +117,7 @@ class TestResourceTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         registry = patch.object(
-            resources, "registry", return_value=self.root / "registry"
+            service_borrowers, "registry", return_value=self.root / "registry"
         )
         registry.start()
         self.addCleanup(registry.stop)
@@ -493,7 +496,7 @@ class TestResourceTests(unittest.TestCase):
             self.assertIsNotNone(deadline)
             self.assertTrue(record["drained"])
             self.assertEqual(resources.resource_status(resource)["cleanup"], "removing")
-            self.assertTrue(resources.borrower_alive(record["cleaner"]))
+            self.assertTrue(service_borrowers.borrower_alive(record["cleaner"]))
             descriptor = os.open(self.state / ".supervisor.lock", os.O_RDWR)
             try:
                 fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -535,7 +538,7 @@ class TestResourceTests(unittest.TestCase):
         with (
             patch.object(resources.os, "getpid", return_value=owner["pid"] + 1),
             patch.object(
-                resources.operation, "start_identity", return_value="nested-generation"
+                operation_lifetime, "start_identity", return_value="nested-generation"
             ),
         ):
             self.assertFalse(
@@ -602,7 +605,7 @@ class TestResourceTests(unittest.TestCase):
                 side_effect=AssertionError("global scan"),
             ),
         ):
-            cohort = resources.service_resources(self.state)
+            cohort = service_borrowers.service_resources(self.state)
             self.assertIn(first, cohort)
             with (
                 surreal_server.lifecycle_reservation(self.state),
@@ -614,11 +617,11 @@ class TestResourceTests(unittest.TestCase):
         # A foreign empty registry must not establish service quiet.
         with (
             patch.object(
-                resources, "registry", return_value=self.root / "foreign-registry"
+                service_borrowers, "registry", return_value=self.root / "foreign-registry"
             ),
             self.assertRaisesRegex(resources.ResourceError, "coverage differs"),
         ):
-            resources.service_resources(self.state)
+            service_borrowers.service_resources(self.state)
 
     def test_foreign_process_creation_and_retained_reader_block_maintenance(
         self,
@@ -936,7 +939,7 @@ with patch.object(server,'config_for',return_value=configuration):
             units=[{"unit": "owned.scope", "group": "/owned", "invocation": "b" * 32}],
         )
         with patch.object(
-            resources.operation, "drained", return_value=drain_fixture(False)
+            operation_lifetime, "drained", return_value=drain_fixture(False)
         ):
             self.assertEqual(
                 resources.reclaim(resource),
@@ -945,7 +948,7 @@ with patch.object(server,'config_for',return_value=configuration):
             )
         with (
             patch.object(
-                resources.operation, "drained", return_value=drain_fixture(True)
+                operation_lifetime, "drained", return_value=drain_fixture(True)
             ),
             patch.object(resources, "remove_owned") as removal,
         ):
@@ -969,7 +972,7 @@ with patch.object(server,'config_for',return_value=configuration):
         )
         self.assertEqual(resources.reclaim(resource), "fixture borrowers not drained")
         with (
-            patch.object(resources, "borrower_alive", return_value=False),
+            patch.object(service_borrowers, "borrower_alive", return_value=False),
             self.assertRaisesRegex(
                 surreal_server.SupervisorError, "accepted fixture creation"
             ),
@@ -1685,12 +1688,12 @@ with patch.object(server,'config_for',return_value=configuration):
                 resource, {"complete": True, "required_checks_covered": True}
             )
         with patch.object(
-            resources.operation, "drained", return_value=drain_fixture(False)
+            operation_lifetime, "drained", return_value=drain_fixture(False)
         ):
             self.assertEqual(resources.reclaim_reports(), [])
             self.assertTrue((directory / "run.log").exists())
         with patch.object(
-            resources.operation, "drained", return_value=drain_fixture(True)
+            operation_lifetime, "drained", return_value=drain_fixture(True)
         ):
             self.assertEqual(resources.reclaim_reports(), [])
             self.assertFalse((directory / "run.log").exists())
@@ -1889,7 +1892,7 @@ print(json.dumps({'status':'released'}),flush=True)
     def relocate(self, selected: list[str], destination: Path | None = None) -> dict:
         # These file-only fixtures have no creator process to supervise. Actual
         # conversion independently authenticates the original creator's absence.
-        with patch.object(resources, "borrower_alive", return_value=False):
+        with patch.object(service_borrowers, "borrower_alive", return_value=False):
             return resources.relocate_reports(
                 selected,
                 destination or self.root / "build" / "converted-reports",
@@ -2208,7 +2211,7 @@ print(json.dumps({'status':'released'}),flush=True)
                         )
 
                     with (
-                        patch.object(resources, "borrower_alive", side_effect=creator),
+                        patch.object(service_borrowers, "borrower_alive", side_effect=creator),
                         self.assertRaisesRegex(
                             resources.ResourceError, "live creators"
                         ),
@@ -2294,7 +2297,7 @@ print(json.dumps({'status':'released'}),flush=True)
         with (
             patch.object(resources.time, "monotonic", side_effect=lambda: observed),
             patch.object(resources, "_custody_snapshot", side_effect=expire),
-            patch.object(resources, "borrower_alive", return_value=False),
+            patch.object(service_borrowers, "borrower_alive", return_value=False),
             self.assertRaises(resources.host.AdmissionError),
         ):
             resources.relocate_reports(
@@ -2371,11 +2374,11 @@ print(json.dumps({'status':'released'}),flush=True)
     def custody_timeout_case(self, stage: str) -> None:
         resource, source = self.report("custody-timeout-" + stage)
         creator = subprocess.Popen([sys.executable, "-c", "pass"])
-        start = resources.operation.start_identity(creator.pid)
+        start = operation_lifetime.start_identity(creator.pid)
         creator.wait(timeout=5)
         with resources.resource_update(resource) as record:
             record.update(pid=creator.pid, start=start, boot=resources.host.boot())
-        self.assertFalse(resources.borrower_alive(resources.resource_status(resource)))
+        self.assertFalse(service_borrowers.borrower_alive(resources.resource_status(resource)))
         destination = self.root / "build" / ("converted-timeout-" + stage)
         observed = resources.time.monotonic()
         deadline = observed + 30
@@ -2494,7 +2497,7 @@ print(json.dumps({'status':'released'}),flush=True)
                     record["borrows"] = {
                         "protected": {
                             "pid": os.getpid(),
-                            "start": resources.operation.start_identity(os.getpid()),
+                            "start": operation_lifetime.start_identity(os.getpid()),
                         }
                     }
         self.assertEqual(resources.reclaim_reports(), [])
@@ -2515,7 +2518,7 @@ print(json.dumps({'status':'released'}),flush=True)
             with resources.resource_update(resource) as record:
                 record["units"] = [{"unit": "retained.scope"}]
         with patch.object(
-            resources.operation, "drained", return_value=drain_fixture(False)
+            operation_lifetime, "drained", return_value=drain_fixture(False)
         ) as drain:
             self.assertEqual(resources.reclaim_reports(), [])
             self.assertEqual(drain.call_count, 4)
@@ -2808,7 +2811,7 @@ print(json.dumps({'status':'released'}),flush=True)
         ):
             resources.reclaim(resource)
         self.assertEqual(resources.resource_status(resource)["cleanup"], "removing")
-        with patch.object(resources, "borrower_alive", return_value=False):
+        with patch.object(service_borrowers, "borrower_alive", return_value=False):
             self.assertEqual(resources.reclaim(resource), "removed")
         self.assertTrue((directory / "checks.json").exists())
         self.assertFalse((directory / "first.tmp").exists())

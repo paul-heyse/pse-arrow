@@ -17,6 +17,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import operation_lifetime
 from scripts import active_diagnostics as active
 
 
@@ -57,7 +58,7 @@ class ActiveDiagnosticsTests(unittest.TestCase):
                 "--pid",
                 str(os.getpid()),
                 "--start",
-                active.native_operation.start_identity(os.getpid()),
+                active.operation_lifetime.start_identity(os.getpid()),
                 "--native",
                 "--nonblocking",
             )
@@ -75,7 +76,7 @@ class ActiveDiagnosticsTests(unittest.TestCase):
                 "--pid",
                 str(os.getpid()),
                 "--start",
-                active.native_operation.start_identity(os.getpid()),
+                active.operation_lifetime.start_identity(os.getpid()),
             )
         self.assertEqual(code, 1)
         self.assertIn("whole number of seconds", result["error"])
@@ -314,7 +315,7 @@ class ActiveDiagnosticsTests(unittest.TestCase):
     def test_actual_python_native_snapshot_and_previous_stop_preservation(self) -> None:
         target = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
         try:
-            start = active.native_operation.start_identity(target.pid)
+            start = active.operation_lifetime.start_identity(target.pid)
             code, result = self.invoke(
                 "python-snapshot",
                 "--pid",

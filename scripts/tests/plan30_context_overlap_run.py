@@ -12,6 +12,7 @@ import sys
 import time
 from pathlib import Path
 
+from scripts import operation_lifetime
 from scripts import (
     host_admission,
     native_operation,
@@ -90,7 +91,7 @@ def main() -> int:
         python_native = producer_deployment.file_observation(
             native_tests.python_native_binary(os.environ)
         )
-        native_operation.write_json(directory / "python-native.json", python_native)
+        operation_lifetime.write_json(directory / "python-native.json", python_native)
         execution, worker = native_tests.ordinary_rust_capture(
             [
                 "cargo",
@@ -113,7 +114,7 @@ def main() -> int:
             directory / "selected.json",
             os.environ,
         )
-        native_operation.write_json(
+        operation_lifetime.write_json(
             directory / "execution.json",
             {"arguments": execution, "worker": str(worker)},
         )
@@ -245,7 +246,7 @@ def main() -> int:
             )
             for item in records.values()
         )
-    native_operation.write_json(
+    operation_lifetime.write_json(
         directory / "result.json",
         {
             "status": "passed" if passed else "failed",

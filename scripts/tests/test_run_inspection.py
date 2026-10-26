@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+
 import contextlib
 import io
 import json
@@ -13,6 +14,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import service_borrowers
 from scripts import (
     resource_store,
     run_inspection,
@@ -60,7 +62,7 @@ class RunInspectionTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         self.registry = self.root / "registry"
-        selected = patch.object(test_resources, "registry", return_value=self.registry)
+        selected = patch.object(service_borrowers, "registry", return_value=self.registry)
         selected.start()
         self.addCleanup(selected.stop)
         self.path = test_resources.invocation(

@@ -5,6 +5,7 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
+
 import contextlib
 import json
 import tempfile
@@ -13,6 +14,7 @@ from pathlib import Path
 from typing import cast
 from unittest.mock import patch
 
+from scripts import service_borrowers
 from scripts import surreal_server as server
 from scripts import surrealkit as tool
 from scripts import test_resources as resources
@@ -33,7 +35,7 @@ class NamespaceTests(unittest.TestCase):
             "accepting_writes": True,
         }
         for replacement in (
-            patch.object(resources, "registry", return_value=self.root / "registry"),
+            patch.object(service_borrowers, "registry", return_value=self.root / "registry"),
             patch.object(server, "config_for", return_value=self.config),
             patch.object(resources.host, "inherit", return_value=None),
             patch.dict("os.environ", {resources.MARKER: ""}),

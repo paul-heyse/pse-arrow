@@ -13,13 +13,14 @@ import time
 import uuid
 from pathlib import Path
 
+from scripts import operation_lifetime
 from scripts import host_admission, native_operation, resource_store, telemetry_metrics
 
 
 def processes(pid: int, start: str) -> list[dict]:
     """Best-effort actual descendants; executable names describe observations only."""
     try:
-        same = native_operation.start_identity(pid) == start
+        same = operation_lifetime.start_identity(pid) == start
     except OSError:
         same = False
     if not same:
@@ -32,7 +33,7 @@ def processes(pid: int, start: str) -> list[dict]:
         seen.add(current)
         directory = Path("/proc") / str(current)
         try:
-            identity = native_operation.start_identity(current)
+            identity = operation_lifetime.start_identity(current)
             tool = (directory / "comm").read_text().strip()
             children = (directory / "task" / str(current) / "children").read_text()
             pending.extend(int(child) for child in children.split())
@@ -69,7 +70,7 @@ class BuildObservation:
             "version": 1,
             "attempt": self.path.stem,
             "pid": pid,
-            "start": native_operation.start_identity(pid),
+            "start": operation_lifetime.start_identity(pid),
             "boot": host_admission.boot(),
             "invocation_declaration": environment.get("PSE_TEST_INVOCATION"),
             "allocation": environment.get(host_admission.MARKER),
@@ -156,7 +157,7 @@ class BuildObservation:
                 self.path.parent,
             ):
                 host_admission.protected(directory)
-            native_operation.write_json(
+            operation_lifetime.write_json(
                 self.path, {**self.value, "observed_at": time.time()}
             )
             if self.metric_stage != self.value["stage"]:

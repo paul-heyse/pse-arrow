@@ -21,6 +21,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from scripts import operation_lifetime
 from scripts import compiler_cache as cache
 
 
@@ -325,7 +326,7 @@ class CompilerCacheTests(unittest.TestCase):
             }
             with (
                 patch.object(cache, "observe", return_value=observation),
-                patch.object(cache.operation, "process_group", return_value="/owned"),
+                patch.object(operation_lifetime, "process_group", return_value="/owned"),
                 patch.object(cache, "peer", return_value=os.getpid()),
                 patch.object(cache, "registered", return_value=True),
             ):
@@ -335,7 +336,7 @@ class CompilerCacheTests(unittest.TestCase):
                 with patch.object(cache, "registered", return_value=False):
                     assert cache.ready(record, self.env, time.monotonic() + 1) is None
                 with patch.object(
-                    cache.operation, "process_group", return_value="/job"
+                    operation_lifetime, "process_group", return_value="/job"
                 ):
                     assert cache.ready(record, self.env, time.monotonic() + 1) is None
 
@@ -366,7 +367,7 @@ class CompilerCacheTests(unittest.TestCase):
             foreign.listen()
             endpoint.chmod(0o700)
             original = endpoint.stat().st_ino
-            cache.operation.write_json(
+            operation_lifetime.write_json(
                 state / "current.json", {"unit": "old.service", "socket": str(endpoint)}
             )
             with (
@@ -415,7 +416,7 @@ class CompilerCacheTests(unittest.TestCase):
             "configuration_sha256": cache.digest(self.configuration),
             "startup_inputs": {"old-owner": "old"},
         }
-        cache.operation.write_json(path, record)
+        operation_lifetime.write_json(path, record)
         with (
             patch.object(cache.host, "inherit") as inherit,
             patch.object(os, "execve") as execute,

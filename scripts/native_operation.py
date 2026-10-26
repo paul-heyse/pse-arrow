@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+
 import argparse
 import contextlib
 import fcntl
@@ -31,17 +32,20 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+from scripts import service_borrowers
 from scripts import (  # noqa: E402 -- direct-script path routing
     build_environment,
     host_admission,
     native_cache,
-    pse_env,
+    systemd_environment,
+    operation_lifetime,
 )
+
+
 
 MARKER = "PSE_NATIVE_OPERATION"
 # Private handshake with the build-measurement observer, never an admission input.
 BUILD_TIMING = "PSE_BUILD_MEASUREMENT_TIMING"
-VERSION = 2
 CAPABILITIES = ("compiler", "solver", "klu", "isolation", "uno", "petsc")
 # Native setup supplies these unless the caller chose a value; `off` removes one.
 # The thread budget stays "1" by default because assessment receipts require it.
@@ -73,20 +77,10 @@ CAPABILITY_PATHS = {
 }
 
 
-class DeadlineOptions(TypedDict, total=False):
-    """Forward an existing clock only when its caller supplied one."""
-
-    deadline: float
 
 
-def deadline_options(deadline: float | None) -> DeadlineOptions:
-    return {"deadline": deadline} if deadline is not None else {}
 
 
-class ScopeOwner(TypedDict):
-    unit: str
-    group: str
-    invocation: str
 
 
 class Admission(TypedDict, total=False):
@@ -106,7 +100,7 @@ class RegistrationOwner(TypedDict):
 
 class OperationRecord(TypedDict):
     version: int
-    scope: ScopeOwner | None
+    scope: operation_lifetime.ScopeOwner | None
     admissions: dict[str, Admission]
     generations: list[str]
     pid: NotRequired[int]
@@ -128,30 +122,10 @@ class OperationRecord(TypedDict):
 Observed = TypeVar("Observed")
 
 
-def write_json(path: Path, value: Mapping[str, object]) -> None:
-    temporary = path.with_suffix(f".{os.getpid()}.tmp")
-    descriptor = os.open(
-        temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600
-    )
-    with os.fdopen(descriptor, "w") as output:
-        output.write(json.dumps(value, sort_keys=True) + "\n")
-    temporary.chmod(0o600)
-    temporary.replace(path)
 
 
-def process_group(pid: int) -> str:
-    for line in Path(f"/proc/{pid}/cgroup").read_text().splitlines():
-        if line.startswith("0::"):
-            return line[3:]
-    raise ValueError("native operation requires the unified cgroup observation")
 
 
-def start_identity(pid: int) -> str:
-    return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[19]
-
-
-class DeadlineExpiredError(ValueError):
-    """An offered absolute native admission/control clock expired."""
 
 
 def original_cancellation_clock(value: object) -> float:
@@ -165,290 +139,40 @@ def original_cancellation_clock(value: object) -> float:
     raise ValueError("invalid original cancellation clock")
 
 
-def admission_remaining(deadline: float) -> float:
-    remaining = deadline - time.monotonic()
-    if remaining <= 0:
-        raise DeadlineExpiredError("native operation original admission clock expired")
-    return remaining
 
 
-def manager_control_environment() -> dict[str, str]:
-    # The foreground observer can run outside the composed child environment.
-    # Observation, stop and mandatory kill must address the same user manager.
-    from scripts import pse_env  # noqa: PLC0415 -- reciprocal environment boundary
-
-    return {**os.environ, **pse_env.manager_environment()}
 
 
-def _manager_detail(value: str | bytes | None, limit: int) -> str:
-    raw = value.encode() if isinstance(value, str) else value or b""
-    suffix = " [truncated]" if len(raw) > limit else ""
-    return raw[:limit].decode(errors="replace").strip() + suffix
 
 
-def _manager_endpoint(environment: Mapping[str, str]) -> str:
-    return ", ".join(
-        f"{name}={_manager_detail(environment.get(name), 256)}"
-        for name in ("XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS")
-    )
 
 
-class ManagerObservationTimeout(subprocess.TimeoutExpired):
-    """A manager timeout retaining its selected endpoint and bounded diagnostics."""
-
-    def __init__(self, error: subprocess.TimeoutExpired, context: str) -> None:
-        super().__init__(
-            error.cmd, error.timeout, stderr=_manager_detail(error.stderr, 4096)
-        )
-        self.context = context
-
-    def __str__(self) -> str:
-        return (
-            f"{super().__str__()} ({self.context}); stderr: {self.stderr or '(empty)'}"
-        )
 
 
-def manager_observation(*arguments: str, deadline: float | None = None) -> str:
-    """Read the selected user manager without preparation or execution admission."""
-    environment = manager_control_environment()
-    context = _manager_endpoint(environment)
-    timeout = 10 if deadline is None else min(10, admission_remaining(deadline))
-    try:
-        result = subprocess.run(
-            ["systemctl", "--user", *arguments],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=environment,
-        )
-    except subprocess.TimeoutExpired as error:
-        if deadline is not None and time.monotonic() >= deadline:
-            raise DeadlineExpiredError(
-                "native operation original observation clock expired"
-            ) from error
-        raise ManagerObservationTimeout(error, context) from error
-    except OSError as error:
-        raise ValueError(
-            f"systemctl {arguments[0]} unavailable ({context}): {type(error).__name__}: {error}"
-        ) from error
-    if deadline is not None:
-        admission_remaining(deadline)
-    if result.returncode:
-        detail = _manager_detail(result.stderr, 4096) or "(empty)"
-        raise ValueError(
-            f"systemctl {arguments[0]} failed ({result.returncode}; {context}); stderr: {detail}"
-        )
-    return result.stdout
 
 
-def unit_observation(
-    unit: str, *, deadline: float | None = None, properties: tuple[str, ...] = ()
-) -> dict[str, str]:
-    requested = tuple(
-        dict.fromkeys(
-            ("InvocationID", "ControlGroup", "LoadState", "ActiveState", *properties)
-        )
-    )
-    value = manager_observation(
-        "show", *(f"--property={key}" for key in requested), unit, deadline=deadline
-    )
-    context = _manager_endpoint(manager_control_environment())
-    fields: dict[str, str] = {}
-    for line in value.splitlines():
-        if "=" not in line:
-            raise ValueError(f"malformed systemctl properties for {unit} ({context})")
-        key, observed = line.split("=", 1)
-        if key in fields:
-            raise ValueError(
-                f"duplicate systemctl property {key} for {unit} ({context})"
-            )
-        fields[key] = observed
-    if any(key not in fields for key in requested) or not all(
-        fields.get(key) for key in ("LoadState", "ActiveState")
-    ):
-        raise ValueError(f"incomplete systemctl properties for {unit} ({context})")
-    return fields
 
 
-def scope_owner(*, deadline: float | None = None) -> ScopeOwner | None:
-    """Only real scope membership and its invocation grant operation reuse."""
-    if deadline is not None:
-        admission_remaining(deadline)
-    try:
-        group = process_group(os.getpid())
-        unit = next(
-            part
-            for part in Path(group).parts
-            if re.fullmatch(
-                r"(?:pse-native-[a-f0-9]{32}\.scope|pse-surreal-worker-[a-f0-9]{16}-[0-9]+\.(?:scope|service))",
-                part,
-            )
-        )
-        observed = unit_observation(unit, **deadline_options(deadline))
-        control = observed["ControlGroup"]
-        invocation = observed["InvocationID"]
-        if (
-            observed["LoadState"] != "loaded"
-            or not re.fullmatch(r"[a-f0-9]{32}", invocation)
-            or not control.startswith("/")
-            or control == "/"
-            or ".." in Path(control).parts
-            or not (group == control or group.startswith(control + "/"))
-        ):
-            return None
-    except DeadlineExpiredError:
-        raise
-    except (OSError, ValueError, KeyError, StopIteration, subprocess.SubprocessError):
-        if deadline is not None:
-            admission_remaining(deadline)
-        return None
-
-    else:
-        if deadline is not None:
-            admission_remaining(deadline)
-        return {"unit": unit, "group": control, "invocation": invocation}
 
 
-def populated(group: str) -> bool:
-    if not group.startswith("/") or group == "/" or ".." in Path(group).parts:
-        raise ValueError("invalid native scope group")
-    directory = Path("/sys/fs/cgroup") / group.lstrip("/")
-    if not directory.exists():
-        return False
-    try:
-        fields = dict(
-            line.split()
-            for line in (directory / "cgroup.events").read_text().splitlines()
-        )
-    except FileNotFoundError:
-        if not directory.exists():
-            return False
-        raise
-    if fields.get("populated") not in {"0", "1"}:
-        raise ValueError("native scope population unavailable")
-    return fields["populated"] == "1"
 
 
-class DrainPhase(Enum):
-    COMPLETE = "complete"
-    POPULATED = "populated"
-    ACTIVE = "active"
-    MISMATCH = "mismatch"
-    UNAVAILABLE = "unavailable"
 
 
-@dataclass(frozen=True)
-class DrainObservation:
-    owner: Mapping[str, object] | None
-    phase: DrainPhase
-    cause: str
-    observed: Mapping[str, str] | None = None
-
-    @property
-    def complete(self) -> bool:
-        return self.phase is DrainPhase.COMPLETE
-
-    def diagnostic(self) -> str:
-        return f"native drain {self.phase.value}: {self.cause}; selected={self.owner}; observed={self.observed}"
-
-    def __bool__(self) -> bool:
-        raise TypeError("Consume DrainObservation.complete or its phase explicitly")
 
 
-def drained(
-    record: Mapping[str, object], *, deadline: float | None = None
-) -> DrainObservation:
-    """Observe this native owner; unknown premises keep its obligations pinned."""
-    owner = record.get("scope")
-    if not isinstance(owner, dict) or any(
-        not isinstance(owner.get(key), str) for key in ("unit", "group", "invocation")
-    ):
-        return DrainObservation(None, DrainPhase.UNAVAILABLE, "missing scope identity")
-    selected = dict(owner)
-    try:
-        if deadline is not None:
-            admission_remaining(deadline)
-        inode = record.get("scope_inode")
-        if type(inode) is int:
-            from scripts import host_admission  # noqa: PLC0415 -- bound kernel lifetime
-
-            if host_admission.group_identity(owner["group"]) != inode:
-                return DrainObservation(
-                    selected, DrainPhase.COMPLETE, "bound kernel scope lifetime ended"
-                )
-        if populated(owner["group"]):
-            return DrainObservation(
-                selected, DrainPhase.POPULATED, "owned descendants remain"
-            )
-        observed = unit_observation(owner["unit"], **deadline_options(deadline))
-        if observed.get("LoadState") == "not-found":
-            # A group can repopulate while the manager is being observed.
-            if populated(owner["group"]):
-                return DrainObservation(
-                    selected,
-                    DrainPhase.POPULATED,
-                    "group populated during observation",
-                    observed,
-                )
-            return DrainObservation(
-                selected,
-                DrainPhase.COMPLETE,
-                "unit absent and owned group empty",
-                observed,
-            )
-        if observed.get("LoadState") != "loaded" or any(
-            key not in observed
-            for key in ("InvocationID", "ControlGroup", "ActiveState")
-        ):
-            return DrainObservation(
-                selected,
-                DrainPhase.UNAVAILABLE,
-                "unit observation lacks required identity or phase",
-                observed,
-            )
-        if observed.get("InvocationID") != owner["invocation"] or observed.get(
-            "ControlGroup"
-        ) not in {owner["group"], ""}:
-            return DrainObservation(
-                selected,
-                DrainPhase.MISMATCH,
-                "unit identity differs from selected owner",
-                observed,
-            )
-        if observed.get("ActiveState") not in {"inactive", "failed"}:
-            return DrainObservation(
-                selected, DrainPhase.ACTIVE, "owned unit is not terminal", observed
-            )
-        if populated(owner["group"]):
-            return DrainObservation(
-                selected,
-                DrainPhase.POPULATED,
-                "group populated during observation",
-                observed,
-            )
-        return DrainObservation(
-            selected,
-            DrainPhase.COMPLETE,
-            "owned unit terminal and group empty",
-            observed,
-        )
-    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
-        return DrainObservation(
-            selected, DrainPhase.UNAVAILABLE, f"{type(error).__name__}: {error}"
-        )
 
 
 def _record(path: Path) -> OperationRecord:
     value = json.loads(path.read_text())
-    if value.get("version") != VERSION or not isinstance(value.get("admissions"), dict):
+    if value.get("version") != operation_lifetime.VERSION or not isinstance(value.get("admissions"), dict):
         raise ValueError("unknown native operation admission record")
     return cast("OperationRecord", value)
 
 
 def owner_record(*, deadline: float | None = None, reserve: float = 0) -> Path | None:
     if deadline is not None:
-        admission_remaining(deadline)
+        operation_lifetime.admission_remaining(deadline)
     marker = os.environ.get(MARKER)
     if not marker:
         return None
@@ -480,31 +204,31 @@ def owner_record(*, deadline: float | None = None, reserve: float = 0) -> Path |
             if type(original) not in {int, float}:
                 raise ValueError("invalid original cancellation clock")  # noqa: TRY301 -- invalid owner metadata is refused by the enclosing probe
             deadline = min(deadline, original - reserve)
-            admission_remaining(deadline)
+            operation_lifetime.admission_remaining(deadline)
         owner = record.get("scope")
         if owner:
-            return path if scope_owner(**deadline_options(deadline)) == owner else None
+            return path if operation_lifetime.scope_owner(**operation_lifetime.deadline_options(deadline)) == owner else None
         pid = record["pid"]
-        if start_identity(pid) != record["start"]:
+        if operation_lifetime.start_identity(pid) != record["start"]:
             return None
         descendant = os.getpid()
         while descendant > 1:
             if deadline is not None:
-                admission_remaining(deadline)
+                operation_lifetime.admission_remaining(deadline)
             if descendant == pid:
                 return path
             status = Path(f"/proc/{descendant}/status").read_text().splitlines()
             descendant = int(
                 next(line.split()[1] for line in status if line.startswith("PPid:"))
             )
-    except DeadlineExpiredError:
+    except operation_lifetime.DeadlineExpiredError:
         raise
     except (OSError, ValueError, KeyError, StopIteration, subprocess.SubprocessError):
         if deadline is not None:
-            admission_remaining(deadline)
+            operation_lifetime.admission_remaining(deadline)
         return None
     if deadline is not None:
-        admission_remaining(deadline)
+        operation_lifetime.admission_remaining(deadline)
     return None
 
 
@@ -521,19 +245,19 @@ def record_lock(
     previous = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM, signal.SIGINT})
     try:
         if deadline is not None:
-            admission_remaining(deadline)
+            operation_lifetime.admission_remaining(deadline)
         with path.with_suffix(".lock").open("a") as lock:
             if deadline is None:
                 fcntl.flock(lock, fcntl.LOCK_EX)
             else:
                 while True:
-                    admission_remaining(deadline)
+                    operation_lifetime.admission_remaining(deadline)
                     try:
                         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
                         break
                     except BlockingIOError:
-                        time.sleep(min(0.02, admission_remaining(deadline)))
-                admission_remaining(deadline)
+                        time.sleep(min(0.02, operation_lifetime.admission_remaining(deadline)))
+                operation_lifetime.admission_remaining(deadline)
             yield
     finally:
         signal.pthread_sigmask(signal.SIG_SETMASK, previous)
@@ -560,7 +284,7 @@ def admit(key: str, value: Admission) -> None:
         if prior is not None and prior != value:
             raise ValueError("native operation admission changed inside its lifetime")
         record["admissions"][key] = value
-        write_json(path, record)
+        operation_lifetime.write_json(path, record)
 
 
 def observe(key: str, producer: Callable[[], Observed]) -> Observed:
@@ -581,10 +305,10 @@ def pin(base: Path, generation: Path) -> None:
         directory.mkdir(parents=True, exist_ok=True)
         directory.chmod(0o700)
         path = directory / f"unscoped-{uuid.uuid4().hex}.json"
-        write_json(
+        operation_lifetime.write_json(
             path,
             {
-                "version": VERSION,
+                "version": operation_lifetime.VERSION,
                 "scope": None,
                 "admissions": {},
                 "generations": [str(generation)],
@@ -595,7 +319,7 @@ def pin(base: Path, generation: Path) -> None:
         record = _record(path)
         if str(generation) not in record["generations"]:
             record["generations"].append(str(generation))
-            write_json(path, record)
+            operation_lifetime.write_json(path, record)
 
 
 def pinned_generations(base: Path) -> set[str] | None:
@@ -617,7 +341,7 @@ def pinned_generations(base: Path) -> set[str] | None:
                     not isinstance(generation, str) for generation in generations
                 ):
                     return None
-                if drained(record).complete:
+                if operation_lifetime.drained(record).complete:
                     # Allocation guards refer to these exact acknowledgments.
                     # Retaining metadata does not keep drained generation bytes
                     # pinned, and avoids a collector racing host release.
@@ -691,7 +415,7 @@ def prepare_handoff(
     deadline: float | None = None,
 ) -> Path | None:
     """Pin before launch; a dead launcher leaves a conservative pending guard."""
-    parent = owner_record(**deadline_options(deadline))
+    parent = owner_record(**operation_lifetime.deadline_options(deadline))
     if parent is None and reservation is None:
         return None
     if parent is None:
@@ -699,7 +423,7 @@ def prepare_handoff(
 
         directory = cache.cache_root(dict(os.environ)) / ".operations"
         if deadline is not None:
-            admission_remaining(deadline)
+            operation_lifetime.admission_remaining(deadline)
         directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         directory.chmod(0o700)
     else:
@@ -710,7 +434,7 @@ def prepare_handoff(
         else contextlib.nullcontext()
     ):
         if deadline is not None:
-            admission_remaining(deadline)
+            operation_lifetime.admission_remaining(deadline)
         registered = _record(parent) if parent is not None else None
         if foreground and (registered is None or parent is None):
             raise ValueError("native foreground parent is unavailable")
@@ -718,7 +442,7 @@ def prepare_handoff(
             raise ValueError("native foreground parent is cancelled")
         path = directory / f"handoff-{uuid.uuid4().hex}.json"
         record: OperationRecord = {
-            "version": VERSION,
+            "version": operation_lifetime.VERSION,
             "scope": None,
             "handoff": expected_unit,
             "admissions": {},
@@ -741,19 +465,19 @@ def prepare_handoff(
             record.update(foreground=True, parent=str(parent))
             children = foreground_children(registered)
         if deadline is not None:
-            admission_remaining(deadline)
-        write_json(path, record)
+            operation_lifetime.admission_remaining(deadline)
+        operation_lifetime.write_json(path, record)
         if foreground and registered is not None and parent is not None:
             registered["foreground_children"] = [*children, str(path)]
             if deadline is not None:
-                admission_remaining(deadline)
-            write_json(parent, registered)
+                operation_lifetime.admission_remaining(deadline)
+            operation_lifetime.write_json(parent, registered)
     return path
 
 
 def bind_handoff(path: Path) -> None:
     """Only the child can prove its kernel membership and invocation generation."""
-    owner = scope_owner()
+    owner = operation_lifetime.scope_owner()
     if owner is None:
         raise ValueError("native child handoff requires an authentic managed scope")
     initial = _record(path)
@@ -800,7 +524,7 @@ def bind_handoff(path: Path) -> None:
                     registered is None or registered.get("cancelled")
                 ):
                     record["cancelled"] = True
-            write_json(path, record)
+            operation_lifetime.write_json(path, record)
             if record.get("foreground") and record.get("cancelled"):
                 raise ValueError("native foreground handoff is cancelled")
 
@@ -836,7 +560,7 @@ def fence_foreground_handoff(
                         record["cancel_signal"] = signum
                 elif signum is not None:
                     record.setdefault("cancel_signal", signum)
-                write_json(path, record)
+                operation_lifetime.write_json(path, record)
             return record
     raise ValueError("invalid foreground handoff association")
 
@@ -854,13 +578,13 @@ def stop_foreground_handoff(
         not isinstance(owner.get(key), str) for key in ("unit", "group", "invocation")
     ):
         raise ValueError("invalid foreground scope identity")
-    options = deadline_options(deadline)
-    initial = drained(record, **options)
+    options = operation_lifetime.deadline_options(deadline)
+    initial = operation_lifetime.drained(record, **options)
     if initial.complete:
         return
-    if initial.phase in {DrainPhase.UNAVAILABLE, DrainPhase.MISMATCH}:
+    if initial.phase in {operation_lifetime.DrainPhase.UNAVAILABLE, operation_lifetime.DrainPhase.MISMATCH}:
         raise ValueError(initial.diagnostic() + "; foreground cancellation refused")
-    observed = unit_observation(owner["unit"], **options)
+    observed = operation_lifetime.unit_observation(owner["unit"], **options)
     if (
         observed.get("LoadState") != "loaded"
         or observed.get("InvocationID") != owner["invocation"]
@@ -876,10 +600,10 @@ def stop_foreground_handoff(
     subprocess.run(
         ["systemctl", "--user", "stop", owner["unit"]],
         check=True,
-        timeout=10 if deadline is None else min(10, admission_remaining(deadline)),
-        env=manager_control_environment(),
+        timeout=10 if deadline is None else min(10, operation_lifetime.admission_remaining(deadline)),
+        env=operation_lifetime.manager_control_environment(),
     )
-    completion = drained(record, **options)
+    completion = operation_lifetime.drained(record, **options)
     if not completion.complete:
         raise ValueError(
             completion.diagnostic() + "; foreground observer scope did not drain"
@@ -931,7 +655,7 @@ def retire_unlaunched_handoff(
             registered["foreground_children"] = [
                 name for name in children if name != str(path)
             ]
-            write_json(parent, registered)
+            operation_lifetime.write_json(parent, registered)
             path.unlink()
         return original
 
@@ -944,7 +668,7 @@ def cancel_foreground_handoffs(
     cancellation_deadline: float | None = None,
 ) -> None:
     """Settle only the foreground observers explicitly owned by this operation."""
-    parent = owner_record(**deadline_options(deadline))
+    parent = owner_record(**operation_lifetime.deadline_options(deadline))
     if parent is None:
         return
     failures: list[str] = []
@@ -961,7 +685,7 @@ def cancel_foreground_handoffs(
                 registered["cancel_signal"] = signum
         elif signum is not None:
             registered.setdefault("cancel_signal", signum)
-        write_json(parent, registered)
+        operation_lifetime.write_json(parent, registered)
         children = foreground_children(registered)[:]
         for name in children:
             try:
@@ -995,18 +719,6 @@ def cancel_foreground_handoffs(
         raise ValueError("foreground cancellation incomplete: " + "; ".join(failures))
 
 
-def composer_registrations(
-    record: Mapping[str, object],
-) -> dict[str, dict[str, object]]:
-    selected = record.get("selected_composers", {})
-    if not isinstance(selected, dict) or any(
-        not isinstance(nonce, str)
-        or not re.fullmatch(r"[a-f0-9]{32}", nonce)
-        or not isinstance(value, dict)
-        for nonce, value in selected.items()
-    ):
-        raise ValueError("invalid selected terminal associations")
-    return selected
 
 
 def register_composer(
@@ -1026,7 +738,7 @@ def register_composer(
     nonce = declaration["nonce"]
     composer = {
         "pid": os.getpid(),
-        "start": start_identity(os.getpid()),
+        "start": operation_lifetime.start_identity(os.getpid()),
         "boot": resources.host.boot(),
         "scope": resources.execution_owner(deadline=deadline),
     }
@@ -1037,10 +749,10 @@ def register_composer(
             )
         selected["composer"] = composer
     parent = owner_record(deadline=deadline)
-    if parent is None or scope_owner(deadline=deadline) is None:
+    if parent is None or operation_lifetime.scope_owner(deadline=deadline) is None:
         return None
 
-    registry = resources.registry().resolve()
+    registry = service_borrowers.registry().resolve()
     if (
         invocation != registry / "invocations" / f"{nonce}.json"
         or invocation != invocation.resolve()
@@ -1051,21 +763,21 @@ def register_composer(
         record = _record(parent)
         if record.get("cancelled"):
             raise ValueError("native operation cancelled before selected payload")
-        composers = composer_registrations(record)
+        composers = operation_lifetime.composer_registrations(record)
         if nonce in composers:
             raise ValueError("selected invocation already has a terminal composer")
         register_terminal_guard(parent, nonce, token, deadline=deadline)
         composers[nonce] = {
             "token": token,
             "pid": os.getpid(),
-            "start": start_identity(os.getpid()),
+            "start": operation_lifetime.start_identity(os.getpid()),
             "scope": record["scope"],
             "invocation": str(invocation),
             "registry": str(registry),
             "phase": "registered",
         }
         record["selected_composers"] = composers
-        write_json(parent, record)
+        operation_lifetime.write_json(parent, record)
     return parent, nonce, token
 
 
@@ -1109,100 +821,6 @@ def register_terminal_guard(
         }
 
 
-def terminal_guard_complete(
-    nonce: str, guard: object, *, deadline: float | None = None
-) -> bool:
-    """Authentic terminal ACK or explicit abandoned membership, plus exact ownership.
-
-    Abandonment is a separate disposition and never creates an acknowledgment or
-    changes the selected composer's outcome record. Physical drain remains required.
-    """
-    try:
-        from scripts import (  # noqa: PLC0415 -- reciprocal admission/resource ownership
-            resource_store,
-        )
-
-        if not isinstance(guard, dict) or not re.fullmatch(r"[a-f0-9]{32}", nonce):
-            return False
-        scope = guard.get("scope")
-        if (
-            not isinstance(scope, dict)
-            or not re.fullmatch(
-                r"(?:pse-native-[a-f0-9]{32}\.scope|pse-surreal-worker-[a-f0-9]{16}-[0-9]+\.(?:scope|service))",
-                str(scope.get("unit", "")),
-            )
-            or not isinstance(scope.get("group"), str)
-            or not scope["group"].startswith("/")
-            or not re.fullmatch(r"[a-f0-9]{32}", str(scope.get("invocation", "")))
-            or not re.fullmatch(r"[a-f0-9]{32}", str(guard.get("token", "")))
-        ):
-            return False
-        path = Path(str(guard["operation"]))
-        if (
-            not path.is_absolute()
-            or path != path.resolve()
-            or path.parent.name != ".operations"
-            or not re.fullmatch(r"[a-f0-9]{32}\.json", path.name)
-        ):
-            return False
-        if guard.get("phase") == "acknowledged":
-            # The existing admitted row records only verification of immutable
-            # terminal identities, never another copy of outcomes. Temporary
-            # evidence retirement cannot erase an acknowledgment already proved.
-            return all(
-                re.fullmatch(r"[a-f0-9]{64}", str(guard.get(key, ""))) is not None
-                for key in ("terminal_identity", "evidence_identity")
-            )
-        record = resource_store.read(path)
-        if record.get("version") != VERSION or record.get("scope") != guard["scope"]:
-            return False
-        composer = composer_registrations(record).get(nonce)
-        if composer is None or composer.get("token") != guard["token"]:
-            return False
-        registry = Path(str(composer["registry"]))
-        invocation = registry / "invocations" / f"{nonce}.json"
-        if (
-            composer.get("invocation") != str(invocation)
-            or invocation != invocation.resolve()
-        ):
-            return False
-        if composer.get("phase") != "complete":
-            if composer.get("phase") != "registered":
-                return False
-            state = resource_store.FileStore(registry).invocation_snapshot(nonce)
-            abandonment = state.get("abandonment")
-            selected_composer = state.get("composer")
-            if isinstance(abandonment, dict):
-                return (
-                    state["phase"] in {"abandoned", "frozen"}
-                    and re.fullmatch(
-                        r"[a-f0-9]{32}", str(abandonment.get("identity", ""))
-                    )
-                    is not None
-                    and abandonment.get("selection")
-                    == resource_store.digest(state["declaration"]["selected"])
-                    and abandonment.get("members") == list(state["members"])
-                    and isinstance(selected_composer, dict)
-                    and all(
-                        selected_composer.get(key) == composer.get(key)
-                        for key in ("pid", "start", "scope")
-                    )
-                    and selected_composer.get("scope") == guard["scope"]
-                    and not host_admission.caller_alive(selected_composer)
-                    and drained(
-                        {"scope": guard["scope"]}, **deadline_options(deadline)
-                    ).complete
-                )
-            return False
-        identity, _terminal = resource_store.FileStore(registry).terminal(
-            nonce, deadline=deadline
-        )
-        evidence = resource_store.read(invocation.with_suffix(".terminal.json"))
-        return composer.get("terminal_identity") == identity and composer.get(
-            "evidence_identity"
-        ) == resource_store.digest(evidence)
-    except (OSError, ValueError, KeyError, subprocess.SubprocessError):
-        return False
 
 
 def composer_deadline(registration: tuple[Path, str, str] | None) -> float | None:
@@ -1263,12 +881,12 @@ def note_composer_cancellation(
         else:
             deadline, signum = record["cancel_deadline"], record["cancel_signal"]
             control_deadline = min(control_deadline, deadline - reserve)
-        write_json(parent, record)
+        operation_lifetime.write_json(parent, record)
     name = os.environ.get("PSE_NATIVE_HANDOFF")
     if name:
         path = Path(name)
         selected = _record(path)
-        owner = scope_owner(deadline=control_deadline)
+        owner = operation_lifetime.scope_owner(deadline=control_deadline)
         if selected.get("scope") != owner or selected.get("operation") != str(parent):
             raise ValueError("cancellation parent handoff changed")
         ancestor = foreground_parent(selected, path)
@@ -1281,7 +899,7 @@ def note_composer_cancellation(
                     selected.update(
                         cancelled=True, cancel_deadline=deadline, cancel_signal=signum
                     )
-                    write_json(path, selected)
+                    operation_lifetime.write_json(path, selected)
     return deadline, signum
 
 
@@ -1306,7 +924,7 @@ def inherited_cancellation(
     parent = foreground_parent(child, path)
     with record_lock(parent, deadline=deadline):
         registered = _record(parent)
-        owner = scope_owner(deadline=deadline)
+        owner = operation_lifetime.scope_owner(deadline=deadline)
         from scripts import (  # noqa: PLC0415 -- reciprocal admission/resource ownership
             host_admission,
         )
@@ -1334,12 +952,12 @@ def acknowledge_composer(registration: tuple[Path, str, str] | None) -> None:
     deadline = composer_deadline(registration)
     with record_lock(parent, deadline=deadline):
         record = _record(parent)
-        composer = composer_registrations(record).get(nonce)
+        composer = operation_lifetime.composer_registrations(record).get(nonce)
         if (
             composer is None
             or composer.get("token") != token
             or composer.get("pid") != os.getpid()
-            or composer.get("start") != start_identity(os.getpid())
+            or composer.get("start") != operation_lifetime.start_identity(os.getpid())
         ):
             raise ValueError("selected terminal composer identity changed")
         invocation = Path(str(composer["invocation"]))
@@ -1352,7 +970,7 @@ def acknowledge_composer(registration: tuple[Path, str, str] | None) -> None:
             terminal_identity=identity,
             evidence_identity=evidence_identity,
         )
-        write_json(parent, record)
+        operation_lifetime.write_json(parent, record)
         acknowledge_terminal_guard(
             parent,
             nonce,
@@ -1422,10 +1040,10 @@ def request_composer_completion(signum: int, *, deadline: float) -> None:
         record = _record(parent)
         selected = {
             nonce: dict(value)
-            for nonce, value in composer_registrations(record).items()
+            for nonce, value in operation_lifetime.composer_registrations(record).items()
         }
     for nonce, composer in selected.items():
-        admission_remaining(deadline)
+        operation_lifetime.admission_remaining(deadline)
         if composer.get("phase") == "complete":
             continue
         pid = composer.get("pid")
@@ -1444,7 +1062,7 @@ def request_composer_completion(signum: int, *, deadline: float) -> None:
             descriptor = os.pidfd_open(pid)
         except ProcessLookupError:
             with record_lock(parent, deadline=deadline):
-                current = composer_registrations(_record(parent)).get(nonce)
+                current = operation_lifetime.composer_registrations(_record(parent)).get(nonce)
                 if (
                     current is not None
                     and current.get("phase") == "complete"
@@ -1454,8 +1072,8 @@ def request_composer_completion(signum: int, *, deadline: float) -> None:
             raise
         try:
             if (
-                start_identity(pid) != composer.get("start")
-                or process_group(pid) != owner["group"]
+                operation_lifetime.start_identity(pid) != composer.get("start")
+                or operation_lifetime.process_group(pid) != owner["group"]
             ):
                 raise ValueError("selected terminal process lifetime changed")
             signal.pidfd_send_signal(descriptor, signum)
@@ -1463,9 +1081,9 @@ def request_composer_completion(signum: int, *, deadline: float) -> None:
             os.close(descriptor)
     pending = set(selected)
     while pending:
-        admission_remaining(deadline)
+        operation_lifetime.admission_remaining(deadline)
         with record_lock(parent, deadline=deadline):
-            current = composer_registrations(_record(parent))
+            current = operation_lifetime.composer_registrations(_record(parent))
             for nonce in list(pending):
                 composer = current.get(nonce)
                 if composer is None or any(
@@ -1501,7 +1119,7 @@ def request_composer_completion(signum: int, *, deadline: float) -> None:
                         )
                     pending.remove(nonce)
         if pending:
-            time.sleep(min(0.02, admission_remaining(deadline)))
+            time.sleep(min(0.02, operation_lifetime.admission_remaining(deadline)))
 
 
 class Operation:
@@ -1517,13 +1135,13 @@ class Operation:
     def __enter__(self) -> Self:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.parent.chmod(0o700)
-        write_json(
+        operation_lifetime.write_json(
             self.path,
             {
-                "version": VERSION,
+                "version": operation_lifetime.VERSION,
                 "pid": os.getpid(),
-                "start": start_identity(os.getpid()),
-                "scope": scope_owner(),
+                "start": operation_lifetime.start_identity(os.getpid()),
+                "scope": operation_lifetime.scope_owner(),
                 "python": sys.executable,
                 "admissions": {},
                 "generations": [],
@@ -1605,7 +1223,7 @@ def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
     }
     with record_lock(owner):
         receipt["owner"] = _record(owner)
-    write_json(Path(timing), receipt)
+    operation_lifetime.write_json(Path(timing), receipt)
     try:
         configured = _environment(requested, env)
     except BaseException as error:
@@ -1619,7 +1237,7 @@ def environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
         receipt["setup_finished_monotonic"] = time.monotonic()
         with record_lock(owner):
             receipt["owner"] = _record(owner)
-        write_json(Path(timing), receipt)
+        operation_lifetime.write_json(Path(timing), receipt)
 
 
 def runtime_selection(
@@ -1768,7 +1386,7 @@ def cancel_children(
         )
     owner = None
     try:
-        owner = scope_owner(deadline=completion_deadline)
+        owner = operation_lifetime.scope_owner(deadline=completion_deadline)
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
         failure = error
         print(
@@ -1815,7 +1433,7 @@ def cancel_children(
                     owner["unit"],
                 ],
                 check=False,
-                env=manager_control_environment(),
+                env=operation_lifetime.manager_control_environment(),
                 # Mandatory kill still occurs when the completion clock expired.
                 # Its IPC is bounded by the same remaining clock, with a minimal
                 # nonblocking launch budget after expiry; no child gets a reset.
@@ -1915,7 +1533,7 @@ def require_command_parent(
         or registered.get("boot") != host_admission.boot()
     ):
         raise ValueError("selected workload lost its registered command allocation")
-    group = process_group(os.getpid())
+    group = operation_lifetime.process_group(os.getpid())
     unit = next(
         (
             part
@@ -1951,7 +1569,7 @@ def require_command_parent(
     ):
         raise ValueError("selected workload command parent identity changed")
     if deadline is not None:
-        admission_remaining(deadline)
+        operation_lifetime.admission_remaining(deadline)
 
 
 def run_child_scope(
@@ -1977,13 +1595,13 @@ def run_child_scope(
             raise subprocess.TimeoutExpired(command, 0)
     from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
 
-    allocation = host_admission.inherit(env, **deadline_options(deadline))
+    allocation = host_admission.inherit(env, **operation_lifetime.deadline_options(deadline))
     if allocation is None:
         raise ValueError("selected native workload requires its admitted parent")
     with contextlib.ExitStack() as lifetime:
-        if scope_owner(**deadline_options(deadline)) is None:
-            require_command_parent(allocation, **deadline_options(deadline))
-            if owner_record(**deadline_options(deadline)) is None:
+        if operation_lifetime.scope_owner(**operation_lifetime.deadline_options(deadline)) is None:
+            require_command_parent(allocation, **operation_lifetime.deadline_options(deadline))
+            if owner_record(**operation_lifetime.deadline_options(deadline)) is None:
                 if os.environ.get(MARKER) or env.get(MARKER):
                     raise ValueError(
                         "selected workload has a contradictory operation parent"
@@ -2017,9 +1635,9 @@ def _run_child_scope(
     from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
 
     process_observation = observation if observation is not None else {}
-    role_memory = pse_env.current_memory_ceiling()
+    role_memory = systemd_environment.current_memory_ceiling()
     if allocation.profile.unbounded:
-        pse_env.require_unbounded_slice(host_admission.allocation_slice(allocation))
+        systemd_environment.require_unbounded_slice(host_admission.allocation_slice(allocation))
         # A genuinely bounded scientific child of this build owner retains its
         # actual role cap; only the ordinary uncapped launcher omits one.
         if role_memory is not None and role_memory <= 0:
@@ -2032,8 +1650,8 @@ def _run_child_scope(
         # A sibling scope preserves its narrower observer/control role.
         role_memory = min(role_memory, allocation.profile.memory)
     unit = f"pse-native-{uuid.uuid4().hex}.scope"
-    allocation.register(unit, **deadline_options(deadline))
-    handoff = prepare_handoff(unit, foreground=True, **deadline_options(deadline))
+    allocation.register(unit, **operation_lifetime.deadline_options(deadline))
+    handoff = prepare_handoff(unit, foreground=True, **operation_lifetime.deadline_options(deadline))
     if handoff is None:
         raise ValueError("selected native workload has no authenticated handoff")
     environment = dict(env)
@@ -2126,7 +1744,7 @@ def _run_child_scope(
                     previous_mask = signal.pthread_sigmask(
                         signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM}
                     )
-                completion = drained(record, deadline=deadline)
+                completion = operation_lifetime.drained(record, deadline=deadline)
                 if observation is not None:
                     observation["owned_drain"] = (
                         "complete" if completion.complete else "unresolved"
@@ -2136,20 +1754,20 @@ def _run_child_scope(
                     return
                 if (
                     cancellation_deadline is None
-                    and completion.phase in {DrainPhase.POPULATED, DrainPhase.ACTIVE}
+                    and completion.phase in {operation_lifetime.DrainPhase.POPULATED, operation_lifetime.DrainPhase.ACTIVE}
                     and process_observation.get("cancellation_deadline") is not None
                 ):
                     # A first signal arrived during the observation. Read that
                     # owner's original clock before deciding whether to join.
                     continue
                 if completion.phase not in {
-                    DrainPhase.POPULATED,
-                    DrainPhase.ACTIVE,
+                    operation_lifetime.DrainPhase.POPULATED,
+                    operation_lifetime.DrainPhase.ACTIVE,
                 }:
                     raise ValueError(
                         completion.diagnostic() + "; selected workload remains charged"
                     )
-                time.sleep(min(0.02, admission_remaining(deadline)))
+                time.sleep(min(0.02, operation_lifetime.admission_remaining(deadline)))
         finally:
             if previous_mask is not None:
                 signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
@@ -2165,7 +1783,7 @@ def _run_child_scope(
         cleanup_clock=lambda: normal_deadline,
         stdout=stdout,
         stderr=stderr,
-        **deadline_options(deadline),
+        **operation_lifetime.deadline_options(deadline),
     )
 
 
@@ -2391,7 +2009,7 @@ def run(
                 if owner is not None:
                     with record_lock(owner):
                         receipt["owner"] = _record(owner)
-                write_json(Path(timing), receipt)
+                operation_lifetime.write_json(Path(timing), receipt)
     if cancel_failure is not None:
         raise ValueError(
             "native foreground cancellation incomplete"
@@ -2428,7 +2046,7 @@ def main() -> int:
         )
 
         allocation = host_admission.inherit(original, handoff=True)
-        owner = scope_owner()
+        owner = operation_lifetime.scope_owner()
         if allocation is None or owner is None:
             raise ValueError("Managed native role lacks actual allocation membership")
         allocation.bind(owner["unit"])

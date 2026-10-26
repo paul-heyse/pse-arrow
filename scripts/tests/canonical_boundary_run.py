@@ -12,6 +12,7 @@ performs lifecycle operations on the caller's selected service.
 
 from __future__ import annotations
 
+
 import argparse
 import os
 import socket
@@ -25,6 +26,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import (
     native_operation,
     native_tests,
@@ -110,7 +113,7 @@ def restart_handshake(
             test_identity=test_identity,
             selection=selection,
         )
-        original = native_operation.unit_observation(server.unit_name(state))
+        original = operation_lifetime.unit_observation(server.unit_name(state))
         if original.get("ActiveState") != "active" or not original.get("InvocationID"):
             raise RuntimeError("Owned restart service has no active invocation")
         server.stop(state, server.config_for(state), abrupt=True)
@@ -121,7 +124,7 @@ def restart_handshake(
         if down.get("database") != database or not down.get("error"):
             raise RuntimeError("Restart peer did not observe the actual closed service")
         server.start(state, server.config_for(state), deadline=deadline)
-        restarted = native_operation.unit_observation(server.unit_name(state))
+        restarted = operation_lifetime.unit_observation(server.unit_name(state))
         if (
             restarted.get("ActiveState") != "active"
             or not restarted.get("InvocationID")
@@ -168,7 +171,7 @@ def restart_cohort(
     if not marker:
         raise RuntimeError("Restart requires its authenticated parent invocation")
     parent_path = Path(marker)
-    invocation_directory = test_resources.registry().resolve() / "invocations"
+    invocation_directory = service_borrowers.registry().resolve() / "invocations"
     if parent_path.parent.resolve() != invocation_directory:
         raise RuntimeError("Restart parent uses another resource authority")
     parent = test_resources.read_invocation(parent_path)
@@ -207,12 +210,12 @@ def restart_cohort(
             if (
                 not isinstance(producer, dict)
                 or producer.get("pid") != process.pid
-                or not test_resources.borrower_alive(producer)
+                or not service_borrowers.borrower_alive(producer)
             ):
                 raise RuntimeError(
                     "Restart child invocation belongs to another process"
                 )
-    resources = test_resources.service_resources(state, deadline=deadline)
+    resources = service_borrowers.service_resources(state, deadline=deadline)
     child_test = selected[0]["binary_id"] + "::" + RESTART_TEST
     children = [
         identity
@@ -244,7 +247,7 @@ def restart_cohort(
             or record.get("drained") is not False
             or record.get("references") != {}
             or record.get("borrows") != {}
-            or not test_resources.borrower_alive(record)
+            or not service_borrowers.borrower_alive(record)
             or (
                 creation is not None
                 and creation

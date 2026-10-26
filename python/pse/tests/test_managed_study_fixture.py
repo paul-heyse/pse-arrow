@@ -44,7 +44,7 @@ class ManagedStudyControlTests(unittest.TestCase):
         self.state.mkdir(mode=0o700)
         self.resources = FIXTURE.test_resources
         registry = patch.object(
-            self.resources, "registry", return_value=root / "registry"
+            self.resources.service_borrowers, "registry", return_value=root / "registry"
         )
         registry.start()
         self.addCleanup(registry.stop)
@@ -107,7 +107,7 @@ class ManagedStudyControlTests(unittest.TestCase):
                 {
                     "nonce": self.fixture.nonce,
                     "pid": os.getpid(),
-                    "start": FIXTURE.native_operation.start_identity(os.getpid()),
+                    "start": FIXTURE.operation_lifetime.start_identity(os.getpid()),
                 },
             )
             self.fixture.lock_owned = True

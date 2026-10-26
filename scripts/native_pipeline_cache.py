@@ -17,6 +17,7 @@ from pathlib import Path
 
 if str(Path(__file__).resolve().parents[1]) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts import operation_lifetime
 from scripts import build_environment, producer_deployment
 from scripts import native_cache as cache
 from scripts import native_operation as operation
@@ -124,7 +125,7 @@ def _highs_candidate(env: dict[str, str], request: dict) -> Path:
         # A dev link is usable without persistent producer eligibility. Its actual
         # provider state is reused only by this real operation, never by existence.
         directory, package = _build_highs_archive(env)
-        operation.write_json(
+        operation_lifetime.write_json(
             candidate, {"directory": str(directory), "package": package}
         )
         return directory

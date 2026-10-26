@@ -11,6 +11,7 @@ After fencing, interrupted work remains protected and is resumed explicitly.
 
 from __future__ import annotations
 
+
 import hashlib
 import json
 import os
@@ -20,6 +21,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import host_admission as host
 from scripts import native_operation as operation
 from scripts import resource_store as files
@@ -250,7 +253,7 @@ def quiescent(values: dict[str, bytes], deadline: float) -> None:
     scopes = {}
     snapshot = host.readonly_snapshot(deadline=deadline)
     allocation = host.inherit(os.environ, deadline=deadline)
-    own_group = operation.process_group(os.getpid())
+    own_group = operation_lifetime.process_group(os.getpid())
     for nonce, owner in snapshot["owners"].items():
         # Long-lived admitted store/cache services cannot mutate fixture metadata.
         # Workload scopes can spawn writers even after their coordinator exits.
@@ -269,8 +272,8 @@ def quiescent(values: dict[str, bytes], deadline: float) -> None:
                         if peer["pid"] == os.getpid():
                             continue
                         try:
-                            group = operation.process_group(peer["pid"])
-                            if operation.start_identity(peer["pid"]) != peer["start"]:
+                            group = operation_lifetime.process_group(peer["pid"])
+                            if operation_lifetime.start_identity(peer["pid"]) != peer["start"]:
                                 raise files.StoreError(
                                     "Process identity changed during conversion scope discovery"
                                 )
@@ -306,7 +309,7 @@ def quiescent(values: dict[str, bytes], deadline: float) -> None:
         for owner in owners:
             if not isinstance(owner, dict):
                 continue
-            if resources.borrower_alive(owner):
+            if service_borrowers.borrower_alive(owner):
                 raise files.StoreError(
                     "Live exact metadata writer/reader; conversion refused"
                 )
@@ -316,7 +319,7 @@ def quiescent(values: dict[str, bytes], deadline: float) -> None:
                 and isinstance(owner.get("start"), str)
             ):
                 try:
-                    if operation.start_identity(owner["pid"]) == owner["start"]:
+                    if operation_lifetime.start_identity(owner["pid"]) == owner["start"]:
                         raise files.StoreError(
                             "Unresolved original process identity; conversion refused"
                         )
@@ -331,7 +334,7 @@ def quiescent(values: dict[str, bytes], deadline: float) -> None:
             ):
                 scopes[bound["unit"]] = bound
     for scope in scopes.values():
-        observation = operation.drained({"scope": scope}, deadline=deadline)
+        observation = operation_lifetime.drained({"scope": scope}, deadline=deadline)
         if not observation.complete:
             raise files.StoreError(
                 "Writer descendants are unobserved: " + observation.diagnostic()

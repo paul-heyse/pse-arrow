@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
+from scripts import operation_lifetime
 from scripts import host_admission as host
 from scripts import pse_env
 
@@ -52,7 +53,7 @@ class NestedCapacityTests(unittest.TestCase):
         with (
             patch.object(host, "inherit", return_value=None),
             patch.object(
-                pse_env.operation, "scope_owner", return_value={"group": "/unknown"}
+                operation_lifetime, "scope_owner", return_value={"group": "/unknown"}
             ),
             pytest.raises(pse_env.BoundaryError, match="no verified host"),
         ):

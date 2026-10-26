@@ -19,6 +19,7 @@ from pse.tests import conftest as fixture_plugin
 if TYPE_CHECKING:
     from pse.tests.canonical_fixture import CanonicalFixture
 
+from scripts import operation_lifetime
 from scripts import (
     native_operation,
     producer_deployment,
@@ -85,7 +86,7 @@ def test_rust_python_fixture_context_overlap(
     if native_path is None:
         raise TypeError("Native extension has no artifact path")
     imported_native = producer_deployment.file_observation(Path(native_path))
-    native_operation.write_json(
+    operation_lifetime.write_json(
         directory / "python-native-imported.json", imported_native
     )
     if not (
@@ -105,7 +106,7 @@ def test_rust_python_fixture_context_overlap(
         len(installed) == 2 and installed[0] is None and isinstance(installed[1], list)
     ):
         raise AssertionError("Bounded overlap assertion failed")
-    native_operation.write_json(
+    operation_lifetime.write_json(
         directory / "python-ready.json",
         {
             "database": canonical_substrate.database,
@@ -130,7 +131,7 @@ def test_rust_python_fixture_context_overlap(
     )
     if not (observed == [[marker]]):
         raise AssertionError("Bounded overlap assertion failed")
-    native_operation.write_json(
+    operation_lifetime.write_json(
         directory / "python-observed.json", {"values": observed}
     )
     while not (directory / "rust-observed.json").exists():

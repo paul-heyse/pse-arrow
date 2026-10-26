@@ -25,6 +25,7 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
+from scripts import operation_lifetime
 from scripts import native_operation
 from scripts import surreal_server as server
 from scripts import surrealkit as tool
@@ -112,7 +113,7 @@ def validate(resource: str, folder: Path) -> None:
 
 def child(binary: Path, folder: Path, output: Path, command: list[str]) -> int:
     """Internal child in the existing admitted scope; retain actual beta output."""
-    if native_operation.scope_owner() is None:
+    if operation_lifetime.scope_owner() is None:
         raise tool.ToolError("Probe child lacks admitted native ownership")
     with (
         (output / "stdout").open("xb") as stdout,

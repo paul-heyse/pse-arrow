@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+from scripts import operation_lifetime
 from scripts import (  # noqa: E402 -- direct script execution first adds the checkout import root
     build_environment,
 )
@@ -415,7 +416,7 @@ def prepare(
                 stage.replace(destination)
                 destination.chmod(destination.stat().st_mode & ~0o222)
                 operation.pin(base, destination)
-                operation.write_json(
+                operation_lifetime.write_json(
                     owner / ".current.json",
                     {"version": RECEIPT_VERSION, "generation": generation},
                 )

@@ -5,6 +5,7 @@
 # ruff: noqa: PT009, PT027 -- stdlib tooling tests
 from __future__ import annotations
 
+
 import json
 import tempfile
 import unittest
@@ -14,6 +15,7 @@ from unittest.mock import patch
 from jsonschema import Draft202012Validator
 from pydantic import TypeAdapter, ValidationError
 
+from scripts import service_borrowers
 from scripts import (
     knowledge_store,
     run_inspection,
@@ -202,7 +204,7 @@ class ContractTests(unittest.TestCase):
     def test_product_population_and_workload_outcome_remain_independent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             registry = Path(directory) / "registry"
-            with patch.object(test_resources, "registry", return_value=registry):
+            with patch.object(service_borrowers, "registry", return_value=registry):
                 invocation = test_resources.invocation(
                     "python", [{"name": "one"}, {"name": "two"}]
                 )
@@ -280,7 +282,7 @@ class ContractTests(unittest.TestCase):
                 ],
             }
             with patch.object(
-                test_resources, "registry", return_value=root / "registry"
+                service_borrowers, "registry", return_value=root / "registry"
             ):
                 assessment_fixture.publish(run, record)
                 summary = answers.assessment(validation_result.read_assessment(run))

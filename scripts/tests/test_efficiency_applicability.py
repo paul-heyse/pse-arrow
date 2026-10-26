@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+
 import json
 import sys
 import tempfile
@@ -13,6 +14,7 @@ from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import service_borrowers
 from scripts import test_resources, validation, validation_receipts, validation_scope
 from scripts.validation_scope import Gate
 
@@ -55,7 +57,7 @@ class ApplicabilityTests(unittest.TestCase):
 
             with (
                 patch.object(
-                    test_resources, "registry", return_value=root / "registry"
+                    service_borrowers, "registry", return_value=root / "registry"
                 ),
                 patch.object(
                     validation,

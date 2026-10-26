@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
+from scripts import operation_lifetime
 from scripts import host_admission, native_operation
 from scripts import surreal_rollout_producer as producer
 from scripts import surreal_server as server
@@ -684,7 +685,7 @@ def main() -> int:
     if (
         allocation is None
         or not allocation.profile.exclusive
-        or native_operation.scope_owner() is None
+        or operation_lifetime.scope_owner() is None
     ):
         raise SystemExit(
             "Requires an authenticated exclusive native operation; use pse-env --resource-class exclusive --native= --"

@@ -26,6 +26,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts import operation_lifetime
 from scripts import telemetry_service
 from scripts.telemetry_investigation import BackendClient, QueryRequest
 from scripts.tests.telemetry_operational_acceptance import environment, write
@@ -496,7 +497,7 @@ def producer(
             expected_wire = mapping(json.loads(codec.encode_json(expected_identity)))
             produced: dict[str, object] = {
                 "pid": os.getpid(),
-                "process_start": native_operation.start_identity(os.getpid()),
+                "process_start": operation_lifetime.start_identity(os.getpid()),
                 "service_instance_id": resolved.wire.resource["service.instance.id"],
                 "configuration_id": resolved.configuration_id,
                 "checkpoint": str(retained_checkpoint),

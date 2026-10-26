@@ -24,6 +24,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from scripts import process_observation
+from scripts import operation_lifetime
 from scripts import (
     diagnostic_trace,
     doctor,
@@ -210,7 +212,7 @@ def process_subject(pid: int, start: str) -> dict:
         raise ValueError(
             "live attachment requires an exact PID and /proc start identity"
         )
-    before = native_operation.start_identity(pid)
+    before = operation_lifetime.start_identity(pid)
     if before != start:
         raise ValueError("selected process start identity changed")
     directory = Path("/proc") / str(pid)
@@ -228,20 +230,20 @@ def process_subject(pid: int, start: str) -> dict:
             threads.append(
                 {
                     "tid": int(task.name),
-                    "start": native_operation.start_identity(int(task.name)),
+                    "start": operation_lifetime.start_identity(int(task.name)),
                 }
             )
         except OSError:
             continue
     executable = (directory / "exe").resolve(strict=True)
-    if native_operation.start_identity(pid) != start:
+    if operation_lifetime.start_identity(pid) != start:
         raise ValueError("process changed while selecting its subject")
     return {
         "kind": "live-process",
         "pid": pid,
         "start": start,
         "state": state,
-        "boot": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
+        "boot": process_observation.boot(),
         "observed_monotonic_ns": time.monotonic_ns(),
         "threads": threads,
         "thread_page_limit": 1024,
@@ -375,13 +377,13 @@ def identified_launch(command: list[str], subject_file: Path) -> list[str]:
     # consumes it. Never forward other LD_* values or compose a new default.
     launcher = (
         "import json,os,sys,time; from pathlib import Path; "
-        "from scripts.native_operation import start_identity; "
+        "from scripts.process_observation import start_identity, boot; "
         "selected=json.loads(sys.argv[2]); os.environ.update(selected); "
         "p=Path(sys.argv[1]); "
         "f=os.fdopen(os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w'); "
         "json.dump({'pid':os.getpid(),'start':start_identity(os.getpid()),"
         "'wall_ns':time.time_ns(),'monotonic_ns':time.monotonic_ns(),"
-        "'boot':Path('/proc/sys/kernel/random/boot_id').read_text().strip(),"
+        "'boot':boot(),"
         "'restored_environment':list(selected),"
         "'exec_observation':'exec requested; workload outcome is separate'},f); "
         "f.close(); os.execvp(sys.argv[3],sys.argv[3:])"
@@ -657,7 +659,7 @@ def execute(request: ActionRequest) -> dict:
             record["tool"] = tool
             if tool["status"] != "available":
                 raise ValueError(tool["reason"])
-            if native_operation.start_identity(pid) != start:
+            if operation_lifetime.start_identity(pid) != start:
                 raise ValueError("selected target identity changed before attachment")
             argv = (
                 [tool["path"], "dump", "--pid", str(pid), "--json"]

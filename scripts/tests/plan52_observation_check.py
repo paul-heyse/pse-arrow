@@ -10,6 +10,7 @@ scripts.tests.plan52_observation_check. Receipts survive failures.
 # ruff: noqa: PT009 -- stdlib setup controls
 from __future__ import annotations
 
+
 import json
 import os
 import signal
@@ -23,6 +24,8 @@ from unittest.mock import patch
 
 import msgspec
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import (
     activity_watch as watch,
 )
@@ -50,9 +53,9 @@ def wait_file(path: Path, deadline: float) -> None:
 def worker(mode: str, directory: Path) -> int:
     deadline = time.monotonic() + 15
     if mode == "pressure":
-        native_operation.write_json(
+        operation_lifetime.write_json(
             directory / "ready.json",
-            {"group": native_operation.process_group(os.getpid()), "pid": os.getpid()},
+            {"group": operation_lifetime.process_group(os.getpid()), "pid": os.getpid()},
         )
         wait_file(directory / "cpu-start", deadline)
         stop = time.monotonic() + 1.5
@@ -63,9 +66,9 @@ def worker(mode: str, directory: Path) -> int:
         wait_file(directory / "release", deadline)
         return 0
     path = test_resources.invocation("python", [{"name": "actual::arithmetic"}])
-    native_operation.write_json(
+    operation_lifetime.write_json(
         directory / "ready.json",
-        {"run": str(path), "registry": str(test_resources.registry())},
+        {"run": str(path), "registry": str(service_borrowers.registry())},
     )
     wait_file(directory / "build-start", deadline)
     environment = {
@@ -155,7 +158,7 @@ class ObservationControls(unittest.TestCase):
                 cwd=ROOT,
                 stdout=log,
                 stderr=subprocess.STDOUT,
-                env=native_operation.manager_control_environment(),
+                env=operation_lifetime.manager_control_environment(),
             ) as child,
         ):
             try:
@@ -169,7 +172,7 @@ class ObservationControls(unittest.TestCase):
                 busy = pressure.capture(group)
                 idle_delta = pressure.delta(first.selected, idle.selected)
                 busy_delta = pressure.delta(idle.selected, busy.selected)
-                native_operation.write_json(
+                operation_lifetime.write_json(
                     self.directory / "pressure.json",
                     {
                         "unit": unit,
@@ -352,7 +355,7 @@ class ObservationControls(unittest.TestCase):
                         any(item["snapshot"].get("builds") for item in observed)
                     )
                     self.assertEqual(child.wait(timeout=3), 0)
-                native_operation.write_json(
+                operation_lifetime.write_json(
                     self.directory / "watch.json",
                     {
                         "observations": observed,

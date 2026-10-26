@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+
 import json
 import os
 import subprocess
@@ -14,6 +15,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import service_borrowers
 from scripts import (
     assessment_store,
     case_measure,
@@ -34,7 +36,7 @@ class CaseMeasurementTests(unittest.TestCase):
         self.root = Path(self.directory.name)
         self.enterContext(
             patch.object(
-                test_resources, "registry", return_value=self.root / "registry"
+                service_borrowers, "registry", return_value=self.root / "registry"
             )
         )
 
@@ -282,7 +284,7 @@ class CaseMeasurementTests(unittest.TestCase):
                 side_effect=[{"PSE_MEMORY_MAX": "80G"}, {"PSE_MEMORY_MAX": "160G"}],
             ),
             patch.object(
-                case_measure.host_admission,
+                case_measure.surreal_server,
                 "measurement_context",
                 return_value={"timing_isolation": "uncontrolled"},
             ),

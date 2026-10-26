@@ -5,6 +5,7 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
+
 import contextlib
 import copy
 import hashlib
@@ -15,6 +16,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import service_borrowers
 from scripts import surreal_server as server
 from scripts import surrealkit as tool
 from scripts import surrealkit_population as population
@@ -37,7 +39,7 @@ class PopulationTests(unittest.TestCase):
         self.readbacks = {query: [rows] for query, rows in population.checks()}
         self.queries: list[str] = []
         for replacement in (
-            patch.object(resources, "registry", return_value=self.root / "registry"),
+            patch.object(service_borrowers, "registry", return_value=self.root / "registry"),
             patch.object(server, "config_for", return_value=self.config),
             patch.object(resources.host, "inherit", return_value=None),
             patch.dict("os.environ", {resources.MARKER: ""}),
@@ -393,7 +395,7 @@ class PopulationTests(unittest.TestCase):
                 "boot": "host",
             }
         with (
-            patch.object(resources, "borrower_alive", return_value=True),
+            patch.object(service_borrowers, "borrower_alive", return_value=True),
             self.assertRaisesRegex(tool.ToolError, "live borrower"),
         ):
             tool.settle_population(resource)

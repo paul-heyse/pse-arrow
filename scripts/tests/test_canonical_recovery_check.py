@@ -13,6 +13,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import operation_lifetime
 from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_check as recovery
 from scripts.tests import canonical_recovery_science as science
@@ -36,7 +37,7 @@ class ScientificRecoveryControls(unittest.TestCase):
             with (
                 self.subTest(group=group, declared=bool(environment)),
                 patch.object(
-                    server.native_operation, "process_group", return_value=group
+                    operation_lifetime, "process_group", return_value=group
                 ),
                 patch.object(server.time, "monotonic", return_value=100),
                 patch.object(
@@ -69,7 +70,7 @@ class ScientificRecoveryControls(unittest.TestCase):
             self.assertEqual(selected.call_args.kwargs["stderr"], subprocess.DEVNULL)
         with (
             patch.object(
-                server.native_operation,
+                operation_lifetime,
                 "process_group",
                 return_value="/pse-native-owned.scope",
             ),

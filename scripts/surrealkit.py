@@ -8,6 +8,7 @@ canonical interpretation nor infers database settlement from a child exit.
 
 from __future__ import annotations
 
+
 import argparse
 import contextlib
 import hashlib
@@ -23,6 +24,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from urllib.parse import urlsplit
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import (
     native_operation,
     surreal_server,
@@ -243,7 +246,7 @@ def fixture(
         expected_borrow = {
             _activity_borrow: {
                 "pid": os.getpid(),
-                "start": native_operation.start_identity(os.getpid()),
+                "start": operation_lifetime.start_identity(os.getpid()),
                 "boot": test_resources.host.boot(),
             }
         }
@@ -266,7 +269,7 @@ def fixture(
         borrower = record.get("creation_borrower")
         if borrows or (
             borrower
-            and test_resources.borrower_alive(borrower)
+            and service_borrowers.borrower_alive(borrower)
             and borrower.get("pid") != os.getpid()
         ):
             raise ToolError("Population setup is still owned by a live borrower")
@@ -519,7 +522,7 @@ def activity(
                 current["drained"] = False
                 current["creation_borrower"] = {
                     "pid": os.getpid(),
-                    "start": native_operation.start_identity(os.getpid()),
+                    "start": operation_lifetime.start_identity(os.getpid()),
                     "boot": test_resources.host.boot(),
                 }
         yield record, config, credentials

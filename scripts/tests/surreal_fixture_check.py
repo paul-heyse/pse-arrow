@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+from scripts import operation_lifetime
 from scripts import host_admission, native_operation
 from scripts import surreal_server as server
 
@@ -38,7 +39,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def record_ownership(directory: Path, unit: str) -> None:
-    observed = native_operation.unit_observation(unit)
+    observed = operation_lifetime.unit_observation(unit)
     if not observed.get("ControlGroup") or not observed.get("InvocationID"):
         raise server.SupervisorError(
             "Fixture unit did not expose actual owned kernel membership"
@@ -399,15 +400,15 @@ def restart_exhaustion(state: Path, config: dict[str, object], directory: Path) 
     server.reset_failure_window(state)
     server.start(state, config, deadline=deadline)
     record_ownership(directory, unit)
-    invocations = {native_operation.unit_observation(unit)["InvocationID"]}
+    invocations = {operation_lifetime.unit_observation(unit)["InvocationID"]}
     exhausted = False
     denial: dict[str, object] | None = None
     for _ in range(3):
-        previous = native_operation.unit_observation(unit)["InvocationID"]
+        previous = operation_lifetime.unit_observation(unit)["InvocationID"]
         server.systemctl("kill", "--kill-whom=all", "--signal=SIGKILL", unit)
         while True:
             server.remaining(deadline)
-            observed = native_operation.unit_observation(unit)
+            observed = operation_lifetime.unit_observation(unit)
             if observed.get("ActiveState") == "failed":
                 denial = restart_limit_denial(unit, started, deadline)
                 if denial is not None:
@@ -440,11 +441,11 @@ def restart_exhaustion(state: Path, config: dict[str, object], directory: Path) 
     terminal_result = server.systemctl(
         "show", "--property=Result", "--value", unit
     ).stdout.strip()
-    terminal = native_operation.unit_observation(unit)
+    terminal = operation_lifetime.unit_observation(unit)
     wait_until = time.monotonic() + 6
     while time.monotonic() < wait_until:
         server.remaining(deadline)
-        observed = native_operation.unit_observation(unit)
+        observed = operation_lifetime.unit_observation(unit)
         if (
             observed.get("ActiveState") != "failed"
             or observed.get("InvocationID") != terminal.get("InvocationID")
@@ -460,11 +461,11 @@ def restart_exhaustion(state: Path, config: dict[str, object], directory: Path) 
     record_ownership(directory, unit)
     check(state)
     server.stop(state, config)
-    stopped = native_operation.unit_observation(unit)
+    stopped = operation_lifetime.unit_observation(unit)
     wait_until = time.monotonic() + 6
     while time.monotonic() < wait_until:
         server.remaining(deadline)
-        observed = native_operation.unit_observation(unit)
+        observed = operation_lifetime.unit_observation(unit)
         if (
             observed.get("ActiveState") != "inactive"
             or observed.get("InvocationID") != stopped.get("InvocationID")
@@ -512,7 +513,7 @@ def receiver_closures(state: Path, directory: Path) -> None:
     contexts: list[Path] = []
     releases: list[Path] = []
     proofs: list[dict[str, object]] = []
-    storage = native_operation.unit_observation(server.unit_name(state))["InvocationID"]
+    storage = operation_lifetime.unit_observation(server.unit_name(state))["InvocationID"]
     original = {
         key: os.environ.get(key)
         for key in ("PSE_WORKER_BINARY", "PSE_WORKER_PRODUCER_RECEIPT")
@@ -642,10 +643,10 @@ def receiver_closures(state: Path, directory: Path) -> None:
             raise server.SupervisorError(
                 "Distinct receiver artifacts failed to establish independent generations"
             )
-        if native_operation.unit_observation(server.unit_name(state))[
+        if operation_lifetime.unit_observation(server.unit_name(state))[
             "InvocationID"
         ] != storage or not all(
-            native_operation.unit_observation(str(proof["unit"]))["ActiveState"]
+            operation_lifetime.unit_observation(str(proof["unit"]))["ActiveState"]
             == "active"
             for proof in proofs
         ):
@@ -659,7 +660,7 @@ def receiver_closures(state: Path, directory: Path) -> None:
             )
         server.workers_drained(contexts[0], server.config_for(contexts[0]))
         if (
-            native_operation.unit_observation(str(proofs[1]["unit"]))["ActiveState"]
+            operation_lifetime.unit_observation(str(proofs[1]["unit"]))["ActiveState"]
             != "active"
         ):
             raise server.SupervisorError(
@@ -809,13 +810,13 @@ def journey(
                     "Positive recovery proof did not materialize bounded restart"
                 )
             server.start(state, config)
-            original = native_operation.unit_observation(server.unit_name(state))
+            original = operation_lifetime.unit_observation(server.unit_name(state))
             server.systemctl(
                 "kill", "--kill-whom=all", "--signal=SIGKILL", server.unit_name(state)
             )
             deadline = time.monotonic() + 30
             while True:
-                observed = native_operation.unit_observation(server.unit_name(state))
+                observed = operation_lifetime.unit_observation(server.unit_name(state))
                 if (
                     observed.get("InvocationID") != original.get("InvocationID")
                     and observed.get("ActiveState") == "active"

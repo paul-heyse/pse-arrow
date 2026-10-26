@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+
 import contextlib
 import io
 import json
@@ -23,6 +24,8 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import (
     assessment_store,
     case_measure,
@@ -279,7 +282,7 @@ class ValidationTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         registry = patch.object(
-            test_resources, "registry", return_value=self.root / "registry"
+            service_borrowers, "registry", return_value=self.root / "registry"
         )
         registry.start()
         self.addCleanup(registry.stop)
@@ -2025,7 +2028,7 @@ class ValidationTests(unittest.TestCase):
                 patch.object(
                     native_tests.pse_env, "default_test_width", return_value=1
                 ),
-                patch("scripts.native_operation.scope_owner", return_value=None),
+                patch("scripts.operation_lifetime.scope_owner", return_value=None),
                 patch("scripts.native_operation.run", side_effect=run),
             ):
                 self.assertEqual(native_tests.main(), expected)

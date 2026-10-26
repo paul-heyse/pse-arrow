@@ -26,6 +26,7 @@ from unittest.mock import MagicMock, patch
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+from scripts import operation_lifetime
 from scripts import host_admission as host
 from scripts import pse_env
 from scripts import surreal_server as server
@@ -741,7 +742,7 @@ class SurrealMcpTests(unittest.TestCase):
         self.write("config.json", self.config)
         process = {
             "pid": os.getpid(),
-            "start": server.native_operation.start_identity(os.getpid()),
+            "start": operation_lifetime.start_identity(os.getpid()),
             "instance_id": self.config["instance_id"],
         }
         for name in ("server-process.json", "service-launch.json"):
@@ -958,7 +959,7 @@ class SurrealMcpTests(unittest.TestCase):
             patch.object(server, "service_directory", return_value=self.state),
             patch.object(server, "read_json", return_value=process),
             patch.object(
-                server.native_operation, "start_identity", return_value="actual-start"
+                operation_lifetime, "start_identity", return_value="actual-start"
             ),
             patch.object(
                 server, "recorded_storage_owner", return_value=(owner, launch)

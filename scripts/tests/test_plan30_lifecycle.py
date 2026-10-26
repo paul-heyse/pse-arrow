@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+
 import contextlib
 import hashlib
 import json
@@ -23,6 +24,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Generator
 from unittest.mock import MagicMock, patch
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import host_admission, native_operation, test_resources
 from scripts import surreal_server as server
 from scripts.tests import surreal_fixture_check
@@ -71,7 +74,7 @@ class Plan30LifecycleTests(unittest.TestCase):
         )
         resources.start()
         self.addCleanup(resources.stop)
-        test_resources.service_registry_binding(self.state, establish=True)
+        service_borrowers.service_registry_binding(self.state, establish=True)
         self.config = {
             "owner": server.OWNER,
             "profile_version": 3,
@@ -194,7 +197,7 @@ class Plan30LifecycleTests(unittest.TestCase):
     def reservation(self, path: Path) -> None:
         server.write_json(
             path,
-            {"pid": os.getpid(), "start": native_operation.start_identity(os.getpid())},
+            {"pid": os.getpid(), "start": operation_lifetime.start_identity(os.getpid())},
         )
 
     @contextlib.contextmanager
@@ -386,9 +389,9 @@ class Plan30LifecycleTests(unittest.TestCase):
         record = {"state": str(self.state), "cleanup": "retained", "drained": False}
         with (
             patch.object(
-                test_resources, "service_resources", return_value={"borrower": record}
+                service_borrowers, "service_resources", return_value={"borrower": record}
             ),
-            patch.object(test_resources, "borrower_alive", return_value=True),
+            patch.object(service_borrowers, "borrower_alive", return_value=True),
             patch.object(server, "stop") as stop,
             patch.object(server, "administrative_query") as query,
         ):
@@ -405,9 +408,9 @@ class Plan30LifecycleTests(unittest.TestCase):
         record = {"state": str(context), "cleanup": "retained", "drained": False}
         with (
             patch.object(
-                test_resources, "service_resources", return_value={"borrower": record}
+                service_borrowers, "service_resources", return_value={"borrower": record}
             ),
-            patch.object(test_resources, "borrower_alive", return_value=True),
+            patch.object(service_borrowers, "borrower_alive", return_value=True),
         ):
             with pytest.raises(server.SupervisorError, match="still borrows"):
                 server.all_contexts_drained(self.state)
@@ -421,7 +424,7 @@ class Plan30LifecycleTests(unittest.TestCase):
     ) -> None:
         cleaner = {
             "pid": os.getpid(),
-            "start": native_operation.start_identity(os.getpid()),
+            "start": operation_lifetime.start_identity(os.getpid()),
         }
         record = {
             "state": str(self.state),
@@ -432,10 +435,10 @@ class Plan30LifecycleTests(unittest.TestCase):
         }
         with (
             patch.object(
-                test_resources, "service_resources", return_value={"resource": record}
+                service_borrowers, "service_resources", return_value={"resource": record}
             ),
             patch.object(
-                test_resources,
+                service_borrowers,
                 "borrower_alive",
                 side_effect=lambda owner: owner is cleaner,
             ),
@@ -449,9 +452,9 @@ class Plan30LifecycleTests(unittest.TestCase):
                 server.all_contexts_drained(self.state)
         with (
             patch.object(
-                test_resources, "service_resources", return_value={"resource": record}
+                service_borrowers, "service_resources", return_value={"resource": record}
             ),
-            patch.object(test_resources, "borrower_alive", return_value=False),
+            patch.object(service_borrowers, "borrower_alive", return_value=False),
         ):
             server.all_contexts_drained(self.state)
 
@@ -684,7 +687,7 @@ class Plan30LifecycleTests(unittest.TestCase):
         }
         with (
             patch.object(server, "Path", side_effect=path),
-            patch.object(native_operation, "start_identity", return_value="same-start"),
+            patch.object(operation_lifetime, "start_identity", return_value="same-start"),
             patch.object(
                 server, "recorded_storage_owner", return_value=(owner, launch)
             ),
@@ -772,7 +775,7 @@ class Plan30LifecycleTests(unittest.TestCase):
                 server, "recorded_storage_owner", return_value=(owner, launch)
             ),
             patch.object(server, "storage_unit_observation", return_value=observed),
-            patch.object(native_operation, "process_group", return_value=group),
+            patch.object(operation_lifetime, "process_group", return_value=group),
             patch.object(server, "Path", return_value=directory),
             patch.object(host_admission, "acquire") as acquire,
         ):
@@ -1489,7 +1492,7 @@ class Plan30LifecycleTests(unittest.TestCase):
                     ledger["owners"][owner.nonce] = {
                         "boot": host_admission.boot(),
                         "pid": os.getpid(),
-                        "start": native_operation.start_identity(os.getpid()),
+                        "start": operation_lifetime.start_identity(os.getpid()),
                         "class": profile.name,
                         "memory": profile.memory,
                         "lane": profile.lane,

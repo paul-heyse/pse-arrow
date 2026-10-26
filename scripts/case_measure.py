@@ -17,7 +17,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from scripts import host_admission, scientific_inputs, validation, validation_receipts
+from scripts import host_admission, scientific_inputs, validation, validation_receipts, operation_lifetime, surreal_server
 from scripts.validation_scope import RUST_INPUTS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -126,13 +126,13 @@ def stop_managed_primary(state: Path, database: str) -> None:
             )
         pid = surreal_server.integer(marker["pid"])
         process = Path(f"/proc/{pid}")
-        start = process.joinpath("stat").read_text().rsplit(")", 1)[1].split()[19]
+        start = operation_lifetime.start_identity(pid)
         descriptor = os.pidfd_open(pid)
         try:
             current = surreal_server.read_json(state / "primary-receiver.json")
             if (
                 current != marker
-                or process.joinpath("stat").read_text().rsplit(")", 1)[1].split()[19]
+                or operation_lifetime.start_identity(pid)
                 != start
                 or not surreal_server.primary_ready(
                     state, config, surreal_server.primary_observation(state), database
@@ -817,7 +817,7 @@ def main() -> int:
     environment = dict(os.environ)
     scientific_inputs.prepare_controller(output / "scientific-inputs.json", environment)
     started = time.time()
-    host_started = host_admission.measurement_context()
+    host_started = surreal_server.measurement_context()
     profile = {
         "cargo_profile": args.cargo_profile or declaration["cargo_profile"],
         "features": ["native-process", "pse-relations/force-validate"],
@@ -921,7 +921,7 @@ def main() -> int:
         else {"cases": [], "admission": None, "not_selected": True}
     )
     report["thermodynamic_preparation"] = preparation_report
-    report["host_conditions_end"] = host_admission.measurement_context()
+    report["host_conditions_end"] = surreal_server.measurement_context()
     snapshot_end = measurement_inputs(validation.sources(ROOT))
     environment_end = measurement_environment()
     report["source_changes_during_measurement"] = validation_receipts.changed(

@@ -25,6 +25,7 @@ import msgspec
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+from scripts import operation_lifetime
 from scripts import (  # noqa: E402 -- direct-script path routing
     activity_watch,
     build_observation,
@@ -39,7 +40,7 @@ BUILD_TOOLS = {"cargo", "rustc", "cargo-nextest", "clippy-driver", "rustdoc", "m
 
 
 def systemctl(*args: str) -> str:
-    return native_operation.manager_observation(*args)
+    return operation_lifetime.manager_observation(*args)
 
 
 def selected_unit(value: str) -> str:
@@ -88,7 +89,7 @@ def units(
     )
     for name in names:
         try:
-            fields = native_operation.unit_observation(name, properties=properties)
+            fields = operation_lifetime.unit_observation(name, properties=properties)
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             errors.append(f"{name} unavailable: {type(error).__name__}: {error}")
         else:
@@ -106,7 +107,7 @@ def units(
                         present = False
                         item["population"] = "no-current-group"
                     else:
-                        present = native_operation.populated(
+                        present = operation_lifetime.populated(
                             fields.get("ControlGroup", "")
                         )
                         item["population"] = "populated" if present else "empty"
@@ -187,7 +188,7 @@ def unit_pressure(unit: dict[str, str]) -> pressure_observation.Sample:
     """Link kernel facts to the same unit incarnation observed by the caller."""
     sample = pressure_observation.sample(unit.get("ControlGroup", ""))
     try:
-        after = native_operation.unit_observation(
+        after = operation_lifetime.unit_observation(
             unit["unit"], deadline=time.monotonic() + 1
         )
         _require_unit_incarnation(unit, after)

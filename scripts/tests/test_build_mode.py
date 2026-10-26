@@ -17,6 +17,8 @@ if TYPE_CHECKING:
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from scripts import systemd_environment
+from scripts import operation_lifetime
 from scripts import host_admission as host
 from scripts import native_operation as operation
 from scripts import native_tests, pse_env
@@ -150,7 +152,7 @@ class BuildModeTests(unittest.TestCase):
                 record["units"]["unknown.scope"] = {}
             # An unbound registered lifetime cannot be silently considered drained.
             with patch.object(
-                operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={"LoadState": "loaded", "ActiveState": "active"},
             ):
@@ -192,7 +194,7 @@ class BuildModeTests(unittest.TestCase):
                     "run",
                     return_value=subprocess.CompletedProcess([], 0),
                 ) as run,
-                patch.object(pse_env, "require_unbounded_slice") as readback,
+                patch.object(systemd_environment, "require_unbounded_slice") as readback,
                 patch.object(host, "cpu_set", side_effect=tuple),
             ):
                 host.enforce_parent(owner.profile, {"XDG_STATE_HOME": temporary})
@@ -237,19 +239,19 @@ class BuildModeTests(unittest.TestCase):
             with (
                 self.subTest(cap=cap),
                 patch.object(host, "inherit", return_value=owner),
-                patch.object(operation, "scope_owner", return_value={"unit": "parent"}),
-                patch.object(pse_env, "current_memory_ceiling", return_value=cap),
-                patch.object(pse_env, "require_unbounded_slice") as readback,
+                patch.object(operation_lifetime, "scope_owner", return_value={"unit": "parent"}),
+                patch.object(systemd_environment, "current_memory_ceiling", return_value=cap),
+                patch.object(systemd_environment, "require_unbounded_slice") as readback,
                 patch.object(
                     operation, "prepare_handoff", return_value=Path("/owned/handoff")
                 ) as handoff,
                 patch.object(operation, "run", side_effect=completed) as run,
                 patch.object(operation, "_record", return_value={"scope": selected}),
                 patch.object(
-                    operation,
+                    operation_lifetime,
                     "drained",
-                    return_value=operation.DrainObservation(
-                        selected, operation.DrainPhase.COMPLETE, "controlled drain"
+                    return_value=operation_lifetime.DrainObservation(
+                        selected, operation_lifetime.DrainPhase.COMPLETE, "controlled drain"
                     ),
                 ) as drained,
             ):

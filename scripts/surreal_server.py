@@ -37,7 +37,7 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 # Recorded receivers launch this file directly, independently of the caller's
 # working directory. Its sibling capability owners belong to this installation.
@@ -50,6 +50,7 @@ if not __package__:
 if __name__ == "__main__":
     sys.modules["scripts.surreal_server"] = sys.modules[__name__]
 
+from scripts import operation_lifetime
 from scripts import (
     host_admission,
     native_operation,
@@ -57,7 +58,8 @@ from scripts import (
     surreal_source,
     surrealism_module,
     telemetry_service,
-    test_resources,
+    process_observation,
+    service_borrowers,
 )
 
 if TYPE_CHECKING:
@@ -124,6 +126,425 @@ class LifecycleBusyError(SupervisorError):
             "Another live owner is changing this service; retry after its operation finishes"
         )
         self.nonce = nonce
+
+
+def unadmitted_service_launch_drained(
+    state: Path,
+    unit: str,
+    launch: dict[str, object],
+    *,
+    deadline: float | None = None,
+) -> bool:
+    """Authenticate a materialized initial launch that never admitted a process."""
+    if "binding" in launch:
+        return False
+    config = config_for(state, deadline=deadline)
+    drain_config = storage_launch_drain_config(
+        state, config, launch, deadline=deadline
+    )
+    observed = operation_lifetime.unit_observation(unit, **operation_lifetime.deadline_options(deadline))
+    if (
+        observed.get("LoadState") != "loaded"
+        or observed.get("ActiveState") not in {"inactive", "failed"}
+        or observed.get("ControlGroup") != ""
+        or observed.get("InvocationID") != ""
+    ):
+        return False
+    readiness = service_readiness(state, drain_config, deadline=deadline)
+    if (
+        readiness.phase is not Readiness.ACTIONABLE_ABSENT
+        or readiness.state != state
+        or readiness.unit != unit
+        or readiness.instance_id != launch.get("generation")
+        or readiness.listener_owned
+        or any(
+            readiness.manager.get(key) != observed.get(key)
+            for key in ("ActiveState", "ControlGroup", "InvocationID")
+        )
+        or config_for(state, deadline=deadline) != config
+        or storage_launch_drain_config(
+            state, config, launch, deadline=deadline
+        )
+        != drain_config
+        or read_json(state / "service-launch.json", deadline=deadline)
+        != launch
+        or operation_lifetime.unit_observation(unit, **operation_lifetime.deadline_options(deadline))
+        != observed
+    ):
+        return False
+    # A concurrent admission or unexpected receipt must keep the allocation held.
+    # Recheck the exact missing path after all selection/manager observations.
+    try:
+        read_json(state / "server-process.json", deadline=deadline)
+    except FileNotFoundError:
+        return True
+    return False
+
+
+def service_processes_drained(
+    record: Mapping[str, object],
+    allocation: Path | None,
+    *,
+    deadline: float | None = None,
+) -> bool:
+    """Do not reclaim an affiliated storage process merely because its cgroup emptied."""
+    raw_services = record.get("borrowed_services", [])
+    units = record.get("units")
+    if (
+        not isinstance(raw_services, list)
+        or any(not isinstance(value, str) for value in raw_services)
+        or not isinstance(units, dict)
+    ):
+        return False
+    services = list(cast("list[str]", raw_services))
+    if record.get("service"):
+        if not isinstance(record["service"], str):
+            return False
+        services.append(record["service"])
+    for selected in services:
+        if deadline is not None:
+            host_admission.require_admission_time(deadline, "Original drain clock expired")
+        state = Path(selected)
+        unit = unit_name(state)
+        if unit not in units:
+            continue  # A caller observing another role did not select this storage unit.
+        if allocation is None:
+            return False
+        launch = None
+        try:
+            launch = read_json(
+                state / "service-launch.json", deadline=deadline
+            )
+            affiliation = launch["allocation"]
+            if not isinstance(affiliation, str) or not re.fullmatch(
+                r"[a-f0-9]{32}", Path(affiliation).name
+            ):
+                return False
+            if Path(affiliation).absolute() != allocation.absolute():
+                continue  # A stale service descriptor belongs to a different owner.
+            process = read_json(
+                state / "server-process.json", deadline=deadline
+            )
+            generation = launch["generation"]
+            if (
+                not isinstance(generation, str)
+                or not generation
+                or process["instance_id"] != generation
+                or not isinstance(process["start"], str)
+                or not process["start"]
+            ):
+                return False
+            pid = host_admission.integer(process["pid"])
+            if pid <= 0:
+                return False
+            if process["allocation"] != affiliation:
+                # A failed pre-bind restart publishes a new launch while the
+                # previous immutable process receipt remains. Authenticate that
+                # precise pending launch; a mismatched bound lifetime stays held.
+                previous = process["allocation"]
+                if (
+                    units[unit]
+                    or "binding" in launch
+                    or not isinstance(previous, str)
+                    or not re.fullmatch(r"[a-f0-9]{32}", Path(previous).name)
+                    or not Path(previous).is_absolute()
+                    or Path(previous).parent != allocation.parent
+                    or Path(previous) == allocation
+                    or str(Path(previous)) != previous
+                ):
+                    return False
+                try:
+                    operation_lifetime.start_identity(pid)
+                except FileNotFoundError:
+                    pass
+                else:
+                    return False  # Live or reused PID is uncertain, not an ACK.
+                config = config_for(state, deadline=deadline)
+                drain_config = storage_launch_drain_config(
+                    state, config, launch, deadline=deadline
+                )
+                try:
+                    observed = operation_lifetime.unit_observation(
+                        unit, **operation_lifetime.deadline_options(deadline)
+                    )
+                except subprocess.SubprocessError:
+                    return False
+                if (
+                    observed.get("LoadState") != "loaded"
+                    or observed.get("ActiveState") not in {"inactive", "failed"}
+                    or observed.get("ControlGroup")
+                ):
+                    return False
+                try:
+                    readiness = service_readiness(
+                        state, drain_config, deadline=deadline
+                    )
+                except subprocess.SubprocessError:
+                    return False
+                if (
+                    readiness.phase is not Readiness.ACTIONABLE_ABSENT
+                    or readiness.state != state
+                    or readiness.unit != unit
+                    or readiness.instance_id != generation
+                    or readiness.listener_owned
+                    or any(
+                        readiness.manager.get(key) != observed.get(key)
+                        for key in ("ActiveState", "ControlGroup", "InvocationID")
+                    )
+                    or config_for(state, deadline=deadline) != config
+                    or storage_launch_drain_config(
+                        state, config, launch, deadline=deadline
+                    )
+                    != drain_config
+                    or read_json(
+                        state / "service-launch.json", deadline=deadline
+                    )
+                    != launch
+                    or read_json(
+                        state / "server-process.json", deadline=deadline
+                    )
+                    != process
+                ):
+                    return False
+                continue
+            try:
+                if operation_lifetime.start_identity(pid) == process["start"]:
+                    return False
+            except FileNotFoundError:
+                pass
+        except FileNotFoundError:
+            # Registration precedes the launch. No bound lifetime can use this
+            # missing-process proof; a materialized initial unit needs exact
+            # selection and repeated terminal/absence observations as well.
+            if (
+                units[unit]
+                or not isinstance(units[unit], dict)
+                or (launch is not None and "binding" in launch)
+            ):
+                return False
+            try:
+                (state / "server-process.json").read_text()
+            except FileNotFoundError:
+                try:
+                    observed = (
+                        operation_lifetime.unit_observation(unit)
+                        if deadline is None
+                        else operation_lifetime.unit_observation(unit, deadline=deadline)
+                    )
+                    if observed.get("LoadState") == "not-found":
+                        continue
+                    if launch is not None and unadmitted_service_launch_drained(
+                        state, unit, launch, deadline=deadline
+                    ):
+                        continue
+                except (
+                    OSError,
+                    ValueError,
+                    TypeError,
+                    KeyError,
+                    subprocess.SubprocessError,
+                    SupervisorError,
+                ):
+                    pass
+            except OSError:
+                pass
+            return False
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            KeyError,
+            SupervisorError,
+        ):
+            return False
+    return True
+
+
+def drain_borrowed_services(
+    directory: Path,
+    record: Mapping[str, object],
+    *,
+    allocation: Path,
+    explicit: bool = False,
+    deadline: float | None = None,
+) -> None:
+    """An exclusive caller returns borrowed storage after all other roles drain."""
+    raw_services = record.get("borrowed_services", [])
+    if not isinstance(raw_services, list) or any(
+        not isinstance(value, str) for value in raw_services
+    ):
+        raise host_admission.AdmissionError("Invalid borrowed service ownership")
+    services = cast("list[str]", raw_services)
+    raw_units = record.get("units")
+    if not isinstance(raw_units, dict):
+        raise host_admission.AdmissionError("Invalid borrowed service unit ownership")
+    bound_units = cast("dict[str, BoundUnit]", raw_units)
+    if not services or (not explicit and host_admission.caller_alive(record)):
+        return
+    units = {unit_name(Path(value)) for value in services}
+    other = {
+        **record,
+        "units": {
+            unit: owner for unit, owner in bound_units.items() if unit not in units
+        },
+        "released": True,
+    }
+    options = operation_lifetime.deadline_options(deadline)
+    if not host_admission.drained(other, deadline=deadline, services=ServiceAdmission()):
+        return
+    for value in services:
+        state = Path(value)
+        with (
+            lifecycle_deadline(deadline),
+            lifecycle_reservation(state),
+        ):
+            launch = json.loads((state / "service-launch.json").read_text())
+            affiliation = launch["allocation"]
+            if not isinstance(affiliation, str) or not re.fullmatch(
+                r"[a-f0-9]{32}", Path(affiliation).name
+            ):
+                raise host_admission.AdmissionError("Borrowed storage allocation is unobservable")
+            if Path(affiliation).absolute() != allocation.absolute():
+                continue  # A newer allocation owns this service; the snapshot cannot act on it.
+            unit = unit_name(state)
+            expected = bound_units.get(unit)
+            observed = operation_lifetime.unit_observation(unit, **options)
+            if (
+                not expected
+                and "binding" not in launch
+                and observed.get("LoadState") == "not-found"
+            ):
+                continue  # No storage lifetime was ever bound for this launch.
+            if (
+                not isinstance(expected, dict)
+                or type(expected.get("inode")) is not int
+                or not isinstance(expected.get("group"), str)
+                or not expected.get("group")
+                or not re.fullmatch(r"[a-f0-9]{32}", expected.get("invocation", ""))
+                or launch.get("binding") != expected
+            ):
+                raise host_admission.AdmissionError("Borrowed storage binding changed")
+            config = config_for(state, **options)
+            if config.get("instance_id") != launch.get("generation"):
+                raise host_admission.AdmissionError("Borrowed storage generation changed")
+            if observed.get("LoadState") != "not-found":
+                stopped = observed.get("ActiveState") in {"inactive", "failed"}
+                identity = host_admission.group_identity(expected["group"])
+                if (
+                    observed.get("ControlGroup")
+                    not in ({"", expected["group"]} if stopped else {expected["group"]})
+                    or observed.get("InvocationID")
+                    not in (
+                        {"", expected["invocation"]}
+                        if stopped
+                        else {expected["invocation"]}
+                    )
+                    or (
+                        not stopped
+                        and observed.get("ActiveState")
+                        not in {"active", "activating", "deactivating"}
+                    )
+                    or identity
+                    not in (
+                        {None, expected["inode"]} if stopped else {expected["inode"]}
+                    )
+                ):
+                    raise host_admission.AdmissionError("Borrowed storage lifetime changed")
+            # Residency permits borrowing a running service; it does not reverse
+            # an intentional stop or a failed service on allocation release.
+            if not config.get("resident") or observed.get("ActiveState") != "active":
+                workers_drained(state, config)
+                stop(state, config)
+            else:
+                try:
+                    park_service(
+                        state, expected_binding=expected, **options
+                    )
+                finally:
+                    queue_parked_service(directory, state, **options)
+
+
+def queue_parked_service(
+    directory: Path, state: Path, *, deadline: float | None = None
+) -> None:
+    """Publish actual parking intent while the caller owns the service lifecycle."""
+    if config_for(state, **operation_lifetime.deadline_options(deadline)).get(
+        "parked"
+    ):
+        selected = str(state)
+        with host_admission.allocation_metadata(directory, deadline=deadline) as ledger:
+            if selected not in ledger.setdefault("parked_services", []):
+                ledger["parked_services"].append(selected)
+
+
+
+class ServiceAdmission:
+    """Compose host allocation with this supervisor's exact storage lifetime."""
+
+    def processes_drained(self, record: Mapping[str, object], allocation: Path | None,
+                          *, deadline: float | None = None) -> bool:
+        return service_processes_drained(record, allocation, deadline=deadline)
+
+    def return_borrowed(self, directory: Path, record: Mapping[str, object], *,
+                        allocation: Path, explicit: bool = False,
+                        deadline: float | None = None) -> None:
+        drain_borrowed_services(directory, record, allocation=allocation,
+                                explicit=explicit, deadline=deadline)
+
+    def park(self, directory: Path, owners: Mapping[str, host_admission.AllocationRecord], *,
+             deadline: float) -> None:
+        for owner in owners.values():
+            host_admission.require_admission_time(
+                deadline,
+                "Original admission clock expired while parking owned services",
+            )
+            service = owner["service"]
+            path = Path(service)
+            binding = owner["units"].get(unit_name(path))
+            if not binding:
+                raise host_admission.AdmissionError(  # noqa: TRY301 -- release this selected allocation on a missing parking premise
+                    "Parkable service lacks its bound lifetime"
+                )
+            with lifecycle_reservation(path):
+                try:
+                    park_service(
+                        path,
+                        deadline=deadline,
+                        expected_binding=binding,
+                    )
+                finally:
+                    # Publish resume intent under the same lifecycle
+                    # as parking. Preserve partial-stop recovery,
+                    # but a stale stopped premise queues nothing.
+                    queue_parked_service(directory, path)
+
+    def resume(self, state: Path, *, deadline: float | None = None) -> None:
+        unpark_service(state, deadline=deadline)
+
+
+def measurement_context(env: Mapping[str, str] | None = None) -> dict[str, object]:
+    source = os.environ if env is None else env
+    service = None
+    selected = source.get("PSE_SURREAL_STATE")
+    if selected:
+        state_path = Path(selected)
+        config = config_for(state_path)
+        process = state_path / "server-process.json"
+        service = {
+            "state": selected,
+            "generation": config["instance_id"],
+            "resident": bool(config.get("resident")),
+            "server_process": read_json(process)
+            if process.is_file()
+            else None,
+            "supervisor": config.get("service_supervisor"),
+            "receiver": config.get("primary_receiver"),
+            "execution_profile": source.get("PSE_TEST_EXECUTION_PROFILE"),
+            "filesystem_cache": "uncontrolled",
+            "surrealmx_memory": "not independently measured",
+            "schema_provisioning_timed": "declared by selected journey",
+        }
+    return host_admission.measurement_context(source, service=service)
 
 
 def read_json(path: Path, *, deadline: float | None = None) -> dict[str, object]:
@@ -352,8 +773,8 @@ def lifecycle_reservation(
     selected: dict[str, object] = {
         "nonce": uuid.uuid4().hex,
         "pid": os.getpid(),
-        "start": native_operation.start_identity(os.getpid()),
-        "boot": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
+        "start": operation_lifetime.start_identity(os.getpid()),
+        "boot": process_observation.boot(),
         "purpose": purpose,
     }
     with state_lock(state, deadline=deadline):
@@ -404,29 +825,18 @@ def wait_reservation(state: Path, path: Path, nonce: object, deadline: float) ->
 
 
 def reservation_live(reservation: dict[str, object]) -> bool:
-
-    if (
-        reservation.get("boot") is not None
-        and reservation["boot"]
-        != Path("/proc/sys/kernel/random/boot_id").read_text().strip()
-    ):
+    if reservation.get("boot") is not None and reservation["boot"] != process_observation.boot():
         return False
     if reservation.get("unresolved") is True:
-        # Launcher exit does not settle a dispatched manager job or its scope.
-        # Only the owning cleanup may remove this retained admission fence.
+        # Launcher exit cannot settle a dispatched manager job or its descendants.
         return True
     try:
-        # One kernel observation binds process state and start identity. An
-        # unreaped zombie retains its PID/start tick but owns no live authority.
-        process = (
-            Path(f"/proc/{integer(reservation['pid'])}/stat")
-            .read_text()
-            .rsplit(")", 1)[1]
-            .split()
-        )
+        process = process_observation.process_stat(integer(reservation["pid"]))
         return process[0] not in {"Z", "X", "x"} and process[19] == reservation["start"]
     except FileNotFoundError:
         return False
+    except (OSError, ValueError, IndexError, KeyError):
+        return True
 
 
 @contextlib.contextmanager
@@ -526,46 +936,16 @@ def require_borrowers_drained(state: Path) -> None:
     """Native-free registered contexts also own an admitted service lifetime."""
     owner = service_directory(state)
     require_tooling_drained(owner)
-    for record in test_resources.service_resources(owner).values():
-        if not isinstance(record, dict):
-            raise SupervisorError("Unresolved service resource registry entry")
-        if record.get("kind") == "evidence" or record.get("cleanup") == "removed":
-            continue
-        selected = Path(record.get("state", ""))
+    for borrower in service_borrowers.obligations(owner):
+        selected = borrower.state
         if selected != owner and owner / ".receivers" not in selected.parents:
             continue
-        if record.get("creation_borrower"):
-            raise SupervisorError(
-                "An accepted fixture creation still borrows this storage service; actual settlement and drain are unobserved"
-            )
-        if record.get("borrows"):
-            raise SupervisorError(
-                "An admitted service resource still has protected borrowers"
-            )
-        cleaner = record.get("cleaner")
-        if (
-            record.get("cleanup") == "removing"
-            and isinstance(cleaner, dict)
-            and test_resources.borrower_alive(cleaner)
-        ):
-            raise SupervisorError(
-                "A live context cleanup still borrows this storage service"
-            )
-        # A fresh-engine pivot may retire the old receiver directory while its
-        # failed-report evidence remains pinned. An explicitly drained, dead
-        # owner with no outstanding borrowers needs no live service association.
-        if (
-            record.get("drained") is True
-            and not record.get("borrows")
-            and not test_resources.borrower_alive(record)
-        ):
-            continue
-        if selected != owner and service_directory(selected) != owner:
+        if borrower.protected is not None:
+            raise SupervisorError(borrower.protected)
+        if borrower.requires_association and selected != owner and service_directory(selected) != owner:
             raise SupervisorError("Live context has an unresolved service association")
-        if not record.get("drained") and test_resources.borrower_alive(record):
-            raise SupervisorError(
-                "A live test context still borrows this storage service"
-            )
+        if borrower.active_owner:
+            raise SupervisorError("A live test context still borrows this storage service")
 
 
 def all_contexts_drained(state: Path) -> None:
@@ -808,7 +1188,7 @@ def settle_legacy_telemetry_launch(
         r"[a-f0-9]{32}", allocation.name
     ):
         raise SupervisorError("Legacy launch lacks its original allocation")
-    if "binding" not in launch and not host_admission.unadmitted_service_launch_drained(
+    if "binding" not in launch and not unadmitted_service_launch_drained(
         state, unit_name(state), launch, deadline=deadline
     ):
         raise SupervisorError(
@@ -845,7 +1225,7 @@ def settle_legacy_telemetry_launch(
         )
         owner = host_admission.Allocation(
             allocation.parent, allocation.name, profile, record["deadline"]
-        )
+        , services=ServiceAdmission())
     stop(state, config)
     if owner is not None and not owner.release(deadline=deadline):
         raise SupervisorError(
@@ -1649,7 +2029,7 @@ def file_digest(path: Path) -> str:
 def setup(args: argparse.Namespace) -> dict[str, object]:
     args.interpretation = args.interpretation or SUBSTRATE_INTERPRETATION
     if (args.state / "config.json").exists():
-        test_resources.service_registry_binding(args.state.absolute())
+        service_borrowers.service_registry_binding(args.state.absolute())
         config = config_for(args.state.absolute())
         if config["interpretation"] != args.interpretation:
             raise SupervisorError("Existing state has a different interpretation")
@@ -1785,7 +2165,7 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
             else not bool(args.execution_profile)
             or args.execution_profile in {"functional", "wide"}
         )
-        test_resources.service_registry_binding(state, establish=True)
+        service_borrowers.service_registry_binding(state, establish=True)
         write_json(state / "config.json", config)
         (state / "tmp").mkdir(mode=0o700)
         payload_root(state, config).mkdir(mode=0o700, parents=True)
@@ -1976,18 +2356,10 @@ def worker_unit(state: Path, slot: int) -> str:
 def group_populated(group: str) -> bool:
     if not group:
         return False
-    if not group.startswith("/") or group == "/" or ".." in Path(group).parts:
-        raise SupervisorError("Cannot verify an invalid managed worker cgroup")
-    path = Path("/sys/fs/cgroup") / group.lstrip("/")
-    if not path.exists():
-        return False
-    events = (path / "cgroup.events").read_text().splitlines()
-    populated = next(
-        (line.split()[1] for line in events if line.startswith("populated ")), None
-    )
-    if populated not in {"0", "1"}:
-        raise SupervisorError("Cannot verify managed worker cgroup population")
-    return populated == "1"
+    try:
+        return process_observation.populated(group)
+    except ValueError as error:
+        raise SupervisorError("Cannot verify managed worker cgroup population") from error
 
 
 def worker_observation(
@@ -2525,7 +2897,7 @@ def _worker(state: Path, command: list[str], *, capabilities: tuple[str, ...]) -
             {
                 "nonce": token,
                 "pid": os.getpid(),
-                "start": native_operation.start_identity(os.getpid()),
+                "start": operation_lifetime.start_identity(os.getpid()),
                 "unit": worker_unit(state, slot),
                 "boot": host_admission.boot(),
             },
@@ -2561,7 +2933,7 @@ def _worker(state: Path, command: list[str], *, capabilities: tuple[str, ...]) -
                 reservation=(pending, token),
                 deadline=_STARTUP.deadline,
             )
-        except native_operation.DeadlineExpiredError as error:
+        except operation_lifetime.DeadlineExpiredError as error:
             raise DeadlineExpiredError(
                 f"Worker handoff exceeded its original admission clock; selected={worker_unit(state, slot)}"
             ) from error
@@ -2682,7 +3054,7 @@ def inherit_host_owner(
         else min(deadline, inherited)
     )
     try:
-        return host_admission.inherit(os.environ, deadline=deadline)
+        return host_admission.inherit(os.environ, deadline=deadline, services=ServiceAdmission())
     except host_admission.AdmissionError:
         if deadline is not None:
             remaining(deadline)
@@ -2867,7 +3239,7 @@ def stop_registered_owner(
         evidence.update(binding)
     if retain is not None:
         retain(binding)
-    observed = native_operation.unit_observation(unit, deadline=deadline)
+    observed = operation_lifetime.unit_observation(unit, deadline=deadline)
     inode = host_admission.group_identity(str(binding.get("group", "")))
     if (
         isinstance(binding.get("group"), str)
@@ -2876,7 +3248,7 @@ def stop_registered_owner(
         and observed.get("LoadState") == "not-found"
         and inode in {None, binding["inode"]}
     ):
-        settled = native_operation.drained(
+        settled = operation_lifetime.drained(
             {
                 "scope": {
                     "unit": unit,
@@ -2898,7 +3270,7 @@ def stop_registered_owner(
             raise SupervisorError(
                 "Completed registration generation differs from selected owner"
             )
-        completion = native_operation.drained(
+        completion = operation_lifetime.drained(
             {
                 "scope": {
                     "unit": unit,
@@ -2924,7 +3296,7 @@ def stop_registered_owner(
         )
     if stop:
         systemctl("stop", unit, deadline=deadline)
-    drained = native_operation.drained(
+    drained = operation_lifetime.drained(
         {
             "scope": {
                 "unit": unit,
@@ -3021,7 +3393,7 @@ def observer_launch_busy(state: Path) -> bool:
     process = Path(f"/proc/{integer(launch['pid'])}/stat")
     if (
         process.exists()
-        and process.read_text().rsplit(")", 1)[1].split()[19] == launch["start"]
+        and process_observation.start_identity(integer(launch["pid"])) == launch["start"]
     ):
         return True
     result = systemctl(
@@ -3179,7 +3551,7 @@ def observer_control_observation(
     observed = dict(
         line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
     )
-    caller = native_operation.process_group(os.getpid())
+    caller = operation_lifetime.process_group(os.getpid())
     if (
         observed.get("LoadState") != "loaded"
         or observed.get("ActiveState") != "active"
@@ -3221,7 +3593,7 @@ def observer_allocation_drained(
         # compose and acknowledge the selected terminal. The enclosing host
         # owner still requires every terminal guard when releasing its charge.
         record.pop("terminal_guards", None)
-    return host_admission.drained(record, deadline=deadline)
+    return host_admission.drained(record, deadline=deadline, services=ServiceAdmission())
 
 
 @contextlib.contextmanager
@@ -3254,7 +3626,7 @@ def observer_control_limit(
     deadline = cancellation_deadline() if cancellation_deadline is not None else None
     scope = None
     if profile is not None and profile != "reference":
-        caller = native_operation.process_group(os.getpid())
+        caller = operation_lifetime.process_group(os.getpid())
         with host_admission.allocation_metadata(
             owner.directory, deadline=deadline
         ) as ledger:
@@ -3389,7 +3761,7 @@ def observer(
             process = Path(f"/proc/{integer(previous['pid'])}/stat")
             if (
                 process.exists()
-                and process.read_text().rsplit(")", 1)[1].split()[19]
+                and process_observation.start_identity(integer(previous["pid"]))
                 == previous["start"]
             ):
                 raise SupervisorError("The observer allocation is occupied")
@@ -3399,11 +3771,11 @@ def observer(
             process = Path(f"/proc/{integer(prior['pid'])}/stat")
             if (
                 process.exists()
-                and process.read_text().rsplit(")", 1)[1].split()[19] == prior["start"]
+                and process_observation.start_identity(integer(prior["pid"])) == prior["start"]
             ):
                 raise SupervisorError("The reference observer allocation is occupied")
         start = (
-            Path(f"/proc/{os.getpid()}/stat").read_text().rsplit(")", 1)[1].split()[19]
+            process_observation.start_identity(os.getpid())
         )
         write_json(
             state / "observer-launch.json",
@@ -3415,16 +3787,16 @@ def observer(
 
     ensure_execution_placement(state, allocation)
 
-    owner = host_admission.inherit(os.environ)
+    owner = host_admission.inherit(os.environ, services=ServiceAdmission())
     if owner is None:
         raise SupervisorError("Observer must belong to an admitted host allocation")
     attempted = False
     handoff = None
-    process_observation = observation if observation is not None else {}
+    launch_observation = observation if observation is not None else {}
     parent_operation = native_operation.owner_record()
 
     def cancellation_deadline() -> float | None:
-        clocks = [process_observation.get("cancellation_deadline")]
+        clocks = [launch_observation.get("cancellation_deadline")]
         for path in (handoff, parent_operation):
             if path is not None:
                 clocks.append(native_operation._record(path).get("cancel_deadline"))  # noqa: SLF001 -- exact observer and parent cancellation owners
@@ -3479,18 +3851,18 @@ def observer(
             return native_operation.run(
                 selected_command,
                 environment,
-                observation=process_observation,
+                observation=launch_observation,
                 foreground=handoff,
             )
     finally:
         # Keep launch exclusion through the control-scope restoration attempt.
         # Surviving or unbound scopes retain launch metadata and host charge.
-        process_observation["owned_drain"] = "unresolved"
+        launch_observation["owned_drain"] = "unresolved"
         deadline = cancellation_deadline()
         drained = not attempted or observer_allocation_drained(
             owner, unit, deadline=deadline
         )
-        process_observation["owned_drain"] = (
+        launch_observation["owned_drain"] = (
             "not-started" if not attempted else "complete" if drained else "unresolved"
         )
         if drained:
@@ -3604,7 +3976,7 @@ def primary_ready(
                     "observation": observation,
                     "marker": marker,
                     "launch": read_json(state / "primary-launch.json"),
-                    "start": native_operation.start_identity(integer(marker["pid"])),
+                    "start": operation_lifetime.start_identity(integer(marker["pid"])),
                     "database": database,
                     "qualification": str(qualification),
                 },
@@ -3653,7 +4025,7 @@ def primary_dispatch_owner(
 ) -> dict[str, object]:
     """Bind dispatch to the ready receiver's actual kernel and manager lifetime."""
     unit = primary_unit(state)
-    before = native_operation.unit_observation(unit, properties=("MemoryMax",))
+    before = operation_lifetime.unit_observation(unit, properties=("MemoryMax",))
     group = before["ControlGroup"]
     invocation = before["InvocationID"]
     if (
@@ -3665,7 +4037,7 @@ def primary_dispatch_owner(
     ):
         raise SupervisorError("Primary changed before dispatch observation admission")
     inode = host_admission.group_identity(group)
-    after = native_operation.unit_observation(unit)
+    after = operation_lifetime.unit_observation(unit)
     if (
         inode is None
         or after["InvocationID"] != invocation
@@ -3706,7 +4078,7 @@ def observe_primary(
         or integer(owner["scope_inode"]) <= 0
     ):
         raise SupervisorError("Primary observation owner is not the selected receiver")
-    observation = native_operation.drained(owner)
+    observation = operation_lifetime.drained(owner)
     return {
         "canonical_database": database,
         "primary_owner": owner,
@@ -3777,7 +4149,7 @@ def primary_diagnostics(
             locator.get("pid") != marker.get("pid")
             or type(locator.get("start_ticks")) is not int
             or str(locator["start_ticks"])
-            != native_operation.start_identity(integer(marker["pid"]))
+            != operation_lifetime.start_identity(integer(marker["pid"]))
         ):
             return {
                 "available": False,
@@ -3989,14 +4361,14 @@ def verify_observer(state: Path, config: dict[str, object], pid: int) -> None:
         )
     # The envelope includes one observer process, not arbitrarily many independent
     # four-GiB ceilings. Kernel membership and PID start time establish live reuse.
-    start = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[19]
+    start = process_observation.start_identity(pid)
     registration = state / "primary-observer.json"
     if registration.exists():
         prior = read_json(registration)
         previous = integer(prior["pid"])
         previous_stat = Path(f"/proc/{previous}/stat")
         if previous != pid and previous_stat.exists():
-            observed = previous_stat.read_text().rsplit(")", 1)[1].split()[19]
+            observed = process_observation.start_identity(previous)
             if observed == prior["start"]:
                 raise SupervisorError(
                     "The reference envelope's observer allocation is occupied"
@@ -4011,15 +4383,8 @@ def _checked_current_observer(state: Path) -> dict[str, object]:
     if integer(registration["pid"]) != pid:
         raise SupervisorError("Current caller does not own the observer registration")
     process = Path(f"/proc/{pid}")
-    start = (process / "stat").read_text().rsplit(")", 1)[1].split()[19]
-    group = next(
-        (
-            line.removeprefix("0::")
-            for line in (process / "cgroup").read_text().splitlines()
-            if line.startswith("0::")
-        ),
-        "",
-    )
+    start = process_observation.start_identity(pid)
+    group = process_observation.process_group(pid)
     if (
         not group
         or registration.get("start") != start
@@ -4117,7 +4482,7 @@ def ensure_primary(
                     {
                         "nonce": token,
                         "pid": os.getpid(),
-                        "start": native_operation.start_identity(os.getpid()),
+                        "start": operation_lifetime.start_identity(os.getpid()),
                         "boot": host_admission.boot(),
                     },
                 )
@@ -4207,7 +4572,7 @@ def _ensure_primary(
             reservation=(reservation, str(selected_reservation["nonce"])),
             deadline=deadline,
         )
-    except native_operation.DeadlineExpiredError as error:
+    except operation_lifetime.DeadlineExpiredError as error:
         raise DeadlineExpiredError(
             f"Primary handoff exceeded its original admission clock; selected={primary_unit(state)}"
         ) from error
@@ -4390,7 +4755,7 @@ def drain_context(
             raise SupervisorError(
                 "Unmatched live receiver remains retained; drain refused"
             )
-        owner = native_operation.unit_observation(primary_unit(selected))
+        owner = operation_lifetime.unit_observation(primary_unit(selected))
         association = {
             "unit": primary_unit(selected),
             "group": owner["ControlGroup"],
@@ -4408,14 +4773,14 @@ def drain_context(
             remaining(deadline)
             signal.pidfd_send_signal(descriptor, signal.SIGINT)
             while True:
-                completion = native_operation.drained(
+                completion = operation_lifetime.drained(
                     {"scope": association}, deadline=_STARTUP.deadline
                 )
                 if completion.complete:
                     break
                 if completion.phase in {
-                    native_operation.DrainPhase.MISMATCH,
-                    native_operation.DrainPhase.UNAVAILABLE,
+                    operation_lifetime.DrainPhase.MISMATCH,
+                    operation_lifetime.DrainPhase.UNAVAILABLE,
                 }:
                     raise SupervisorError(
                         completion.diagnostic() + "; receiver drain unresolved"
@@ -4734,7 +5099,7 @@ def service_readiness(
         if status in {"inactive", "failed"}:
             try:
                 process = read_json(state / "server-process.json", deadline=deadline)
-                live = native_operation.start_identity(
+                live = operation_lifetime.start_identity(
                     integer(process["pid"])
                 ) == process.get("start")
             except FileNotFoundError:
@@ -4829,7 +5194,7 @@ def _owns_listener(
         return False
     pid = integer(process["pid"])
     proc = Path("/proc") / str(pid)
-    if process.get("start") != native_operation.start_identity(pid):
+    if process.get("start") != operation_lifetime.start_identity(pid):
         return False
     membership = (proc / "cgroup").read_text()
     owner, launch = recorded_storage_owner(state, config, deadline=deadline)
@@ -5158,7 +5523,7 @@ def recorded_storage_owner(
         deadline = record["deadline"]
     if bound != launch.get("binding"):
         raise SupervisorError("Storage launch does not match its bound kernel lifetime")
-    return host_admission.Allocation(path.parent, path.name, profile, deadline), launch
+    return host_admission.Allocation(path.parent, path.name, profile, deadline, services=ServiceAdmission()), launch
 
 
 def storage_unit_observation(
@@ -5195,7 +5560,7 @@ def resume_storage_allocation(
         or not group.startswith("/")
         or group == "/"
         or ".." in Path(group).parts
-        or native_operation.process_group(os.getpid()) != group
+        or operation_lifetime.process_group(os.getpid()) != group
         or observed["InvocationID"] == binding.get("invocation")
         or group != binding.get("group")
     ):
@@ -5261,7 +5626,7 @@ def materialize_service(
     restart = "on-failure" if config["restart_qualified"] and not maintenance else "no"
 
     if owner is None:
-        admitted = host_admission.inherit(os.environ)
+        admitted = host_admission.inherit(os.environ, services=ServiceAdmission())
         if admitted is not None and admitted.profile.exclusive:
             owner = admitted
         else:
@@ -5269,7 +5634,7 @@ def materialize_service(
                 "store-" + str(config.get("service_class", "functional")),
                 str(allocation["server_memory_bytes"]),
             )
-            owner = host_admission.Allocation(state, "", profile, 0)
+            owner = host_admission.Allocation(state, "", profile, 0, services=ServiceAdmission())
     placement = storage_placement(config, owner)
     text = f"[Unit]\nDescription=pse-arrow owned storage {config['instance_id']}\nStartLimitIntervalSec=300\nStartLimitBurst=3\n\n[Service]\nType=exec\nExecStart={executable}\nKillMode=control-group\nTimeoutStopSec=45\nRestart={restart}\nRestartSec=5\nSlice={placement['slice']}\nMemoryMax={placement['memory_bytes']}\nCPUQuota={integer(placement['cpu_threads']) * 100}%\nMemorySwapMax=0\nTasksMax=128\nStandardOutput=null\nStandardError=null\n\n[Install]\nWantedBy=default.target\n"
     if path.exists() and not config.get("unit_materialized"):
@@ -5342,7 +5707,7 @@ def service_allocation(
         requested = str(object_mapping(config["resources"])["server_memory_bytes"])
         allocation = host_admission.acquire(
             host_admission.select(profile, requested), deadline=deadline
-        )
+        , services=ServiceAdmission())
     storage_placement(config, allocation)
     allocation.register(unit_name(state), deadline=deadline)
     if allocation.profile.exclusive:
@@ -5850,7 +6215,7 @@ def _stop(state: Path, config: dict[str, object], *, abrupt: bool = False) -> No
         pid = integer(process["pid"])
         while True:
             try:
-                identity = native_operation.start_identity(pid)
+                identity = operation_lifetime.start_identity(pid)
             except FileNotFoundError:
                 break
             if identity != process.get("start"):
@@ -5876,7 +6241,7 @@ def release_stopped_service(state: Path, config: dict[str, object]) -> None:
             {host_admission.MARKER: str(launch["allocation"])},
             handoff=True,
             deadline=deadline,
-        )
+        services=ServiceAdmission())
     except host_admission.AdmissionError:
         # A dead launch caller is settled by host reconciliation using the
         # recorded cgroup inode/invocation, not by guessing a live replacement.
@@ -5925,7 +6290,7 @@ def release_stopped_service(state: Path, config: dict[str, object]) -> None:
         # enclosing caller exits, even though that caller may own other work.
         if not host_admission.drained(
             selected, allocation=owner.directory / owner.nonce, deadline=deadline
-        ):
+        , services=ServiceAdmission()):
             raise SupervisorError("Stopped borrowed storage lifetime is undrained")
         with host_admission.allocation_metadata(
             owner.directory, deadline=deadline
@@ -6470,7 +6835,7 @@ def _serve(state: Path) -> int:
                 {host_admission.MARKER: str(launch["allocation"])},
                 handoff=True,
                 deadline=_STARTUP.deadline,
-            )
+            services=ServiceAdmission())
         if allocation_owner is None:
             raise SupervisorError("Storage launch has no admitted owner")
     else:
@@ -6571,7 +6936,7 @@ def _serve(state: Path) -> int:
             "instance_id": config["instance_id"],
             "telemetry_service_instance_id": telemetry_instance_id,
             "pid": child.pid,
-            "start": native_operation.start_identity(child.pid),
+            "start": operation_lifetime.start_identity(child.pid),
             "allocation": launch["allocation"],
         },
     )
@@ -6814,7 +7179,7 @@ def managed_file_owner_drained(owner: dict[str, object]) -> bool:
         return True
     if not isinstance(invocation, str) or not invocation:
         raise SupervisorError("File owner has an invalid managed invocation")
-    if owner.get("boot") != Path("/proc/sys/kernel/random/boot_id").read_text().strip():
+    if owner.get("boot") != process_observation.boot():
         return True
     unit, group, inode = owner.get("unit"), owner.get("group"), owner.get("group_inode")
     if (
@@ -7251,7 +7616,7 @@ def backup(
     state: Path, config: dict[str, object], destination: Path
 ) -> dict[str, object]:
     with lifecycle_reservation(state):
-        test_resources.service_registry_binding(state)
+        service_borrowers.service_registry_binding(state)
         return _backup(state, config, destination)
 
 
@@ -8885,7 +9250,7 @@ def initialize_rebuild(
                     "PSE_SURREAL_STATE": str(state),
                     "PSE_CANONICAL_INITIALIZER": str(initializer_owner["nonce"]),
                 },
-                **native_operation.deadline_options(
+                **operation_lifetime.deadline_options(
                     getattr(_STARTUP, "deadline", None)
                 ),
                 stdout=output.fileno(),
@@ -8994,7 +9359,7 @@ def recover_maintenance(
     state: Path, initializer: list[str], verifier: Path | None = None
 ) -> dict[str, object]:
     with lifecycle_reservation(state):
-        test_resources.service_registry_binding(state)
+        service_borrowers.service_registry_binding(state)
         config = config_for(state)
         if verifier is not None:
             config["payload_verifier"] = payload_verifier(verifier)
@@ -9398,7 +9763,7 @@ def restore(
                 or set(binding.iterdir()) != {binding / "registry.json"}
             ):
                 raise SupervisorError("Unknown restore resource authority retained")
-            test_resources.service_registry_binding(state)
+            service_borrowers.service_registry_binding(state)
         if any(
             path.name
             not in {".supervisor.lock", "lifecycle-owner.json", ".resource-owner"}
@@ -9433,7 +9798,7 @@ def restore(
         }
         # Publish the fresh, closed identity before any bytes of the old database or
         # credentials. Every interruption is recoverable only through this owner.
-        test_resources.service_registry_binding(state, establish=True)
+        service_borrowers.service_registry_binding(state, establish=True)
         write_json(state / "config.json", selected)
         return recover_maintenance(state, [])
 
@@ -9449,7 +9814,7 @@ def run_file_effect(
     """Drain a managed file borrower separately; preserve observable bare callers."""
     if deadline is not None and not math.isfinite(deadline):
         raise SupervisorError("Invalid file effect deadline")
-    group = native_operation.process_group(os.getpid())
+    group = operation_lifetime.process_group(os.getpid())
     managed = "PSE_HOST_ALLOCATION" in environment or any(
         part.startswith(("pse-native-", "pse-surreal-worker-"))
         and part.endswith((".scope", ".service"))
@@ -9463,7 +9828,7 @@ def run_file_effect(
             environment,
             stdout=stdout,
             stderr=stderr,
-            **native_operation.deadline_options(deadline),
+            **operation_lifetime.deadline_options(deadline),
         )
     timeout = None if deadline is None else deadline - time.monotonic()
     if timeout is not None and timeout <= 0:
@@ -10348,7 +10713,7 @@ def mcp_headers_main(arguments: list[str]) -> int:
             deadline = args.deadline
             remaining(deadline)
             try:
-                owner = host_admission.inherit(os.environ, deadline=deadline)
+                owner = host_admission.inherit(os.environ, deadline=deadline, services=ServiceAdmission())
             except host_admission.AdmissionError:
                 owner = host_admission.verify_light_control_child(
                     os.environ, deadline=deadline

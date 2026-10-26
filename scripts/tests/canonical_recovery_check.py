@@ -17,6 +17,7 @@ from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts import operation_lifetime
 from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_science as science
 
@@ -28,7 +29,7 @@ def run_effect(command: list[str], *, timeout: float | None = None) -> None:
     """Join the exact effect scope before maintenance can freeze file owners."""
     deadline = time.monotonic() + timeout if timeout is not None else None
     status = server.run_file_effect(
-        command, os.environ.copy(), **server.native_operation.deadline_options(deadline)
+        command, os.environ.copy(), **operation_lifetime.deadline_options(deadline)
     )
     if status:
         raise subprocess.CalledProcessError(status, command)

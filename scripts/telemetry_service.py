@@ -25,6 +25,7 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts import process_observation
 from scripts import diagnostic_trace
 
 if TYPE_CHECKING:
@@ -756,31 +757,19 @@ def _checked_process(
         or ".." in Path(group).parts
     ):
         raise TelemetryServiceError("Telemetry process systemd incarnation is invalid")
-    proc = Path("/proc") / str(pid)
-    try:
-        start_ticks = int((proc / "stat").read_text().rsplit(")", 1)[1].split()[19])
-        binary = binaries[name]
-        executable = (proc / "exe").stat()
-        if (
-            not isinstance(binary, dict)
-            or str((proc / "exe").resolve()) != binary["path"]
-            or f"0::{group}" not in (proc / "cgroup").read_text().splitlines()
-        ):
-            raise TelemetryServiceError(
-                "Telemetry process executable or cgroup differs"
-            )
-        identity = binary.get("identity")
-        if not isinstance(identity, dict) or (executable.st_dev, executable.st_ino) != (
-            identity.get("device"),
-            identity.get("inode"),
-        ):
-            raise TelemetryServiceError(
-                "Telemetry running executable installation differs"
-            )
-    except (FileNotFoundError, ProcessLookupError) as error:
-        raise TelemetryServiceError(
-            "Telemetry process changed during observation; retry inspection"
-        ) from error
+    process = process_observation.observe_process(pid, unit=str(units[name]), manager=observed)
+    if (process.availability is not process_observation.Availability.PRESENT
+            or process.start is None or process.executable is None
+            or process.group != group or process.invocation != invocation):
+        raise TelemetryServiceError("Telemetry process changed or is unavailable during observation; retry inspection")
+    start_ticks = int(process.start)
+    binary = binaries[name]
+    executable, identity = process.executable
+    if not isinstance(binary, dict) or executable != binary["path"]:
+        raise TelemetryServiceError("Telemetry process executable or cgroup differs")
+    expected = binary.get("identity")
+    if not isinstance(expected, dict) or identity != (expected.get("device"), expected.get("inode")):
+        raise TelemetryServiceError("Telemetry running executable installation differs")
     return {
         "pid": pid,
         "start_ticks": start_ticks,
@@ -973,8 +962,7 @@ def _stop(config: Mapping[str, object], environment: Mapping[str, str] | None) -
             )
         group = observations[name].get("ControlGroup", "")
         if group:
-            events = Path("/sys/fs/cgroup") / group.lstrip("/") / "cgroup.events"
-            if events.exists() and "populated 0" not in events.read_text().splitlines():
+            if process_observation.populated(group):
                 raise TelemetryServiceError(
                     "Telemetry children remain in the owned cgroup after stop"
                 )

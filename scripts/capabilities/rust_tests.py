@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+
 import json
 import os
 from typing import TYPE_CHECKING
@@ -11,6 +12,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
+from scripts import service_borrowers
 from scripts import (
     arrow_validation,
     test_resources,
@@ -47,7 +49,7 @@ def execute(
             output / "invocation-reference.json",
             InvocationReference(
                 invocation=str(path),
-                registry=str(test_resources.registry()),
+                registry=str(service_borrowers.registry()),
                 ownership="borrowed" if inherited is not None else "owned",
                 terminal_owner="original outer owner"
                 if inherited is not None
@@ -61,7 +63,7 @@ def execute(
                 reference=OwnerReference(
                     kind="invocation",
                     locator=str(path),
-                    registry=str(test_resources.registry()),
+                    registry=str(service_borrowers.registry()),
                     ownership="borrowed" if inherited is not None else "owned",
                 ),
             )
@@ -114,7 +116,7 @@ def execute(
         "catalogue_reader": {
             "capability": "product_run_read",
             "invocation": str(invocation),
-            "registry": str(test_resources.registry()),
+            "registry": str(service_borrowers.registry()),
             "offset": 100 if len(catalogue) > 100 else 0,
         }
         if invocation is not None

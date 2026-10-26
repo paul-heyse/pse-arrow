@@ -24,6 +24,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 from unittest.mock import MagicMock, patch
 
+from scripts import systemd_environment
+from scripts import operation_lifetime
 from scripts import (
     build_environment,
     build_measurements,
@@ -42,7 +44,7 @@ from scripts.tests.test_surrealism_module import fixture_module
 
 
 class FixtureScope(TypedDict):
-    scope: operation.ScopeOwner
+    scope: operation_lifetime.ScopeOwner
     scope_inode: int
 
 
@@ -52,10 +54,10 @@ class FixtureEntry(FixtureScope):
     allocation: str
 
 
-def drain_fixture(complete: bool) -> operation.DrainObservation:
-    return operation.DrainObservation(
+def drain_fixture(complete: bool) -> operation_lifetime.DrainObservation:
+    return operation_lifetime.DrainObservation(
         None,
-        operation.DrainPhase.COMPLETE if complete else operation.DrainPhase.POPULATED,
+        operation_lifetime.DrainPhase.COMPLETE if complete else operation_lifetime.DrainPhase.POPULATED,
         "controlled observation",
     )
 
@@ -81,7 +83,7 @@ class NativeOperationTests(unittest.TestCase):
         allocation = MagicMock(spec=host_admission.Allocation)
         allocation.nonce = "c" * 32
         allocation.profile = host_admission.select("reference")
-        scope: operation.ScopeOwner = {
+        scope: operation_lifetime.ScopeOwner = {
             "unit": "parent.scope",
             "group": "/parent",
             "invocation": "b" * 32,
@@ -96,10 +98,10 @@ class NativeOperationTests(unittest.TestCase):
             base = Path(directory)
             parent = base / ("a" * 32 + ".json")
             sibling = base / ("handoff-" + "d" * 32 + ".json")
-            operation.write_json(
+            operation_lifetime.write_json(
                 parent,
                 {
-                    "version": operation.VERSION,
+                    "version": operation_lifetime.VERSION,
                     "scope": scope,
                     "admissions": {},
                     "generations": ["retained-generation"],
@@ -130,11 +132,11 @@ class NativeOperationTests(unittest.TestCase):
                 if mode == "mismatch":
                     changed = json.loads(handoff.read_text())
                     changed["handoff"] = "different.scope"
-                    operation.write_json(handoff, changed)
+                    operation_lifetime.write_json(handoff, changed)
                 if mode == "parent-clock":
                     changed_parent = json.loads(parent.read_text())
                     changed_parent["cancel_deadline"] = 105
-                    operation.write_json(parent, changed_parent)
+                    operation_lifetime.write_json(parent, changed_parent)
                 if mode in {"parent-sigint", "child-sigint"}:
                     cancelled_path = parent if mode == "parent-sigint" else handoff
                     cancelled_record = json.loads(cancelled_path.read_text())
@@ -143,7 +145,7 @@ class NativeOperationTests(unittest.TestCase):
                         cancel_deadline=105,
                         cancel_signal=signal.SIGINT,
                     )
-                    operation.write_json(cancelled_path, cancelled_record)
+                    operation_lifetime.write_json(cancelled_path, cancelled_record)
                 if mode != "sigint":
                     now[0] = 100.3
                 return handoff
@@ -170,16 +172,16 @@ class NativeOperationTests(unittest.TestCase):
 
             with (
                 patch.object(host_admission, "inherit", return_value=allocation),
-                patch.object(operation, "scope_owner", return_value=scope),
+                patch.object(operation_lifetime, "scope_owner", return_value=scope),
                 patch.object(operation, "owner_record", side_effect=parent_owner),
-                patch.object(pse_env, "current_memory_ceiling", return_value=4 << 30),
+                patch.object(systemd_environment, "current_memory_ceiling", return_value=4 << 30),
                 patch.object(operation.time, "monotonic", side_effect=lambda: now[0]),
                 patch.object(operation, "prepare_handoff", side_effect=prepare),
                 patch.object(
                     operation.signal, "pthread_sigmask", side_effect=restore_mask
                 ),
                 patch.object(operation.subprocess, "Popen") as spawn,
-                patch.object(operation, "drained") as drain,
+                patch.object(operation_lifetime, "drained") as drain,
                 patch.object(
                     operation,
                     "fence_foreground_handoff",
@@ -415,8 +417,8 @@ class NativeOperationTests(unittest.TestCase):
         self.addCleanup(isolated.stop)
         self.fixture_units: set[str] = set()
         self.settled_entry_fixtures: set[Path] = set()
-        self.fixture_parent_scope = operation.scope_owner()
-        self.fixture_parent_group = operation.process_group(os.getpid())
+        self.fixture_parent_scope = operation_lifetime.scope_owner()
+        self.fixture_parent_group = operation_lifetime.process_group(os.getpid())
 
     def test_selected_library_paths_do_not_add_working_directory_search(self) -> None:
         for previous in (None, ""):
@@ -470,7 +472,7 @@ class NativeOperationTests(unittest.TestCase):
     def await_drain(self, record: Mapping[str, object]) -> None:
         deadline = time.monotonic() + 15
         while True:
-            observed = operation.drained(record)
+            observed = operation_lifetime.drained(record)
             if observed.complete:
                 return
             if time.monotonic() >= deadline:
@@ -514,7 +516,7 @@ class NativeOperationTests(unittest.TestCase):
         # owner; do not change the production policy that nested users stay put.
         # Only command construction sees this test-isolation premise. The real
         # child observes and validates its actual unit and invocation normally.
-        with patch.object(operation, "scope_owner", return_value=None):
+        with patch.object(operation_lifetime, "scope_owner", return_value=None):
             prefix = pse_env.placement(environment, native=native)
         allocation = pse_env.host.inherit(environment)
         self.assertIsNotNone(allocation, "fixture must own its host allocation")
@@ -557,14 +559,14 @@ class NativeOperationTests(unittest.TestCase):
         self.addCleanup(self.settle_entry_fixture, base, unit, allocation)
         launcher = (
             "import os,sys; from pathlib import Path\n"
-            "from scripts import native_operation as n,host_admission as h\n"
+            "from scripts import native_operation as n; from scripts import operation_lifetime,host_admission as h\n"
             "base=Path(sys.argv[1]); unit=sys.argv[2]\n"
             "allocation=h.inherit(os.environ); assert allocation is not None\n"
-            "observed=n.unit_observation(unit); group=n.process_group(os.getpid())\n"
+            "observed=operation_lifetime.unit_observation(unit); group=operation_lifetime.process_group(os.getpid())\n"
             "assert observed['LoadState']=='loaded' and observed['ControlGroup']==group\n"
-            "assert n.scope_owner() is None\n"
+            "assert operation_lifetime.scope_owner() is None\n"
             "inode=h.group_identity(group); assert type(inode) is int\n"
-            "n.write_json(base/'entry-launcher.json',{'pid':os.getpid(),'start':n.start_identity(os.getpid()),'allocation':os.environ[h.MARKER],'scope_inode':inode,'scope':{'unit':unit,'group':group,'invocation':observed['InvocationID']}})\n"
+            "operation_lifetime.write_json(base/'entry-launcher.json',{'pid':os.getpid(),'start':operation_lifetime.start_identity(os.getpid()),'allocation':os.environ[h.MARKER],'scope_inode':inode,'scope':{'unit':unit,'group':group,'invocation':observed['InvocationID']}})\n"
             "environment=dict(os.environ)\n"
             "for name in (h.MARKER,n.MARKER,'PSE_NATIVE_HANDOFF','PSE_ADMISSION_DEADLINE'): environment.pop(name,None)\n"
             "if sys.argv[3]=='0':\n for name in ('XDG_RUNTIME_DIR','DBUS_SESSION_BUS_ADDRESS'): environment.pop(name,None)\n"
@@ -582,7 +584,7 @@ class NativeOperationTests(unittest.TestCase):
         ]
 
     def settle_fixture_scope(self, record: FixtureScope, *, deadline: float) -> None:
-        if operation.drained(record, deadline=deadline).complete:
+        if operation_lifetime.drained(record, deadline=deadline).complete:
             return
         owner = record["scope"]
         self.fixture_units.add(owner["unit"])
@@ -591,7 +593,7 @@ class NativeOperationTests(unittest.TestCase):
         self.assertEqual(
             host_admission.group_identity(owner["group"]), record["scope_inode"]
         )
-        observed = operation.unit_observation(owner["unit"], deadline=deadline)
+        observed = operation_lifetime.unit_observation(owner["unit"], deadline=deadline)
         self.assertEqual(observed["LoadState"], "loaded")
         self.assertEqual(observed["ControlGroup"], owner["group"])
         self.assertEqual(observed["InvocationID"], owner["invocation"])
@@ -612,10 +614,10 @@ class NativeOperationTests(unittest.TestCase):
         )
         if result.returncode:
             self.assertTrue(
-                operation.drained(record, deadline=deadline).complete,
+                operation_lifetime.drained(record, deadline=deadline).complete,
                 f"Fixture kill failed ({result.returncode}): {result.stderr}",
             )
-        while not operation.drained(record, deadline=deadline).complete:
+        while not operation_lifetime.drained(record, deadline=deadline).complete:
             time.sleep(min(0.02, host_admission.remaining(deadline, 0.02)))
 
     def signal_fixture_entry(self, entry: FixtureEntry, *, deadline: float) -> None:
@@ -625,12 +627,12 @@ class NativeOperationTests(unittest.TestCase):
         try:
             descriptor = os.pidfd_open(entry["pid"])
             if (
-                operation.start_identity(entry["pid"]) == entry["start"]
-                and operation.process_group(entry["pid"]) == owner["group"]
+                operation_lifetime.start_identity(entry["pid"]) == entry["start"]
+                and operation_lifetime.process_group(entry["pid"]) == owner["group"]
                 and host_admission.group_identity(owner["group"])
                 == entry["scope_inode"]
             ):
-                observed = operation.unit_observation(owner["unit"], deadline=deadline)
+                observed = operation_lifetime.unit_observation(owner["unit"], deadline=deadline)
                 if (
                     observed.get("ControlGroup") == owner["group"]
                     and observed.get("InvocationID") == owner["invocation"]
@@ -665,7 +667,7 @@ class NativeOperationTests(unittest.TestCase):
                 grace = min(deadline, time.monotonic() + 12)
                 while (
                     time.monotonic() < grace
-                    and not operation.drained(entry, deadline=grace).complete
+                    and not operation_lifetime.drained(entry, deadline=grace).complete
                 ):
                     time.sleep(0.02)
             except Exception as error:  # Continue independent authenticated cleanup.
@@ -711,7 +713,7 @@ class NativeOperationTests(unittest.TestCase):
                 str(path): operation._record(path)  # noqa: SLF001 -- retain exact private fixture operation evidence
                 for path in (base / ".operations").glob("*.json")
             }
-            operation.write_json(
+            operation_lifetime.write_json(
                 base / "entry-cleanup.json",
                 {
                     "entry": entry,
@@ -777,18 +779,18 @@ class NativeOperationTests(unittest.TestCase):
 
     def assert_parent_scope_unchanged(self, *, deadline: float | None = None) -> None:
         self.assertEqual(
-            operation.process_group(os.getpid()), self.fixture_parent_group
+            operation_lifetime.process_group(os.getpid()), self.fixture_parent_group
         )
         observed = (
-            operation.scope_owner()
+            operation_lifetime.scope_owner()
             if deadline is None
-            else operation.scope_owner(deadline=deadline)
+            else operation_lifetime.scope_owner(deadline=deadline)
         )
         self.assertEqual(observed, self.fixture_parent_scope)
 
     def assert_fixture_scope(
         self,
-        owner: operation.ScopeOwner | Mapping[str, str],
+        owner: operation_lifetime.ScopeOwner | Mapping[str, str],
         *,
         live: bool = True,
         deadline: float | None = None,
@@ -806,9 +808,9 @@ class NativeOperationTests(unittest.TestCase):
             )
         if live:
             observed = (
-                operation.unit_observation(owner["unit"])
+                operation_lifetime.unit_observation(owner["unit"])
                 if deadline is None
-                else operation.unit_observation(owner["unit"], deadline=deadline)
+                else operation_lifetime.unit_observation(owner["unit"], deadline=deadline)
             )
             self.assertEqual(observed["LoadState"], "loaded")
             self.assertEqual(observed["ControlGroup"], owner["group"])
@@ -849,8 +851,8 @@ class NativeOperationTests(unittest.TestCase):
         self.fixture_parent_scope = owner
         self.fixture_parent_group = owner["group"]
         with (
-            patch.object(operation, "scope_owner", return_value=owner),
-            patch.object(operation, "process_group", return_value=owner["group"]),
+            patch.object(operation_lifetime, "scope_owner", return_value=owner),
+            patch.object(operation_lifetime, "process_group", return_value=owner["group"]),
             patch.object(pse_env, "manager_available", return_value=True),
             patch.object(pse_env, "manager_environment", return_value={}),
             patch.object(pse_env, "limits", return_value=[]),
@@ -868,7 +870,7 @@ class NativeOperationTests(unittest.TestCase):
             self.assertEqual(command[-2:], ["fixture", "literal argument"])
             self.assertEqual(len(self.fixture_units), 1)
             self.assertNotIn(owner["unit"], self.fixture_units)
-            self.assertEqual(operation.scope_owner(), owner)
+            self.assertEqual(operation_lifetime.scope_owner(), owner)
             self.assertEqual(pse_env.placement(environment, native=True), [])
             self.assertEqual(environment["NEXTEST_TEST_THREADS"], "1")
 
@@ -881,8 +883,8 @@ class NativeOperationTests(unittest.TestCase):
         self.fixture_parent_scope = owner
         self.fixture_parent_group = owner["group"]
         with (
-            patch.object(operation, "scope_owner", return_value=owner),
-            patch.object(operation, "process_group", return_value=owner["group"]),
+            patch.object(operation_lifetime, "scope_owner", return_value=owner),
+            patch.object(operation_lifetime, "process_group", return_value=owner["group"]),
             patch.object(operation.subprocess, "run") as manager,
         ):
             with self.assertRaisesRegex(AssertionError, "only a minted fixture"):
@@ -910,7 +912,7 @@ class NativeOperationTests(unittest.TestCase):
                     return_value=7,
                 ),
                 patch.object(
-                    operation, "start_identity", side_effect=FileNotFoundError
+                    operation_lifetime, "start_identity", side_effect=FileNotFoundError
                 ),
                 patch.object(signal, "pidfd_send_signal") as forwarded,
                 patch.object(os, "close") as close,
@@ -942,15 +944,15 @@ class NativeOperationTests(unittest.TestCase):
                 },
                 "scope_inode": 123,
             }
-            operation.write_json(base / "entry-launcher.json", entry)
+            operation_lifetime.write_json(base / "entry-launcher.json", entry)
             (base / ".operations").mkdir()
             operation_record = {
-                "version": operation.VERSION,
+                "version": operation_lifetime.VERSION,
                 "scope": None,
                 "admissions": {},
                 "generations": [],
             }
-            operation.write_json(base / ".operations/owner.json", operation_record)
+            operation_lifetime.write_json(base / ".operations/owner.json", operation_record)
             native: host_admission.AllocationRecord = {
                 "boot": "fixture-boot",
                 "pid": entry["pid"],
@@ -985,7 +987,7 @@ class NativeOperationTests(unittest.TestCase):
             with (
                 patch.object(self, "signal_fixture_entry"),
                 patch.object(self, "settle_fixture_scope") as settle,
-                patch.object(operation, "drained", return_value=drain_fixture(True)),
+                patch.object(operation_lifetime, "drained", return_value=drain_fixture(True)),
                 patch.object(host_admission, "boot", return_value="fixture-boot"),
                 patch.object(
                     host_admission,
@@ -1023,7 +1025,7 @@ class NativeOperationTests(unittest.TestCase):
         )
         if self.fixture_parent_scope is not None:
             self.assertNotEqual(unit, self.fixture_parent_scope["unit"])
-        observed = operation.unit_observation(unit)
+        observed = operation_lifetime.unit_observation(unit)
         if observed["LoadState"] == "not-found":
             return  # A collected fixture has no remaining children to signal.
         self.assertEqual(observed["LoadState"], "loaded")
@@ -1062,7 +1064,7 @@ class NativeOperationTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as directory,
             patch.object(
-                operation,
+                operation_lifetime,
                 "scope_owner",
                 return_value={
                     "unit": "pse-native-" + "a" * 32 + ".scope",
@@ -1070,7 +1072,7 @@ class NativeOperationTests(unittest.TestCase):
                     "invocation": "b" * 32,
                 },
             ),
-            patch.object(operation, "populated", return_value=True),
+            patch.object(operation_lifetime, "populated", return_value=True),
         ):
             base = Path(directory)
             with (
@@ -1161,7 +1163,7 @@ class NativeOperationTests(unittest.TestCase):
 
             with (
                 patch.dict(os.environ, {"PSE_NATIVE_CACHE": str(base)}, clear=True),
-                patch.object(operation, "scope_owner", return_value=None),
+                patch.object(operation_lifetime, "scope_owner", return_value=None),
                 patch.object(cache, "SOLVER_FILES", ("lib/a",)),
                 patch.object(cache, "solver", side_effect=solver),
                 patch.object(cache, "runtime_env", return_value={}),
@@ -1232,12 +1234,12 @@ class NativeOperationTests(unittest.TestCase):
         }
         with (
             patch.object(
-                operation, "process_group", return_value=group + "/native-child"
+                operation_lifetime, "process_group", return_value=group + "/native-child"
             ),
-            patch.object(operation, "unit_observation", return_value=observation),
+            patch.object(operation_lifetime, "unit_observation", return_value=observation),
         ):
             self.assertEqual(
-                operation.scope_owner(),
+                operation_lifetime.scope_owner(),
                 {"unit": unit, "group": group, "invocation": "b" * 32},
             )
         for invalid in (
@@ -1245,34 +1247,34 @@ class NativeOperationTests(unittest.TestCase):
             {**observation, "InvocationID": "unknown"},
         ):
             with (
-                patch.object(operation, "process_group", return_value=group),
-                patch.object(operation, "unit_observation", return_value=invalid),
+                patch.object(operation_lifetime, "process_group", return_value=group),
+                patch.object(operation_lifetime, "unit_observation", return_value=invalid),
             ):
-                self.assertIsNone(operation.scope_owner())
+                self.assertIsNone(operation_lifetime.scope_owner())
 
     def test_marker_requires_actual_scope_membership_and_generation(self) -> None:
         unit = "pse-native-" + "a" * 32 + ".scope"
         owner = {"unit": unit, "group": "/user.slice/" + unit, "invocation": "b" * 32}
         with (
             tempfile.TemporaryDirectory() as directory,
-            patch.object(operation, "scope_owner", return_value=owner),
+            patch.object(operation_lifetime, "scope_owner", return_value=owner),
             operation.Operation(Path(directory)) as active,
         ):
             self.assertEqual(operation.current(), active.path)
             operation.admit("receipt", {"value": 1})
             with patch.object(
-                operation,
+                operation_lifetime,
                 "scope_owner",
                 return_value={**owner, "invocation": "c" * 32},
             ):
                 self.assertIsNone(operation.current())
                 self.assertIsNone(operation.remembered("receipt"))
-            with patch.object(operation, "scope_owner", return_value=None):
+            with patch.object(operation_lifetime, "scope_owner", return_value=None):
                 self.assertIsNone(operation.current())
         with (
-            patch.object(operation, "process_group", return_value=owner["group"]),
+            patch.object(operation_lifetime, "process_group", return_value=owner["group"]),
             patch.object(
-                operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={
                     "LoadState": "loaded",
@@ -1281,11 +1283,11 @@ class NativeOperationTests(unittest.TestCase):
                 },
             ),
         ):
-            self.assertEqual(operation.scope_owner(), owner)
+            self.assertEqual(operation_lifetime.scope_owner(), owner)
         with (
-            patch.object(operation, "process_group", return_value=owner["group"]),
+            patch.object(operation_lifetime, "process_group", return_value=owner["group"]),
             patch.object(
-                operation,
+                operation_lifetime,
                 "unit_observation",
                 return_value={
                     "LoadState": "loaded",
@@ -1294,7 +1296,7 @@ class NativeOperationTests(unittest.TestCase):
                 },
             ),
         ):
-            self.assertIsNone(operation.scope_owner())
+            self.assertIsNone(operation_lifetime.scope_owner())
 
     def test_parent_death_populated_scope_stays_pinned_unknown_owner_retained(
         self,
@@ -1313,10 +1315,10 @@ class NativeOperationTests(unittest.TestCase):
                 "group": "/scope",
                 "invocation": "b" * 32,
             }
-            operation.write_json(
+            operation_lifetime.write_json(
                 records / "dead-parent.json",
                 {
-                    "version": operation.VERSION,
+                    "version": operation_lifetime.VERSION,
                     "pid": 999999999,
                     "start": "dead",
                     "scope": owner,
@@ -1324,16 +1326,16 @@ class NativeOperationTests(unittest.TestCase):
                     "generations": [str(first)],
                 },
             )
-            with patch.object(operation, "populated", return_value=True):
+            with patch.object(operation_lifetime, "populated", return_value=True):
                 self.assertEqual(cache.collect(base, "fixture", {"id": 1}), [])
             with patch.object(
-                operation, "populated", side_effect=ValueError("unavailable")
+                operation_lifetime, "populated", side_effect=ValueError("unavailable")
             ):
                 self.assertEqual(cache.collect(base, "fixture", {"id": 1}), [])
             with (
-                patch.object(operation, "populated", return_value=False),
+                patch.object(operation_lifetime, "populated", return_value=False),
                 patch.object(
-                    operation,
+                    operation_lifetime,
                     "unit_observation",
                     return_value={"LoadState": "not-found"},
                 ),
@@ -1343,7 +1345,7 @@ class NativeOperationTests(unittest.TestCase):
     def test_external_lookalike_receipt_never_grants_owned_reuse(self) -> None:
         with (
             tempfile.TemporaryDirectory() as directory,
-            patch.object(operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
         ):
             base = Path(directory)
             prefix = base / "lookalike/generations/fake"
@@ -1424,7 +1426,7 @@ class NativeOperationTests(unittest.TestCase):
     ) -> None:
         with (
             tempfile.TemporaryDirectory() as directory,
-            patch.object(operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
         ):
             base = Path(directory)
             unit = "pse-surreal-worker-" + "a" * 16 + "-0.scope"
@@ -1438,16 +1440,16 @@ class NativeOperationTests(unittest.TestCase):
                 operation._record(handoff)["generations"],  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
                 [str(generation)],
             )
-            self.assertFalse(operation.drained(operation._record(handoff)).complete)  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
+            self.assertFalse(operation_lifetime.drained(operation._record(handoff)).complete)  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
             child_owner = {"unit": unit, "group": "/worker", "invocation": "b" * 32}
-            with patch.object(operation, "scope_owner", return_value=child_owner):
+            with patch.object(operation_lifetime, "scope_owner", return_value=child_owner):
                 operation.bind_handoff(handoff)
             self.assertEqual(operation._record(handoff)["scope"], child_owner)  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
-            with patch.object(operation, "populated", return_value=True):
-                self.assertFalse(operation.drained(operation._record(handoff)).complete)  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
+            with patch.object(operation_lifetime, "populated", return_value=True):
+                self.assertFalse(operation_lifetime.drained(operation._record(handoff)).complete)  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
             with (
                 patch.object(
-                    operation,
+                    operation_lifetime,
                     "scope_owner",
                     return_value={**child_owner, "invocation": "c" * 32},
                 ),
@@ -1459,7 +1461,7 @@ class NativeOperationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             pending = base / "worker-admission-0.json"
-            operation.write_json(pending, {"nonce": "selected"})
+            operation_lifetime.write_json(pending, {"nonce": "selected"})
             unit = "pse-surreal-worker-" + "a" * 16 + "-0.scope"
             with (
                 patch.object(operation, "owner_record", return_value=None),
@@ -1475,21 +1477,21 @@ class NativeOperationTests(unittest.TestCase):
             assert handoff is not None
             scope = {"unit": unit, "group": "/owned", "invocation": "b" * 32}
             with (
-                patch.object(operation, "scope_owner", return_value=scope),
+                patch.object(operation_lifetime, "scope_owner", return_value=scope),
                 patch.object(host_admission, "group_identity", return_value=None),
                 self.assertRaisesRegex(ValueError, "generation"),
             ):
                 operation.bind_handoff(handoff)
             self.assertIsNone(operation._record(handoff)["scope"])  # noqa: SLF001 -- inspect child-owned proof before publication
             with (
-                patch.object(operation, "scope_owner", return_value=scope),
+                patch.object(operation_lifetime, "scope_owner", return_value=scope),
                 patch.object(host_admission, "group_identity", return_value=17),
             ):
                 operation.bind_handoff(handoff)
             record = operation._record(handoff)  # noqa: SLF001 -- inspect published child ownership proof
             self.assertEqual(record["scope_inode"], 17)
             self.assertTrue(operation.registration_pending(record))
-            operation.write_json(pending, {"nonce": "replacement"})
+            operation_lifetime.write_json(pending, {"nonce": "replacement"})
             self.assertFalse(operation.registration_pending(record))
 
     def test_handoff_clock_checks_after_lock_acquisition_and_before_publication(
@@ -1498,10 +1500,10 @@ class NativeOperationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             parent = base / "parent.json"
-            operation.write_json(
+            operation_lifetime.write_json(
                 parent,
                 {
-                    "version": operation.VERSION,
+                    "version": operation_lifetime.VERSION,
                     "scope": None,
                     "admissions": {},
                     "generations": [],
@@ -1510,7 +1512,7 @@ class NativeOperationTests(unittest.TestCase):
             original_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set())
             with (
                 patch.object(operation.time, "monotonic", side_effect=[10, 10, 12]),
-                self.assertRaises(operation.DeadlineExpiredError),
+                self.assertRaises(operation_lifetime.DeadlineExpiredError),
                 operation.record_lock(parent, deadline=11),
             ):
                 self.fail("expired lock acquisition must not enter the protected body")
@@ -1527,7 +1529,7 @@ class NativeOperationTests(unittest.TestCase):
                 patch.object(operation, "owner_record", return_value=parent),
                 patch.object(operation.time, "monotonic", side_effect=lambda: clock[0]),
                 patch.object(operation.uuid, "uuid4", side_effect=expire),
-                self.assertRaises(operation.DeadlineExpiredError),
+                self.assertRaises(operation_lifetime.DeadlineExpiredError),
             ):
                 operation.prepare_handoff("owned.scope", deadline=11)
             self.assertFalse(list(base.glob("handoff-*.json")))
@@ -1543,10 +1545,10 @@ class NativeOperationTests(unittest.TestCase):
             parent = operations / "parent.json"
             unit = "pse-native-" + "a" * 32 + ".scope"
             scope = {"unit": unit, "group": "/owned/" + unit, "invocation": "b" * 32}
-            operation.write_json(
+            operation_lifetime.write_json(
                 parent,
                 {
-                    "version": operation.VERSION,
+                    "version": operation_lifetime.VERSION,
                     "scope": scope,
                     "admissions": {},
                     "generations": [],
@@ -1566,12 +1568,12 @@ class NativeOperationTests(unittest.TestCase):
                     os.environ,
                     {"PSE_NATIVE_CACHE": str(base), operation.MARKER: str(parent)},
                 ),
-                patch.object(operation, "process_group", return_value=scope["group"]),
+                patch.object(operation_lifetime, "process_group", return_value=scope["group"]),
                 patch.object(operation.time, "monotonic", side_effect=lambda: clock[0]),
                 patch.object(
                     operation.subprocess, "run", side_effect=timeout
                 ) as manager,
-                self.assertRaises(operation.DeadlineExpiredError),
+                self.assertRaises(operation_lifetime.DeadlineExpiredError),
             ):
                 operation.prepare_handoff("never.scope", deadline=10.25)
             manager.assert_called_once()
@@ -1587,7 +1589,7 @@ class NativeOperationTests(unittest.TestCase):
             "invocation": "b" * 32,
         }
         with (
-            patch.object(operation, "scope_owner", return_value=owner),
+            patch.object(operation_lifetime, "scope_owner", return_value=owner),
             patch.object(operation.subprocess, "run") as manager,
             patch.object(operation.os, "killpg") as group,
         ):
@@ -1596,7 +1598,7 @@ class NativeOperationTests(unittest.TestCase):
             self.assertIn("--kill-whom=all", manager.call_args.args[0])
             group.assert_called_once_with(child.pid, 15)
         with (
-            patch.object(operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(operation.subprocess, "run") as manager,
             patch.object(operation.os, "killpg") as group,
         ):
@@ -1609,7 +1611,7 @@ class NativeOperationTests(unittest.TestCase):
     ) -> None:
         with (
             tempfile.TemporaryDirectory() as directory,
-            patch.object(operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
         ):
             base = Path(directory)
             unit = "pse-native-" + "a" * 32 + ".scope"
@@ -1618,11 +1620,11 @@ class NativeOperationTests(unittest.TestCase):
                 assert handoff is not None
                 record = json.loads(parent.path.read_text())
                 record["cancelled"] = True
-                operation.write_json(parent.path, record)
+                operation_lifetime.write_json(parent.path, record)
                 self.assertNotIn("cancelled", json.loads(handoff.read_text()))
                 child = {"unit": unit, "group": "/foreground", "invocation": "b" * 32}
                 with (
-                    patch.object(operation, "scope_owner", return_value=child),
+                    patch.object(operation_lifetime, "scope_owner", return_value=child),
                     patch.object(pse_env.host, "group_identity", return_value=17),
                     self.assertRaisesRegex(ValueError, "cancelled"),
                 ):
@@ -1653,7 +1655,7 @@ class NativeOperationTests(unittest.TestCase):
                 "cancel_foreground_handoffs",
                 side_effect=ValueError("unknown child"),
             ),
-            patch.object(operation, "scope_owner", return_value=owner),
+            patch.object(operation_lifetime, "scope_owner", return_value=owner),
             patch.object(
                 operation.subprocess,
                 "run",
@@ -1677,7 +1679,7 @@ class NativeOperationTests(unittest.TestCase):
         }
         with (
             tempfile.TemporaryDirectory() as directory,
-            patch.object(operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(
                 operation,
                 "cancel_foreground_handoffs",
@@ -1695,7 +1697,7 @@ class NativeOperationTests(unittest.TestCase):
     def test_nested_run_completion_preserves_the_live_creator(self) -> None:
         with (
             tempfile.TemporaryDirectory() as directory,
-            patch.object(operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
         ):
             with operation.Operation(Path(directory)) as parent:
                 handoff = operation.prepare_handoff(
@@ -1719,12 +1721,12 @@ class NativeOperationTests(unittest.TestCase):
             with (
                 self.subTest(children=children),
                 tempfile.TemporaryDirectory() as directory,
-                patch.object(operation, "scope_owner", return_value=None),
+                patch.object(operation_lifetime, "scope_owner", return_value=None),
                 operation.Operation(Path(directory)) as parent,
             ):
                 record = dict(json.loads(parent.path.read_text()))
                 record["foreground_children"] = children
-                operation.write_json(parent.path, record)
+                operation_lifetime.write_json(parent.path, record)
                 with patch.object(operation.subprocess, "run") as manager:
                     with self.assertRaises(ValueError):
                         operation.cancel_foreground_handoffs()
@@ -1732,7 +1734,7 @@ class NativeOperationTests(unittest.TestCase):
                 self.assertTrue(json.loads(parent.path.read_text())["cancelled"])
                 # Unknown associations also refuse creator finalization.
                 record["foreground_children"] = []
-                operation.write_json(parent.path, record)
+                operation_lifetime.write_json(parent.path, record)
 
     def test_foreground_cancellation_fences_every_child_and_refuses_replacements(
         self,
@@ -1748,7 +1750,7 @@ class NativeOperationTests(unittest.TestCase):
             with (
                 self.subTest(replacement=replacement),
                 tempfile.TemporaryDirectory() as directory,
-                patch.object(operation, "scope_owner", return_value=None),
+                patch.object(operation_lifetime, "scope_owner", return_value=None),
             ):
                 base = Path(directory)
                 stopped = []
@@ -1770,7 +1772,7 @@ class NativeOperationTests(unittest.TestCase):
                             "invocation": letter * 32,
                         }
                         with (
-                            patch.object(operation, "scope_owner", return_value=child),
+                            patch.object(operation_lifetime, "scope_owner", return_value=child),
                             patch.object(
                                 pse_env.host, "group_identity", return_value=17
                             ),
@@ -1790,7 +1792,7 @@ class NativeOperationTests(unittest.TestCase):
                             del record["scope"]
                         else:
                             record["scope"] = 17
-                        operation.write_json(paths[0], record)
+                        operation_lifetime.write_json(paths[0], record)
 
                     def observe(
                         unit: str,
@@ -1834,14 +1836,14 @@ class NativeOperationTests(unittest.TestCase):
 
                     with (
                         patch.object(
-                            operation,
+                            operation_lifetime,
                             "drained",
                             side_effect=lambda record, stopped=stopped: drain_fixture(
                                 record["scope"]["unit"] in stopped
                             ),
                         ),
                         patch.object(
-                            operation, "unit_observation", side_effect=observe
+                            operation_lifetime, "unit_observation", side_effect=observe
                         ),
                         patch.object(
                             pse_env.host,
@@ -1862,9 +1864,9 @@ class NativeOperationTests(unittest.TestCase):
     ) -> None:
         with (
             tempfile.TemporaryDirectory() as directory,
-            patch.object(operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(
-                operation,
+                operation_lifetime,
                 "drained",
                 side_effect=lambda record: drain_fixture(record["scope"] is not None),
             ),
@@ -1882,7 +1884,7 @@ class NativeOperationTests(unittest.TestCase):
                     "invocation": "b" * 32,
                 }
                 record["generations"] = ["settled-child-only"]
-                operation.write_json(path, record)
+                operation_lifetime.write_json(path, record)
                 self.assertEqual(operation.pinned_generations(base), set())
                 self.assertTrue(path.exists())
                 self.assertTrue(parent.path.exists())
@@ -1903,7 +1905,7 @@ class NativeOperationTests(unittest.TestCase):
         }
         with (
             tempfile.TemporaryDirectory() as directory,
-            patch.object(operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(operation, "cancel_foreground_handoffs") as settle,
             self.assertRaises(FileNotFoundError),
             operation.Operation(Path(directory)) as parent,
@@ -1987,7 +1989,7 @@ class NativeOperationTests(unittest.TestCase):
             output = Path(directory)
             environment = self.fixture_environment(output / "cache")
             environment[operation.BUILD_TIMING] = str(output / "native-operation.json")
-            program = "from scripts import native_operation as n; import os; assert n.current() is not None; assert n.BUILD_TIMING not in os.environ"
+            program = "from scripts import native_operation as n; from scripts import operation_lifetime; import os; assert n.current() is not None; assert n.BUILD_TIMING not in os.environ"
             command = self.fixture_command(
                 [
                     sys.executable,
@@ -2028,7 +2030,7 @@ class NativeOperationTests(unittest.TestCase):
             self.assertEqual(native["child_exit_code"], 0)
 
     def test_actual_zero_capability_entry_owns_child_before_command(self) -> None:
-        program = "from scripts import native_operation as n; import json; p=n.owner_record(); print(json.dumps({'active':p is not None,'scope':n._record(p)['scope'],'args':__import__('sys').argv[1:]}))"
+        program = "from scripts import native_operation as n; from scripts import operation_lifetime; import json; p=n.owner_record(); print(json.dumps({'active':p is not None,'scope':n._record(p)['scope'],'args':__import__('sys').argv[1:]}))"
         with tempfile.TemporaryDirectory() as directory:
             environment = self.fixture_environment(Path(directory))
             command = self.fixture_command(
@@ -2092,10 +2094,10 @@ class NativeOperationTests(unittest.TestCase):
             composer = "\n".join(
                 [
                     "import os,sys; from pathlib import Path",
-                    "from scripts import native_operation as n,test_run,test_resources as r,host_admission as h",
+                    "from scripts import native_operation as n; from scripts import operation_lifetime,test_run,test_resources as r,host_admission as h",
                     "base=Path(sys.argv[1]); path=r.invocation('python',[{'name':'control.py::test_case'}])",
                     f"code=test_run.execute_selected(path,[sys.executable,'-c',{payload!r},str(path.with_suffix('.xml'))],os.environ,path.with_suffix('.xml'),selected=[{{'nodeid':'control.py::test_case'}}])",
-                    "n.write_json(base/'completed.json',{'code':code,'scope':n.scope_owner(),'operation':n._record(n.owner_record()),'invocation':str(path),'allocation':os.environ[h.MARKER]})",
+                    "operation_lifetime.write_json(base/'completed.json',{'code':code,'scope':operation_lifetime.scope_owner(),'operation':n._record(n.owner_record()),'invocation':str(path),'allocation':os.environ[h.MARKER]})",
                     "raise SystemExit(code)",
                 ]
             )
@@ -2164,14 +2166,14 @@ class NativeOperationTests(unittest.TestCase):
             composer = "\n".join(  # noqa: FLY002 -- retain separate executable fault-injection statements
                 [
                     "import signal,sys,time; from pathlib import Path",
-                    "from scripts import native_operation as n,test_resources as r",
+                    "from scripts import native_operation as n; from scripts import operation_lifetime,test_resources as r",
                     "signal.signal(signal.SIGINT,signal.SIG_IGN); signal.signal(signal.SIGTERM,signal.SIG_IGN)",
                     # This control deliberately leaves no terminal acknowledgment.
                     # Real shared-host guard retention is tested in a private ledger
                     # so this disposable scope cannot strand host admission.
                     "n.register_terminal_guard=lambda *_args,**_kwargs:None",
                     "base=Path(sys.argv[1]); path=r.invocation('python',[]); n.register_composer(path)",
-                    "n.write_json(base/'ready.json',{'scope':n.scope_owner(),'operation':str(n.owner_record()),'owner':n._record(n.owner_record()),'invocation':str(path)})",
+                    "operation_lifetime.write_json(base/'ready.json',{'scope':operation_lifetime.scope_owner(),'operation':str(n.owner_record()),'owner':n._record(n.owner_record()),'invocation':str(path)})",
                     "time.sleep(30)",
                 ]
             )
@@ -2253,22 +2255,22 @@ class NativeOperationTests(unittest.TestCase):
                 workload = "\n".join(
                     [
                         "import os,signal,subprocess,sys,time; from pathlib import Path",
-                        "from scripts import native_operation as n",
+                        "from scripts import native_operation as n; from scripts import operation_lifetime",
                         "base=Path(sys.argv[1])",
                         "signal.signal(signal.SIGTERM,signal.SIG_IGN); signal.signal(signal.SIGINT,signal.SIG_IGN)",
                         f"opaque=subprocess.Popen([sys.executable,'-c',{opaque!r}],start_new_session=True)",
-                        "n.write_json(base/'workload-ready.json',{'record':n._record(n.owner_record()),'opaque':opaque.pid,'session':os.getsid(opaque.pid)})",
+                        "operation_lifetime.write_json(base/'workload-ready.json',{'record':n._record(n.owner_record()),'opaque':opaque.pid,'session':os.getsid(opaque.pid)})",
                         "time.sleep(30)",
                     ]
                 )
                 composer = "\n".join(
                     [
                         "import os,sys; from pathlib import Path",
-                        "from scripts import native_operation as n,test_run,test_resources as r,host_admission as h",
+                        "from scripts import native_operation as n; from scripts import operation_lifetime,test_run,test_resources as r,host_admission as h",
                         "base=Path(sys.argv[1]); path=r.invocation('python',[{'name':'control.py::test_case'}])",
-                        "n.write_json(base/'composer-ready.json',{'scope':n.scope_owner(),'pid':os.getpid(),'owner':n._record(n.owner_record()),'invocation':str(path),'allocation':os.environ[h.MARKER]})",
+                        "operation_lifetime.write_json(base/'composer-ready.json',{'scope':operation_lifetime.scope_owner(),'pid':os.getpid(),'owner':n._record(n.owner_record()),'invocation':str(path),'allocation':os.environ[h.MARKER]})",
                         f"code=test_run.execute_selected(path,[sys.executable,'-c',{workload!r},str(base)],os.environ,path.with_suffix('.xml'),selected=[{{'nodeid':'control.py::test_case'}}])",
-                        "n.write_json(base/'composer-finished.json',{'code':code})",
+                        "operation_lifetime.write_json(base/'composer-finished.json',{'code':code})",
                         "raise SystemExit(code)",
                     ]
                 )
@@ -2318,7 +2320,7 @@ class NativeOperationTests(unittest.TestCase):
                         self.assert_fixture_scope(entry["scope"])
                         self.assertNotEqual(entry["allocation"], parent["allocation"])
                         self.assertEqual(
-                            operation.start_identity(entry["pid"]), entry["start"]
+                            operation_lifetime.start_identity(entry["pid"]), entry["start"]
                         )
                         self.assertIn(
                             str(cache.ROOT / "scripts/pse_env.py").encode(),
@@ -2332,7 +2334,7 @@ class NativeOperationTests(unittest.TestCase):
                     self.assertNotEqual(owners[0], owners[1])
                     self.assertEqual(child["opaque"], child["session"])
                     self.assertEqual(
-                        operation.process_group(child["opaque"]), owners[1]["group"]
+                        operation_lifetime.process_group(child["opaque"]), owners[1]["group"]
                     )
                     if target == "composer":
                         recipient = parent["pid"]
@@ -2432,7 +2434,7 @@ class NativeOperationTests(unittest.TestCase):
                 owner = {
                     "boot": host_admission.boot(),
                     "pid": os.getpid(),
-                    "start": operation.start_identity(os.getpid()),
+                    "start": operation_lifetime.start_identity(os.getpid()),
                     "units": {unit: selected},
                 }
                 observed = {
@@ -2474,7 +2476,7 @@ class NativeOperationTests(unittest.TestCase):
                     patch.object(
                         host_admission, "readonly_snapshot", return_value=ledger
                     ),
-                    patch.object(operation, "process_group", return_value=actual),
+                    patch.object(operation_lifetime, "process_group", return_value=actual),
                     patch.object(
                         host_admission,
                         "control_unit_observation",
@@ -2516,7 +2518,7 @@ class NativeOperationTests(unittest.TestCase):
 
             with (
                 patch.object(host_admission, "inherit", return_value=allocation),
-                patch.object(operation, "scope_owner", return_value=None),
+                patch.object(operation_lifetime, "scope_owner", return_value=None),
                 patch.object(operation, "require_command_parent") as proof,
                 patch.object(
                     operation, "_run_child_scope", side_effect=selected
@@ -2552,26 +2554,26 @@ class NativeOperationTests(unittest.TestCase):
             environment = self.fixture_environment(base)
             (base / "payload.py").write_text("""import subprocess, sys
 from pathlib import Path
-from scripts import native_operation as n
+from scripts import native_operation as n; from scripts import operation_lifetime
 child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(.4)'])
-n.write_json(Path(sys.argv[1])/'child.json',{'scope':n.scope_owner(),'pid':child.pid})
+operation_lifetime.write_json(Path(sys.argv[1])/'child.json',{'scope':operation_lifetime.scope_owner(),'pid':child.pid})
 """)
             program = """import os, subprocess, sys, time
 from pathlib import Path
-from scripts import native_operation as n, surreal_server as s
-base=Path(sys.argv[1]); group=n.process_group(os.getpid())
-assert n.scope_owner() is None and n.owner_record() is None
+from scripts import native_operation as n; from scripts import operation_lifetime, surreal_server as s
+base=Path(sys.argv[1]); group=operation_lifetime.process_group(os.getpid())
+assert operation_lifetime.scope_owner() is None and n.owner_record() is None
 status=s.run_file_effect([sys.executable,'-c',(base/'payload.py').read_text(),str(base)],dict(os.environ),deadline=time.monotonic()+20)
-assert n.process_group(os.getpid())==group and n.scope_owner() is None and n.owner_record() is None
+assert operation_lifetime.process_group(os.getpid())==group and operation_lifetime.scope_owner() is None and n.owner_record() is None
 expired=False
 try:
  s.run_file_effect([sys.executable,'-c','import time; time.sleep(30)'],dict(os.environ),deadline=time.monotonic()+.4)
 except subprocess.TimeoutExpired:
  expired=True
-assert expired and n.scope_owner() is None and n.owner_record() is None
+assert expired and operation_lifetime.scope_owner() is None and n.owner_record() is None
 records=[n._record(p) for p in (base/'.operations').glob('handoff-*.json')]
-assert len(records)==2 and all(n.drained(record).complete for record in records)
-n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs':records})
+assert len(records)==2 and all(operation_lifetime.drained(record).complete for record in records)
+operation_lifetime.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs':records})
 """
             command = self.fixture_command(
                 [sys.executable, "-c", program, str(base)],
@@ -2599,7 +2601,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                     self.assertNotEqual(
                         handoff["scope"]["group"], observed["parent_group"]
                     )
-                    self.assertTrue(operation.drained(handoff).complete)
+                    self.assertTrue(operation_lifetime.drained(handoff).complete)
                     self.assertIsNone(
                         json.loads(Path(handoff["parent"]).read_text())["scope"]
                     )
@@ -2654,8 +2656,8 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
 
         with (
             patch.object(host_admission, "inherit", return_value=allocation),
-            patch.object(operation, "scope_owner", return_value={"unit": "parent"}),
-            patch.object(pse_env, "current_memory_ceiling", return_value=4 << 30),
+            patch.object(operation_lifetime, "scope_owner", return_value={"unit": "parent"}),
+            patch.object(systemd_environment, "current_memory_ceiling", return_value=4 << 30),
             patch.object(operation.time, "monotonic", return_value=100),
             patch.object(
                 operation, "prepare_handoff", return_value=Path("/owned/handoff")
@@ -2663,10 +2665,10 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
             patch.object(operation, "run", side_effect=completed) as run,
             patch.object(operation, "_record", return_value={"scope": selected}),
             patch.object(
-                operation,
+                operation_lifetime,
                 "drained",
-                return_value=operation.DrainObservation(
-                    selected, operation.DrainPhase.COMPLETE, "controlled role drain"
+                return_value=operation_lifetime.DrainObservation(
+                    selected, operation_lifetime.DrainPhase.COMPLETE, "controlled role drain"
                 ),
             ),
         ):
@@ -2690,15 +2692,15 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
             with (
                 self.subTest(cap=missing),
                 patch.object(host_admission, "inherit", return_value=allocation),
-                patch.object(operation, "scope_owner", return_value={"unit": "parent"}),
-                patch.object(pse_env, "current_memory_ceiling", return_value=missing),
+                patch.object(operation_lifetime, "scope_owner", return_value={"unit": "parent"}),
+                patch.object(systemd_environment, "current_memory_ceiling", return_value=missing),
                 patch.object(operation, "prepare_handoff") as handoff,
                 self.assertRaisesRegex(ValueError, "finite originating role cap"),
             ):
                 operation.run_child_scope(["observer-workload"], {})
             handoff.assert_not_called()
 
-    @patch.object(pse_env, "current_memory_ceiling", new=lambda: 512 << 20)
+    @patch.object(systemd_environment, "current_memory_ceiling", new=lambda: 512 << 20)
     def test_selected_workload_wrapper_exit_does_not_prove_child_scope_drain(
         self,
     ) -> None:
@@ -2731,17 +2733,17 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                 "acquire",
                 side_effect=AssertionError("second allocation"),
             ),
-            patch.object(operation, "scope_owner", return_value={"unit": "parent"}),
+            patch.object(operation_lifetime, "scope_owner", return_value={"unit": "parent"}),
             patch.object(
                 operation, "prepare_handoff", return_value=Path("/owned/handoff")
             ),
             patch.object(operation, "run", side_effect=completed) as run,
             patch.object(operation, "_record", return_value={"scope": selected}),
             patch.object(
-                operation,
+                operation_lifetime,
                 "drained",
-                return_value=operation.DrainObservation(
-                    selected, operation.DrainPhase.UNAVAILABLE, "missing unit proof"
+                return_value=operation_lifetime.DrainObservation(
+                    selected, operation_lifetime.DrainPhase.UNAVAILABLE, "missing unit proof"
                 ),
             ) as drain,
             patch.object(operation.time, "monotonic", return_value=100.0),
@@ -2759,7 +2761,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
         allocation.release.assert_not_called()
         self.assertEqual(drain.call_args.kwargs["deadline"], 110.0)
 
-    @patch.object(pse_env, "current_memory_ceiling", new=lambda: 512 << 20)
+    @patch.object(systemd_environment, "current_memory_ceiling", new=lambda: 512 << 20)
     def test_selected_normal_cleanup_joins_empty_active_unit_until_terminal(
         self,
     ) -> None:
@@ -2794,22 +2796,22 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
         }
         with (
             patch.object(host_admission, "inherit", return_value=allocation),
-            patch.object(operation, "scope_owner", return_value={"unit": "parent"}),
+            patch.object(operation_lifetime, "scope_owner", return_value={"unit": "parent"}),
             patch.object(
                 operation, "prepare_handoff", return_value=Path("/owned/handoff")
             ),
             patch.object(operation, "run", side_effect=completed),
             patch.object(operation, "_record", return_value={"scope": selected}),
-            patch.object(operation, "populated", return_value=False),
+            patch.object(operation_lifetime, "populated", return_value=False),
             patch.object(
-                operation,
+                operation_lifetime,
                 "unit_observation",
                 side_effect=[
                     {**unit, "ActiveState": "active"},
                     {**unit, "ActiveState": "inactive"},
                 ],
             ) as manager,
-            patch.object(operation, "drained", wraps=operation.drained) as drain,
+            patch.object(operation_lifetime, "drained", wraps=operation_lifetime.drained) as drain,
             patch.object(operation.time, "monotonic", side_effect=lambda: elapsed[0]),
             patch.object(operation.time, "sleep", side_effect=advance) as pause,
             patch.object(operation.signal, "pthread_sigmask") as mask,
@@ -2830,12 +2832,12 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
         mask.assert_not_called()
         allocation.release.assert_not_called()
 
-    @patch.object(pse_env, "current_memory_ceiling", new=lambda: 512 << 20)
+    @patch.object(systemd_environment, "current_memory_ceiling", new=lambda: 512 << 20)
     def test_selected_normal_cleanup_clock_is_not_renewed_or_extended_by_cancellation(
         self,
     ) -> None:
         selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
-        for phase in (operation.DrainPhase.ACTIVE, operation.DrainPhase.POPULATED):
+        for phase in (operation_lifetime.DrainPhase.ACTIVE, operation_lifetime.DrainPhase.POPULATED):
             for cancellation in (None, 100.025, 120.0):
                 with self.subTest(phase=phase, cancellation=cancellation):
                     allocation = MagicMock(spec=host_admission.Allocation)
@@ -2874,7 +2876,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                             host_admission, "inherit", return_value=allocation
                         ),
                         patch.object(
-                            operation, "scope_owner", return_value={"unit": "parent"}
+                            operation_lifetime, "scope_owner", return_value={"unit": "parent"}
                         ),
                         patch.object(
                             operation,
@@ -2886,9 +2888,9 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                             operation, "_record", return_value={"scope": selected}
                         ),
                         patch.object(
-                            operation,
+                            operation_lifetime,
                             "drained",
-                            return_value=operation.DrainObservation(
+                            return_value=operation_lifetime.DrainObservation(
                                 selected, phase, "owned unit still draining"
                             ),
                         ) as drain,
@@ -2898,7 +2900,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                             side_effect=lambda elapsed=elapsed: elapsed[0],
                         ),
                         patch.object(operation.time, "sleep", side_effect=advance),
-                        self.assertRaises(operation.DeadlineExpiredError),
+                        self.assertRaises(operation_lifetime.DeadlineExpiredError),
                     ):
                         operation.run_child_scope(
                             ["controlled-wrapper"], {}, observation=observation
@@ -2917,7 +2919,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                     )
                     allocation.release.assert_not_called()
 
-    @patch.object(pse_env, "current_memory_ceiling", new=lambda: 512 << 20)
+    @patch.object(systemd_environment, "current_memory_ceiling", new=lambda: 512 << 20)
     def test_selected_scope_cleanup_joins_physical_reaping_with_late_signals(
         self,
     ) -> None:
@@ -3019,7 +3021,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                             original: float = original,
                             selected: dict[str, str] = selected,
                             signum: int = signum,
-                        ) -> operation.DrainObservation:
+                        ) -> operation_lifetime.DrainObservation:
                             if (
                                 order == "first-signal-during-drain"
                                 and not observations
@@ -3041,17 +3043,17 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                                 assert opaque.stdin is not None
                                 opaque.stdin.write(b"x")
                                 opaque.stdin.flush()
-                                return operation.DrainObservation(
+                                return operation_lifetime.DrainObservation(
                                     selected,
-                                    operation.DrainPhase.POPULATED,
+                                    operation_lifetime.DrainPhase.POPULATED,
                                     "actual gated child remains",
                                 )
                             assert deadline is not None
-                            opaque.wait(timeout=operation.admission_remaining(deadline))
+                            opaque.wait(timeout=operation_lifetime.admission_remaining(deadline))
                             observations.append((deadline, opaque.returncode is None))
-                            return operation.DrainObservation(
+                            return operation_lifetime.DrainObservation(
                                 selected,
-                                operation.DrainPhase.COMPLETE,
+                                operation_lifetime.DrainPhase.COMPLETE,
                                 "actual gated child reaped",
                             )
 
@@ -3060,7 +3062,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                                 host_admission, "inherit", return_value=allocation
                             ),
                             patch.object(
-                                operation,
+                                operation_lifetime,
                                 "scope_owner",
                                 return_value={"unit": "parent"},
                             ),
@@ -3080,7 +3082,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                             ) as cancel,
                             patch.object(operation, "_record", side_effect=record),
                             patch.object(
-                                operation, "drained", side_effect=physical_drain
+                                operation_lifetime, "drained", side_effect=physical_drain
                             ),
                         ):
                             code = operation.run_child_scope(
@@ -3110,15 +3112,15 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                             if child.stdin is not None:
                                 child.stdin.close()
 
-    @patch.object(pse_env, "current_memory_ceiling", new=lambda: 512 << 20)
+    @patch.object(systemd_environment, "current_memory_ceiling", new=lambda: 512 << 20)
     def test_selected_scope_join_preserves_original_expiry_and_refuses_unknown_owner(
         self,
     ) -> None:
         selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
         for phase in (
-            operation.DrainPhase.POPULATED,
-            operation.DrainPhase.MISMATCH,
-            operation.DrainPhase.UNAVAILABLE,
+            operation_lifetime.DrainPhase.POPULATED,
+            operation_lifetime.DrainPhase.MISMATCH,
+            operation_lifetime.DrainPhase.UNAVAILABLE,
         ):
             with self.subTest(phase=phase):
                 elapsed = [100.0]
@@ -3151,7 +3153,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                 with (
                     patch.object(host_admission, "inherit", return_value=allocation),
                     patch.object(
-                        operation, "scope_owner", return_value={"unit": "parent"}
+                        operation_lifetime, "scope_owner", return_value={"unit": "parent"}
                     ),
                     patch.object(
                         operation,
@@ -3163,9 +3165,9 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                         operation, "_record", return_value={"scope": selected}
                     ),
                     patch.object(
-                        operation,
+                        operation_lifetime,
                         "drained",
-                        return_value=operation.DrainObservation(
+                        return_value=operation_lifetime.DrainObservation(
                             selected, phase, "controlled refusal"
                         ),
                     ) as drain,
@@ -3176,8 +3178,8 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                     ),
                     patch.object(operation.time, "sleep", side_effect=advance) as pause,
                     self.assertRaises(
-                        operation.DeadlineExpiredError
-                        if phase == operation.DrainPhase.POPULATED
+                        operation_lifetime.DeadlineExpiredError
+                        if phase == operation_lifetime.DrainPhase.POPULATED
                         else ValueError
                     ),
                 ):
@@ -3192,7 +3194,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                         for call in drain.call_args_list
                     )
                 )
-                if phase == operation.DrainPhase.POPULATED:
+                if phase == operation_lifetime.DrainPhase.POPULATED:
                     self.assertEqual(elapsed[0], original)
                     self.assertGreater(drain.call_count, 1)
                 else:
@@ -3283,10 +3285,10 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
         reaped.assert_called_once()
         not_started.assert_not_called()
 
-    @patch.object(pse_env, "current_memory_ceiling", new=lambda: 512 << 20)
+    @patch.object(systemd_environment, "current_memory_ceiling", new=lambda: 512 << 20)
     def test_late_clock_does_not_retry_unknown_selected_scope_authority(self) -> None:
         selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
-        for phase in (operation.DrainPhase.MISMATCH, operation.DrainPhase.UNAVAILABLE):
+        for phase in (operation_lifetime.DrainPhase.MISMATCH, operation_lifetime.DrainPhase.UNAVAILABLE):
             with self.subTest(phase=phase):
                 allocation = MagicMock(spec=host_admission.Allocation)
                 allocation.nonce = "c" * 32
@@ -3310,19 +3312,19 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                     deadline: float | None,
                     observation: dict[str, object] = observation,
                     original: float = original,
-                    phase: operation.DrainPhase = phase,
-                ) -> operation.DrainObservation:
+                    phase: operation_lifetime.DrainPhase = phase,
+                ) -> operation_lifetime.DrainObservation:
                     self.assertIsNotNone(deadline)
                     self.assertGreater(deadline, original)
                     observation["cancellation_deadline"] = original
-                    return operation.DrainObservation(
+                    return operation_lifetime.DrainObservation(
                         selected, phase, "authority unavailable"
                     )
 
                 with (
                     patch.object(host_admission, "inherit", return_value=allocation),
                     patch.object(
-                        operation, "scope_owner", return_value={"unit": "parent"}
+                        operation_lifetime, "scope_owner", return_value={"unit": "parent"}
                     ),
                     patch.object(
                         operation,
@@ -3333,7 +3335,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                     patch.object(
                         operation, "_record", return_value={"scope": selected}
                     ),
-                    patch.object(operation, "drained", side_effect=unknown) as drain,
+                    patch.object(operation_lifetime, "drained", side_effect=unknown) as drain,
                     patch.object(operation.time, "sleep") as pause,
                     self.assertRaisesRegex(
                         ValueError, "selected workload remains charged"
@@ -3359,9 +3361,9 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
             patch.object(
                 operation,
                 "record_lock",
-                side_effect=operation.DeadlineExpiredError("contended original clock"),
+                side_effect=operation_lifetime.DeadlineExpiredError("contended original clock"),
             ) as lock,
-            self.assertRaises(operation.DeadlineExpiredError),
+            self.assertRaises(operation_lifetime.DeadlineExpiredError),
         ):
             operation.note_composer_cancellation(
                 signal.SIGTERM, original + 10, control_deadline=original + 9.5
@@ -3391,7 +3393,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
         observed = {}
         with (
             patch.object(operation.subprocess, "Popen", return_value=child),
-            patch.object(operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(operation, "owner_record", return_value=None),
             patch.object(operation.os, "killpg") as forward,
         ):
@@ -3446,7 +3448,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
             patch.object(
                 operation,
                 "owner_record",
-                side_effect=operation.DeadlineExpiredError("contended first authority"),
+                side_effect=operation_lifetime.DeadlineExpiredError("contended first authority"),
             ) as authority,
             patch.object(operation.os, "killpg") as direct,
             self.assertRaisesRegex(ValueError, "foreground cancellation incomplete"),
@@ -3490,12 +3492,12 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                         operation, "fence_foreground_handoff", return_value=selected
                     ) as fence,
                     patch.object(
-                        operation,
+                        operation_lifetime,
                         "drained",
                         side_effect=[drain_fixture(False), drain_fixture(True)],
                     ) as drain,
                     patch.object(
-                        operation,
+                        operation_lifetime,
                         "unit_observation",
                         return_value={
                             "LoadState": "loaded",
@@ -3566,7 +3568,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                 patch.dict(
                     os.environ, {"PSE_TEST_RESOURCE_STATE": str(base / "registry")}
                 ),
-                patch.object(operation, "scope_owner", return_value=own),
+                patch.object(operation_lifetime, "scope_owner", return_value=own),
                 patch.object(host_admission, "inherit", return_value=allocation),
                 operation.Operation(base) as parent,
             ):
@@ -3594,7 +3596,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                 self.assertLess(time.monotonic() - started, 0.2)
                 self.assertEqual(signals, [signal.SIGTERM])
                 self.assertEqual(
-                    operation.composer_registrations(
+                    operation_lifetime.composer_registrations(
                         operation._record(parent.path)  # noqa: SLF001 -- exact internal handoff control
                     ),
                     {},
@@ -3628,7 +3630,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                     patch.dict(
                         os.environ, {"PSE_TEST_RESOURCE_STATE": str(base / "registry")}
                     ),
-                    patch.object(operation, "scope_owner", return_value=own),
+                    patch.object(operation_lifetime, "scope_owner", return_value=own),
                     patch.object(operation, "register_terminal_guard"),
                     patch.object(operation, "acknowledge_terminal_guard"),
                     operation.Operation(base) as parent,
@@ -3674,7 +3676,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                     payload.assert_not_called()
                     terminal = resources.storage().terminal(path.stem)[1]
                     self.assertFalse(terminal["complete"])
-                    registered = operation.composer_registrations(
+                    registered = operation_lifetime.composer_registrations(
                         operation._record(parent.path)  # noqa: SLF001 -- assert the exact durable private operation protocol
                     )
                     if cancelled:
@@ -3707,7 +3709,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                 patch.dict(
                     os.environ, {"PSE_TEST_RESOURCE_STATE": str(base / "registry")}
                 ),
-                patch.object(operation, "scope_owner", return_value=own),
+                patch.object(operation_lifetime, "scope_owner", return_value=own),
                 patch.object(operation, "register_terminal_guard"),
                 patch.object(operation, "acknowledge_terminal_guard"),
                 operation.Operation(base) as parent,
@@ -3747,7 +3749,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                 # The control used a synthetic monotonic epoch; restore the real
                 # clock only for this fixture's normal Operation finalizer.
                 record["cancel_deadline"] = time.monotonic() + 5
-                operation.write_json(parent.path, record)
+                operation_lifetime.write_json(parent.path, record)
 
     def test_signal_during_popen_is_forwarded_after_exact_child_returns(self) -> None:
         child = MagicMock()
@@ -3804,7 +3806,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                 patch.dict(
                     os.environ, {"PSE_TEST_RESOURCE_STATE": str(base / "registry")}
                 ),
-                patch.object(operation, "scope_owner", return_value=own),
+                patch.object(operation_lifetime, "scope_owner", return_value=own),
                 patch.object(operation, "register_terminal_guard"),
                 patch.object(operation, "acknowledge_terminal_guard"),
                 operation.Operation(base) as parent,
@@ -3846,12 +3848,12 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             forged = Path(directory) / "arbitrary.json"
-            operation.write_json(
+            operation_lifetime.write_json(
                 forged,
                 {
-                    "version": operation.VERSION,
+                    "version": operation_lifetime.VERSION,
                     "pid": os.getpid(),
-                    "start": operation.start_identity(os.getpid()),
+                    "start": operation_lifetime.start_identity(os.getpid()),
                     "scope": None,
                     "admissions": {"capability:solver": {"inputs": {}}},
                     "generations": [],
@@ -3866,7 +3868,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                 "invocation": "b" * 32,
             }
             with (
-                patch.object(operation, "scope_owner", return_value=owner),
+                patch.object(operation_lifetime, "scope_owner", return_value=owner),
                 operation.Operation(Path(directory)),
             ):
                 operation.admit("capability:solver", {"inputs": {}})
@@ -3874,7 +3876,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                     operation.remembered("capability:solver"), {"inputs": {}}
                 )
             with (
-                patch.object(operation, "scope_owner", return_value=None),
+                patch.object(operation_lifetime, "scope_owner", return_value=None),
                 operation.Operation(Path(directory)),
             ):
                 self.assertIsNotNone(operation.owner_record())
@@ -3890,7 +3892,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
     ) -> None:
         with (
             tempfile.TemporaryDirectory() as directory,
-            patch.object(operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             operation.Operation(Path(directory)) as active,
         ):
             operation.admit(
@@ -3902,7 +3904,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                 [
                     sys.executable,
                     "-c",
-                    "from scripts import native_operation as n; import json; print(json.dumps({'admission':n.remembered('prefix:selected'),'scoped':n.current() is not None}))",
+                    "from scripts import native_operation as n; from scripts import operation_lifetime; import json; print(json.dumps({'admission':n.remembered('prefix:selected'),'scoped':n.current() is not None}))",
                 ],
                 cwd=cache.ROOT,
                 env=dict(os.environ),
@@ -3923,16 +3925,16 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
             )
             original = operation._record(active.path)  # noqa: SLF001 -- mutate the exact owner protocol to exercise identity refusal
             changed = {**original, "start": "different-process-start"}
-            operation.write_json(active.path, changed)
+            operation_lifetime.write_json(active.path, changed)
             self.assertIsNone(operation.remembered("prefix:selected"))
             foreign = subprocess.Popen(
                 [sys.executable, "-c", "import time; time.sleep(30)"]
             )
             try:
                 changed.update(
-                    pid=foreign.pid, start=operation.start_identity(foreign.pid)
+                    pid=foreign.pid, start=operation_lifetime.start_identity(foreign.pid)
                 )
-                operation.write_json(active.path, changed)
+                operation_lifetime.write_json(active.path, changed)
                 self.assertIsNone(
                     operation.owner_record(),
                     "a live sibling is not this process's admission owner",
@@ -3945,18 +3947,18 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                 operation.remembered("prefix:selected"),
                 "an ended owner cannot grant admission",
             )
-            operation.write_json(active.path, original)
+            operation_lifetime.write_json(active.path, original)
 
     def test_native_entry_rejects_forged_marker_and_preserves_arguments(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             forged = base / "arbitrary.json"
-            operation.write_json(
+            operation_lifetime.write_json(
                 forged,
                 {
-                    "version": operation.VERSION,
+                    "version": operation_lifetime.VERSION,
                     "pid": os.getpid(),
-                    "start": operation.start_identity(os.getpid()),
+                    "start": operation_lifetime.start_identity(os.getpid()),
                     "scope": None,
                     "admissions": {},
                     "generations": [],
@@ -3974,7 +3976,7 @@ n.write_json(base/'result.json',{'status':status,'parent_group':group,'handoffs'
                         "--",
                         str(cache.ROOT / ".venv/bin/python"),
                         "-c",
-                        'from scripts import native_operation as n; import sys,json; print(json.dumps({"record":str(n.owner_record()),"scope":n.scope_owner(),"args":sys.argv[1:]}))',
+                        'from scripts import native_operation as n; from scripts import operation_lifetime; import sys,json; print(json.dumps({"record":str(n.owner_record()),"scope":operation_lifetime.scope_owner(),"args":sys.argv[1:]}))',
                         "space ; literal",
                         "$literal",
                     ],
@@ -4020,9 +4022,9 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
-from scripts import native_operation as n
+from scripts import native_operation as n; from scripts import operation_lifetime
 base=Path(sys.argv[1]); p=n.current(); record=n._record(p)
-n.write_json(base/'worker-ready.json', {'scope':record['scope'],'operation':str(p),'original':(Path(sys.argv[2])/'lib/a').read_text()})
+operation_lifetime.write_json(base/'worker-ready.json', {'scope':record['scope'],'operation':str(p),'original':(Path(sys.argv[2])/'lib/a').read_text()})
 deadline=time.monotonic()+30
 while not (base/'stop').exists() and time.monotonic()<deadline: time.sleep(.02)
 """
@@ -4032,7 +4034,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
-from scripts import native_cache as c, native_operation as n, surreal_server as s, host_admission as h
+from scripts import native_cache as c, native_operation as n, operation_lifetime, surreal_server as s, host_admission as h
 base=Path(sys.argv[1]); state=base/'disposable-state'
 def builder(stage, work):
  (stage/'lib').mkdir(); (stage/'lib/a').write_text('original archive')
@@ -4041,7 +4043,7 @@ unit=s.worker_unit(state,0); owner=h.inherit(os.environ); assert owner is not No
 allocation={'native_worker_memory_bytes':256*1024**2}
 command=s.worker_scope_command(state,0,allocation,[sys.executable,'-c',sys.argv[2],str(base),str(generation)],capabilities=())
 worker=subprocess.Popen(command,env=s.worker_environment(state,0,allocation,handoff))
-n.write_json(base/'launcher-ready.json',{'scope':n.scope_owner(),'generation':str(generation),'handoff':str(handoff)})
+operation_lifetime.write_json(base/'launcher-ready.json',{'scope':operation_lifetime.scope_owner(),'generation':str(generation),'handoff':str(handoff)})
 while worker.poll() is None: time.sleep(.02)
 """
             log = (base / "fixture.log").open("w")
@@ -4086,7 +4088,7 @@ while worker.poll() is None: time.sleep(.02)
                 self.assertEqual(handoff["scope"], worker["scope"])
                 self.kill_scope(parent["scope"]["unit"])
                 process.wait(timeout=10)
-                self.assertTrue(operation.populated(worker["scope"]["group"]))
+                self.assertTrue(operation_lifetime.populated(worker["scope"]["group"]))
                 generation = Path(parent["generation"])
                 self.assertEqual(generation.stat().st_mode & 0o222, 0)
                 # Explicit privileged corruption exercises new admission. The
@@ -4099,11 +4101,11 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
-from scripts import native_cache as c, native_operation as n
+from scripts import native_cache as c, native_operation as n, operation_lifetime
 def builder(stage,work):
  (stage/'lib').mkdir(); (stage/'lib/a').write_text('original archive')
 generation=c.prepare(Path(sys.argv[1]),'fixture',{'id':1},('lib/a',),builder)
-print(json.dumps({'generation':str(generation),'scope':n.scope_owner()}))
+print(json.dumps({'generation':str(generation),'scope':operation_lifetime.scope_owner()}))
 """
                 environment = self.fixture_environment(base)
                 admitted = subprocess.run(
@@ -4161,9 +4163,9 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
-from scripts import native_operation as n
+from scripts import native_operation as n; from scripts import operation_lifetime
 base=Path(sys.argv[1]); descendant=subprocess.Popen([sys.executable,'-c',sys.argv[2]],start_new_session=True)
-record=n._record(n.current()); n.write_json(base/'cancel-ready.json',{'record':record,'descendant':descendant.pid,'group':n.process_group(descendant.pid)})
+record=n._record(n.current()); operation_lifetime.write_json(base/'cancel-ready.json',{'record':record,'descendant':descendant.pid,'group':operation_lifetime.process_group(descendant.pid)})
 time.sleep(30)
 """
             log = (base / "cancel.log").open("w")
@@ -4196,12 +4198,12 @@ time.sleep(30)
                 self.assert_fixture_scope(record["scope"])
                 self.assertEqual(observed["group"], record["scope"]["group"])
                 self.assertEqual(
-                    operation.process_group(record["pid"]), record["scope"]["group"]
+                    operation_lifetime.process_group(record["pid"]), record["scope"]["group"]
                 )
                 os.kill(record["pid"], signal.SIGTERM)
                 process.wait(timeout=15)
                 self.await_drain(record)
-                self.assertFalse(operation.populated(record["scope"]["group"]))
+                self.assertFalse(operation_lifetime.populated(record["scope"]["group"]))
                 self.assert_parent_scope_unchanged()
             finally:
                 if observed and observed["record"].get("scope"):
@@ -4223,15 +4225,15 @@ time.sleep(30)
             self.fixture_units.add(surreal_server.worker_unit(state, 0))
             runner = """import os,signal,sys,time
 from pathlib import Path
-from scripts import native_operation as n
+from scripts import native_operation as n; from scripts import operation_lifetime
 base=Path(sys.argv[1]); signal.signal(signal.SIGTERM,signal.SIG_IGN)
-n.write_json(base/'runner-ready.json',{'record':n._record(n.current()),'pid':os.getpid(),'session':os.getsid(0)})
+operation_lifetime.write_json(base/'runner-ready.json',{'record':n._record(n.current()),'pid':os.getpid(),'session':os.getsid(0)})
 time.sleep(30)
 """
             storage = """import os,sys,time
 from pathlib import Path
-from scripts import native_operation as n
-base=Path(sys.argv[1]); n.write_json(base/'storage-ready.json',{'record':n._record(n.current()),'pid':os.getpid()})
+from scripts import native_operation as n; from scripts import operation_lifetime
+base=Path(sys.argv[1]); operation_lifetime.write_json(base/'storage-ready.json',{'record':n._record(n.current()),'pid':os.getpid()})
 deadline=time.monotonic()+30
 while not (base/'stop').exists() and time.monotonic()<deadline: time.sleep(.02)
 """
@@ -4250,20 +4252,20 @@ def foreground(program, arguments):
             middle = (
                 """import os,sys,subprocess,uuid
 from pathlib import Path
-from scripts import native_operation as n,surreal_server as s,host_admission as h
+from scripts import native_operation as n; from scripts import operation_lifetime,surreal_server as s,host_admission as h
 base=Path(sys.argv[1]); state=base/'disposable-state'
 """
                 + foreground
                 + """
 child,handoff=foreground(sys.argv[2],[str(base)])
-n.write_json(base/'middle-ready.json',{'record':n._record(n.current()),'handoff':str(handoff),'pid':os.getpid()})
+operation_lifetime.write_json(base/'middle-ready.json',{'record':n._record(n.current()),'handoff':str(handoff),'pid':os.getpid()})
 child.wait()
 """
             )
             launcher = (
                 """import os,sys,subprocess,uuid
 from pathlib import Path
-from scripts import native_operation as n,surreal_server as s,host_admission as h
+from scripts import native_operation as n; from scripts import operation_lifetime,surreal_server as s,host_admission as h
 base=Path(sys.argv[1]); state=base/'disposable-state'
 """
                 + foreground
@@ -4273,7 +4275,7 @@ allocation={'native_worker_memory_bytes':64*1024**2}
 command=s.worker_scope_command(state,0,allocation,[sys.executable,'-c',sys.argv[4],str(base)],capabilities=())
 persistent=subprocess.Popen(command,env=s.worker_environment(state,0,allocation,durable))
 child,handoff=foreground(sys.argv[2],[str(base),sys.argv[3]])
-n.write_json(base/'launcher-ready.json',{'record':n._record(n.current()),'handoff':str(handoff),'durable':str(durable)})
+operation_lifetime.write_json(base/'launcher-ready.json',{'record':n._record(n.current()),'handoff':str(handoff),'durable':str(durable)})
 child.wait()
 """
             )
@@ -4339,11 +4341,11 @@ child.wait()
                     or process.read_text().rsplit(")", 1)[1].split()[0] == "Z"
                 )
                 self.assertTrue(
-                    operation.populated(persistent["record"]["scope"]["group"])
+                    operation_lifetime.populated(persistent["record"]["scope"]["group"])
                 )
                 self.assert_fixture_scope(persistent["record"]["scope"])
                 self.assertFalse(
-                    operation.drained(
+                    operation_lifetime.drained(
                         json.loads(Path(parent["durable"]).read_text())
                     ).complete
                 )
@@ -4401,15 +4403,15 @@ child.wait()
             self.fixture_units.add(surreal_server.worker_unit(state, 0))
             runner = """import os,signal,sys,time
 from pathlib import Path
-from scripts import native_operation as n
+from scripts import native_operation as n; from scripts import operation_lifetime
 base=Path(sys.argv[1]); signal.signal(signal.SIGTERM,signal.SIG_IGN)
-n.write_json(base/'production-runner.json',{'record':n._record(n.current()),'pid':os.getpid(),'session':os.getsid(0)})
+operation_lifetime.write_json(base/'production-runner.json',{'record':n._record(n.current()),'pid':os.getpid(),'session':os.getsid(0)})
 time.sleep(30)
 """
             storage = """import os,sys,time
 from pathlib import Path
-from scripts import native_operation as n
-base=Path(sys.argv[1]); n.write_json(base/'production-storage.json',{'record':n._record(n.current()),'pid':os.getpid()})
+from scripts import native_operation as n; from scripts import operation_lifetime
+base=Path(sys.argv[1]); operation_lifetime.write_json(base/'production-storage.json',{'record':n._record(n.current()),'pid':os.getpid()})
 deadline=time.monotonic()+30
 while not (base/'stop').exists() and time.monotonic()<deadline: time.sleep(.02)
 """
@@ -4429,16 +4431,16 @@ with patch.object(s,'ensure_execution_placement'),patch.object(s,'observer_scope
 """
             validator = """import os,sys,signal,subprocess
 from pathlib import Path
-from scripts import native_operation as n,surreal_server as s,host_admission as h,validation as v
+from scripts import native_operation as n; from scripts import operation_lifetime,surreal_server as s,host_admission as h,validation as v
 base=Path(sys.argv[1]); state=base/'state'; owner=h.inherit(os.environ)
 unit=s.worker_unit(state,0); owner.register(unit); durable=n.prepare_handoff(unit)
 allocation={'native_worker_memory_bytes':64*1024**2}
 command=s.worker_scope_command(state,0,allocation,[sys.executable,'-c',sys.argv[4],str(base)],capabilities=())
 persistent=subprocess.Popen(command,env=s.worker_environment(state,0,allocation,durable))
 signal.signal(signal.SIGTERM,v.interrupt)
-n.write_json(base/'production-validator.json',{'record':n._record(n.current()),'pid':os.getpid(),'durable':str(durable)})
+operation_lifetime.write_json(base/'production-validator.json',{'record':n._record(n.current()),'pid':os.getpid(),'durable':str(durable)})
 result=v.execute(Path.cwd(),base,'production-gate',[sys.executable,'-c',sys.argv[2],str(base),sys.argv[3]],dict(os.environ))
-n.write_json(base/'production-validation-complete.json',result)
+operation_lifetime.write_json(base/'production-validation-complete.json',result)
 sys.exit(128+v.RECEIVED_SIGNAL if result['status']=='interrupted' else result['exit_code'])
 """
             environment = self.fixture_environment(base)
@@ -4511,7 +4513,7 @@ sys.exit(128+v.RECEIVED_SIGNAL if result['status']=='interrupted' else result['e
                 self.await_drain(child)
                 self.assert_fixture_scope(persistent["record"]["scope"])
                 self.assertFalse(
-                    operation.drained(
+                    operation_lifetime.drained(
                         json.loads(Path(validation_owner["durable"]).read_text())
                     ).complete
                 )
@@ -4542,18 +4544,18 @@ sys.exit(128+v.RECEIVED_SIGNAL if result['status']=='interrupted' else result['e
             base = Path(directory)
             program = """import os,sys,subprocess,uuid
 from pathlib import Path
-from scripts import native_operation as n,surreal_server as s,host_admission as h
+from scripts import native_operation as n; from scripts import operation_lifetime,surreal_server as s,host_admission as h
 base=Path(sys.argv[1]); state=base/'state'; state.mkdir()
 unit='pse-native-'+uuid.uuid4().hex+'.scope'; owner=h.inherit(os.environ); owner.register(unit)
 handoff=n.prepare_handoff(unit,foreground=True); n.cancel_foreground_handoffs()
-assert not n.drained(n._record(handoff)).complete
+assert not operation_lifetime.drained(n._record(handoff)).complete
 allocation={'execution':{'cpu_threads':1,'observer_memory_bytes':128*1024**2}}
 payload="from pathlib import Path; import sys; Path(sys.argv[1]).touch()"
 command=s.observer_scope_command(state,allocation,unit,[sys.executable,'-c',payload,str(base/'payload-ran')])
 command[command.index('--capabilities')+1]=''
 env=s.systemd_environment(); env.pop(n.MARKER,None); env['PSE_NATIVE_HANDOFF']=str(handoff)
 status=subprocess.call(command,env=env)
-n.write_json(base/'pending-complete.json',{'status':status,'handoff':n._record(handoff),'parent':n._record(n.current())})
+operation_lifetime.write_json(base/'pending-complete.json',{'status':status,'handoff':n._record(handoff),'parent':n._record(n.current())})
 """
             environment = self.fixture_environment(base)
             command = self.fixture_command(
@@ -4600,61 +4602,61 @@ class DrainObservationTests(unittest.TestCase):
             "InvocationID": "a" * 32,
         }
         scenarios = [
-            (True, terminal, operation.DrainPhase.POPULATED, "descendants"),
-            (False, terminal, operation.DrainPhase.COMPLETE, "terminal"),
+            (True, terminal, operation_lifetime.DrainPhase.POPULATED, "descendants"),
+            (False, terminal, operation_lifetime.DrainPhase.COMPLETE, "terminal"),
             (
                 False,
                 {**terminal, "ActiveState": "active"},
-                operation.DrainPhase.ACTIVE,
+                operation_lifetime.DrainPhase.ACTIVE,
                 "not terminal",
             ),
             (
                 False,
                 {**terminal, "InvocationID": "b" * 32},
-                operation.DrainPhase.MISMATCH,
+                operation_lifetime.DrainPhase.MISMATCH,
                 "identity",
             ),
             (
                 False,
                 PermissionError("manager inaccessible"),
-                operation.DrainPhase.UNAVAILABLE,
+                operation_lifetime.DrainPhase.UNAVAILABLE,
                 "manager inaccessible",
             ),
         ]
         for population, observed, phase, cause in scenarios:
             observation = (
-                patch.object(operation, "unit_observation", side_effect=observed)
+                patch.object(operation_lifetime, "unit_observation", side_effect=observed)
                 if isinstance(observed, Exception)
-                else patch.object(operation, "unit_observation", return_value=observed)
+                else patch.object(operation_lifetime, "unit_observation", return_value=observed)
             )
             with (
                 self.subTest(phase=phase),
-                patch.object(operation, "populated", return_value=population),
+                patch.object(operation_lifetime, "populated", return_value=population),
                 observation,
             ):
-                result = operation.drained({"scope": owner})
+                result = operation_lifetime.drained({"scope": owner})
                 self.assertEqual(result.owner, owner)
                 self.assertEqual(result.phase, phase)
                 self.assertIn(cause, result.cause)
                 self.assertEqual(
-                    result.complete, phase is operation.DrainPhase.COMPLETE
+                    result.complete, phase is operation_lifetime.DrainPhase.COMPLETE
                 )
                 with self.assertRaises(TypeError):
                     bool(result)
-        result = operation.drained({"scope": None})
-        self.assertEqual(result.phase, operation.DrainPhase.UNAVAILABLE)
+        result = operation_lifetime.drained({"scope": None})
+        self.assertEqual(result.phase, operation_lifetime.DrainPhase.UNAVAILABLE)
         self.assertIn("missing scope", result.cause)
 
     def test_unit_absence_does_not_complete_repopulated_group(self) -> None:
         owner = {"unit": "owned.scope", "group": "/owned", "invocation": "a" * 32}
         with (
-            patch.object(operation, "populated", side_effect=[False, True]),
+            patch.object(operation_lifetime, "populated", side_effect=[False, True]),
             patch.object(
-                operation, "unit_observation", return_value={"LoadState": "not-found"}
+                operation_lifetime, "unit_observation", return_value={"LoadState": "not-found"}
             ),
         ):
-            result = operation.drained({"scope": owner})
-        self.assertEqual(result.phase, operation.DrainPhase.POPULATED)
+            result = operation_lifetime.drained({"scope": owner})
+        self.assertEqual(result.phase, operation_lifetime.DrainPhase.POPULATED)
         self.assertFalse(result.complete)
 
 
@@ -4708,9 +4710,9 @@ class ManagerObservationTests(unittest.TestCase):
     def test_unit_properties_validate_structure_and_preserve_absence(self) -> None:
         properties = "InvocationID=abc\nControlGroup=/owned\nLoadState=loaded\nActiveState=active\n"
         with patch.object(
-            operation, "manager_observation", return_value=properties
+            operation_lifetime, "manager_observation", return_value=properties
         ) as query:
-            observed = operation.unit_observation("pse-owned.scope")
+            observed = operation_lifetime.unit_observation("pse-owned.scope")
         self.assertEqual(observed["InvocationID"], "abc")
         self.assertEqual(query.call_args.args[-1], "pse-owned.scope")
         for invalid in (
@@ -4721,16 +4723,16 @@ class ManagerObservationTests(unittest.TestCase):
         ):
             with (
                 self.subTest(invalid=invalid),
-                patch.object(operation, "manager_observation", return_value=invalid),
+                patch.object(operation_lifetime, "manager_observation", return_value=invalid),
                 self.assertRaises(ValueError),
             ):
-                operation.unit_observation("pse-owned.scope")
+                operation_lifetime.unit_observation("pse-owned.scope")
         absent = (
             "InvocationID=\nControlGroup=\nLoadState=not-found\nActiveState=inactive\n"
         )
-        with patch.object(operation, "manager_observation", return_value=absent):
+        with patch.object(operation_lifetime, "manager_observation", return_value=absent):
             self.assertEqual(
-                operation.unit_observation("pse-gone.scope")["LoadState"], "not-found"
+                operation_lifetime.unit_observation("pse-gone.scope")["LoadState"], "not-found"
             )
 
     def test_manager_failure_reports_bounded_stderr_and_selected_endpoint(self) -> None:
@@ -4749,7 +4751,7 @@ class ManagerObservationTests(unittest.TestCase):
             with (
                 self.subTest(failure=failure),
                 patch.object(
-                    operation, "manager_control_environment", return_value=endpoint
+                    operation_lifetime, "manager_control_environment", return_value=endpoint
                 ),
                 patch.object(
                     operation.subprocess,
@@ -4759,7 +4761,7 @@ class ManagerObservationTests(unittest.TestCase):
                 ),
                 self.assertRaises((ValueError, subprocess.TimeoutExpired)) as refused,
             ):
-                operation.unit_observation("pse-owned.scope")
+                operation_lifetime.unit_observation("pse-owned.scope")
             message = str(refused.exception)
             self.assertIn("/selected/runtime", message)
             self.assertIn("/selected/bus", message)
@@ -4776,9 +4778,9 @@ class ManagerObservationTests(unittest.TestCase):
         with (
             patch.object(operation.time, "monotonic", side_effect=[100.0, 101.0]),
             patch.object(operation.subprocess, "run", side_effect=failure) as query,
-            self.assertRaises(operation.DeadlineExpiredError),
+            self.assertRaises(operation_lifetime.DeadlineExpiredError),
         ):
-            operation.unit_observation("pse-owned.scope", deadline=100.5)
+            operation_lifetime.unit_observation("pse-owned.scope", deadline=100.5)
         self.assertEqual(query.call_args.kwargs["timeout"], 0.5)
 
 

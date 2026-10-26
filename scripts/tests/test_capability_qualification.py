@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+
 import asyncio
 import io
 import json
@@ -19,6 +20,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.tools import FunctionTool
 from pydantic import ValidationError
 
+from scripts import service_borrowers
 from scripts import assessment_store, test_resources, validation_result
 from scripts.capabilities import process
 from scripts.capabilities import qualification as subject
@@ -166,7 +168,7 @@ class QualificationSelectionTests(unittest.TestCase):
                 patch.object(worker.validation, "fresh_output", side_effect=fresh),
                 patch.object(worker.validation, "run_gates", side_effect=run),
                 patch.object(
-                    test_resources, "registry", return_value=root / "registry"
+                    service_borrowers, "registry", return_value=root / "registry"
                 ),
                 patch.object(
                     assessment_store, "detail", wraps=assessment_store.detail
@@ -214,7 +216,7 @@ class QualificationSelectionTests(unittest.TestCase):
             self.assertEqual(set(source_cut), {"sha256"})
             self.assertTrue(reader["source_detail"])
             with patch.object(
-                test_resources, "registry", return_value=root / "registry"
+                service_borrowers, "registry", return_value=root / "registry"
             ):
                 selected = validation_result.read_assessment(
                     output, gate="compilation-check"

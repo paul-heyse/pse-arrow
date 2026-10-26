@@ -5,6 +5,7 @@
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
 
+
 import hashlib
 import os
 import tempfile
@@ -14,6 +15,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import resource_conversion as conversion
 from scripts import resource_store as files
 from scripts import test_requirements, test_resources
@@ -264,11 +267,11 @@ class ResourceConversionTests(unittest.TestCase):
                 conversion.host, "inherit", return_value=SimpleNamespace(nonce="nonce")
             ),
             patch.object(
-                conversion.operation,
+                operation_lifetime,
                 "process_group",
                 side_effect=lambda pid: "/self/child" if pid == 123 else "/self",
             ),
-            patch.object(conversion.operation, "start_identity", return_value="456"),
+            patch.object(operation_lifetime, "start_identity", return_value="456"),
         ):
             with self.assertRaisesRegex(
                 files.StoreError, "Other live conversion scope member pid=123"
@@ -314,7 +317,7 @@ class ResourceConversionTests(unittest.TestCase):
         self.state["producer"] = {
             "pid": os.getpid(),
             "boot": conversion.host.boot(),
-            "start": conversion.operation.start_identity(os.getpid()),
+            "start": operation_lifetime.start_identity(os.getpid()),
         }
         files.publish(
             self.root / "invocation-state" / (self.nonce + ".json"), self.state
@@ -433,10 +436,10 @@ class ResourceConversionTests(unittest.TestCase):
                 files.read(self.root / "resources" / (resource + ".json"))["version"], 2
             )
         with (
-            patch.object(test_resources, "registry", return_value=self.root),
+            patch.object(service_borrowers, "registry", return_value=self.root),
             self.assertRaisesRegex(files.StoreError, "unresolved"),
         ):
-            test_resources.service_resources(service)
+            service_borrowers.service_resources(service)
 
 
 class ProcessCohortTests(unittest.TestCase):

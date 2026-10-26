@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+
 import json
 import os
 import signal
@@ -13,6 +14,8 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from scripts import operation_lifetime
+from scripts import service_borrowers
 from scripts import arrow_validation, validation, validation_receipts
 from scripts import test_resources as resources
 
@@ -194,7 +197,7 @@ def execute_selected(
     the workload exit; a missing or partial report cannot manufacture a Pass.
     """
     print(
-        f"Product result: just result {path} --kind product-test --registry {resources.registry()}",
+        f"Product result: just result {path} --kind product-test --registry {service_borrowers.registry()}",
         flush=True,
     )
     started = time.time()
@@ -290,7 +293,7 @@ def execute_selected(
         else:
             run = (
                 native_operation.run_child_scope
-                if native_operation.scope_owner() is not None
+                if operation_lifetime.scope_owner() is not None
                 else native_operation.run
             )
             code = run(list(command), dict(environment), cwd=ROOT, observation=process)

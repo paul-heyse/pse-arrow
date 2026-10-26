@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
+from scripts import operation_lifetime
 from scripts import surreal_server as server
 from scripts import surrealkit_maintenance as tool
 from scripts import surrealkit_source
@@ -635,13 +636,13 @@ class MaintenanceTests(unittest.TestCase):
             {"reason": "timeout", "native_record": native_record},
         )
         self.calls.clear()
-        unresolved = tool.native_operation.DrainObservation(
+        unresolved = tool.operation_lifetime.DrainObservation(
             native_record["scope"],
-            tool.native_operation.DrainPhase.POPULATED,
+            tool.operation_lifetime.DrainPhase.POPULATED,
             "still live",
         )
         with (
-            patch.object(tool.native_operation, "drained", return_value=unresolved),
+            patch.object(operation_lifetime, "drained", return_value=unresolved),
             self.assertRaisesRegex(tool.MaintenanceError, "still live"),
         ):
             tool.execute(
@@ -653,13 +654,13 @@ class MaintenanceTests(unittest.TestCase):
             )
         self.assertNotIn("listener", self.calls)
         self.native_drain = "complete"
-        complete = tool.native_operation.DrainObservation(
+        complete = tool.operation_lifetime.DrainObservation(
             native_record["scope"],
-            tool.native_operation.DrainPhase.COMPLETE,
+            tool.operation_lifetime.DrainPhase.COMPLETE,
             "owned scope drained",
         )
         with patch.object(
-            tool.native_operation, "drained", return_value=complete
+            operation_lifetime, "drained", return_value=complete
         ) as observed:
             result = tool.execute(
                 self.binary,
@@ -1213,7 +1214,7 @@ class OwnedChildTests(unittest.TestCase):
                     server, "require_maintenance_owner", side_effect=authority
                 ),
                 patch.object(
-                    tool.native_operation, "scope_owner", return_value={"unit": "owned"}
+                    operation_lifetime, "scope_owner", return_value={"unit": "owned"}
                 ),
                 patch.object(
                     tool.native_operation, "current", return_value=native_record
@@ -1324,7 +1325,7 @@ class OwnedChildTests(unittest.TestCase):
                         server, "require_maintenance_owner", return_value=None
                     ),
                     patch.object(
-                        tool.native_operation,
+                        operation_lifetime,
                         "scope_owner",
                         return_value={"unit": "owned"},
                     ),
@@ -1346,7 +1347,7 @@ class OwnedChildTests(unittest.TestCase):
 
     def test_direct_internal_entry_without_native_admission_refuses_spawn(self) -> None:
         with (
-            patch.object(tool.native_operation, "scope_owner", return_value=None),
+            patch.object(operation_lifetime, "scope_owner", return_value=None),
             patch.object(tool.subprocess, "Popen") as spawn,
             self.assertRaisesRegex(tool.MaintenanceError, "admitted native scope"),
         ):

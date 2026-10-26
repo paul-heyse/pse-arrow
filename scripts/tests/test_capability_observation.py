@@ -5,6 +5,7 @@
 # ruff: noqa: PT009, PT027 -- stdlib endpoint controls
 from __future__ import annotations
 
+
 import asyncio
 import contextlib
 import hashlib
@@ -24,6 +25,7 @@ from fastmcp.server.transforms import PromptsAsTools, ResourcesAsTools
 from fastmcp.tools import ToolResult
 from mcp.types import CallToolResult, TextContent, TextResourceContents
 
+from scripts import service_borrowers
 from scripts import (
     activity_watch,
     evidence_detail,
@@ -211,7 +213,7 @@ class ObservationTests(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             registry = Path(directory) / "registry"
-            with patch.object(test_resources, "registry", return_value=registry):
+            with patch.object(service_borrowers, "registry", return_value=registry):
                 invocation = test_resources.invocation(
                     "python", [{"name": "suite::one"}, {"name": "suite::two"}]
                 )
@@ -283,7 +285,7 @@ class ObservationTests(unittest.IsolatedAsyncioTestCase):
                         self.assertEqual(detached[0]["native_reference_count"], 0)
                         # An independent native owner settles partial results later.
                         with patch.object(
-                            test_resources, "registry", return_value=registry
+                            service_borrowers, "registry", return_value=registry
                         ):
                             test_run.finish(
                                 invocation,

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+
 import contextlib
 import hashlib
 import os
@@ -11,6 +12,7 @@ import stat
 from collections import Counter
 from pathlib import Path
 
+from scripts import service_borrowers
 from scripts import resource_store, test_resources
 
 
@@ -18,7 +20,7 @@ def resolve(
     handle: str, registry: Path | None = None
 ) -> tuple[Path, test_resources.InvocationRecord, dict]:
     """An exact ID uses the selected registry; a declaration must belong to it."""
-    root = registry if registry is not None else test_resources.registry()
+    root = registry if registry is not None else service_borrowers.registry()
     if (
         not root.is_absolute()
         or ".." in root.parts

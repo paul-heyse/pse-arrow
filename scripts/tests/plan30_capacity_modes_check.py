@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, cast
 if TYPE_CHECKING:
     from typing import TextIO
 
+from scripts import operation_lifetime
 from scripts import host_admission as host
 from scripts import native_operation as operation
 from scripts.tests import plan30_placement_check as placement
@@ -44,7 +45,7 @@ class CapacityModesTests(unittest.TestCase):
                     child.wait(timeout=5)
             for receipt in receipts:
                 deadline = time.monotonic() + 15
-                while operation.populated(receipt["group"]):
+                while operation_lifetime.populated(receipt["group"]):
                     if time.monotonic() >= deadline:
                         self.fail("owned harmless control failed to drain")
                     time.sleep(0.05)
@@ -115,7 +116,7 @@ class CapacityModesTests(unittest.TestCase):
             )
             assert nested["nonce"] == receipt["nonce"]
             assert nested["deadline"] == receipt["deadline"]
-            assert operation.populated(receipt["group"])
+            assert operation_lifetime.populated(receipt["group"])
         assert set(wide["affinity_cpus"]).isdisjoint(timing["affinity_cpus"])
         environment = dict(os.environ)
         for key in (
@@ -146,7 +147,7 @@ class CapacityModesTests(unittest.TestCase):
         assert refused.returncode == 125
         assert "exclusive" in refused.stderr
         assert time.monotonic() - started >= host.policy()["admission_seconds"] - 0.5
-        operation.write_json(
+        operation_lifetime.write_json(
             directory / "result.json",
             {
                 "result": "passed",
