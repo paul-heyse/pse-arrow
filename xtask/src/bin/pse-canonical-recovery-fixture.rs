@@ -13,7 +13,9 @@ use std::{
     path::PathBuf,
 };
 
-use anyhow::{Context, Result, ensure};
+#[cfg(feature = "package-fixtures")]
+use anyhow::Context;
+use anyhow::Result;
 use clap::Parser;
 
 #[path = "../canonical_recovery.rs"]
@@ -45,7 +47,7 @@ struct Cli {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     #[cfg(not(feature = "package-fixtures"))]
-    ensure!(
+    anyhow::ensure!(
         !cli.seed_signal_results,
         "signal fixture requires package-fixtures and force-validate"
     );

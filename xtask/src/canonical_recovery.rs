@@ -4,7 +4,10 @@
 //! Native-client controls for the supervisor's offline recovery journey.
 
 use anyhow::{Context, Result, ensure};
-use pse_model::generated::runtime::canonical_products::Row as Product;
+use pse_model::generated::{
+    enums::CanonicalProducerClass,
+    runtime::canonical_products::Row as Product,
+};
 use pse_operations::{
     canonical::{CanonicalOptions, CanonicalStore, ObjectEdit, ObjectVersion},
     canonical_selection::SelectedRead,
@@ -349,6 +352,7 @@ async fn read_product(
             read.selection(),
             b"exact-recovery-result",
             "recovery-control.v1",
+            CanonicalProducerClass::General,
             &after,
         )
         .await?
@@ -461,6 +465,7 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
                     payload: 2.0f64.to_bits().to_be_bytes().to_vec().into(),
                     dependencies: Vec::new().into(),
                     producer: "recovery-control.v1".into(),
+                    producer_class: CanonicalProducerClass::General,
                     interpretation: INTERPRETATION.into(),
                 },
             )
@@ -597,6 +602,7 @@ pub(crate) async fn run(state: &Path, seed: bool) -> Result<()> {
     reason = "explicit control asserts only its own partial observation closure"
 )]
 pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Value> {
+    use pse_model::generated::enums::{CanonicalPayloadPlacement, CanonicalRunPurpose};
     use pse_operations::canonical_execution::{
         AdmittedSealedResultFile, ResultPayload, RunRequest, SeedEligibility, TerminalClass,
         result_batch_key, result_payload_digest, result_set_key,
@@ -617,7 +623,10 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
         .await?;
     store
         .begin_run(&RunRequest {
-            key: run.clone(),
+            key: run.clone().into(),
+            purpose: CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             revision,
             sources: vec![],
             request: b"explicit-two-file-signal-control-v1".to_vec(),
@@ -757,7 +766,9 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
             && descriptors
                 .iter()
                 .zip(&files)
-                .all(|(batch, file)| &batch.file_instance == file),
+                .all(|(batch, file)| batch.placement == CanonicalPayloadPlacement::Sealed
+                    && batch.inline_key.is_none()
+                    && batch.file_instance.as_deref() == Some(file.as_str())),
         "signal control did not seal two actual file instances"
     );
     ensure!(
@@ -769,7 +780,7 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
                 && batch.attempt == fence.attempt()
                 && batch.result_set == set
                 && batch.ordinal == block.ordinal
-                && batch.file_batch_index == 0
+                && batch.payload_index == 0
                 && batch.digest == block.payload_digest
                 && block.statistics.is_some()),
         "signal control joined page differs from exact admitted batch identities or statistics"

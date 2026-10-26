@@ -642,7 +642,7 @@ def journey(
                 inspected = server.inspect_backup(
                     directory / "backup",
                     server.SUBSTRATE_INTERPRETATION,
-                    binary.resolve(),
+                    physical_helper.resolve(),
                 )
                 if inspected.get("complete") is not True:
                     raise server.SupervisorError(
@@ -663,7 +663,7 @@ def journey(
                     directory / "backup" / "backup.json", incomplete / "backup.json"
                 )
                 refused = server.inspect_backup(
-                    incomplete, server.SUBSTRATE_INTERPRETATION, binary.resolve()
+                    incomplete, server.SUBSTRATE_INTERPRETATION, physical_helper.resolve()
                 )
                 if refused.get("complete") is not False:
                     raise server.SupervisorError(
