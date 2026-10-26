@@ -314,8 +314,12 @@ def test_solve_settings_backend_projection(
         idas=idas,
         diffsol=diffsol,
     )
-    assert simulation.idas == idas
-    assert simulation.diffsol == diffsol
+    assert simulation.idas == msgspec.json.decode(
+        msgspec.json.encode(idas), type=documents.IdasSettingsOutput
+    )
+    assert simulation.diffsol == msgspec.json.decode(
+        msgspec.json.encode(diffsol), type=documents.DiffsolSettingsOutput
+    )
     assert (
         simulation.document.controls.idas.sensitivity is SensitivityCorrector.STAGGERED
     )
@@ -332,7 +336,9 @@ def test_solve_settings_backend_projection(
         sensitivity=DynamicSensitivity.ADJOINT,
         adjoint=adjoint,
     )
-    assert gradient.adjoint == adjoint
+    assert gradient.adjoint == msgspec.json.decode(
+        msgspec.json.encode(adjoint), type=documents.AdjointSettingsOutput
+    )
     assert gradient.document.controls.sensitivity is DynamicSensitivity.ADJOINT
     # Native ingress revalidates records and requires their actual generated class.
     with pytest.raises(TypeError, match="DiffsolSettings"):
@@ -551,7 +557,7 @@ def test_route_and_eligibility_are_typed(
             stage_batch(runtime, [()]),
         )
     diagnostic = refused.value.report.envelope
-    assert isinstance(diagnostic, documents.BoundaryDiagnostic)
+    assert isinstance(diagnostic, documents.BoundaryDiagnosticOutput)
     assert diagnostic.code == DiagnosticCode.NATIVE_ROUTE_REFUSED
     assert diagnostic.rule == DiagnosticRule.NATIVE_ROUTE_REFUSED
     assert any(

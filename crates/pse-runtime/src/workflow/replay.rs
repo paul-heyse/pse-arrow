@@ -2445,7 +2445,7 @@ mod tests {
             .unwrap();
         let replay = stopped.replay();
         let document = replay.document_with_limit(128 << 20).unwrap();
-        assert_eq!(serde_json::to_value(&document).unwrap()["version"], 4);
+        assert_eq!(serde_json::to_value(&document).unwrap()["version"], 5);
         assert!(document.continue_independent);
         assert!(
             document.native_attempts.is_empty(),

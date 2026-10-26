@@ -123,7 +123,7 @@ def _physical_cache_usage(runtime: pse.Runtime) -> tuple[int, int]:
 
 @pytest.mark.component
 def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
-    local_inspection_settings: pse.EngineSettings,
+    inspection_settings: pse.EngineSettings,
     tmp_path: Path,
     admitted_study_module: str,
     no_canonical_allocation: None,
@@ -163,9 +163,14 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
         path.chmod(0o600)
 
     publish()
+    # Construction shares the process resource budget with other runtime handles;
+    # changing that budget would refuse before either canonical boundary is reached.
     with pytest.raises(pse.InspectionError) as mismatch:
-        pse.Runtime(local_inspection_settings, substrate=str(state))
-    assert mismatch.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE
+        pse.Runtime(inspection_settings, substrate=str(state))
+    assert mismatch.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE, (
+        mismatch.value.report.message
+    )
+    assert mismatch.value.report.failure_class == FailureClass.RUNTIME_INFRASTRUCTURE
     interpretation_detail = mismatch.value.report.observations["detail"]
     assert isinstance(interpretation_detail, ObservationText)
     assert "unsupported-fixture-interpretation" in interpretation_detail.value
@@ -189,9 +194,11 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
             # Consume the production constructor's original clock, without a test-only
             # timeout override or an invented shorter healthy-command deadline.
             with pytest.raises(pse.InspectionError) as timeout:
-                pse.Runtime(local_inspection_settings, substrate=str(state))
+                pse.Runtime(inspection_settings, substrate=str(state))
             assert accepted.is_set()
-            assert timeout.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE
+            assert timeout.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE, (
+                timeout.value.report.message
+            )
             assert (
                 timeout.value.report.failure_class
                 == FailureClass.RUNTIME_INFRASTRUCTURE

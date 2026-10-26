@@ -28,6 +28,8 @@ from pse.contracts.enums import (
     CandidateQualifier,
     CandidateRefusal,
     CandidateUse,
+    CanonicalAttemptPhase,
+    CanonicalTerminalOutcome,
     IncumbentPolicy,
     ModelingAnalysisRoute,
     Namespace,
@@ -332,13 +334,14 @@ def test_explicit_primal_seed_and_transactional_initialization(
     seed = explicit.available_start()
     assert seed is not None
     snapshot = seed.snapshot()
-    assert isinstance(snapshot.payload, documents.WarmPayloadSnapshotRoot)
+    assert isinstance(snapshot, documents.WarmStartSnapshotOutput)
+    assert isinstance(snapshot.payload, documents.WarmPayloadSnapshotOutputRoot)
     assert isinstance(snapshot.payload.primal[0], documents.ObservationReal)
     assert snapshot.payload.primal[0].value == pytest.approx(
         2.0, rel=settings.numerics.engineering_relative_fraction, abs=0.0
     )
-    assert snapshot.origin is not None
-    assert snapshot.origin.run == explicit.run_id.to_hex()
+    assert isinstance(snapshot.origin, documents.SeedOriginOutput)
+    assert snapshot.origin.run == explicit.run_id
     result = package.prepare_block_initialization(
         case,
         pse.SolveSettings(
@@ -1011,9 +1014,10 @@ def test_completion_projection_and_canonical_admission(
     ).to_pylist()
     assert listed["key"] == result.canonical_attempt_key
     assert listed["run"] == result.canonical_run_key
-    assert listed["terminal"]
-    assert listed["outcome"] == "succeeded"
+    assert listed["phase"] == CanonicalAttemptPhase.TERMINAL.value
+    assert listed["outcome"] == CanonicalTerminalOutcome.SUCCEEDED.value
     completion = result.completion
+    assert isinstance(completion, documents.CompletionOutput)
     assert completion == result.completion
     converter = codec.converter()
     solves = (
@@ -1136,7 +1140,7 @@ def test_durable_limited_native_incumbent_is_feasible_and_nonoptimal(
         durable_runtime.attempt_record(result.canonical_attempt_key)
     ).to_pylist()
     assert stored["key"] == result.canonical_attempt_key
-    assert stored["terminal"]
+    assert stored["phase"] == CanonicalAttemptPhase.TERMINAL.value
     (solve,) = result.completion.solves
     assert solve.backend == NativeBackend.SCIP
     assert solve.termination == NativeTermination.SOLUTION_LIMIT
@@ -1176,13 +1180,13 @@ def test_durable_limited_native_incumbent_is_feasible_and_nonoptimal(
         assert assessment.usability == CandidateUse.USABLE
         assert assessment.permits_result
         assert CandidateQualifier.ACCEPTED_INCUMBENT_FEASIBLE in assessment.qualifiers
-        assert stored["outcome"] == "succeeded"
+        assert stored["outcome"] == CanonicalTerminalOutcome.SUCCEEDED.value
     else:
         assert not result.usable
         assert assessment.usability == CandidateUse.SEED_ONLY
         assert not assessment.permits_result
         assert CandidateRefusal.INCUMBENT_REFUSED in assessment.refusals
-        assert stored["outcome"] == "failed"
+        assert stored["outcome"] == CanonicalTerminalOutcome.FAILED.value
     assert assessment.permits_seed
     variables = pa.table(result.table("runtime.solve_variables")).to_pylist()
     candidates = [row for row in variables if not row["parameter"]]
@@ -1225,8 +1229,8 @@ def test_durable_native_memory_stop_keeps_unavailable_feasibility(
         durable_runtime.attempt_record(result.canonical_attempt_key)
     ).to_pylist()
     assert stored["key"] == result.canonical_attempt_key
-    assert stored["terminal"]
-    assert stored["outcome"] == "failed"
+    assert stored["phase"] == CanonicalAttemptPhase.TERMINAL.value
+    assert stored["outcome"] == CanonicalTerminalOutcome.FAILED.value
     (persisted,) = pa.table(
         durable_runtime.results(
             result.canonical_run_key, result.canonical_attempt_key, "runtime.solve_runs"

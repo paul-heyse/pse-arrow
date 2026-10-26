@@ -270,7 +270,7 @@ def test_owned_flow_document_is_a_shape_not_native_domain_admission() -> None:
 @pytest.mark.unit
 def test_profile_document_retains_worker_failure_and_absent_scientific_bound() -> None:
     document = codec.decode_json(
-        b'{"document_version":1,"status":"available","chains":[{"worker_failure":{"kind":"sched'
+        b'{"document_version":1,"status":"available","chains":[{"qualifiers":[],"worker_failure":{"kind":"sched'
         b'uling","detail":"pool unavailable"},"scheduling_failures":[],"ac'
         b'tual_parallelism":0,"parameter":"0707070707070707070707070707070'
         b'7","end":"lower","estimate":2.0,"bound":{"value":null,"outcome":'

@@ -359,31 +359,6 @@ def _ipc_round_trip(schema: pa.Schema) -> pa.Schema:
 
 
 @pytest.fixture(scope="session")
-def local_inspection_settings(
-    tmp_path_factory: pytest.TempPathFactory,
-) -> EngineSettings:
-    """Bound local constructor/metadata controls by the current observer role."""
-    memory = host_admission.execution("functional")["observer_memory_bytes"]
-    return EngineSettings(
-        memory_limit_bytes=memory,
-        threads=host_admission.settings("functional")["compiler_cores"],
-        target_partitions=1,
-        spill_dir=str(tmp_path_factory.mktemp("local-inspection-spill")),
-        max_spill_bytes=memory // 4,
-        batch_size=7,
-        math_workspace_bytes=memory // 4,
-        math_worker_bytes=memory // 8,
-        math_artifact_bytes=memory // 16,
-        cache=CacheSettings(
-            working_bytes=memory // 16,
-            concurrent_loads=1,
-            inflight_bytes=memory // 64,
-            inspection_bytes=memory // 128,
-        ),
-    )
-
-
-@pytest.fixture(scope="session")
 def inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSettings:
     """Immutable settings for the process-owned deployment resource service."""
     return EngineSettings(

@@ -1884,6 +1884,8 @@ async fn compact_horizon_post_science_pressure_moves_original_completion_on_refu
     let runtime = crate::workflow::durable_tests::durable_runtime_on(horizon_runtime());
     #[cfg(not(feature = "canonical-tests"))]
     let runtime = horizon_runtime();
+    let activity = runtime.admit_activity().unwrap();
+    activity.scope(async {
     let (package, [root, whole, _]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&runtime.preparation_services(), &package, whole, 0., 2).await;
     let output = crate::workflow::StudyOutputDemand::Compact {
@@ -1909,8 +1911,16 @@ async fn compact_horizon_post_science_pressure_moves_original_completion_on_refu
     .await;
     execution.refuse_next_export();
     let outcome = execution.run().await;
+    let expected = match execution.before_export_refusal().cloned() {
+        Some(expected) => expected,
+        None => {
+            let original_outcome = format!("{outcome:?}");
+            let result = execution.finish(outcome, false).await;
+            let source_close = admitted.close_sources().await;
+            panic!("horizon exited before the export-pressure hook: outcome={original_outcome}; final_report={:?}; source_close={source_close:?}", result.report());
+        }
+    };
     assert!(outcome.is_err());
-    let expected = execution.before_export_refusal().unwrap().clone();
     assert_eq!(
         serde_json::to_value(execution.completion()).unwrap(),
         expected
@@ -1973,148 +1983,160 @@ async fn compact_horizon_post_science_pressure_moves_original_completion_on_refu
     #[cfg(not(feature = "canonical-tests"))]
     let _ = keys;
     admitted.close_sources().await.unwrap();
+    }).await;
 }
 
 #[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn compact_horizon_cancel_before_first_solve_closes_exact_empty_summary_membership() {
     let runtime = crate::workflow::durable_tests::durable_runtime_on(horizon_runtime());
-    let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&runtime.preparation_services(), &package, whole, 0., 2).await;
-    let output = crate::workflow::StudyOutputDemand::Compact {
-        detail: Default::default(),
-        failed_detail: Default::default(),
-    };
-    let (mut execution, admitted, keys) = owned_loop(
-        &runtime,
-        Horizon {
-            output,
-            plant,
-            period: PERIOD,
-            steps: 2,
-            inputs: vec![HorizonInput {
-                parameter: actuator,
-                initial: 0.,
-            }],
-            estimator: None,
-            controller: Some(controller(&package, root, x, vec![1.; 2])),
-        },
-        true,
-    )
-    .await;
-    execution.cancel_before_first_step();
-    let outcome = execution.run().await;
-    assert!(outcome.is_err() && execution.completion().solves.is_empty());
-    let result = execution.finish(outcome, true).await;
-    admitted.close_sources().await.unwrap();
-    let tables = result.tables().unwrap();
-    let findings = pse_relations::generated::runtime::modeling_findings::RELATION_ID;
-    for id in prefix::summary_ids() {
-        assert!(tables.contains_key(&id), "missing {id}");
-        if id != findings {
-            assert_eq!(tables[&id].batch().num_rows(), 0);
-            let mut cursor = result
-                .cursor_by_id(id, 1, crate::workflow::ResultOrder::Canonical)
-                .unwrap();
-            while let Some(batch) = cursor.next_batch().await.unwrap() {
-                assert_eq!(batch.batch().num_rows(), 0);
+    let activity = runtime.admit_activity().unwrap();
+    activity
+        .scope(async {
+            let (package, [root, whole, _]) = package(runtime.clone()).await;
+            let (plant, actuator, x) =
+                plant(&runtime.preparation_services(), &package, whole, 0., 2).await;
+            let output = crate::workflow::StudyOutputDemand::Compact {
+                detail: Default::default(),
+                failed_detail: Default::default(),
+            };
+            let (mut execution, admitted, keys) = owned_loop(
+                &runtime,
+                Horizon {
+                    output,
+                    plant,
+                    period: PERIOD,
+                    steps: 2,
+                    inputs: vec![HorizonInput {
+                        parameter: actuator,
+                        initial: 0.,
+                    }],
+                    estimator: None,
+                    controller: Some(controller(&package, root, x, vec![1.; 2])),
+                },
+                true,
+            )
+            .await;
+            execution.cancel_before_first_step();
+            let outcome = execution.run().await;
+            assert!(outcome.is_err() && execution.completion().solves.is_empty());
+            let result = execution.finish(outcome, true).await;
+            admitted.close_sources().await.unwrap();
+            let tables = result.tables().unwrap();
+            let findings = pse_relations::generated::runtime::modeling_findings::RELATION_ID;
+            for id in prefix::summary_ids() {
+                assert!(tables.contains_key(&id), "missing {id}");
+                if id != findings {
+                    assert_eq!(tables[&id].batch().num_rows(), 0);
+                    let mut cursor = result
+                        .cursor_by_id(id, 1, crate::workflow::ResultOrder::Canonical)
+                        .unwrap();
+                    while let Some(batch) = cursor.next_batch().await.unwrap() {
+                        assert_eq!(batch.batch().num_rows(), 0);
+                    }
+                    assert!(
+                        cursor.complete(),
+                        "zero-solve declared empty remains complete"
+                    );
+                }
+                let spec = runtime.registry().relation_by_id(id).unwrap();
+                assert_eq!(
+                    tables[&id].batch().schema(),
+                    pse_schema::arrow::relation_schema_ref(runtime.registry(), spec).unwrap()
+                );
             }
-            assert!(
-                cursor.complete(),
-                "zero-solve declared empty remains complete"
-            );
-        }
-        let spec = runtime.registry().relation_by_id(id).unwrap();
-        assert_eq!(
-            tables[&id].batch().schema(),
-            pse_schema::arrow::relation_schema_ref(runtime.registry(), spec).unwrap()
-        );
-    }
-    let crate::workflow::RunDurability::Durable(record) = result.durability() else {
-        panic!("actual durable attempt required")
-    };
-    assert!(record.attempt.is_ok(), "{:?}", record.attempt);
-    let descriptors = pse_operations::canonical_execution::decode_result_descriptors(
-        record.manifest.as_ref().unwrap(),
-    )
-    .unwrap();
-    for id in prefix::summary_ids()
-        .into_iter()
-        .filter(|id| *id != findings)
-    {
-        assert_eq!(
-            descriptors
-                .iter()
-                .find(|descriptor| descriptor.name == id.to_string())
+            let crate::workflow::RunDurability::Durable(record) = result.durability() else {
+                panic!("actual durable attempt required")
+            };
+            assert!(record.attempt.is_ok(), "{:?}", record.attempt);
+            let descriptors = pse_operations::canonical_execution::decode_result_descriptors(
+                record.manifest.as_ref().unwrap(),
+            )
+            .unwrap();
+            for id in prefix::summary_ids()
+                .into_iter()
+                .filter(|id| *id != findings)
+            {
+                assert_eq!(
+                    descriptors
+                        .iter()
+                        .find(|descriptor| descriptor.name == id.to_string())
+                        .unwrap()
+                        .row_count,
+                    0
+                );
+            }
+            let (run, attempt) = keys.unwrap();
+            let admitted_read = runtime
+                .operations()
                 .unwrap()
-                .row_count,
-            0
-        );
-    }
-    let (run, attempt) = keys.unwrap();
-    let admitted_read = runtime
-        .operations()
-        .unwrap()
-        .store()
-        .read_results(&run, &attempt)
-        .await
-        .unwrap();
-    drop(admitted_read);
+                .store()
+                .read_results(&run, &attempt)
+                .await
+                .unwrap();
+            drop(admitted_read);
+        })
+        .await;
 }
 
 #[tokio::test]
 async fn compact_mhe_keeps_only_rolling_measurements_inputs_and_arrival_role() {
     const STEPS: usize = 12;
     let runtime = horizon_runtime();
-    let (package, [_, whole, estimator]) = package(runtime.clone()).await;
-    let (plant, actuator, x) =
-        plant(&runtime.preparation_services(), &package, whole, 0.8, STEPS).await;
-    let output = crate::workflow::StudyOutputDemand::Compact {
-        detail: Default::default(),
-        failed_detail: Default::default(),
-    };
-    let (mut execution, admitted, _) = owned_loop(
-        &runtime,
-        Horizon {
-            output,
-            plant,
-            period: PERIOD,
-            steps: STEPS,
-            inputs: vec![HorizonInput {
-                parameter: actuator,
-                initial: 0.5,
-            }],
-            estimator: Some(estimation(&package, estimator, x)),
-            controller: None,
-        },
-        false,
-    )
-    .await;
-    let outcome = execution.run().await;
-    assert!(outcome.is_ok(), "{outcome:?}");
-    let (roles, requests, reports, measurements, inputs) = execution.retained_counts();
-    assert_eq!(
-        (roles, requests, reports, measurements, inputs),
-        (1, 0, 0, 5, 4)
-    );
-    let latest = execution
-        .retained_result(execution.accepted_role(driver::Role::Estimator).unwrap())
-        .unwrap();
-    assert!(latest.accepted && latest.completion.decision.permits_use());
-    let paths = &latest.prepared.model.model.compiled().model.paths;
-    let now = latest.values.scalars[&paths["x[1{s}]"]];
-    let expected = 1. - 0.2 * (-((STEPS - 1) as f64) * PERIOD).exp();
-    let budget = crate::workflow::tests::engineering_target(
-        latest.prepared.solve.numerics(),
-        pse_model::generated::enums::NumericalTarget::Variable,
-        paths["x[1{s}]"],
-    )
-    .budget;
-    assert!((now - expected).abs() <= budget);
-    let result = execution.finish(outcome, false).await;
-    assert!(result.usable(), "{:?}", result.report());
-    assert_eq!(result.completion().unwrap().solves.len(), STEPS - 4);
-    admitted.close_sources().await.unwrap();
+    let activity = runtime.admit_activity().unwrap();
+    activity
+        .scope(async {
+            let (package, [_, whole, estimator]) = package(runtime.clone()).await;
+            let (plant, actuator, x) =
+                plant(&runtime.preparation_services(), &package, whole, 0.8, STEPS).await;
+            let output = crate::workflow::StudyOutputDemand::Compact {
+                detail: Default::default(),
+                failed_detail: Default::default(),
+            };
+            let (mut execution, admitted, _) = owned_loop(
+                &runtime,
+                Horizon {
+                    output,
+                    plant,
+                    period: PERIOD,
+                    steps: STEPS,
+                    inputs: vec![HorizonInput {
+                        parameter: actuator,
+                        initial: 0.5,
+                    }],
+                    estimator: Some(estimation(&package, estimator, x)),
+                    controller: None,
+                },
+                false,
+            )
+            .await;
+            let outcome = execution.run().await;
+            assert!(outcome.is_ok(), "{outcome:?}");
+            let (roles, requests, reports, measurements, inputs) = execution.retained_counts();
+            assert_eq!(
+                (roles, requests, reports, measurements, inputs),
+                (1, 0, 0, 5, 4)
+            );
+            let latest = execution
+                .retained_result(execution.accepted_role(driver::Role::Estimator).unwrap())
+                .unwrap();
+            assert!(latest.accepted && latest.completion.decision.permits_use());
+            let paths = &latest.prepared.model.model.compiled().model.paths;
+            let now = latest.values.scalars[&paths["x[1{s}]"]];
+            let expected = 1. - 0.2 * (-((STEPS - 1) as f64) * PERIOD).exp();
+            let budget = crate::workflow::tests::engineering_target(
+                latest.prepared.solve.numerics(),
+                pse_model::generated::enums::NumericalTarget::Variable,
+                paths["x[1{s}]"],
+            )
+            .budget;
+            assert!((now - expected).abs() <= budget);
+            let result = execution.finish(outcome, false).await;
+            assert!(result.usable(), "{:?}", result.report());
+            assert_eq!(result.completion().unwrap().solves.len(), STEPS - 4);
+            admitted.close_sources().await.unwrap();
+        })
+        .await;
 }
 
 #[cfg(feature = "canonical-tests")]
@@ -2205,148 +2227,157 @@ async fn compact_multi_step_horizon_seals_one_original_completion_and_seed_inven
 #[tokio::test]
 async fn compact_failed_detail_uses_one_whole_horizon_cap_and_original_outcome() {
     let runtime = horizon_runtime();
-    let (package, [root, whole, _]) = package(runtime.clone()).await;
-    let (plant, actuator, x) = plant(&runtime.preparation_services(), &package, whole, 0., 3).await;
-    let controller = controller(&package, root, x, vec![1.; 3]);
-    let prepared = package
-        .prepare_analysis(
-            &runtime.preparation_services(),
-            &controller.analysis,
-            &crate::CancelSource::new(),
-        )
-        .await
-        .unwrap();
-    let symbol = prepared.model.model.compiled().model.paths["u[0.25{s}]"];
-    drop(prepared);
-    let member = |step| crate::workflow::StudyMemberDemand::Variable {
-        step,
-        symbol_id: symbol,
-    };
-    let detail = crate::workflow::StudyDetailDemand {
-        relations: Vec::new(),
-        members: vec![member(0)],
-        maximum_rows: 1,
-        maximum_bytes: 1 << 20,
-    };
-    let failed_detail = crate::workflow::StudyDetailDemand {
-        relations: Vec::new(),
-        members: vec![member(0), member(1)],
-        maximum_rows: 1,
-        maximum_bytes: 1 << 20,
-    };
-    let output = crate::workflow::StudyOutputDemand::Compact {
-        detail,
-        failed_detail,
-    };
-    let (mut execution, admitted, _) = owned_loop(
-        &runtime,
-        Horizon {
-            output,
-            plant,
-            period: PERIOD,
-            steps: 3,
-            inputs: vec![HorizonInput {
-                parameter: actuator,
-                initial: 0.,
-            }],
-            estimator: None,
-            controller: Some(controller),
-        },
-        false,
-    )
-    .await;
-    let values = std::collections::BTreeMap::from([
-        ("x0".into(), 0.4),
-        ("r".into(), 1.),
-        ("u[0{s}]".into(), 0.2),
-    ]);
-    for _ in 0..2 {
-        let prepared = execution
-            .prepare_solve(driver::Role::Controller, values.clone(), false)
-            .await
-            .unwrap();
-        execution
-            .execute_solve(driver::Role::Controller, prepared)
-            .await
-            .unwrap();
-    }
-    let prefix = execution.completion().clone();
-    let mut bad = execution
-        .prepare_solve(driver::Role::Controller, values, false)
-        .await
-        .unwrap();
-    let scope = pse_kernels::ExecutionScope::new(
-        pse_diagnostics::Cancellation::default(),
-        Some(std::time::Instant::now() + std::time::Duration::from_secs(5)),
-    );
-    let admission = crate::math::strategy::admission::TaskAdmission::new(
-        pse_model::strategy::WorkLimits {
-            attempts: 4,
-            evaluations: Some(0),
-            iterations: None,
-            factorizations: None,
-            proof_steps: None,
-        },
-        scope.clone(),
-        None,
-        false,
-    );
-    bad.solve = bad.solve.within_admitted_task(scope, admission).unwrap();
-    let failure = execution
-        .execute_solve(driver::Role::Controller, bad)
-        .await
-        .unwrap_err();
-    assert!(failure.strategy_trace().is_some());
-    let result = execution.finish(Err(failure), false).await;
-    let completion = result.completion().unwrap();
-    assert_eq!(completion.solves.len(), 3);
-    assert_eq!(
-        serde_json::to_value(&completion.solves[..2]).unwrap(),
-        serde_json::to_value(&prefix.solves).unwrap()
-    );
-    assert_eq!(
-        serde_json::to_value(&completion.assessments[..2]).unwrap(),
-        serde_json::to_value(&prefix.assessments).unwrap()
-    );
-    assert_eq!(
-        serde_json::to_value(&completion.lineage[..2]).unwrap(),
-        serde_json::to_value(&prefix.lineage).unwrap()
-    );
-    assert!(completion.solves[2].error.is_some());
-    let detail_error = result
-        .horizon_output
-        .as_ref()
-        .unwrap()
-        .detail_error()
-        .unwrap();
-    let variables = pse_relations::generated::runtime::solve_variables::RELATION_ID;
-    assert!(
-        result.table_ids().contains(&variables),
-        "requested failed detail retains declared membership"
-    );
-    let mut cursor = result
-        .cursor_by_id(variables, 1, crate::workflow::ResultOrder::Canonical)
-        .unwrap();
-    let spec = result
-        .services
-        .preparation()
-        .registry()
-        .relation_by_id(variables)
-        .unwrap();
-    assert_eq!(
-        cursor.schema(),
-        pse_schema::arrow::relation_schema_ref(result.services.preparation().registry(), spec)
-            .unwrap()
-    );
-    let export_error = cursor.next_batch().await.unwrap_err();
-    assert_eq!(export_error.to_string(), detail_error.to_string());
-    assert!(
-        !cursor.complete(),
-        "requested detail cap refusal is incomplete, never unrequested or complete empty"
-    );
-    drop(cursor);
-    assert!(result.report().unwrap_err().strategy_trace().is_some());
-    admitted.close_sources().await.unwrap();
+    let activity = runtime.admit_activity().unwrap();
+    activity
+        .scope(async {
+            let (package, [root, whole, _]) = package(runtime.clone()).await;
+            let (plant, actuator, x) =
+                plant(&runtime.preparation_services(), &package, whole, 0., 3).await;
+            let controller = controller(&package, root, x, vec![1.; 3]);
+            let prepared = package
+                .prepare_analysis(
+                    &runtime.preparation_services(),
+                    &controller.analysis,
+                    &crate::CancelSource::new(),
+                )
+                .await
+                .unwrap();
+            let symbol = prepared.model.model.compiled().model.paths["u[0.25{s}]"];
+            drop(prepared);
+            let member = |step| crate::workflow::StudyMemberDemand::Variable {
+                step,
+                symbol_id: symbol,
+            };
+            let detail = crate::workflow::StudyDetailDemand {
+                relations: Vec::new(),
+                members: vec![member(0)],
+                maximum_rows: 1,
+                maximum_bytes: 1 << 20,
+            };
+            let failed_detail = crate::workflow::StudyDetailDemand {
+                relations: Vec::new(),
+                members: vec![member(0), member(1)],
+                maximum_rows: 1,
+                maximum_bytes: 1 << 20,
+            };
+            let output = crate::workflow::StudyOutputDemand::Compact {
+                detail,
+                failed_detail,
+            };
+            let (mut execution, admitted, _) = owned_loop(
+                &runtime,
+                Horizon {
+                    output,
+                    plant,
+                    period: PERIOD,
+                    steps: 3,
+                    inputs: vec![HorizonInput {
+                        parameter: actuator,
+                        initial: 0.,
+                    }],
+                    estimator: None,
+                    controller: Some(controller),
+                },
+                false,
+            )
+            .await;
+            let values = std::collections::BTreeMap::from([
+                ("x0".into(), 0.4),
+                ("r".into(), 1.),
+                ("u[0{s}]".into(), 0.2),
+            ]);
+            for _ in 0..2 {
+                let prepared = execution
+                    .prepare_solve(driver::Role::Controller, values.clone(), false)
+                    .await
+                    .unwrap();
+                execution
+                    .execute_solve(driver::Role::Controller, prepared)
+                    .await
+                    .unwrap();
+            }
+            let prefix = execution.completion().clone();
+            let mut bad = execution
+                .prepare_solve(driver::Role::Controller, values, false)
+                .await
+                .unwrap();
+            let scope = pse_kernels::ExecutionScope::new(
+                pse_diagnostics::Cancellation::default(),
+                Some(std::time::Instant::now() + std::time::Duration::from_secs(5)),
+            );
+            let admission = crate::math::strategy::admission::TaskAdmission::new(
+                pse_model::strategy::WorkLimits {
+                    attempts: 4,
+                    evaluations: Some(0),
+                    iterations: None,
+                    factorizations: None,
+                    proof_steps: None,
+                },
+                scope.clone(),
+                None,
+                false,
+            );
+            bad.solve = bad.solve.within_admitted_task(scope, admission).unwrap();
+            let failure = execution
+                .execute_solve(driver::Role::Controller, bad)
+                .await
+                .unwrap_err();
+            assert!(failure.strategy_trace().is_some());
+            let result = execution.finish(Err(failure), false).await;
+            let completion = result.completion().unwrap();
+            assert_eq!(completion.solves.len(), 3);
+            assert_eq!(
+                serde_json::to_value(&completion.solves[..2]).unwrap(),
+                serde_json::to_value(&prefix.solves).unwrap()
+            );
+            assert_eq!(
+                serde_json::to_value(&completion.assessments[..2]).unwrap(),
+                serde_json::to_value(&prefix.assessments).unwrap()
+            );
+            assert_eq!(
+                serde_json::to_value(&completion.lineage[..2]).unwrap(),
+                serde_json::to_value(&prefix.lineage).unwrap()
+            );
+            assert!(completion.solves[2].error.is_some());
+            let detail_error = result
+                .horizon_output
+                .as_ref()
+                .unwrap()
+                .detail_error()
+                .unwrap();
+            let variables = pse_relations::generated::runtime::solve_variables::RELATION_ID;
+            assert!(
+                result.table_ids().contains(&variables),
+                "requested failed detail retains declared membership"
+            );
+            let mut cursor = result
+                .cursor_by_id(variables, 1, crate::workflow::ResultOrder::Canonical)
+                .unwrap();
+            let spec = result
+                .services
+                .preparation()
+                .registry()
+                .relation_by_id(variables)
+                .unwrap();
+            assert_eq!(
+                cursor.schema(),
+                pse_schema::arrow::relation_schema_ref(
+                    result.services.preparation().registry(),
+                    spec
+                )
+                .unwrap()
+            );
+            let export_error = cursor.next_batch().await.unwrap_err();
+            assert_eq!(export_error.to_string(), detail_error.to_string());
+            assert!(
+                !cursor.complete(),
+                "requested detail cap refusal is incomplete, never unrequested or complete empty"
+            );
+            drop(cursor);
+            assert!(result.report().unwrap_err().strategy_trace().is_some());
+            admitted.close_sources().await.unwrap();
+        })
+        .await;
 }
 
 /// A real producer's original rows fit repeatedly beside one native admission;
@@ -2432,6 +2463,8 @@ async fn compact_original_history_releases_report_allowance_in_a_finite_pool() {
 #[tokio::test]
 async fn compact_summary_refusal_invalidates_prior_complete_prefixes() {
     let runtime = horizon_runtime();
+    let activity = runtime.admit_activity().unwrap();
+    activity.scope(async {
     let (package, [root, whole, _]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&runtime.preparation_services(), &package, whole, 0., 2).await;
     let output = crate::workflow::StudyOutputDemand::Compact {
@@ -2478,7 +2511,15 @@ async fn compact_summary_refusal_invalidates_prior_complete_prefixes() {
         .execute_solve(driver::Role::Controller, second)
         .await
         .unwrap_err();
-    let second = execution.before_export_refusal().unwrap().clone();
+    let second = match execution.before_export_refusal().cloned() {
+        Some(second) => second,
+        None => {
+            let original_refusal = format!("{refusal:?}");
+            let result = execution.finish(Err(refusal), false).await;
+            let source_close = admitted.close_sources().await;
+            panic!("horizon refused before the export-pressure hook: original_refusal={original_refusal}; final_report={:?}; source_close={source_close:?}", result.report());
+        }
+    };
     let aggregate = serde_json::to_value(execution.completion()).unwrap();
     for name in ["assessments", "solves", "lineage", "accuracy_goals"] {
         let mut expected = first[name].as_array().unwrap().clone();
@@ -2501,6 +2542,7 @@ async fn compact_summary_refusal_invalidates_prior_complete_prefixes() {
         assert!(!cursor.complete());
     }
     admitted.close_sources().await.unwrap();
+    }).await;
 }
 
 #[tokio::test]
