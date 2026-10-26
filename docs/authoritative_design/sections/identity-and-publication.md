@@ -525,6 +525,10 @@ lookup keys remain distinct from scientific semantic identity. Backup inventory 
 same declaration. Producer authority is an explicit General/LibraryMathematics/
 LocalScientificReplay class derived from actual receiving capability, bound in publication and
 candidate identity; receipt prefixes confer no scientific eligibility.
+Study input-admission claims bind their declared purpose and exact study/generation/point
+owner proof in the immutable request. A generic execution claim cannot replay an admission
+receipt under the same operation identity. Fresh allocation checks the current owner premises;
+exact completed replay preserves the original receipt and clocks.
 
 **Payload results.** The inline arm retains one immutable complete encoded body, shared member coordinates, exact digest/extent and an exclusive typed locator. Protected descriptor discovery is separate from prepaid body hydration; inline allocation ownership lasts through native query/response drain. Empty demanded relations are explicit close-inventory entries, and empty bodies refuse before effects. The sealed arm uses completed uncompressed IPC files in the selected private state's `payloads/<payload_incarnation>/<database>/` root. Compatible batches share one file only within an attempt, relation, schema and interpretation. Packing targets 16 MiB and has a 32 MiB hard encoded-file bound; demanded acknowledgements and live-prefix boundaries flush immediately rather than waiting for unrelated work. Logical descriptors retain original ordering/coordinates and bind unique file instance, encoding digest, batch index, schema and interpretation. Seed/completion owners retain their exact declared codecs through the same inline/sealed placement owner. File framing/layout/integrity admission precedes decoder allocation; neither file completion nor a submitted write is a catalog acknowledgement. Selected qualified coverage belongs to the Plan39d Outcome (§24.2).
 
@@ -545,6 +549,10 @@ values. Unsupported scientific output fields refuse explicitly.
 member descriptors and exact ACK commit atomically. Reuse compares original bytes as well as
 identity; read tickets and canonical references protect retirement. No file instance, file
 reservation, synthetic file UUID or empty-schema marker represents an inline body.
+Completed IPC encoding releases writer scratch before canonical admission. Its unique
+reservation shrinks to the actual retained byte allocation without release/reacquire, while
+scientific admission facts keep their independent grant. Cloned payload handles retain that
+byte custody through acknowledgement or unresolved settlement.
 
 **File publication.** Reserve the original intent and unique physical instance before filesystem work. Finish, validate, synchronize and publish without replacement before transactionally attaching the exact descriptor, references and receipt under current permission. Unresolved intents retain their physical objects. A collecting instance never revives and its path is never reused; delayed unlink cannot target a replacement. Deduplication checks bytes as well as digest/encoding. Semantic content, occurrence, interpretation and physical placement remain distinct. Logical descriptors omit absolute roots and storage incarnation; only closed restore rehomes physical placement, while owner capabilities bind the selected incarnation.
 

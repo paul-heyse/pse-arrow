@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Exact admitted canonical progress history, read one immutable payload at a time.
+use super::connected_results::{PrepaidReaderFuture, prepaid_reader_future};
 use super::{ProgressCoverage, ProgressEventDocument, Runtime, SourceServices, WorkflowError};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
 use pse_operations::{canonical::MetadataResponse, canonical_results::ResultRead};
 use std::sync::Arc;
 
 const READ_BYTES: usize = 16 * 1024 * 1024;
+type ProgressPageResult = Result<Option<Vec<ProgressEventDocument>>, WorkflowError>;
 
 /// A terminal attempt's recorded event stream. Live process observations remain
 /// available on `RunHandle`; this reader never follows provisional stored rows.
@@ -33,62 +35,83 @@ impl SourceServices {
         cancel: CancellationToken,
     ) -> Result<ProgressStream, WorkflowError> {
         let activity = self.admit_activity()?;
+        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         activity
-            .scope(async {
-                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                let response = super::connected_results::pooled_response_owner(
-                    &self.preparation().pool(),
-                    "canonical:progress-selection-response",
-                    MetadataResponse::Selection,
-                )?;
-                let read = Arc::new(
-                    pse_operations::canonical::response_ownership_scope(
-                        response.clone(),
-                        self.canonical_store()?.read_results(run, attempt),
-                    )
-                    .await?,
-                );
-                let read_owner = Arc::new(super::connected_results::retain_protected_metadata(
-                    &self.preparation().pool(),
-                    response,
-                    read.retained_bytes()?,
-                    |owner| read.retain_metadata_owner(owner),
-                )?);
-                read.retain_metadata_owner(read_owner.clone())?;
-                let response = super::connected_results::pooled_response_owner(
-                    &self.preparation().pool(),
-                    "canonical:progress-coverage-response",
-                    MetadataResponse::Header,
-                )?;
-                let operations = super::Operations::from_store(
-                    self.canonical_store()?.clone(),
-                    "progress-reader",
-                    super::LeasePolicy::default(),
-                    self.preparation().pool(),
-                );
-                let coverage = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((read.clone(), read_owner.clone(), response)),
-                    operations.progress_coverage(&read),
-                )
-                .await?;
-                let descriptor = read.sets().iter().find(|set| set.name == "__progress");
-                let (set, batches) =
-                    descriptor.map_or((None, 0), |set| (Some(set.key.clone()), set.batch_count));
-                Ok(ProgressStream {
-                    services: self.clone(),
-                    read: Some(read),
-                    read_owner: Some(read_owner),
-                    run: run.into(),
-                    attempt: attempt.into(),
-                    coverage,
-                    set,
-                    batches,
-                    ordinal: 0,
-                    owner: None,
-                    cancel,
-                })
-            })
+            .scope(self.progress_body(run, attempt, cancel)?)
             .await
+    }
+
+    // Construct and erase the large terminal-selection and completion-read state
+    // before activity and boundary callers poll it. Its grant follows the child
+    // through cancellation and drop, independently of response ownership.
+    #[inline(never)]
+    fn progress_body<'a>(
+        &'a self,
+        run: &'a str,
+        attempt: &'a str,
+        cancel: CancellationToken,
+    ) -> Result<PrepaidReaderFuture<'a, Result<ProgressStream, WorkflowError>>, WorkflowError> {
+        prepaid_reader_future(&self.preparation().pool(), self.progress_checked(run, attempt, cancel))
+    }
+
+    async fn progress_checked(
+        &self,
+        run: &str,
+        attempt: &str,
+        cancel: CancellationToken,
+    ) -> Result<ProgressStream, WorkflowError> {
+        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+        let response = super::connected_results::pooled_response_owner(
+            &self.preparation().pool(),
+            "canonical:progress-selection-response",
+            MetadataResponse::Selection,
+        )?;
+        let read = Arc::new(
+            pse_operations::canonical::response_ownership_scope(
+                response.clone(),
+                self.canonical_store()?.read_results(run, attempt),
+            )
+            .await?,
+        );
+        let read_owner = Arc::new(super::connected_results::retain_protected_metadata(
+            &self.preparation().pool(),
+            response,
+            read.retained_bytes()?,
+            |owner| read.retain_metadata_owner(owner),
+        )?);
+        read.retain_metadata_owner(read_owner.clone())?;
+        let response = super::connected_results::pooled_response_owner(
+            &self.preparation().pool(),
+            "canonical:progress-coverage-response",
+            MetadataResponse::Header,
+        )?;
+        let operations = super::Operations::from_store(
+            self.canonical_store()?.clone(),
+            "progress-reader",
+            super::LeasePolicy::default(),
+            self.preparation().pool(),
+        );
+        let coverage = pse_operations::canonical::response_ownership_scope(
+            Arc::new((read.clone(), read_owner.clone(), response)),
+            operations.progress_coverage(&read),
+        )
+        .await?;
+        let descriptor = read.sets().iter().find(|set| set.name == "__progress");
+        let (set, batches) =
+            descriptor.map_or((None, 0), |set| (Some(set.key.clone()), set.batch_count));
+        Ok(ProgressStream {
+            services: self.clone(),
+            read: Some(read),
+            read_owner: Some(read_owner),
+            run: run.into(),
+            attempt: attempt.into(),
+            coverage,
+            set,
+            batches,
+            ordinal: 0,
+            owner: None,
+            cancel,
+        })
     }
 }
 impl ProgressStream {
@@ -142,18 +165,29 @@ impl ProgressStream {
             return Ok(None);
         }
         let cancel = self.cancel.clone();
-        let outcome = cancel
-            .until_cancelled(self.next_checked())
-            .await
-            .map_err(pse_engine::EngineError::from)
-            .map_err(WorkflowError::from)
-            .and_then(std::convert::identity);
+        let outcome = match self.next_checked() {
+            Ok(next) => cancel
+                .until_cancelled(next)
+                .await
+                .map_err(pse_engine::EngineError::from)
+                .map_err(WorkflowError::from)
+                .and_then(std::convert::identity),
+            Err(error) => Err(error),
+        };
         if outcome.is_err() {
             self.close();
         }
         outcome
     }
-    async fn next_checked(&mut self) -> Result<Option<Vec<ProgressEventDocument>>, WorkflowError> {
+    #[inline(never)]
+    fn next_checked(
+        &mut self,
+    ) -> Result<PrepaidReaderFuture<'_, ProgressPageResult>, WorkflowError> {
+        let pool = self.services.preparation().pool();
+        prepaid_reader_future(&pool, self.next_checked_body())
+    }
+
+    async fn next_checked_body(&mut self) -> Result<Option<Vec<ProgressEventDocument>>, WorkflowError> {
         // Retain the previous page's extent until the caller requests another;
         // typed observations may contain explanatory strings and exact evidence.
         self.owner = None;
@@ -226,5 +260,35 @@ impl Runtime {
         cancel: CancellationToken,
     ) -> Result<ProgressStream, WorkflowError> {
         self.source_services().progress(run, attempt, cancel).await
+    }
+}
+
+
+#[cfg(test)]
+mod progress_future_unit {
+    use super::*;
+    use std::future::Future;
+
+    // Type layout can be inspected without constructing a source or touching a
+    // canonical store. These closures are never invoked.
+    fn future_bytes<A, F: Future>(_: impl FnOnce(A) -> F) -> usize {
+        size_of::<F>()
+    }
+
+    #[test]
+    fn progress_forwarding_futures_do_not_embed_the_native_read_state() {
+        let constructor = future_bytes(|source: &'static SourceServices| {
+            source.progress("run", "attempt", CancellationToken::new())
+        });
+        let constructor_body = future_bytes(|source: &'static SourceServices| {
+            source.progress_checked("run", "attempt", CancellationToken::new())
+        });
+        let page = future_bytes(|stream: &'static mut ProgressStream| stream.next_page());
+        let page_body = future_bytes(|stream: &'static mut ProgressStream| stream.next_checked_body());
+        assert!(constructor < constructor_body);
+        assert!(page < page_body);
+        eprintln!(
+            "progress future bytes: constructor={constructor}, constructor_body={constructor_body}, page={page}, page_body={page_body}"
+        );
     }
 }

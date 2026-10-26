@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 282
+revision: 283
 date: 2026-10-26
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 283 | 2026-10-26 | Publish exact study-admission claim identity, completed IPC allocation custody and prepaid durable progress futures (§19.8/§20). | Maintainer-authorized Plan56c integration repairs; PSE_DESIGN_EDIT=1. Qualification remains at the owning Outcome; ADR-0228 remains proposed. |
 | 282 | 2026-10-26 | Publish implemented canonical declarations, explicit producer/association meaning, inline/sealed payload custody and product recovery composition (§3.2/§20) under proposed ADR-0228. | Maintainer-authorized C01–C05 execution; PSE_DESIGN_EDIT=1. Actual qualification remains at Plan56c; formal decision acceptance and broader Plan56 scope remain separate. |
 | 281 | 2026-10-25 | Select Plan56c declared canonical contracts, exact settlement, bounded inline/sealed placement and product offline recovery helper (§3.2/§20/§21), with coordinated fresh v9 activation. | Explicit RC01 and narrow RC04 selection; proposed ADR-0228 and focused review Accept at Proposed strength precede implementation; PSE_DESIGN_EDIT=1. 56c owns delivery/evidence. |
 | 280 | 2026-10-25 | Record required fit-profile v2 qualifier/header semantics (§19.4) and selected Plan56b scientific/service/native/canonical/public acceptance with composite evidence and exclusions (§24.2). | Maintainer-authorized 56b closeout under proposed ADR-0227; PSE_DESIGN_EDIT=1. B01–B06 complete, broader Plan56 and formal ADR acceptance remain separate. |

@@ -1627,7 +1627,7 @@ as settlement. The original occurrence key carries its immutable authority and e
 can resolve an uncertain final acknowledgement through exact settlement after header deletion.
 Result analysis separates protected selection, artifact promotion and graph assembly into
 narrow borrowed async phases on the ordinary caller. The original result-read protection
-survives the complete artifact transfer and exact release. Connected terminal selection and batch reading likewise separate large borrowed future state
+survives the complete artifact transfer and exact release. Connected terminal selection, durable progress construction and their page reads separate large borrowed future state
 from outer activity/cancellation polling. Boxed reader state is prepaid by its exact
 allocation extent; that independent grant survives readiness and drops after the child
 allocation. Metadata response and protected snapshot grants retain their separate lifetimes.

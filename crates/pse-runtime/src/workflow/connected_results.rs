@@ -26,7 +26,7 @@ use std::time::Duration;
 // The boxed child drops before its grant, including cancellation and an unpolled
 // reader. Keeping the grant outside the child also retains it after Poll::Ready
 // until the allocation itself is dropped.
-struct PrepaidReaderFuture<'a, T> {
+pub(super) struct PrepaidReaderFuture<'a, T> {
     future: futures_util::future::BoxFuture<'a, T>,
     _owner: MemoryReservation,
 }
@@ -39,7 +39,7 @@ impl<T> Future for PrepaidReaderFuture<'_, T> {
     }
 }
 
-fn prepaid_reader_future<'a, F>(
+pub(super) fn prepaid_reader_future<'a, F>(
     pool: &Arc<dyn MemoryPool>,
     future: F,
 ) -> Result<PrepaidReaderFuture<'a, F::Output>, WorkflowError>
@@ -2048,6 +2048,52 @@ mod result_admission_unit {
         assert_eq!(pool.reserved(), bytes);
         assert!(!dropped.load(Ordering::Acquire));
         drop(future);
+        assert!(dropped.load(Ordering::Acquire));
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn reader_future_cancellation_drops_pending_child_under_its_grant() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        struct PendingRead {
+            pool: Arc<dyn MemoryPool>,
+            dropped: Arc<AtomicBool>,
+            payload: [u8; 4096],
+        }
+        impl Future for PendingRead {
+            type Output = ();
+
+            fn poll(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<()> {
+                std::hint::black_box(&self.payload);
+                Poll::Pending
+            }
+        }
+        impl Drop for PendingRead {
+            fn drop(&mut self) {
+                assert!(self.pool.reserved() > 0, "cancelled child drops under its grant");
+                self.dropped.store(true, Ordering::Release);
+            }
+        }
+
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 10));
+        let dropped = Arc::new(AtomicBool::new(false));
+        let child = PendingRead {
+            pool: pool.clone(),
+            dropped: dropped.clone(),
+            payload: [0; 4096],
+        };
+        let bytes = size_of_val(&child);
+        let child = prepaid_reader_future(&pool, child).unwrap();
+        let cancel = CancellationToken::new();
+        let mut waiting = Box::pin(cancel.until_cancelled(child));
+        let mut cx = Context::from_waker(futures_util::task::noop_waker_ref());
+        assert!(waiting.as_mut().poll(&mut cx).is_pending());
+        assert_eq!(pool.reserved(), bytes);
+        assert!(!dropped.load(Ordering::Acquire));
+        cancel.cancel();
+        assert!(matches!(waiting.as_mut().poll(&mut cx), Poll::Ready(Err(_))));
+        drop(waiting);
         assert!(dropped.load(Ordering::Acquire));
         assert_eq!(pool.reserved(), 0);
     }

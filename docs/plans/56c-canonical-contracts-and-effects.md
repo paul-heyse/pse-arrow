@@ -206,9 +206,20 @@ quiesced-only guard. The repaired explicit readmission preserved the exact close
 initializer; initialization and normal startup then succeeded with current receiver/helper
 artifacts. Fresh regeneration now preserves recorded telemetry selection.
 
-The first assembled database selection exposed a missing study-scope association projection,
+The assembled database selection exposed a missing study-scope association projection,
 stale fixture/knowledge expectations, an undeclared research-test effect and a fixture bridge
-that omitted registration's original deadline. These are being corrected at their owners before
-regeneration and composed acceptance. The service is being drained/stopped for the corrected
-source baseline. Public and mixed recovery journeys remain required. No C package is complete
-yet. Other stores and prior 56b artifacts remain preserved.
+that omitted registration's original deadline. Those owners are corrected, and the canonical
+selection now passes. Study input-admission claims carry their actual owner proof and immutable
+request purpose; ordinary execution cannot replay that receipt as its own claim. Completed IPC
+encoding releases writer scratch while retaining exact allocated bytes and scientific facts
+through acknowledgement. The affected runtime controls pass after that custody correction.
+
+Installed Python acceptance passed 108 selected cases but repeatedly crashed in durable progress
+reopening. Symbolized addresses identify a large nested future's stack probe, before event
+decoding. Progress now uses the adjacent reader's existing prepaid, separately constructed future
+mechanism, preserving original activity/cancellation and protection. The original Python case and
+four focused future controls pass. The interrupted invocation and its failed workers remain
+evidence; all 43 invocation contexts are authenticated-drained, with failure pins retained. A
+later public inspection probe exited with SIGSEGV and is under one debugger-controlled
+reproduction. Public and mixed recovery journeys remain required. No C package is complete yet.
+Other stores and prior 56b artifacts remain preserved.
