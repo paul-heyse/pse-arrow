@@ -321,15 +321,22 @@ native result. Do not edit execution inputs or regenerate code while it prepares
 
 Exposure declarations in `scripts/capabilities/` own domain/workflow membership, guidance and
 integration metadata. Tags and views derive from those declarations. Actual FunctionTool schemas
-own callable host shapes; Rust registries/catalogues remain the source of native schemas. This
-interface introduces no scientific Python field mirrors or semantic/ranked discovery.
+own callable host shapes. Rust responsibility owners declare native host headers, original
+scientific document references, defaults, bounds, receiver routes, structured effect facts and
+extension prerequisites; generation projects these into the host adapters. The same route generates
+the existing project, research and study Python/PyO3 wrappers. Scientific body decoding and contextual
+admission remain with their original receivers. Read-only annotations follow declared effects,
+independently of document preservation or cancellation lifetime; a source admission, canonical
+command, retention release, file export or capture is not inferred to be a read from its name.
+This interface introduces no scientific Python field mirrors or semantic/ranked discovery.
 
 The [generated complete reference](../generated/capabilities/reference.md) derives from those
 same composed definitions, including hidden operations, defaults, resources, templates and prompts.
 `just codegen` publishes it; `just codegen-check` compares without writes. The dedicated generated
-directory belongs to this generator, independently of the Rust Markdown generator. No Cyclopts CLI
-is adopted: revisit when an actual terminal/non-MCP consumer needs access beyond native commands
-and this endpoint. A future CLI must qualify complete selection and absent/null/empty fidelity.
+directory belongs to this generator, independently of the Rust Markdown generator. The supported
+Cyclopts consumer derives commands from the same canonical catalogue and invokes the endpoint's
+original operations. Its exact selection and absent/null/empty semantics are described under
+[independent CLI and connection diagnosis](#independent-cli-and-connection-diagnosis).
 
 Callable operations read task context, exact native concepts, declared producer relationships,
 recipe descriptions, library evidence, coverage correspondence and the current entry-point inventory.
@@ -437,15 +444,27 @@ required features; they do not build a missing extension. A toolkit service chec
 availability of a request-specific canonical deployment. Checking prerequisites never qualifies the
 operation itself.
 
-`native-currency` selects a mode, profile and validation requirement. It compares current supported
-build inputs and the actual imported artifact against the existing preparation owner. Its outcomes
-are current, stale, unknown or unsupported; schema compatibility alone cannot establish currency.
+`native-currency` uses the operation's declared extension requirement and the existing installed
+receipt's supported mode/profile unless explicitly selected. An `installed_correctness` requirement
+can consume the actual dev or native correctness installation; `native_correctness` requires native.
+An omitted mode never guesses dev, and an omitted profile never invents a build profile. Missing,
+malformed or incompatible receipt selections refuse without import or preparation. It compares
+current supported build inputs and the installed artifact against the existing preparation owner.
+Its outcomes are current, stale, unknown or unsupported; schema compatibility alone cannot establish currency.
 Native modes require already admitted providers and otherwise report unsupported rather than
 preparing them. Unknown inputs remain conservative build inputs; shell bookkeeping, endpoint
 selectors and explicit telemetry carriers retain their runtime meanings. Known pytest/xdist
 observation keys, collection paths and expected-import witnesses likewise do not select compiler
 behavior. A stale input comparison reports bounded section/source/configuration/environment key
 names without values or digests; `complete=false` preserves redaction or truncation.
+
+Supported ordinary preparation records the actual Cargo producing-input selection and installed
+artifact association in the existing extension receipt. Endpoint witnesses reuse byte identities
+while file metadata, link resolution and directory membership remain unchanged. This avoids an
+unchanged full-source byte hash and a second interpreter import on each supported retained read.
+Unknown or unsupported producing observations retain conservative preparation checks or refuse;
+neither a historical receipt nor matching schemas alone authorizes reuse. Explicit import
+compatibility checks retain their separate fixed-child import observation.
 
 Admitted native workers check currency before loading the extension. The binary's device, inode,
 size and nanosecond modification/change witnesses must remain unchanged through import, and the
@@ -475,12 +494,14 @@ the original native codec and receiver still perform admission before effects. A
 request may fail contextual admission. A changed loaded/installed schema fingerprint refuses
 the call rather than mixing interface generations.
 
-Native scientific reads require an existing compatible extension and its explicitly prepared
-linked import environment. Prepare with `just py-sync-native-correctness`, then attach from
-`scripts/pse-env --native=solver,klu,isolation,uno,petsc -- <endpoint-command>` when those providers
-are needed. Read operations do not build providers. The two explicit source/preparation actions
-may prepare their native import prerequisites through the environment owner; their metadata
-discloses this effect. Supplied-only source/bundle inspection does not provision a database.
+Native scientific reads require the declared correctness extension and its admitted import
+environment. Inspect readiness before choosing `just py-sync-correctness` for dev or
+`just py-sync-native-correctness` for native. A native installation retains its provider requirements;
+attach from `scripts/pse-env --native=solver,klu,isolation,uno,petsc -- <endpoint-command>` when those
+providers are needed. Passive checks and read operations do not build providers. The two explicit
+source/preparation actions may prepare their native import prerequisites through the environment
+owner; their metadata discloses this effect. Supplied-only source/bundle inspection does not
+provision a database.
 
 The explicit `rust_test_run` action also prepares the existing test worker through its native
 provider environment (`solver,klu,isolation,uno,petsc`). Even a pure selected unit can require this
@@ -497,8 +518,8 @@ original generated modeling documents. Declaration pages select original ordered
 before hydrating their admitted declarations. Inspection requires explicit case, preparation and
 inspection settings; comparison retains both source and physical closures on one native Runtime.
 `source_only` reports unknown scientific impact when those contexts differ, rather than inventing
-comparability. These native reads can prepare/admit imports and require their validated native
-worker; description/help and `capability_explain` do not perform those effects.
+comparability. These native reads admit the declared validated extension and original source
+context; description/help and `capability_explain` do not perform those effects.
 
 `native_result_inspect` consumes version 2 of `ResultInspectionRequest`. Select exact run,
 attempt, relation, original half-open window and optional expected manifest. `schema` returns
@@ -526,6 +547,21 @@ scientific-usability observations stay separate. `native_result_read` remains th
 Arrow IPC route, with its own allowance and protection; readable success is no speed claim or
 whole-result scientific acceptance. Old version-1 inspection documents fail before v2 body decode.
 
+Operations whose Rust declaration admits `exact_context` reads use foreground endpoint-owned
+workers. A worker retains the actual Runtime and admitted physical/modeling objects only under
+identical immutable context, source, producing/provider/preparation premises and its original
+loaded-image witness. Each request still decodes and admits its original header/body and checks
+currency. Changed premises retire that worker; a new preparation receipt cannot bless its old
+loaded image. Independent contexts may have independent workers under ordinary admission.
+
+Owner-declared opaque continuations remain associated with the original worker and complete query
+basis. A changed context/query, mixed owners, ambiguity or retired issuer refuses rather than
+silently starting another page. Numeric offsets retain their original selector semantics and are
+not opaque ownership tokens. Retention introduces no transaction spanning pages and no source
+completeness guarantee. Effectful operations and diagnostic attachments retain dedicated lifetimes;
+supplied-tooling reads use their separate executable. Standalone Python/native calls keep their
+ordinary dedicated ownership; the endpoint's retained worker is not a global Runtime cache.
+
 `native_evidence_compare` consumes original supplied snapshots through the native evidence owner.
 Describe its request and generated input/output documents rather than inventing snapshot fields.
 Select explicit baseline/candidate generations and supply correspondence when owner identities
@@ -548,6 +584,9 @@ provenance, native outcomes, cancellation/drain and single-endpoint authority an
 selection with its integration/acceptance.
 
 Read cancellation detaches the observer; its protected native operation finishes under its owner.
+The worker reservation remains held until that work actually settles. Endpoint shutdown refuses
+new reads, settles admitted requests, closes worker input and waits for EOF-driven release of
+retained products and the original Runtime. Closing a pipe or cancelling an observer is not drain.
 Action cancellation signals only the owned helper and waits for its native drain. Diagnostic
 attachment never makes the observed subject a cancellation target. An interrupted or lost response
 does not prove rollback or terminal settlement: inspect the returned native output/invocation and

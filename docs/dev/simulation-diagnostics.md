@@ -17,6 +17,11 @@ source surface; they do not establish assembled or all-context qualification.
 
 Optional shared telemetry adds coarse owner spans and selected typed diagnostic logs through
 the [native Collector/OpenObserve service](agent-environment.md#optional-native-telemetry).
+Ordinary Rust export selects spans with the exact `pse.owner.stage` metadata field and the
+exact `surrealdb.sdk.request` span at `surrealdb::engine::remote::grpc_lifecycle`. A matching
+name prefix does not export arbitrary inner spans or events. Explicit finite capture retains
+its separate inner-event scope, bounds and loss accounting; ordinary telemetry does not
+replace that evidence.
 
 Process checkpoints also carry typed runtime measurements from registered actual executors.
 Tokio supplies configured workers, approximate alive tasks, global injection-queue depth and
@@ -42,6 +47,14 @@ and the diagnostic reader retains no runtime registration token. Fresh native re
 with export disabled or the backend down.
 It is a diagnostic projection; these native readers remain authoritative when export fails.
 `just telemetry health` observes independently available stages without probing scientific work.
+For the owned Rust OpenTelemetry SDK 0.33.1 trace `BatchSpanProcessor`, passive health records
+whether and when its first queue-drop diagnostic was observed during process life. The SDK's
+cumulative dropped-span count appears only when its shutdown diagnostic is observed, before
+shutdown control is sent and before waiting. Read that count with its timestamp and independent
+shutdown status; it is not a live drop counter. An absent count is unknown, queue capacity is
+not occupancy, and abrupt-exit buffered loss remains unknown. These observations and a successful
+shutdown do not establish queue drain, export or ingestion. Python SDK queue/drop observations
+remain unavailable. Process incarnation and instrumentation scope bound every observation.
 For an already known trace, use an explicit microsecond interval:
 
 ```bash

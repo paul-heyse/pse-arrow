@@ -326,9 +326,28 @@ extension-installation, generated-stub and fresh-import admission stages. Compat
 stage receipts avoid repeating mutation or generation; actual installed/imported extension
 bytes and current supported source, tool, feature and native inputs determine currency.
 Unknown build-affecting selections refuse the unsupported shortcut. Stub currency also binds
-its generator declarations and outputs. Fresh import admission remains mandatory even when
-preparation is reusable, including inside the actual worker. These receipts do not revive a
+its generator declarations and outputs. Fresh import admission remains mandatory when a worker
+loads its image, even when preparation is reusable. These receipts do not revive a
 portable producer reconstruction campaign or establish scientific result validity.
+
+Supported ordinary installation also observes Cargo's actual producing-input selection and
+associates it with the installed extension in that same receipt. Currency checks consume this
+selection, including selected configuration, tools, environment and admitted provider identities.
+An endpoint retains metadata/link/directory witnesses and rehashes bytes when those witnesses
+change, instead of rehashing an unchanged full source tree for each read. Supported installed-byte
+currency checks do not launch another interpreter for every retained request; the original worker
+still fences the actual image through its first import and subsequent use. Unsupported producing
+observations keep the conservative owner route; missing or changed evidence cannot establish
+currency. There is no additional receipt store or parallel preparation ledger.
+
+Capability requirements distinguish the installed correctness extension from explicit native
+correctness. The installed receipt supplies omitted mode/profile selections; it never defaults an
+unknown installation to dev or discards a native installation's provider requirements. Prepare the
+chosen mode explicitly, then restart/reattach after replacement. Eligible endpoint reads retain
+actual native objects only within their original immutable source/context/image premises. EOF and
+endpoint teardown settle admitted work and close those owners; observer cancellation alone does
+not release them. See the [capability guide](capability-interface.md#native-schemas-actions-and-protected-reads)
+for cursor and lifetime limits.
 
 ## Worktrees
 
@@ -766,9 +785,17 @@ All commands accept `--state PATH`; setup alone accepts explicit listener `--por
 isolated fixtures. Passive configuration/health reads install no SDK, start no service and run
 no scientific probe. Health keeps current-process recording, verified service availability and
 Collector cumulative receipt/export/queue counters separate from backend acceptance and known
-record visibility. Unsupported SDK queue/drop counters remain unavailable. A restart during a
-read invalidates attribution to the previous process. The local diagnostic readers described in
-the [diagnostic guide](simulation-diagnostics.md) remain available when telemetry fails.
+record visibility. Rust's owned OpenTelemetry SDK 0.33.1 trace `BatchSpanProcessor` additionally
+exposes a passive loss observation: its first full-queue drop diagnostic can be observed during
+process life, while a cumulative dropped-span count is available only if the SDK emits its
+shutdown diagnostic. That diagnostic precedes shutdown control and waiting; the independent
+shutdown state records unselected, not attempted, attempted, succeeded or failed. Neither the
+count nor successful shutdown proves queue drain, export or backend ingestion. Missing counts
+are unknown, abrupt-exit buffered loss stays unknown, and queue capacity is not occupancy.
+Python SDK queue/drop counters and other unsupported SDK observations remain unavailable.
+A restart during a read invalidates attribution to the previous process. The local diagnostic
+readers described in the [diagnostic guide](simulation-diagnostics.md) remain available when
+telemetry fails.
 
 `just telemetry lookup-trace --trace-id ID --start-us START --end-us END` reads one exact
 nonzero trace ID in an explicit microsecond interval with a finite row limit. It requires a
@@ -790,6 +817,12 @@ after native work settles. The private one-shot native lane performs no synchron
 drain on scientific exit; its final batches, or all spans from a short solve, may be lost.
 Scientific join/reap/deadline semantics remain unchanged. Detailed continuity coverage and
 backend retention are separate from a healthy service or successful SDK shutdown.
+
+Ordinary Rust trace export selects spans declaring the exact `pse.owner.stage` metadata field,
+plus the exact `surrealdb.sdk.request` span from `surrealdb::engine::remote::grpc_lifecycle`.
+Name prefixes do not select arbitrary inner spans or tracing events. Explicit finite diagnostic
+capture retains its own broader inner-event contract; this ordinary-export filter does not
+change that capture's scope.
 
 The repository Codex attachment forwards names of supported `OTEL_*`, `PSE_TELEMETRY_STATE`
 and `XDG_STATE_HOME` settings through its checked-in `env_vars` allowlist. It stores no secret
