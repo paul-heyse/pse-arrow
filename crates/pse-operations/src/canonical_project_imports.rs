@@ -247,8 +247,9 @@ impl CanonicalStore {
             let request=serde_json::to_vec(&(intent,bytes.as_slice(),row.retired_artifacts.as_ref().map(|bytes|bytes.as_slice()),next.as_slice())).map_err(|error|CanonicalError::Configuration(error.to_string()))?;
             let result=protected_query("canonical_project_imports::retire_artifact",||Ok(self.project_query("RETURN fn::pse_project_import_v1::retire_artifact($pse_rpc_expires_at,$key,$request,$original,$bytes,$previous,$next);")?.bind(("key",intent.operation().to_owned())).bind(("request",surrealdb::types::Bytes::from(intent.publication.request().to_vec()))).bind(("original",Value::Object(wire::encode_canonical_artifacts(original)?))).bind(("bytes",surrealdb::types::Bytes::from(bytes.clone()))).bind(("previous",previous.clone())).bind(("next",surrealdb::types::Bytes::from(next.clone()))))).await;
             let readback=self.project_import_record(intent).await;
-            if let Ok(Some(settled))=&readback {
-                if settled.retired_artifacts.as_ref().is_some_and(|b|b.as_slice()==next.as_slice()) {return Ok(settled.clone());}
+            if let Ok(Some(settled))=&readback
+                && settled.retired_artifacts.as_ref().is_some_and(|b|b.as_slice()==next.as_slice()) {
+                return Ok(settled.clone());
             }
             let source=match result {Ok(_)=>CanonicalError::IncompleteResponse,Err(source)=>source};
             match readback {

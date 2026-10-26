@@ -52,13 +52,13 @@ pub(crate) fn relation_declaration(decl: &RelationDecl) -> Result<(), SchemaErro
                 "canonical lookup keys require opaque text, distinct from semantic identities and vocabularies",
             ));
         }
-        if let Some(initial) = column.canonical_initial() {
-            if column.enum_name().is_none() || initial.is_empty() {
-                return Err(invalid(
-                    format!("{context}.{}", column.name()),
-                    "canonical lifecycle requires a declared vocabulary and initial member",
-                ));
-            }
+        if let Some(initial) = column.canonical_initial()
+            && (column.enum_name().is_none() || initial.is_empty())
+        {
+            return Err(invalid(
+                format!("{context}.{}", column.name()),
+                "canonical lifecycle requires a declared vocabulary and initial member",
+            ));
         }
         if !columns.insert(column.name()) {
             return Err(SchemaError::DuplicateDeclaration {

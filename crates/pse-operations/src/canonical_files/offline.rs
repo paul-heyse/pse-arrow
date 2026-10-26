@@ -376,11 +376,11 @@ impl InventoryEntry {
     }
     fn descriptor(&self) -> Result<Option<FileDescriptor>, CanonicalError> {
         let state = self.state()?;
-        let unsealed = self.text("digest")? == ""
+        let unsealed = self.text("digest")?.is_empty()
             && self.uint("payload_bytes")? == 0
-            && self.text("encoding")? == ""
+            && self.text("encoding")?.is_empty()
             && self.uint("batch_count")? == 0
-            && self.text("schema")? == "";
+            && self.text("schema")?.is_empty();
         if matches!(
             state,
             CanonicalFileState::Sealed | CanonicalFileState::Attached

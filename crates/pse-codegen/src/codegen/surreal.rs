@@ -214,10 +214,10 @@ pub(super) fn relations<'a>(
             if let Some(native) = column.canonical_assertion() {
                 assertions.push(format!("({native})"));
             }
-            if assertions.is_empty() {
-                if let Some(native) = assertion.strip_prefix(" ASSERT ") {
-                    assertions.push(native.to_owned());
-                }
+            if assertions.is_empty()
+                && let Some(native) = assertion.strip_prefix(" ASSERT ")
+            {
+                assertions.push(native.to_owned());
             }
             let assertion = if assertions.is_empty() {
                 String::new()

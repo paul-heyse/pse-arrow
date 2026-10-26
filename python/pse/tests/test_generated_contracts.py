@@ -22,6 +22,7 @@ from pse.contracts.authored import (
 )
 from pse.contracts.enums import (
     CandidateRefusal,
+    CanonicalPayloadPlacement,
     ModelingEnvelopeExtent,
     ModelingVariableDomain,
     PackageKind,
@@ -124,8 +125,12 @@ def test_canonical_manifest_preserves_exact_descriptor_bytes_and_generation() ->
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    "placement", [CanonicalPayloadPlacement.INLINE, CanonicalPayloadPlacement.SEALED]
+)
 def test_canonical_batch_preserves_original_float_bits_and_null_validity(
     tmp_path: Path,
+    placement: CanonicalPayloadPlacement,
 ) -> None:
     # Scientific values now belong to the original IPC batch, not scalar cells.
     bits = bytes.fromhex("910000000000f87f00000000000000800000000000000000")
@@ -137,31 +142,55 @@ def test_canonical_batch_preserves_original_float_bits_and_null_validity(
     with pa.ipc.new_file(sink, table.schema) as writer:
         writer.write_table(table)
     payload = sink.getvalue().to_pybytes()
+    expected_sha256 = hashlib.sha256(payload).hexdigest()
+    schema_identity = SemanticId(bytes([7] * 16)).hex()
     document = {
         "key": "batch-key",
         "attempt": "attempt-key",
         "result_set": "result-set-key",
         "ordinal": (1 << 64) - 1,
-        "digest": "original-payload-digest",
-        "file_binding": "binding-key",
-        "file_instance": "instance-key",
-        "file_digest": hashlib.sha256(payload).hexdigest(),
-        "file_batch_index": 0,
+        "digest": "d" * 64,
+        "payload_binding": "binding-key",
+        "placement": placement.value,
+        "inline_key": "inline-body-key"
+        if placement is CanonicalPayloadPlacement.INLINE
+        else None,
+        "file_instance": "00000000-0000-4000-8000-000000000002"
+        if placement is CanonicalPayloadPlacement.SEALED
+        else None,
+        "payload_index": 0,
         "payload_bytes": len(payload),
-        "schema": table.schema.serialize().to_pybytes().hex(),
-        "encoding": "arrow-ipc-file-v1",
+        "schema": schema_identity,
+        "encoding": "arrow-ipc-file",
         "row_count": 3,
     }
     row = structure_rows(
         [document], runtime_contracts.RuntimeCanonicalResultBatchesRow
     )[0]
     assert converter().unstructure(row) == document
-    file = tmp_path / (row.file_instance + ".sealed")
-    file.write_bytes(payload)
-    assert file.stat().st_size == row.payload_bytes
-    assert hashlib.sha256(file.read_bytes()).hexdigest() == row.file_digest
-    with pa.memory_map(str(file), "r") as source:
-        restored = pa.ipc.open_file(source).get_batch(row.file_batch_index).column(0)
+    assert row.digest == document["digest"]
+    assert row.schema == schema_identity
+    if row.placement is CanonicalPayloadPlacement.SEALED:
+        assert row.file_instance is not None
+        assert row.inline_key is None
+        file = tmp_path / (row.file_instance + ".sealed")
+        file.write_bytes(payload)
+        assert file.stat().st_size == row.payload_bytes
+        assert hashlib.sha256(file.read_bytes()).hexdigest() == expected_sha256
+        source = pa.memory_map(str(file), "r")
+    else:
+        assert row.file_instance is None
+        assert row.inline_key == "inline-body-key"
+        assert len(payload) == row.payload_bytes
+        source = pa.BufferReader(payload)
+    # Native admission owns the opaque digest/schema identities. These original
+    # IPC bytes independently establish the scientific schema and exact values.
+    with source:
+        reader = pa.ipc.open_file(source)
+        assert reader.schema.equals(
+            pa.schema([pa.field("original-field", pa.float64())]), check_metadata=True
+        )
+        restored = reader.get_batch(row.payload_index).column(0)
     assert restored.buffers()[1].to_pybytes() == bits
     assert restored.is_null().to_pylist() == [False, False, True]
     for invalid in (

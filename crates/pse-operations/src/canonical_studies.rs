@@ -1010,7 +1010,7 @@ impl CanonicalStore {
                             };
                             if point.policy.seed_need == pse_model::study::SeedNeed::Pending {
                                 let mut admission_run = point.run.clone();
-                                admission_run.key = RunKey::study_admission(&StudyPointKey::from(key.as_str())).into();
+                                admission_run.key = RunKey::study_admission(&StudyPointKey::from(key.as_str()));
                                 admission_run.purpose = pse_model::generated::enums::CanonicalRunPurpose::StudyAdmission;
                                 admission_run.admission_study = Some(row.key.clone().into());
                                 admission_run.admission_point = Some(key.clone().into());
@@ -1141,8 +1141,7 @@ impl CanonicalStore {
                 }
                 if point.policy.seed_need == pse_model::study::SeedNeed::Pending {
                     let mut admission_run = point.run.clone();
-                    admission_run.key =
-                        RunKey::study_admission(&StudyPointKey::from(key.as_str())).into();
+                    admission_run.key = RunKey::study_admission(&StudyPointKey::from(key.as_str()));
                     admission_run.purpose =
                         pse_model::generated::enums::CanonicalRunPurpose::StudyAdmission;
                     admission_run.admission_study = Some(expected.key.clone().into());

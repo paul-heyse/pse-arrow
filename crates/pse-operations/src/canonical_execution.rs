@@ -5794,10 +5794,10 @@ impl CanonicalStore {
             let mut shared = std::collections::BTreeSet::new();
             let encoded = items.iter().map(|item| {
                 let mut encoded = item.item.clone();
-                if let Some(Value::Object(body)) = encoded.get("inline") {
-                    if let Some(Value::String(key)) = body.get("key") {
-                        if !shared.insert(key.clone()) { encoded.insert("inline", Value::None); }
-                    }
+                if let Some(Value::Object(body)) = encoded.get("inline")
+                    && let Some(Value::String(key)) = body.get("key")
+                    && !shared.insert(key.clone()) {
+                    encoded.insert("inline", Value::None);
                 }
                 Value::Object(encoded)
             }).collect::<Vec<_>>();

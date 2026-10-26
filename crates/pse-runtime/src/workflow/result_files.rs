@@ -18,7 +18,7 @@ use std::io::{Cursor, Read, Seek, SeekFrom};
 /// Native IPC reads retain either the protected physical owner or the charged inline bytes.
 #[derive(Debug)]
 pub(super) enum ResultFileSource {
-    Sealed(pse_operations::canonical_files::ProtectedFile),
+    Sealed(Box<pse_operations::canonical_files::ProtectedFile>),
     Inline(Cursor<Vec<u8>>),
 }
 impl Read for ResultFileSource {

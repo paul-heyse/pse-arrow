@@ -6093,7 +6093,7 @@ class SurrealSupervisorTests(unittest.TestCase):
 
         def copy(
             arguments: list[str], **options: object
-        ) -> subprocess.CompletedProcess[str]:
+        ) -> subprocess.CompletedProcess[str] | subprocess.CompletedProcess[bytes]:
             nonlocal exported_science, exported_domain_owner
             if arguments[1] == "--operation":
                 request = options["stdin"]
@@ -7550,6 +7550,38 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 if p.is_file()
             },
         )
+
+    def test_backup_refuses_untyped_native_digest_before_manifest_completion(
+        self,
+    ) -> None:
+        config = self.initialized()
+        config.update(
+            interpretation=server.SUBSTRATE_INTERPRETATION,
+            schema_interpretation=server.SUBSTRATE_INTERPRETATION,
+        )
+        server.write_json(self.state / "config.json", config)
+        for index, digest in enumerate((None, True, 7, b"a" * 64, "A" * 64, "abc")):
+            destination = self.root / f"invalid-native-digest-{index}"
+            inventory = [
+                {"files": {"payloads/owned.sealed": {"sha256": digest, "bytes": 3}}}
+            ]
+            with (
+                self.subTest(digest=digest),
+                patch.object(server, "freeze_payloads", return_value=inventory),
+                patch.object(server, "verify_payload_inventory"),
+                patch.object(server, "copy_payload_inventory"),
+                patch.object(
+                    server,
+                    "capture_application_inventory",
+                    side_effect=self.application_inventory_fixture,
+                ),
+                patch.object(server, "stop"),
+                self.assertRaisesRegex(
+                    server.SupervisorError, "SHA256 binding is invalid"
+                ),
+            ):
+                server.backup(self.state, config, destination)
+            self.assertFalse((destination / "backup.json").exists())
 
     def test_backup_requires_application_inventory_and_refuses_old_format(self) -> None:
         backup = self.backup_fixture()

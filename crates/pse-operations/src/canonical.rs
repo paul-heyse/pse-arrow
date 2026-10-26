@@ -1790,18 +1790,17 @@ impl CanonicalStore {
                                 if revision.request.as_slice() != stage.request.as_slice() {
                                     return Err(CanonicalError::OperationReused);
                                 }
-                                if let Some(intent) = project {
-                                    if let Err(readback) =
+                                if let Some(intent) = project
+                                    && let Err(readback) =
                                         self.verify_project_publication_ack(intent).await
-                                    {
-                                        return Err(settlement::unresolved(
-                                            "source-activation",
-                                            &stage.operation,
-                                            &stage.request,
-                                            error,
-                                            Some(readback),
-                                        ));
-                                    }
+                                {
+                                    return Err(settlement::unresolved(
+                                        "source-activation",
+                                        &stage.operation,
+                                        &stage.request,
+                                        error,
+                                        Some(readback),
+                                    ));
                                 }
                                 return Ok(revision.clone());
                             }
@@ -1853,10 +1852,9 @@ impl CanonicalStore {
                                 let revision = self.revision(&stage.operation).await?;
                                 if revision.as_ref().is_some_and(|revision| {
                                     revision.request.as_slice() == stage.request.as_slice()
-                                }) {
-                                    if let Some(intent) = project {
-                                        self.verify_project_publication_ack(intent).await?;
-                                    }
+                                }) && let Some(intent) = project
+                                {
+                                    self.verify_project_publication_ack(intent).await?;
                                 }
                                 Ok(revision)
                             },

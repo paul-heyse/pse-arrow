@@ -9,60 +9,6 @@ pub(crate) fn type_name(kind: CanonicalKeyKind) -> String {
     format!("{}Key", super::types::pascal(kind.as_str()))
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::codegen::{Language, generate};
-    #[test]
-    fn canonical_generated_contract_retains_nominal_text_keys_and_original_inline_owner() {
-        let registry = crate::catalog::assemble().unwrap();
-        let tree = generate(&registry, Language::Rust).unwrap();
-        let output = std::str::from_utf8(
-            &tree.files[std::path::Path::new("crates/pse-model/src/generated/canonical.rs")],
-        )
-        .unwrap();
-        assert!(output.contains("pub struct RunKey(String)"));
-        assert!(output.contains("pub struct AttemptKey(String)"));
-        assert!(!output.contains("SemanticId"));
-        assert!(output.contains("\"canonical_inline_payloads\""));
-        assert!(
-            !output
-                .split("APPLICATION_BACKUP_TABLES")
-                .nth(1)
-                .unwrap()
-                .split(';')
-                .next()
-                .unwrap()
-                .contains("canonical_file_owners")
-        );
-        let enums = std::str::from_utf8(
-            &tree.files[std::path::Path::new("crates/pse-model/src/generated/enums.rs")],
-        )
-        .unwrap();
-        assert!(enums.contains("pub const fn attempt_state(self) -> AttemptState"));
-        assert!(enums.contains("pub const fn study_point_state(self, partial_usable: bool)"));
-    }
-    #[test]
-    fn same_field_spelling_does_not_invent_a_lookup_domain_for_scientific_bytes() {
-        let registry = crate::catalog::assemble().unwrap();
-        let scientific = registry
-            .relation("runtime.canonical_research_selections")
-            .unwrap()
-            .column("selection")
-            .unwrap();
-        assert_eq!(scientific.data_type(), arrow_schema::DataType::Binary);
-        assert_eq!(scientific.canonical_key(), None);
-        let lookup = registry
-            .relation("runtime.canonical_research_publications")
-            .unwrap()
-            .column("selection")
-            .unwrap();
-        assert_eq!(lookup.data_type(), arrow_schema::DataType::Utf8);
-        assert_eq!(
-            lookup.canonical_key(),
-            Some(crate::model::CanonicalKeyKind::ResearchSelection)
-        );
-    }
-}
 pub(super) fn emit(
     tree: &mut crate::codegen::GeneratedTree,
     registry: &crate::Registry,
@@ -153,4 +99,59 @@ pub(super) fn emit(
             #(#codecs)*
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::codegen::{Language, generate};
+    #[test]
+    fn canonical_generated_contract_retains_nominal_text_keys_and_original_inline_owner() {
+        let registry = crate::catalog::assemble().unwrap();
+        let tree = generate(&registry, Language::Rust).unwrap();
+        let output = std::str::from_utf8(
+            &tree.files[std::path::Path::new("crates/pse-model/src/generated/canonical.rs")],
+        )
+        .unwrap();
+        assert!(output.contains("pub struct RunKey(String)"));
+        assert!(output.contains("pub struct AttemptKey(String)"));
+        assert!(!output.contains("SemanticId"));
+        assert!(output.contains("\"canonical_inline_payloads\""));
+        assert!(
+            !output
+                .split("APPLICATION_BACKUP_TABLES")
+                .nth(1)
+                .unwrap()
+                .split(';')
+                .next()
+                .unwrap()
+                .contains("canonical_file_owners")
+        );
+        let enums = std::str::from_utf8(
+            &tree.files[std::path::Path::new("crates/pse-model/src/generated/enums.rs")],
+        )
+        .unwrap();
+        assert!(enums.contains("pub const fn attempt_state(self) -> AttemptState"));
+        assert!(enums.contains("pub const fn study_point_state(self, partial_usable: bool)"));
+    }
+    #[test]
+    fn same_field_spelling_does_not_invent_a_lookup_domain_for_scientific_bytes() {
+        let registry = crate::catalog::assemble().unwrap();
+        let scientific = registry
+            .relation("runtime.canonical_research_selections")
+            .unwrap()
+            .column("selection")
+            .unwrap();
+        assert_eq!(scientific.data_type(), arrow_schema::DataType::Binary);
+        assert_eq!(scientific.canonical_key(), None);
+        let lookup = registry
+            .relation("runtime.canonical_research_publications")
+            .unwrap()
+            .column("selection")
+            .unwrap();
+        assert_eq!(lookup.data_type(), arrow_schema::DataType::Utf8);
+        assert_eq!(
+            lookup.canonical_key(),
+            Some(crate::model::CanonicalKeyKind::ResearchSelection)
+        );
+    }
 }

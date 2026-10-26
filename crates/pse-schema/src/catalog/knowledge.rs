@@ -19,6 +19,10 @@ fn relation(
 ) {
     relation_version(b, namespace, name, 1, class, keys, columns, doc);
 }
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the explicit declaration includes its schema version"
+)]
 fn relation_version(
     b: &mut RegistryBuilder,
     namespace: N,

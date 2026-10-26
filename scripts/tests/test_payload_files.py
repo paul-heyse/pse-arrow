@@ -95,7 +95,7 @@ class PayloadLifecycleTests(unittest.TestCase):
     def native_facts(
         self,
         state: Path,
-        config: object,
+        _config: object,
         operation: str,
         inventory: object = None,
         **options: object,
@@ -845,11 +845,11 @@ class NativePayloadProtocolTests(unittest.TestCase):
         for response in (b"x" * (64 * 1024 + 1), b"not json\n"):
 
             def dispatch(
-                arguments: list[str], **options: object
+                arguments: list[str], *, reply: bytes = response, **options: object
             ) -> subprocess.CompletedProcess[bytes]:
                 output = options["stdout"]
                 assert isinstance(output, io.BufferedIOBase)
-                output.write(response)
+                output.write(reply)
                 return subprocess.CompletedProcess(arguments, 0, b"", b"")
 
             with (

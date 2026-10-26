@@ -377,7 +377,10 @@ impl ProtectedResultDecode {
                     .await?;
                     let count = usize::try_from(file.descriptor().batch_count)
                         .map_err(|_| contract("file batch count extent"))?;
-                    (result_files::ResultFileSource::Sealed(file), count)
+                    (
+                        result_files::ResultFileSource::Sealed(Box::new(file)),
+                        count,
+                    )
                 }
                 pse_operations::canonical_execution::PayloadLocator::Inline { .. } => {
                     let body = pse_operations::canonical::response_ownership_scope(

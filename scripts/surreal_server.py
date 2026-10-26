@@ -1414,10 +1414,11 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
                 "Missing payload incarnation; explicitly regenerate this profile"
             )
         try:
-            if str(uuid.UUID(incarnation)) != incarnation:
-                raise ValueError("noncanonical incarnation")
+            parsed_incarnation = uuid.UUID(incarnation)
         except ValueError as error:
             raise SupervisorError("Invalid payload incarnation") from error
+        if str(parsed_incarnation) != incarnation:
+            raise SupervisorError("Invalid payload incarnation")
     budget = config.get("resources")
     if not isinstance(budget, dict):
         raise SupervisorError("Missing resource allocation")
@@ -6882,11 +6883,14 @@ def reap_payload_owners(
             observations = native_payload_operation(
                 state, config, "owner-observations", selected
             )
-            if len(observations) != len(selected):
-                raise SupervisorError("Native owner observation closure differs")
         except (OSError, SupervisorError):
             if require_all:
                 raise
+            counts["unknown"] += len(selected)
+            continue
+        if len(observations) != len(selected):
+            if require_all:
+                raise SupervisorError("Native owner observation closure differs")
             counts["unknown"] += len(selected)
             continue
         for row, observation in zip(selected, observations, strict=True):
@@ -7287,13 +7291,17 @@ def _backup(
         for path in sorted(destination.rglob("*"))
         if path.is_file() and path.relative_to(destination).parts[0] != "payloads"
     }
-    files.update(
-        {
-            name: object_mapping(binding)["sha256"]
-            for entry in payload_inventory
-            for name, binding in object_mapping(entry["files"]).items()
-        }
-    )
+    for entry in payload_inventory:
+        for name, binding in object_mapping(entry["files"]).items():
+            digest = object_mapping(binding).get("sha256")
+            if (
+                not isinstance(digest, str)
+                or re.fullmatch(r"[a-f0-9]{64}", digest) is None
+            ):
+                raise SupervisorError(
+                    "Native payload inventory SHA256 binding is invalid"
+                )
+            files[name] = digest
     write_json(
         destination / "backup.json",
         {
