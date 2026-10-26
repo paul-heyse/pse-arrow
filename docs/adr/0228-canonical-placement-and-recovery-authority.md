@@ -8,7 +8,7 @@ level: decision
 principles: [AP-01, AP-02, AP-03, AP-04, AP-07, DP-01, DP-04, DP-09, PS-10]
 blueprint: [§3.2, §20.1, §20.2, §20.4, §20.5, §20.6, §21.1]
 review: docs/design_review/reviews/design_review_canonical-placement-and-recovery_2026-10-25.md
-evidence: Proposed
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A required payload, recovery or caller lifetime cannot be represented by the closed locator and owner-specific settlement contracts.
@@ -129,6 +129,8 @@ files, unknown owners and interrupted cutover. Native file work holds its true l
 Proposed at c3b11ba63, before dependent implementation. The focused decision review accepts the proposed target at its inspected boundary; it supplies no
 implementation or runtime qualification. Plan56c owns actual implementation and qualification;
 source reasoning is not scientific, host, operational or performance evidence.
+
+**Implemented/Tested — 2026-10-26:** the [Plan56c Outcome](../plans/56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) records selected local Linux canonical/runtime/installed Python/public/private recovery acceptance, original failures and repaired checks. Actual mixed recovery preserved original scientific facts; private source and restored services are stopped. This evidence does not change the proposed formal decision status or qualify wider Plan56, shared-context restore, other platforms or performance.
 
 ## Pros and cons
 

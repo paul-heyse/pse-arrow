@@ -158,7 +158,7 @@ repair truthful records. Archive diffs are useful evidence, not a new per-comman
 | Package | Status | Owner | Completion |
 |---|---|---|---|
 | E01 | planned; RC02/RC03 required | 56e | Normal product closure excludes development-only families/queries; all catalogue consumers use their owner |
-| E02 | planned; RC04 governs roots | 56e | One deployment protocol/validator and working product targets/frozen receiver closure replace mirrors |
+| E02 | planned; C04 recovery-helper root delivered, wider RC04 pending | 56e | One deployment protocol/validator and working product targets/frozen receiver closure replace mirrors |
 | E03 | planned; RC05 required | 56e | Production profile drives conformance and all allocation readers without repeated finite rules |
 | E04 | planned | 56e | Leaf observations and borrower interface remove cyclic owner knowledge while preserving distinct policies |
 | E05 | planned | 56e | Truthful supplier origin/delta/workaround record reconstructs actual bytes without a mandated format |
@@ -182,3 +182,7 @@ Probe product recovery without fixture imports and keep exploratory/fixture root
 their existing scopes. Supplier reconstruction compares complete trees; any numerical behavior
 change separately requires its native/scientific controls. These are future checks, not authoring
 qualification or a measured rebuild-time claim.
+
+## Selected 56c prerequisites — 2026-10-26
+
+**Implemented/Tested:** [56c Outcome](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) owns the selected product recovery binary in existing `pse-operations`, separate xtask fixture controls, native offline file authority and closed current-artifact readmission. This delivers only E02's helper-root prerequisite. Worker/project root relocation, the complete deployment protocol/validator and receiver closure remain E02 work; RC04 is selected only for the helper. RC02/RC03 catalogue separation and RC05 production profile authority remain pending, with existing numeric capacities preserved.

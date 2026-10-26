@@ -179,9 +179,9 @@ redundant imports only when their current guarantees are supplied by the retaine
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| F01 | planned; selected 56a/56b boundary adoption complete, RC02 pending | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
+| F01 | planned; selected 56a/56b/56c boundary adoption complete, RC02 pending | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
 | F02 | planned | 56f | Intended public hosts agree on contracts/defaults/effects and actual prerequisites without parallel operation lists |
-| F03 | planned; selected 56b typed remedies complete | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
+| F03 | planned; selected 56b remedies and 56c settlement causes delivered | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
 | F04 | planned | 56f | Ordinary export follows stage policy; SDK queue loss observed with truthful lifetime/final-count precision |
 | F05 | planned | 56f | Supported producing receipt and actual image witness replace per-read supersets/deny-lists without lost inputs |
 | F06 | planned; RC06 governs retention | 56f | Admitted read/page lifetime amortizes preparation while source/image, protections and physical drain remain exact |
@@ -240,3 +240,7 @@ CLI agree on an original failed model's permission and retained diagnostic check
 unit controls remain separate evidence. This completes only B's necessary F01/F03 adoption.
 General declaration/metric fidelity, all-host operation envelopes, wider settlement/telemetry,
 image-currency redesign and reused page/worker lifetimes remain planned; RC02/RC06 remain pending.
+
+## Selected 56c prerequisites — 2026-10-26
+
+**Implemented/Tested:** [56c Outcome](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) owns canonical key/vocabulary/association generation, exact attributed settlement with both original/readback causes and selected installed Python/STDIO MCP/CLI agreement. These supply F01/F03 prerequisites. Responsibility-scoped catalogue generation, wider host agreement, metric/telemetry semantics, image-witness redesign and retained page/worker lifetimes remain F01–F06 work. RC02/RC06 remain pending; the public acceptance does not establish desktop-host attachment or end-to-end trace export.

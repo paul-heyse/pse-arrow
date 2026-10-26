@@ -122,10 +122,10 @@ references and owning scope are satisfied; other plan series retain their obliga
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| G01 | planned; selected 56a/56b slices complete | 56g | Named scientific/installed/public journeys exercise the composed target and adverse semantics |
-| G02 | planned; selected 56a/56b slices complete | 56g | Exact durable/workload/operator journeys pass with original custody/drain and supported scope |
-| G03 | planned; selected 56a/56b slices complete | 56g | Relevant zero-target scope-end/manual checks complete; structural and measured claims separated |
-| G04 | planned; selected 56a/56b slices complete | 56g | Independent assessment, all finding obligations/evidence reconciled and enduring meaning published |
+| G01 | planned; selected 56a/56b/56c contributions delivered | 56g | Named scientific/installed/public journeys exercise the composed target and adverse semantics |
+| G02 | planned; selected 56a/56b/56c contributions delivered | 56g | Exact durable/workload/operator journeys pass with original custody/drain and supported scope |
+| G03 | planned; selected 56a/56b/56c contributions delivered | 56g | Relevant zero-target scope-end/manual checks complete; structural and measured claims separated |
+| G04 | planned; selected 56a/56b/56c contributions delivered | 56g | Independent assessment, all finding obligations/evidence reconciled and enduring meaning published |
 
 G01/G02 consume completed relevant functional scope and C05 activation; neither substitutes for
 another's subjects. G03 runs after all functional work; G04 closes the integrated evidence/authority
@@ -172,3 +172,9 @@ it was not restarted and supplies no matrix claim. Default/no-default/supported 
 closures passed at their actual scope. No full parity/fleet, distribution, desktop-host attachment,
 other-platform, performance or remaining C/D/E/F scenario qualification follows. RC01–RC06 and the
 wider G01–G04 scope remain pending. ADR-0227 remains proposed.
+
+## Selected 56c qualification — 2026-10-26
+
+**Implemented/Tested:** [56c Outcome](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) owns completed C01–C05 and selected G01–G04 contributions for canonical meaning/effects, exact payload custody, product file authority and closed activation/recovery. Evidence includes canonical 49/49, final native runtime 83/83, repaired installed Python/physical readers, actual STDIO MCP/CLI agreement and private mixed backup/restore with exact original semantics. A real interrupted restore remained closed through three refusals, recovered, validated closed, readmitted and reopened exactly. Original failed attempts, shared-state refusal and composed static checks retain their scope. All owned fixture services are stopped with data/receipts retained.
+
+This is selected local Linux acceptance. G's remaining scenarios, independent full-series assessment, wider D/E/F work and pending rule choices remain open. Shared-context restore, desktop-host attachment, trace export, a new feature powerset, full parity/fleet, wheels, other platforms and measured performance are not established. ADR-0228 remains proposed.

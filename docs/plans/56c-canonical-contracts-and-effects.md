@@ -1,6 +1,6 @@
 ---
 title: "Plan 56c: Canonical contracts and effects"
-status: in-progress
+status: done
 date: 2026-10-25
 adrs: [ADR-0227, ADR-0228]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -14,7 +14,7 @@ doc_topics: [design, storage, numerical-execution]
 
 ## Purpose and foundation assessment
 
-**Proposed:** canonical declarations own decision-relevant storage meaning, shared settlement
+**Implemented:** canonical declarations own decision-relevant storage meaning, shared settlement
 preserves exact effect knowledge, and payload placement removes small-file machinery without
 changing scientific admission. This companion owns DA-007/033 and supplies durable contracts to
 B/D/E/F. [Plan 56](56-design-principle-alignment.md) owns shared decisions and finding status.
@@ -61,7 +61,7 @@ knowledge result; retries consume that result, not a coarse failure class alone.
 
 ### One payload admission, two physical placements
 
-The preferred RC01 proposal admits the same encoded scientific bytes once, then uses a typed
+The selected RC01 route admits the same encoded scientific bytes once, then uses a typed
 locator alternative: bounded inline content in the canonical transaction, or a sealed homogeneous
 IPC file descriptor/batch coordinate. Schema/encoding, interpretation, exact size/digest, relation,
 run/attempt and ordinal remain explicit. No fake file id, empty schema sentinel or legacy decoder
@@ -80,10 +80,6 @@ are explicit close-inventory entries. Small completion/seed/progress payloads co
 placement contract where eligible. This removes their file reserve/lock/fsync/seal protocol rather
 than merely making its calls asynchronous. Do not introduce ZIP/TAR, a custom multi-schema
 container or mutable per-writer logs.
-
-If RC01 is rejected, use grouped metadata and larger same-relation IPC packing while retaining the
-file-only contract. That is a valid reduced target, but its remaining tiny-file work is explicit;
-it must not be represented as delivering the preferred mechanism unchanged.
 
 ## Packages
 
@@ -136,11 +132,11 @@ compatibility reader or second production path is introduced.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| C01 | implemented; database-backed acceptance pending | 56c | Generated canonical meaning and all current typed consumers replace independent spellings/branches |
-| C02 | implemented; pure acceptance passed, owner-effect acceptance pending | 56c | Exact replay and effect knowledge consistent across shared-contract owners with distinct lifetimes preserved |
-| C03 | implemented; v9 source cutover compiled, composed acceptance pending | 56c | Selected locator plus exact completion/replay/context facts consumed by every durable read/write/lifecycle path |
-| C04 | implemented; native/offline controls passed, mixed recovery acceptance pending | 56c | Online/offline file observations share Rust authority; Python duplicate policy retired |
-| C05 | in-progress; interrupted fresh activation resumed to the exact closed v9 target | 56c | Working producers/readers installed together; fresh owned store activation and failure recovery verified |
+| C01 | complete | 56c | Generated canonical meaning and all current typed consumers replace independent spellings/branches |
+| C02 | complete | 56c | Exact replay and effect knowledge consistent across shared-contract owners with distinct lifetimes preserved |
+| C03 | complete | 56c | Selected locator plus exact completion/replay/context facts consumed by every durable read/write/lifecycle path |
+| C04 | complete | 56c | Online/offline file observations share Rust authority; Python duplicate policy retired |
+| C05 | complete | 56c | Working producers/readers installed together; fresh owned store activation and failure recovery verified |
 
 C01 and B's early fact/constructor declarations enable C03; they do not require all B packages to
 finish. D01 replaces append realization using C03. C04 and E02 share one product-helper boundary;
@@ -167,7 +163,7 @@ message-envelope pressure, multiple schemas, exact IEEE/null values, partially p
 read tickets through retirement, mixed inline/sealed backup/restore and exported/reopened results.
 Assert actual file/transaction shapes where the claimed work removal depends on them. Fresh
 activation controls cover interrupted install, unknown borrowers, obsolete interpretation refusal
-and explicit successful readmission. No current product or performance qualification is claimed.
+and explicit successful readmission. Selected functional qualification is recorded below; no measured performance benefit is claimed.
 
 ## Selected 56b adoption — 2026-10-25
 
@@ -180,61 +176,21 @@ The selected preexisting store was preserved. This supplies the necessary C03/C0
 full C01/C02/C04, payload placement/RC01 and the broader coordinated activation remain pending.
 There is no compatibility path or authorization to reset other deployments.
 
-## Execution checkpoint — 2026-10-25
+## Execution authorization — 2026-10-25
 
-The maintainer authorized C01–C05 after selecting RC01 inline/sealed payload placement and only
-the RC04 product recovery helper slice. ADR-0228 records the coordinated v9 contract before
-implementation and its focused decision review. Preserve the existing selected store, completed
-56b fixtures and their original evidence. The existing 56c package table remains the status owner;
-working shared contracts, all current consumers and fresh owned activation precede acceptance.
-No production package is complete from the earlier 56a/b prerequisite adoption alone.
-
-**Execution checkpoint — 2026-10-26:** the focused decision review accepted ADR-0228's proposed
-target before dependent publication. The source cutover, current consumers and generated outputs
-are integrated. Shared settlement retains both causes through owner protocols and public diagnostic
-projection. Explicit associations and producer classes replace behavioral prefix inference. Inline
-bodies are selected before file work; descriptor discovery remains separate from charged body
-hydration. The product recovery helper shares native file authority with online readers, and the
-duplicate Python file policy is removed. Workspace compilation and focused pure/offline controls
-have passed; they do not establish assembled acceptance.
-
-The owned fixture `build/qualification/56c-v8-PMtzWmL1` first retained an actual v8 failed-check
-result, then underwent authorized fresh regeneration. A real interruption after publishing the
-pending target refused startup; resume reused the exact v9 target and removed the old database.
-Initialization exposed a lifecycle gap between the omitted telemetry selection and readmission's
-quiesced-only guard. The repaired explicit readmission preserved the exact closed target and its
-initializer; initialization and normal startup then succeeded with current receiver/helper
-artifacts. Fresh regeneration now preserves recorded telemetry selection.
-
-The assembled database selection exposed a missing study-scope association projection,
-stale fixture/knowledge expectations, an undeclared research-test effect and a fixture bridge
-that omitted registration's original deadline. Those owners are corrected, and the canonical
-selection now passes. Study input-admission claims carry their actual owner proof and immutable
-request purpose; ordinary execution cannot replay that receipt as its own claim. Completed IPC
-encoding releases writer scratch while retaining exact allocated bytes and scientific facts
-through acknowledgement. The affected runtime controls pass after that custody correction.
-
-Installed Python acceptance passed 108 selected cases but repeatedly crashed in durable progress
-reopening. Symbolized addresses identify a large nested future's stack probe, before event
-decoding. Progress now uses the adjacent reader's existing prepaid, separately constructed future
-mechanism, preserving original activity/cancellation and protection. The original Python case and
-four focused future controls pass. The interrupted invocation and its failed workers remain
-evidence; all 43 invocation contexts are authenticated-drained, with failure pins retained. A
-later public inspection stack probe exposed the same embedding problem in shared durable chunk
-reading. Its common completion/replay/seed reader now constructs a prepaid child before the
-response scope. Installed Python, actual STDIO MCP and derived CLI agree on original failed
-permission and readable diagnostic bytes. The diagnostic-environment currency refusal is retained;
-the passing public run used the recorded environment. Affected scientific/physical readers and
-mixed recovery journeys remain under qualification. No C package is complete yet. Other stores
-and prior 56b artifacts remain preserved.
+The maintainer authorized C01–C05 with RC01 inline/sealed placement and only the RC04 product
+recovery-helper slice. ADR-0228 and its focused decision review preceded dependent publication.
+The existing selected store and completed 56b databases/receipts were preserved. The package
+table and Outcome own current completion; formal ADR acceptance remains separate.
 
 ## Verification and Outcome — 2026-10-26
 
 ### What was built
 
-**Implemented:** C01–C05's source target and current consumers are integrated. Final affected
-runtime and mixed recovery acceptance is still in progress; the package table remains the
-completion owner until those journeys finish.
+**Implemented/Tested:** C01–C05 are complete at the selected local Linux scopes below. Working
+declarations, current consumers, native file authority and controlled activation are integrated;
+public and private mixed recovery acceptance passed. This completes 56c, not the remaining Plan56
+companions or formal ADR acceptance.
 
 Canonical declarations now own opaque key kinds, closed vocabulary/transition/projection meaning,
 explicit run purpose and study/admission/variant associations, producer class and backup/retention
@@ -275,8 +231,16 @@ meaning and versions.
 uninterrupted clean campaign. Rust correctness routes enable Arrow force-validation. Native
 execution uses the selected functional profile without reducing host lanes or allocations.
 The owned state is `build/qualification/56c-v8-PMtzWmL1`, with sibling `-receipts`; retained
-`qualification.sh`, `final-functional.sh` and selection filters identify expanded commands.
-Native test invocation records live under the selected test-resource registry.
+`qualification.sh`, `final-functional.sh` and selection filters identify expanded commands. The
+private operational state and its sibling receipts are named in the mixed recovery row.
+Native test invocation records live under the selected test-resource registry. The private
+recovery receipt binds installed image `9819c6c6e894795d799bb6643df71e3f2fe268c099f921d1ba4a03bb7806d311`;
+functional and failed attempts keep their own exact image witnesses. The final post-format
+editable image is `31ae8184772275a3ec43ea3bea259a36756bcfb2a6e404f66b36584691ef28b6`. Its currentness check passed using
+the native environment and existing interpreter binding owner. Preliminary probes without the
+native linker environment or that interpreter binding refused; those were corrected at the
+caller, without changing currency rules. Final `just ready` and capability-reference comparison
+passed. The rebuilt image is not additional scientific qualification.
 
 | Command / scope | Actual result and conditions |
 |---|---|
@@ -289,10 +253,10 @@ Native test invocation records live under the selected test-resource registry.
 | Installed `scripts.python_tests --unit-only ... test_generated_contracts.py -k canonical_batch_preserves_original_float_bits_and_null_validity` | 2/2 passed for inline and sealed locators with exact IEEE/null/schema values. A preceding foreign pytest temporary-directory refusal was preserved; that directory was not altered. |
 | Focused supervisor/recovery/registration controls | Closed artifact readmission/telemetry: 15 passed; original registration deadline: 4 passed; current native verifier backup/restore callers: 26 passed. Earlier broader supervisor selection had 280 passes and one timing failure; the affected unchanged control passed separately, without promoting it to a clean 281-case run. |
 | `qualification.sh public public-accepted` | Actual installed Python, STDIO MCP and derived CLI passed the same inspection document: original permission false, retained check value false. Direct and debugger-controlled earlier probes crashed in shared completion reads. A later diagnostic-environment mismatch correctly refused currency; the passing run used the recorded environment. This does not establish desktop-host attachment. |
-| Actual mixed recovery driver | The first attempt preserved an exact capture but refused backup before copying: its 45 managed contexts included a stale helper selection after `cargo clean`, while restore supports a private sole-database state. Current backup now refuses that shared state before freeze: actual 45-context control preserved every config byte and created no destination; 5 related source controls passed. Mixed recovery is running on dedicated private `56c-private-recovery-n7ge09gf`, with the identical functional allocation and fresh actual inline/sealed results. |
+| Actual mixed recovery driver | The first attempt preserved an exact capture but refused backup before copying: its 45 managed contexts included a stale helper selection after `cargo clean`, while restore supports a private sole-database state. Current backup now refuses that shared state before freeze: actual 45-context control preserved every config byte and created no destination; 5 related source controls passed. Dedicated private `56c-private-recovery-n7ge09gf`, with the identical functional allocation, passed actual Python/STDIO MCP/CLI, mixed backup/inspection (10 inline bodies, 5 sealed instances, all 345 members independently hashed), corrupted-sealed-byte refusal, SIGKILL at published backup-copy, all 3 closed refusals, maintenance recovery, closed validation, explicit readmission and reopened exact reads. All 8 Arrow tables and the original inspection/Completion/context matched exactly; no oracle weakening. Commands and conditions: its sibling `-receipts/qualification.json`. |
 | Workspace native all-target compile; supported native Clippy; `just ready` | Earlier workspace compile: 0 errors/warnings. Scope-end supported native Clippy passed; after progress/chunk repairs, `scripts.arrow_validation clippy -p pse-runtime --all-targets --features native-solvers,canonical-tests --locked -- -D warnings` passed. `just ready` passed again after the maintainer's clean. Two concurrent checks interrupted by that clean failed on removed temporary build directories; affected checks were rerun. |
 | `just hygiene`; `just governance`; manual native lints | Initial hygiene had 5 failed leaves; Python lint/types, capability reference and both default/no-default Clippy leaves were repaired and passed. Other hygiene leaves passed. Governance had 1 failed capability-reference leaf, later repaired/passed; other 6 leaves passed. `just lint-native-contracts` and `just lint-native-data` passed. These are composed results, not clean aggregate reruns. |
-| `just docs`; final `just turn-end` | Pending closeout publication/format checks. |
+| `just docs`; final `just turn-end` | Passed against zero: 680 chapters published with scoped search; ADR index and formatting passed (`20261026T090429.764393Z-turn-end-3353214-233628`). The editable validated native extension was rebuilt after formatting; this does not broaden the scientific qualification scopes above. |
 
 The actual v8 failed-check receipt preceded disposable fresh activation. Two real SIGKILL
 interruptions after publishing the pending target retained closed admission; ordinary startup
@@ -303,8 +267,11 @@ and explicit startup succeeded. No selected global store or prior 56b state was 
 The crashed Python invocation's 43 contexts are drained with all failure pins retained. Native
 observations recovered 16 dead payload owners there, and 2 more from the public probe crashes;
 unknown/live recovery counts were zero. Cleanup used existing authenticated receiver/file-owner
-routes, with no deletion, abandonment or fabricated drain. Final fixture teardown remains pending
-the mixed recovery journey.
+routes, with no deletion, abandonment or fabricated drain. The original test deployment and both private
+source/restored deployments are inactive and quiesced, with data, backup, corrupt disposable copy
+and receipts retained. Their original functional resources and telemetry selection are unchanged;
+restored credentials rotated. The private qualification report remains pinned for active Plan56
+readers and grants no independent scientific reuse or disposal authority.
 
 ### A mistake made and corrected
 

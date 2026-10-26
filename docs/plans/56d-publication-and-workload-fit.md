@@ -161,7 +161,7 @@ interpretation.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| D01 | planned; RC01 governs placement | 56d | Grouped append changes actual guard/frontier/filesystem work; demand/ack semantics preserved |
+| D01 | planned; C03 inline/sealed placement available | 56d | Grouped append changes actual guard/frontier/filesystem work; demand/ack semantics preserved |
 | D02 | planned | 56d | Resume begins at exact installed frontier; incomplete population never activates |
 | D03 | planned | 56d | Compact outcomes and one lazy relation provider replace descriptor/full-snapshot loops |
 | D04 | planned; capture evidence required | 56d | Coherent live capture and bounded membership read qualify any changed admission cap |
@@ -190,3 +190,7 @@ assert exact content and bounded live encoding units rather than merely small re
 Structural file/transaction/retained-buffer controls can establish removed work. Current-engine
 latency, peak memory and capacity claims require representative measurements with a stated purpose.
 No benchmark campaign, scale SLA or product qualification was run during authoring.
+
+## Selected 56c prerequisites — 2026-10-26
+
+**Implemented/Tested:** [56c Outcome](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) owns canonical declarations/settlement, bounded inline/sealed placement and the native product recovery helper at its recorded scopes. D01 consumes that placement; its grouped guard/frontier realization remains planned. D02 retains population admission, D05 retains incremental inventory/copy and frozen-tooling work, and D06 retains projection/spill ownership. Availability of C's mechanisms does not complete these D packages or establish measured workload benefit.

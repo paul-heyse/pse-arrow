@@ -1371,6 +1371,25 @@ selected store was preserved. This acceptance covers B01–B06 and necessary C/F
 remaining Plan56 scenarios, full parity/fleet, desktop-host attachment, distribution, other
 platforms or measured performance. ADR-0227 remains proposed; RC01–RC06 are not adopted.
 
+Selected Plan56c canonical/operational acceptance of 2026-10-26 belongs to its
+[Verification and Outcome](../../plans/56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26).
+**Implemented/Tested:** declarations, exact attributed settlement, v9 inline/sealed placement,
+product native file authority and controlled fresh activation are integrated. Canonical 49/49,
+final native runtime 83/83, affected installed Python/physical readers and actual STDIO MCP/CLI
+passed at the recorded scopes. A private backup contained ten inline bodies and five sealed
+instances; all 345 copied members were independently verified. Corruption refused before target
+creation. SIGKILL after durable restore publication retained closed admission through three
+refusals, then actual recovery, closed exact validation, explicit readmission and reopened reads
+passed. Eight original tables and inspection/Completion/context facts matched exactly.
+
+Original failed invocations, repaired affected checks and composed scope-end results remain
+explicit in the Outcome. Shared-context backup now refuses before freezing, matching existing
+private restore authority. Owned test/private/restored services are stopped with data and receipts
+retained; the selected existing store and prior 56b evidence are preserved. This is selected
+local Linux acceptance, not full-series D/E/F/G, shared-context restore, desktop-host attachment,
+trace export, a fresh feature powerset, parity/fleet, distribution, other-platform or measured
+performance qualification. ADR-0228 remains proposed.
+
 ### 24.3 Benchmarks
 
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)

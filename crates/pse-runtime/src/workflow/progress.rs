@@ -51,7 +51,10 @@ impl SourceServices {
         attempt: &'a str,
         cancel: CancellationToken,
     ) -> Result<PrepaidReaderFuture<'a, Result<ProgressStream, WorkflowError>>, WorkflowError> {
-        prepaid_reader_future(&self.preparation().pool(), self.progress_checked(run, attempt, cancel))
+        prepaid_reader_future(
+            &self.preparation().pool(),
+            self.progress_checked(run, attempt, cancel),
+        )
     }
 
     async fn progress_checked(
@@ -187,7 +190,9 @@ impl ProgressStream {
         prepaid_reader_future(&pool, self.next_checked_body())
     }
 
-    async fn next_checked_body(&mut self) -> Result<Option<Vec<ProgressEventDocument>>, WorkflowError> {
+    async fn next_checked_body(
+        &mut self,
+    ) -> Result<Option<Vec<ProgressEventDocument>>, WorkflowError> {
         // Retain the previous page's extent until the caller requests another;
         // typed observations may contain explanatory strings and exact evidence.
         self.owner = None;
@@ -263,7 +268,6 @@ impl Runtime {
     }
 }
 
-
 #[cfg(test)]
 mod progress_future_unit {
     use super::*;
@@ -284,7 +288,8 @@ mod progress_future_unit {
             source.progress_checked("run", "attempt", CancellationToken::new())
         });
         let page = future_bytes(|stream: &'static mut ProgressStream| stream.next_page());
-        let page_body = future_bytes(|stream: &'static mut ProgressStream| stream.next_checked_body());
+        let page_body =
+            future_bytes(|stream: &'static mut ProgressStream| stream.next_checked_body());
         assert!(constructor < constructor_body);
         assert!(page < page_body);
         eprintln!(

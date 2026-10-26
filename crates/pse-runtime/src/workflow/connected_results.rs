@@ -2071,7 +2071,10 @@ mod result_admission_unit {
         }
         impl Drop for PendingRead {
             fn drop(&mut self) {
-                assert!(self.pool.reserved() > 0, "cancelled child drops under its grant");
+                assert!(
+                    self.pool.reserved() > 0,
+                    "cancelled child drops under its grant"
+                );
                 self.dropped.store(true, Ordering::Release);
             }
         }
@@ -2092,7 +2095,10 @@ mod result_admission_unit {
         assert_eq!(pool.reserved(), bytes);
         assert!(!dropped.load(Ordering::Acquire));
         cancel.cancel();
-        assert!(matches!(waiting.as_mut().poll(&mut cx), Poll::Ready(Err(_))));
+        assert!(matches!(
+            waiting.as_mut().poll(&mut cx),
+            Poll::Ready(Err(_))
+        ));
         drop(waiting);
         assert!(dropped.load(Ordering::Acquire));
         assert_eq!(pool.reserved(), 0);

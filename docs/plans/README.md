@@ -4,7 +4,7 @@
 addressing the 24 findings active at the followup production audit, with explicit dispositions
 for all 45 DA identities. Seven companions develop model/scientific meaning, canonical effects,
 publication/workload fit, product/resource ownership, host/observability contracts and joined
-qualification. The coordinator owns finding dispositions and six concrete pending
+qualification. The coordinator owns finding dispositions and shared
 [rule choices](56-design-principle-alignment.md#rule-changes); companions own package state.
 Remedy comparison is part of this series, with controlled fresh regeneration selected for needed
 cutovers. These are planning proposals; production implementation and changed rules are not yet
@@ -15,8 +15,7 @@ RC07 (proposed ADR-0226). A01–A03 are now complete at their recorded local Lin
 DA-003/005/006 are resolved. Subsequent authorized
 [56b execution](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25)
 completed B01–B06 with necessary C/F adoption and selected local native/canonical/Python/MCP/CLI
-acceptance. C/F/G retain their wider obligations and RC01–RC06 remain pending; the coordinator
-owns current finding dispositions. Completed 56a/56b remain as evidence for active dependents.
+acceptance. [56c execution](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) completed C01–C05 with selected canonical/native/Python/public and private mixed recovery acceptance. D/E/F/G retain their wider obligations; RC01 and the RC04 helper slice are delivered, while RC02/03/05/06 and wider RC04 remain pending. The coordinator owns current finding dispositions. Completed 56a/56b/56c remain as evidence for active dependents.
 Other plans retain their independent scope and status.
 
 [Plan55: MCP development effectiveness](55-mcp-development-effectiveness.md) is complete for
