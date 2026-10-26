@@ -227,3 +227,114 @@ permission and readable diagnostic bytes. The diagnostic-environment currency re
 the passing public run used the recorded environment. Affected scientific/physical readers and
 mixed recovery journeys remain under qualification. No C package is complete yet. Other stores
 and prior 56b artifacts remain preserved.
+
+## Verification and Outcome — 2026-10-26
+
+### What was built
+
+**Implemented:** C01–C05's source target and current consumers are integrated. Final affected
+runtime and mixed recovery acceptance is still in progress; the package table remains the
+completion owner until those journeys finish.
+
+Canonical declarations now own opaque key kinds, closed vocabulary/transition/projection meaning,
+explicit run purpose and study/admission/variant associations, producer class and backup/retention
+classification. Generated Rust/SurrealQL/Python consumers replace independent generator name
+branches, prefix inference and the handwritten backup inventory. Canonical lookup keys remain
+distinct from scientific semantic identities. Actual study owner proof and immutable claim purpose
+prevent generic execution from borrowing an admission receipt.
+
+**Implemented:** shared exact settlement distinguishes matching acknowledgement, changed immutable
+request, owner-proven refusal/absence and unresolved effect retaining both original and readback
+causes. Project, research, execution, context, artifact/analysis, import and maintenance/file owners
+consume the common knowledge operation while retaining their different fences, atomicity, creation
+windows and original clocks. Public diagnostics preserve attributed causes without exposing raw
+requests or converting uncertainty into permission to retry effects.
+
+**Implemented:** v9 has one admitted encoded-body owner with exclusive inline/sealed locators.
+Bodies through 64 KiB inclusive avoid file reservation/sealing; homogeneous members share their
+complete encoding once. Larger bodies keep protected native IPC. Descriptor discovery and charged
+body hydration remain separate; canonical references/read tickets protect inline lifetime.
+Descriptors, exact bytes and acknowledgement publish atomically. Empty demanded relations retain
+explicit inventory; an empty encoded body refuses. Writer scratch releases after completed IPC
+encoding while actual byte allocation and scientific fact grants survive through settlement.
+Connected readers, progress and shared durable completion/replay/seed reads use prepaid child
+futures with separate construction and polling boundaries on the original task.
+
+**Implemented:** the product `pse-canonical-recovery` target lives in existing `pse-operations`;
+fixture controls remain in the separate xtask target. Native authority owns no-follow private
+file identity, alias/extent/digest/owner observations and held-lock copy/publication. Python keeps
+service/manager/cgroup freeze, drain and maintenance authority. The duplicate Python file policy
+and file-only locator path are removed. The controlled fresh lifecycle preserves telemetry,
+allocation, exact pending target and closed initialization through explicit current-artifact
+readmission. Completion v2/stored completion v3/replay v5/fit-profile v2 keep their scientific
+meaning and versions.
+
+### Verification and accepted evidence
+
+**Tested — local Linux, baseline zero:** scopes overlap and are not an additive total or one
+uninterrupted clean campaign. Rust correctness routes enable Arrow force-validation. Native
+execution uses the selected functional profile without reducing host lanes or allocations.
+The owned state is `build/qualification/56c-v8-PMtzWmL1`, with sibling `-receipts`; retained
+`qualification.sh`, `final-functional.sh` and selection filters identify expanded commands.
+Native test invocation records live under the selected test-resource registry.
+
+| Command / scope | Actual result and conditions |
+|---|---|
+| Targeted schema declaration/enum controls; `just unit-package pse-operations` selected pure payload/settlement/offline controls | 4 schema controls and 28 operations controls passed in their distinct selections. Exact semantic examples, strict declarations and both-cause settlement have independent assertions. |
+| Runtime diagnostic and `just unit-package pse-runtime 'test(reader_future_) \| test(progress_forwarding_futures_)' --no-capture` | Diagnostic control passed; four future admission/readiness/cancellation/layout controls passed, including the affected rerun after the maintainer's `cargo clean`. Relative actual future layouts establish state separation without inventing stack caps. |
+| `just unit-native-capability-package pse-relations '' 'solver,klu,isolation,uno,petsc' 'test(admitted_file_releases_encoder_scratch_but_keeps_bytes_and_facts_in_custody)'` | 1 passed under actual tight fixture custody: writer scratch becomes reusable, cloned bytes and independent scientific facts remain owned, final charge returns to zero. |
+| `qualification.sh operations` | Final 49/49 canonical controls passed at default 16 lanes; invocation `c6311c3a-629b-452c-b914-9a7049ff0ec1`. Initial 39/49 and 46/49 runs failed and drove owner/projection/clock repairs; they remain failed evidence. |
+| `final-functional.sh runtime` | Final 83/83 passed under the local native profile, invocation `8cff0f523cf34bbeb8c59203bba04deb`, nextest `4b0cdb8a-5bcc-461a-8f50-95988f997ea2` (210.746s; 1560 nonselected). Initial 81/83 and affected 9/9 outcomes remain distinct preceding evidence. |
+| `qualification.sh python`; `final-functional.sh python` | Original 109-case selection passed 108 cases and repeatedly crashed on one progress case (8 failed worker attempts), then was interrupted; malformed duplicate terminal accounting is retained. The original case passed after the progress repair. After the common chunk repair, 2/2 passed: the original progress/artifact/export journey and stored-result/physical inspection (`f03ec436137a40bf8cc3d3ab657ed9ba`). No clean full 109-case invocation is inferred. |
+| Installed `scripts.python_tests --unit-only ... test_generated_contracts.py -k canonical_batch_preserves_original_float_bits_and_null_validity` | 2/2 passed for inline and sealed locators with exact IEEE/null/schema values. A preceding foreign pytest temporary-directory refusal was preserved; that directory was not altered. |
+| Focused supervisor/recovery/registration controls | Closed artifact readmission/telemetry: 15 passed; original registration deadline: 4 passed; current native verifier backup/restore callers: 26 passed. Earlier broader supervisor selection had 280 passes and one timing failure; the affected unchanged control passed separately, without promoting it to a clean 281-case run. |
+| `qualification.sh public public-accepted` | Actual installed Python, STDIO MCP and derived CLI passed the same inspection document: original permission false, retained check value false. Direct and debugger-controlled earlier probes crashed in shared completion reads. A later diagnostic-environment mismatch correctly refused currency; the passing run used the recorded environment. This does not establish desktop-host attachment. |
+| Actual mixed recovery driver | The first attempt preserved an exact capture but refused backup before copying: its 45 managed contexts included a stale helper selection after `cargo clean`, while restore supports a private sole-database state. Current backup now refuses that shared state before freeze: actual 45-context control preserved every config byte and created no destination; 5 related source controls passed. Mixed recovery is running on dedicated private `56c-private-recovery-n7ge09gf`, with the identical functional allocation and fresh actual inline/sealed results. |
+| Workspace native all-target compile; supported native Clippy; `just ready` | Earlier workspace compile: 0 errors/warnings. Scope-end supported native Clippy passed; after progress/chunk repairs, `scripts.arrow_validation clippy -p pse-runtime --all-targets --features native-solvers,canonical-tests --locked -- -D warnings` passed. `just ready` passed again after the maintainer's clean. Two concurrent checks interrupted by that clean failed on removed temporary build directories; affected checks were rerun. |
+| `just hygiene`; `just governance`; manual native lints | Initial hygiene had 5 failed leaves; Python lint/types, capability reference and both default/no-default Clippy leaves were repaired and passed. Other hygiene leaves passed. Governance had 1 failed capability-reference leaf, later repaired/passed; other 6 leaves passed. `just lint-native-contracts` and `just lint-native-data` passed. These are composed results, not clean aggregate reruns. |
+| `just docs`; final `just turn-end` | Pending closeout publication/format checks. |
+
+The actual v8 failed-check receipt preceded disposable fresh activation. Two real SIGKILL
+interruptions after publishing the pending target retained closed admission; ordinary startup
+refused, resume reused the exact v9 target, and the old database was absent. Current-artifact
+readmission preserved telemetry and the original allocation/initializer; closed initialization
+and explicit startup succeeded. No selected global store or prior 56b state was reset.
+
+The crashed Python invocation's 43 contexts are drained with all failure pins retained. Native
+observations recovered 16 dead payload owners there, and 2 more from the public probe crashes;
+unknown/live recovery counts were zero. Cleanup used existing authenticated receiver/file-owner
+routes, with no deletion, abandonment or fabricated drain. Final fixture teardown remains pending
+the mixed recovery journey.
+
+### A mistake made and corrected
+
+Typed purpose initially rejected legitimate study input-admission through the shared execution
+claim. The correction binds actual study authority and immutable purpose at that owner, with
+negative generic-replay controls. It does not weaken ordinary execution admission. The first fresh
+target also lost telemetry selection, and readmission allowed only the quiesced state; preserving
+telemetry and explicit closed-target readmission repaired the same pending target.
+
+Inline admission initially retained the large completed encoder scratch grant, causing a real
+append-queue refusal; actual allocation custody now shrinks without release/reacquire. Enlarged
+durable futures also exhausted Python's existing stack. Actual fault instructions identified the
+progress and common chunk-read stack probes; prepaid child construction repairs those shared
+owners without increasing stacks, spawning work, extending clocks or changing scientific checks.
+The diagnostic environment currency refusal was corrected by using the declared environment.
+
+The first operational attempt used the shared test deployment despite restore’s existing private
+service boundary. Backup now checks that same boundary before freezing or copying. The original
+45-context deployment stays stopped with its data and failure evidence; a dedicated private
+fixture qualifies the supported operator lifecycle without widening replacement authority.
+
+### Deviations from the plan, deliberate
+
+RC01's preferred inline/sealed route was selected. RC04 adopted only the product recovery helper
+in the existing package; broader worker/project root relocation remains with 56e. No new crate,
+archive/log, compatibility reader, old-data backfill or numerical algorithm was introduced.
+ADR-0228 remains proposed under the separate formal decision-PR rule.
+
+**Not run / not claimed:** the 505-case feature powerset, new performance campaign, full IDAES
+parity/solver fleet, wheels/distribution and other platforms. Structural work removal and exact
+functional evidence are not measured speed/capacity claims. D's bulk/population/incremental work,
+E's wider roots/catalogues/profile authority, F's broader host/observability work and full-series
+G acceptance retain their owners. Other plan series are unchanged.

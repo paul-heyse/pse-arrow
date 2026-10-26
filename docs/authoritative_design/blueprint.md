@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 283
+revision: 284
 date: 2026-10-26
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 284 | 2026-10-26 | Align backup preflight with the existing private sole-database restore/replacement authority (§20.6). | Maintainer-authorized Plan56c C04 integration correction; PSE_DESIGN_EDIT=1. Five source controls and the actual 45-context refusal preserve configuration and destination boundaries; mixed private recovery remains at 56c. |
 | 283 | 2026-10-26 | Publish exact study-admission claim identity, completed IPC allocation custody and prepaid durable progress futures (§19.8/§20). | Maintainer-authorized Plan56c integration repairs; PSE_DESIGN_EDIT=1. Qualification remains at the owning Outcome; ADR-0228 remains proposed. |
 | 282 | 2026-10-26 | Publish implemented canonical declarations, explicit producer/association meaning, inline/sealed payload custody and product recovery composition (§3.2/§20) under proposed ADR-0228. | Maintainer-authorized C01–C05 execution; PSE_DESIGN_EDIT=1. Actual qualification remains at Plan56c; formal decision acceptance and broader Plan56 scope remain separate. |
 | 281 | 2026-10-25 | Select Plan56c declared canonical contracts, exact settlement, bounded inline/sealed placement and product offline recovery helper (§3.2/§20/§21), with coordinated fresh v9 activation. | Explicit RC01 and narrow RC04 selection; proposed ADR-0228 and focused review Accept at Proposed strength precede implementation; PSE_DESIGN_EDIT=1. 56c owns delivery/evidence. |

@@ -7241,6 +7241,12 @@ def inspect_backup(
     }
 
 
+def require_private_service_context(state: Path, action: str) -> None:
+    """Backup and replacement cover only the service owner's sole database."""
+    if service_directory(state) != state or managed_contexts(state) != [state]:
+        raise SupervisorError(f"{action} refuses shared service contexts")
+
+
 def backup(
     state: Path, config: dict[str, object], destination: Path
 ) -> dict[str, object]:
@@ -7262,6 +7268,7 @@ def _backup(
         raise SupervisorError(
             "Backup destination must be outside the live state directory"
         )
+    require_private_service_context(state, "Backup")
     payload_inventory = freeze_payloads(state, config)
     verify_payload_inventory(state, config, payload_inventory)
     application_inventory = capture_application_inventory(state, config)
@@ -7323,8 +7330,7 @@ def _backup(
 
 def private_offline_state(state: Path, config: dict[str, object]) -> None:
     """Only the stopped service's sole database may be replaced by its owner."""
-    if service_directory(state) != state or managed_contexts(state) != [state]:
-        raise SupervisorError("Derived cutover refuses shared service contexts")
+    require_private_service_context(state, "Derived cutover")
     if config["accepting_writes"] or config["admission"] not in {
         "quiesced",
         "validation_required",
@@ -9194,8 +9200,7 @@ def validated_restore_backup(
         or config["schema_interpretation"] != interpretation
     ):
         raise SupervisorError("Backup metadata has an incompatible interpretation")
-    if service_directory(source) != source or managed_contexts(source) != [source]:
-        raise SupervisorError("Restore refuses shared service contexts")
+    require_private_service_context(source, "Restore")
     if interpretation != SUBSTRATE_INTERPRETATION:
         raise SupervisorError(
             "Unsupported restore requires preserved authored inputs and explicit rebuild"

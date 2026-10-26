@@ -964,6 +964,9 @@ Original history-retirement receipts retain exact revision/generation for lost-r
 after collection. Evidence-index deletion does not release original artifacts; evidence keys
 alone are observational and cannot substitute original artifact intents.
 
+Backup, restore and derived replacement share the selected service owner’s sole-database
+context check. Backup performs it before freezing admission or creating a destination.
+
 Application backup manifest v4 extends the existing quiesce/drain/stop and selected external-file
 closure with bounded frozen application catalogue/reference inventories. Read-only inspection
 and restore share completeness verification. Restore compares the original application inventory

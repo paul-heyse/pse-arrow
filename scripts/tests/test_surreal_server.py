@@ -8225,6 +8225,38 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
             server.config_for(backup)["interpretation"], "pse.substrate.old"
         )
 
+    def test_backup_refuses_shared_context_before_freeze_or_destination_creation(
+        self,
+    ) -> None:
+        config = self.initialized()
+        original_config = (self.state / "config.json").read_bytes()
+        destination = self.root / "unsupported-backup"
+        with (
+            patch.object(
+                server,
+                "managed_contexts",
+                return_value=[self.state, self.root / "shared"],
+            ),
+            patch.object(server, "freeze_payloads") as freeze,
+            patch.object(server, "close_context_admission") as close_admission,
+            patch.object(server, "capture_application_inventory") as inventory,
+            patch.object(server, "stop") as stop,
+            patch.object(server.shutil, "copytree") as copytree,
+            patch.object(server.shutil, "copy2") as copyfile,
+            self.assertRaisesRegex(
+                server.SupervisorError, "Backup refuses shared service contexts"
+            ),
+        ):
+            server.backup(self.state, config, destination)
+        freeze.assert_not_called()
+        close_admission.assert_not_called()
+        inventory.assert_not_called()
+        stop.assert_not_called()
+        copytree.assert_not_called()
+        copyfile.assert_not_called()
+        self.assertFalse(destination.exists())
+        self.assertEqual((self.state / "config.json").read_bytes(), original_config)
+
     def test_restore_refuses_shared_context_before_destination_creation(self) -> None:
         backup = self.backup_fixture()
         with (
