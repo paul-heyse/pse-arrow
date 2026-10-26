@@ -223,8 +223,9 @@ class EvidenceComparisonSource(msgspec.Struct, frozen=True, forbid_unknown_field
 
 
 class EvidenceComparisonSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Full selected populations. Missing execution and mixed outcomes are independent
-    axes and may overlap failure classifications.
+    """Full selected populations.
+
+    Missing execution and mixed outcomes are independent axes and may overlap failure classifications.
     """
 
     #: Duplicate owner identities within a source or unavailable exact identity.

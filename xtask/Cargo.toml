@@ -56,11 +56,9 @@ evidence-tools = [
   "dep:datafusion",
   "dep:surrealdb",
   "dep:uuid",
-  "dep:hex",
   "dep:thiserror",
   "dep:strum",
   "dep:arrow-array",
-  "dep:arrow-buffer",
 ]
 surrealql-tools = ["dep:surrealdb-syn"]
 canonical-tools = [
@@ -108,11 +106,9 @@ package-fixtures = ["physical-admission", "product-schemas"]
 [dependencies]
 surrealdb = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
-hex = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
 arrow-array = { workspace = true, optional = true }
-arrow-buffer = { workspace = true, optional = true }
 arrow-schema.workspace = true
 tracing.workspace = true
 surrealdb-syn = { workspace = true, optional = true }

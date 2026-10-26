@@ -5,16 +5,16 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import ClassVar, Literal
 
 import msgspec
-from enum import StrEnum
+
 
 class KnowledgeMode(StrEnum):
     SUBJECTS = "subjects"
     GRAPH = "graph"
     PRODUCTIONS = "productions"
-
 
 
 class KnowledgeCoverage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):

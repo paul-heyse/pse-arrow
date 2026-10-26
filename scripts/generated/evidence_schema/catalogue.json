@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "schema_set_fingerprint": "blake3:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0",
+  "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
   "documents": [
     {
       "slug": "evidence-comparison",
       "direction": "input",
       "exported_name": "EvidenceComparison",
       "schema_path": "scripts/generated/evidence_schema/evidence-comparison.input.schema.json",
-      "schema_sha256": "2e211bc511eb2a94025b7cf4491510bae88988dfb824b064a902429408c097e9",
+      "schema_sha256": "8ba5d889070d630b127bdf53896d6e1ca292c9d2e1bbdadc13de5a02d4f805d7",
       "version": 1,
       "wire": "Native",
       "registration_source": "xtask/src/codegen/private_documents.rs"
@@ -17,7 +17,7 @@
       "direction": "output",
       "exported_name": "EvidenceComparison",
       "schema_path": "scripts/generated/evidence_schema/evidence-comparison.output.schema.json",
-      "schema_sha256": "bad50e718562fa5d9376c3323d8ac3e91296f39b9065aa6a04ae1e839bc01282",
+      "schema_sha256": "27f4d68081e210a42bf1b898bd2ac0f89d72b7a87d2e5294ed89b3ee6bda2a47",
       "version": 1,
       "wire": "Native",
       "registration_source": "xtask/src/codegen/private_documents.rs"

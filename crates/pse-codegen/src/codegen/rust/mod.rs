@@ -112,6 +112,13 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     }
     let fingerprint = reg.fingerprint();
     let bytes = fingerprint.as_bytes();
+    let structure_values = structures(reg)?;
+    let structure_module = (!structure_values.is_empty()).then(|| {
+        quote! {
+            /// Registry named structures, each emitted once (Plan 22 X11).
+            pub mod structures;
+        }
+    });
     emit(
         &mut tree,
         format!("{ROOT}/mod.rs"),
@@ -123,8 +130,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             pub(crate) mod contracts;
             /// Declared string enumerations.
             pub mod enums;
-            /// Registry named structures, each emitted once (Plan 22 X11).
-            pub mod structures;
+            #structure_module
             /// Composite extension storage values.
             pub mod extension_values;
             /// Typed entity ids and their Arrow codecs.
@@ -162,7 +168,9 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         format!("{ROOT}/result_selection.rs"),
         result_selection::render(reg)?,
     )?;
-    emit(&mut tree, format!("{ROOT}/structures.rs"), structures(reg)?)?;
+    if !structure_values.is_empty() {
+        emit(&mut tree, format!("{ROOT}/structures.rs"), structure_values)?;
+    }
     for name in reg.structures().keys() {
         tree.relationships
             .push(super::provenance::SourceRelationship::registry(

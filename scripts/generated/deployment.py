@@ -5,10 +5,11 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Annotated, ClassVar, Literal
 
 import msgspec
-from enum import StrEnum
+
 
 class BackupPhase(StrEnum):
     METADATA = "metadata"
@@ -51,7 +52,6 @@ class RecoveryPhase(StrEnum):
     VERIFY_PUBLISHED = "verify-published"
     VALIDATE_TREE = "validate-tree"
     COMPLETE = "complete"
-
 
 
 class BackupOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):

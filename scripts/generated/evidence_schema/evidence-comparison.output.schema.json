@@ -423,7 +423,7 @@
     },
     "EvidenceComparisonSummary": {
       "additionalProperties": false,
-      "description": "Full selected populations. Missing execution and mixed outcomes are independent\naxes and may overlap failure classifications.",
+      "description": "Full selected populations.\n\nMissing execution and mixed outcomes are independent axes and may overlap failure classifications.",
       "properties": {
         "ambiguous": {
           "description": "Duplicate owner identities within a source or unavailable exact identity.",

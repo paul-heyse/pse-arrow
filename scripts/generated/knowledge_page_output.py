@@ -5,10 +5,11 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import ClassVar, Literal
 
 import msgspec
-from enum import StrEnum
+
 
 class KnowledgeDirection(StrEnum):
     INPUT = "input"
@@ -63,7 +64,6 @@ class KnowledgeSubjectKind(StrEnum):
     DIAGNOSTIC = "diagnostic"
     EVIDENCE_REFERENCE = "evidence_reference"
     RESEARCH_QUESTION = "research_question"
-
 
 
 class EvidenceIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):

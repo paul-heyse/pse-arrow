@@ -5,10 +5,11 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Annotated, ClassVar, Literal
 
 import msgspec
-from enum import StrEnum
+
 
 class KnowledgeDocumentRole(StrEnum):
     CONTRACT = "contract"
@@ -52,7 +53,6 @@ class KnowledgeSubjectKind(StrEnum):
     DIAGNOSTIC = "diagnostic"
     EVIDENCE_REFERENCE = "evidence_reference"
     RESEARCH_QUESTION = "research_question"
-
 
 
 class KnowledgeCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):

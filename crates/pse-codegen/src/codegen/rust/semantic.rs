@@ -181,10 +181,6 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
         .map_err(|error| super::error(error.to_string()))?;
         let names = value_names(&file);
         if names.is_empty() {
-            if relative == std::path::Path::new("structures.rs") {
-                // A registry without named structures still declares the module.
-                super::emit(tree, format!("{MODEL}/structures.rs"), quote!())?;
-            }
             continue;
         }
         let mut native = Vec::new();
@@ -287,6 +283,15 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
         .iter()
         .map(|path| super::types::ident(&path.to_string_lossy()))
         .collect::<Vec<_>>();
+    let structure_module = tree
+        .files
+        .contains_key(&PathBuf::from(MODEL).join("structures.rs"))
+        .then(|| {
+            quote! {
+                /// Registry named structures, each declared once (Plan 22 X11).
+                pub mod structures;
+            }
+        });
     super::emit(
         tree,
         format!("{MODEL}/mod.rs"),
@@ -298,8 +303,7 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
             #(#[doc = "Registry namespace values."] pub mod #modules;)*
             /// Declared closed enumerations.
             pub mod enums;
-            /// Registry named structures, each declared once (Plan 22 X11).
-            pub mod structures;
+            #structure_module
             /// Declared extension values.
             pub mod extension_values;
             /// Complete scientific product membership.

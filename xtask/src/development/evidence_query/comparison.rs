@@ -229,8 +229,9 @@ pub struct EvidenceComparisonMember {
     /// Original declared context.
     pub context_id: Option<String>,
 }
-/// Full selected populations. Missing execution and mixed outcomes are independent
-/// axes and may overlap failure classifications.
+/// Full selected populations.
+///
+/// Missing execution and mixed outcomes are independent axes and may overlap failure classifications.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EvidenceComparisonSummary {

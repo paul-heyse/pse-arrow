@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `9a7d8fd2c1cb07d628806961342d462a0d2e19c8019c9caeaaa290a8f661db9e`.
+Catalogue content revision: `ece3e27131c9b6abb4c3d0b504410a004b270b1adc7e0e5ef84ceddf41536a40`.
 
 ## Domains
 
@@ -8822,7 +8822,7 @@ Exact callable component key: `tool:knowledge_explain@`. The following is the re
           "exported_name": "KnowledgeExplain",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/knowledge-explain.output.schema.json",
-          "schema_set_fingerprint": "blake3:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0",
+          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
           "schema_sha256": "332463e9d1913b4a7293875e893c91af5f0b16b935f980fbfd8d3ed1d97aa245",
           "slug": "knowledge-explain",
           "version": 1,
@@ -8833,7 +8833,7 @@ Exact callable component key: `tool:knowledge_explain@`. The following is the re
           "exported_name": "KnowledgeQuery",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/knowledge-query.input.schema.json",
-          "schema_set_fingerprint": "blake3:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0",
+          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
           "schema_sha256": "38fcd76d053c89a9153cd3b7afb5c1c581a0e16434197f634b4986721fd31a77",
           "slug": "knowledge-query",
           "version": 1,
@@ -8947,7 +8947,7 @@ Exact callable component key: `tool:knowledge_explain@`. The following is the re
             "type": "string"
           }
         },
-        "$id": "urn:pse:boundary:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0:knowledge-query:input",
+        "$id": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:knowledge-query:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact conjunction of native facets; no relevance substitution or arbitrary SQL.",
@@ -9113,7 +9113,7 @@ Exact callable component key: `tool:knowledge_explain@`. The following is the re
     "description": "Host routing only; the request body is declared and decoded by Rust.",
     "properties": {
       "request": {
-        "$ref": "urn:pse:boundary:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0:knowledge-query:input"
+        "$ref": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:knowledge-query:input"
       },
       "state": {
         "anyOf": [
@@ -9404,7 +9404,7 @@ Exact callable component key: `tool:knowledge_query@`. The following is the regi
           "exported_name": "KnowledgePage",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/knowledge-page.output.schema.json",
-          "schema_set_fingerprint": "blake3:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0",
+          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
           "schema_sha256": "bc814360b3d25527323f4efb5824b2b9200ee8a7b7e2352777465343eab06528",
           "slug": "knowledge-page",
           "version": 1,
@@ -9415,7 +9415,7 @@ Exact callable component key: `tool:knowledge_query@`. The following is the regi
           "exported_name": "KnowledgeQuery",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/knowledge-query.input.schema.json",
-          "schema_set_fingerprint": "blake3:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0",
+          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
           "schema_sha256": "38fcd76d053c89a9153cd3b7afb5c1c581a0e16434197f634b4986721fd31a77",
           "slug": "knowledge-query",
           "version": 1,
@@ -9529,7 +9529,7 @@ Exact callable component key: `tool:knowledge_query@`. The following is the regi
             "type": "string"
           }
         },
-        "$id": "urn:pse:boundary:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0:knowledge-query:input",
+        "$id": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:knowledge-query:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact conjunction of native facets; no relevance substitution or arbitrary SQL.",
@@ -9695,7 +9695,7 @@ Exact callable component key: `tool:knowledge_query@`. The following is the regi
     "description": "Host routing only; the request body is declared and decoded by Rust.",
     "properties": {
       "request": {
-        "$ref": "urn:pse:boundary:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0:knowledge-query:input"
+        "$ref": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:knowledge-query:input"
       },
       "state": {
         "anyOf": [
@@ -17680,8 +17680,8 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "exported_name": "EvidenceComparison",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/evidence-comparison.output.schema.json",
-          "schema_set_fingerprint": "blake3:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0",
-          "schema_sha256": "bad50e718562fa5d9376c3323d8ac3e91296f39b9065aa6a04ae1e839bc01282",
+          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
+          "schema_sha256": "27f4d68081e210a42bf1b898bd2ac0f89d72b7a87d2e5294ed89b3ee6bda2a47",
           "slug": "evidence-comparison",
           "version": 1,
           "wire": "Native"
@@ -17691,7 +17691,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "exported_name": "EvidenceComparisonRequest",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/evidence-comparison-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0",
+          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
           "schema_sha256": "3ac2cfa2b6377ab2fd4c399af285d60a3c300d129770e470c4874f87d26ab50c",
           "slug": "evidence-comparison-request",
           "version": 1,
@@ -17702,7 +17702,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "exported_name": "EvidenceSnapshot",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/evidence-snapshot.input.schema.json",
-          "schema_set_fingerprint": "blake3:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0",
+          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
           "schema_sha256": "b79048150e52edda8c0710ce27443c9f6f8ccab8fa95f6d35a89d38be83b4f7a",
           "slug": "evidence-snapshot",
           "version": null,
@@ -17710,7 +17710,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
         }
       },
       "receiver": "xtask::development::evidence_query::EvidenceAnalysis::compare",
-      "schema_set_fingerprint": "blake3:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0"
+      "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796"
     }
   },
   "annotations": {
@@ -17863,7 +17863,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0:evidence-comparison-request:input",
+        "$id": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:evidence-comparison-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Finite native request. Both sides and every mapping remain explicit.",
@@ -18028,7 +18028,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0:evidence-snapshot:input",
+        "$id": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:evidence-snapshot:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Frozen owner adapter output. Partial source coverage is not a complete test population.",
@@ -18100,11 +18100,11 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
         "type": "array"
       },
       "request": {
-        "$ref": "urn:pse:boundary:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0:evidence-comparison-request:input"
+        "$ref": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:evidence-comparison-request:input"
       },
       "snapshots": {
         "items": {
-          "$ref": "urn:pse:boundary:55f40dfacaccdb1886eaa679ae5d796a243454ef4c7a05bcb20955dc71a43ae0:evidence-snapshot:input"
+          "$ref": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:evidence-snapshot:input"
         },
         "maxItems": 64,
         "minItems": 1,
@@ -18545,7 +18545,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
       },
       "EvidenceComparisonSummary": {
         "additionalProperties": false,
-        "description": "Full selected populations. Missing execution and mixed outcomes are independent\naxes and may overlap failure classifications.",
+        "description": "Full selected populations.\n\nMissing execution and mixed outcomes are independent axes and may overlap failure classifications.",
         "properties": {
           "ambiguous": {
             "description": "Duplicate owner identities within a source or unavailable exact identity.",

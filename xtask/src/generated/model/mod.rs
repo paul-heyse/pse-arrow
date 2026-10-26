@@ -13,7 +13,5 @@
 pub mod r#runtime;
 /// Declared closed enumerations.
 pub mod enums;
-/// Registry named structures, each declared once (Plan 22 X11).
-pub mod structures;
 /// Nominal opaque-text canonical keys and table classifications.
 pub mod canonical;
