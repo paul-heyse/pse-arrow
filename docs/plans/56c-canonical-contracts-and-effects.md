@@ -220,6 +220,10 @@ decoding. Progress now uses the adjacent reader's existing prepaid, separately c
 mechanism, preserving original activity/cancellation and protection. The original Python case and
 four focused future controls pass. The interrupted invocation and its failed workers remain
 evidence; all 43 invocation contexts are authenticated-drained, with failure pins retained. A
-later public inspection probe exited with SIGSEGV and is under one debugger-controlled
-reproduction. Public and mixed recovery journeys remain required. No C package is complete yet.
-Other stores and prior 56b artifacts remain preserved.
+later public inspection stack probe exposed the same embedding problem in shared durable chunk
+reading. Its common completion/replay/seed reader now constructs a prepaid child before the
+response scope. Installed Python, actual STDIO MCP and derived CLI agree on original failed
+permission and readable diagnostic bytes. The diagnostic-environment currency refusal is retained;
+the passing public run used the recorded environment. Affected scientific/physical readers and
+mixed recovery journeys remain under qualification. No C package is complete yet. Other stores
+and prior 56b artifacts remain preserved.

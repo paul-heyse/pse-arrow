@@ -3,7 +3,10 @@
 //! Canonical claims precede native effects; immutable closed manifests own stored observations.
 #[cfg(all(test, feature = "canonical-tests", feature = "solver-kinsol"))]
 use super::RunReport;
-use super::connected_results::{pooled_response_owner, retain_metadata, retain_protected_metadata};
+use super::connected_results::{
+    PrepaidReaderFuture, pooled_response_owner, prepaid_reader_future, retain_metadata,
+    retain_protected_metadata,
+};
 use super::{RunRequest, RunResult, WorkflowError, contract, relation};
 use datafusion::execution::memory_pool::{MemoryConsumer, MemoryPool};
 use pse_backend_native::solve::{Compatibility, Event, ProgressTap, WarmPayload, WarmStart};
@@ -3007,7 +3010,33 @@ async fn read_chunks_selection(
         CompletionSelection::Full(full) => Arc::new((full.clone(), response)),
         CompletionSelection::Slim(slim) => Arc::new((slim.clone(), response)),
     };
-    pse_operations::canonical::response_ownership_scope(response, async {
+    let child = chunk_read_future(store, pool, read, name, first, count, length, &mut bytes)?;
+    pse_operations::canonical::response_ownership_scope(response, child).await?;
+    if result_payload_digest(&bytes) != digest {
+        return Err(contract("stored chunk digest differs"));
+    }
+    Ok((bytes, owner))
+}
+
+// Construct and prepay the large native payload-read state before its caller
+// polls. The response scope retains only this small child; the same task and
+// original protected selection still own every read and its drain.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the chunk factory preserves the original protected selection, exact coverage and continuing byte custody"
+)]
+#[inline(never)]
+fn chunk_read_future<'a>(
+    store: &'a CanonicalStore,
+    pool: &Arc<dyn MemoryPool>,
+    read: CompletionSelection<'a>,
+    name: &'a str,
+    first: u64,
+    count: u64,
+    length: u64,
+    bytes: &'a mut Vec<u8>,
+) -> Result<PrepaidReaderFuture<'a, Result<(), WorkflowError>>, WorkflowError> {
+    prepaid_reader_future(pool, async move {
         for ordinal in 0..count {
             let payload = match read {
                 CompletionSelection::Full(full) => {
@@ -3028,11 +3057,6 @@ async fn read_chunks_selection(
         }
         Ok::<_, WorkflowError>(())
     })
-    .await?;
-    if result_payload_digest(&bytes) != digest {
-        return Err(contract("stored chunk digest differs"));
-    }
-    Ok((bytes, owner))
 }
 
 /// Portable scientific seed encoding stores every IEEE bit; native working sets stay local.
