@@ -441,13 +441,25 @@ def test_solve_settings_backend_projection(
         "permuting_scaling": 7,
     }
     # A document the native decoder refuses is refused at the entry point.
-    with pytest.raises(pse.InspectionError, match=r"bound_push|Tolerance"):
+    with pytest.raises(pse.InspectionError) as refused:
         package.solve_case(
             ids["Nlp"],
             pse.SolveSettings(
                 backend=NativeBackend.IPOPT, settings=pse.IpoptSettings(bound_push=-1.0)
             ),
         )
+    report = refused.value.report
+    assert report.reported_code == "validation.invariant"
+    diagnostic = report.envelope
+    assert isinstance(diagnostic, documents.BoundaryDiagnosticOutput)
+    assert diagnostic.code is DiagnosticCode.VALIDATION_INVARIANT
+    assert diagnostic.rule is DiagnosticRule.WORKFLOW_UNCLASSIFIED
+    location = report.decode_location
+    assert isinstance(location, documents.DecodeLocation)
+    assert (location.stage, location.category) == ("body", "data")
+    # Internally tagged backend decoding retains the observed settings prefix.
+    assert location.path_status == "tracked_prefix"
+    assert location.path == (documents.DecodePathSegmentMap(key="settings"),)
     port = {
         "quantity_id": identity(31).to_hex(),
         "unit_id": identity(10).to_hex(),

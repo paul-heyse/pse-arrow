@@ -1920,27 +1920,57 @@ async fn compact_horizon_post_science_pressure_moves_original_completion_on_refu
             panic!("horizon exited before the export-pressure hook: outcome={original_outcome}; final_report={:?}; source_close={source_close:?}", result.report());
         }
     };
-    assert!(outcome.is_err());
-    assert_eq!(
-        serde_json::to_value(execution.completion()).unwrap(),
-        expected
-    );
-    assert_eq!(execution.completion().solves.len(), 1);
-    assert_eq!(execution.completion().lineage.len(), 1);
-    assert_eq!(execution.completion().assessments.len(), 1);
+    let was_refused = outcome.is_err();
+    let original_outcome = format!("{outcome:?}");
+    let raw = serde_json::to_value(execution.completion());
+    let raw_governing = execution.completion().governing_permission();
+    let raw_permits = execution.completion().permits_result();
     let result = execution.finish(outcome, false).await;
+    let source_close = admitted.close_sources().await;
+    source_close.unwrap();
+    let raw = raw.unwrap();
+    assert!(was_refused, "export pressure must refuse: {original_outcome}");
+    assert_eq!(raw_governing, None);
+    assert!(!raw_permits);
+    assert_eq!(raw["permission"], serde_json::Value::Null);
+    assert_eq!(raw["step_permissions"], serde_json::json!([]));
+    let qualifiers = expected["assessments"].as_array().unwrap().iter()
+        .flat_map(|row| row["qualifiers"].as_array().unwrap().iter().cloned())
+        .collect::<Vec<_>>();
+    assert_eq!(expected["permission"], serde_json::json!({
+        "step": null, "requested": 1, "observed": 1, "report_succeeded": true,
+        "decision": "usable", "refusals": [], "qualifiers": &qualifiers,
+    }));
+    assert_eq!(expected["step_permissions"], serde_json::json!([{
+        "step": 0, "requested": 1, "observed": 1, "report_succeeded": true,
+        "decision": "usable", "refusals": [], "qualifiers": &qualifiers,
+    }]));
+    let without_governing_scope = |completion: &serde_json::Value| {
+        let mut fields = completion.as_object().unwrap().clone();
+        assert!(fields.remove("permission").is_some());
+        assert!(fields.remove("step_permissions").is_some());
+        fields
+    };
+    assert_eq!(without_governing_scope(&raw), without_governing_scope(&expected));
+    for collection in ["solves", "lineage", "assessments"] {
+        assert_eq!(raw[collection].as_array().unwrap().len(), 1);
+    }
     assert!(result.report().is_err());
     assert!(
         !result.usable(),
         "publication failure withholds the whole requested horizon"
     );
-    let retained = serde_json::to_value(result.completion().unwrap()).unwrap();
-    for collection in ["solves", "lineage", "assessments"] {
-        assert_eq!(
-            retained[collection], expected[collection],
-            "authentic prefix {collection} must survive publication failure"
-        );
-    }
+    let completion = result.completion().unwrap();
+    let retained = serde_json::to_value(completion).unwrap();
+    assert_eq!(without_governing_scope(&retained), without_governing_scope(&expected));
+    assert_eq!(retained["permission"], serde_json::json!({
+        "step": null, "requested": 2, "observed": 0, "report_succeeded": false,
+        "decision": "unusable", "refusals": ["native_outcome", "coverage_unavailable"],
+        "qualifiers": &qualifiers,
+    }));
+    assert_eq!(retained["step_permissions"], serde_json::json!([]));
+    assert_eq!(completion.governing_permission(), Some(false));
+    assert!(!completion.permits_result());
     let summary_error = result
         .horizon_output
         .as_ref()
@@ -1982,7 +2012,6 @@ async fn compact_horizon_post_science_pressure_moves_original_completion_on_refu
     }
     #[cfg(not(feature = "canonical-tests"))]
     let _ = keys;
-    admitted.close_sources().await.unwrap();
     }).await;
 }
 
@@ -2501,36 +2530,87 @@ async fn compact_summary_refusal_invalidates_prior_complete_prefixes() {
         .execute_solve(driver::Role::Controller, first)
         .await
         .unwrap();
-    let first = serde_json::to_value(execution.completion()).unwrap();
+    let first = serde_json::to_value(execution.completion());
     execution.refuse_next_export();
     let second = execution
         .prepare_solve(driver::Role::Controller, values, false)
         .await
         .unwrap();
-    let refusal = execution
+    let outcome = execution
         .execute_solve(driver::Role::Controller, second)
-        .await
-        .unwrap_err();
+        .await;
     let second = match execution.before_export_refusal().cloned() {
         Some(second) => second,
         None => {
-            let original_refusal = format!("{refusal:?}");
-            let result = execution.finish(Err(refusal), false).await;
+            let original_outcome = format!("{outcome:?}");
+            let result = execution.finish(outcome.map(|_| ()), false).await;
             let source_close = admitted.close_sources().await;
-            panic!("horizon refused before the export-pressure hook: original_refusal={original_refusal}; final_report={:?}; source_close={source_close:?}", result.report());
+            panic!("horizon exited before the export-pressure hook: original_outcome={original_outcome}; final_report={:?}; source_close={source_close:?}", result.report());
         }
     };
-    let aggregate = serde_json::to_value(execution.completion()).unwrap();
+    let was_refused = outcome.is_err();
+    let original_outcome = format!("{outcome:?}");
+    let aggregate = serde_json::to_value(execution.completion());
+    let raw_governing = execution.completion().governing_permission();
+    let raw_permits = execution.completion().permits_result();
+    let result = execution.finish(outcome.map(|_| ()), false).await;
+    let source_close = admitted.close_sources().await;
+    source_close.unwrap();
+    let first = first.unwrap();
+    let aggregate = aggregate.unwrap();
+    assert!(was_refused, "export pressure must refuse: {original_outcome}");
+    assert_eq!(raw_governing, None);
+    assert!(!raw_permits);
+    for raw in [&first, &aggregate] {
+        assert_eq!(raw["permission"], serde_json::Value::Null);
+        assert_eq!(raw["step_permissions"], serde_json::json!([]));
+    }
+    let second_qualifiers = second["assessments"].as_array().unwrap().iter()
+        .flat_map(|row| row["qualifiers"].as_array().unwrap().iter().cloned())
+        .collect::<Vec<_>>();
+    assert_eq!(second["permission"], serde_json::json!({
+        "step": null, "requested": 1, "observed": 1, "report_succeeded": true,
+        "decision": "usable", "refusals": [], "qualifiers": &second_qualifiers,
+    }));
+    assert_eq!(second["step_permissions"], serde_json::json!([{
+        "step": 1, "requested": 1, "observed": 1, "report_succeeded": true,
+        "decision": "usable", "refusals": [], "qualifiers": &second_qualifiers,
+    }]));
     for name in ["assessments", "solves", "lineage", "accuracy_goals"] {
         let mut expected = first[name].as_array().unwrap().clone();
         expected.extend(second[name].as_array().unwrap().iter().cloned());
         assert_eq!(aggregate[name], serde_json::Value::Array(expected));
     }
-    let result = execution.finish(Err(refusal), false).await;
-    assert_eq!(
-        serde_json::to_value(result.completion().unwrap()).unwrap(),
-        aggregate
-    );
+    let without_governing_scope = |completion: &serde_json::Value| {
+        let mut fields = completion.as_object().unwrap().clone();
+        assert!(fields.remove("permission").is_some());
+        assert!(fields.remove("step_permissions").is_some());
+        fields
+    };
+    let mut expected_aggregate = without_governing_scope(&first);
+    for (field, next) in without_governing_scope(&second) {
+        match (expected_aggregate.get_mut(&field), next) {
+            (Some(serde_json::Value::Array(prior)), serde_json::Value::Array(mut rows)) => prior.append(&mut rows),
+            (Some(prior), next) => assert_eq!(&*prior, &next, "original completion metadata {field}"),
+            (None, _) => panic!("original completion field set changed: {field}"),
+        }
+    }
+    assert_eq!(without_governing_scope(&aggregate), expected_aggregate);
+    let completion = result.completion().unwrap();
+    let retained = serde_json::to_value(completion).unwrap();
+    assert_eq!(without_governing_scope(&retained), without_governing_scope(&aggregate));
+    let qualifiers = aggregate["assessments"].as_array().unwrap().iter()
+        .flat_map(|row| row["qualifiers"].as_array().unwrap().iter().cloned())
+        .collect::<Vec<_>>();
+    assert_eq!(retained["permission"], serde_json::json!({
+        "step": null, "requested": 2, "observed": 0, "report_succeeded": false,
+        "decision": "unusable", "refusals": ["native_outcome", "coverage_unavailable"],
+        "qualifiers": &qualifiers,
+    }));
+    assert_eq!(retained["step_permissions"], serde_json::json!([]));
+    assert_eq!(completion.governing_permission(), Some(false));
+    assert!(!completion.permits_result());
+    assert!(!result.usable(), "controller solves cannot promote the incomplete refused horizon");
     for id in prefix::summary_ids() {
         let mut cursor = result
             .cursor_by_id(id, 1, crate::workflow::ResultOrder::Canonical)
@@ -2541,7 +2621,6 @@ async fn compact_summary_refusal_invalidates_prior_complete_prefixes() {
         );
         assert!(!cursor.complete());
     }
-    admitted.close_sources().await.unwrap();
     }).await;
 }
 
