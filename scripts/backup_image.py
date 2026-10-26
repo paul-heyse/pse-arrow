@@ -35,6 +35,46 @@ def _owned(value: os.stat_result) -> None:
         raise ImageError("Backup image must remain an owned regular file")
 
 
+def _private_directory(path: Path) -> tuple[int, os.stat_result]:
+    """Create every missing component privately, relative to held owned parents."""
+    missing: list[str] = []
+    ancestor = path
+    while not ancestor.exists():
+        missing.append(ancestor.name)
+        ancestor = ancestor.parent
+    _real(ancestor)
+    directory = os.open(ancestor, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        for name in [*reversed(missing), None]:
+            information = os.fstat(directory)
+            if information.st_uid != os.getuid() or information.st_mode & 0o077:
+                raise ImageError("Backup destination directory must remain private and owned")
+            if name is None:
+                _real(path)
+                named = path.stat()
+                if (information.st_dev, information.st_ino) != (named.st_dev, named.st_ino):
+                    raise ImageError("Backup destination directory changed during creation")
+                return directory, information
+            try:
+                os.mkdir(name, mode=0o700, dir_fd=directory)
+            except FileExistsError:
+                # A concurrent name is never repaired or granted weaker ownership.
+                pass
+            child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                            dir_fd=directory)
+            try:
+                os.fsync(directory)
+            except BaseException:
+                os.close(child)
+                raise
+            os.close(directory)
+            directory = child
+    except BaseException:
+        os.close(directory)
+        raise
+    raise ImageError("Backup destination directory was not established")
+
+
 def digest(path: Path) -> str:
     _real(path)
     descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
@@ -80,18 +120,23 @@ def copy(source: Path, target: Path, expected: str) -> None:
     """Reverify existing exact outputs or atomically publish a new complete inode."""
     _real(source)
     _real(target)
-    if target.exists():
-        if (target.stat().st_nlink != 1 or digest(target) != expected
-                or stat.S_IMODE(target.stat().st_mode) != stat.S_IMODE(source.stat().st_mode)):
-            raise ImageError("Existing backup image differs from the original snapshot")
-        return
-    target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    _real(target.parent)
-    directory = os.open(target.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
-    parent = os.fstat(directory)
-    if parent.st_uid != os.getuid() or parent.st_mode & 0o077:
+    directory, parent = _private_directory(target.parent)
+    try:
+        exists = target.exists()
+    except BaseException:
         os.close(directory)
-        raise ImageError("Backup destination directory must remain private and owned")
+        raise
+    if exists:
+        try:
+            if (target.stat().st_nlink != 1 or digest(target) != expected
+                    or stat.S_IMODE(target.stat().st_mode) != stat.S_IMODE(source.stat().st_mode)):
+                raise ImageError("Existing backup image differs from the original snapshot")
+            _real(target.parent)
+            if (parent.st_dev, parent.st_ino) != (target.parent.stat().st_dev, target.parent.stat().st_ino):
+                raise ImageError("Backup destination directory changed during resume")
+            return
+        finally:
+            os.close(directory)
     try:
         source_fd = os.open(source, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK)
     except BaseException:
