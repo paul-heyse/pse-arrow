@@ -55,6 +55,12 @@ def payload(value: object) -> dict[str, object]:
     return selected
 
 
+def owned_sessions(lifetime: ReadSessions) -> list[ReadSession]:
+    """Observe exact test-owned workers without adding a product inspection API."""
+    groups = lifetime._sessions  # noqa: SLF001 -- test-owned workers
+    return [session for group in groups.values() for session in group]
+
+
 class ActualNativeContextTests(unittest.TestCase):
     def test_actual_extension_retains_runtime_physical_and_modeling_package_between_pages(
         self,
@@ -128,9 +134,7 @@ class ActualNativeEndpointTests(unittest.IsolatedAsyncioTestCase):
             offset = document.get("next_offset")
             self.assertIsInstance(offset, int)
             assert isinstance(offset, int)
-            sessions = [
-                session for group in lifetime._sessions.values() for session in group
-            ]  # noqa: SLF001 -- actual supervised owner oracle, no production observer
+            sessions = owned_sessions(lifetime)
             self.assertEqual(len(sessions), 1)
             incarnation = sessions[0].incarnation
             selected["request"] = {"document_version": 1, "offset": offset, "limit": 1}
@@ -141,9 +145,7 @@ class ActualNativeEndpointTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(second_result.is_error)
             second = payload(second_result.structured_content)
             self.assertEqual(second["outcome"], "observed")
-            retained = [
-                session for group in lifetime._sessions.values() for session in group
-            ]  # noqa: SLF001 -- exact foreground owner identity
+            retained = owned_sessions(lifetime)
             self.assertEqual(retained, sessions)
             self.assertEqual(retained[0].incarnation, incarnation)
             self.assertFalse(retained[0].retired)
@@ -176,9 +178,7 @@ class ActualNativeAdverseTests(unittest.IsolatedAsyncioTestCase):
             "offset": document["next_offset"],
             "limit": 1,
         }
-        sessions = [
-            session for group in lifetime._sessions.values() for session in group
-        ]  # noqa: SLF001 -- actual test-owned foreground session authentication
+        sessions = owned_sessions(lifetime)
         self.assertEqual(len(sessions), 1)
         return selected, first, sessions[0]
 
@@ -332,9 +332,7 @@ class ActualCanonicalReadAdverseTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(cursor, dict)
         assert isinstance(cursor, dict)
         request["cursor"] = cursor
-        sessions = [
-            session for group in lifetime._sessions.values() for session in group
-        ]  # noqa: SLF001 -- actual original canonical foreground owner
+        sessions = owned_sessions(lifetime)
         self.assertEqual(len(sessions), 1)
         return arguments, first, sessions[0]
 

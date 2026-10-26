@@ -486,24 +486,28 @@ class DirectDiagnosticReaderTests(unittest.TestCase):
         self,
     ) -> None:
         self.documents.BackendSettings = object()
-        with patch.object(
-            native_worker, "decoded", side_effect=ValueError("foreign backend settings")
+        with (
+            patch.object(
+                native_worker,
+                "decoded",
+                side_effect=ValueError("foreign backend settings"),
+            ),
+            self.assertRaisesRegex(ValueError, "foreign backend settings"),
         ):
-            with self.assertRaisesRegex(ValueError, "foreign backend settings"):
-                native_worker.execute(
-                    "configured_capabilities",
-                    {
-                        "schema_set_fingerprint": "reader-fixture",
-                        "backend": "ipopt",
-                        "settings": {},
-                        "resources": {
-                            "memory_limit_bytes": 1 << 28,
-                            "threads": 1,
-                            "max_spill_bytes": 1 << 20,
-                        },
+            native_worker.execute(
+                "configured_capabilities",
+                {
+                    "schema_set_fingerprint": "reader-fixture",
+                    "backend": "ipopt",
+                    "settings": {},
+                    "resources": {
+                        "memory_limit_bytes": 1 << 28,
+                        "threads": 1,
+                        "max_spill_bytes": 1 << 20,
                     },
-                    scratch=Path("/not-created-by-refusal"),
-                )
+                },
+                scratch=Path("/not-created-by-refusal"),
+            )
         self.pse.Runtime.assert_not_called()
         self.pse.EngineSettings.assert_not_called()
 

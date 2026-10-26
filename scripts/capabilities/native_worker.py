@@ -739,7 +739,7 @@ def execute(
             if configured.backend is None:
                 rows = runtime.capabilities()
             else:
-                from pse.contracts.enums import (
+                from pse.contracts.enums import (  # noqa: PLC0415
                     NativeBackend,
                 )
 
@@ -979,7 +979,7 @@ def project_result(operation: str, value: object) -> dict[str, JsonValue]:
                 "message": "Native output was not an admitted JSON value; no object stringification or nonfinite normalization was applied.",
             }
         )
-    from scripts.capabilities.native_contracts import (
+    from scripts.capabilities.native_contracts import (  # noqa: PLC0415
         binding_for,
     )
 

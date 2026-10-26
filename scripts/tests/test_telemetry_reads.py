@@ -24,6 +24,7 @@ from scripts import (
     telemetry_query,
     telemetry_service,
 )
+from scripts.capabilities import telemetry_contracts
 
 TRACE_ID = "1234567890abcdef1234567890abcdef"
 PARENT_TRACE_ID = "abcdef1234567890abcdef1234567890"
@@ -159,10 +160,6 @@ class TelemetryReadTests(unittest.TestCase):
     def test_health_host_projection_preserves_local_sdk_loss_without_native_import(
         self,
     ) -> None:
-        from scripts.capabilities import (
-            telemetry_contracts,
-        )
-
         class Native:
             activation: ClassVar[dict[str, str | None]] = {"status": "initialized"}
 

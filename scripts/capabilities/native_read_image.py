@@ -86,7 +86,7 @@ class LoadedReadImage:
             )
 
     def require_loaded(self, loaded_file: str) -> None:
-        from scripts.python_extension import (
+        from scripts.python_extension import (  # noqa: PLC0415
             artifact_stamp,
         )
 

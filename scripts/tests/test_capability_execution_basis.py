@@ -15,6 +15,7 @@ from unittest.mock import patch
 from fastmcp.tools import FunctionTool
 
 from scripts.capabilities import execution_basis as basis
+from scripts.capabilities.source_basis import Sources
 
 
 class AdmissionTests(unittest.TestCase):
@@ -88,10 +89,6 @@ class AdmissionTests(unittest.TestCase):
     def test_new_facade_glue_and_generated_defaults_remain_in_the_admitted_import_closure(
         self,
     ) -> None:
-        from scripts.capabilities.source_basis import (
-            Sources,
-        )
-
         files = {
             "scripts/bridge.py": "from pse.generated.project_operations import ProjectRuntimeOperations\n",
             "python/pse/generated/project_operations.py": "from .._project_operations_glue import ProjectRuntimeGlue\n",
@@ -120,10 +117,6 @@ class AdmissionTests(unittest.TestCase):
                 basis.verify(self.root, "host", "archive", self.document)
 
     def test_bare_package_import_captures_its_relative_private_owner(self) -> None:
-        from scripts.capabilities.source_basis import (
-            Sources,
-        )
-
         files = {
             "scripts/bridge.py": "import pse\n",
             "python/pse/__init__.py": "from ._private import value\n",
@@ -282,7 +275,7 @@ class NativeCurrencyAdmissionTests(unittest.TestCase):
             cause="missing-preparation-evidence",
             remedy="Explicitly prepare and reattach.",
         )
-        from scripts.tests.test_telemetry_profiles import (
+        from scripts.tests.test_telemetry_profiles import (  # noqa: PLC0415
             envelope,
         )
 

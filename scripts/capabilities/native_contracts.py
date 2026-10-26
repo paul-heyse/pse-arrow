@@ -259,7 +259,7 @@ def validate_arguments(operation: str, arguments: Mapping[str, object]) -> Contr
 
 def selected_document_type(operation: str, field: str) -> type[object]:
     """Resolve an original scientific owner lazily, only inside its selected worker."""
-    from pse.contracts import (
+    from pse.contracts import (  # noqa: PLC0415
         documents,
     )
 

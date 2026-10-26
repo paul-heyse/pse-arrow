@@ -172,9 +172,11 @@ class InstalledExtensionTests(unittest.TestCase):
             selected_extension(
                 {}, "native_correctness", validated=True, explicit_mode="dev"
             )
-        with patch.object(python_extension, "currency_check") as currency:
-            with self.assertRaises(ExtensionSelectionError):
-                extension_currency({}, "installed_correctness", validated=False)
+        with (
+            patch.object(python_extension, "currency_check") as currency,
+            self.assertRaises(ExtensionSelectionError),
+        ):
+            extension_currency({}, "installed_correctness", validated=False)
         currency.assert_not_called()
 
 

@@ -152,7 +152,7 @@ def selected_worker_environment(
     if declaration.environment_selection == "fixed":
         return declaration.environment
     from scripts import python_extension  # noqa: PLC0415 -- selected native route only
-    from scripts.capabilities.native_contracts import (
+    from scripts.capabilities.native_contracts import (  # noqa: PLC0415
         binding_for,
     )
     from scripts.capabilities.native_extension import (  # noqa: PLC0415 -- receipt read only
