@@ -9,6 +9,8 @@ import hashlib
 import json
 import stat
 from dataclasses import dataclass
+from importlib.util import resolve_name
+from pathlib import PurePosixPath
 from threading import RLock
 from typing import TYPE_CHECKING
 
@@ -25,17 +27,28 @@ class Source:
     dependencies: tuple[str, ...]
 
 
-def local_imports(raw: bytes) -> tuple[str, ...]:
+def local_imports(raw: bytes, relative: str) -> tuple[str, ...]:
     """Follow declared local imports, including lazy imports inside operations."""
     paths = set()
     for node in ast.walk(ast.parse(raw)):
         names: list[str] = []
         if isinstance(node, ast.Import):
             names = [alias.name for alias in node.names]
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            names = [node.module, *(node.module + "." + a.name for a in node.names)]
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if node.level:
+                parts = PurePosixPath(relative).parts[:-1]
+                if parts[:1] == ("python",):
+                    parts = parts[1:]
+                package = ".".join(parts)
+                try:
+                    module = resolve_name("." * node.level + module, package)
+                except (ImportError, ValueError) as error:
+                    raise ValueError("Serving source relative import escapes its package") from error
+            if module:
+                names = [module, *(module + "." + a.name for a in node.names if a.name != "*")]
         for name in names:
-            if name.startswith("scripts."):
+            if name in {"scripts", "pse"} or name.startswith(("scripts.", "pse.")):
                 paths.update(module_candidates(name))
     return tuple(sorted(paths))
 
@@ -56,7 +69,7 @@ class Sources:
             path = self.root / relative
             raw = self._read_optional(relative)
             dependencies = (
-                local_imports(raw)
+                local_imports(raw, relative)
                 if follow_imports and raw is not None and path.suffix == ".py"
                 else ()
             )

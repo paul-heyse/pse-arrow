@@ -85,6 +85,54 @@ class AdmissionTests(unittest.TestCase):
             with self.assertRaises(basis.AdmissionRefusedError):
                 basis.verify(self.root, "host", "archive", self.document)
 
+    def test_new_facade_glue_and_generated_defaults_remain_in_the_admitted_import_closure(self) -> None:
+        from scripts.capabilities.source_basis import Sources  # noqa: PLC0415 -- selected source-only owner
+
+        files = {
+            "scripts/bridge.py": "from pse.generated.project_operations import ProjectRuntimeOperations\n",
+            "python/pse/generated/project_operations.py": "from .._project_operations_glue import ProjectRuntimeGlue\n",
+            "python/pse/_project_operations_glue.py": "from ._project_bundle import ProjectBundle\nfrom .generated.project_operation_defaults import DEFAULT_BRANCH\n",
+            "python/pse/_project_bundle.py": "class ProjectBundle: pass\n",
+            "python/pse/generated/project_operation_defaults.py": "DEFAULT_BRANCH = 'main'\n",
+        }
+        for relative, body in files.items():
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(body)
+        captured = Sources(self.root, ("scripts/bridge.py",))
+        closure = captured.closure(("scripts/bridge.py",))
+        self.assertTrue(set(files).issubset(closure))
+        self.definition = self.definition.model_copy(update={"sources": {path: captured.sources[path].digest for path in closure}})
+        with patch.dict(os.environ, self.publish()):
+            basis.verify(self.root, "host", "archive", self.document)
+            (self.root / "python/pse/_project_bundle.py").write_text("class ProjectBundle: changed = True\n")
+            with self.assertRaisesRegex(basis.AdmissionRefusedError, "source changed"):
+                basis.verify(self.root, "host", "archive", self.document)
+
+    def test_bare_package_import_captures_its_relative_private_owner(self) -> None:
+        from scripts.capabilities.source_basis import Sources  # noqa: PLC0415 -- source-only capture
+
+        files = {
+            "scripts/bridge.py": "import pse\n",
+            "python/pse/__init__.py": "from ._private import value\n",
+            "python/pse/_private.py": "value = 1\n",
+        }
+        for relative, body in files.items():
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(body)
+        captured = Sources(self.root, ("scripts/bridge.py",))
+        closure = captured.closure(("scripts/bridge.py",))
+        self.assertTrue(set(files).issubset(closure))
+        self.definition = self.definition.model_copy(update={"sources": {
+            path: captured.sources[path].digest for path in closure
+        }})
+        with patch.dict(os.environ, self.publish()):
+            basis.verify(self.root, "host", "archive", self.document)
+            (self.root / "python/pse/_private.py").write_text("value = 2\n")
+            with self.assertRaises(basis.AdmissionRefusedError):
+                basis.verify(self.root, "host", "archive", self.document)
+
     def test_every_declared_native_binding_uses_the_same_closed_worker_set(
         self,
     ) -> None:
@@ -97,7 +145,7 @@ class AdmissionTests(unittest.TestCase):
 
         self.assertEqual(
             WORKERS["native"].operations,
-            frozenset(binding.operation for binding in worker_bindings()),
+            frozenset(binding.operation for binding in worker_bindings() if binding.worker.worker == "native"),
         )
         self.assertEqual(
             WORKERS["native"].operations,
@@ -122,7 +170,7 @@ class AdmissionTests(unittest.TestCase):
                     "diagnostic_checkpoint",
                     "evidence_inspect",
                     "invocation_read",
-                    "evidence_compare",
+                    "configured_capabilities",
                     "telemetry_profile_capture",
                 }
             ),
@@ -136,12 +184,12 @@ class AdmissionTests(unittest.TestCase):
                     supplied = basis.publish(
                         Path(directory),
                         self.root,
-                        "native",
+                        binding.worker.worker,
                         binding.operation,
                         self.document,
                     )
                 with patch.dict(os.environ, supplied):
-                    basis.verify(self.root, "native", binding.operation, self.document)
+                    basis.verify(self.root, binding.worker.worker, binding.operation, self.document)
 
     def test_annotations_metadata_and_description_affect_wire(self) -> None:
         def read() -> str:
@@ -211,6 +259,8 @@ class NativeCurrencyAdmissionTests(unittest.TestCase):
             cause="missing-preparation-evidence",
             remedy="Explicitly prepare and reattach.",
         )
+        from scripts.tests.test_telemetry_profiles import envelope  # noqa: PLC0415 -- shared valid host-only fixture
+
         for operation in ("diagnostic_checkpoint", "telemetry_profile_capture"):
             with (
                 self.subTest(operation=operation),
@@ -224,7 +274,10 @@ class NativeCurrencyAdmissionTests(unittest.TestCase):
             ):
                 result = native_worker.execute(
                     operation,
-                    {"schema_set_fingerprint": "same-schema"},
+                    {
+                        **(envelope() if operation == "telemetry_profile_capture" else {"checkpoint": "/selected/native.json"}),
+                        "schema_set_fingerprint": "same-schema",
+                    },
                     scratch=Path("/unused"),
                 )
             self.assertEqual(result["code"], "pse.native.artifact_not_current")

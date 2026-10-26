@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 def module_candidates(name: str) -> tuple[str, ...]:
     """Include package initialization and absence-sensitive module alternatives."""
-    if re.fullmatch(r"(?:scripts|pse)(?:\.[A-Za-z_][A-Za-z0-9_]*)+", name) is None:
+    if re.fullmatch(r"(?:scripts|pse)(?:\.[A-Za-z_][A-Za-z0-9_]*)*", name) is None:
         return ()
     parts = name.split(".")
     prefix = "python/" if parts[0] == "pse" else ""
