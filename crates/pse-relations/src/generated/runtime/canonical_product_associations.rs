@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    212u8, 184u8, 112u8, 54u8, 181u8, 200u8, 93u8, 49u8, 91u8, 247u8, 130u8, 120u8,
-    251u8, 97u8, 231u8, 35u8, 62u8, 46u8, 85u8, 85u8, 41u8, 187u8, 56u8, 244u8, 109u8,
-    90u8, 0u8, 85u8, 57u8, 194u8, 199u8, 184u8,
+    251u8, 173u8, 117u8, 38u8, 130u8, 178u8, 135u8, 158u8, 54u8, 47u8, 168u8, 18u8,
+    223u8, 6u8, 22u8, 193u8, 154u8, 93u8, 154u8, 148u8, 113u8, 189u8, 227u8, 116u8, 71u8,
+    176u8, 127u8, 43u8, 199u8, 150u8, 30u8, 69u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalProductAssociationsRow {
     fn append(
@@ -61,8 +61,12 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProductAssociationsRow {
             children[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#interpretation,
+            &self.r#producer_class,
             children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#interpretation,
+            children[12usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -93,8 +97,11 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProductAssociationsRow {
         <String as crate::columnar::ArrowValue>::append_null(
             children[10usize].as_mut(),
         )?;
-        <String as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::enums::CanonicalProducerClass as crate::columnar::ArrowValue>::append_null(
             children[11usize].as_mut(),
+        )?;
+        <String as crate::columnar::ArrowValue>::append_null(
+            children[12usize].as_mut(),
         )?;
         output.append(false);
         Ok(())
@@ -150,8 +157,12 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProductAssociationsRow {
                 input.column(10usize).as_ref(),
                 index,
             )?,
-            r#interpretation: <String as crate::columnar::ArrowValue>::read(
+            r#producer_class: <crate::generated::enums::CanonicalProducerClass as crate::columnar::ArrowValue>::read(
                 input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#interpretation: <String as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
                 index,
             )?,
         })
@@ -234,8 +245,12 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProductAssociationsRow {
             columns[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#interpretation,
+            &self.r#producer_class,
             columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#interpretation,
+            columns[12usize].as_mut(),
         )?;
         Ok(())
     }
@@ -276,10 +291,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProductAssociationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        24_576_usize + size_of::<Self::Builder>()
+        26_624_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        192usize
+        208usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -329,6 +344,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProductAssociationsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            crate::columnar::allocation_add(8, (self.r#producer_class).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             crate::columnar::allocation_add(8, (self.r#interpretation).len())?,
         )?;
         Ok(bytes)
@@ -341,7 +360,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -399,8 +418,13 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "interpretation",
+        name: "producer_class",
         position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "interpretation",
+        position: 12usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -427,8 +451,10 @@ pub mod columns {
     pub const DESCRIPTOR: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///producer
     pub const PRODUCER: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    ///producer_class
+    pub const PRODUCER_CLASS: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///interpretation
-    pub const INTERPRETATION: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const INTERPRETATION: crate::columnar::ColumnReference = super::COLUMNS[12usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -447,6 +473,7 @@ pub struct RuntimeCanonicalProductAssociationsView<'a> {
     receipt_column: &'a arrow_array::StringArray,
     descriptor_column: &'a arrow_array::StringArray,
     producer_column: &'a arrow_array::StringArray,
+    producer_class_column: &'a arrow_array::StringArray,
     interpretation_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeCanonicalProductAssociationsView<'a> {
@@ -525,9 +552,12 @@ impl<'a> RuntimeCanonicalProductAssociationsView<'a> {
             producer_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(10usize).as_ref())?,
-            interpretation_column: crate::columnar::array::<
+            producer_class_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(11usize).as_ref())?,
+            interpretation_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(12usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -676,6 +706,18 @@ impl<'a> RuntimeCanonicalProductAssociationsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "producer_class",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn producer_class_column(&self) -> &'a arrow_array::StringArray {
+        self.producer_class_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "producer_class", "`.")]
+    pub fn producer_class_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "interpretation",
         "`, including its offsets and validity bitmap.",
     )]
@@ -684,7 +726,7 @@ impl<'a> RuntimeCanonicalProductAssociationsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "interpretation", "`.")]
     pub fn interpretation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -718,6 +760,10 @@ impl<'a> RuntimeCanonicalProductAssociationsView<'a> {
                 index,
             )?,
             r#producer: crate::columnar::ArrowValue::read(self.producer_column, index)?,
+            r#producer_class: crate::columnar::ArrowValue::read(
+                self.producer_class_column,
+                index,
+            )?,
             r#interpretation: crate::columnar::ArrowValue::read(
                 self.interpretation_column,
                 index,

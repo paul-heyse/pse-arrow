@@ -19,6 +19,8 @@ pub use pse_model::generated::runtime::{
     canonical_project_savepoints::Row as Savepoint, canonical_projects::Row as Project,
     canonical_research_references::Row as ResearchReference,
 };
+use pse_model::generated::canonical::{ProjectKey, ProjectBranchKey, ProjectDraftKey, ProblemKey, RevisionKey, OperationKey, ResearchSelectionKey, RunKey, AttemptKey};
+use pse_model::generated::enums::CanonicalProjectPublicationKind as PublicationKind;
 use surrealdb::types::{Object, Value};
 
 /// One atomic draft-head and immutable-version selection.
@@ -49,11 +51,11 @@ pub(crate) fn simulate_reply_loss() -> bool {
 #[serde(deny_unknown_fields)]
 pub struct ResearchPublicationBinding {
     /// Frozen original research selection.
-    pub selection: String,
+    pub selection: ResearchSelectionKey,
     /// Actual original run.
-    pub run: String,
+    pub run: RunKey,
     /// Actual original attempt.
-    pub attempt: String,
+    pub attempt: AttemptKey,
     /// Original qualified export set coordinate.
     pub result_set: String,
     /// Exact closed manifest digest selected by protected read.
@@ -68,20 +70,20 @@ pub struct ResearchPublicationBinding {
 #[serde(deny_unknown_fields)]
 pub struct ProjectPublication {
     issuing_store: String,
-    project: String,
+    project: ProjectKey,
     project_generation: u64,
-    branch: String,
+    branch: ProjectBranchKey,
     branch_generation: u64,
-    problem: String,
-    expected: Option<String>,
-    origin_revision: Option<String>,
-    draft: Option<String>,
+    problem: ProblemKey,
+    expected: Option<RevisionKey>,
+    origin_revision: Option<RevisionKey>,
+    draft: Option<ProjectDraftKey>,
     draft_generation: Option<u64>,
-    operation: String,
-    kind: String,
+    operation: OperationKey,
+    kind: PublicationKind,
     request: Vec<u8>,
     branch_name: String,
-    extra_parents: Vec<String>,
+    extra_parents: Vec<RevisionKey>,
     context_commitment: Option<String>,
     research: Option<ResearchPublicationBinding>,
     import: Option<crate::canonical_project_imports::ImportBinding>,
@@ -107,7 +109,7 @@ impl ProjectPublication {
             origin_revision: None,
             draft: None,
             draft_generation: None,
-            kind: "import".into(),
+            kind: PublicationKind::Import,
             request: Vec::new(),
             branch_name: binding.branch_name.clone(),
             extra_parents: Vec::new(),
@@ -132,7 +134,7 @@ impl ProjectPublication {
         mut self,
         research: ResearchPublicationBinding,
     ) -> Result<Self, CanonicalError> {
-        if self.kind != "publish"
+        if self.kind != PublicationKind::Publish
             || self.draft.is_some()
             || research.mapping.len() > 131072
             || research.source_selection.len() > 131072
@@ -167,7 +169,7 @@ impl ProjectPublication {
     ) -> Result<Self, CanonicalError> {
         identity(base)?;
         identity(proposal)?;
-        if self.kind != "publish" {
+        if self.kind != PublicationKind::Publish {
             return Err(CanonicalError::OperationReused);
         }
         self.extra_parents = vec![base.into(), proposal.into()];
@@ -179,7 +181,7 @@ impl ProjectPublication {
     /// Fork presentation name; identity remains the caller-selected branch key.
     pub fn with_branch_name(mut self, name: &str) -> Result<Self, CanonicalError> {
         identity(name)?;
-        if self.kind != "fork" {
+        if self.kind != PublicationKind::Fork {
             return Err(CanonicalError::OperationReused);
         }
         self.branch_name = name.into();
@@ -211,6 +213,14 @@ impl ProjectPublication {
         ))
     }
 
+    /// Original project domain coordinate.
+    pub fn project_key(&self) -> &ProjectKey { &self.project }
+    /// Original branch domain coordinate.
+    pub fn branch_key(&self) -> &ProjectBranchKey { &self.branch }
+    /// Original source-problem domain coordinate.
+    pub fn problem_key(&self) -> &ProblemKey { &self.problem }
+    /// Original exact effect-operation domain coordinate.
+    pub fn operation_key(&self) -> &OperationKey { &self.operation }
     /// Exact independently owned source problem.
     pub fn problem(&self) -> &str {
         &self.problem
@@ -231,11 +241,11 @@ impl ProjectPublication {
     /// Deserialization alone never makes an opaque retained receipt authoritative.
     pub fn validate(&self) -> Result<(), CanonicalError> {
         for key in [
-            &self.issuing_store,
-            &self.project,
-            &self.branch,
-            &self.problem,
-            &self.operation,
+            self.issuing_store.as_str(),
+            self.project.as_str(),
+            self.branch.as_str(),
+            self.problem.as_str(),
+            self.operation.as_str(),
         ] {
             identity(key)?;
         }
@@ -251,18 +261,18 @@ impl ProjectPublication {
         }
         if let Some(binding) = &self.import {
             binding.validate()?;
-            if self.kind != "import"
+            if self.kind != PublicationKind::Import
                 || self.context_commitment.as_deref() != Some(binding.bundle_digest.as_str())
                 || self.branch_name != binding.branch_name
                 || self.research.is_some()
             {
                 return Err(CanonicalError::OperationReused);
             }
-        } else if self.kind == "import" {
+        } else if self.kind == PublicationKind::Import {
             return Err(CanonicalError::OperationReused);
         }
-        match self.kind.as_str() {
-            "import"
+        match self.kind {
+            PublicationKind::Import
                 if self.expected.is_none()
                     && self.origin_revision.is_none()
                     && self.draft.is_none()
@@ -270,14 +280,14 @@ impl ProjectPublication {
                     && self.project_generation == 0
                     && self.branch_generation == 0
                     && self.extra_parents.is_empty() => {}
-            "fork"
+            PublicationKind::Fork
                 if self.expected.is_none()
                     && self.origin_revision.is_some()
                     && self.draft.is_none()
                     && self.draft_generation.is_none()
                     && self.branch_generation == 0
                     && self.extra_parents.is_empty() => {}
-            "publish"
+            PublicationKind::Publish
                 if self.origin_revision.is_none()
                     && self.expected.is_some()
                     && self.draft.is_some() == self.draft_generation.is_some() => {}
@@ -296,12 +306,12 @@ impl ProjectPublication {
         self.validate()?;
         let mut row = Object::new();
         row.insert("issuing_store", self.issuing_store.clone());
-        row.insert("project", self.project.clone());
+        row.insert("project", self.project.as_str().to_owned());
         row.insert(
             "project_generation",
             codec::encode_uint(self.project_generation)?,
         );
-        row.insert("branch", self.branch.clone());
+        row.insert("branch", self.branch.as_str().to_owned());
         row.insert(
             "branch_generation",
             codec::encode_uint(self.branch_generation)?,
@@ -309,13 +319,13 @@ impl ProjectPublication {
         let research = if let Some(binding) = &self.research {
             let mut value = Object::new();
             for (key, text) in [
-                ("selection", &binding.selection),
-                ("run", &binding.run),
-                ("attempt", &binding.attempt),
-                ("result_set", &binding.result_set),
-                ("manifest_digest", &binding.manifest_digest),
+                ("selection", binding.selection.as_str()),
+                ("run", binding.run.as_str()),
+                ("attempt", binding.attempt.as_str()),
+                ("result_set", binding.result_set.as_str()),
+                ("manifest_digest", binding.manifest_digest.as_str()),
             ] {
-                value.insert(key, text.clone());
+                value.insert(key, text.to_owned());
             }
             value.insert(
                 "source_selection",
@@ -339,15 +349,14 @@ impl ProjectPublication {
                 .map(Value::Object)
                 .unwrap_or(Value::None),
         );
-        row.insert("kind", self.kind.clone());
+        row.insert("kind", self.kind.as_str());
         row.insert("branch_name", self.branch_name.clone());
         row.insert(
             "extra_parents",
             Value::Array(
                 self.extra_parents
                     .iter()
-                    .cloned()
-                    .map(Value::String)
+                    .map(|key| Value::String(key.as_str().to_owned()))
                     .collect(),
             ),
         );
@@ -356,11 +365,11 @@ impl ProjectPublication {
             surrealdb::types::Bytes::from(self.request.clone()),
         );
         for (key, value) in [
-            ("expected", &self.expected),
-            ("origin_revision", &self.origin_revision),
-            ("draft", &self.draft),
+            ("expected", self.expected.as_deref()),
+            ("origin_revision", self.origin_revision.as_deref()),
+            ("draft", self.draft.as_deref()),
         ] {
-            row.insert(key, value.clone().map(Value::String).unwrap_or(Value::None));
+            row.insert(key, value.map(|value| Value::String(value.to_owned())).unwrap_or(Value::None));
         }
         row.insert(
             "draft_generation",
@@ -421,7 +430,7 @@ fn obligation(artifact: Option<&str>, owner: &str) -> Result<Value, CanonicalErr
     artifact
         .map(|key| {
             wire::encode_canonical_artifact_obligations(
-                &crate::canonical_artifacts::artifact_obligation(key, "project", owner),
+                &crate::canonical_artifacts::artifact_obligation(&pse_model::generated::canonical::ArtifactKey::from(key), crate::canonical_artifacts::CanonicalArtifactHolderKind::Project, owner),
             )
             .map(Value::Object)
         })
@@ -598,17 +607,17 @@ impl CanonicalStore {
         ))?;
         let mut intent = ProjectPublication {
             issuing_store: self.issuing_store()?.into(),
-            project: project.key.clone(),
+            project: project.key_domain(),
             project_generation: project.generation,
             branch: branch.into(),
             branch_generation: 0,
             problem: problem.into(),
             expected: None,
-            origin_revision: Some(origin.key.clone()),
+            origin_revision: Some(origin.key.clone().into()),
             draft: None,
             draft_generation: None,
             operation: operation.into(),
-            kind: "fork".into(),
+            kind: PublicationKind::Fork,
             request,
             branch_name: branch.into(),
             extra_parents: Vec::new(),
@@ -628,7 +637,7 @@ impl CanonicalStore {
         draft: Option<&Draft>,
         operation: &str,
     ) -> Result<ProjectPublication, CanonicalError> {
-        if branch.project != project.key
+        if branch.project_domain() != project.key_domain()
             || draft.is_some_and(|d| d.branch != branch.key || d.version.base_revision != expected)
         {
             return Err(CanonicalError::Configuration(
@@ -651,17 +660,17 @@ impl CanonicalStore {
         ))?;
         let mut intent = ProjectPublication {
             issuing_store: self.issuing_store()?.into(),
-            project: project.key.clone(),
+            project: project.key_domain(),
             project_generation: project.generation,
-            branch: branch.key.clone(),
+            branch: branch.key_domain(),
             branch_generation: branch.generation,
-            problem: branch.problem.clone(),
+            problem: branch.problem_domain(),
             expected: Some(expected.into()),
             origin_revision: None,
-            draft: draft.map(|d| d.key.clone()),
+            draft: draft.map(|d| d.key_domain()),
             draft_generation: draft.map(|d| d.generation),
             operation: operation.into(),
-            kind: "publish".into(),
+            kind: PublicationKind::Publish,
             request,
             branch_name: branch.name.clone(),
             extra_parents: Vec::new(),
@@ -683,7 +692,7 @@ impl CanonicalStore {
             .ok_or(CanonicalError::OperationReused)?;
         if ack.request.as_slice() != intent.request
             || ack.revision.as_deref() != Some(intent.operation.as_str())
-            || ack.project != intent.project
+            || ack.project_domain() != intent.project
             || ack.branch.as_deref() != Some(intent.branch.as_str())
         {
             return Err(CanonicalError::OperationReused);
@@ -712,10 +721,10 @@ impl CanonicalStore {
             .revision(&intent.operation)
             .await?
             .ok_or(CanonicalError::IncompleteResponse)?;
-        if revision.problem != intent.problem
-            || revision.parent != intent.expected
-            || revision.operation != intent.operation
-            || revision.key != intent.operation
+        if revision.problem != intent.problem.as_str()
+            || revision.parent.as_deref() != intent.expected.as_deref()
+            || revision.operation != intent.operation.as_str()
+            || revision.key != intent.operation.as_str()
             || revision.interpretation != wire::INTERPRETATION
         {
             return Err(CanonicalError::OperationReused);
@@ -2106,7 +2115,7 @@ mod tests {
         .unwrap();
         let selection = store.project_branches("project", Some(&cursor)).await;
         let publication = store.edit_project(&intent, &[edit("v2")]).await;
-        let native=bounded_query(store.db.query("BEGIN; RETURN fn::pse_project_v1::source_guard($pse_rpc_expires_at,$problem,$operation,$intent); COMMIT;").bind(("problem",intent.problem.clone())).bind(("operation",intent.operation.clone())).bind(("intent",intent.encode().unwrap()))).await;
+        let native=bounded_query(store.db.query("BEGIN; RETURN fn::pse_project_v1::source_guard($pse_rpc_expires_at,$problem,$operation,$intent); COMMIT;").bind(("problem",intent.problem.as_str().to_owned())).bind(("operation",intent.operation.as_str().to_owned())).bind(("intent",intent.encode().unwrap()))).await;
         // Restore the isolated fixture authority before any assertion can unwind teardown.
         bounded_query(
             store

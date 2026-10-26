@@ -5,16 +5,16 @@
 
 from __future__ import annotations
 
-import fcntl
+import io
 import json
 import os
 import subprocess
+import tempfile
 import unittest
 import uuid
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import payload_files
 from scripts import surreal_server as server
 from scripts.tests import test_surreal_server as supervisor_controls
 
@@ -66,9 +66,9 @@ class PayloadLifecycleTests(unittest.TestCase):
             "interpretation": server.SUBSTRATE_INTERPRETATION,
             "state": "sealed",
         }
-        self.final, self.staging = payload_files.instance_paths(
-            self.state, self.config, self.key
-        )
+        directory = self.state / "payloads" / str(self.config["payload_incarnation"]) / str(self.config["database"])
+        self.final = directory / "instances" / (self.key + ".sealed")
+        self.staging = directory / ".pending" / (self.key + ".pending")
         self.final.parent.mkdir(parents=True, exist_ok=True)
         self.final.write_bytes(b'{"seed":true}')
         self.instance["payload_bytes"] = str(self.final.stat().st_size)
@@ -76,6 +76,29 @@ class PayloadLifecycleTests(unittest.TestCase):
         self.instances = [self.instance]
         self.owners = [self.owner]
         self.domain: dict[str, object] | None = None
+        # These supervisor controls supply factual native responses. Native
+        # offline tests independently exercise actual bytes, inodes and locks.
+        self.live_boot = self.owner["boot"]
+        self.live_namespace = self.owner["pid_namespace"]
+        self.live_start = self.owner["start"]
+        self.enterContext(patch.object(server, "native_payload_operation", side_effect=self.native_facts))
+
+    def native_facts(self, state: Path, config: object, operation: str, inventory: object = None, **options: object) -> list[dict[str, object]]:
+        if operation == "owner-observations":
+            observations = []
+            for owner in server.object_inventory(inventory):
+                if owner["boot"] != self.live_boot:
+                    observations.append({"key": owner["key"], "dead": True})
+                elif owner["pid_namespace"] != self.live_namespace:
+                    observations.append({"key": owner["key"], "refusal": "unobservable fixture"})
+                else:
+                    observations.append({"key": owner["key"], "dead": owner["start"] != self.live_start})
+            return observations
+        if operation == "layout":
+            placement = server.object_mapping(options["placement"])
+            return [{"root": str(state / "payloads" / str(placement["payload_incarnation"]) / str(placement["database"]))}]
+        return server.object_inventory(inventory or [])
+
 
     def query(self, _state: Path, _config: dict[str, object], body: str) -> object:
         self.events.append(body)
@@ -178,8 +201,9 @@ class PayloadLifecycleTests(unittest.TestCase):
             return server.backup(self.state, self.config, destination)
 
     def verifier(self) -> Path:
+        # The native operation is supplied above; this is an explicit fixture artifact.
         path = self.root / "verifier"
-        path.write_text("#!/bin/sh\necho '{\"verified_payload_files\":1}'\n")
+        path.write_text("fixture-native-artifact")
         path.chmod(0o700)
         self.config["payload_verifier"] = server.payload_verifier(path)
         server.write_json(self.state / "config.json", self.config)
@@ -531,391 +555,19 @@ class PayloadLifecycleTests(unittest.TestCase):
             max(i for i, event in enumerate(self.events) if event == "managed-drain"),
         )
 
-    def test_dead_owner_is_exactly_drained_and_backup_reconciles_exact_staging_alias(
-        self,
-    ) -> None:
-        self.owner["boot"] = str(uuid.uuid4())
-        self.staging.parent.mkdir(parents=True)
-        self.final.chmod(0o600)
-        os.link(self.final, self.staging)
-        locks = payload_files.root(self.state, self.config) / ".locks"
-        locks.mkdir()
-        lock = locks / (self.key + ".lock")
-        lock.write_bytes(b"")
-        lock.chmod(0o600)
-        self.verifier()
-        destination = self.root / "backup"
-        self.backup(destination)
-        _manifest, _original, inventory = server.validated_restore_backup(
-            destination, server.SUBSTRATE_INTERPRETATION
-        )
-        self.assertTrue(self.owner["drained"])
-        self.assertTrue(any("drain_owner" in event for event in self.events))
-        self.assertLess(
-            next(
-                i
-                for i, event in enumerate(self.events)
-                if "canonical_file_instances" in event
-            ),
-            self.events.index("stop"),
-        )
-        self.assertEqual(
-            (destination / self.final.relative_to(self.state)).read_bytes(),
-            self.final.read_bytes(),
-        )
-        self.assertFalse(self.staging.exists())
-        self.assertFalse((destination / self.staging.relative_to(self.state)).exists())
-        self.assertEqual(self.final.stat().st_nlink, 1)
-        self.assertEqual(
-            server.object_mapping(inventory[0]["instance"])["state"], "sealed"
-        )
 
-    def test_pending_publication_alias_is_reconciled_without_fabricating_acknowledgment(
-        self,
-    ) -> None:
-        self.owner["boot"] = str(uuid.uuid4())
-        self.instance.update(
-            state="pending",
-            digest="",
-            payload_bytes="0",
-            encoding="",
-            batch_count="0",
-            schema="",
-        )
-        self.final.chmod(0o600)
-        self.staging.parent.mkdir()
-        os.link(self.final, self.staging)
-        locks = payload_files.root(self.state, self.config) / ".locks"
-        locks.mkdir()
-        lock = locks / (self.key + ".lock")
-        lock.write_bytes(b"")
-        lock.chmod(0o600)
-        lock_inode = lock.stat().st_ino
-        backup = self.root / "backup"
-        self.backup(backup)
-        _manifest, _original, inventory = server.validated_restore_backup(
-            backup, server.SUBSTRATE_INTERPRETATION
-        )
-        self.assertEqual(server.object_mapping(inventory[0]["instance"]), self.instance)
-        self.assertEqual(self.instance["state"], "pending")
-        self.assertEqual(self.instance["digest"], "")
-        self.assertEqual(self.instance["payload_bytes"], "0")
-        self.assertFalse(self.staging.exists())
-        self.assertEqual(self.final.stat().st_nlink, 1)
-        self.assertEqual(lock.stat().st_ino, lock_inode)
-        restored = self.root / "restored"
-        with self.fixture.native_maintenance():
-            server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
-        selected = server.config_for(restored)
-        final, pending = payload_files.instance_paths(restored, selected, self.key)
-        self.assertEqual(final.read_bytes(), self.final.read_bytes())
-        self.assertFalse(pending.exists())
-        self.assertEqual(
-            server.object_mapping(inventory[0]["instance"])["state"], "pending"
-        )
 
-    def test_frozen_alias_reconciliation_refuses_unknown_aliases_and_held_locks(
-        self,
-    ) -> None:
-        self.owner["drained"] = True
-        self.final.chmod(0o600)
-        self.staging.parent.mkdir()
-        locks = payload_files.root(self.state, self.config) / ".locks"
-        locks.mkdir()
-        lock = locks / (self.key + ".lock")
-        external = self.root / "external-alias"
-        for case in (
-            "different-inode",
-            "external-alias",
-            "symlink",
-            "nonprivate",
-            "missing-lock",
-            "held-lock",
-        ):
-            with self.subTest(case=case):
-                self.final.chmod(0o600)
-                os.link(self.final, self.staging)
-                if case != "missing-lock":
-                    lock.write_bytes(b"")
-                    lock.chmod(0o600)
-                if case == "different-inode":
-                    self.staging.unlink()
-                    self.staging.write_bytes(b"different stage")
-                    self.staging.chmod(0o600)
-                elif case == "external-alias":
-                    os.link(self.final, external)
-                elif case == "symlink":
-                    self.staging.unlink()
-                    self.staging.symlink_to(self.final)
-                elif case == "nonprivate":
-                    self.final.chmod(0o644)
-                if case == "held-lock":
-                    with lock.open("r+b") as holder:
-                        fcntl.flock(holder.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                        with self.assertRaisesRegex(
-                            server.SupervisorError,
-                            "staging alias reconciliation refused",
-                        ):
-                            self.backup(self.root / ("backup-" + case))
-                else:
-                    with self.assertRaisesRegex(
-                        server.SupervisorError, "staging alias reconciliation refused"
-                    ):
-                        self.backup(self.root / ("backup-" + case))
-                self.assertTrue(self.final.exists())
-                self.assertTrue(self.staging.exists() or self.staging.is_symlink())
-                self.staging.unlink()
-                if external.exists():
-                    external.unlink()
-                if lock.exists():
-                    lock.unlink()
 
-    def test_missing_sealed_file_refuses_completion(self) -> None:
-        self.owner["drained"] = True
-        self.final.unlink()
-        with self.assertRaisesRegex(server.SupervisorError, "sealed file is missing"):
-            self.backup(self.root / "backup")
-        self.assertNotIn("stop", self.events)
 
-    def test_collector_crash_after_unlink_preserves_tombstone_through_backup_restore(
-        self,
-    ) -> None:
-        self.owner["boot"] = str(uuid.uuid4())
-        self.instance["state"] = "collecting"
-        self.final.unlink()
-        backup = self.root / "backup"
-        self.backup(backup)
-        _manifest, _original, inventory = server.validated_restore_backup(
-            backup, server.SUBSTRATE_INTERPRETATION
-        )
-        entry = inventory[0]
-        self.assertEqual(
-            server.object_mapping(entry["instance"])["state"], "collecting"
-        )
-        self.assertEqual(entry["files"], {})
-        self.assertTrue(self.owner["drained"])
-        restored = self.root / "restored"
-        with self.fixture.native_maintenance() as calls:
-            server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
-        selected = server.config_for(restored)
-        final, staging = payload_files.instance_paths(restored, selected, self.key)
-        self.assertFalse(final.exists())
-        self.assertFalse(staging.exists())
-        self.assertEqual(
-            server.object_mapping(
-                server.object_inventory(
-                    server.read_json(backup / "backup.json")["payload_inventory"]
-                )[0]["instance"]
-            )["state"],
-            "collecting",
-        )
-        self.assertTrue(selected["payload_frozen"])
-        self.assertFalse(selected["accepting_writes"])
-        self.assertFalse(
-            any("SET state=" in query for _namespace, _database, query in calls)
-        )
 
-    def test_collecting_bytes_still_present_are_verified_and_copied(self) -> None:
-        self.owner["drained"] = True
-        self.instance["state"] = "collecting"
-        with self.assertRaisesRegex(server.SupervisorError, "payload-verifier"):
-            self.backup(self.root / "backup")
-        self.verifier()
-        backup = self.root / "backup"
-        self.backup(backup)
-        _manifest, _original, inventory = server.validated_restore_backup(
-            backup, server.SUBSTRATE_INTERPRETATION
-        )
-        self.assertEqual(
-            server.object_mapping(inventory[0]["instance"])["state"], "collecting"
-        )
-        self.assertEqual(
-            (backup / self.final.relative_to(self.state)).read_bytes(),
-            self.final.read_bytes(),
-        )
 
-    def test_abandoned_unsealed_collector_crash_preserves_unknown_bytes_through_restore(
-        self,
-    ) -> None:
-        self.owner["boot"] = str(uuid.uuid4())
-        # Reservation -> authentic abandonment -> collecting changes state only.
-        # The collector dies before unlink, without any scientific seal ACK.
-        self.instance.update(
-            state="collecting",
-            digest="",
-            payload_bytes="0",
-            encoding="",
-            batch_count="0",
-            schema="",
-        )
-        original = dict(self.instance)
-        expected = self.final.read_bytes()
-        backup = self.root / "backup"
-        with patch.object(
-            server,
-            "payload_verifier",
-            side_effect=AssertionError(
-                "unsealed bytes must not fabricate canonical verification"
-            ),
-        ):
-            self.backup(backup)
-            _manifest, _original, inventory = server.validated_restore_backup(
-                backup, server.SUBSTRATE_INTERPRETATION
-            )
-            self.assertEqual(server.object_mapping(inventory[0]["instance"]), original)
-            self.assertEqual(
-                (backup / self.final.relative_to(self.state)).read_bytes(), expected
-            )
-            self.assertTrue(self.owner["drained"])
-            restored = self.root / "restored"
-            with self.fixture.native_maintenance() as calls:
-                server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
-        selected = server.config_for(restored)
-        final, staging = payload_files.instance_paths(restored, selected, self.key)
-        self.assertEqual(final.read_bytes(), expected)
-        self.assertFalse(staging.exists())
-        self.assertTrue(selected["payload_frozen"])
-        self.assertFalse(selected["accepting_writes"])
-        self.assertEqual(
-            server.object_mapping(inventory[0]["instance"])["state"], "collecting"
-        )
-        self.assertFalse(
-            any("SET state=" in query for _namespace, _database, query in calls)
-        )
 
-    def test_collecting_partial_descriptor_cannot_claim_unsealed_exemption(
-        self,
-    ) -> None:
-        self.owner["drained"] = True
-        self.instance.update(
-            state="collecting",
-            digest="",
-            payload_bytes="0",
-            encoding="",
-            batch_count="0",
-            schema="",
-        )
-        for field, value in (
-            ("digest", "a" * 64),
-            ("encoding", "opaque-json-v1"),
-            ("batch_count", "1"),
-            ("schema", "nonempty"),
-        ):
-            with self.subTest(field=field):
-                self.instance[field] = value
-                with self.assertRaisesRegex(server.SupervisorError, "extent differs"):
-                    self.backup(self.root / ("backup-" + field))
-                self.instance[field] = "0" if field == "batch_count" else ""
 
-    def test_pending_absence_remains_unresolved_without_inventing_file_completion(
-        self,
-    ) -> None:
-        self.owner["drained"] = True
-        self.final.unlink()
-        self.instance.update(state="pending", digest="", payload_bytes="0")
-        destination = self.root / "backup"
-        self.backup(destination)
-        _manifest, _original, inventory = server.validated_restore_backup(
-            destination, server.SUBSTRATE_INTERPRETATION
-        )
-        entry = inventory[0]
-        self.assertEqual(server.object_mapping(entry["instance"])["state"], "pending")
-        self.assertEqual(entry["files"], {})
 
-    def test_pending_partial_stage_is_preserved_without_native_complete_file_verification(
-        self,
-    ) -> None:
-        self.owner["drained"] = True
-        self.final.unlink()
-        self.staging.parent.mkdir(parents=True)
-        self.staging.write_bytes(b"partial native file")
-        self.instance.update(state="pending", digest="", payload_bytes="0")
-        destination = self.root / "backup"
-        self.backup(destination)
-        _manifest, _original, inventory = server.validated_restore_backup(
-            destination, server.SUBSTRATE_INTERPRETATION
-        )
-        self.assertEqual(
-            server.object_mapping(inventory[0]["instance"])["state"], "pending"
-        )
-        self.assertEqual(
-            (destination / self.staging.relative_to(self.state)).read_bytes(),
-            b"partial native file",
-        )
 
-    def test_sealed_backup_requires_native_verifier_and_preserves_incomplete_destination(
-        self,
-    ) -> None:
-        self.owner["drained"] = True
-        with self.assertRaisesRegex(server.SupervisorError, "payload-verifier"):
-            self.backup(self.root / "backup")
-        self.assertNotIn("stop", self.events)
-        verifier = self.verifier()
-        verifier.write_text("#!/bin/sh\nexit 1\n")
-        self.config["payload_verifier"] = server.payload_verifier(verifier)
-        server.write_json(self.state / "config.json", self.config)
-        with self.assertRaisesRegex(
-            server.SupervisorError, "canonical payload verification failed"
-        ):
-            self.backup(self.root / "backup")
-        self.assertFalse((self.root / "backup/backup.json").exists())
-        self.assertEqual(list(self.state.glob(".payload-verification-*")), [])
 
-    def test_payload_corruption_or_omission_refuses_restore_before_target_creation(
-        self,
-    ) -> None:
-        self.owner["drained"] = True
-        self.verifier()
-        backup = self.root / "backup"
-        self.backup(backup)
-        copied = backup / self.final.relative_to(self.state)
-        copied.write_bytes(b"corrupt")
-        with self.assertRaises(server.SupervisorError):
-            server.restore(
-                backup, self.root / "restored", server.SUBSTRATE_INTERPRETATION
-            )
-        self.assertFalse((self.root / "restored").exists())
 
-    def test_restore_uses_fresh_physical_root_and_preserves_descriptor_bytes(
-        self,
-    ) -> None:
-        self.owner["drained"] = True
-        self.verifier()
-        backup = self.root / "backup"
-        self.backup(backup)
-        original_descriptor = json.dumps(self.instance, sort_keys=True)
-        restored = self.root / "restored"
-        with self.fixture.native_maintenance():
-            result = server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
-        selected = server.config_for(restored)
-        final, _pending = payload_files.instance_paths(restored, selected, self.key)
-        self.assertEqual(final.read_bytes(), self.final.read_bytes())
-        self.assertNotEqual(
-            selected["payload_incarnation"], self.config["payload_incarnation"]
-        )
-        self.assertNotEqual(selected["database"], self.config["database"])
-        self.assertEqual(json.dumps(self.instance, sort_keys=True), original_descriptor)
-        self.assertEqual(result["admission"], "validation_required")
-        self.assertFalse(selected["accepting_writes"])
-        self.assertTrue(selected["payload_frozen"])
-        self.assertFalse((restored / self.final.relative_to(self.state)).exists())
-        self.assertEqual(
-            server.read_json(backup / "credentials.json"),
-            server.read_json(self.state / "credentials.json"),
-        )
 
-    def test_symlink_or_unknown_payload_refuses_inventory(self) -> None:
-        self.owner["drained"] = True
-        unknown = self.final.parent / "unregistered.sealed"
-        unknown.write_bytes(b"preserve unknown")
-        with self.assertRaisesRegex(server.SupervisorError, "Unknown payload"):
-            self.backup(self.root / "backup")
-        self.assertEqual(unknown.read_bytes(), b"preserve unknown")
-        unknown.unlink()
-        self.final.unlink()
-        self.final.symlink_to(self.state / "database/fixture")
-        with self.assertRaises(server.SupervisorError):
-            self.backup(self.root / "backup")
 
     def test_foreign_namespace_or_unobservable_owner_remains_protected(self) -> None:
         self.owner["pid_namespace"] = "pid:[unknown]"
@@ -1155,292 +807,61 @@ class PayloadLifecycleTests(unittest.TestCase):
         )
         self.assertTrue(self.final.is_file())
 
-    def test_catalog_instance_locks_are_preserved_live_and_excluded_from_backup(
-        self,
-    ) -> None:
-        self.owner["drained"] = True
-        collected = {**self.instance, "key": str(uuid.uuid4()), "state": "collected"}
-        self.instances.append(collected)
-        locks = payload_files.root(self.state, self.config) / ".locks"
-        locks.mkdir()
-        identities = {}
-        for instance in self.instances:
-            lock = locks / (instance["key"] + ".lock")
-            lock.write_bytes(b"")
-            lock.chmod(0o600)
-            identities[lock] = lock.stat().st_ino
-        self.verifier()
-        backup = self.root / "backup"
-        self.backup(backup)
-        _manifest, _original, inventory = server.validated_restore_backup(
-            backup, server.SUBSTRATE_INTERPRETATION
-        )
-        self.assertFalse(
-            any(
-                "/.locks/" in name for name in server.object_mapping(_manifest["files"])
-            )
-        )
-        self.assertEqual({lock: lock.stat().st_ino for lock in identities}, identities)
-        self.assertEqual(
-            {server.object_mapping(entry["instance"])["state"] for entry in inventory},
-            {"sealed", "collected"},
-        )
-        restored = self.root / "restored"
-        with self.fixture.native_maintenance():
-            server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
-        selected = server.config_for(restored)
-        self.assertNotEqual(
-            selected["payload_incarnation"], self.config["payload_incarnation"]
-        )
-        self.assertFalse((payload_files.root(restored, selected) / ".locks").exists())
-        self.assertEqual({lock: lock.stat().st_ino for lock in identities}, identities)
 
-    def test_unknown_malformed_and_nonprivate_instance_locks_refuse_backup(
-        self,
-    ) -> None:
-        self.owner["drained"] = True
-        locks = payload_files.root(self.state, self.config) / ".locks"
-        locks.mkdir()
-        for case in (
-            "unknown",
-            "malformed",
-            "contents",
-            "permissions",
-            "symlink",
-            "directory",
-            "fifo",
-        ):
-            with self.subTest(case=case):
-                name = (str(uuid.uuid4()) if case == "unknown" else self.key) + ".lock"
-                if case == "malformed":
-                    name = "malformed.lock"
-                lock = locks / name
-                if case == "symlink":
-                    lock.symlink_to(self.final)
-                elif case == "directory":
-                    lock.mkdir()
-                elif case == "fifo":
-                    os.mkfifo(lock, 0o600)
-                else:
-                    lock.write_bytes(b"unexpected bytes" if case == "contents" else b"")
-                    lock.chmod(0o644 if case == "permissions" else 0o600)
-                with self.assertRaisesRegex(
-                    server.SupervisorError, "synchronization lock inventory"
-                ):
-                    self.backup(self.root / ("backup-" + case))
-                self.assertTrue(lock.exists() or lock.is_symlink())
-                self.assertTrue(self.final.is_file())
-                if case == "directory":
-                    lock.rmdir()
-                else:
-                    lock.unlink()
 
-    def test_still_held_instance_lock_refuses_backup_after_catalog_owner_drain(
-        self,
-    ) -> None:
-        self.owner["drained"] = True
-        locks = payload_files.root(self.state, self.config) / ".locks"
-        locks.mkdir()
-        lock = locks / (self.key + ".lock")
-        lock.write_bytes(b"")
-        lock.chmod(0o600)
-        with lock.open("r+b") as holder:
-            fcntl.flock(holder.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            with self.assertRaisesRegex(
-                server.SupervisorError, "synchronization lock inventory"
-            ):
-                self.backup(self.root / "backup")
-        self.assertTrue(lock.exists())
-        self.assertTrue(self.final.exists())
 
-    def test_whole_old_root_cleanup_removes_only_known_catalog_locks(self) -> None:
-        self.owner["drained"] = True
-        locks = payload_files.root(self.state, self.config) / ".locks"
-        locks.mkdir()
-        known = locks / (self.key + ".lock")
-        known.write_bytes(b"")
-        known.chmod(0o600)
-        self.verifier()
-        backup = self.root / "backup"
-        self.backup(backup)
-        _manifest, _original, inventory = server.validated_restore_backup(
-            backup, server.SUBSTRATE_INTERPRETATION
-        )
-        selected = server.fresh_database_identity(self.config)
-        selected["derived_rebuild_pending"] = {
-            "kind": "rebuild",
-            "phase": "disposing",
-            "namespace": self.config["namespace"],
-            "database": self.config["database"],
-            "payload_incarnation": self.config["payload_incarnation"],
-            "payload_inventory": inventory,
-        }
-        self.persist_maintenance_payloads(selected)
-        unknown = locks / (str(uuid.uuid4()) + ".lock")
-        unknown.write_bytes(b"")
-        unknown.chmod(0o600)
+
+
+
+
+
+class NativePayloadProtocolTests(unittest.TestCase):
+    def test_native_entry_is_bounded_before_dispatch(self) -> None:
+        config = {"payload_verifier": {"binary": "/fixture/helper", "sha256": "a" * 64}}
         with (
-            patch.object(server, "database_present", return_value=True),
-            patch.object(server, "maintenance_query", return_value={"value": True}),
-            self.assertRaisesRegex(
-                server.SupervisorError, "synchronization locks retained"
-            ),
+            patch.object(server, "payload_verifier", return_value=config["payload_verifier"]),
+            patch.object(server.subprocess, "run") as dispatch,
+            self.assertRaisesRegex(server.SupervisorError, "bounded envelope"),
         ):
-            server.cleanup_retired_payloads(self.state, selected, {})
-        self.assertTrue(known.exists())
-        self.assertTrue(unknown.exists())
-        self.assertTrue(self.final.exists())
-        unknown.unlink()
-        with (
-            patch.object(server, "database_present", return_value=True),
-            patch.object(server, "maintenance_query", return_value={"value": True}),
-        ):
-            server.cleanup_retired_payloads(self.state, selected, {})
-        self.assertFalse(payload_files.root(self.state, self.config).exists())
-        self.assertTrue(
-            server.object_mapping(
-                server.config_for(self.state)["derived_rebuild_pending"]
-            )["payload_cleanup_done"]
-        )
+            server.native_payload_operation(Path("/fixture/state"), config, "inventory", [{"instance": {"large": "x" * (64 * 1024)}}])
+        dispatch.assert_not_called()
 
-    def test_restore_rejects_malformed_last_inventory_entry_before_receiver_effects(
-        self,
-    ) -> None:
-        self.owner["drained"] = True
-        self.verifier()
-        backup = self.root / "backup"
-        self.backup(backup)
-        manifest = server.read_json(backup / "backup.json")
-        inventory = server.object_inventory(manifest["payload_inventory"])
-        receiver = self.root / "malformed-receiver"
-        invalid_values: tuple[object, ...] = (None, {}, "invalid")
-        for invalid in invalid_values:
-            manifest["payload_inventory"] = [*inventory, invalid]
-            server.write_json(backup / "backup.json", manifest)
+    def test_native_reply_bound_and_malformed_reply_refuse(self) -> None:
+        config = {"payload_verifier": {"binary": "/fixture/helper", "sha256": "a" * 64}}
+        for response in (b"x" * (64 * 1024 + 1), b"not json\n"):
+            def dispatch(arguments: list[str], **options: object) -> subprocess.CompletedProcess[bytes]:
+                output = options["stdout"]
+                assert isinstance(output, io.BufferedIOBase)
+                output.write(response)
+                return subprocess.CompletedProcess(arguments, 0, b"", b"")
             with (
-                self.subTest(invalid=invalid),
-                patch.object(server, "lifecycle_reservation") as reservation,
-                patch.object(server.shutil, "copy2") as copy,
+                self.subTest(bytes=len(response)),
+                patch.object(server, "payload_verifier", return_value=config["payload_verifier"]),
+                patch.object(server.subprocess, "run", side_effect=dispatch),
                 self.assertRaises(server.SupervisorError),
             ):
-                server.restore(backup, receiver, server.SUBSTRATE_INTERPRETATION)
-            reservation.assert_not_called()
-            copy.assert_not_called()
-            self.assertFalse(receiver.exists())
-            self.assertEqual(
-                (backup / self.final.relative_to(self.state)).read_bytes(),
-                self.final.read_bytes(),
-            )
+                server.native_payload_operation(Path("/fixture/state"), config, "verify", [])
 
-    def test_cleanup_preflights_every_placement_before_any_deletion(self) -> None:
-        digest, extent = payload_files.checked_file(self.final)
-        entry: dict[str, object] = {
-            "context": ".",
-            "database": self.config["database"],
-            "payload_incarnation": self.config["payload_incarnation"],
-            "instance": dict(self.instance),
-            "files": {
-                str(self.final.relative_to(self.state)): {
-                    "sha256": digest,
-                    "bytes": extent,
-                }
-            },
-        }
-        for case in (
-            "target-member",
-            "retired-member",
-            "inventory-member",
-            "instance-object",
-            "files-object",
-            "path-prefix",
-            "unknown-file",
-            "symlink",
-            "held-lock",
+    def test_success_without_the_exact_inventory_acknowledgment_refuses(self) -> None:
+        config = {"payload_verifier": {"binary": "/fixture/helper", "sha256": "a" * 64}}
+        with (
+            patch.object(server, "payload_verifier", return_value=config["payload_verifier"]),
+            patch.object(server.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, b"", b"")),
+            self.assertRaisesRegex(server.SupervisorError, "omitted an inventory acknowledgment"),
         ):
-            selected = server.fresh_database_identity(self.config)
-            retired = server.fresh_database_identity(self.config)
-            retired_root = payload_files.root(self.state, retired)
-            retired_root.mkdir(parents=True)
-            pending: dict[str, object] = {
-                "kind": "rebuild",
-                "namespace": self.config["namespace"],
-                "database": self.config["database"],
-                "payload_incarnation": self.config["payload_incarnation"],
-                "payload_inventory": [entry],
-            }
-            retirement: dict[str, object] = {
-                "payload_incarnation": retired["payload_incarnation"],
-                "database": retired["database"],
-                "owners": [{"drained": True}],
-                "inventory": [entry],
-            }
-            pending["retired_payloads"] = [retirement]
-            if case == "target-member":
-                pending["payload_targets"] = [retired, None]
-            elif case == "retired-member":
-                pending["retired_payloads"] = [retirement, None]
-            elif case == "inventory-member":
-                retirement["inventory"] = [entry, None]
-            elif case == "instance-object":
-                retirement["inventory"] = [entry, {"instance": None, "files": {}}]
-            elif case == "files-object":
-                retirement["inventory"] = [entry, {**entry, "files": None}]
-            elif case == "path-prefix":
-                retirement["inventory"] = [
-                    entry,
-                    {**entry, "files": {"wrong/" + self.final.name: {}}},
-                ]
-            elif case == "unknown-file":
-                (retired_root / "unknown").write_bytes(b"retained")
-            elif case == "symlink":
-                (retired_root / "unknown").symlink_to(self.final)
-            selected["derived_rebuild_pending"] = pending
-            self.persist_maintenance_payloads(selected)
-            before = (self.state / "config.json").read_bytes()
-            if case == "held-lock":
-                locks = retired_root / ".locks"
-                locks.mkdir()
-                lock = locks / (self.key + ".lock")
-                lock.write_bytes(b"")
-                lock.chmod(0o600)
-                descriptor = os.open(lock, os.O_RDONLY)
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            else:
-                descriptor = None
-            try:
-                with (
-                    self.subTest(case=case),
-                    patch.object(server, "database_present", return_value=True),
-                    patch.object(
-                        server, "maintenance_query", return_value={"value": True}
-                    ),
-                    self.assertRaisesRegex(
-                        server.SupervisorError,
-                        {
-                            "target-member": "metadata object",
-                            "retired-member": "metadata object",
-                            "inventory-member": "metadata object",
-                            "instance-object": "metadata object",
-                            "files-object": "metadata object",
-                            "path-prefix": "invalid path",
-                            "unknown-file": "Unknown retired payload content",
-                            "symlink": "must not traverse symlinks",
-                            "held-lock": "synchronization locks retained",
-                        }[case],
-                    ),
-                ):
-                    server.cleanup_retired_payloads(self.state, selected, {})
-            finally:
-                if descriptor is not None:
-                    os.close(descriptor)
-            self.assertEqual(self.final.read_bytes(), b'{"seed":true}')
-            self.assertTrue(retired_root.exists())
-            self.assertEqual((self.state / "config.json").read_bytes(), before)
+            server.native_payload_operation(Path("/fixture/state"), config, "verify", [{"original": "inventory"}])
 
-    def test_replaced_pid_is_death_but_exact_live_pid_is_not(self) -> None:
-        self.assertFalse(payload_files.owner_dead(self.owner))
-        replaced = {**self.owner, "start": "0"}
-        self.assertTrue(payload_files.owner_dead(replaced))
+    def test_default_already_built_helper_is_witnessed_for_published_supervisor(self) -> None:
+        config: dict[str, object] = {}
+        binary = Path(server.__file__).resolve().parents[1] / "target/debug/pse-canonical-recovery"
+        receipt = {"binary": str(binary), "sha256": "b" * 64}
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(server, "payload_verifier", return_value=receipt),
+            patch.object(server.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, b"", b"")),
+        ):
+            server.native_payload_operation(Path(directory), config, "verify", [])
+        self.assertEqual(config["payload_verifier"], receipt)
 
 
 if __name__ == "__main__":

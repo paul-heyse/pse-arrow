@@ -32,6 +32,24 @@ impl PartialEq for RuntimeCanonicalProjectBookmarksRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalProjectBookmarksRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::ProjectBookmarkKey {
+        crate::generated::canonical::ProjectBookmarkKey::from(self.r#key.as_str())
+    }
+}
+impl RuntimeCanonicalProjectBookmarksRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn project_domain(&self) -> crate::generated::canonical::ProjectKey {
+        crate::generated::canonical::ProjectKey::from(self.r#project.as_str())
+    }
+}
+impl RuntimeCanonicalProjectBookmarksRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn revision_domain(&self) -> crate::generated::canonical::RevisionKey {
+        crate::generated::canonical::RevisionKey::from(self.r#revision.as_str())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalProjectBookmarksRow;
 impl crate::SemanticFrame for RuntimeCanonicalProjectBookmarksRow {

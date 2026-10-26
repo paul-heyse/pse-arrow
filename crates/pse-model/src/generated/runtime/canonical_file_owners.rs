@@ -62,6 +62,12 @@ impl PartialEq for RuntimeCanonicalFileOwnersRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalFileOwnersRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::FileOwnerKey {
+        crate::generated::canonical::FileOwnerKey::from(self.r#key.as_str())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalFileOwnersRow;
 impl crate::SemanticFrame for RuntimeCanonicalFileOwnersRow {

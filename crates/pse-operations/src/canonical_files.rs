@@ -4,6 +4,9 @@
 //! Opaque sealed file effects. Scientific codecs and interpretation remain with
 //! Runtime; only an attached catalog receipt acknowledges durable publication.
 
+/// Native offline physical operations used by the product recovery helper.
+pub mod offline;
+
 use crate::{
     canonical::{CanonicalError, CanonicalStore, bounded_query, protected_query},
     canonical_codec as codec,
@@ -17,6 +20,7 @@ use std::{
     sync::Arc,
 };
 use surrealdb::types::{Object, Value};
+use pse_model::generated::enums::{CanonicalFileState, CanonicalPayloadEncoding};
 
 #[cfg(all(test, feature = "canonical-tests"))]
 #[derive(Clone)]
@@ -37,16 +41,21 @@ async fn effect_pause(kind: &str) {
     }
 }
 
+fn file_state(row: &Object) -> Result<CanonicalFileState, CanonicalError> {
+    let value = row.get("state").ok_or(CanonicalError::IncompleteResponse)?;
+    codec::decode_string(value.clone())?.parse().map_err(configuration)
+}
+
 /// Completed file packing target, independent of RPC metadata limits.
 pub const FILE_TARGET_BYTES: usize = pse_schema::catalog::substrate::RESULT_FILE_TARGET_BYTES;
 /// Maximum physical file size, including native format metadata.
 pub const FILE_BYTES: usize = pse_schema::catalog::substrate::RESULT_BLOCK_BYTES;
 /// Native completed uncompressed Arrow IPC file encoding.
-pub const ARROW_IPC_FILE: &str = "arrow-ipc-file";
+pub const ARROW_IPC_FILE: &str = CanonicalPayloadEncoding::ArrowIpcFile.as_str();
 /// Original JSON bytes, never a substituted binary seed format.
-pub const OPAQUE_JSON: &str = "opaque-json";
+pub const OPAQUE_JSON: &str = CanonicalPayloadEncoding::OpaqueJson.as_str();
 /// Explicit owner-coded non-IPC opaque content.
-pub const OPAQUE_BYTES: &str = "opaque-bytes";
+pub const OPAQUE_BYTES: &str = CanonicalPayloadEncoding::OpaqueBytes.as_str();
 
 /// Root-independent exact physical identity; restore changes placement only.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -68,6 +77,10 @@ pub struct FileDescriptor {
     pub interpretation: String,
 }
 impl FileDescriptor {
+    /// Parse the closed canonical encoding at the transport boundary.
+    pub fn encoding_kind(&self) -> Result<CanonicalPayloadEncoding, CanonicalError> {
+        self.encoding.parse().map_err(configuration)
+    }
     /// Validate physical coordinates, without claiming scientific admission.
     pub fn validate(&self) -> Result<(), CanonicalError> {
         uuid::Uuid::parse_str(&self.instance).map_err(configuration)?;
@@ -80,9 +93,9 @@ impl FileDescriptor {
             return Err(configuration("sealed file identity or extent invalid"));
         }
         validate_codec_schema(&self.encoding, &self.schema)?;
-        match self.encoding.as_str() {
-            ARROW_IPC_FILE if self.batch_count > 0 => Ok(()),
-            OPAQUE_JSON | OPAQUE_BYTES if self.batch_count == 0 && self.schema.is_empty() => Ok(()),
+        match self.encoding_kind()? {
+            CanonicalPayloadEncoding::ArrowIpcFile if self.batch_count > 0 => Ok(()),
+            CanonicalPayloadEncoding::OpaqueJson | CanonicalPayloadEncoding::OpaqueBytes if self.batch_count == 0 && self.schema.is_empty() => Ok(()),
             _ => Err(configuration("sealed file encoding coordinates invalid")),
         }
     }
@@ -103,8 +116,8 @@ impl FileDescriptor {
 /// Codec identity is a canonical semantic relation ID, not serialized Arrow
 /// schema text. Opaque formats have no schema identity at all.
 pub(crate) fn validate_codec_schema(encoding: &str, schema: &str) -> Result<(), CanonicalError> {
-    match encoding {
-        ARROW_IPC_FILE => {
+    match encoding.parse::<CanonicalPayloadEncoding>().map_err(configuration)? {
+        CanonicalPayloadEncoding::ArrowIpcFile => {
             let identity = pse_ids::SemanticId::parse_hex(schema).map_err(configuration)?;
             if identity.to_string() != schema {
                 return Err(configuration(
@@ -113,7 +126,7 @@ pub(crate) fn validate_codec_schema(encoding: &str, schema: &str) -> Result<(), 
             }
             Ok(())
         }
-        OPAQUE_JSON | OPAQUE_BYTES if schema.is_empty() => Ok(()),
+        CanonicalPayloadEncoding::OpaqueJson | CanonicalPayloadEncoding::OpaqueBytes if schema.is_empty() => Ok(()),
         _ => Err(configuration("sealed file codec/schema identity invalid")),
     }
 }
@@ -657,7 +670,7 @@ impl CanonicalStore {
         if encoding==OPAQUE_JSON {let _:serde_json::Value=serde_json::from_slice(bytes).map_err(configuration)?;}
         let lock=lock_instance(&self.files.root,&descriptor.instance).await?;
         let mut original=self.physical_intent_open(intent).await?;
-        if original.get("state")!=Some(&Value::String("pending".into())) {
+        if file_state(&original)? != CanonicalFileState::Pending {
             if text(&mut original,"digest")?!=descriptor.digest||codec::decode_uint(codec::required(&mut original,"payload_bytes")?)?!=descriptor.bytes||text(&mut original,"encoding")?!=descriptor.encoding||codec::decode_uint(codec::required(&mut original,"batch_count")?)?!=descriptor.batch_count||text(&mut original,"schema")?!=descriptor.schema||text(&mut original,"interpretation")?!=descriptor.interpretation{return Err(CanonicalError::OperationReused);}
             if !self.files.path(&descriptor.instance)?.try_exists().map_err(configuration)?{return Err(configuration("original sealed file is missing; immutable physical paths cannot be recreated"));}
         }
@@ -710,13 +723,12 @@ impl CanonicalStore {
         let mut inspection=bounded_query(self.db.query("RETURN SELECT key,state,storage_incarnation FROM ONLY type::record('canonical_file_instances',$key);").bind(("key",instance.to_owned()))).await?;
         let mut inspected=inspection.take::<Option<Object>>(0)?.ok_or_else(||configuration("physical collection instance unavailable"))?;
         if text(&mut inspected,"key")?!=instance||text(&mut inspected,"storage_incarnation")?!=self.files.incarnation{return Err(CanonicalError::OperationReused);}
-        let state=text(&mut inspected,"state")?;
-        if state=="collected"{return Ok(());}
-        if !["attached","abandoned","collecting"].contains(&state.as_str()){return Err(configuration("original file publication remains unresolved"));}
+        let state=text(&mut inspected,"state")?.parse::<CanonicalFileState>().map_err(configuration)?;
+        match state { CanonicalFileState::Collected => return Ok(()), CanonicalFileState::Attached | CanonicalFileState::Abandoned | CanonicalFileState::Collecting => {}, CanonicalFileState::Pending | CanonicalFileState::Sealed => return Err(configuration("original file publication remains unresolved")), }
         self.registered_file_owner().await?;
         let _lock=lock_instance(&self.files.root,instance).await?;
         let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::collect($pse_rpc_expires_at,$key,$incarnation); COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
-        let row=last_object(&mut response)?;if row.get("state")==Some(&Value::String("collected".into())){return Ok(());}
+        let row=last_object(&mut response)?;if file_state(&row)? == CanonicalFileState::Collected{return Ok(());}
         #[cfg(all(test,feature="canonical-tests"))]
         effect_pause("collect").await;
         match std::fs::remove_file(&path){Ok(())=>File::open(path.parent().ok_or_else(||configuration("file parent absent"))?).and_then(|f|f.sync_all()).map_err(configuration)?,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
@@ -998,20 +1010,18 @@ impl CanonicalStore {
         &self,
         batch: &pse_model::generated::runtime::canonical_result_batches::Row,
     ) -> Result<FileDescriptor, CanonicalError> {
-        let descriptor = self.descriptor_for_instance(&batch.file_instance).await?;
-        if descriptor.digest != batch.file_digest
+        let crate::canonical_execution::PayloadLocator::Sealed { instance, index } = crate::canonical_execution::result_payload_locator(batch)? else {
+            return Err(configuration("physical file descriptor requires sealed placement"));
+        };
+        let descriptor = self.descriptor_for_instance(&instance).await?;
+        if descriptor.digest != batch.digest
             || descriptor.bytes != batch.payload_bytes
             || descriptor.schema != batch.schema
             || descriptor.encoding != batch.encoding
         {
-            return Err(configuration(
-                "logical file descriptor differs from sealed instance",
-            ));
+            return Err(configuration("logical file descriptor differs from sealed instance"));
         }
-        FileBatch {
-            file: descriptor.clone(),
-            index: batch.file_batch_index,
-        }
+        FileBatch { file: descriptor.clone(), index }
         .validate()?;
         Ok(descriptor)
     }
@@ -1453,6 +1463,9 @@ mod catalog_controls {
     async fn run(store: &CanonicalStore, revision: Revision) -> AttemptFence {
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "file-run".into(),
                 revision,
                 sources: vec![],
@@ -1532,7 +1545,7 @@ mod catalog_controls {
         .await
         .unwrap();
         let descriptors = store
-            .result_file_batch_descriptors(&read, &set, &[0, 1])
+            .result_payload_batch_descriptors(&read, &set, &[0, 1])
             .await
             .unwrap();
         assert_eq!(descriptors.len(), 2);

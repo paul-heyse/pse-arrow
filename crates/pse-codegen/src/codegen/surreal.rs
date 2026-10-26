@@ -26,7 +26,7 @@ pub(super) fn relations<'a>(
             .filter_map(|column| column.graph_endpoint().map(|endpoint| (endpoint, column)))
             .collect::<Vec<_>>();
         if endpoints.is_empty() {
-            let caches = if pse_schema::catalog::substrate::INLINE_VERTICES.contains(&table) {
+            let caches = if relation.canonical.is_some_and(|policy| policy.inline_vertex) {
                 " INLINE EDGES 64 INLINE REFERENCES 32"
             } else {
                 ""
@@ -41,8 +41,7 @@ pub(super) fn relations<'a>(
                 "DEFINE TABLE {table} TYPE RELATION IN {} OUT {}{} SCHEMAFULL;",
                 target("in")?,
                 target("out")?,
-                if pse_schema::catalog::substrate::ENFORCED_RELATIONS.contains(&table)
-                    || pse_schema::catalog::knowledge::ENFORCED_RELATIONS.contains(&table)
+                if relation.canonical.is_some_and(|policy| policy.enforced)
                 {
                     " ENFORCED"
                 } else {
@@ -69,7 +68,7 @@ pub(super) fn relations<'a>(
                         language: "surreal",
                         reason: format!("{table}.{name} graph endpoint lacks its record target"),
                     })?;
-                let knowledge_assert = if table.starts_with("knowledge_") {
+                let knowledge_assert = if relation.canonical.is_some_and(|policy| policy.generation_references) {
                     " AND record::exists($value) AND $value.generation=$this.generation"
                 } else {
                     ""
@@ -83,7 +82,7 @@ pub(super) fn relations<'a>(
             }
             // Only this disposable family opts into native reverse references and
             // existence/cut assertions. Canonical scalar-FK interpretation is unchanged.
-            if table.starts_with("knowledge_")
+            if relation.canonical.is_some_and(|policy| policy.generation_references)
                 && column.graph_endpoint().is_none()
                 && let Some(target) = column
                     .fk()
@@ -95,16 +94,7 @@ pub(super) fn relations<'a>(
                 } else {
                     format!("record<{target}>")
                 };
-                let kind_assert = if table == "knowledge_productions" {
-                    match name {
-                        "declaration_key" => " AND $value.kind='declaration'",
-                        "generator_key" => " AND $value.kind='generator'",
-                        "artifact_key" => " AND $value.kind='generated_artifact'",
-                        _ => "",
-                    }
-                } else {
-                    ""
-                };
+                let kind_assert = column.canonical_reference_kind().map(|kind| format!(" AND $value.kind='{kind}'")).unwrap_or_default();
                 let assertion = format!(
                     "$value=type::record('{target}',$this.{name}) AND record::exists($value) AND $value.generation=$this.generation{kind_assert}"
                 );
@@ -167,7 +157,7 @@ pub(super) fn relations<'a>(
             } else {
                 literal_ty
             };
-            let assertion = if name == "key" {
+            let assertion = if column.is_canonical_record_key() {
                 " ASSERT $value = record::id($this.id)"
             } else if codec == "id" {
                 " ASSERT $value = NONE OR bytes::len($value) = 16"
@@ -178,77 +168,25 @@ pub(super) fn relations<'a>(
             } else {
                 ""
             };
-            let readonly = if name == "key"
-                || (table.starts_with("knowledge_")
-                    && table != "knowledge_state"
-                    && name != "state")
-                || matches!(
-                    table,
-                    "canonical_project_operations"
-                        | "canonical_research_references"
-                        | "canonical_project_contexts"
-                        | "canonical_context_ancestry"
-                        | "canonical_project_ancestry"
-                        | "canonical_draft_diagnostics"
-                )
-                || (table == "canonical_history_retirements"
-                    && matches!(name, "revision" | "generation"))
-                || (table == "canonical_project_draft_versions"
-                    && !matches!(name, "content" | "retired"))
-                || (table == "canonical_project_imports"
-                    && !matches!(name, "artifact" | "complete" | "retired_artifacts"))
-                || (table == "canonical_project_branches"
-                    && matches!(name, "project" | "problem" | "origin_revision"))
-                || (table == "canonical_attempts"
-                    && pse_schema::catalog::substrate::IMMUTABLE_ATTEMPT_FIELDS.contains(&name))
-                || (table == "canonical_studies"
-                    && pse_schema::catalog::substrate::IMMUTABLE_STUDY_FIELDS.contains(&name))
-            {
-                " READONLY"
-            } else {
-                ""
-            };
-            let assertion = if table == "knowledge_generations" && name == "state" {
-                " ASSERT ($before=NONE AND $value='staged') OR ($before='staged' AND $value IN ['staged','active']) OR ($before='active' AND $value='active')".to_owned()
-            } else if table == "canonical_project_draft_versions" && name == "retired" {
-                " DEFAULT false ASSERT ($before=NONE AND $value=false) OR ($before=$value) OR ($before=false AND $value=true AND bytes::len($this.content)=0)".to_owned()
-            } else if table == "canonical_project_draft_versions" && name == "content" {
-                " ASSERT $before=NONE OR $before=$value OR ($this.retired=true AND bytes::len($value)=0)".to_owned()
-            } else if table == "canonical_project_imports" && name == "complete" {
-                " DEFAULT false ASSERT ($before=NONE AND $value=false) OR $before=$value OR ($before=false AND $value=true AND $this.artifact!=NONE)".to_owned()
-            } else if table == "canonical_project_imports" && name == "artifact" {
-                " ASSERT $before=NONE OR $before=$value".to_owned()
-            } else if table == "canonical_attempts" && name == "phase" {
-                let transitions = pse_schema::catalog::substrate::ATTEMPT_TRANSITIONS
-                    .iter()
-                    .map(|(before, after)| format!("($before='{before}' AND $value='{after}')"))
-                    .collect::<Vec<_>>()
-                    .join(" OR ");
-                // Input-admission attempts own no native result inventory. Ordinary
-                // attempts cannot skip closure/manifest publication. Completion is
-                // separately compactable after terminal retention release. The
-                // nonoptional phase assertion owns absence checks: native optional
-                // field assertions are skipped when their value becomes NONE.
-                format!(
-                    " ASSERT ($before=NONE AND $value='ingesting' OR $before=$value OR {transitions} OR (string::starts_with($this.run,'study-admission:') AND $before IN ['ingesting','closed_awaiting_manifest','closed_with_manifest'] AND $value='terminal')) AND (($value='ingesting' AND $this.close_generation=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_awaiting_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_with_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest!=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value IN ['terminal','terminal_compacted'] AND (($value='terminal_compacted' AND $this.completion=NONE) OR ($value='terminal' AND ((string::starts_with($this.run,'study-admission:') AND $this.outcome='failed' AND $this.completion=NONE) OR ($this.completion!=NONE AND !(string::starts_with($this.run,'study-admission:') AND $this.outcome='failed'))))) AND $this.outcome IN ['succeeded','failed','partial','cancelled'] AND (string::starts_with($this.run,'study-admission:') OR ($this.close_generation!=NONE AND $this.closed_manifest!=NONE))))"
-                )
-            } else if table == "canonical_attempts" && name == "outcome" {
-                " ASSERT $before=NONE OR $before=$value".to_owned()
-            } else if table == "canonical_attempts" && name == "closed_manifest" {
-                " ASSERT ($value=NONE OR $value=$this.key) AND ($before=NONE OR $before=$value)"
-                    .to_owned()
-            } else if table == "canonical_attempts" && name == "completion" {
-                " ASSERT ($this.phase!='terminal_compacted' OR $value=NONE) AND ($before=NONE OR $before=$value OR ($value=NONE AND $this.phase='terminal_compacted'))".to_owned()
-            } else if table == "canonical_studies" && name == "next_ordinal" {
-                " ASSERT $value>=0dec AND $value<=18446744073709551615dec AND math::floor($value)=$value AND $value<=$this.point_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR $value=$this.point_count)".to_owned()
-            } else if table == "canonical_studies" && name == "installed_dependencies" {
-                " ASSERT $value>=0dec AND $value<=18446744073709551615dec AND math::floor($value)=$value AND $value<=$this.dependency_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR ($value=$this.dependency_count AND $this.next_ordinal=$this.point_count))".to_owned()
-            } else {
-                assertion.to_owned()
-            };
+            let readonly = if column.is_canonical_readonly() { " READONLY" } else { "" };
+            let default = column.canonical_default().map(|value| format!(" DEFAULT {value}")).unwrap_or_default();
+            let mut assertions = Vec::new();
+            if let Some(initial) = column.canonical_initial() {
+                let domain = column.enum_name().ok_or_else(|| SchemaError::Codegen { language: "surreal", reason: format!("{table}.{name} transition requires enum domain") })?;
+                let spec = registry.enum_spec(domain).ok_or_else(|| SchemaError::Codegen { language: "surreal", reason: format!("unknown transition enum {domain}") })?;
+                let mut edges = vec![format!("($before=NONE AND $value='{initial}')"), "$before=$value".to_owned()];
+                edges.extend(spec.transitions.iter().map(|edge| format!("($before='{}' AND $value='{}')",edge.before,edge.after)));
+                if let Some(exception) = column.canonical_transition_exception() { edges.push(format!("({exception})")); }
+                assertions.push(format!("({})", edges.join(" OR ")));
+            }
+            if let Some(native) = column.canonical_assertion() { assertions.push(format!("({native})")); }
+            if assertions.is_empty() {
+                if let Some(native) = assertion.strip_prefix(" ASSERT ") { assertions.push(native.to_owned()); }
+            }
+            let assertion = if assertions.is_empty() { String::new() } else { format!(" ASSERT {}",assertions.join(" AND ")) };
             let _ = writeln!(
                 ddl,
-                "DEFINE FIELD {name} ON {table} TYPE {declared_ty}{readonly}{assertion};"
+                "DEFINE FIELD {name} ON {table} TYPE {declared_ty}{readonly}{default}{assertion};"
             );
             if ty == "object" {
                 let _ = writeln!(
@@ -347,7 +285,7 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
     for relation in registry
         .relations()
         .iter()
-        .filter(|relation| relation.key.name.starts_with("canonical_"))
+        .filter(|relation| relation.canonical.is_some_and(|policy| !policy.generation_references))
     {
         for output in [
             "crates/pse-operations/src/generated/surreal.rs",
@@ -378,22 +316,19 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
         registry
             .relations()
             .iter()
-            .filter(|relation| relation.key.name.starts_with("canonical_")),
+            .filter(|relation| relation.canonical.is_some_and(|policy| !policy.generation_references)),
         &indexes,
     )?;
-    let immutable_terminal_publication =
-        pse_schema::catalog::substrate::TERMINAL_IMMUTABLE_ATTEMPT_FIELDS
-            .iter()
-            .map(|field| format!("$before.{field}!=$after.{field}"))
-            .collect::<Vec<_>>()
-            .join(" OR ");
-    let seed_refusal = pse_schema::catalog::canonical_refusals::RefusalCode::ExecutionTerminalSeedManifestImmutable.wire();
-    // A default event runs synchronously inside this transaction. Optional field
-    // ASSERTs skip NONE and cannot protect either clearing or later resurrection.
-    let _ = writeln!(
-        ddl,
-        "DEFINE EVENT pse_attempt_terminal_publication_immutable ON canonical_attempts WHEN $event='UPDATE' AND $before.phase IN ['terminal','terminal_compacted'] AND ({immutable_terminal_publication}) THEN {{ THROW '{seed_refusal}'; }};"
-    );
+    for relation in registry.relations() {
+        for column in &relation.columns {
+            if let Some(predicate) = column.canonical_seal() {
+                let table = relation.key.name;
+                let field = column.name();
+                let refusal = column.canonical_seal_refusal().ok_or_else(|| SchemaError::Codegen { language: "surreal", reason: format!("{table}.{field} sealed field requires a declared refusal") })?;
+                let _ = writeln!(ddl, "DEFINE EVENT pse_sealed_{table}_{field} ON {table} WHEN $event='UPDATE' AND ({predicate}) AND $before.{field}!=$after.{field} THEN {{ THROW '{refusal}'; }};");
+            }
+        }
+    }
     ddl.push_str(
         r#"
 DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
@@ -472,6 +407,8 @@ DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
         "generated_by": "pse-schema", "interpretation": interpretation,
         "result_block_bytes": block_bytes, "result_file_target_bytes": file_target_bytes, "result_index_bytes": index_bytes,
         "max_message_bytes": message_bytes, "result_index_records": index_records,
+        "application_backup_tables": registry.relations().iter().filter(|relation| relation.canonical.is_some_and(|policy| policy.backup == pse_schema::model::CanonicalBackup::Required)).map(|relation| relation.key.name).collect::<Vec<_>>(),
+        "table_classifications": registry.relations().iter().filter_map(|relation| relation.canonical.map(|policy| (relation.key.name, serde_json::json!({"retention":format!("{:?}",policy.retention),"backup":format!("{:?}",policy.backup)})))).collect::<std::collections::BTreeMap<_,_>>(),
     }))
     .map_err(|error| SchemaError::Codegen {
         language: "surreal",

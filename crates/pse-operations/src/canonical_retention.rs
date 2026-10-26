@@ -656,6 +656,9 @@ mod canonical_server_unit {
             .unwrap();
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "real-run".into(),
                 revision: first.clone(),
                 sources: vec![],

@@ -53,7 +53,6 @@ if __name__ == "__main__":
 from scripts import (
     host_admission,
     native_operation,
-    payload_files,
     pse_env,
     surreal_source,
     surrealism_module,
@@ -1340,10 +1339,14 @@ def config_for(state: Path, *, deadline: float | None = None) -> dict[str, objec
     # A retired profile can predate payload incarnations. This owner only
     # verifies drain and discards its generated files; it never opens them.
     if not retiring:
+        incarnation = config.get("payload_incarnation")
+        if not isinstance(incarnation, str):
+            raise SupervisorError("Missing payload incarnation; explicitly regenerate this profile")
         try:
-            payload_files.incarnation(config.get("payload_incarnation"))
-        except payload_files.PayloadError as error:
-            raise SupervisorError(str(error)) from error
+            if str(uuid.UUID(incarnation)) != incarnation:
+                raise ValueError("noncanonical incarnation")
+        except ValueError as error:
+            raise SupervisorError("Invalid payload incarnation") from error
     budget = config.get("resources")
     if not isinstance(budget, dict):
         raise SupervisorError("Missing resource allocation")
@@ -1713,7 +1716,9 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
         test_resources.service_registry_binding(state, establish=True)
         write_json(state / "config.json", config)
         (state / "tmp").mkdir(mode=0o700)
-        payload_files.root(state, config).mkdir(mode=0o700, parents=True)
+        payload_root(state, config).mkdir(mode=0o700, parents=True)
+        # Published supervisor generations retain the selected already-built product artifact.
+        write_json(state / "config.json", config)
     return public_status(state, config)
 
 
@@ -6534,15 +6539,75 @@ def payload_verifier(path: Path) -> dict[str, object]:
     return {"binary": str(path), "sha256": file_digest(path)}
 
 
-def unsealed_payload_descriptor(instance: dict[str, object]) -> bool:
-    """Exact reserved descriptor before any seal ACK; never a scientific digest."""
-    return (
-        instance.get("digest") == ""
-        and str(instance.get("payload_bytes")) == "0"
-        and instance.get("encoding") == ""
-        and str(instance.get("batch_count")) == "0"
-        and instance.get("schema") == ""
-    )
+def native_payload_operation(
+    state: Path,
+    config: Mapping[str, object],
+    operation: str,
+    inventory: list[dict[str, object]] | None = None,
+    *,
+    destination: Path | None = None,
+    placement: Mapping[str, object] | None = None,
+    target: Mapping[str, object] | None = None,
+) -> list[dict[str, object]]:
+    """Transport bounded metadata to the product's complete physical operation."""
+    verifier = object_mapping(config.get("payload_verifier", {}))
+    binary = verifier.get("binary")
+    if binary is None:
+        binary = str(Path(__file__).resolve().parents[1] / "target/debug/pse-canonical-recovery")
+    if not isinstance(binary, str):
+        raise SupervisorError("Native payload helper artifact is unavailable")
+    try:
+        actual = payload_verifier(Path(binary))
+    except (SupervisorError, OSError) as error:
+        raise SupervisorError("Native payload helper unavailable; build pse-operations --bin pse-canonical-recovery or select --payload-verifier") from error
+    if verifier and actual != verifier:
+        raise SupervisorError("Native payload helper differs from its selected artifact")
+    if not verifier and isinstance(config, dict):
+        config["payload_verifier"] = actual
+    command = [binary, "--operation", operation, "--root", str(state)]
+    if destination is not None:
+        command.extend(("--destination", str(destination)))
+    for option, value in (("--placement", placement), ("--target", target)):
+        if value is not None:
+            command.extend((option, json.dumps({name: value[name] for name in ("payload_incarnation", "database")}, separators=(",", ":"))))
+    with tempfile.TemporaryFile(mode="w+b") as request, tempfile.TemporaryFile(mode="w+b") as response:
+        for entry in inventory or []:
+            line = (json.dumps(entry, separators=(",", ":")) + "\n").encode()
+            if len(line) > 64 * 1024:
+                raise SupervisorError("Native payload entry exceeds its bounded envelope")
+            request.write(line)
+        request.seek(0)
+        result = subprocess.run(command, stdin=request, stdout=response, stderr=subprocess.PIPE, check=False, timeout=120)
+        if result.returncode:
+            detail = result.stderr.decode(errors="replace").strip()[:4096]
+            raise SupervisorError(f"Native canonical payload operation refused; maintenance remains incomplete: {detail}")
+        response.seek(0)
+        values: list[dict[str, object]] = []
+        while line := response.readline(64 * 1024 + 1):
+            if len(line) > 64 * 1024:
+                raise SupervisorError("Native payload response exceeds its bounded envelope")
+            try:
+                values.append(object_mapping(json.loads(line)))
+            except (ValueError, TypeError) as error:
+                raise SupervisorError("Native payload response is malformed") from error
+        if operation in {"inventory", "backup", "verify-live", "verify", "restore"}:
+            if len(values) != len(inventory or []):
+                raise SupervisorError("Native payload operation omitted an inventory acknowledgment")
+            if operation != "inventory" and values != (inventory or []):
+                raise SupervisorError("Native payload operation returned a different immutable inventory")
+        return values
+
+
+def selected_payload_helper(config: Mapping[str, object]) -> Path | None:
+    binary = object_mapping(config.get("payload_verifier", {})).get("binary")
+    return Path(binary) if isinstance(binary, str) else None
+
+
+def payload_root(state: Path, selected: Mapping[str, object]) -> Path:
+    value = native_payload_operation(state, selected, "layout", placement=selected)
+    if len(value) != 1 or set(value[0]) != {"root"} or not isinstance(value[0]["root"], str):
+        raise SupervisorError("Native payload layout acknowledgment is invalid")
+    return Path(value[0]["root"])
 
 
 def verify_payload_inventory(
@@ -6552,89 +6617,11 @@ def verify_payload_inventory(
     *,
     read_only_source: bool = False,
 ) -> None:
-    """Delegate canonical content hashing to the existing native identity owner."""
-    selected = []
-    for entry in inventory:
-        instance = object_mapping(entry["instance"])
-        state_value = instance.get("state")
-        # Collection is irreversible: a dead collector may have unlinked the
-        # file before recording its final catalog acknowledgment. Its absent
-        # bytes remain an unresolved deletion, never reconstructed science.
-        collecting_bytes = (
-            state_value == "collecting"
-            and not unsealed_payload_descriptor(instance)
-            and any(
-                Path(name).name == str(instance["key"]) + ".sealed"
-                for name in object_mapping(entry["files"])
-            )
-        )
-        if state_value in {"sealed", "attached"} or collecting_bytes:
-            selected.append(entry)
-    if not selected:
-        return
-    verifier = object_mapping(config.get("payload_verifier", {}))
-    binary = verifier.get("binary")
-    if not isinstance(binary, str) or payload_verifier(Path(binary)) != verifier:
-        raise SupervisorError(
-            "Sealed backup/restore requires --payload-verifier for the exact native verifier artifact"
-        )
-    descriptor, raw = tempfile.mkstemp(
-        prefix=".payload-verification-",
-        dir=None if read_only_source else state,
-    )
-    path = Path(raw)
-    try:
-        with os.fdopen(descriptor, "w") as stream:
-            for entry in selected:
-                instance = object_mapping(entry["instance"])
-                placement = {
-                    "payload_incarnation": entry["payload_incarnation"],
-                    "database": entry["database"],
-                }
-                final, _pending = payload_files.instance_paths(
-                    state, placement, instance["key"]
-                )
-                row = {
-                    key: instance[key]
-                    for key in (
-                        "digest",
-                        "encoding",
-                        "batch_count",
-                        "schema",
-                        "interpretation",
-                    )
-                }
-                row.update(
-                    instance=instance["key"],
-                    bytes=instance["payload_bytes"],
-                    path=str(final),
-                )
-                line = json.dumps(row, separators=(",", ":")) + "\n"
-                if len(line.encode()) > 64 * 1024:
-                    raise SupervisorError(
-                        "Native payload verifier entry exceeded its bounded envelope"
-                    )
-                stream.write(line)
-        result = subprocess.run(
-            [binary, "--verify-payload-inventory", str(path)],
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=120,
-        )
-        try:
-            acknowledgment = json.loads(result.stdout)
-        except (ValueError, TypeError):
-            acknowledgment = None
-        if result.returncode or acknowledgment != {
-            "verified_payload_files": len(selected)
-        }:
-            raise SupervisorError(
-                "Native canonical payload verification failed; backup/restore remains incomplete"
-            )
-    finally:
-        path.unlink(missing_ok=True)
+    """Verify one complete immutable archive; live inventory owns its locks itself."""
+    if read_only_source:
+        native_payload_operation(state, config, "verify", inventory, placement=config)
+    else:
+        native_payload_operation(state, config, "verify-live", inventory, placement=config)
 
 
 def payload_query(state: Path, config: dict[str, object], body: str) -> object:
@@ -6698,10 +6685,6 @@ def payload_pages(
             key = row.get("key")
             if not isinstance(key, str) or key <= after:
                 raise SupervisorError("File inventory cursor did not advance")
-            try:
-                payload_files.incarnation(key)
-            except payload_files.PayloadError as error:
-                raise SupervisorError(str(error)) from error
             rows.append(row)
             after = key
         if not rows:
@@ -6753,12 +6736,18 @@ def managed_file_owner_drained(owner: dict[str, object]) -> bool:
 
 
 def payload_owner_live_refusal(
-    row: dict[str, object], config: dict[str, object]
+    row: dict[str, object], config: dict[str, object], observation: dict[str, object]
 ) -> str | None:
     """Return a live borrower reason, or authenticate a dead and drained owner."""
     if row.get("storage_incarnation") != config["payload_incarnation"]:
         raise SupervisorError("File owner belongs to another storage incarnation")
-    if not payload_files.owner_dead(row):
+    if observation.get("key") != row.get("key"):
+        raise SupervisorError("Native file owner observation identity differs")
+    if "refusal" in observation:
+        raise SupervisorError("File owner drain is unobservable; admission remains closed")
+    if set(observation) != {"key", "dead"} or type(observation["dead"]) is not bool:
+        raise SupervisorError("Native file owner observation is invalid")
+    if observation["dead"] is not True:
         return "A live independent file owner still borrows this store"
     if not managed_file_owner_drained(row):
         return "File owner managed descendants still borrow this store"
@@ -6770,12 +6759,22 @@ def reap_payload_owners(
 ) -> dict[str, int]:
     counts = {"recovered": 0, "live": 0, "unknown": 0}
     for rows in payload_pages(state, config, "canonical_file_owners"):
-        for row in rows:
-            if row.get("drained") is True:
-                continue
+        selected = [row for row in rows if row.get("drained") is not True]
+        if not selected:
+            continue
+        try:
+            observations = native_payload_operation(state, config, "owner-observations", selected)
+            if len(observations) != len(selected):
+                raise SupervisorError("Native owner observation closure differs")
+        except (OSError, SupervisorError):
+            if require_all:
+                raise
+            counts["unknown"] += len(selected)
+            continue
+        for row, observation in zip(selected, observations, strict=True):
             try:
-                live_refusal = payload_owner_live_refusal(row, config)
-            except (payload_files.PayloadError, OSError, SupervisorError) as error:
+                live_refusal = payload_owner_live_refusal(row, config, observation)
+            except (OSError, SupervisorError) as error:
                 if require_all:
                     if isinstance(error, SupervisorError):
                         raise
@@ -6886,128 +6885,26 @@ def freeze_payloads(state: Path, config: dict[str, object]) -> list[dict[str, ob
     for context in contexts:
         selected = config_for(context)
         reap_payload_owners(state, selected, require_all=True)
-        for rows in payload_pages(state, selected, "canonical_file_instances"):
-            for row in rows:
-                if row.get("storage_incarnation") != selected["payload_incarnation"]:
-                    raise SupervisorError(
-                        "File instance belongs to another storage incarnation"
-                    )
-                entry: dict[str, object] = {
-                    "context": str(context.relative_to(state)),
-                    "database": selected["database"],
-                    "payload_incarnation": selected["payload_incarnation"],
-                    "instance": {
-                        key: value for key, value in row.items() if key != "id"
-                    },
-                    "files": {},
-                }
-                final, pending = payload_files.instance_paths(
-                    state, selected, row["key"]
-                )
-                state_value = row.get("state")
-                if state_value not in {
-                    "pending",
-                    "sealed",
-                    "attached",
-                    "abandoned",
-                    "collecting",
-                    "collected",
-                }:
-                    raise SupervisorError("Unknown file instance state")
-                try:
-                    payload_files.reconcile_frozen_alias(state, selected, row["key"])
-                except (payload_files.PayloadError, OSError) as error:
-                    raise SupervisorError(
-                        "Frozen payload staging alias reconciliation refused"
-                    ) from error
-                required = state_value in {"sealed", "attached"}
-                if required and not final.is_file():
-                    raise SupervisorError(
-                        "Required sealed file is missing; backup cannot complete"
-                    )
-                files: dict[str, object] = {}
-                for path in (final, pending):
-                    if path.exists() or path.is_symlink():
-                        try:
-                            digest, extent = payload_files.checked_file(path)
-                        except (payload_files.PayloadError, OSError) as error:
-                            raise SupervisorError(
-                                "File inventory failed private content validation"
-                            ) from error
-                        if (
-                            path == final
-                            and (
-                                state_value in {"sealed", "attached"}
-                                or (
-                                    state_value == "collecting"
-                                    and not unsealed_payload_descriptor(row)
-                                )
-                            )
-                            and str(extent) != str(row.get("payload_bytes"))
-                        ):
-                            raise SupervisorError(
-                                "Sealed file extent differs from its catalog"
-                            )
-                        files[str(path.relative_to(state))] = {
-                            "sha256": digest,
-                            "bytes": extent,
-                        }
-                entry["files"] = files
-                # Missing/unsealed pending output remains unresolved in both metadata and bytes.
-                inventory.append(entry)
-    expected_files = {
-        name for entry in inventory for name in object_mapping(entry["files"])
-    }
-    for context in contexts:
-        keys = {
-            str(object_mapping(entry["instance"])["key"])
-            for entry in inventory
-            if entry["context"] == str(context.relative_to(state))
-        }
-        try:
-            locks = payload_files.recognized_locks(
-                payload_files.root(state, config_for(context)), keys
-            )
-        except (payload_files.PayloadError, OSError) as error:
-            raise SupervisorError(
-                "Payload synchronization lock inventory failed"
-            ) from error
-        expected_files.update(str(path.relative_to(state)) for path in locks)
-    actual_files = {
-        str(path.relative_to(state))
-        for context in contexts
-        for path in payload_files.root(state, config_for(context)).rglob("*")
-        if path.is_file() or path.is_symlink()
-    }
-    if actual_files != expected_files:
-        raise SupervisorError("Unknown payload bytes refuse complete backup inventory")
+        entries = [
+            {
+                "context": str(context.relative_to(state)),
+                "database": selected["database"],
+                "payload_incarnation": selected["payload_incarnation"],
+                "instance": {key: value for key, value in row.items() if key != "id"},
+                "files": {},
+            }
+            for rows in payload_pages(state, selected, "canonical_file_instances")
+            for row in rows
+        ]
+        inventory.extend(native_payload_operation(state, selected, "inventory", entries, placement=selected))
     return inventory
 
 
 def copy_payload_inventory(
     state: Path, destination: Path, inventory: list[dict[str, object]]
 ) -> None:
-    for entry in inventory:
-        for name, raw in object_mapping(entry["files"]).items():
-            expected = object_mapping(raw)
-            source, target = state / name, destination / name
-            target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            shutil.copy2(source, target)
-            with target.open("rb") as stream:
-                os.fsync(stream.fileno())
-            try:
-                digest, extent = payload_files.checked_file(target)
-                original_digest, original_extent = payload_files.checked_file(source)
-            except (payload_files.PayloadError, OSError) as error:
-                raise SupervisorError(
-                    "Payload changed during offline backup"
-                ) from error
-            if expected != {"sha256": digest, "bytes": extent} or (digest, extent) != (
-                original_digest,
-                original_extent,
-            ):
-                raise SupervisorError("Payload copy differs from its frozen inventory")
-
+    config = config_for(state)
+    native_payload_operation(state, config, "backup", inventory, destination=destination, placement=config)
 
 def validate_payload_inventory(
     source: Path, config: dict[str, object], value: object
@@ -7015,99 +6912,21 @@ def validate_payload_inventory(
     if not isinstance(value, list):
         raise SupervisorError("Backup is missing its file-tier closure inventory")
     inventory = object_inventory(value)
-    seen: set[str] = set()
     for entry in inventory:
-        # Restore supports the service's one private database, as before.
-        if (
-            entry.get("context") != "."
-            or entry.get("database") != config["database"]
-            or entry.get("payload_incarnation") != config["payload_incarnation"]
-        ):
+        if entry.get("context") != "." or entry.get("database") != config["database"] or entry.get("payload_incarnation") != config["payload_incarnation"]:
             raise SupervisorError("Backup file-tier context differs from its profile")
-        row = object_mapping(entry.get("instance"))
-        if row.get("storage_incarnation") != config["payload_incarnation"]:
-            raise SupervisorError("Backup instance storage incarnation differs")
-        try:
-            final, pending = payload_files.instance_paths(
-                source, config, row.get("key")
-            )
-        except payload_files.PayloadError as error:
-            raise SupervisorError(str(error)) from error
-        allowed = {str(path.relative_to(source)) for path in (final, pending)}
-        files = object_mapping(entry.get("files"))
-        if (
-            row.get("state") in {"sealed", "attached"}
-            and str(final.relative_to(source)) not in files
-        ):
-            raise SupervisorError("Backup omits a required sealed file")
-        if not set(files) <= allowed or seen.intersection(files):
-            raise SupervisorError("Backup file-tier placement is ambiguous")
-        seen.update(files)
-        for name, expected in files.items():
-            try:
-                digest, extent = payload_files.checked_file(source / name)
-            except (payload_files.PayloadError, OSError) as error:
-                raise SupervisorError(
-                    "Backup file-tier bytes are unavailable"
-                ) from error
-            if expected != {"sha256": digest, "bytes": extent}:
-                raise SupervisorError("Backup file-tier digest or extent differs")
-    actual = {
-        str(path.relative_to(source))
-        for path in (source / "payloads").rglob("*")
-        if path.is_file()
-    }
-    if actual != seen:
-        raise SupervisorError("Backup has payload bytes outside its closure inventory")
+    native_payload_operation(source, config, "verify", inventory, placement=config)
     return inventory
 
-
-# These are original catalogue owners, not a traversal of the selected-export index.
-# Every table is required even when empty; format 3 did not record this closure.
-APPLICATION_BACKUP_TABLES = (
-    "canonical_projects",
-    "canonical_project_branches",
-    "canonical_project_drafts",
-    "canonical_project_draft_versions",
-    "canonical_project_savepoints",
-    "canonical_project_bookmarks",
-    "canonical_project_ancestry",
-    "canonical_project_operations",
-    "canonical_project_contexts",
-    "canonical_research_references",
-    "canonical_research_datasets",
-    "canonical_research_selections",
-    "canonical_research_publications",
-    "canonical_project_imports",
-    "canonical_revisions",
-    "canonical_roots",
-    "canonical_studies",
-    "canonical_runs",
-    "canonical_attempts",
-    "canonical_artifacts",
-    "canonical_artifact_obligations",
-    "canonical_history_obligations",
-    "canonical_stages",
-    "canonical_memberships",
-    "canonical_versions",
-    "canonical_version_manifests",
-    "canonical_payload_blocks",
-    "canonical_edges",
-    "canonical_artifact_blocks",
-    "canonical_artifact_reads",
-    "canonical_result_batches",
-    "canonical_result_sets",
-    "canonical_result_manifests",
-    "canonical_result_protections",
-    "canonical_file_instances",
-    "canonical_file_borrowers",
-)
+def application_backup_tables() -> tuple[str, ...]:
+    """Read generated classification only when a backup operation selects it."""
+    return tuple(_POLICY["application_backup_tables"])
 
 
 def application_inventory_query(
     table: str, after: str, *, maintenance: bool = False
 ) -> str:
-    if table not in APPLICATION_BACKUP_TABLES:
+    if table not in application_backup_tables():
         raise SupervisorError("Unknown application backup inventory owner")
     # Key and digest bind every original row, including opaque authored bytes. The
     # reference projection is explanatory only and never a new owner of those bytes.
@@ -7182,7 +7001,7 @@ def capture_application_inventory(
     except ValueError as error:
         raise SupervisorError("Application backup authority is invalid") from error
     tables: dict[str, object] = {}
-    for table in APPLICATION_BACKUP_TABLES:
+    for table in application_backup_tables():
         rows: list[dict[str, object]] = []
         after = ""
         while True:
@@ -7226,7 +7045,7 @@ def validate_application_inventory(value: object) -> dict[str, object]:
     except ValueError as error:
         raise SupervisorError("Backup application authority is invalid") from error
     tables = object_mapping(selected.get("tables"))
-    if set(tables) != set(APPLICATION_BACKUP_TABLES):
+    if set(tables) != set(application_backup_tables()):
         raise SupervisorError("Backup application inventory omits required owners")
     for value in tables.values():
         if not isinstance(value, list):
@@ -7257,7 +7076,7 @@ def inspect_backup(
 ) -> dict[str, object]:
     """Read-only inspection shares the exact restore verifier and performs no repair."""
     try:
-        manifest, config, payloads = validated_restore_backup(source, interpretation)
+        manifest, config, payloads = validated_restore_backup(source, interpretation, verifier)
         if verifier is not None:
             config = {**config, "payload_verifier": payload_verifier(verifier)}
         verify_payload_inventory(source, config, payloads, read_only_source=True)
@@ -7334,8 +7153,9 @@ def _backup(
     files = {
         str(path.relative_to(destination)): file_digest(path)
         for path in sorted(destination.rglob("*"))
-        if path.is_file()
+        if path.is_file() and path.relative_to(destination).parts[0] != "payloads"
     }
+    files.update({name: object_mapping(binding)["sha256"] for entry in payload_inventory for name, binding in object_mapping(entry["files"]).items()})
     write_json(
         destination / "backup.json",
         {
@@ -8275,7 +8095,7 @@ def retire_partial_payload_target(
         raise SupervisorError(
             "Partial file catalog has unknown ownership; recovery remains closed"
         )
-    directory = payload_files.root(state, config)
+    directory = payload_root(state, config)
     if not present:
         if directory.exists() and any(directory.rglob("*")):
             raise SupervisorError(
@@ -8311,47 +8131,14 @@ def retired_payload_cleanup_files(
     selected_root: Path,
     placement: dict[str, object],
     inventory: list[dict[str, object]],
-) -> tuple[Path, set[Path]] | None:
-    """Check exact inventoried source paths, target placement, locks and unknown bytes."""
-    directory = payload_files.root(state, placement)
-    expected: set[Path] = set()
-    keys: set[str] = set()
-    for entry in inventory:
-        row = object_mapping(entry.get("instance"))
-        sealed, staging = payload_files.instance_paths(state, placement, row.get("key"))
-        source_sealed, source_staging = payload_files.instance_paths(
-            state, entry, row.get("key")
-        )
-        destinations = {
-            str(source_sealed.relative_to(state)): sealed,
-            str(source_staging.relative_to(state)): staging,
-        }
-        for name in object_mapping(entry.get("files")):
-            if name not in destinations:
-                raise SupervisorError("Retired payload inventory has an invalid path")
-            expected.add(destinations[name])
-        keys.add(str(row["key"]))
+) -> Path | None:
+    """Native physical validation precedes the supervisor's disposal decision."""
+    config = config_for(state)
+    directory = payload_root(state, {**config, **placement})
     if directory == selected_root:
         return None
-    if any(path.is_symlink() for path in (directory, *directory.parents)) or any(
-        path.is_symlink() for path in directory.rglob("*")
-    ):
-        raise SupervisorError("Retired payload root must not traverse symlinks")
-    try:
-        expected.update(payload_files.recognized_locks(directory, keys))
-    except (payload_files.PayloadError, OSError) as error:
-        raise SupervisorError(
-            "Retired payload synchronization locks retained; cleanup refused"
-        ) from error
-    if not directory.exists():
-        return None
-    actual = {path for path in directory.rglob("*") if path.is_file()}
-    if not actual <= expected:
-        raise SupervisorError(
-            "Unknown retired payload content retained; cleanup refused"
-        )
-    return directory, actual
-
+    native_payload_operation(state, config, "retired-check", inventory, placement=placement)
+    return directory
 
 def cleanup_retired_payloads(
     state: Path, config: dict[str, object], credentials: dict[str, object]
@@ -8383,7 +8170,7 @@ def cleanup_retired_payloads(
     if pending.get("kind") == "current-restore":
         backup = Path(str(pending.get("backup", "")))
         _manifest, _original, inventory = validated_restore_backup(
-            backup, SUBSTRATE_INTERPRETATION
+            backup, SUBSTRATE_INTERPRETATION, selected_payload_helper(config)
         )
     else:
         inventory = object_inventory(payloads["payload_inventory"])
@@ -8400,7 +8187,7 @@ def cleanup_retired_payloads(
                 "Retired payload target lost its authenticated drain inventory"
             )
         work.append((retired, retired_inventory))
-    selected_root = payload_files.root(state, config)
+    selected_root = payload_root(state, config)
     # Every inventory, placement, lock and unknown-file check precedes deletion.
     for placement, placement_inventory in work:
         retired_payload_cleanup_files(
@@ -8414,16 +8201,7 @@ def cleanup_retired_payloads(
         )
         if removal is None:
             continue
-        directory, actual = removal
-        for path in actual:
-            path.unlink()
-        for path in sorted(
-            (path for path in directory.rglob("*") if path.is_dir()),
-            key=lambda path: len(path.parts),
-            reverse=True,
-        ):
-            path.rmdir()
-        directory.rmdir()
+        native_payload_operation(state, config, "retired-remove", placement_inventory, placement=placement)
     pending["payload_cleanup_done"] = True
     config["derived_rebuild_pending"] = pending
     write_json(state / "config.json", config)
@@ -8569,7 +8347,7 @@ def rehome_restored_payloads(
     pending = object_mapping(config["derived_rebuild_pending"])
     backup = Path(str(pending.get("backup", "")))
     _manifest, original, inventory = validated_restore_backup(
-        backup, SUBSTRATE_INTERPRETATION
+        backup, SUBSTRATE_INTERPRETATION, selected_payload_helper(config)
     )
     if file_digest(backup / "backup.json") != pending.get("backup_digest"):
         raise SupervisorError(
@@ -8584,47 +8362,12 @@ def rehome_restored_payloads(
     payloads = maintenance_payloads(state, pending)
     targets = object_inventory(payloads["payload_targets"])
     for placement in targets:
-        payload_files.root(state, placement)
+        payload_root(state, placement)
     if target not in targets:
         targets.append(target)
         payloads["payload_targets"] = targets
         write_maintenance_payloads(state, config, payloads)
-    for entry in inventory:
-        instance = object_mapping(entry["instance"])
-        sealed, staging = payload_files.instance_paths(state, config, instance["key"])
-        for name, expected in object_mapping(entry["files"]).items():
-            source = backup / name
-            destination = sealed if name.endswith(".sealed") else staging
-            if any(path.is_symlink() for path in (destination, *destination.parents)):
-                raise SupervisorError(
-                    "Restored payload target must not traverse symlinks"
-                )
-            destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            if destination.is_symlink():
-                raise SupervisorError(
-                    "Restored payload target must not traverse symlinks"
-                )
-            if not destination.exists():
-                shutil.copy2(source, destination)
-                with destination.open("rb") as stream:
-                    os.fsync(stream.fileno())
-            try:
-                digest, extent = payload_files.checked_file(destination)
-            except (payload_files.PayloadError, OSError) as error:
-                raise SupervisorError(
-                    "Restored payload failed identity validation"
-                ) from error
-            if expected != {"sha256": digest, "bytes": extent}:
-                raise SupervisorError("Restored payload bytes differ from the backup")
-    restored_inventory = [
-        {
-            **object_mapping(entry),
-            "database": config["database"],
-            "payload_incarnation": new_incarnation,
-        }
-        for entry in inventory
-    ]
-    verify_payload_inventory(state, config, restored_inventory)
+    native_payload_operation(backup, config, "restore", inventory, destination=state, placement=original, target=target)
     # The imported gate remains closed throughout bounded catalog updates. These
     # physical fields are absent from scientific descriptors and manifest bytes.
     after = ""
@@ -8875,9 +8618,10 @@ def fresh_engine(state: Path, tool_root: Path | None = None) -> dict[str, object
             write_json(state / "credentials.json", credentials)
             write_json(state / "config.json", target)
             (state / "tmp").mkdir(mode=0o700, exist_ok=True)
-            payload_files.root(state, target).mkdir(
+            payload_root(state, target).mkdir(
                 mode=0o700, parents=True, exist_ok=True
             )
+            write_json(state / "config.json", target)
             # The config remains closed after the pending fence is removed.
             # Schema installation and admission are distinct explicit owners.
             pending_path.unlink()
@@ -9182,7 +8926,7 @@ def recover_maintenance(
                 )
             current_marker(state, source, credentials)
             preserved, _original, _files = validated_restore_backup(
-                Path(str(pending["backup"])), SUBSTRATE_INTERPRETATION
+                Path(str(pending["backup"])), SUBSTRATE_INTERPRETATION, selected_payload_helper(config)
             )
             if (
                 capture_application_inventory(state, source, credentials)
@@ -9227,7 +8971,7 @@ def recover_maintenance(
 
 
 def validated_restore_backup(
-    source: Path, interpretation: str
+    source: Path, interpretation: str, verifier: Path | None = None
 ) -> tuple[dict[str, object], dict[str, object], list[dict[str, object]]]:
     if any(path.is_symlink() for path in (source, *source.parents)) or any(
         path.is_symlink() for path in source.rglob("*")
@@ -9263,14 +9007,20 @@ def validated_restore_backup(
             Path(name).is_absolute()
             or ".." in Path(name).parts
             or path.is_symlink()
-            or file_digest(path) != digest
+            or (Path(name).parts[0] != "payloads" and file_digest(path) != digest)
         ):
             raise SupervisorError("Backup path or content failed validation")
     validate_application_inventory(manifest.get("application_inventory"))
     config = config_for(source)
+    if verifier is not None:
+        config["payload_verifier"] = payload_verifier(verifier)
     inventory = validate_payload_inventory(
         source, config, manifest.get("payload_inventory")
     )
+    for entry in inventory:
+        for name, binding in object_mapping(entry["files"]).items():
+            if files.get(name) != object_mapping(binding).get("sha256"):
+                raise SupervisorError("Backup payload manifest differs from native inventory")
     if config.get("derived_rebuild_pending") or config.get(
         "surrealkit_rollout_pending"
     ):
@@ -9340,8 +9090,8 @@ def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
         raise SupervisorError(
             "Preserved backup manifest changed; admission remains closed"
         )
-    manifest, original_config, _inventory = validated_restore_backup(
-        source, SUBSTRATE_INTERPRETATION
+    manifest, original_config, inventory = validated_restore_backup(
+        source, SUBSTRATE_INTERPRETATION, selected_payload_helper(config)
     )
     if (original_config["namespace"], original_config["database"]) != (
         pending["namespace"],
@@ -9379,6 +9129,9 @@ def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
         ".resource-owner/registry.json",
     }
     for path in state.rglob("*"):
+        if path.relative_to(state).parts[0] == "payloads":
+            # Native restore validates the complete destination tree and its fresh locks.
+            continue
         metadata_scratch = metadata_write_scratch(path, state)
         # Never parse, adopt or delete interrupted atomic-write scratch. Its
         # known basename is disjoint from every copied file and authority.
@@ -9393,11 +9146,13 @@ def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
     # Known partial file copies can be overwritten from the immutable verified
     # backup. Never import its old, normally startable config.json.
     for directory in sorted(source.rglob("*")):
-        if directory.is_dir() and directory.relative_to(source).parts[0] in roots:
+        if directory.is_dir() and directory.relative_to(source).parts[0] in roots - {"payloads"}:
             (state / directory.relative_to(source)).mkdir(
                 mode=0o700, parents=True, exist_ok=True
             )
     for name, digest in sorted(selected.items()):
+        if Path(name).parts[0] == "payloads":
+            continue
         target = state / name
         target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         shutil.copy2(source / name, target)
@@ -9407,7 +9162,8 @@ def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
             raise SupervisorError(
                 "Restored backup copy differs; admission remains closed"
             )
-    validated_restore_backup(source, SUBSTRATE_INTERPRETATION)
+    native_payload_operation(source, config, "restore", inventory, destination=state, placement=original_config)
+    validated_restore_backup(source, SUBSTRATE_INTERPRETATION, selected_payload_helper(config))
     if file_digest(source / "backup.json") != pending["backup_digest"]:
         raise SupervisorError("Preserved backup changed during copy")
     original = str(manifest["state_root"])
@@ -9448,7 +9204,7 @@ def complete_backup_copy(state: Path, config: dict[str, object]) -> None:
 def restore(
     source: Path, state: Path, interpretation: str, verifier: Path | None = None
 ) -> dict[str, object]:
-    manifest, original, _inventory = validated_restore_backup(source, interpretation)
+    manifest, original, _inventory = validated_restore_backup(source, interpretation, verifier)
     state = checked_directory(state)
     with lifecycle_reservation(state):
         binding = state / ".resource-owner"

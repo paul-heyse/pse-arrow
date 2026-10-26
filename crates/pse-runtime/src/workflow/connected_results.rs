@@ -2356,6 +2356,9 @@ mod canonical_connected_results_server_unit {
             .unwrap();
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "multipage-pressure".into(),
                 revision: source,
                 sources: vec![],
@@ -2612,6 +2615,9 @@ mod canonical_connected_results_server_unit {
             .unwrap();
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "empty-demand".into(),
                 revision: source,
                 sources: vec![],
@@ -2800,6 +2806,9 @@ mod canonical_connected_results_server_unit {
             .unwrap();
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "decoded-owner".into(),
                 revision: source,
                 sources: vec![],
@@ -3023,6 +3032,9 @@ mod canonical_connected_results_server_unit {
         let source = store.edit("projection", None, "source", &[]).await.unwrap();
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "projection".into(),
                 revision: source,
                 sources: vec![],
@@ -3631,6 +3643,9 @@ mod canonical_connected_results_server_unit {
         let source = store.edit("problem", None, "source", &[]).await.unwrap();
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "run".into(),
                 revision: source.clone(),
                 sources: vec![],
@@ -4077,6 +4092,9 @@ mod canonical_connected_results_server_unit {
         // Failure after an already yielded prefix must not publish a complete file.
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "malformed".into(),
                 revision: source,
                 sources: vec![],

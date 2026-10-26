@@ -49,6 +49,30 @@ pub const FK_RELATION: &str = "pse.domain.fk.relation";
 pub const FK_COLUMN: &str = "pse.domain.fk.column";
 #[doc = concat!("Declared field facet `", "pse.domain.graph_endpoint", "`.")]
 pub const GRAPH_ENDPOINT: &str = "pse.domain.graph_endpoint";
+#[doc = concat!("Declared field facet `", "pse.domain.canonical.key", "`.")]
+pub const CANONICAL_KEY: &str = "pse.domain.canonical.key";
+#[doc = concat!("Declared field facet `", "pse.domain.canonical.readonly", "`.")]
+pub const CANONICAL_READONLY: &str = "pse.domain.canonical.readonly";
+#[doc = concat!("Declared field facet `", "pse.domain.canonical.assert", "`.")]
+pub const CANONICAL_ASSERT: &str = "pse.domain.canonical.assert";
+#[doc = concat!("Declared field facet `", "pse.domain.canonical.default", "`.")]
+pub const CANONICAL_DEFAULT: &str = "pse.domain.canonical.default";
+#[doc = concat!("Declared field facet `", "pse.domain.canonical.record_key", "`.")]
+pub const CANONICAL_RECORD_KEY: &str = "pse.domain.canonical.record_key";
+#[doc = concat!("Declared field facet `", "pse.domain.canonical.transition", "`.")]
+pub const CANONICAL_TRANSITION: &str = "pse.domain.canonical.transition";
+#[doc = concat!(
+    "Declared field facet `",
+    "pse.domain.canonical.transition_exception",
+    "`.",
+)]
+pub const CANONICAL_TRANSITION_EXCEPTION: &str = "pse.domain.canonical.transition_exception";
+#[doc = concat!("Declared field facet `", "pse.domain.canonical.seal_refusal", "`.")]
+pub const CANONICAL_SEAL_REFUSAL: &str = "pse.domain.canonical.seal_refusal";
+#[doc = concat!("Declared field facet `", "pse.domain.canonical.sealed", "`.")]
+pub const CANONICAL_SEALED: &str = "pse.domain.canonical.sealed";
+#[doc = concat!("Declared field facet `", "pse.domain.canonical.reference_kind", "`.")]
+pub const CANONICAL_REFERENCE_KIND: &str = "pse.domain.canonical.reference_kind";
 #[doc = concat!("Declared field facet `", "pse.domain.identity", "`.")]
 pub const IDENTITY: &str = "pse.domain.identity";
 #[doc = concat!("Declared field facet `", "pse.domain.identity.owner", "`.")]
@@ -185,6 +209,86 @@ pub const FACETS: &[Facet] = &[
     },
     Facet {
         key: GRAPH_ENDPOINT,
+        execution: false,
+        value: false,
+        storage_root: false,
+        type_identity: false,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: CANONICAL_KEY,
+        execution: true,
+        value: true,
+        storage_root: true,
+        type_identity: true,
+        admission: Admission::Preserve,
+    },
+    Facet {
+        key: CANONICAL_READONLY,
+        execution: false,
+        value: false,
+        storage_root: false,
+        type_identity: false,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: CANONICAL_ASSERT,
+        execution: false,
+        value: false,
+        storage_root: false,
+        type_identity: false,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: CANONICAL_DEFAULT,
+        execution: false,
+        value: false,
+        storage_root: false,
+        type_identity: false,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: CANONICAL_RECORD_KEY,
+        execution: false,
+        value: false,
+        storage_root: false,
+        type_identity: false,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: CANONICAL_TRANSITION,
+        execution: false,
+        value: false,
+        storage_root: false,
+        type_identity: false,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: CANONICAL_TRANSITION_EXCEPTION,
+        execution: false,
+        value: false,
+        storage_root: false,
+        type_identity: false,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: CANONICAL_SEAL_REFUSAL,
+        execution: false,
+        value: false,
+        storage_root: false,
+        type_identity: false,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: CANONICAL_SEALED,
+        execution: false,
+        value: false,
+        storage_root: false,
+        type_identity: false,
+        admission: Admission::Ignore,
+    },
+    Facet {
+        key: CANONICAL_REFERENCE_KIND,
         execution: false,
         value: false,
         storage_root: false,

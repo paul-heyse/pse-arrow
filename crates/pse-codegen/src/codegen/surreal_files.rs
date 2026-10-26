@@ -79,7 +79,7 @@ DEFINE FUNCTION fn::pse_files_v1::attach($expiry:int,$batch:object,$kind:string,
     LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$batch.file_instance) FOR UPDATE;
     IF $file=NONE { THROW 'PSE_REFUSAL:sealed_file_instance_unavailable'; };
     fn::pse_files_v1::admission($expiry,$file.storage_incarnation,false);
-    IF $file.state NOT IN ['sealed','attached'] OR $file.digest!=$batch.file_digest OR $file.payload_bytes!=$batch.payload_bytes OR $file.encoding!=$batch.encoding OR $file.schema!=$batch.schema OR ($file.encoding='arrow-ipc-file' AND $batch.file_batch_index>=$file.batch_count) OR ($file.encoding!='arrow-ipc-file' AND $batch.file_batch_index!=0dec) { THROW 'PSE_REFUSAL:logical_batch_sealed_file_binding_differs'; };
+    IF $file.state NOT IN ['sealed','attached'] OR $file.digest!=(IF $kind='result' {$batch.digest} ELSE {$batch.file_digest}) OR $file.payload_bytes!=$batch.payload_bytes OR $file.encoding!=$batch.encoding OR $file.schema!=$batch.schema OR ($file.encoding='arrow-ipc-file' AND (IF $kind='result' {$batch.payload_index} ELSE {$batch.file_batch_index})>=$file.batch_count) OR ($file.encoding!='arrow-ipc-file' AND (IF $kind='result' {$batch.payload_index} ELSE {$batch.file_batch_index})!=0dec) { THROW 'PSE_REFUSAL:logical_batch_sealed_file_binding_differs'; };
     IF $file.owner_kind!=$kind OR $file.selection!=$selection { THROW 'PSE_REFUSAL:file_original_intent_selected_another_owner'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_file_borrowers',$borrower) FOR UPDATE;
     IF $old!=NONE AND ($old.released OR $old.instance!=$file.key OR $old.owner_kind!=$kind OR $old.owner!=$selection) { THROW 'PSE_REFUSAL:file_borrower_identity_released_or_reused'; };

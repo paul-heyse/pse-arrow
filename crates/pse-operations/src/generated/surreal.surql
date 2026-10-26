@@ -55,7 +55,7 @@ DEFINE FIELD rows ON canonical_artifact_blocks TYPE decimal ASSERT $value = NONE
 DEFINE TABLE canonical_artifact_obligations SCHEMAFULL;
 DEFINE FIELD key ON canonical_artifact_obligations TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD artifact ON canonical_artifact_obligations TYPE string;
-DEFINE FIELD owner_kind ON canonical_artifact_obligations TYPE string;
+DEFINE FIELD owner_kind ON canonical_artifact_obligations TYPE "study" | "analysis" | "user" | "project" | "audit";
 DEFINE FIELD owner ON canonical_artifact_obligations TYPE string;
 DEFINE TABLE canonical_artifact_reads SCHEMAFULL;
 DEFINE FIELD key ON canonical_artifact_reads TYPE string READONLY ASSERT $value = record::id($this.id);
@@ -63,7 +63,7 @@ DEFINE FIELD artifact ON canonical_artifact_reads TYPE string;
 DEFINE TABLE canonical_artifact_releases SCHEMAFULL;
 DEFINE FIELD key ON canonical_artifact_releases TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD artifact ON canonical_artifact_releases TYPE string;
-DEFINE FIELD owner_kind ON canonical_artifact_releases TYPE string;
+DEFINE FIELD owner_kind ON canonical_artifact_releases TYPE "study" | "analysis" | "user" | "project" | "audit";
 DEFINE FIELD owner ON canonical_artifact_releases TYPE string;
 DEFINE TABLE canonical_artifact_staging_inputs SCHEMAFULL;
 DEFINE FIELD key ON canonical_artifact_staging_inputs TYPE string READONLY ASSERT $value = record::id($this.id);
@@ -94,11 +94,11 @@ DEFINE FIELD claim_operation ON canonical_attempts TYPE string READONLY;
 DEFINE FIELD request ON canonical_attempts TYPE bytes READONLY;
 DEFINE FIELD worker ON canonical_attempts TYPE string READONLY;
 DEFINE FIELD expires_at ON canonical_attempts TYPE int;
-DEFINE FIELD phase ON canonical_attempts TYPE "ingesting" | "closed_awaiting_manifest" | "closed_with_manifest" | "terminal" | "terminal_compacted" ASSERT ($before=NONE AND $value='ingesting' OR $before=$value OR ($before='ingesting' AND $value='closed_awaiting_manifest') OR ($before='ingesting' AND $value='closed_with_manifest') OR ($before='closed_awaiting_manifest' AND $value='closed_with_manifest') OR ($before='closed_with_manifest' AND $value='terminal') OR ($before='terminal' AND $value='terminal_compacted') OR (string::starts_with($this.run,'study-admission:') AND $before IN ['ingesting','closed_awaiting_manifest','closed_with_manifest'] AND $value='terminal')) AND (($value='ingesting' AND $this.close_generation=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_awaiting_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_with_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest!=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value IN ['terminal','terminal_compacted'] AND (($value='terminal_compacted' AND $this.completion=NONE) OR ($value='terminal' AND ((string::starts_with($this.run,'study-admission:') AND $this.outcome='failed' AND $this.completion=NONE) OR ($this.completion!=NONE AND !(string::starts_with($this.run,'study-admission:') AND $this.outcome='failed'))))) AND $this.outcome IN ['succeeded','failed','partial','cancelled'] AND (string::starts_with($this.run,'study-admission:') OR ($this.close_generation!=NONE AND $this.closed_manifest!=NONE))));
+DEFINE FIELD phase ON canonical_attempts TYPE "ingesting" | "closed_awaiting_manifest" | "closed_with_manifest" | "terminal" | "terminal_compacted" ASSERT (($before=NONE AND $value='ingesting') OR $before=$value OR ($before='ingesting' AND $value='closed_awaiting_manifest') OR ($before='ingesting' AND $value='closed_with_manifest') OR ($before='closed_awaiting_manifest' AND $value='closed_with_manifest') OR ($before='closed_with_manifest' AND $value='terminal') OR ($before='terminal' AND $value='terminal_compacted') OR (type::record('canonical_runs',$this.run).purpose='study_admission' AND $before IN ['ingesting','closed_awaiting_manifest','closed_with_manifest'] AND $value='terminal')) AND ((($value='ingesting' AND $this.close_generation=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_awaiting_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_with_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest!=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value IN ['terminal','terminal_compacted'] AND (($value='terminal_compacted' AND $this.completion=NONE) OR ($value='terminal' AND ((type::record('canonical_runs',$this.run).purpose='study_admission' AND $this.outcome='failed' AND $this.completion=NONE) OR ($this.completion!=NONE AND !(type::record('canonical_runs',$this.run).purpose='study_admission' AND $this.outcome='failed'))))) AND $this.outcome IN ['succeeded','failed','partial','cancelled'] AND (type::record('canonical_runs',$this.run).purpose='study_admission' OR ($this.close_generation!=NONE AND $this.closed_manifest!=NONE)))));
 DEFINE FIELD close_generation ON canonical_attempts TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
-DEFINE FIELD outcome ON canonical_attempts TYPE option<"succeeded" | "failed" | "partial" | "cancelled"> ASSERT $before=NONE OR $before=$value;
-DEFINE FIELD closed_manifest ON canonical_attempts TYPE option<string> ASSERT ($value=NONE OR $value=$this.key) AND ($before=NONE OR $before=$value);
-DEFINE FIELD completion ON canonical_attempts TYPE option<bytes> ASSERT ($this.phase!='terminal_compacted' OR $value=NONE) AND ($before=NONE OR $before=$value OR ($value=NONE AND $this.phase='terminal_compacted'));
+DEFINE FIELD outcome ON canonical_attempts TYPE option<"succeeded" | "failed" | "partial" | "cancelled"> ASSERT ($before=NONE OR $before=$value);
+DEFINE FIELD closed_manifest ON canonical_attempts TYPE option<string> ASSERT (($value=NONE OR $value=$this.key) AND ($before=NONE OR $before=$value));
+DEFINE FIELD completion ON canonical_attempts TYPE option<bytes> ASSERT (($this.phase!='terminal_compacted' OR $value=NONE) AND ($before=NONE OR $before=$value OR ($value=NONE AND $this.phase='terminal_compacted')));
 DEFINE FIELD seed_manifest ON canonical_attempts TYPE option<string>;
 DEFINE FIELD finalization_study ON canonical_attempts TYPE option<string> READONLY;
 DEFINE TABLE canonical_body_contents SCHEMAFULL;
@@ -165,7 +165,7 @@ DEFINE FIELD encoding ON canonical_file_instances TYPE string;
 DEFINE FIELD batch_count ON canonical_file_instances TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD schema ON canonical_file_instances TYPE string;
 DEFINE FIELD interpretation ON canonical_file_instances TYPE string;
-DEFINE FIELD state ON canonical_file_instances TYPE string;
+DEFINE FIELD state ON canonical_file_instances TYPE "pending" | "sealed" | "attached" | "abandoned" | "collecting" | "collected";
 DEFINE TABLE canonical_file_owners SCHEMAFULL;
 DEFINE FIELD key ON canonical_file_owners TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD issuing_store ON canonical_file_owners TYPE string;
@@ -220,6 +220,16 @@ DEFINE FIELD revision ON canonical_history_retirements TYPE string READONLY;
 DEFINE FIELD generation ON canonical_history_retirements TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD complete ON canonical_history_retirements TYPE bool;
 DEFINE FIELD after_locator ON canonical_history_retirements TYPE option<string>;
+DEFINE TABLE canonical_inline_payloads SCHEMAFULL;
+DEFINE FIELD key ON canonical_inline_payloads TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD attempt ON canonical_inline_payloads TYPE string;
+DEFINE FIELD digest ON canonical_inline_payloads TYPE string;
+DEFINE FIELD encoding ON canonical_inline_payloads TYPE string;
+DEFINE FIELD schema ON canonical_inline_payloads TYPE string;
+DEFINE FIELD interpretation ON canonical_inline_payloads TYPE string;
+DEFINE FIELD payload_bytes ON canonical_inline_payloads TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD batch_count ON canonical_inline_payloads TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD body ON canonical_inline_payloads TYPE bytes;
 DEFINE TABLE canonical_interpretations SCHEMAFULL;
 DEFINE FIELD key ON canonical_interpretations TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD interpretation ON canonical_interpretations TYPE string;
@@ -296,6 +306,7 @@ DEFINE FIELD content ON canonical_product_associations TYPE string;
 DEFINE FIELD receipt ON canonical_product_associations TYPE string;
 DEFINE FIELD descriptor ON canonical_product_associations TYPE string;
 DEFINE FIELD producer ON canonical_product_associations TYPE string;
+DEFINE FIELD producer_class ON canonical_product_associations TYPE "general" | "library_mathematics" | "local_scientific_replay";
 DEFINE FIELD interpretation ON canonical_product_associations TYPE string;
 DEFINE TABLE canonical_product_descriptors SCHEMAFULL;
 DEFINE FIELD key ON canonical_product_descriptors TYPE string READONLY ASSERT $value = record::id($this.id);
@@ -307,6 +318,7 @@ DEFINE FIELD dependencies ON canonical_product_descriptors TYPE bytes;
 DEFINE FIELD content ON canonical_product_descriptors TYPE string;
 DEFINE FIELD receipt ON canonical_product_descriptors TYPE string;
 DEFINE FIELD producer ON canonical_product_descriptors TYPE string;
+DEFINE FIELD producer_class ON canonical_product_descriptors TYPE "general" | "library_mathematics" | "local_scientific_replay";
 DEFINE FIELD interpretation ON canonical_product_descriptors TYPE string;
 DEFINE FIELD association ON canonical_product_descriptors TYPE option<string>;
 DEFINE TABLE canonical_products SCHEMAFULL;
@@ -317,6 +329,7 @@ DEFINE FIELD request ON canonical_products TYPE bytes;
 DEFINE FIELD payload ON canonical_products TYPE bytes;
 DEFINE FIELD dependencies ON canonical_products TYPE bytes;
 DEFINE FIELD producer ON canonical_products TYPE string;
+DEFINE FIELD producer_class ON canonical_products TYPE "general" | "library_mathematics" | "local_scientific_replay";
 DEFINE FIELD interpretation ON canonical_products TYPE string;
 DEFINE TABLE canonical_project_ancestry SCHEMAFULL;
 DEFINE FIELD key ON canonical_project_ancestry TYPE string READONLY ASSERT $value = record::id($this.id);
@@ -356,9 +369,9 @@ DEFINE FIELD project ON canonical_project_draft_versions TYPE string READONLY;
 DEFINE FIELD branch ON canonical_project_draft_versions TYPE string READONLY;
 DEFINE FIELD base_revision ON canonical_project_draft_versions TYPE string READONLY;
 DEFINE FIELD generation ON canonical_project_draft_versions TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
-DEFINE FIELD content ON canonical_project_draft_versions TYPE bytes ASSERT $before=NONE OR $before=$value OR ($this.retired=true AND bytes::len($value)=0);
+DEFINE FIELD content ON canonical_project_draft_versions TYPE bytes ASSERT ($before=NONE OR $before=$value OR ($this.retired=true AND bytes::len($value)=0));
 DEFINE FIELD artifact ON canonical_project_draft_versions TYPE option<string> READONLY;
-DEFINE FIELD retired ON canonical_project_draft_versions TYPE bool DEFAULT false ASSERT ($before=NONE AND $value=false) OR ($before=$value) OR ($before=false AND $value=true AND bytes::len($this.content)=0);
+DEFINE FIELD retired ON canonical_project_draft_versions TYPE bool DEFAULT false ASSERT (($before=NONE AND $value=false) OR ($before=$value) OR ($before=false AND $value=true AND bytes::len($this.content)=0));
 DEFINE TABLE canonical_project_drafts SCHEMAFULL;
 DEFINE FIELD key ON canonical_project_drafts TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD project ON canonical_project_drafts TYPE string;
@@ -376,9 +389,9 @@ DEFINE FIELD problem ON canonical_project_imports TYPE string READONLY;
 DEFINE FIELD revision ON canonical_project_imports TYPE string READONLY;
 DEFINE FIELD origin ON canonical_project_imports TYPE bytes READONLY;
 DEFINE FIELD request ON canonical_project_imports TYPE bytes READONLY;
-DEFINE FIELD artifact ON canonical_project_imports TYPE option<bytes> ASSERT $before=NONE OR $before=$value;
+DEFINE FIELD artifact ON canonical_project_imports TYPE option<bytes> ASSERT ($before=NONE OR $before=$value);
 DEFINE FIELD retired_artifacts ON canonical_project_imports TYPE option<bytes>;
-DEFINE FIELD complete ON canonical_project_imports TYPE bool DEFAULT false ASSERT ($before=NONE AND $value=false) OR $before=$value OR ($before=false AND $value=true AND $this.artifact!=NONE);
+DEFINE FIELD complete ON canonical_project_imports TYPE bool DEFAULT false ASSERT (($before=NONE AND $value=false) OR $before=$value OR ($before=false AND $value=true AND $this.artifact!=NONE));
 DEFINE TABLE canonical_project_operations SCHEMAFULL;
 DEFINE FIELD key ON canonical_project_operations TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD kind ON canonical_project_operations TYPE string READONLY;
@@ -459,10 +472,11 @@ DEFINE FIELD result_set ON canonical_result_batches TYPE string;
 DEFINE FIELD ordinal ON canonical_result_batches TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD digest ON canonical_result_batches TYPE string;
 DEFINE FIELD row_count ON canonical_result_batches TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
-DEFINE FIELD file_binding ON canonical_result_batches TYPE string;
-DEFINE FIELD file_instance ON canonical_result_batches TYPE string;
-DEFINE FIELD file_digest ON canonical_result_batches TYPE string;
-DEFINE FIELD file_batch_index ON canonical_result_batches TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD payload_binding ON canonical_result_batches TYPE string;
+DEFINE FIELD placement ON canonical_result_batches TYPE "inline" | "sealed";
+DEFINE FIELD inline_key ON canonical_result_batches TYPE option<string>;
+DEFINE FIELD file_instance ON canonical_result_batches TYPE option<string>;
+DEFINE FIELD payload_index ON canonical_result_batches TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD payload_bytes ON canonical_result_batches TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD schema ON canonical_result_batches TYPE string;
 DEFINE FIELD encoding ON canonical_result_batches TYPE string;
@@ -566,6 +580,9 @@ DEFINE FIELD OVERWRITE out ON canonical_run_sources TYPE record<canonical_revisi
 DEFINE FIELD revision ON canonical_run_sources TYPE string;
 DEFINE TABLE canonical_runs SCHEMAFULL INLINE EDGES 64 INLINE REFERENCES 32;
 DEFINE FIELD key ON canonical_runs TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD purpose ON canonical_runs TYPE "execution" | "study_admission" READONLY ASSERT (($value='execution' AND $this.admission_study=NONE AND $this.admission_point=NONE) OR ($value='study_admission' AND $this.admission_study!=NONE AND $this.admission_point!=NONE));
+DEFINE FIELD admission_study ON canonical_runs TYPE option<string> READONLY;
+DEFINE FIELD admission_point ON canonical_runs TYPE option<string> READONLY;
 DEFINE FIELD research_selection ON canonical_runs TYPE option<string>;
 DEFINE FIELD research_dataset ON canonical_runs TYPE option<string>;
 DEFINE FIELD problem ON canonical_runs TYPE string;
@@ -619,9 +636,9 @@ DEFINE FIELD physical_identity ON canonical_studies TYPE option<string> READONLY
 DEFINE FIELD context ON canonical_studies TYPE option<string> READONLY;
 DEFINE FIELD interpretation ON canonical_studies TYPE string READONLY;
 DEFINE FIELD point_count ON canonical_studies TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
-DEFINE FIELD next_ordinal ON canonical_studies TYPE decimal ASSERT $value>=0dec AND $value<=18446744073709551615dec AND math::floor($value)=$value AND $value<=$this.point_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR $value=$this.point_count);
+DEFINE FIELD next_ordinal ON canonical_studies TYPE decimal ASSERT ($value>=0dec AND $value<=18446744073709551615dec AND math::floor($value)=$value AND $value<=$this.point_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR $value=$this.point_count));
 DEFINE FIELD dependency_count ON canonical_studies TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
-DEFINE FIELD installed_dependencies ON canonical_studies TYPE decimal ASSERT $value>=0dec AND $value<=18446744073709551615dec AND math::floor($value)=$value AND $value<=$this.dependency_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR ($value=$this.dependency_count AND $this.next_ordinal=$this.point_count));
+DEFINE FIELD installed_dependencies ON canonical_studies TYPE decimal ASSERT ($value>=0dec AND $value<=18446744073709551615dec AND math::floor($value)=$value AND $value<=$this.dependency_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR ($value=$this.dependency_count AND $this.next_ordinal=$this.point_count)));
 DEFINE FIELD active ON canonical_studies TYPE bool;
 DEFINE FIELD cancelled ON canonical_studies TYPE bool;
 DEFINE FIELD generation ON canonical_studies TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
@@ -642,6 +659,9 @@ DEFINE FIELD artifact ON canonical_study_inputs TYPE string;
 DEFINE TABLE canonical_study_points SCHEMAFULL INLINE EDGES 64 INLINE REFERENCES 32;
 DEFINE FIELD key ON canonical_study_points TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD study ON canonical_study_points TYPE string;
+DEFINE FIELD admission_run ON canonical_study_points TYPE option<string> READONLY;
+DEFINE FIELD variant_problem ON canonical_study_points TYPE option<string> READONLY;
+DEFINE FIELD variant_operation ON canonical_study_points TYPE option<string> READONLY;
 DEFINE FIELD ordinal ON canonical_study_points TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD occurrence ON canonical_study_points TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD seed_solution ON canonical_study_points TYPE option<string>;
@@ -748,6 +768,7 @@ DEFINE INDEX attempt_run ON canonical_attempts FIELDS run, generation UNIQUE;
 DEFINE INDEX attempt_live ON canonical_attempts FIELDS run, phase, generation;
 DEFINE INDEX result_set_attempt ON canonical_result_sets FIELDS attempt, name UNIQUE;
 DEFINE INDEX result_batch_order ON canonical_result_batches FIELDS result_set, ordinal UNIQUE;
+DEFINE INDEX result_batch_inline_body ON canonical_result_batches FIELDS inline_key, key;
 DEFINE INDEX execution_operation_run ON canonical_execution_operations FIELDS run, kind;
 DEFINE INDEX execution_operation_compaction ON canonical_execution_operations FIELDS run, minimal, key;
 DEFINE INDEX history_run_locators ON canonical_history_locators FIELDS run, key;
@@ -816,7 +837,7 @@ DEFINE INDEX study_physical_order ON canonical_studies FIELDS physical_revision,
 DEFINE INDEX study_context_order ON canonical_studies FIELDS context, key;
 DEFINE INDEX study_outcome_runs ON canonical_runs FIELDS terminal_class, key;
 DEFINE INDEX study_research_revision ON canonical_research_references FIELDS revision, key;
-DEFINE EVENT pse_attempt_terminal_publication_immutable ON canonical_attempts WHEN $event='UPDATE' AND $before.phase IN ['terminal','terminal_compacted'] AND ($before.seed_manifest!=$after.seed_manifest) THEN { THROW 'PSE_REFUSAL:execution_terminal_seed_manifest_immutable'; };
+DEFINE EVENT pse_sealed_canonical_attempts_seed_manifest ON canonical_attempts WHEN $event='UPDATE' AND ($before.phase IN ['terminal','terminal_compacted']) AND $before.seed_manifest!=$after.seed_manifest THEN { THROW 'PSE_REFUSAL:execution_terminal_seed_manifest_immutable'; };
 
 DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
     IF time::micros() >= $rpc_expiry { THROW 'PSE_REFUSAL:original_canonical_rpc_deadline_expired'; };
@@ -1015,13 +1036,13 @@ DEFINE FUNCTION fn::pse_execution_v1::fence($rpc_expiry: int, $run: string, $att
 
 DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, $sources: array<object>, $admission: option<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
-    IF $row.interpretation!='pse.substrate.v8' OR (SELECT * FROM ONLY canonical_interpretations:current).interpretation!='pse.substrate.v8' { THROW 'PSE_REFUSAL:stale_execution_publication_interpretation'; };
+    IF $row.interpretation!='pse.substrate.v9' OR (SELECT * FROM ONLY canonical_interpretations:current).interpretation!='pse.substrate.v9' { THROW 'PSE_REFUSAL:stale_execution_publication_interpretation'; };
     fn::pse_execution_v1::available($rpc_expiry, $row.key);
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:' + $row.key);
     fn::pse_research_v1::run_input($rpc_expiry,$row);
     LET $old = SELECT * FROM ONLY type::record('canonical_runs', $row.key);
     IF $old != NONE {
-        IF $old.request != $row.request OR $old.problem != $row.problem OR $old.revision != $row.revision OR $old.source_sequence != $row.source_sequence OR $old.source_selection != $row.source_selection OR $old.attestation != $row.attestation OR $old.interpretation != $row.interpretation { THROW 'PSE_REFUSAL:execution_run_identity_reused'; };
+        IF $old.purpose!=$row.purpose OR $old.admission_study!=$row.admission_study OR $old.admission_point!=$row.admission_point OR $old.request != $row.request OR $old.problem != $row.problem OR $old.revision != $row.revision OR $old.source_sequence != $row.source_sequence OR $old.source_selection != $row.source_selection OR $old.attestation != $row.attestation OR $old.interpretation != $row.interpretation { THROW 'PSE_REFUSAL:execution_run_identity_reused'; };
         LET $rpc_result = $old;
         fn::pse_execution_v1::deadline($rpc_expiry);
         RETURN $rpc_result;
@@ -1064,14 +1085,14 @@ DEFINE FUNCTION fn::pse_execution_v1::current_writer($rpc_expiry:int,$run:string
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $marker=SELECT * FROM ONLY canonical_interpretations:current;
     LET $row=SELECT * FROM ONLY type::record('canonical_runs',$run);
-    IF $marker=NONE OR $marker.interpretation!='pse.substrate.v8' OR $row=NONE OR $row.interpretation!='pse.substrate.v8' { THROW 'PSE_REFUSAL:historical_execution_is_read_only'; };
+    IF $marker=NONE OR $marker.interpretation!='pse.substrate.v9' OR $row=NONE OR $row.interpretation!='pse.substrate.v9' { THROW 'PSE_REFUSAL:historical_execution_is_read_only'; };
     RETURN true;
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $operation: string, $request: bytes, $attempt: string, $worker: string, $lifetime: int, $interpretation: string, $finalization_study: option<string>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
-    IF $interpretation!='pse.substrate.v8' { THROW 'PSE_REFUSAL:stale_execution_claim_interpretation'; };
+    IF $interpretation!='pse.substrate.v9' { THROW 'PSE_REFUSAL:stale_execution_claim_interpretation'; };
     fn::pse_execution_v1::available($rpc_expiry, $run);
     LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'claim', $request);
     IF $op != NONE { LET $rpc_result = SELECT * FROM ONLY type::record('canonical_attempts', $op.attempt); fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
@@ -1086,7 +1107,7 @@ DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $ope
         IF array::len($pending)!=0 { THROW 'PSE_REFUSAL:study_summary_finalization_requires_settled_membership'; };
     };
     IF fn::pse_execution_v1::study_cancelled($rpc_expiry, $run) OR ($summary_cancelled AND $finalization_study=NONE) { THROW 'PSE_REFUSAL:execution_cancelled_study_run_not_claimable'; };
-    IF $r = NONE OR $r.cancelled OR $r.interpretation != $interpretation { THROW 'PSE_REFUSAL:execution_run_not_claimable'; };
+    IF $r = NONE OR $r.purpose!='execution' OR $r.cancelled OR $r.interpretation != $interpretation { THROW 'PSE_REFUSAL:execution_run_not_claimable'; };
     IF (SELECT * FROM ONLY type::record('canonical_history_identities','effect-free-run:'+$run) FOR UPDATE)!=NONE { THROW 'PSE_REFUSAL:effect_free_execution_already_settled'; };
     IF $r.current_attempt != NONE {
         LET $previous = SELECT * FROM ONLY type::record('canonical_attempts', $r.current_attempt);
@@ -1106,10 +1127,10 @@ DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $ope
     RETURN $rpc_result;
 };
 
-DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes, $set: object, $batch: object, $block: option<object>, $outputs: array<object>) -> object {
+DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes, $set: object, $batch: object, $inline: option<object>, $block: option<object>, $outputs: array<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
-    IF $set.interpretation!='pse.substrate.v8' OR ($block!=NONE AND $block.interpretation!='pse.substrate.v8') OR array::len($outputs[WHERE interpretation!='pse.substrate.v8'])!=0 { THROW 'PSE_REFUSAL:stale_execution_append_interpretation'; };
+    IF $set.interpretation!='pse.substrate.v9' OR ($block!=NONE AND $block.interpretation!='pse.substrate.v9') OR array::len($outputs[WHERE interpretation!='pse.substrate.v9'])!=0 { THROW 'PSE_REFUSAL:stale_execution_append_interpretation'; };
     IF array::len($outputs) > 18724 OR bytes::len(encoding::cbor::encode({block:$block,outputs:$outputs})) > 131072 { THROW 'PSE_REFUSAL:execution_index_metadata_extent_exceeded'; };
     fn::pse_execution_v1::available($rpc_expiry, $run);
     LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'append', $request);
@@ -1118,14 +1139,29 @@ DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $at
     LET $a = $writer.attempt;
     IF $op = NONE AND (($a.phase!='ingesting')) { THROW 'PSE_REFUSAL:execution_result_ingestion_closed'; };
     IF $batch.attempt != $attempt OR $set.attempt != $attempt OR $batch.result_set != $set.key { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
+    IF $batch.payload_bytes<=0dec OR ($inline!=NONE AND bytes::len($inline.body)=0) { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
     LET $existing = SELECT * FROM ONLY type::record('canonical_result_batches', $batch.key);
+    // The caller's complete encoding selects exactly one arm before any file work.
+    IF $batch.placement='inline' {
+        IF $batch.inline_key=NONE OR $batch.file_instance!=NONE OR $batch.payload_bytes>65536 { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
+        LET $old_body=SELECT * FROM ONLY type::record('canonical_inline_payloads',$batch.inline_key) FOR UPDATE;
+        IF $old_body=NONE {
+            IF $inline=NONE OR $op!=NONE OR $existing!=NONE { THROW 'PSE_REFUSAL:execution_acknowledged_batch_unavailable'; };
+            IF $inline.key!=$batch.inline_key OR $inline.attempt!=$attempt OR $inline.digest!=$batch.digest OR $inline.encoding!=$batch.encoding OR $inline.schema!=$batch.schema OR $inline.interpretation!='pse.substrate.v9' OR $inline.payload_bytes!=$batch.payload_bytes OR bytes::len($inline.body)!=$inline.payload_bytes OR bytes::len($inline.body)>65536 OR ($inline.encoding='arrow-ipc-file' AND ($inline.batch_count=0dec OR $batch.payload_index>=$inline.batch_count)) OR ($inline.encoding!='arrow-ipc-file' AND ($inline.batch_count!=0dec OR $batch.payload_index!=0dec)) { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
+            CREATE ONLY type::record('canonical_inline_payloads',$inline.key) CONTENT $inline;
+        } ELSE {
+            IF ($inline!=NONE AND object::remove($old_body,'id')!=$inline) OR $old_body.attempt!=$attempt OR $old_body.digest!=$batch.digest OR $old_body.payload_bytes!=$batch.payload_bytes OR $old_body.encoding!=$batch.encoding OR $old_body.schema!=$batch.schema OR $old_body.interpretation!='pse.substrate.v9' OR ($old_body.encoding='arrow-ipc-file' AND $batch.payload_index>=$old_body.batch_count) OR ($old_body.encoding!='arrow-ipc-file' AND $batch.payload_index!=0dec) { THROW 'PSE_REFUSAL:execution_immutable_batch_changed'; };
+        };
+    } ELSE IF $batch.placement='sealed' {
+        IF $batch.inline_key!=NONE OR $batch.file_instance=NONE OR $inline!=NONE { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
+    } ELSE { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; };
     LET $existing_block = SELECT * FROM ONLY type::record('canonical_result_blocks', $batch.key);
     IF $existing != NONE {
         IF object::remove($existing,'id')!=$batch OR $existing.digest != $batch.digest OR $existing.ordinal != $batch.ordinal OR $existing.row_count != $batch.row_count OR $existing.result_set != $batch.result_set OR $existing.attempt != $attempt { THROW 'PSE_REFUSAL:execution_immutable_batch_changed'; };
         IF ($block = NONE AND $existing_block != NONE) OR ($block != NONE AND ($existing_block = NONE OR object::remove($existing_block, 'id') != $block)) { THROW 'PSE_REFUSAL:execution_immutable_block_changed'; };
         LET $old_outputs = SELECT * FROM canonical_result_block_outputs WHERE batch = $batch.key ORDER BY key LIMIT 18725;
         IF array::len($old_outputs) != array::len($outputs) OR $old_outputs.map(|$output| object::remove($output, 'id')) != $outputs { THROW 'PSE_REFUSAL:execution_immutable_output_block_indexes_changed'; };
-        IF $op != NONE { LET $rpc_result = {key:$batch.key,attempt:$attempt,result_set:$set.key,ordinal:$batch.ordinal,digest:$batch.digest,row_count:$batch.row_count,file_binding:$batch.file_binding,request:$request}; fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
+        IF $op != NONE { LET $rpc_result = {key:$batch.key,attempt:$attempt,result_set:$set.key,ordinal:$batch.ordinal,digest:$batch.digest,row_count:$batch.row_count,payload_binding:$batch.payload_binding,request:$request}; fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
     } ELSE {
         IF $op != NONE { THROW 'PSE_REFUSAL:execution_acknowledged_batch_unavailable'; };
         LET $s = SELECT * FROM ONLY type::record('canonical_result_sets', $set.key);
@@ -1137,7 +1173,7 @@ DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $at
         } ELSE {
             IF $s.attempt != $attempt OR $s.name != $set.name OR $s.interpretation != $set.interpretation OR $s.next_ordinal != $batch.ordinal { THROW 'PSE_REFUSAL:execution_batch_sequence_gap'; };
         };
-        fn::pse_files_v1::attach($rpc_expiry,$batch,'result',$attempt,'result:'+$batch.key);
+        IF $batch.placement='sealed' { fn::pse_files_v1::attach($rpc_expiry,$batch,'result',$attempt,'result:'+$batch.key); };
         CREATE ONLY type::record('canonical_result_batches', $batch.key) CONTENT $batch;
         IF $block != NONE { CREATE ONLY type::record('canonical_result_blocks', $batch.key) CONTENT $block; };
         IF array::len($outputs) != 0 {
@@ -1147,7 +1183,7 @@ DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $at
         UPDATE ONLY type::record('canonical_result_sets', $set.key) SET next_ordinal += 1dec, row_count += $batch.row_count;
     };
     fn::pse_history_v1::record_operation($rpc_expiry,$operation,$run,$attempt,'append',$request,$request,NONE,NONE);
-    LET $rpc_result = {key:$batch.key,attempt:$attempt,result_set:$set.key,ordinal:$batch.ordinal,digest:$batch.digest,row_count:$batch.row_count,file_binding:$batch.file_binding,request:$request};
+    LET $rpc_result = {key:$batch.key,attempt:$attempt,result_set:$set.key,ordinal:$batch.ordinal,digest:$batch.digest,row_count:$batch.row_count,payload_binding:$batch.payload_binding,request:$request};
     fn::pse_execution_v1::deadline($rpc_expiry);
     IF $op = NONE { fn::pse_execution_v1::lease($rpc_expiry, $a.expires_at); };
     RETURN $rpc_result;
@@ -1157,7 +1193,7 @@ DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $at
 DEFINE FUNCTION fn::pse_execution_v1::append_many($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $items: array<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
-    IF array::len($items)=0 OR array::len($items)>18724 OR bytes::len(encoding::cbor::encode($items))>4194304 { THROW 'PSE_REFUSAL:execution_append_group_extent_exceeded'; };
+    IF array::len($items)=0 OR array::len($items)>18724 OR bytes::len(encoding::cbor::encode($items))>2097152 { THROW 'PSE_REFUSAL:execution_append_group_extent_exceeded'; };
     fn::pse_execution_v1::available($rpc_expiry,$run);
     // Preflight BEFORE any append mutation. An entirely replayed group needs no
     // fresh writer admission after cancellation, closure or attempt replacement.
@@ -1172,10 +1208,10 @@ DEFINE FUNCTION fn::pse_execution_v1::append_many($rpc_expiry: int, $run: string
     // FOR executes each original append serially. A later gap, conflicting
     // immutable receipt or deadline THROW rolls the entire new group back.
     FOR $item IN $items {
-        LET $saved=fn::pse_execution_v1::append($rpc_expiry,$run,$attempt,$generation,$item.operation,$item.request,$item.set,$item.batch,$item.block,$item.outputs);
+        LET $saved=fn::pse_execution_v1::append($rpc_expiry,$run,$attempt,$generation,$item.operation,$item.request,$item.set,$item.batch,$item.inline,$item.block,$item.outputs);
         IF $saved.pse_writer!=NONE { THROW 'PSE_REFUSAL:execution_append_group_admission_changed'; };
     };
-    LET $receipts=$items.map(|$item| {key:$item.batch.key,attempt:$attempt,result_set:$item.set.key,ordinal:$item.batch.ordinal,digest:$item.batch.digest,row_count:$item.batch.row_count,file_binding:$item.batch.file_binding,request:$item.request});
+    LET $receipts=$items.map(|$item| {key:$item.batch.key,attempt:$attempt,result_set:$item.set.key,ordinal:$item.batch.ordinal,digest:$item.batch.digest,row_count:$item.batch.row_count,payload_binding:$item.batch.payload_binding,request:$item.request});
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN {acknowledgments:$receipts};
 };
@@ -1188,7 +1224,7 @@ DEFINE FUNCTION fn::pse_execution_v1::empty($rpc_expiry: int, $run: string, $att
     LET $writer=IF $op=NONE { fn::pse_execution_v1::writer($rpc_expiry,$run,$attempt,$generation,$operation,'empty') } ELSE { NONE };
     IF $writer!=NONE AND $writer.pse_writer != 'admitted' { RETURN $writer; };
     IF $op=NONE AND (($writer.attempt.phase!='ingesting')) { THROW 'PSE_REFUSAL:execution_empty_declaration_ingestion_closed'; };
-    IF $set.attempt != $attempt OR $set.interpretation != 'pse.substrate.v8' OR $set.next_ordinal != 0dec OR $set.row_count != 0dec { THROW 'PSE_REFUSAL:execution_empty_declaration_mismatch'; };
+    IF $set.attempt != $attempt OR $set.interpretation != 'pse.substrate.v9' OR $set.next_ordinal != 0dec OR $set.row_count != 0dec { THROW 'PSE_REFUSAL:execution_empty_declaration_mismatch'; };
     LET $old = SELECT * FROM ONLY type::record('canonical_result_sets',$set.key);
     IF $old != NONE {
         IF object::remove($old,'id') != $set { THROW 'PSE_REFUSAL:execution_demanded_empty_set_changed'; };
@@ -1216,19 +1252,19 @@ DEFINE FUNCTION fn::pse_execution_v1::verify_acknowledged($rpc_expiry: int, $run
     FOR $s IN $sets {
         LET $matching=$proofs.filter(|$p| $p.set=$s.key);
         IF array::len($matching)=0 {
-            IF $progress_queued=NONE OR $s.name!='__progress' OR $s.attempt!=$attempt OR $s.interpretation!='pse.substrate.v8' OR $s.row_count>$progress_queued { THROW 'PSE_REFUSAL:execution_unacknowledged_set_membership_differs'; };
+            IF $progress_queued=NONE OR $s.name!='__progress' OR $s.attempt!=$attempt OR $s.interpretation!='pse.substrate.v9' OR $s.row_count>$progress_queued { THROW 'PSE_REFUSAL:execution_unacknowledged_set_membership_differs'; };
         } ELSE {
         IF array::len($matching)!=1 { THROW 'PSE_REFUSAL:execution_advertised_set_ambiguous'; };
         LET $p=$matching[0];
         LET $uncertain=$s.name='__progress' AND $progress_queued!=NONE;
-        IF $s.attempt != $attempt OR $s.name != $p.name OR $s.interpretation != 'pse.substrate.v8' OR (!$uncertain AND ($s.next_ordinal != $p.count OR $s.row_count != $p.row_count)) OR ($uncertain AND ($s.next_ordinal<$p.count OR $s.row_count<$p.row_count OR $s.row_count>$progress_queued)) { THROW 'PSE_REFUSAL:execution_acknowledged_set_coverage_differs'; };
+        IF $s.attempt != $attempt OR $s.name != $p.name OR $s.interpretation != 'pse.substrate.v9' OR (!$uncertain AND ($s.next_ordinal != $p.count OR $s.row_count != $p.row_count)) OR ($uncertain AND ($s.next_ordinal<$p.count OR $s.row_count<$p.row_count OR $s.row_count>$progress_queued)) { THROW 'PSE_REFUSAL:execution_acknowledged_set_coverage_differs'; };
         LET $receipt=SELECT * FROM ONLY type::record('canonical_execution_operations',$p.operation);
         IF $receipt=NONE OR $receipt.run != $run OR $receipt.attempt != $attempt OR $receipt.kind != $p.kind OR $receipt.request != $p.request OR $receipt.result != $p.request { THROW 'PSE_REFUSAL:execution_actual_final_receipt_differs'; };
         IF $p.count=0dec {
             IF $p.kind != 'empty' OR $p.row_count != 0dec { THROW 'PSE_REFUSAL:execution_empty_membership_lacks_declaration'; };
         } ELSE {
-            LET $last=SELECT key,attempt,result_set,ordinal,digest,row_count,file_binding FROM ONLY type::record('canonical_result_batches',$p.key);
-            IF $p.kind != 'append' OR $last=NONE OR $last.attempt != $attempt OR $last.result_set != $s.key OR $last.ordinal+1dec != $p.count OR $last.ordinal != $p.ordinal OR $last.digest != $p.digest OR $last.row_count != $p.rows OR $last.file_binding!=$p.file_binding { THROW 'PSE_REFUSAL:execution_final_batch_receipt_differs'; };
+            LET $last=SELECT key,attempt,result_set,ordinal,digest,row_count,payload_binding FROM ONLY type::record('canonical_result_batches',$p.key);
+            IF $p.kind != 'append' OR $last=NONE OR $last.attempt != $attempt OR $last.result_set != $s.key OR $last.ordinal+1dec != $p.count OR $last.ordinal != $p.ordinal OR $last.digest != $p.digest OR $last.row_count != $p.rows OR $last.payload_binding!=$p.payload_binding { THROW 'PSE_REFUSAL:execution_final_batch_receipt_differs'; };
         };
         };
     };
@@ -1444,7 +1480,7 @@ DEFINE FUNCTION fn::pse_execution_v1::seed_eligible($seed: object) -> bool {
     IF $a = NONE OR ($a.phase NOT IN ['terminal','terminal_compacted']) OR $a.seed_manifest = NONE OR $a.seed_manifest != $a.closed_manifest OR $a.run != $seed.run OR $a.generation != $seed.attempt_generation { RETURN false; };
     LET $r = SELECT sequence,interpretation FROM ONLY type::record('canonical_runs', $seed.run);
     LET $installed=SELECT interpretation FROM ONLY canonical_interpretations:current;
-    IF $r=NONE OR $r.interpretation!='pse.substrate.v8' OR $installed=NONE OR $installed.interpretation!='pse.substrate.v8' { RETURN false; };
+    IF $r=NONE OR $r.interpretation!='pse.substrate.v9' OR $installed=NONE OR $installed.interpretation!='pse.substrate.v9' { RETURN false; };
     LET $m = SELECT attempt,generation FROM ONLY type::record('canonical_result_manifests', $a.seed_manifest);
     RETURN $r != NONE AND $r.sequence = $seed.run_sequence AND $m != NONE AND $m.attempt = $seed.attempt AND $m.generation = $seed.attempt_generation;
 };
@@ -2025,7 +2061,7 @@ DEFINE FUNCTION fn::pse_files_v1::attach($expiry:int,$batch:object,$kind:string,
     LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$batch.file_instance) FOR UPDATE;
     IF $file=NONE { THROW 'PSE_REFUSAL:sealed_file_instance_unavailable'; };
     fn::pse_files_v1::admission($expiry,$file.storage_incarnation,false);
-    IF $file.state NOT IN ['sealed','attached'] OR $file.digest!=$batch.file_digest OR $file.payload_bytes!=$batch.payload_bytes OR $file.encoding!=$batch.encoding OR $file.schema!=$batch.schema OR ($file.encoding='arrow-ipc-file' AND $batch.file_batch_index>=$file.batch_count) OR ($file.encoding!='arrow-ipc-file' AND $batch.file_batch_index!=0dec) { THROW 'PSE_REFUSAL:logical_batch_sealed_file_binding_differs'; };
+    IF $file.state NOT IN ['sealed','attached'] OR $file.digest!=(IF $kind='result' {$batch.digest} ELSE {$batch.file_digest}) OR $file.payload_bytes!=$batch.payload_bytes OR $file.encoding!=$batch.encoding OR $file.schema!=$batch.schema OR ($file.encoding='arrow-ipc-file' AND (IF $kind='result' {$batch.payload_index} ELSE {$batch.file_batch_index})>=$file.batch_count) OR ($file.encoding!='arrow-ipc-file' AND (IF $kind='result' {$batch.payload_index} ELSE {$batch.file_batch_index})!=0dec) { THROW 'PSE_REFUSAL:logical_batch_sealed_file_binding_differs'; };
     IF $file.owner_kind!=$kind OR $file.selection!=$selection { THROW 'PSE_REFUSAL:file_original_intent_selected_another_owner'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_file_borrowers',$borrower) FOR UPDATE;
     IF $old!=NONE AND ($old.released OR $old.instance!=$file.key OR $old.owner_kind!=$kind OR $old.owner!=$selection) { THROW 'PSE_REFUSAL:file_borrower_identity_released_or_reused'; };
@@ -2577,15 +2613,15 @@ DEFINE FUNCTION fn::pse_study_v1::append($rpc_expiry: int, $study: string, $poin
         };
         LET $old = SELECT * FROM ONLY type::record('canonical_study_points', $point.key);
         IF $old != NONE {
-            IF $old.seed_solution != $point.seed_solution OR $old.ordinal != $point.ordinal OR $old.occurrence != $point.occurrence OR $old.policy != $point.policy OR $old.descriptor != $point.descriptor OR $old.run != $point.run { THROW 'PSE_REFUSAL:study_immutable_occurrence_changed'; };
+            IF $old.admission_run!=$point.admission_run OR $old.variant_problem!=$point.variant_problem OR $old.variant_operation!=$point.variant_operation OR $old.seed_solution != $point.seed_solution OR $old.ordinal != $point.ordinal OR $old.occurrence != $point.occurrence OR $old.policy != $point.policy OR $old.descriptor != $point.descriptor OR $old.run != $point.run { THROW 'PSE_REFUSAL:study_immutable_occurrence_changed'; };
         } ELSE {
             fn::pse_execution_v1::result_creator($rpc_expiry,$point.run);
             fn::pse_execution_v1::touch($rpc_expiry,'study-association:'+$point.run);
             SELECT * FROM ONLY type::record('canonical_study_points',$point.key) FOR UPDATE;
             LET $run = SELECT * FROM ONLY type::record('canonical_runs', $point.run);
-            LET $admission_run = SELECT * FROM ONLY type::record('canonical_runs', 'study-admission:'+$point.key);
+            LET $admission_run = IF $point.admission_run=NONE {NONE} ELSE {SELECT * FROM ONLY type::record('canonical_runs', $point.admission_run)};
             IF $run=NONE {
-                IF $admission_run=NONE OR $admission_run.problem!=$s.problem OR $admission_run.revision!=$s.revision { THROW 'PSE_REFUSAL:study_lazy_admission_source_run_unavailable'; };
+                IF $admission_run=NONE OR $admission_run.purpose!='study_admission' OR $admission_run.admission_study!=$study OR $admission_run.admission_point!=$point.key OR $admission_run.problem!=$s.problem OR $admission_run.revision!=$s.revision { THROW 'PSE_REFUSAL:study_lazy_admission_source_run_unavailable'; };
                 LET $locator='admission:'+$point.key;
                 LET $issuing=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
                 CREATE ONLY type::record('canonical_history_locators',$locator) SET key=$locator,study=$study,run=$admission_run.key,point=$point.key,issuing_store=$issuing;
@@ -2687,7 +2723,7 @@ DEFINE FUNCTION fn::pse_study_v1::settle($rpc_expiry: int, $study: string, $gene
     IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE {
         LET $run=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.run);
         IF $run=NONE {
-            LET $input=SELECT key FROM ONLY type::record('canonical_runs','study-admission:'+$point);
+            LET $input=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.admission_run);
             IF $input=NONE { THROW 'PSE_REFUSAL:unadmitted_occurrence_input_owner_unavailable'; };
             fn::pse_history_v1::identity($rpc_expiry,'effect-free-run',$rpc_result.run,$rpc_result.run);
         } ELSE { fn::pse_history_v1::effect_free($rpc_expiry,$rpc_result); };
@@ -2767,8 +2803,8 @@ DEFINE FUNCTION fn::pse_study_v1::seal($rpc_expiry: int, $study: string, $run: s
 
 // Shared mutation admission: exact original point/premises, cancellation, owner and lease.
 DEFINE FUNCTION fn::pse_study_v1::admission_authority($rpc_expiry:int,$authority:object) -> object {
-    IF $authority.run!='study-admission:'+$authority.point { THROW 'PSE_REFUSAL:scientific_admission_capability_belongs_elsewhere'; };
     LET $p=fn::pse_study_v1::guard($rpc_expiry,$authority.study,$authority.generation,false,$authority.point,$authority.expected);
+    IF $authority.run!=$p.admission_run { THROW 'PSE_REFUSAL:scientific_admission_capability_belongs_elsewhere'; };
     IF $p.admission!=NONE { THROW 'PSE_REFUSAL:scientific_admission_already_settled'; };
     fn::pse_execution_v1::current_writer($rpc_expiry,$authority.run);
     RETURN fn::pse_execution_v1::fence($rpc_expiry,$authority.run,$authority.attempt,$authority.authority);
@@ -2778,10 +2814,10 @@ DEFINE FUNCTION fn::pse_study_v1::admission_authority($rpc_expiry:int,$authority
 DEFINE FUNCTION fn::pse_study_v1::admission_claim($rpc_expiry:int,$study:string,$generation:decimal,$point:string,$expected:array<object>,$operation:string,$request:bytes,$attempt:string,$worker:string,$lifetime:int) -> option<object> {
     LET $p=fn::pse_study_v1::guard($rpc_expiry,$study,$generation,false,$point,$expected);
     IF $p.admission!=NONE { RETURN NONE; };
-    LET $run='study-admission:'+$point;
+    LET $run=$p.admission_run;
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
     LET $r=SELECT * FROM ONLY type::record('canonical_runs',$run) FOR UPDATE;
-    IF $r=NONE { THROW 'PSE_REFUSAL:scientific_admission_run_unavailable'; };
+    IF $r=NONE OR $r.purpose!='study_admission' OR $r.admission_study!=$study OR $r.admission_point!=$point { THROW 'PSE_REFUSAL:scientific_admission_run_unavailable'; };
     IF $r.current_attempt!=NONE {
         LET $old=SELECT * FROM ONLY type::record('canonical_attempts',$r.current_attempt) FOR UPDATE;
         IF $old!=NONE AND ($old.phase NOT IN ['terminal','terminal_compacted']) {
@@ -2810,8 +2846,8 @@ DEFINE FUNCTION fn::pse_study_v1::admission_complete($rpc_expiry:int,$study:stri
         IF $saved.admission!=$admission OR $op=NONE { THROW 'PSE_REFUSAL:immutable_scientific_admission_differs'; };
         RETURN $saved;
     };
-    IF $run!='study-admission:'+$point { THROW 'PSE_REFUSAL:scientific_admission_owner_differs'; };
     LET $p=fn::pse_study_v1::guard($rpc_expiry,$study,$generation,false,$point,$expected);
+    IF $run!=$p.admission_run { THROW 'PSE_REFUSAL:scientific_admission_owner_differs'; };
     LET $a=fn::pse_execution_v1::fence($rpc_expiry,$run,$attempt,$authority);
     IF $outcome=NONE {
         LET $science=SELECT key FROM ONLY type::record('canonical_runs',$p.run);
@@ -2881,7 +2917,7 @@ DEFINE FUNCTION fn::pse_study_v1::observe($rpc_expiry: int, $point: string, $rev
     IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE {
         LET $run=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.run);
         IF $run=NONE {
-            LET $input=SELECT key FROM ONLY type::record('canonical_runs','study-admission:'+$point);
+            LET $input=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.admission_run);
             IF $input=NONE { THROW 'PSE_REFUSAL:unadmitted_occurrence_input_owner_unavailable'; };
             fn::pse_history_v1::identity($rpc_expiry,'effect-free-run',$rpc_result.run,$rpc_result.run);
         } ELSE { fn::pse_history_v1::effect_free($rpc_expiry,$rpc_result); };
@@ -3196,14 +3232,24 @@ DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string)
     LET $sets=SELECT key FROM canonical_result_sets WHERE attempt=$attempt.key ORDER BY name LIMIT 1;
     IF array::len($sets)!=0 {
         LET $set=$sets[0].key;
-        LET $batches=SELECT key FROM canonical_result_batches WHERE result_set=$set ORDER BY ordinal LIMIT 1;
+        LET $batches=SELECT key,placement,inline_key FROM canonical_result_batches WHERE result_set=$set ORDER BY ordinal LIMIT 1;
         IF array::len($batches)!=0 {
             LET $batch=$batches[0].key;
             LET $outputs=SELECT key FROM canonical_result_block_outputs WHERE batch=$batch ORDER BY key LIMIT 64;
             DELETE $outputs.map(|$row|type::record('canonical_result_block_outputs',$row.key));
             LET $remaining_outputs=SELECT key FROM canonical_result_block_outputs WHERE batch=$batch LIMIT 1;
             LET $deleted=array::len($remaining_outputs)=0;
-            IF $deleted { fn::pse_files_v1::release_borrower($rpc_expiry,'result:'+$batch); DELETE ONLY type::record('canonical_result_blocks',$batch); DELETE ONLY type::record('canonical_result_batches',$batch); };
+            IF $deleted {
+                IF $batches[0].placement='sealed' { fn::pse_files_v1::release_borrower($rpc_expiry,'result:'+$batch); };
+                LET $inline=$batches[0].inline_key;
+                IF $inline!=NONE { SELECT key FROM ONLY type::record('canonical_inline_payloads',$inline) FOR UPDATE; };
+                DELETE ONLY type::record('canonical_result_blocks',$batch);
+                DELETE ONLY type::record('canonical_result_batches',$batch);
+                IF $inline!=NONE {
+                    LET $remaining=SELECT key FROM canonical_result_batches WHERE inline_key=$inline LIMIT 1;
+                    IF array::len($remaining)=0 { DELETE ONLY type::record('canonical_inline_payloads',$inline); };
+                };
+            };
             LET $rpc_result = {complete:false,batches:IF $deleted {1dec} ELSE {0dec},indexes:<decimal>array::len($outputs),sets:0dec};
             fn::pse_execution_v1::deadline($rpc_expiry);
             RETURN $rpc_result;

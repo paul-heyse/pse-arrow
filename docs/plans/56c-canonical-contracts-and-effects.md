@@ -136,11 +136,11 @@ compatibility reader or second production path is introduced.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| C01 | planned | 56c | Generated canonical meaning and all current typed consumers replace independent spellings/branches |
-| C02 | planned | 56c | Exact replay and effect knowledge consistent across shared-contract owners with distinct lifetimes preserved |
-| C03 | planned; 56a context and 56b completion/replay adoption complete, RC01 pending | 56c | Selected locator plus exact completion/replay/context facts consumed by every durable read/write/lifecycle path |
-| C04 | planned | 56c | Online/offline file observations share Rust authority; Python duplicate policy retired |
-| C05 | planned; selected 56b fresh deployment qualified | 56c | Working producers/readers installed together; fresh owned store activation and failure recovery verified |
+| C01 | in-progress; declarations and typed owner migrations integrated | 56c | Generated canonical meaning and all current typed consumers replace independent spellings/branches |
+| C02 | implemented; pure and owner-effect acceptance pending | 56c | Exact replay and effect knowledge consistent across shared-contract owners with distinct lifetimes preserved |
+| C03 | in-progress; v9 locator and current producer/reader adoption | 56c | Selected locator plus exact completion/replay/context facts consumed by every durable read/write/lifecycle path |
+| C04 | in-progress; native product helper and Python consumer migration | 56c | Online/offline file observations share Rust authority; Python duplicate policy retired |
+| C05 | pending; authenticated v8 baseline seeded and stopped | 56c | Working producers/readers installed together; fresh owned store activation and failure recovery verified |
 
 C01 and B's early fact/constructor declarations enable C03; they do not require all B packages to
 finish. D01 replaces append realization using C03. C04 and E02 share one product-helper boundary;
@@ -188,3 +188,14 @@ implementation and its focused decision review. Preserve the existing selected s
 56b fixtures and their original evidence. The existing 56c package table remains the status owner;
 working shared contracts, all current consumers and fresh owned activation precede acceptance.
 No production package is complete from the earlier 56a/b prerequisite adoption alone.
+
+**Source cutover checkpoint — 2026-10-26:** the focused decision review accepted ADR-0228's proposed
+target before dependent publication. Shared settlement now preserves both failure causes through
+owner protocols. Canonical declarations/projections, nominal decision-bearing keys, explicit
+run/study associations, producer classes and native offline authority are being integrated with
+all current consumers. Inline bodies are selected before file work; descriptor discovery remains
+separate from charged body hydration. Current blockers are source-generation/compile integration,
+not scientific acceptance. No C package is complete yet. The owned v8 fixture
+`build/qualification/56c-v8-PMtzWmL1` retains an actual stored failed-check result and is stopped;
+fresh v9 activation and composed qualification follow functional integration. Other stores and
+prior 56b qualification artifacts remain preserved.

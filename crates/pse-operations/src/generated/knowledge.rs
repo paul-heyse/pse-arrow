@@ -2,7 +2,7 @@
 /// Independent development knowledge interpretation.
 pub const INTERPRETATION: &str = "pse-development-knowledge-v2";
 /// Exact knowledge schema and codec identity.
-pub const SCHEMA_DIGEST: &str = "b9fd9ee341140fb7adc3f37ff21153b3a4747ac9c01e8c2332d0b19acec526c7";
+pub const SCHEMA_DIGEST: &str = "930eefce94d1e7048e8e5a6da80318e2e63ca4e20cc33b3bc870284bd7ac6473";
 /// Registry-derived tooling-only knowledge schema.
 pub const SCHEMA: &str = include_str!("knowledge.surql");
 ///Encode the registry row using native exact values.

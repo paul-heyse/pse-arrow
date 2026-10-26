@@ -256,6 +256,9 @@ mod canonical_result_retention_server_unit {
     }
     async fn request(store: &CanonicalStore, key: &str) -> RunRequest {
         RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: key.into(),
             revision: store
                 .edit(key, None, &format!("source-{key}"), &[])
@@ -463,7 +466,7 @@ mod canonical_result_retention_server_unit {
         let mut roots = store
             .db
             .query("SELECT key FROM canonical_roots WHERE owner_kind='run' AND owner=$run;")
-            .bind(("run", request.key.clone()))
+            .bind(("run", request.key.as_str().to_owned()))
             .await
             .map_err(CanonicalError::from)
             .and_then(checked)

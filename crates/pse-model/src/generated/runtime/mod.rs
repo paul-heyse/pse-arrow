@@ -65,6 +65,8 @@ pub mod r#canonical_history_obligations;
 ///Generated relation contract.
 pub mod r#canonical_history_retirements;
 ///Generated relation contract.
+pub mod r#canonical_inline_payloads;
+///Generated relation contract.
 pub mod r#canonical_interpretations;
 ///Generated relation contract.
 pub mod r#canonical_maintenance_activations;

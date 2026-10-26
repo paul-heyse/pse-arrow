@@ -196,6 +196,9 @@ async fn wide_fixture_with_completion(
     };
     store
         .begin_run(&RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: "readable-fixture".into(),
             revision,
             sources: physical_rows

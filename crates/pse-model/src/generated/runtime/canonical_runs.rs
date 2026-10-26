@@ -11,6 +11,12 @@
 pub struct RuntimeCanonicalRunsRow {
     ///key
     pub r#key: String,
+    ///purpose
+    pub r#purpose: crate::generated::enums::CanonicalRunPurpose,
+    ///admission_study
+    pub r#admission_study: Option<String>,
+    ///admission_point
+    pub r#admission_point: Option<String>,
     ///research_selection
     pub r#research_selection: Option<String>,
     ///research_dataset
@@ -45,6 +51,15 @@ pub struct RuntimeCanonicalRunsRow {
 impl crate::SemanticEq for RuntimeCanonicalRunsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#key, &other.r#key)
+            && crate::SemanticEq::semantic_eq(&self.r#purpose, &other.r#purpose)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#admission_study,
+                &other.r#admission_study,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#admission_point,
+                &other.r#admission_point,
+            )
             && crate::SemanticEq::semantic_eq(
                 &self.r#research_selection,
                 &other.r#research_selection,
@@ -91,12 +106,76 @@ impl PartialEq for RuntimeCanonicalRunsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalRunsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::RunKey {
+        crate::generated::canonical::RunKey::from(self.r#key.as_str())
+    }
+}
+impl RuntimeCanonicalRunsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn admission_study_domain(
+        &self,
+    ) -> Option<crate::generated::canonical::StudyKey> {
+        self.r#admission_study
+            .as_deref()
+            .map(crate::generated::canonical::StudyKey::from)
+    }
+}
+impl RuntimeCanonicalRunsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn admission_point_domain(
+        &self,
+    ) -> Option<crate::generated::canonical::StudyPointKey> {
+        self.r#admission_point
+            .as_deref()
+            .map(crate::generated::canonical::StudyPointKey::from)
+    }
+}
+impl RuntimeCanonicalRunsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn problem_domain(&self) -> crate::generated::canonical::ProblemKey {
+        crate::generated::canonical::ProblemKey::from(self.r#problem.as_str())
+    }
+}
+impl RuntimeCanonicalRunsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn revision_domain(&self) -> crate::generated::canonical::RevisionKey {
+        crate::generated::canonical::RevisionKey::from(self.r#revision.as_str())
+    }
+}
+impl RuntimeCanonicalRunsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn current_attempt_domain(
+        &self,
+    ) -> Option<crate::generated::canonical::AttemptKey> {
+        self.r#current_attempt
+            .as_deref()
+            .map(crate::generated::canonical::AttemptKey::from)
+    }
+}
+impl RuntimeCanonicalRunsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn terminal_attempt_domain(
+        &self,
+    ) -> Option<crate::generated::canonical::AttemptKey> {
+        self.r#terminal_attempt
+            .as_deref()
+            .map(crate::generated::canonical::AttemptKey::from)
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalRunsRow;
 impl crate::SemanticFrame for RuntimeCanonicalRunsRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#key));
         crate::SemanticFrame::frame(&self.r#key, hash);
+        hash.str(stringify!(r#purpose));
+        crate::SemanticFrame::frame(&self.r#purpose, hash);
+        hash.str(stringify!(r#admission_study));
+        crate::SemanticFrame::frame(&self.r#admission_study, hash);
+        hash.str(stringify!(r#admission_point));
+        crate::SemanticFrame::frame(&self.r#admission_point, hash);
         hash.str(stringify!(r#research_selection));
         crate::SemanticFrame::frame(&self.r#research_selection, hash);
         hash.str(stringify!(r#research_dataset));
@@ -133,6 +212,9 @@ impl crate::HeapUsage for RuntimeCanonicalRunsRow {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#purpose))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#admission_study))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#admission_point))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#research_selection))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#research_dataset))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#problem))

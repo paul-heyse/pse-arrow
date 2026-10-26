@@ -33,6 +33,9 @@ pub(in crate::workflow) async fn physical(runtime: &Runtime) -> flow::PhysicalSo
 }
 fn request(revision: &Revision, physical: &Revision, key: &str) -> RunRequest {
     RunRequest {
+        purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+        admission_study: None,
+        admission_point: None,
         key: key.into(),
         revision: revision.clone(),
         sources: vec![physical.clone()],

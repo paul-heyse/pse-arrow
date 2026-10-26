@@ -30,15 +30,17 @@ pub mod structures;
 pub mod extension_values;
 /// Typed entity ids and their Arrow codecs.
 pub mod identities;
+/// Nominal opaque-text canonical keys and table classifications.
+pub mod canonical;
 /// Enforced algorithm argument projections.
 pub mod algorithm_arguments;
 /// Scientific access fields and new-batch ordering from registry declarations.
 pub mod result_selection;
 /// Registry identity; validity is established by admission.
 pub const REGISTRY_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    172u8, 182u8, 207u8, 153u8, 165u8, 79u8, 148u8, 120u8, 123u8, 219u8, 253u8, 78u8,
-    234u8, 12u8, 204u8, 174u8, 36u8, 111u8, 215u8, 2u8, 82u8, 34u8, 16u8, 207u8, 108u8,
-    255u8, 136u8, 182u8, 92u8, 60u8, 6u8, 75u8,
+    94u8, 61u8, 229u8, 211u8, 75u8, 203u8, 83u8, 190u8, 52u8, 144u8, 42u8, 15u8, 252u8,
+    137u8, 153u8, 98u8, 124u8, 206u8, 139u8, 186u8, 112u8, 108u8, 76u8, 49u8, 106u8,
+    41u8, 45u8, 57u8, 238u8, 64u8, 200u8, 220u8,
 ]);
 /// Resolves an exact declaration from the current registry.
 /// # Errors

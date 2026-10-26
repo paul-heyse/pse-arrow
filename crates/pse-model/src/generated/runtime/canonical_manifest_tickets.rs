@@ -48,6 +48,12 @@ impl PartialEq for RuntimeCanonicalManifestTicketsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalManifestTicketsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::ManifestTicketKey {
+        crate::generated::canonical::ManifestTicketKey::from(self.r#key.as_str())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalManifestTicketsRow;
 impl crate::SemanticFrame for RuntimeCanonicalManifestTicketsRow {

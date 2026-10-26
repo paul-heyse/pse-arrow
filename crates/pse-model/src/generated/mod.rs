@@ -32,6 +32,8 @@ pub mod extension_values;
 pub mod products;
 /// Typed entity ids declared by the registry (ADR-0115).
 pub mod identities;
+/// Nominal opaque-text canonical keys and table classifications.
+pub mod canonical;
 
 /// Generated typed relational handoff.
 pub mod facts;

@@ -31,6 +31,17 @@ from scripts.tests import canonical_recovery_check as recovery
 from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
 from scripts.tests.test_surrealism_module import fixture_module
 
+_native_payload_operation = server.native_payload_operation
+
+
+def fixture_native_payload_operation(state: Path, _config: object, operation: str, inventory: object = None, **options: object) -> list[dict[str, object]]:
+    """Supply the product physical boundary to source-only supervisor controls."""
+    if operation == "layout":
+        placement = server.object_mapping(options["placement"])
+        return [{"root": str(state / "payloads" / str(placement["payload_incarnation"]) / str(placement["database"]))}]
+    return server.object_inventory(inventory or [])
+
+
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
     from types import ModuleType
@@ -1440,6 +1451,10 @@ class SurrealSupervisorTests(unittest.TestCase):
 
     def setUp(self) -> None:
         fixture_build_context(self)
+        # Source-only orchestration controls provide the native layout boundary.
+        physical = patch.object(server, "native_payload_operation", side_effect=fixture_native_payload_operation)
+        physical.start()
+        self.addCleanup(physical.stop)
         self.scratch = tempfile.TemporaryDirectory()
         self.addCleanup(self.scratch.cleanup)
         self.root = Path(self.scratch.name)
@@ -2213,7 +2228,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         old = self.initialized()
         old.update(admission="quiesced", accepting_writes=False)
         server.write_json(self.state / "config.json", old)
-        old_payload = server.payload_files.root(self.state, old) / "generated.bin"
+        old_payload = server.payload_root(self.state, old) / "generated.bin"
         old_payload.write_bytes(b"disposable generated scientific values")
         with (
             patch.object(server, "install", return_value=old["server"]),
@@ -5681,7 +5696,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         return {
             "version": 1,
             "issuing_store": "00000000-0000-4000-8000-000000000001",
-            "tables": {table: [] for table in server.APPLICATION_BACKUP_TABLES},
+            "tables": {table: [] for table in server.application_backup_tables()},
         }
 
     def backup_fixture(self) -> Path:
@@ -5883,34 +5898,15 @@ class SurrealSupervisorTests(unittest.TestCase):
             arguments: list[str], **options: object
         ) -> subprocess.CompletedProcess[str]:
             nonlocal exported_science, exported_domain_owner
-            if arguments[1] == "--verify-payload-inventory":
-                entries = [
-                    json.loads(line)
-                    for line in Path(arguments[2]).read_text().splitlines()
-                ]
+            if arguments[1] == "--operation":
+                request = options["stdin"]
+                output = options["stdout"]
+                assert isinstance(request, io.BufferedIOBase)
+                assert isinstance(output, io.BufferedIOBase)
+                entries = [json.loads(line) for line in request.read().splitlines()]
                 for entry in entries:
-                    self.assertEqual(
-                        set(entry),
-                        {
-                            "instance",
-                            "digest",
-                            "bytes",
-                            "encoding",
-                            "batch_count",
-                            "schema",
-                            "interpretation",
-                            "path",
-                        },
-                    )
-                    self.assertEqual(
-                        Path(entry["path"]).stat().st_size, int(entry["bytes"])
-                    )
-                return subprocess.CompletedProcess(
-                    arguments,
-                    0,
-                    json.dumps({"verified_payload_files": len(entries)}),
-                    "",
-                )
+                    output.write((json.dumps(entry) + "\n").encode())
+                return subprocess.CompletedProcess(arguments, 0, b"", b"")
             self.assertIn(arguments[1], {"export", "import"})
             calls.append((arguments[6], arguments[8], arguments[1]))
             if arguments[1] == "export":
@@ -7435,15 +7431,18 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
 
         def native(
             arguments: list[str], **_options: object
-        ) -> subprocess.CompletedProcess[str]:
-            descriptor = Path(arguments[2])
-            self.assertNotEqual(descriptor.parent, self.state)
-            self.assertTrue(descriptor.is_file())
-            return subprocess.CompletedProcess(
-                arguments, 0, '{"verified_payload_files":1}', ""
-            )
+        ) -> subprocess.CompletedProcess[bytes]:
+            self.assertEqual(arguments[1:3], ["--operation", "verify"])
+            request = _options["stdin"]
+            output = _options["stdout"]
+            assert isinstance(request, io.BufferedIOBase)
+            assert isinstance(output, io.BufferedIOBase)
+            for line in request:
+                output.write(line)
+            return subprocess.CompletedProcess(arguments, 0, b"", b"")
 
         with (
+            patch.object(server, "native_payload_operation", side_effect=_native_payload_operation),
             patch.object(server, "payload_verifier", return_value=verifier),
             patch.object(server.subprocess, "run", side_effect=native),
         ):
@@ -7568,7 +7567,7 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
         self.assertEqual(
             server.object_mapping(inventory["tables"])["canonical_stages"], [row]
         )
-        self.assertEqual(len(queries), len(server.APPLICATION_BACKUP_TABLES) + 2)
+        self.assertEqual(len(queries), len(server.application_backup_tables()) + 2)
         self.assertFalse((self.state / "maintenance-cli-failure.json").exists())
 
     def test_application_inventory_pages_preserve_unsettled_original_references(
@@ -8807,9 +8806,9 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 ),
                 patch.object(
                     server,
-                    "verify_payload_inventory",
-                    wraps=server.verify_payload_inventory,
-                ) as verify,
+                    "native_payload_operation",
+                    side_effect=fixture_native_payload_operation,
+                ) as physical,
                 patch.object(
                     server,
                     "maintenance_domain_call",
@@ -8824,7 +8823,10 @@ with patch.object(argparse.ArgumentParser, 'parse_args', side_effect=selected):
                 ),
             ):
                 server.rehome_restored_payloads(self.state, selected, {})
-            verify.assert_called_once()
+            restored = [call for call in physical.call_args_list if call.args[2] == "restore"]
+            self.assertEqual(len(restored), 1)
+            self.assertEqual(restored[0].kwargs["destination"], self.state)
+            self.assertEqual(restored[0].kwargs["target"]["payload_incarnation"], selected["payload_incarnation"])
             self.assertEqual(
                 domain.call_args_list[0].args[-2:], ("page", [*context, "rehome", ""])
             )

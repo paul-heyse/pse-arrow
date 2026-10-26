@@ -91,9 +91,9 @@ impl ResearchPublicationIntent {
             || self.publication.expected() != Some(self.request.target.context.revision.as_str())
             || self.publication.context_commitment() != Some(self.commitment()?.as_str())
             || self.publication.research().is_none_or(|r| {
-                r.selection != self.request.selection
-                    || r.run != self.request.run
-                    || r.attempt != self.request.attempt
+                r.selection.as_str() != self.request.selection
+                    || r.run.as_str() != self.request.run
+                    || r.attempt.as_str() != self.request.attempt
                     || r.mapping != encoded(&self.request.targets).unwrap_or_default()
             })
         {
@@ -188,9 +188,9 @@ impl Runtime {
             return Err(contract("qualified fit export population invalid"));
         }
         let binding = ResearchPublicationBinding {
-            selection: request.selection.clone(),
-            run: request.run.clone(),
-            attempt: request.attempt.clone(),
+            selection: request.selection.clone().into(),
+            run: request.run.clone().into(),
+            attempt: request.attempt.clone().into(),
             result_set: set.key.clone(),
             manifest_digest: read.manifest().digest.clone(),
             source_selection: read.run().source_selection.as_slice().to_vec(),

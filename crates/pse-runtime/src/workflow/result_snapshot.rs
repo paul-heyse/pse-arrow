@@ -86,7 +86,7 @@ impl ProtectedResultDecode {
 struct CachedFile {
     instance: String,
     reader:
-        datafusion::arrow::ipc::reader::FileReader<pse_operations::canonical_files::ProtectedFile>,
+        datafusion::arrow::ipc::reader::FileReader<result_files::ResultFileSource>,
     _owner: MemoryReservation,
 }
 
@@ -318,6 +318,7 @@ impl ProtectedResultDecode {
         {
             return Err(contract("protected result descriptor coverage differs"));
         }
+        let locator = pse_operations::canonical_execution::result_payload_locator(descriptor)?;
         // Waiters own no file-shaped grant. Reserve only once this decoder can
         // actually execute, preserving headroom for its current reader/aliases.
         let mut cache = decoder_turn(&self.cache, cancel).await?;
@@ -338,7 +339,7 @@ impl ProtectedResultDecode {
             .map_err(pse_engine::EngineError::from)?;
         if cache
             .as_ref()
-            .is_none_or(|cached| cached.instance != descriptor.file_instance)
+            .is_none_or(|cached| cached.instance != locator.payload_identity())
         {
             let metadata = MemoryConsumer::new("canonical:result-file-footer-cache")
                 .register(&self.services.preparation().pool());
@@ -357,20 +358,34 @@ impl ProtectedResultDecode {
             let response = super::connected_results::pooled_response_owner(
                 &self.services.preparation().pool(),
                 "canonical:result-file-open-response",
-                MetadataResponse::Header,
+                match locator {
+                    pse_operations::canonical_execution::PayloadLocator::Inline { .. } => MetadataResponse::InlinePayload,
+                    pse_operations::canonical_execution::PayloadLocator::Sealed { .. } => MetadataResponse::Header,
+                },
             )?;
-            let file = pse_operations::canonical::response_ownership_scope(
-                Arc::new((self.read.clone(), self.read_owner.clone(), response)),
-                self.services
-                    .canonical_store()?
-                    .open_result_file(&self.read, descriptor),
-            )
-            .await?;
-            let count = usize::try_from(file.descriptor().batch_count)
-                .map_err(|_| contract("file batch count extent"))?;
-            let reader = result_files::open_file_reader(file, &self.schema, Some(count))?;
+            let (source, count) = match &locator {
+                pse_operations::canonical_execution::PayloadLocator::Sealed { .. } => {
+                    let file = pse_operations::canonical::response_ownership_scope(
+                        Arc::new((self.read.clone(), self.read_owner.clone(), response)),
+                        self.services.canonical_store()?.open_result_file(&self.read, descriptor),
+                    ).await?;
+                    let count = usize::try_from(file.descriptor().batch_count)
+                        .map_err(|_| contract("file batch count extent"))?;
+                    (result_files::ResultFileSource::Sealed(file), count)
+                }
+                pse_operations::canonical_execution::PayloadLocator::Inline { .. } => {
+                    let body = pse_operations::canonical::response_ownership_scope(
+                        Arc::new((self.read.clone(), self.read_owner.clone(), response)),
+                        self.services.canonical_store()?.read_inline_payload(&self.read, descriptor),
+                    ).await?;
+                    let count = usize::try_from(body.batch_count)
+                        .map_err(|_| contract("inline batch count extent"))?;
+                    (result_files::ResultFileSource::Inline(std::io::Cursor::new(body.body.into_vec())), count)
+                }
+            };
+            let reader = result_files::open_file_reader(source, &self.schema, Some(count))?;
             *cache = Some(CachedFile {
-                instance: descriptor.file_instance.clone(),
+                instance: locator.payload_identity().to_owned(),
                 reader,
                 _owner: metadata,
             });
@@ -381,7 +396,7 @@ impl ProtectedResultDecode {
         cached
             .reader
             .set_index(
-                usize::try_from(descriptor.file_batch_index)
+                usize::try_from(descriptor.payload_index)
                     .map_err(|_| contract("file batch index extent"))?,
             )
             .map_err(super::result_blocks::ResultBlockError::from)?;
@@ -864,9 +879,9 @@ impl NativeResultSelection {
             let exact = member(index).and_then(|(block, descriptor)| {
                 let bytes = block.statistics.as_ref()?;
                 let binding = pse_relations::result_batch::StatisticsBinding {
-                    instance: descriptor.file_instance.clone(),
-                    digest: descriptor.file_digest.clone(),
-                    index: descriptor.file_batch_index,
+                    payload: pse_operations::canonical_execution::result_payload_locator(descriptor).ok()?.payload_identity().to_owned(),
+                    digest: descriptor.digest.clone(),
+                    index: descriptor.payload_index,
                     interpretation: block.interpretation.clone(),
                 };
                 let facts = pse_relations::result_batch::recorded_statistics(

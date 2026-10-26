@@ -1878,8 +1878,8 @@
           "type": "string"
         },
         "project": {
-          "description": "Stable project identity.",
-          "type": "string"
+          "$ref": "#/$defs/ProjectKey",
+          "description": "Stable project identity."
         },
         "sequence": {
           "description": "Last included journal position.",
@@ -4404,6 +4404,10 @@
         "request"
       ],
       "type": "object"
+    },
+    "ProjectKey": {
+      "description": "An opaque canonical lookup key; never a scientific semantic identity.",
+      "type": "string"
     },
     "Propagation": {
       "additionalProperties": false,

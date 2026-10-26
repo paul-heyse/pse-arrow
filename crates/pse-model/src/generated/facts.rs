@@ -209,6 +209,10 @@ pub enum FactBatch {
     r#RuntimeCanonicalHistoryRetirements(
         Vec<super::r#runtime::r#canonical_history_retirements::Row>,
     ),
+    #[doc = stringify!(r#RuntimeCanonicalInlinePayloads)]
+    r#RuntimeCanonicalInlinePayloads(
+        Vec<super::r#runtime::r#canonical_inline_payloads::Row>,
+    ),
     #[doc = stringify!(r#RuntimeCanonicalInterpretations)]
     r#RuntimeCanonicalInterpretations(
         Vec<super::r#runtime::r#canonical_interpretations::Row>,
@@ -1016,6 +1020,12 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     78u8, 118u8, 95u8, 227u8, 214u8, 246u8, 109u8, 205u8, 191u8, 96u8,
                     169u8, 217u8, 95u8, 150u8, 79u8, 58u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalInlinePayloads(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    215u8, 105u8, 246u8, 114u8, 230u8, 18u8, 39u8, 233u8, 110u8, 51u8,
+                    33u8, 217u8, 167u8, 236u8, 153u8, 207u8,
                 ])
             }
             Self::r#RuntimeCanonicalInterpretations(_) => {
@@ -1859,6 +1869,7 @@ impl FactBatch {
             Self::r#RuntimeCanonicalHistoryObligationCounts(rows) => rows.len(),
             Self::r#RuntimeCanonicalHistoryObligations(rows) => rows.len(),
             Self::r#RuntimeCanonicalHistoryRetirements(rows) => rows.len(),
+            Self::r#RuntimeCanonicalInlinePayloads(rows) => rows.len(),
             Self::r#RuntimeCanonicalInterpretations(rows) => rows.len(),
             Self::r#RuntimeCanonicalMaintenanceActivations(rows) => rows.len(),
             Self::r#RuntimeCanonicalMaintenanceOperations(rows) => rows.len(),
@@ -2364,6 +2375,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeCanonicalHistoryRetirements(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalInlinePayloads(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -3324,6 +3340,10 @@ impl FactBatch {
                     .map(|row| Self::r#RuntimeCanonicalHistoryRetirements(
                         vec![row.clone()],
                     ))
+            }
+            Self::r#RuntimeCanonicalInlinePayloads(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalInlinePayloads(vec![row.clone()]))
             }
             Self::r#RuntimeCanonicalInterpretations(rows) => {
                 rows.get(index)
@@ -4668,6 +4688,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalHistoryRetirements(left),
                 Self::r#RuntimeCanonicalHistoryRetirements(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalInlinePayloads(left),
+                Self::r#RuntimeCanonicalInlinePayloads(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -6558,6 +6589,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeCanonicalInlinePayloads(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeCanonicalInterpretations(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -8351,6 +8389,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalHistoryRetirements(left),
                 Self::r#RuntimeCanonicalHistoryRetirements(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalInlinePayloads(left),
+                Self::r#RuntimeCanonicalInlinePayloads(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -10422,6 +10471,10 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
+            Self::r#RuntimeCanonicalInlinePayloads(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
             Self::r#RuntimeCanonicalInterpretations(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
@@ -11526,6 +11579,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeCanonicalInlinePayloads(left),
+                Self::r#RuntimeCanonicalInlinePayloads(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeCanonicalInterpretations(left),
                 Self::r#RuntimeCanonicalInterpretations(mut right),
             ) => {
@@ -12554,6 +12614,9 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalHistoryRetirements(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalInlinePayloads(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalInterpretations(rows) => {

@@ -15,6 +15,11 @@ use crate::{
 use pse_ids::{Frame, FramedHasher};
 use pse_model::SemanticFrame;
 use std::time::Duration;
+pub use pse_model::generated::enums::CanonicalArtifactHolderKind;
+use pse_model::generated::canonical::ArtifactKey;
+fn holder_kind(value: &str) -> Result<CanonicalArtifactHolderKind, CanonicalError> {
+    value.parse().map_err(|error: pse_diagnostics::VocabularyError| CanonicalError::Configuration(error.to_string()))
+}
 use surrealdb::types::{Object, Value};
 
 #[cfg(any(test, feature = "test-support"))]
@@ -140,16 +145,16 @@ pub struct ArtifactLocator {
 }
 
 /// Explicit owner identity. Other obligations are never released by this value.
-pub fn artifact_obligation(artifact: &str, owner_kind: &str, owner: &str) -> ArtifactObligation {
+pub fn artifact_obligation(artifact: &ArtifactKey, owner_kind: CanonicalArtifactHolderKind, owner: &str) -> ArtifactObligation {
     let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
     hash.str("pse.artifact.obligation.v1")
         .str(artifact)
-        .str(owner_kind)
+        .str(owner_kind.as_str())
         .str(owner);
     ArtifactObligation {
         key: hash.finish_hash().to_hex(),
-        artifact: artifact.into(),
-        owner_kind: owner_kind.into(),
+        artifact: artifact.as_str().into(),
+        owner_kind,
         owner: owner.into(),
     }
 }
@@ -567,6 +572,7 @@ impl CanonicalStore {
         owner_kind: &str,
         owner: &str,
     ) -> Result<Artifact, CanonicalError> {
+        holder_kind(owner_kind)?;
         let activity = self.admit_activity()?;
         activity.scope(async {
             let mut checked=header.clone();seal_artifact_stream_request(&mut checked,sources,inputs,load_block,owner_kind,owner)?;
@@ -621,7 +627,7 @@ impl CanonicalStore {
                 if !metadata.is_empty() { self.append_artifact_metadata(&header.key, &metadata).await?; }
                 let mut finished=header.clone();seal_artifact_stream_request(&mut finished,sources,inputs,load_block,owner_kind,owner)?;
                 if finished.creation_request_digest!=header.creation_request_digest {return Err(CanonicalError::OperationReused);}
-                let obligation=wire::encode_canonical_artifact_obligations(&artifact_obligation(&header.key,owner_kind,owner))?;
+                let obligation=wire::encode_canonical_artifact_obligations(&artifact_obligation(&ArtifactKey::from(header.key.as_str()),holder_kind(owner_kind)?,owner))?;
                 let mut response=protected_query("canonical_artifacts::activate",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::activate($pse_rpc_expires_at,$key,$obligation); COMMIT;").bind(("key",header.key.clone())).bind(("obligation",obligation.clone())))).await?;
                 Ok(wire::decode_canonical_artifacts(object(&mut response)?)?)
             }.await;
@@ -660,7 +666,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
             self.ensure_writes()?;
-            let row=wire::encode_canonical_artifact_obligations(&artifact_obligation(key,owner_kind,owner))?;
+            let row=wire::encode_canonical_artifact_obligations(&artifact_obligation(&ArtifactKey::from(key),holder_kind(owner_kind)?,owner))?;
             protected_query("canonical_artifacts::retain",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::attach($pse_rpc_expires_at,$key,$obligation,true); COMMIT;").bind(("key",key.to_owned())).bind(("obligation",row.clone())))).await?; Ok(())
         }).await
     }
@@ -674,7 +680,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
             self.ensure_writes()?;
-            let row=wire::encode_canonical_artifact_obligations(&artifact_obligation(key,owner_kind,owner))?;
+            let row=wire::encode_canonical_artifact_obligations(&artifact_obligation(&ArtifactKey::from(key),holder_kind(owner_kind)?,owner))?;
             protected_query("canonical_artifacts::release",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; RETURN fn::pse_artifact_v1::release($pse_rpc_expires_at,$obligation); COMMIT;").bind(("obligation",row.clone())))).await?; Ok(())
         }).await
     }
@@ -688,7 +694,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
             self.ensure_writes()?;
-            let obligation=wire::encode_canonical_artifact_obligations(&artifact_obligation(&intent.key,owner_kind,owner))?;
+            let obligation=wire::encode_canonical_artifact_obligations(&artifact_obligation(&ArtifactKey::from(intent.key.as_str()),holder_kind(owner_kind)?,owner))?;
             let intent=wire::encode_canonical_artifacts(intent)?;
             protected_query("canonical_artifacts::release_intent",||Ok(self.db.metadata_query(MetadataResponse::Header,"BEGIN; fn::pse_artifact_v1::original($pse_rpc_expires_at,$intent); RETURN fn::pse_artifact_v1::release($pse_rpc_expires_at,$obligation); COMMIT;").bind(("intent",intent.clone())).bind(("obligation",obligation.clone())))).await?;
             Ok(())
@@ -1046,7 +1052,7 @@ mod canonical_artifact_tests {
         ] {
             let error=store.release_artifact(&intent.key,kind,"absent-owner").await.unwrap_err();
             assert!(matches!(error,CanonicalError::Refused { code:actual,.. } if actual==code));
-            let obligation=artifact_obligation(&intent.key,kind,"absent-owner");
+            let obligation=artifact_obligation(&intent.key_domain(),holder_kind(kind).unwrap(),"absent-owner");
             let mut response=bounded_query(store.db.query("SELECT * FROM ONLY type::record('canonical_artifact_releases',$key);").bind(("key",obligation.key))).await.unwrap();
             assert!(response.take::<Option<Object>>(0).unwrap().is_none(),"refused owner release must not mint a permanent receipt");
         }

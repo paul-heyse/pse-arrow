@@ -21,14 +21,16 @@ pub struct RuntimeCanonicalResultBatchesRow {
     pub r#digest: String,
     ///row_count
     pub r#row_count: u64,
-    ///file_binding
-    pub r#file_binding: String,
+    ///payload_binding
+    pub r#payload_binding: String,
+    ///placement
+    pub r#placement: crate::generated::enums::CanonicalPayloadPlacement,
+    ///inline_key
+    pub r#inline_key: Option<String>,
     ///file_instance
-    pub r#file_instance: String,
-    ///file_digest
-    pub r#file_digest: String,
-    ///file_batch_index
-    pub r#file_batch_index: u64,
+    pub r#file_instance: Option<String>,
+    ///payload_index
+    pub r#payload_index: u64,
     ///payload_bytes
     pub r#payload_bytes: u64,
     ///schema
@@ -45,17 +47,17 @@ impl crate::SemanticEq for RuntimeCanonicalResultBatchesRow {
             && crate::SemanticEq::semantic_eq(&self.r#digest, &other.r#digest)
             && crate::SemanticEq::semantic_eq(&self.r#row_count, &other.r#row_count)
             && crate::SemanticEq::semantic_eq(
-                &self.r#file_binding,
-                &other.r#file_binding,
-            )
+                &self.r#payload_binding,
+                &other.r#payload_binding,
+            ) && crate::SemanticEq::semantic_eq(&self.r#placement, &other.r#placement)
+            && crate::SemanticEq::semantic_eq(&self.r#inline_key, &other.r#inline_key)
             && crate::SemanticEq::semantic_eq(
                 &self.r#file_instance,
                 &other.r#file_instance,
             )
-            && crate::SemanticEq::semantic_eq(&self.r#file_digest, &other.r#file_digest)
             && crate::SemanticEq::semantic_eq(
-                &self.r#file_batch_index,
-                &other.r#file_batch_index,
+                &self.r#payload_index,
+                &other.r#payload_index,
             )
             && crate::SemanticEq::semantic_eq(
                 &self.r#payload_bytes,
@@ -85,14 +87,16 @@ impl crate::SemanticFrame for RuntimeCanonicalResultBatchesRow {
         crate::SemanticFrame::frame(&self.r#digest, hash);
         hash.str(stringify!(r#row_count));
         crate::SemanticFrame::frame(&self.r#row_count, hash);
-        hash.str(stringify!(r#file_binding));
-        crate::SemanticFrame::frame(&self.r#file_binding, hash);
+        hash.str(stringify!(r#payload_binding));
+        crate::SemanticFrame::frame(&self.r#payload_binding, hash);
+        hash.str(stringify!(r#placement));
+        crate::SemanticFrame::frame(&self.r#placement, hash);
+        hash.str(stringify!(r#inline_key));
+        crate::SemanticFrame::frame(&self.r#inline_key, hash);
         hash.str(stringify!(r#file_instance));
         crate::SemanticFrame::frame(&self.r#file_instance, hash);
-        hash.str(stringify!(r#file_digest));
-        crate::SemanticFrame::frame(&self.r#file_digest, hash);
-        hash.str(stringify!(r#file_batch_index));
-        crate::SemanticFrame::frame(&self.r#file_batch_index, hash);
+        hash.str(stringify!(r#payload_index));
+        crate::SemanticFrame::frame(&self.r#payload_index, hash);
         hash.str(stringify!(r#payload_bytes));
         crate::SemanticFrame::frame(&self.r#payload_bytes, hash);
         hash.str(stringify!(r#schema));
@@ -110,10 +114,11 @@ impl crate::HeapUsage for RuntimeCanonicalResultBatchesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#ordinal))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#digest))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#row_count))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#file_binding))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#payload_binding))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#placement))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#inline_key))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#file_instance))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#file_digest))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#file_batch_index))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#payload_index))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#payload_bytes))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#schema))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#encoding))

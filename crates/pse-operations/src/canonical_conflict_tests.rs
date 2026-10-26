@@ -104,6 +104,9 @@ async fn floor(store: &CanonicalStore, problem: &str) -> u64 {
 async fn finish(store: &CanonicalStore, revision: &Revision, key: &str) -> String {
     store
         .begin_run(&RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: key.into(),
             revision: revision.clone(),
             sources: vec![],
@@ -181,6 +184,9 @@ async fn exact_terminal_seal_and_unrelated_source_creator_commute_both_orders() 
         let (store, options, revision) = fixture().await;
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "sealing".into(),
                 revision: revision.clone(),
                 sources: vec![],
@@ -307,6 +313,9 @@ async fn exact_terminal_root_release_and_source_collection_preserve_run_both_ord
             .unwrap();
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "sealing".into(),
                 revision: old.clone(),
                 sources: vec![],
@@ -788,6 +797,9 @@ async fn exact_terminal_summary_and_point_creators_retirement_both_orders() {
                 let row = crate::canonical_studies::StudyPoint {
                     key: "point".into(),
                     study: "study".into(),
+                    admission_run: None,
+                    variant_problem: None,
+                    variant_operation: None,
                     ordinal: 0,
                     occurrence: 0,
                     seed_solution: None,
@@ -863,6 +875,9 @@ async fn exact_cancellation_registers_dispatch_both_orders() {
         let (store, options, revision) = fixture().await;
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "target".into(),
                 revision: revision.clone(),
                 sources: vec![],
@@ -923,6 +938,9 @@ fn point(
     crate::canonical_studies::StudyPoint {
         key: key.into(),
         study: "study".into(),
+        admission_run: None,
+        variant_problem: None,
+        variant_operation: None,
         ordinal,
         occurrence: ordinal,
         seed_solution: None,
@@ -942,6 +960,9 @@ fn point(
 async fn begin(store: &CanonicalStore, revision: &Revision, key: &str) {
     store
         .begin_run(&RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: key.into(),
             revision: revision.clone(),
             sources: vec![],
@@ -1514,6 +1535,9 @@ async fn commit_order_publication_never_appears_behind_an_advanced_page_cursor()
     let (store, options, revision) = fixture().await;
     let initial = store
         .begin_run(&RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: "publication-base".into(),
             revision: revision.clone(),
             sources: vec![],
@@ -1558,7 +1582,10 @@ async fn commit_order_publication_never_appears_behind_an_advanced_page_cursor()
     let advanced = first[0].sequence;
     let retried = store
         .begin_run(&RunRequest {
-            key: early_row.key.clone(),
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
+            key: early_row.key.clone().into(),
             revision: revision.clone(),
             sources: vec![],
             request: vec![1],
@@ -1571,7 +1598,10 @@ async fn commit_order_publication_never_appears_behind_an_advanced_page_cursor()
     for index in 0..3 {
         store
             .begin_run(&RunRequest {
-                key: format!("publication-tail-{index}"),
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
+                key: format!("publication-tail-{index}").into(),
                 revision: revision.clone(),
                 sources: vec![],
                 request: vec![1],

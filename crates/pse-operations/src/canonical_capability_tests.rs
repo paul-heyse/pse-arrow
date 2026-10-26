@@ -59,6 +59,9 @@ fn edit(version: &str, logical: &str, scope: &str, kind: &str, supplier: bool) -
 
 fn request(revision: &Revision, key: &str) -> RunRequest {
     RunRequest {
+        purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+        admission_study: None,
+        admission_point: None,
         key: key.into(),
         revision: revision.clone(),
         sources: Vec::new(),

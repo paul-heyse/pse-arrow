@@ -40,12 +40,12 @@ impl From<ExpectedContract> for Expectation {
     }
 }
 
-/// Exact immutable physical and interpretation coordinates supplied by the file owner.
+/// Exact immutable payload and interpretation coordinates supplied by the publication owner.
 /// These coordinates alone carry no statistics or admission authority.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StatisticsBinding {
-    /// Never-reused original physical file instance.
-    pub instance: String,
+    /// Original canonical inline body key or never-reused sealed file instance.
+    pub payload: String,
     /// Integrity digest of the complete encoded file.
     pub digest: String,
     /// Original native record-batch index inside that file.
@@ -119,8 +119,8 @@ impl BatchFacts {
     /// # Errors
     /// Encoding failure or metadata beyond the independently declared bound.
     pub fn encode_bound(&self, binding: &StatisticsBinding) -> Result<Vec<u8>, RelationError> {
-        if binding.instance.is_empty()
-            || binding.instance.len() > 64
+        if binding.payload.is_empty()
+            || binding.payload.len() > 64
             || binding.digest.len() != 64
             || !binding.digest.bytes().all(|byte| byte.is_ascii_hexdigit())
             || binding.interpretation.is_empty()
@@ -542,7 +542,7 @@ mod tests {
     }
     fn binding(index: u64) -> StatisticsBinding {
         StatisticsBinding {
-            instance: "00000000-0000-0000-0000-000000000001".into(),
+            payload: "00000000-0000-0000-0000-000000000001".into(),
             digest: "a".repeat(64),
             index,
             interpretation: "pse.substrate.test".into(),
@@ -676,7 +676,7 @@ mod tests {
         for field in 0..4 {
             match field {
                 0 => changed.digest = "b".repeat(64),
-                1 => changed.instance.push('x'),
+                1 => changed.payload.push('x'),
                 2 => changed.index += 1,
                 _ => changed.interpretation.push('x'),
             }

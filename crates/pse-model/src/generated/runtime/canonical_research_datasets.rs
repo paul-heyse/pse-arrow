@@ -49,6 +49,40 @@ impl PartialEq for RuntimeCanonicalResearchDatasetsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalResearchDatasetsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::ResearchDatasetKey {
+        crate::generated::canonical::ResearchDatasetKey::from(self.r#key.as_str())
+    }
+}
+impl RuntimeCanonicalResearchDatasetsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn project_domain(&self) -> crate::generated::canonical::ProjectKey {
+        crate::generated::canonical::ProjectKey::from(self.r#project.as_str())
+    }
+}
+impl RuntimeCanonicalResearchDatasetsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn revision_domain(&self) -> crate::generated::canonical::RevisionKey {
+        crate::generated::canonical::RevisionKey::from(self.r#revision.as_str())
+    }
+}
+impl RuntimeCanonicalResearchDatasetsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn context_domain(&self) -> crate::generated::canonical::ProjectContextKey {
+        crate::generated::canonical::ProjectContextKey::from(self.r#context.as_str())
+    }
+}
+impl RuntimeCanonicalResearchDatasetsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn parent_domain(
+        &self,
+    ) -> Option<crate::generated::canonical::ResearchDatasetKey> {
+        self.r#parent
+            .as_deref()
+            .map(crate::generated::canonical::ResearchDatasetKey::from)
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalResearchDatasetsRow;
 impl crate::SemanticFrame for RuntimeCanonicalResearchDatasetsRow {

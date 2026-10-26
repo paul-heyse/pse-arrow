@@ -38,7 +38,7 @@ pub struct RuntimeCanonicalFileInstancesRow {
     ///interpretation
     pub r#interpretation: String,
     ///state
-    pub r#state: String,
+    pub r#state: crate::generated::enums::CanonicalFileState,
 }
 impl crate::SemanticEq for RuntimeCanonicalFileInstancesRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -73,6 +73,12 @@ impl crate::SemanticEq for RuntimeCanonicalFileInstancesRow {
 impl PartialEq for RuntimeCanonicalFileInstancesRow {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl RuntimeCanonicalFileInstancesRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::FileInstanceKey {
+        crate::generated::canonical::FileInstanceKey::from(self.r#key.as_str())
     }
 }
 /// The concrete generated relation row.

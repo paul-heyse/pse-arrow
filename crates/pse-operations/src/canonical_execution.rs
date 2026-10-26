@@ -10,6 +10,9 @@ use crate::{
     generated::surreal as wire,
 };
 use pse_ids::{Frame, FramedHasher};
+#[path = "canonical_payload.rs"]
+mod payload;
+pub use payload::{PayloadLocator, result_payload_locator};
 pub use pse_model::generated::runtime::{
     canonical_attempts::Row as CanonicalAttempt, canonical_result_batches::Row as ResultBatch,
     canonical_result_manifests::Row as ResultManifest, canonical_runs::Row as CanonicalRun,
@@ -24,6 +27,32 @@ use surrealdb::types::{Bytes, Object, Value};
 
 #[cfg(all(test, feature = "canonical-tests"))]
 tokio::task_local! { static APPEND_GROUP_REPLY_LOSS: bool; }
+
+#[cfg(all(test, feature = "canonical-tests"))]
+#[derive(Clone, Copy, Debug)]
+enum ExecutionAckFault { Missing, Malformed }
+#[cfg(all(test, feature = "canonical-tests"))]
+tokio::task_local! {
+    static EXECUTION_ACK_FAULT: (&'static str, ExecutionAckFault);
+    static EXECUTION_ACK_READBACK_FAILURE: bool;
+}
+
+// Decode only after native statement/commit completion. Controlled faults alter
+// the returned ACK, while genuine server effects and recovery reads remain real.
+fn take_execution_ack(
+    owner: &'static str,
+    response: &mut surrealdb::IndexedResults,
+) -> Result<Object, CanonicalError> {
+    let row = response.take::<Option<Object>>(0)?;
+    #[cfg(all(test, feature = "canonical-tests"))]
+    let row = match EXECUTION_ACK_FAULT.try_with(|(selected, fault)| (*selected == owner).then_some(*fault)).ok().flatten() {
+        Some(ExecutionAckFault::Missing) => None,
+        Some(ExecutionAckFault::Malformed) => Some(Object::new()),
+        None => row,
+    };
+    let _ = owner;
+    row.ok_or(CanonicalError::IncompleteResponse)
+}
 
 /// Exact original run/attempt facts without execution requests, attestations or scientific completion.
 #[derive(Clone, Debug)]
@@ -210,7 +239,13 @@ pub fn result_output_metadata_extent(output: &ResultOutput) -> Result<usize, Can
 #[derive(Clone, Debug)]
 pub struct RunRequest {
     /// Stable semantic run and begin-effect identity.
-    pub key: String,
+    pub key: pse_model::generated::canonical::RunKey,
+    /// Governing execution purpose, fixed before registration.
+    pub purpose: pse_model::generated::enums::CanonicalRunPurpose,
+    /// Explicit lazy-admission owner; both association coordinates occur together.
+    pub admission_study: Option<pse_model::generated::canonical::StudyKey>,
+    /// Exact immutable point selected by the admission owner.
+    pub admission_point: Option<pse_model::generated::canonical::StudyPointKey>,
     /// Immutable source receipt; server rechecks its actual meaning.
     pub revision: crate::canonical::Revision,
     /// Additional exact retained inputs, including selected physical definitions.
@@ -260,6 +295,9 @@ mod canonical_execution_server_unit {
     ) -> CanonicalRun {
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: key.into(),
                 revision: revision.clone(),
                 sources: vec![],
@@ -270,6 +308,178 @@ mod canonical_execution_server_unit {
             .await
             .unwrap()
     }
+    #[tokio::test]
+    async fn canonical_empty_payload_refuses_before_all_client_and_server_effects() {
+        let (store,database,revision)=fixture().await;
+        run(&store,&revision,"empty-refusal").await;
+        let fence=store.claim_run("empty-refusal","claim-empty-refusal","worker",Duration::from_secs(60)).await.unwrap();
+        assert!(ResultPayload::new(Vec::new()).is_err());
+        assert!(ResultPayload::new_owned(Vec::new(),std::sync::Arc::new(())).is_err());
+        assert!(ResultPayload::from_encoded_owned(Vec::new(),crate::canonical_files::OPAQUE_BYTES,"",0,0,"empty-body",std::sync::Arc::new(())).is_err());
+        assert_eq!(crate::testing::result_payload_counts(&store,&fence).await.unwrap(),(0,0));
+        // Deliberately bypass the Rust constructor in this isolated fixture to
+        // prove the native function refuses zero bytes before publication too.
+        let mut item=canonical_result_admission_unit::append_item(&fence,"empty",0,vec![1]);
+        let Value::Object(mut batch)=item.item.remove("batch").unwrap() else {panic!("batch object")};
+        batch.insert("payload_bytes",canonical_codec::encode_uint(0).unwrap());
+        let Value::Object(mut body)=item.item.remove("inline").unwrap() else {panic!("body object")};
+        body.insert("payload_bytes",canonical_codec::encode_uint(0).unwrap());
+        body.insert("body",Value::Bytes(Bytes::from(Vec::<u8>::new())));
+        let operation="raw-empty-append";
+        assert!(store.protected_execution_query(fence.run(),"canonical_execution::empty_fixture",||Ok(store.db.query("RETURN fn::pse_execution_v1::append($pse_rpc_expires_at,$run,$attempt,$generation,$operation,$request,$set,$batch,$inline,$block,$outputs);")
+            .bind(("run",fence.run().to_owned())).bind(("attempt",fence.attempt().to_owned())).bind(("generation",canonical_codec::encode_uint(fence.generation())?))
+            .bind(("operation",operation.to_owned())).bind(("request",item.item.get("request").unwrap().clone()))
+            .bind(("set",item.item.get("set").unwrap().clone())).bind(("batch",batch.clone())).bind(("inline",body.clone()))
+            .bind(("block",item.item.get("block").unwrap().clone())).bind(("outputs",item.item.get("outputs").unwrap().clone())))).await.is_err());
+        assert_eq!(crate::testing::result_payload_counts(&store,&fence).await.unwrap(),(0,0));
+        let mut rows=bounded_query(store.db.query("RETURN {batches:(SELECT key FROM canonical_result_batches WHERE attempt=$attempt),sets:(SELECT key FROM canonical_result_sets WHERE attempt=$attempt),operation:(SELECT key FROM ONLY type::record('canonical_execution_operations',$operation))};").bind(("attempt",fence.attempt().to_owned())).bind(("operation",operation.to_owned()))).await.unwrap();
+        let envelope=rows.take::<Option<Object>>(0).unwrap().unwrap();
+        assert_eq!(envelope.get("batches"),Some(&Value::Array(Vec::<Value>::new().into())));
+        assert_eq!(envelope.get("sets"),Some(&Value::Array(Vec::<Value>::new().into())));
+        assert!(matches!(envelope.get("operation"),None|Some(Value::None)|Some(Value::Null)));
+        remove(&store,&database).await;
+    }
+
+    #[tokio::test]
+    async fn canonical_missing_and_malformed_committed_acks_settle_exact_native_effects() {
+        for fault in [ExecutionAckFault::Missing,ExecutionAckFault::Malformed] {
+            let (store,database,revision)=fixture().await;
+            let request=RunRequest {key:"ack-normalization".into(),purpose:pse_model::generated::enums::CanonicalRunPurpose::Execution,admission_study:None,admission_point:None,revision,sources:vec![],request:vec![1],source_selection:vec![2],attestation:vec![3]};
+            EXECUTION_ACK_FAULT.scope(("execution-registration",fault),store.begin_run(&request)).await.unwrap();
+            let fence=EXECUTION_ACK_FAULT.scope(("execution-claim",fault),store.claim_run("ack-normalization","claim-ack-normalization","worker",Duration::from_secs(60))).await.unwrap();
+            EXECUTION_ACK_FAULT.scope(("execution-append",fault),store.append_result_batch(&fence,"single-ack-normalization","single",0,ResultPayload::new(vec![7]).unwrap(),1)).await.unwrap();
+            EXECUTION_ACK_FAULT.scope(("execution-append-group",fault),store.append_result_blocks(&fence,vec![canonical_result_admission_unit::append_item(&fence,"group",0,vec![8]),canonical_result_admission_unit::append_item(&fence,"group",1,vec![9])])).await.unwrap();
+            EXECUTION_ACK_FAULT.scope(("execution-empty",fault),store.declare_empty_result_set(&fence,"empty-ack-normalization","empty")).await.unwrap();
+            let closed=EXECUTION_ACK_FAULT.scope(("execution-close",fault),store.close_result_ingestion(&fence,"close-ack-normalization")).await.unwrap();
+            let manifest=EXECUTION_ACK_FAULT.scope(("execution-reconcile",fault),store.reconcile_closed_attempt(&closed)).await.unwrap();
+            // SAFETY: this native transport fixture asserts only a partial outcome.
+            let terminal=EXECUTION_ACK_FAULT.scope(("execution-seal",fault),unsafe {store.seal_attempt(&manifest,"seal-ack-normalization",TerminalClass::Partial,&[],SeedEligibility::Unavailable)}).await.unwrap();
+            assert_eq!(terminal.key,fence.attempt());
+            assert_eq!(crate::testing::result_payload_counts(&store,&fence).await.unwrap(),(3,0));
+            let read=store.read_results(fence.run(),fence.attempt()).await.unwrap();
+            for (name,ordinal,expected) in [("single",0,7),("group",0,8),("group",1,9)] {
+                assert_eq!(store.result_payload(&read,&result_set_key(fence.attempt(),name),ordinal).await.unwrap().batch.payload.as_slice(),[expected]);
+            }
+            drop(read);
+            crate::testing::drain_result_releases(&store).await.unwrap();
+            run(&store,&request.revision,"cancel-ack-normalization").await;
+            let cancelled=EXECUTION_ACK_FAULT.scope(("execution-cancel",fault),store.cancel_run("cancel-ack-normalization","cancel-ack-normalization")).await.unwrap();
+            assert!(cancelled.cancelled);
+            remove(&store,&database).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn canonical_bad_committed_ack_and_failed_native_readback_keep_both_causes() {
+        for fault in [ExecutionAckFault::Missing,ExecutionAckFault::Malformed] {
+        let (store,database,revision)=fixture().await;
+        run(&store,&revision,"dual-ack-failure").await;
+        let fence=store.claim_run("dual-ack-failure","claim-dual-ack-failure","worker",Duration::from_secs(60)).await.unwrap();
+        let error=EXECUTION_ACK_FAULT.scope(("execution-append",fault),EXECUTION_ACK_READBACK_FAILURE.scope(true,
+            store.append_result_batch(&fence,"dual-ack-append","values",0,ResultPayload::new(vec![7]).unwrap(),1))).await.unwrap_err();
+        assert!(error.effect_is_unknown());
+        assert!(matches!(error,CanonicalError::SettlementUnresolved {owner:"execution-append",operation,source,readback:Some(readback),request} if operation=="dual-ack-append" && !request.is_empty() && (match fault {ExecutionAckFault::Missing=>matches!(*source,CanonicalError::IncompleteResponse),ExecutionAckFault::Malformed=>matches!(*source,CanonicalError::OperationReused)}) && matches!(*readback,CanonicalError::Driver(ref driver) if driver.is_thrown())));
+        // The write really committed before either fault; exact retry observes
+        // the original operation and never creates another body or reservation.
+        assert_eq!(crate::testing::result_payload_counts(&store,&fence).await.unwrap(),(1,0));
+        store.append_result_batch(&fence,"dual-ack-append","values",0,ResultPayload::new(vec![7]).unwrap(),1).await.unwrap();
+        assert_eq!(crate::testing::result_payload_counts(&store,&fence).await.unwrap(),(1,0));
+        remove(&store,&database).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn canonical_inline_shared_body_lost_ack_conflict_and_mixed_sealed_owners() {
+        let (store, database, revision) = fixture().await;
+        run(&store,&revision,"placement").await;
+        let fence=store.claim_run("placement","claim-placement","worker",Duration::from_secs(60)).await.unwrap();
+        let bytes=vec![7; pse_schema::catalog::substrate::RESULT_INLINE_BYTES];
+        let group=|| (0..2).map(|ordinal| ResultBlockAppend::prepare(
+            &fence,&format!("inline-member-{ordinal}"),"opaque",ordinal,
+            ResultPayload::from_encoded_owned(bytes.clone(),crate::canonical_files::OPAQUE_BYTES,"",0,0,"original-complete-body",std::sync::Arc::new(())).unwrap(),
+            1,None,&[],None,
+        ).unwrap()).collect::<Vec<_>>();
+        let acks=APPEND_GROUP_REPLY_LOSS.scope(true,store.append_result_blocks(&fence,group())).await.unwrap();
+        let receipts=acks.into_iter().map(|ack|ack.receipt).collect::<Vec<_>>();
+        assert_eq!(crate::testing::result_payload_counts(&store,&fence).await.unwrap(),(1,0));
+        let replay=store.append_result_blocks(&fence,group()).await.unwrap();
+        assert_eq!(replay.into_iter().map(|ack|ack.receipt).collect::<Vec<_>>(),receipts);
+        assert_eq!(crate::testing::result_payload_counts(&store,&fence).await.unwrap(),(1,0));
+        let mut response=bounded_query(store.db.query("SELECT * FROM canonical_inline_payloads WHERE attempt=$attempt;").bind(("attempt",fence.attempt().to_owned()))).await.unwrap();
+        let bodies=response.take::<Vec<Object>>(0).unwrap();
+        assert_eq!(bodies.len(),1);
+        assert_eq!(wire::decode_canonical_inline_payloads(bodies[0].clone()).unwrap().body.as_slice(),bytes);
+        assert!(matches!(store.append_result_batch(&fence,"inline-member-0","opaque",0,ResultPayload::new(vec![8;bytes.len()]).unwrap(),1).await,Err(CanonicalError::OperationReused)));
+        store.append_result_batch(&fence,"large-body","large",0,ResultPayload::new(vec![9;bytes.len()+1]).unwrap(),1).await.unwrap();
+        assert_eq!(crate::testing::result_payload_counts(&store,&fence).await.unwrap(),(1,1));
+        let closed=store.close_result_ingestion(&fence,"close-placement").await.unwrap();
+        let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: this transport fixture makes only the explicit partial claim.
+        unsafe { store.seal_attempt(&manifest,"seal-placement",TerminalClass::Partial,&[],SeedEligibility::Unavailable).await.unwrap(); }
+        let read=store.read_results(fence.run(),fence.attempt()).await.unwrap();
+        let inline_set=result_set_key(fence.attempt(),"opaque");
+        let sealed_set=result_set_key(fence.attempt(),"large");
+        let inline=store.result_payload(&read,&inline_set,0).await.unwrap();
+        let sealed=store.result_payload(&read,&sealed_set,0).await.unwrap();
+        assert_eq!(inline.batch.payload.as_slice(),bytes);
+        assert_eq!(sealed.batch.payload.as_slice(),vec![9;bytes.len()+1]);
+        assert!(store.forget_run_results(fence.run()).await.is_err());
+        drop((read,sealed));
+        assert!(store.forget_run_results(fence.run()).await.is_err(),"returned inline payload retains the actual read ticket");
+        assert_eq!(crate::testing::result_payload_counts(&store,&fence).await.unwrap(),(1,1));
+        drop(inline);
+        crate::testing::drain_result_releases(&store).await.unwrap();
+        store.forget_run_results(fence.run()).await.unwrap();
+        let mut complete=false;
+        for _ in 0..32 {
+            let mut response=bounded_query(store.db.query("SELECT key FROM canonical_result_batches WHERE attempt=$attempt AND placement='inline';").bind(("attempt",fence.attempt().to_owned()))).await.unwrap();
+            let members=response.take::<Vec<Object>>(0).unwrap();
+            assert_eq!(crate::testing::result_payload_counts(&store,&fence).await.unwrap().0,u64::from(!members.is_empty()));
+            if store.reclaim_result_page(fence.run()).await.unwrap().complete {complete=true;break;}
+        }
+        assert!(complete);
+        assert_eq!(crate::testing::result_payload_counts(&store,&fence).await.unwrap().0,0);
+        remove(&store,&database).await;
+    }
+
+    #[cfg(feature="evidence-query")]
+    #[tokio::test]
+    async fn canonical_inline_admitted_ipc_members_share_one_actual_body_and_no_files() {
+        use pse_relations::generated::runtime::fit_parameters;
+        use pse_relations::result_batch::AdmittedResultFile;
+        let (store,database,revision)=fixture().await;
+        run(&store,&revision,"admitted-inline").await;
+        let fence=store.claim_run("admitted-inline","claim-admitted-inline","worker",Duration::from_secs(60)).await.unwrap();
+        let registry=pse_schema::registry().unwrap();
+        let validation=pse_relations::validate::ValidationContext::new(registry,pse_engine::validation::NativeValidation(datafusion::prelude::SessionContext::new().state()));
+        let mut builder=fit_parameters::Builder::new(&validation).unwrap();
+        builder.push(fit_parameters::Row {
+            run_id:pse_model::generated::identities::RunId::from_bytes([1;16]),
+            parameter_id:pse_ids::SemanticId::from_bytes([2;16]),fixed:false,value:Some(-0.0),
+            unit_id:pse_ids::SemanticId::NIL,scale:1.0,at_bound:None,
+        }).unwrap();
+        let batch=builder.finish().unwrap();
+        let pool:std::sync::Arc<dyn pse_columnar::MemoryPool>=std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(16*1024*1024));
+        let admitted=std::sync::Arc::new(AdmittedResultFile::encode(registry,&[batch.clone(),batch],pse_schema::catalog::substrate::RESULT_INLINE_BYTES,&pool,&pse_columnar::CancellationToken::new()).unwrap());
+        let relation=admitted.relation().to_string();
+        let set=result_set_key(fence.attempt(),&relation);
+        let group=|| (0..2).map(|ordinal| {
+            let payload=ResultPayload::from_admitted_encoded_owned(admitted.clone(),ordinal,"original-ipc-body",std::sync::Arc::new(())).unwrap();
+            let key=result_batch_key(fence.attempt(),&set,ordinal);
+            let block=ResultBlock {key:key.clone(),batch:key,result_set:set.clone(),output:relation.clone(),partition:"0".into(),ordinal,start:ordinal,end:ordinal+1,rows:1,columns:7,coordinate_min:None,coordinate_max:None,payload_bytes:payload.byte_len(),payload_digest:payload.digest().into(),statistics:None,interpretation:wire::INTERPRETATION.into()};
+            ResultBlockAppend::new(&fence,&format!("admitted-member-{ordinal}"),&relation,ordinal,payload,1,&block,&[],std::sync::Arc::new(())).unwrap()
+        }).collect::<Vec<_>>();
+        APPEND_GROUP_REPLY_LOSS.scope(true,store.append_result_blocks(&fence,group())).await.unwrap();
+        assert_eq!(crate::testing::result_payload_counts(&store,&fence).await.unwrap(),(1,0));
+        store.append_result_blocks(&fence,group()).await.unwrap();
+        assert_eq!(crate::testing::result_payload_counts(&store,&fence).await.unwrap(),(1,0));
+        let mut response=bounded_query(store.db.query("SELECT inline_key,payload_index FROM canonical_result_batches WHERE attempt=$attempt ORDER BY ordinal;").bind(("attempt",fence.attempt().to_owned()))).await.unwrap();
+        let rows=response.take::<Vec<Object>>(0).unwrap();assert_eq!(rows.len(),2);
+        assert_eq!(rows[0].get("inline_key"),rows[1].get("inline_key"));
+        assert_ne!(rows[0].get("payload_index"),rows[1].get("payload_index"));
+        remove(&store,&database).await;
+    }
+
     #[tokio::test]
     async fn canonical_append_group_lost_reply_settles_exact_receipts_once_and_replays_after_cancel()
      {
@@ -750,6 +960,9 @@ mod canonical_execution_server_unit {
     async fn canonical_execution_large_request_has_narrow_ordered_summary() {
         let (store, database, revision) = fixture().await;
         let request = RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: "large-request".into(),
             revision,
             sources: vec![],
@@ -785,6 +998,9 @@ mod canonical_execution_server_unit {
         use pse_model::study::{OccurrenceKey, PointPolicy, SeedNeed, StartPolicy};
         let (store, database, revision) = fixture().await;
         let request = |key: &str| RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: key.into(),
             revision: revision.clone(),
             sources: vec![],
@@ -1797,8 +2013,8 @@ mod canonical_execution_server_unit {
             .renew_attempt(&fence, Duration::from_millis(250))
             .await
             .unwrap();
-        assert_eq!(expiring.run, fence.run);
-        assert_eq!(expiring.key, fence.attempt);
+        assert_eq!(expiring.run, fence.run());
+        assert_eq!(expiring.key, fence.attempt());
         assert_eq!(expiring.generation, fence.generation);
         tokio::time::sleep(Duration::from_millis(300)).await;
         let mut clock = bounded_query(store.db.query("RETURN time::micros();"))
@@ -1996,6 +2212,9 @@ mod canonical_execution_server_unit {
         }
         let (store, database, revision) = fixture().await;
         let request = RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: "retained-restart-run".into(),
             revision: revision.clone(),
             sources: vec![],
@@ -2075,6 +2294,9 @@ mod canonical_execution_server_unit {
         assert_eq!(decode_result_descriptors(manifest.row()).unwrap().len(), 1);
         let fresh = store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "retained-restart-next".into(),
                 ..request
             })
@@ -2456,6 +2678,9 @@ mod canonical_execution_server_unit {
     async fn canonical_execution_named_absence_guard_and_ordered_decimal_sequence() {
         let (store, database, revision) = fixture().await;
         let request = RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: "same".into(),
             revision: revision.clone(),
             sources: vec![],
@@ -2616,8 +2841,8 @@ mod canonical_execution_server_unit {
 /// Worker admission capability; fields cannot be fabricated by an external caller.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AttemptFence {
-    run: String,
-    attempt: String,
+    run: pse_model::generated::canonical::RunKey,
+    attempt: pse_model::generated::canonical::AttemptKey,
     generation: u64,
 }
 impl AttemptFence {
@@ -2628,8 +2853,8 @@ impl AttemptFence {
             ));
         }
         Ok(Self {
-            run: row.run,
-            attempt: row.key,
+            run: row.run.into(),
+            attempt: row.key.into(),
             generation: row.generation,
         })
     }
@@ -2694,7 +2919,7 @@ pub struct AppendReceipt {
     /// Actual admitted row coverage.
     pub row_count: u64,
     /// Exact framed physical instance, native index, codec and schema binding.
-    pub file_binding: String,
+    pub payload_binding: String,
 }
 /// Authenticated successful append or exact operation settlement. Not constructible
 /// from a descriptor, serialized input or a copied public receipt.
@@ -2788,10 +3013,10 @@ impl ResultBlockAppend {
         let digest = payload.digest.clone();
         let owner = owner.or(payload.owner.clone());
         let file = payload.file.as_ref().map(|file| file.descriptor().clone());
-        let file_index = payload.file_index;
+        let payload_index = payload.payload_index;
         let set = ResultSet {
             key: set_key.clone(),
-            attempt: fence.attempt.clone(),
+            attempt: fence.attempt.as_str().to_owned(),
             name: name.into(),
             interpretation: wire::INTERPRETATION.into(),
             next_ordinal: 0,
@@ -2799,20 +3024,18 @@ impl ResultBlockAppend {
         };
         let batch = ResultBatch {
             key: key.clone(),
-            attempt: fence.attempt.clone(),
+            attempt: fence.attempt.as_str().to_owned(),
             result_set: set_key.clone(),
             ordinal,
             digest: digest.clone(),
             row_count,
-            file_binding: String::new(),
-            file_instance: file
-                .as_ref()
-                .map(|f| f.instance.clone())
-                .unwrap_or_default(),
-            file_digest: digest.clone(),
-            file_batch_index: file_index,
+            payload_binding: String::new(),
+            placement: if payload.inline() { pse_model::generated::enums::CanonicalPayloadPlacement::Inline } else { pse_model::generated::enums::CanonicalPayloadPlacement::Sealed },
+            inline_key: payload.inline().then(|| payload.inline_key(fence, operation)),
+            file_instance: file.as_ref().map(|file| file.instance.clone()),
+            payload_index: payload_index,
             payload_bytes,
-            schema: file.as_ref().map(|f| f.schema.clone()).unwrap_or_default(),
+            schema: payload.schema().to_owned(),
             encoding: payload.encoding().to_owned(),
         };
         let mut admitted_block = block.cloned();
@@ -2831,9 +3054,9 @@ impl ResultBlockAppend {
             .map(|facts| {
                 facts
                     .encode_bound(&pse_relations::result_batch::StatisticsBinding {
-                        instance: batch.file_instance.clone(),
-                        digest: batch.file_digest.clone(),
-                        index: batch.file_batch_index,
+                        payload: result_payload_locator(&batch)?.payload_identity().to_owned(),
+                        digest: batch.digest.clone(),
+                        index: batch.payload_index,
                         interpretation: wire::INTERPRETATION.into(),
                     })
                     .map(pse_model::Bytes::from)
@@ -2942,7 +3165,7 @@ impl ResultBlockAppend {
                 ordinal: batch.ordinal,
                 digest: batch.digest,
                 row_count: batch.row_count,
-                file_binding: batch.file_binding,
+                payload_binding: batch.payload_binding,
             },
             fence: fence.clone(),
             name: name.into(),
@@ -2954,6 +3177,15 @@ impl ResultBlockAppend {
         item.insert("request", Value::Bytes(Bytes::from(request)));
         item.insert("set", Value::Object(encoded_set));
         item.insert("batch", Value::Object(encoded_batch));
+        let inline = if payload.inline() {
+            Some(wire::encode_canonical_inline_payloads(&pse_model::generated::runtime::canonical_inline_payloads::Row {
+                key: payload.inline_key(fence, operation), attempt: fence.attempt.as_str().to_owned(),
+                digest: payload.digest.clone(), encoding: payload.encoding().into(), schema: payload.schema().into(),
+                interpretation: wire::INTERPRETATION.into(), payload_bytes, batch_count: payload.batch_count(),
+                body: payload.as_slice().to_vec().into(),
+            })?)
+        } else { None };
+        item.insert("inline", inline.map(Value::Object).unwrap_or(Value::None));
         item.insert("block", block.map(Value::Object).unwrap_or(Value::None));
         item.insert(
             "outputs",
@@ -2983,7 +3215,7 @@ impl ResultBlockAppend {
         row.insert("ordinal", canonical_codec::encode_uint(ack.ordinal)?);
         row.insert("digest", Value::String(ack.digest.clone()));
         row.insert("row_count", canonical_codec::encode_uint(ack.row_count)?);
-        row.insert("file_binding", Value::String(ack.file_binding.clone()));
+        row.insert("payload_binding", Value::String(ack.payload_binding.clone()));
         row.insert("request", Value::Bytes(Bytes::from(ack.request.clone())));
         Ok(row)
     }
@@ -3021,7 +3253,7 @@ fn validate_append_group(
         extent = extent
             .checked_add(item.extent)
             .ok_or(CanonicalError::PayloadLimit)?;
-        if extent > crate::canonical::PAYLOAD_BYTES {
+        if extent > pse_schema::catalog::substrate::RESULT_APPEND_TARGET_BYTES {
             return Err(CanonicalError::PayloadLimit);
         }
     }
@@ -3066,7 +3298,7 @@ impl ReceiptProof {
             row.insert("ordinal", canonical_codec::encode_uint(batch.ordinal)?);
             row.insert("digest", Value::String(batch.digest.clone()));
             row.insert("rows", canonical_codec::encode_uint(batch.row_count)?);
-            row.insert("file_binding", Value::String(batch.file_binding.clone()));
+            row.insert("payload_binding", Value::String(batch.payload_binding.clone()));
         }
         Ok(row)
     }
@@ -3170,7 +3402,7 @@ impl ResultAcknowledgments {
         }
         if set.complete
             || batch.result_set != set.key
-            || batch.attempt != self.fence.attempt
+            || batch.attempt != self.fence.attempt.as_str()
             || batch.key != result_batch_key(&self.fence.attempt, &set.key, batch.ordinal)
             || batch.ordinal != set.next
         {
@@ -3188,7 +3420,7 @@ impl ResultAcknowledgments {
             .str(&batch.key)
             .str(&batch.digest)
             .u64(batch.row_count)
-            .str(&batch.file_binding);
+            .str(&batch.payload_binding);
         set.next = next;
         set.rows = rows;
         set.last = Some(proof);
@@ -3309,8 +3541,8 @@ impl ResultAcknowledgments {
         let bytes = json(&descriptors)?;
         bounded(&bytes, EXECUTION_METADATA_BYTES)?;
         let row = ResultManifest {
-            key: self.fence.attempt.clone(),
-            attempt: self.fence.attempt,
+            key: self.fence.attempt.as_str().to_owned(),
+            attempt: self.fence.attempt.into_string(),
             generation: self.fence.generation,
             digest: metadata_digest(&bytes),
             descriptors: bytes.into(),
@@ -3418,8 +3650,13 @@ pub struct ResultPayload {
     digest: String,
     owner: Option<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
     file: Option<crate::canonical_files::SealedFile>,
-    file_index: u64,
+    payload_index: u64,
     facts: Option<pse_relations::result_batch::BatchFacts>,
+    admitted: Option<std::sync::Arc<pse_relations::result_batch::AdmittedResultFile>>,
+    encoding: String,
+    schema: String,
+    batch_count: u64,
+    body_operation: Option<String>,
 }
 
 /// An actual sealed file matched once against the controlled admitted encoder.
@@ -3459,15 +3696,22 @@ impl ResultPayload {
     /// # Errors
     /// The immutable batch exceeds its existing transport bound.
     pub fn new(bytes: Vec<u8>) -> Result<Self, CanonicalError> {
+        if bytes.is_empty() {
+            return Err(CanonicalError::Configuration("empty encoded payload; declare an empty demanded result set instead".into()));
+        }
         bounded(&bytes, RESULT_BATCH_BYTES)?;
         let digest = result_payload_digest(&bytes);
+        let encoding = if serde_json::from_slice::<serde_json::Value>(&bytes).is_ok() { crate::canonical_files::OPAQUE_JSON.into() } else { crate::canonical_files::OPAQUE_BYTES.into() };
         Ok(Self {
             bytes: bytes.into(),
             digest,
             owner: None,
             file: None,
-            file_index: 0,
+            payload_index: 0,
             facts: None,
+            admitted: None,
+            encoding,
+            schema: String::new(), batch_count: 0, body_operation: None,
         })
     }
     /// Consume bytes only after their actual encoder/transport allowance is charged.
@@ -3491,8 +3735,10 @@ impl ResultPayload {
             digest: file.descriptor().digest.clone(),
             owner: None,
             file: Some(file),
-            file_index: index,
+            payload_index: index,
             facts: None,
+            admitted: None,
+            encoding: String::new(), schema: String::new(), batch_count: 0, body_operation: None,
         })
     }
     /// Carry the caller's actual prepaid encoder and metadata allowance.
@@ -3527,67 +3773,96 @@ impl ResultPayload {
         self.file
             .as_ref()
             .map(|f| f.descriptor().bytes)
-            .unwrap_or(self.bytes.len() as u64)
+            .unwrap_or_else(|| self.as_slice().len() as u64)
     }
     fn encoding(&self) -> &str {
-        self.file
-            .as_ref()
-            .map(|f| f.descriptor().encoding.as_str())
-            .unwrap_or_else(|| {
-                if serde_json::from_slice::<serde_json::Value>(self.bytes.as_slice()).is_ok() {
-                    crate::canonical_files::OPAQUE_JSON
-                } else {
-                    crate::canonical_files::OPAQUE_BYTES
-                }
-            })
+        self.file.as_ref().map(|file| file.descriptor().encoding.as_str()).unwrap_or(&self.encoding)
+    }
+    fn schema(&self) -> &str {
+        self.file.as_ref().map(|file| file.descriptor().schema.as_str()).unwrap_or(&self.schema)
+    }
+    fn batch_count(&self) -> u64 {
+        self.file.as_ref().map(|file| file.descriptor().batch_count).unwrap_or(self.batch_count)
+    }
+    fn inline(&self) -> bool {
+        self.file.is_none() && self.byte_len() <= pse_schema::catalog::substrate::RESULT_INLINE_BYTES as u64
+    }
+    fn inline_key(&self, fence: &AttemptFence, operation: &str) -> String {
+        hash("pse.execution.inline-body.v1", &[
+            fence.attempt.as_bytes(), self.body_operation.as_deref().unwrap_or(operation).as_bytes(),
+            self.digest.as_bytes(), self.encoding().as_bytes(), self.schema().as_bytes(),
+            &self.batch_count().to_le_bytes(),
+        ])
+    }
+    /// Own complete actual admitted bytes and facts before any physical file work.
+    pub fn from_admitted_encoded_owned(
+        admitted: std::sync::Arc<pse_relations::result_batch::AdmittedResultFile>,
+        index: u64,
+        body_operation: &str,
+        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+    ) -> Result<Self, CanonicalError> {
+        identity(body_operation)?;
+        bounded(admitted.bytes(), pse_schema::catalog::substrate::RESULT_INLINE_BYTES)?;
+        let facts = usize::try_from(index).ok().and_then(|index| admitted.facts().get(index)).cloned()
+            .ok_or_else(|| CanonicalError::Configuration("admitted encoded member absent".into()))?;
+        let digest = result_payload_digest(admitted.bytes());
+        let schema = admitted.relation().to_string();
+        let batch_count = admitted.facts().len() as u64;
+        Ok(Self { bytes: Vec::new().into(), digest, owner: Some(owner), file: None, payload_index: index,
+            facts: Some(facts), admitted: Some(admitted), encoding: crate::canonical_files::ARROW_IPC_FILE.into(),
+            schema, batch_count, body_operation: Some(body_operation.into()) })
+    }
+    /// Carry an explicitly encoded native/opaque body. This proves integrity,
+    /// never the scientific facts supplied by the admitted encoder constructor.
+    #[allow(clippy::too_many_arguments, reason = "the original complete encoding and its member coordinates are independent premises")]
+    pub fn from_encoded_owned(
+        bytes: Vec<u8>, encoding: &str, schema: &str, batch_count: u64, index: u64,
+        body_operation: &str, owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+    ) -> Result<Self, CanonicalError> {
+        crate::canonical_files::validate_codec_schema(encoding, schema)?;
+        identity(body_operation)?;
+        if (encoding == crate::canonical_files::ARROW_IPC_FILE && (batch_count == 0 || index >= batch_count))
+            || (encoding != crate::canonical_files::ARROW_IPC_FILE && (batch_count != 0 || index != 0)) {
+            return Err(CanonicalError::Configuration("encoded payload member coordinate differs".into()));
+        }
+        let mut payload = Self::new_owned(bytes, owner)?;
+        payload.encoding = encoding.into(); payload.schema = schema.into(); payload.batch_count = batch_count;
+        payload.payload_index = index; payload.body_operation = Some(body_operation.into());
+        Ok(payload)
     }
     /// Exact immutable bytes; no mutable alias or digest setter is exposed.
     pub fn as_slice(&self) -> &[u8] {
-        self.bytes.as_slice()
+        self.admitted.as_ref().map(|admitted| admitted.bytes()).unwrap_or_else(|| self.bytes.as_slice())
     }
     /// Existing framed payload digest, bound to this immutable allocation.
     pub fn digest(&self) -> &str {
         &self.digest
     }
 }
-fn file_binding(batch: &ResultBatch) -> String {
-    let mut physical = FramedHasher::new(Frame::CanonicalPayloadV1);
-    physical
-        .str("pse.execution.file-binding.v1")
-        .str(&batch.file_instance)
-        .str(&batch.file_digest)
-        .u64(batch.file_batch_index)
-        .str(&batch.encoding)
-        .str(&batch.schema);
-    physical.finish_hash().to_hex()
+fn payload_binding(batch: &ResultBatch) -> String {
+    let mut payload = FramedHasher::new(Frame::CanonicalPayloadV1);
+    payload.str("pse.execution.payload-binding.v2").str(batch.placement.as_str())
+        .str(batch.inline_key.as_deref().or(batch.file_instance.as_deref()).unwrap_or_default())
+        .str(&batch.digest).u64(batch.payload_index).u64(batch.payload_bytes)
+        .str(&batch.encoding).str(&batch.schema).str(wire::INTERPRETATION);
+    payload.finish_hash().to_hex()
 }
-/// Verify a bounded exact batch before decoding its scientific contents.
+/// Verify exact placement and bounded descriptor facts before reading contents.
 pub fn validate_result_batch(batch: &ResultBatch) -> Result<(), CanonicalError> {
     crate::canonical_files::validate_codec_schema(&batch.encoding, &batch.schema)?;
+    let locator = result_payload_locator(batch)?;
     if batch.key != result_batch_key(&batch.attempt, &batch.result_set, batch.ordinal)
-        || batch.digest != batch.file_digest
-        || batch.payload_bytes == 0
-        || batch.payload_bytes > RESULT_BATCH_BYTES as u64
-        || uuid::Uuid::parse_str(&batch.file_instance).is_err()
-        || batch.digest.len() != 64
-        || !batch.digest.bytes().all(|byte| byte.is_ascii_hexdigit())
-        || batch.file_binding != file_binding(batch)
-        || (batch.encoding == crate::canonical_files::ARROW_IPC_FILE && batch.schema.is_empty())
-        || (batch.encoding != crate::canonical_files::ARROW_IPC_FILE
-            && (batch.file_batch_index != 0 || !batch.schema.is_empty()))
-        || ![
-            crate::canonical_files::ARROW_IPC_FILE,
-            crate::canonical_files::OPAQUE_JSON,
-            crate::canonical_files::OPAQUE_BYTES,
-        ]
-        .contains(&batch.encoding.as_str())
+        || batch.payload_bytes == 0 || batch.payload_bytes > RESULT_BATCH_BYTES as u64
+        || batch.digest.len() != 64 || !batch.digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || batch.payload_binding != payload_binding(batch)
+        || (matches!(locator, PayloadLocator::Inline { .. }) && batch.payload_bytes > pse_schema::catalog::substrate::RESULT_INLINE_BYTES as u64)
+        || (batch.encoding != crate::canonical_files::ARROW_IPC_FILE && batch.payload_index != 0)
     {
-        return Err(CanonicalError::Configuration(
-            "result batch file identity or coordinate mismatch".into(),
-        ));
+        return Err(CanonicalError::Configuration("result payload identity or coordinate mismatch".into()));
     }
     Ok(())
 }
+
 fn metadata_digest(payload: &[u8]) -> String {
     hash("pse.execution.result-manifest.v1", &[payload])
 }
@@ -3623,8 +3898,8 @@ fn closed(row: CanonicalAttempt) -> Result<ClosedAttempt, CanonicalError> {
         .ok_or_else(|| CanonicalError::Configuration("closed authority missing".into()))?;
     Ok(ClosedAttempt {
         fence: AttemptFence {
-            run: row.run,
-            attempt: row.key,
+            run: row.run.into(),
+            attempt: row.key.into(),
             generation: row.generation,
         },
         authority,
@@ -3890,11 +4165,19 @@ fn run_request_receipt(
     bounded(&request.request, crate::canonical::PAYLOAD_BYTES)?;
     bounded(&request.source_selection, crate::canonical::PAYLOAD_BYTES)?;
     bounded(&request.attestation, EXECUTION_METADATA_BYTES)?;
+    match (request.purpose, &request.admission_study, &request.admission_point) {
+        (pse_model::generated::enums::CanonicalRunPurpose::Execution, None, None) => {},
+        (pse_model::generated::enums::CanonicalRunPurpose::StudyAdmission, Some(study), Some(point)) => { identity(study)?; identity(point)?; },
+        _ => return Err(CanonicalError::Configuration("run purpose and admission association differ".into())),
+    }
     let (research_selection, research_dataset) = projected_research_input(request)?;
     let row = CanonicalRun {
         research_selection,
         research_dataset,
-        key: request.key.clone(),
+        purpose: request.purpose,
+        admission_study: request.admission_study.as_ref().map(|key|key.as_str().to_owned()),
+        admission_point: request.admission_point.as_ref().map(|key|key.as_str().to_owned()),
+        key: request.key.as_str().to_owned(),
         problem: request.revision.problem.clone(),
         revision: request.revision.key.clone(),
         source_sequence: request.revision.sequence,
@@ -3975,6 +4258,9 @@ fn run_request_receipt(
 
 fn same_run_receipt(expected: &CanonicalRun, saved: &CanonicalRun) -> bool {
     saved.key == expected.key
+        && saved.purpose == expected.purpose
+        && saved.admission_study == expected.admission_study
+        && saved.admission_point == expected.admission_point
         && saved.problem == expected.problem
         && saved.revision == expected.revision
         && saved.source_sequence == expected.source_sequence
@@ -4048,21 +4334,21 @@ impl CanonicalStore {
                         .bind(("sources", sources.clone())))
                 })
                 .await;
-            match response {
-                Ok(mut response) => Ok(wire::decode_canonical_runs(
-                    response
-                        .take::<Option<Object>>(0)?
-                        .ok_or(CanonicalError::IncompleteResponse)?,
-                )?),
-                Err(error) => match self.canonical_run(&row.key).await {
-                    Ok(Some(saved)) if same_run_receipt(&row, &saved) => {
-                        self.ensure_execution_retained(&row.key).await?;
-                        Ok(saved)
-                    }
-                    Ok(Some(_)) => Err(CanonicalError::OperationReused),
-                    _ => Err(error),
+            let write = response.and_then(|mut response| {
+                let saved=wire::decode_canonical_runs(take_execution_ack("execution-registration",&mut response)?)?;
+                if !same_run_receipt(&row,&saved) {return Err(CanonicalError::OperationReused);}
+                Ok(saved)
+            });
+            let intent = json(&(&row.key, &row.purpose, &row.admission_study, &row.admission_point, &row.problem, &row.revision, row.source_sequence, row.request.as_slice(), row.source_selection.as_slice(), row.attestation.as_slice(), &row.interpretation))?;
+            crate::canonical::settlement::settle_exact(
+                "execution-registration", &row.key, &intent, write,
+                async {
+                    let saved = self.canonical_run(&row.key).await?;
+                    if saved.as_ref().is_some_and(|saved| same_run_receipt(&row,saved)) { self.ensure_execution_retained(&row.key).await?; }
+                    Ok(saved)
                 },
-            }
+                |saved| same_run_receipt(&row,saved), CanonicalError::source_transaction_refused,
+            ).await
         }).await
             }).await
     }
@@ -4240,8 +4526,8 @@ impl CanonicalStore {
                         .query(
                             "RETURN fn::pse_execution_v1::renew($pse_rpc_expires_at, $run,$attempt,$generation,$lifetime);",
                         )
-                        .bind(("run", fence.run.clone()))
-                        .bind(("attempt", fence.attempt.clone()))
+                        .bind(("run", fence.run.as_str().to_owned()))
+                        .bind(("attempt", fence.attempt.as_str().to_owned()))
                         .bind(("generation", generation.clone()))
                         .bind(("lifetime", lifetime)))
                 })
@@ -4267,8 +4553,8 @@ impl CanonicalStore {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(operation)?;
             identity(&seed.key)?;
-            if seed.run != fence.run
-                || seed.attempt != fence.attempt
+            if seed.run != fence.run.as_str()
+                || seed.attempt != fence.attempt.as_str()
                 || seed.batch_count == 0
                 || seed.batch != result_batch_key(&fence.attempt, &seed.result_set, seed.first_ordinal)
             {
@@ -4288,25 +4574,18 @@ impl CanonicalStore {
             ))?;
             let generation = canonical_codec::encode_uint(fence.generation)?;
             self.ensure_writes()?;
-            let result=self.protected_execution_query(&fence.run, "canonical_execution::register_result_seed", ||Ok(self.db.query("RETURN fn::pse_execution_v1::seed($pse_rpc_expires_at, $run,$attempt,$generation,$operation,$request,$seed);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("seed",encoded.clone())))).await;
+            let result=self.protected_execution_query(&fence.run, "canonical_execution::register_result_seed", ||Ok(self.db.query("RETURN fn::pse_execution_v1::seed($pse_rpc_expires_at, $run,$attempt,$generation,$operation,$request,$seed);").bind(("run",fence.run.as_str().to_owned())).bind(("attempt",fence.attempt.as_str().to_owned())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("seed",encoded.clone())))).await;
             let acknowledged = || SeedAck { fence: fence.clone(), key: seed.key.clone(), operation: operation.into(), request: request.clone(), first: seed.first_ordinal, count: seed.batch_count, bytes: seed.payload_bytes };
-            match result {
-                Ok(mut response) => {
-                    let saved = wire::decode_canonical_result_seeds(writer_response(
-                        response
-                            .take::<Option<Object>>(0)?
-                            .ok_or(CanonicalError::IncompleteResponse)?,
-                    )?)?;
-                    if saved != *seed {
-                        return Err(CanonicalError::OperationReused);
-                    }
-                    Ok(acknowledged())
-                }
-                Err(error) => match self.settle_operation_for_run(operation, "seed", &request,Some(&fence.run)).await? {
-                    Some(_) => Ok(acknowledged()),
-                    None => Err(error),
-                },
-            }
+            let write=result.and_then(|mut response| {
+                let saved=wire::decode_canonical_result_seeds(writer_response(take_execution_ack("execution-seed",&mut response)?)?)?;
+                if saved != *seed {return Err(CanonicalError::OperationReused);}
+                Ok(fence.attempt().to_owned())
+            });
+            if matches!(&write,Err(CanonicalError::StudyCancellation { .. })) {return write.map(|_|acknowledged());}
+            crate::canonical::settlement::settle_exact("execution-seed",operation,&request,write,
+                self.settle_operation_for_run(operation,"seed",&request,Some(fence.run())),
+                |attempt|attempt==fence.attempt(),CanonicalError::source_transaction_refused).await?;
+            Ok(acknowledged())
         }).await
             }).await
     }
@@ -4534,6 +4813,11 @@ impl CanonicalStore {
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    #[cfg(all(test, feature = "canonical-tests"))]
+                    if EXECUTION_ACK_READBACK_FAILURE.try_with(|fail| *fail).unwrap_or(false) {
+                        bounded_query(self.db.control_query("THROW 'controlled_ack_readback_failure';")).await?;
+                        return Err(CanonicalError::IncompleteResponse);
+                    }
                     let mut response = protected_query("canonical_execution::settle_operation_for_run", || Ok(
                 self.db
                     .control_query(
@@ -4579,20 +4863,22 @@ impl CanonicalStore {
             let request = json(&(run, operation, worker, lifetime, wire::INTERPRETATION))?;
             self.ensure_writes()?;
             let result = self.protected_execution_query(run, "canonical_execution::claim_run", || Ok(self.db.query("RETURN fn::pse_execution_v1::claim($pse_rpc_expires_at, $run,$operation,$request,$attempt,$worker,$lifetime,$interpretation,NONE);").bind(("run",run.to_owned())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("interpretation",wire::INTERPRETATION)))).await;
-            let row = match result {
-                Ok(mut response) => wire::decode_canonical_attempts(
-                    response
-                        .take::<Option<Object>>(0)?
-                        .ok_or(CanonicalError::IncompleteResponse)?,
-                )?,
-                Err(error) => match self.settle_operation_for_run(operation, "claim", &request,Some(run)).await? {
-                    Some(key) => self.canonical_attempt(&key).await?.ok_or(error)?,
-                    None => return Err(error),
-                },
-            };
+            let matches = |row: &CanonicalAttempt| row.run == run && row.key == attempt && row.claim_operation == operation && row.request.as_slice() == request;
+            let write = result.and_then(|mut response| {
+                let row=wire::decode_canonical_attempts(take_execution_ack("execution-claim",&mut response)?)?;
+                if !matches(&row) { return Err(CanonicalError::OperationReused); }
+                Ok(row)
+            });
+            let row = crate::canonical::settlement::settle_exact(
+                "execution-claim", operation, &request, write,
+                async { match self.settle_operation_for_run(operation,"claim",&request,Some(run)).await? {
+                    Some(key) => Ok(Some(self.canonical_attempt(&key).await?.ok_or(CanonicalError::IncompleteResponse)?)),
+                    None => Ok(None),
+                } }, matches, CanonicalError::source_transaction_refused,
+            ).await?;
             Ok(AttemptFence {
-                run: row.run,
-                attempt: row.key,
+                run: row.run.into(),
+                attempt: row.key.into(),
                 generation: row.generation,
             })
         }).await
@@ -4722,81 +5008,71 @@ impl CanonicalStore {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut prepared = ResultBlockAppend::prepare(fence, operation, name, ordinal, payload,
                 row_count, block, outputs, None)?;
-            self.prepare_result_file(fence,&mut prepared).await?;
+            self.prepare_result_payload(fence,&mut prepared).await?;
             let generation = canonical_codec::encode_uint(fence.generation)?;
             self.ensure_writes()?;
             let result = self.protected_execution_query(&fence.run, "canonical_execution::append_execution_batch", || {
                 let item = &prepared.item;
-                let query = self.db.query("RETURN fn::pse_execution_v1::append($pse_rpc_expires_at,$run,$attempt,$generation,$operation,$request,$set,$batch,$block,$outputs);")
-                    .bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone()))
+                let query = self.db.query("RETURN fn::pse_execution_v1::append($pse_rpc_expires_at,$run,$attempt,$generation,$operation,$request,$set,$batch,$inline,$block,$outputs);")
+                    .bind(("run",fence.run.as_str().to_owned())).bind(("attempt",fence.attempt.as_str().to_owned())).bind(("generation",generation.clone()))
                     .bind(("operation",item.get("operation").cloned().unwrap_or(Value::None)))
                     .bind(("request",item.get("request").cloned().unwrap_or(Value::None)))
                     .bind(("set",item.get("set").cloned().unwrap_or(Value::None)))
                     .bind(("batch",item.get("batch").cloned().unwrap_or(Value::None)))
+                    .bind(("inline",item.get("inline").cloned().unwrap_or(Value::None)))
                     .bind(("block",item.get("block").cloned().unwrap_or(Value::None)))
                     .bind(("outputs",item.get("outputs").cloned().unwrap_or(Value::None)))
                     ;
                 Ok(match prepared._owner.clone() { Some(owner) => query.payload_owner(owner), None => query })
             }).await;
-            match result {
-                Ok(mut response) => {
-                    let saved = writer_response(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?;
-                    if saved != prepared.expected_response()? { return Err(CanonicalError::OperationReused); }
-                }
-                Err(error) => {
-                    let ack = &prepared.acknowledgment;
-                    if self.settle_operation_for_run(&ack.operation, "append", &ack.request,Some(ack.fence.run())).await?.is_none() { return Err(error); }
-                }
-            }
+            let write = result.and_then(|mut response| {
+                let saved=writer_response(take_execution_ack("execution-append",&mut response)?)?;
+                if saved != prepared.expected_response()? { return Err(CanonicalError::OperationReused); }
+                Ok(fence.attempt().to_owned())
+            });
+            if matches!(&write,Err(CanonicalError::StudyCancellation { .. })) { return write.map(|_|prepared.acknowledgment); }
+            let ack=&prepared.acknowledgment;
+            crate::canonical::settlement::settle_exact(
+                "execution-append",&ack.operation,&ack.request,write,
+                self.settle_operation_for_run(&ack.operation,"append",&ack.request,Some(ack.fence.run())),
+                |attempt| attempt==fence.attempt(),CanonicalError::source_transaction_refused,
+            ).await?;
             Ok(prepared.acknowledgment)
         }).await
     }
-    async fn prepare_result_file(
+    async fn prepare_result_payload(
         &self,
         fence: &AttemptFence,
         item: &mut ResultBlockAppend,
     ) -> Result<(), CanonicalError> {
-        let sealed = match item.payload.file.as_ref() {
+        let sealed = if item.payload.inline() { None } else { Some(match item.payload.file.as_ref() {
             Some(file) => file.clone(),
             None => {
                 let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
-                hash.str("pse.file.original-append.v1")
-                    .part(&item.acknowledgment.request);
-                let intent = self
-                    .reserve_result_file(
-                        fence,
-                        &format!("file:{}", item.acknowledgment.operation),
-                        &hash.finish_hash().to_hex(),
-                    )
-                    .await?;
-                self.seal_file(
-                    &intent,
-                    item.payload.as_slice(),
-                    item.payload.encoding(),
-                    0,
-                    "",
-                )
-                .await?
+                hash.str("pse.file.original-append.v1").part(&item.acknowledgment.request);
+                let intent = self.reserve_result_file(fence, &format!("file:{}", item.acknowledgment.operation), &hash.finish_hash().to_hex()).await?;
+                self.seal_file(&intent, item.payload.as_slice(), item.payload.encoding(), item.payload.batch_count(), item.payload.schema()).await?
             }
-        };
-        if sealed.original_intent().instance() != sealed.descriptor().instance {
+        }) };
+        if sealed.as_ref().is_some_and(|sealed| sealed.original_intent().instance() != sealed.descriptor().instance) {
             return Err(CanonicalError::OperationReused);
         }
         let mut batch = wire::decode_canonical_result_batches(match item.item.get("batch") {
             Some(Value::Object(batch)) => batch.clone(),
             _ => return Err(CanonicalError::IncompleteResponse),
         })?;
-        batch.file_instance = sealed.descriptor().instance.clone();
-        batch.file_digest = sealed.descriptor().digest.clone();
-        batch.file_batch_index = item.payload.file_index;
-        batch.payload_bytes = sealed.descriptor().bytes;
-        batch.schema = sealed.descriptor().schema.clone();
-        batch.encoding = sealed.descriptor().encoding.clone();
+        if let Some(sealed) = &sealed {
+            batch.file_instance = Some(sealed.descriptor().instance.clone());
+            batch.payload_bytes = sealed.descriptor().bytes;
+            batch.schema = sealed.descriptor().schema.clone();
+            batch.encoding = sealed.descriptor().encoding.clone();
+        }
+        batch.payload_index = item.payload.payload_index;
         // The original semantic request is stable before file work; its final
         // append receipt additionally seals the complete physical coordinates.
-        batch.file_binding = file_binding(&batch);
-        item.acknowledgment.receipt.file_binding = batch.file_binding.clone();
-        let request = json(&(&item.acknowledgment.request, &batch.file_binding))?;
+        batch.payload_binding = payload_binding(&batch);
+        item.acknowledgment.receipt.payload_binding = batch.payload_binding.clone();
+        let request = json(&(&item.acknowledgment.request, &batch.payload_binding))?;
         item.acknowledgment.request = request.clone();
         item.item
             .insert("request", Value::Bytes(Bytes::from(request)));
@@ -4805,7 +5081,7 @@ impl CanonicalStore {
             Value::Object(wire::encode_canonical_result_batches(&batch)?),
         );
         item.extent = result_metadata_extent(&Value::Object(item.item.clone()))?;
-        item.payload.file = Some(sealed);
+        item.payload.file = sealed;
         Ok(())
     }
     /// Submit multiple original immutable blocks in one server transaction.
@@ -4820,17 +5096,26 @@ impl CanonicalStore {
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             validate_append_group(fence, &items)?;
-            for item in &mut items { self.prepare_result_file(fence,item).await?; }
+            for item in &mut items { self.prepare_result_payload(fence,item).await?; }
             validate_append_group(fence, &items)?;
             let generation = canonical_codec::encode_uint(fence.generation)?;
             let owners = std::sync::Arc::new(items.iter().filter_map(|item| item._owner.clone()).collect::<Vec<_>>());
-            let encoded = items.iter().map(|item| Value::Object(item.item.clone())).collect::<Vec<_>>();
+            let mut shared = std::collections::BTreeSet::new();
+            let encoded = items.iter().map(|item| {
+                let mut encoded = item.item.clone();
+                if let Some(Value::Object(body)) = encoded.get("inline") {
+                    if let Some(Value::String(key)) = body.get("key") {
+                        if !shared.insert(key.clone()) { encoded.insert("inline", Value::None); }
+                    }
+                }
+                Value::Object(encoded)
+            }).collect::<Vec<_>>();
             self.ensure_writes()?;
             // The bounded native driver encodes/checks the FULL query+bindings
             // against MESSAGE_BYTES before dispatch, including its live deadline.
             let result = self.protected_execution_query(&fence.run, "canonical_execution::append_result_blocks", ||
                 Ok(self.db.query("RETURN fn::pse_execution_v1::append_many($pse_rpc_expires_at,$run,$attempt,$generation,$items);")
-                    .bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone()))
+                    .bind(("run",fence.run.as_str().to_owned())).bind(("attempt",fence.attempt.as_str().to_owned()))
                     .bind(("generation",generation.clone())).bind(("items",encoded.clone())).payload_owner(owners.clone()))).await;
             #[cfg(all(test, feature = "canonical-tests"))]
             let result = if result.is_ok() && APPEND_GROUP_REPLY_LOSS.try_with(|lost| *lost).unwrap_or(false) {
@@ -4838,22 +5123,27 @@ impl CanonicalStore {
                 // still reads every genuine original operation receipt.
                 Err(CanonicalError::IncompleteResponse)
             } else { result };
-            match result {
-                Ok(mut response) => {
-                    let mut saved = writer_response(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?;
-                    let Value::Array(rows) = canonical_codec::required(&mut saved, "acknowledgments")? else { return Err(CanonicalError::IncompleteResponse); };
-                    if !saved.is_empty() || rows.len() != items.len() { return Err(CanonicalError::IncompleteResponse); }
-                    for (row, item) in rows.iter().zip(&items) {
-                        if row != Value::Object(item.expected_response()?) { return Err(CanonicalError::OperationReused); }
-                    }
+            let write = result.and_then(|mut response| {
+                let mut saved=writer_response(take_execution_ack("execution-append-group",&mut response)?)?;
+                let Value::Array(rows)=canonical_codec::required(&mut saved,"acknowledgments")? else {return Err(CanonicalError::IncompleteResponse);};
+                if !saved.is_empty() || rows.len()!=items.len() {return Err(CanonicalError::IncompleteResponse);}
+                for (row,item) in rows.iter().zip(&items) {
+                    if row != Value::Object(item.expected_response()?) {return Err(CanonicalError::OperationReused);}
                 }
-                Err(error) => {
+                Ok(())
+            });
+            if matches!(&write,Err(CanonicalError::StudyCancellation { .. })) {return write.map(|_|Vec::new());}
+            let request=json(&items.iter().map(|item|(&item.acknowledgment.operation,&item.acknowledgment.request)).collect::<Vec<_>>())?;
+            crate::canonical::settlement::settle_exact(
+                "execution-append-group",&items[0].acknowledgment.operation,&request,write,
+                async {
                     for item in &items {
-                        let ack = &item.acknowledgment;
-                        if self.settle_operation_for_run(&ack.operation, "append", &ack.request,Some(ack.fence.run())).await?.is_none() { return Err(error); }
+                        let ack=&item.acknowledgment;
+                        if self.settle_operation_for_run(&ack.operation,"append",&ack.request,Some(ack.fence.run())).await?.is_none() {return Ok(None);}
                     }
-                }
-            }
+                    Ok(Some(()))
+                },|_|true,CanonicalError::source_transaction_refused,
+            ).await?;
             Ok(items.into_iter().map(|item| item.acknowledgment).collect())
         }).await
             }).await
@@ -4872,20 +5162,22 @@ impl CanonicalStore {
             identity(name)?;
             if name.len() > 128 { return Err(CanonicalError::PayloadLimit); }
             let key = result_set_key(fence.attempt(), name);
-            let set = ResultSet { key: key.clone(), attempt: fence.attempt.clone(), name: name.into(), interpretation: wire::INTERPRETATION.into(), next_ordinal: 0, row_count: 0 };
+            let set = ResultSet { key: key.clone(), attempt: fence.attempt.as_str().to_owned(), name: name.into(), interpretation: wire::INTERPRETATION.into(), next_ordinal: 0, row_count: 0 };
             let encoded = wire::encode_canonical_result_sets(&set)?;
             let request = json(&(&fence.run, &fence.attempt, fence.generation, name, &key, wire::INTERPRETATION))?;
             let generation = canonical_codec::encode_uint(fence.generation)?;
             self.ensure_writes()?;
             let result = self.protected_execution_query(&fence.run, "canonical_execution::declare_empty_result_set", || Ok(self.db.query("RETURN fn::pse_execution_v1::empty($pse_rpc_expires_at,$run,$attempt,$generation,$operation,$request,$set);")
-                .bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("set",encoded.clone())))).await;
-            match result {
-                Ok(mut response) => {
-                    let saved = wire::decode_canonical_result_sets(writer_response(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?)?;
-                    if saved != set { return Err(CanonicalError::OperationReused); }
-                }
-                Err(error) => if self.settle_operation_for_run(operation,"empty",&request,Some(&fence.run)).await?.is_none() { return Err(error); },
-            }
+                .bind(("run",fence.run.as_str().to_owned())).bind(("attempt",fence.attempt.as_str().to_owned())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("set",encoded.clone())))).await;
+            let write=result.and_then(|mut response| {
+                let saved=wire::decode_canonical_result_sets(writer_response(take_execution_ack("execution-empty",&mut response)?)?)?;
+                if saved != set {return Err(CanonicalError::OperationReused);}
+                Ok(fence.attempt().to_owned())
+            });
+            if matches!(&write,Err(CanonicalError::StudyCancellation { .. })) {return write.map(|_|EmptySetAck {fence:fence.clone(),name:name.into(),key:key.clone(),operation:operation.into(),request:request.clone()});}
+            crate::canonical::settlement::settle_exact("execution-empty",operation,&request,write,
+                self.settle_operation_for_run(operation,"empty",&request,Some(fence.run())),
+                |attempt|attempt==fence.attempt(),CanonicalError::source_transaction_refused).await?;
             Ok(EmptySetAck { fence: fence.clone(), name: name.into(), key, operation: operation.into(), request })
         }).await
             }).await
@@ -4910,7 +5202,7 @@ impl CanonicalStore {
             let generation = canonical_codec::encode_uint(fence.generation)?;
             self.ensure_writes()?;
             let result = self.protected_execution_query(&fence.run,"canonical_execution::close_acknowledged", || Ok(self.db.query("RETURN fn::pse_execution_v1::close_acknowledged($pse_rpc_expires_at,$run,$attempt,$generation,$operation,$request,$manifest,$proofs,$seeds);")
-                .bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("manifest",encoded.clone())).bind(("proofs",proofs.clone())).bind(("seeds",seeds.clone())))).await;
+                .bind(("run",fence.run.as_str().to_owned())).bind(("attempt",fence.attempt.as_str().to_owned())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("manifest",encoded.clone())).bind(("proofs",proofs.clone())).bind(("seeds",seeds.clone())))).await;
             let uncertain=result.is_err();
             let closed = self.closed_response(result,operation,"close",&request,Some(fence)).await?;
             if uncertain {
@@ -4936,7 +5228,7 @@ impl CanonicalStore {
             let request = json(&(&fence.run, &fence.attempt, fence.generation))?;
             let generation = canonical_codec::encode_uint(fence.generation)?;
             self.ensure_writes()?;
-            let result = self.protected_execution_query(&fence.run, "canonical_execution::close_result_ingestion", || Ok(self.db.query("RETURN fn::pse_execution_v1::close($pse_rpc_expires_at, $run,$attempt,$generation,$operation,$request);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))))).await;
+            let result = self.protected_execution_query(&fence.run, "canonical_execution::close_result_ingestion", || Ok(self.db.query("RETURN fn::pse_execution_v1::close($pse_rpc_expires_at, $run,$attempt,$generation,$operation,$request);").bind(("run",fence.run.as_str().to_owned())).bind(("attempt",fence.attempt.as_str().to_owned())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))))).await;
             self.closed_response(result, operation, "close", &request, Some(fence))
                 .await
         }).await
@@ -4984,39 +5276,35 @@ impl CanonicalStore {
         expected: Option<&AttemptFence>,
     ) -> Result<ClosedAttempt, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let result = match result {
-                Ok(mut response) => Ok(writer_response(
-                    response
-                        .take::<Option<Object>>(0)?
-                        .ok_or(CanonicalError::IncompleteResponse)?,
-                )?),
-                Err(error) => Err(error),
-            };
-            if let (Ok(row), Some(fence)) = (&result, expected) {
-                let mut value = closed(wire::decode_canonical_attempts(row.clone())?)?;
-                if value.fence != *fence {
-                    return Err(CanonicalError::OperationReused);
+            let write=result.and_then(|mut response| {
+                let row=writer_response(take_execution_ack("execution-close",&mut response)?)?;
+                let mut value=closed(wire::decode_canonical_attempts(row)?)?;
+                if let Some(fence)=expected {
+                    if value.fence != *fence {return Err(CanonicalError::OperationReused);}
+                    // The original close ACK retains its own generation even
+                    // when the same attempt was subsequently cancelled.
+                    value.authority=fence.generation;
                 }
-                // An exact replay can return an attempt subsequently cancelled.
-                // Its old close ACK never borrows the later recovery generation.
-                value.authority = fence.generation;
-                return Ok(value);
-            }
-            let receipt = self
-                .closure_operation(operation, kind, Some(request))
-                .await?;
-            let Some((key, authority)) = receipt else {
-                return Err(result.err().unwrap_or(CanonicalError::IncompleteResponse));
+                Ok(value)
+            });
+            if matches!(&write,Err(CanonicalError::StudyCancellation { .. })) {return write;}
+            let (write,acknowledged)=if expected.is_some() {(write,None)} else {
+                // Recovery still observes its exact operation authority; a later
+                // generation on an acknowledged row cannot replace that fact.
+                match write {Ok(value)=>(Err(CanonicalError::IncompleteResponse),Some(value)),Err(source)=>(Err(source),None)}
             };
-            let mut value = match result {
-                Ok(row) => closed(wire::decode_canonical_attempts(row)?)?,
-                Err(error) => closed(self.canonical_attempt(&key).await?.ok_or(error)?)?,
-            };
-            if value.fence.attempt != key || expected.is_some_and(|fence| value.fence != *fence) {
-                return Err(CanonicalError::OperationReused);
-            }
-            value.authority = authority;
-            Ok(value)
+            crate::canonical::settlement::settle_exact(
+                "execution-close",operation,request,write,
+                async {
+                    let Some((key,authority))=self.closure_operation(operation,kind,Some(request)).await? else {return Ok(None);};
+                    let mut value=match acknowledged {
+                        Some(value)=>value,
+                        None=>closed(self.canonical_attempt(&key).await?.ok_or(CanonicalError::IncompleteResponse)?)?,
+                    };
+                    if value.fence.attempt.as_str()!=key || expected.is_some_and(|fence|value.fence!=*fence) {return Err(CanonicalError::OperationReused);}
+                    value.authority=authority;Ok(Some(value))
+                },|value|expected.is_none_or(|fence|value.fence==*fence),CanonicalError::source_transaction_refused,
+            ).await
         })
         .await
     }
@@ -5043,25 +5331,22 @@ impl CanonicalStore {
                         .bind(("request", Bytes::from(request.clone()))))
                 })
                 .await;
-            match result {
-                Ok(mut response) => Ok(wire::decode_canonical_runs(
-                    response
-                        .take::<Option<Object>>(0)?
-                        .ok_or(CanonicalError::IncompleteResponse)?,
-                )?),
-                Err(error) => {
-                    // Cancellation operations have no attempt; absence must be distinguished.
-                    let mut response = bounded_query(self.db.control_query("RETURN fn::pse_history_v1::operation($pse_rpc_expires_at,$operation,NONE);").bind(("operation",operation.to_owned()))).await?;
-                    let Some(row) = response.take::<Option<Object>>(0)? else {
-                        return Err(error);
-                    };
-                    let row = wire::decode_canonical_execution_operations(row)?;
-                    if row.kind != "cancel" || row.request.as_slice() != request {
-                        return Err(CanonicalError::OperationReused);
-                    }
-                    self.canonical_run(run).await?.ok_or(error)
-                }
-            }
+            let write=result.and_then(|mut response| {
+                let saved=wire::decode_canonical_runs(take_execution_ack("execution-cancel",&mut response)?)?;
+                if saved.key!=run {return Err(CanonicalError::OperationReused);}
+                Ok(saved)
+            });
+            crate::canonical::settlement::settle_exact(
+                "execution-cancel",operation,&request,write,
+                async {
+                    // Cancellation operations deliberately have no attempt.
+                    let mut response=bounded_query(self.db.control_query("RETURN fn::pse_history_v1::operation($pse_rpc_expires_at,$operation,NONE);").bind(("operation",operation.to_owned()))).await?;
+                    let Some(row)=response.take::<Option<Object>>(0)? else {return Ok(None);};
+                    let row=wire::decode_canonical_execution_operations(row)?;
+                    if row.kind!="cancel" || row.request.as_slice()!=request {return Err(CanonicalError::OperationReused);}
+                    Ok(Some(self.canonical_run(run).await?.ok_or(CanonicalError::IncompleteResponse)?))
+                },|saved|saved.key==run,CanonicalError::source_transaction_refused,
+            ).await
         }).await
             }).await
     }
@@ -5144,7 +5429,7 @@ impl CanonicalStore {
             let generation=canonical_codec::encode_uint(closed.fence.generation)?;
             let queued_value=canonical_codec::encode_uint(queued)?;
             let mut response=self.protected_execution_query(closed.fence.run(),"canonical_execution::reconcile_progress_uncertainty", || Ok(self.db.query("RETURN fn::pse_execution_v1::check_closed_acknowledgments($pse_rpc_expires_at,$run,$attempt,$generation,$proofs,$seeds,$queued);")
-                .bind(("run",closed.fence.run.clone())).bind(("attempt",closed.fence.attempt.clone())).bind(("generation",generation.clone())).bind(("proofs",proofs.clone())).bind(("seeds",seeds.clone())).bind(("queued",queued_value.clone())))).await?;
+                .bind(("run",closed.fence.run.as_str().to_owned())).bind(("attempt",closed.fence.attempt.as_str().to_owned())).bind(("generation",generation.clone())).bind(("proofs",proofs.clone())).bind(("seeds",seeds.clone())).bind(("queued",queued_value.clone())))).await?;
             let mut saved=writer_response(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?;
             if saved.remove("valid")!=Some(Value::Bool(true)) || !saved.is_empty() { return Err(CanonicalError::IncompleteResponse); }
             // Independently read every frozen metadata page and frame the actual
@@ -5209,7 +5494,7 @@ impl CanonicalStore {
                 let mut digest = FramedHasher::new(Frame::CanonicalPayloadV1);
                 digest.str("pse.execution.batch-selection.v1");
                 while next < set.next_ordinal {
-                    let mut page=bounded_query(self.db.query("SELECT key,attempt,result_set,ordinal,digest,row_count,file_binding FROM canonical_result_batches WHERE result_set=$set AND ordinal >= $next ORDER BY ordinal LIMIT 64;").bind(("set",set.key.clone())).bind(("next",canonical_codec::encode_uint(next)?))).await?;
+                    let mut page=bounded_query(self.db.query("SELECT key,attempt,result_set,ordinal,digest,row_count,payload_binding FROM canonical_result_batches WHERE result_set=$set AND ordinal >= $next ORDER BY ordinal LIMIT 64;").bind(("set",set.key.clone())).bind(("next",canonical_codec::encode_uint(next)?))).await?;
                     let batches: Vec<Object> = page.take(0)?;
                     if batches.is_empty() {
                         return Err(CanonicalError::Configuration(
@@ -5247,7 +5532,7 @@ impl CanonicalStore {
                                 "closed result batch coverage mismatch".into(),
                             ));
                         }
-                        let binding=canonical_codec::decode_string(canonical_codec::required(&mut batch,"file_binding")?)?;
+                        let binding=canonical_codec::decode_string(canonical_codec::required(&mut batch,"payload_binding")?)?;
                         digest.str(&key).str(&payload_digest).u64(rows).str(&binding);
                         row_count = row_count
                             .checked_add(rows)
@@ -5287,29 +5572,21 @@ impl CanonicalStore {
                         Ok(self
                             .db
                             .query("RETURN fn::pse_execution_v1::manifest($pse_rpc_expires_at, $run,$manifest);")
-                            .bind(("run", closed.fence.run.clone()))
+                            .bind(("run", closed.fence.run.as_str().to_owned()))
                             .bind(("manifest", encoded.clone())))
                     },
                 )
                 .await;
-            match result {
-                Ok(mut response) => {
-                    let saved = wire::decode_canonical_result_manifests(
-                        response
-                            .take::<Option<Object>>(0)?
-                            .ok_or(CanonicalError::IncompleteResponse)?,
-                    )?;
-                    if saved != row {
-                        return Err(CanonicalError::OperationReused);
-                    }
-                }
-                Err(error) => {
-                    self.ensure_execution_retained(&closed.fence.run).await?;
-                    if self.canonical_result_manifest(&row.key).await?.as_ref() != Some(&row) {
-                        return Err(error);
-                    }
-                }
-            }
+            let write=result.and_then(|mut response| {
+                let saved=wire::decode_canonical_result_manifests(take_execution_ack("execution-reconcile",&mut response)?)?;
+                if saved!=row {return Err(CanonicalError::OperationReused);}
+                Ok(saved)
+            });
+            crate::canonical::settlement::settle_exact(
+                "execution-reconcile", &row.key, row.descriptors.as_slice(), write,
+                async { self.ensure_execution_retained(closed.fence.run()).await?; self.canonical_result_manifest(&row.key).await },
+                |saved| saved == &row, CanonicalError::source_transaction_refused,
+            ).await?;
             Ok(ClosedManifest {
                 closed: closed.clone(),
                 row,
@@ -5500,8 +5777,8 @@ impl CanonicalStore {
                         .db
                         .query(query)
                         .bind(("study", study.map(str::to_owned)))
-                        .bind(("run", fence.run.clone()))
-                        .bind(("attempt", fence.attempt.clone()))
+                        .bind(("run", fence.run.as_str().to_owned()))
+                        .bind(("attempt", fence.attempt.as_str().to_owned()))
                         .bind(("authority", authority.clone()))
                         .bind(("operation", operation.to_owned()))
                         .bind(("request", Bytes::from(request.clone())))
@@ -5513,24 +5790,30 @@ impl CanonicalStore {
                         .bind(("coverage", coverage.clone().map(Value::Object).unwrap_or(Value::None))))
                 })
                 .await;
-            match result {
-                Ok(mut response) => {
-                    let mut row = writer_response(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?;
-                    let attempt = match canonical_codec::required(&mut row,"attempt")? { Value::Object(row) => wire::decode_canonical_attempts(row)?, _ => return Err(CanonicalError::IncompleteResponse) };
-                    let run = match canonical_codec::required(&mut row,"run")? { Value::Object(row) => wire::decode_canonical_runs(row)?, _ => return Err(CanonicalError::IncompleteResponse) };
-                    if !row.is_empty() || attempt.run != run.key || run.terminal_attempt.as_deref() != Some(attempt.key.as_str()) || !attempt.terminal() || attempt.closed_manifest.as_deref() != Some(manifest.row.key.as_str()) || attempt.completion.as_ref().map(|bytes| bytes.as_slice()) != Some(completion) { return Err(CanonicalError::OperationReused); }
-                    Ok(SealAck { attempt, run })
-                },
-                Err(error) => match self.settle_operation_for_run(operation, "seal", &request,Some(&fence.run)).await? {
-                    Some(key) => {
-                        let attempt = self.canonical_attempt(&key).await?.ok_or(error)?;
-                        let run = self.canonical_run(&fence.run).await?.ok_or(CanonicalError::IncompleteResponse)?;
-                        if attempt.closed_manifest.as_deref() != Some(manifest.row.key.as_str()) || attempt.completion.as_ref().map(|bytes|bytes.as_slice()) != Some(completion) || run.terminal_attempt.as_deref() != Some(attempt.key.as_str()) { return Err(CanonicalError::OperationReused); }
-                        Ok(SealAck { attempt, run })
-                    },
-                    None => Err(error),
-                },
-            }
+            let matches=|saved:&SealAck| saved.attempt.run==saved.run.key
+                && saved.attempt.key==fence.attempt() && saved.run.key==fence.run()
+                && saved.run.terminal_attempt.as_deref()==Some(saved.attempt.key.as_str())
+                && saved.attempt.terminal() && saved.attempt.closed_manifest.as_deref()==Some(manifest.row.key.as_str())
+                && saved.attempt.completion.as_ref().map(|bytes|bytes.as_slice())==Some(completion);
+            let write=result.and_then(|mut response| {
+                let mut row=writer_response(take_execution_ack("execution-seal",&mut response)?)?;
+                let attempt=match canonical_codec::required(&mut row,"attempt")? {Value::Object(row)=>wire::decode_canonical_attempts(row)?,_=>return Err(CanonicalError::IncompleteResponse)};
+                let run=match canonical_codec::required(&mut row,"run")? {Value::Object(row)=>wire::decode_canonical_runs(row)?,_=>return Err(CanonicalError::IncompleteResponse)};
+                let saved=SealAck {attempt,run};
+                if !row.is_empty() || !matches(&saved) {return Err(CanonicalError::OperationReused);}
+                Ok(saved)
+            });
+            if matches!(&write,Err(CanonicalError::StudyCancellation { .. })) {return write;}
+            crate::canonical::settlement::settle_exact(
+                "execution-seal",operation,&request,write,
+                async {match self.settle_operation_for_run(operation,"seal",&request,Some(fence.run())).await? {
+                    Some(key)=>{
+                        let attempt=self.canonical_attempt(&key).await?.ok_or(CanonicalError::IncompleteResponse)?;
+                        let run=self.canonical_run(fence.run()).await?.ok_or(CanonicalError::IncompleteResponse)?;
+                        Ok(Some(SealAck {attempt,run}))
+                    },None=>Ok(None),
+                }},matches,CanonicalError::source_transaction_refused,
+            ).await
         }).await
     }
 }
@@ -5555,7 +5838,7 @@ mod canonical_result_admission_unit {
                 ordinal,
                 digest: result_payload_digest(bytes),
                 row_count: rows,
-                file_binding: "synthetic-file-binding".into(),
+                payload_binding: "synthetic-file-binding".into(),
             },
             fence: fence.clone(),
             name: name.into(),
@@ -5708,7 +5991,7 @@ mod canonical_result_admission_unit {
             .str(&first.key)
             .str(&first.digest)
             .u64(first.row_count)
-            .str(&first.file_binding);
+            .str(&first.payload_binding);
         acks.append(first).unwrap();
         acks.append(ack(&fence, "values", 0, "first", &[0, 1], 2))
             .unwrap();
@@ -5725,7 +6008,7 @@ mod canonical_result_admission_unit {
             .str(&second.key)
             .str(&second.digest)
             .u64(second.row_count)
-            .str(&second.file_binding);
+            .str(&second.payload_binding);
         acks.append(second).unwrap();
         assert!(
             acks.append(ack(&fence, "values", 0, "first", &[0, 1], 2))
@@ -5837,17 +6120,18 @@ mod canonical_result_admission_unit {
             ordinal: 0,
             digest: digest.clone(),
             row_count: 1,
-            file_binding: "synthetic".into(),
-            file_instance: uuid::Uuid::new_v4().to_string(),
-            file_digest: digest,
-            file_batch_index: 0,
+            payload_binding: "synthetic".into(),
+            placement: pse_model::generated::enums::CanonicalPayloadPlacement::Sealed,
+            inline_key: None,
+            file_instance: Some(uuid::Uuid::new_v4().to_string()),
+            payload_index: 0,
             payload_bytes: payload.byte_len(),
             schema: String::new(),
             encoding: crate::canonical_files::OPAQUE_BYTES.into(),
         };
-        batch.file_binding = file_binding(&batch);
+        batch.payload_binding = payload_binding(&batch);
         validate_result_batch(&batch).unwrap();
-        batch.file_batch_index = 1;
+        batch.payload_index = 1;
         assert!(validate_result_batch(&batch).is_err());
         assert!(matches!(
             ResultPayload::new(vec![0; RESULT_BATCH_BYTES + 1]),
@@ -5996,7 +6280,7 @@ mod research_projection_tests {
     fn request() -> RunRequest {
         let physical = pse_ids::ContentHash::from_bytes([1; 32]);
         let identity = pse_ids::ContentHash::from_bytes([2; 32]);
-        RunRequest{key:"run".into(),revision:crate::canonical::Revision{key:"published".into(),problem:"problem".into(),sequence:1,parent:None,operation:"published".into(),request:vec![].into(),interpretation:wire::INTERPRETATION.into()},sources:vec![],request:vec![],attestation:vec![],source_selection:serde_json::to_vec(&(3u8,identity,physical,serde_json::Value::Null,vec![serde_json::json!({"revision":identity,"physical_context":physical,"context":null,"research":{"issuing_store":"issuer","selection":"selected","dataset":"data-v1","revision":"published","physical_context":physical.to_string(),"publication":"published"}})])).unwrap()}
+        RunRequest{purpose:pse_model::generated::enums::CanonicalRunPurpose::Execution,admission_study:None,admission_point:None,key:"run".into(),revision:crate::canonical::Revision{key:"published".into(),problem:"problem".into(),sequence:1,parent:None,operation:"published".into(),request:vec![].into(),interpretation:wire::INTERPRETATION.into()},sources:vec![],request:vec![],attestation:vec![],source_selection:serde_json::to_vec(&(3u8,identity,physical,serde_json::Value::Null,vec![serde_json::json!({"revision":identity,"physical_context":physical,"context":null,"research":{"issuing_store":"issuer","selection":"selected","dataset":"data-v1","revision":"published","physical_context":physical.to_string(),"publication":"published"}})])).unwrap()}
     }
     #[test]
     fn research_run_projection_retains_exact_original_research_and_refuses_context_differences() {

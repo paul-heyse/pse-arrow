@@ -28,6 +28,18 @@ impl PartialEq for RuntimeCanonicalProblemRunsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalProblemRunsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn problem_domain(&self) -> crate::generated::canonical::ProblemKey {
+        crate::generated::canonical::ProblemKey::from(self.r#problem.as_str())
+    }
+}
+impl RuntimeCanonicalProblemRunsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn run_domain(&self) -> crate::generated::canonical::RunKey {
+        crate::generated::canonical::RunKey::from(self.r#run.as_str())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalProblemRunsRow;
 impl crate::SemanticFrame for RuntimeCanonicalProblemRunsRow {

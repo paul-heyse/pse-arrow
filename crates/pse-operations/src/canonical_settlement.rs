@@ -49,6 +49,9 @@ pub(crate) async fn settle_exact<T>(
         Ok(Some(_)) => Err(CanonicalError::OperationReused),
         Ok(None) if absence_proven(&source) => Err(source),
         Ok(None) => Err(unresolved(owner, operation, request, source, None)),
+        // An owner can authenticate reuse while decoding its immutable
+        // operation receipt. That is a settled identity fact, not failed IO.
+        Err(CanonicalError::OperationReused) => Err(CanonicalError::OperationReused),
         Err(readback) => Err(unresolved(owner, operation, request, source, Some(readback))),
     }
 }
@@ -88,6 +91,7 @@ mod canonical_settlement_unit {
     async fn differing_immutable_request_is_reuse_for_ack_and_readback() {
         assert!(matches!(settle(Ok(b"different".to_vec()), Ok(None)).await, Err(CanonicalError::OperationReused)));
         assert!(matches!(settle(Err(CanonicalError::Timeout), Ok(Some(b"different".to_vec()))).await, Err(CanonicalError::OperationReused)));
+        assert!(matches!(settle(Err(CanonicalError::Timeout), Err(CanonicalError::OperationReused)).await, Err(CanonicalError::OperationReused)));
     }
 
     #[tokio::test]

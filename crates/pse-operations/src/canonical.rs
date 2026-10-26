@@ -1611,8 +1611,8 @@ impl CanonicalStore {
         authority: &crate::canonical_studies::StudyAdmissionAuthority,
     ) -> Result<Revision, CanonicalError> {
         if expected.is_some()
-            || problem != format!("study-variant:{}", authority.point_key())
-            || operation != format!("study-variant-source:{}", authority.point_key())
+            || problem != authority.variant_problem()?
+            || operation != authority.variant_operation()?
         {
             return Err(CanonicalError::Configuration(
                 "selected source effect must use its original independent occurrence identity"
@@ -2075,6 +2075,7 @@ impl CanonicalStore {
                 receipt: descriptor.receipt,
                 descriptor: descriptor.key,
                 producer: product.producer.clone(),
+                producer_class: product.producer_class,
                 interpretation: product.interpretation.clone(),
             },
         )
@@ -2597,6 +2598,7 @@ pub(crate) fn descriptor_for_product(
             product.payload.as_slice(),
             product.dependencies.as_slice(),
             product.producer.as_bytes(),
+            product.producer_class.as_str().as_bytes(),
             product.interpretation.as_bytes(),
         ],
     )
@@ -2612,6 +2614,7 @@ pub(crate) fn descriptor_for_product(
             content: blob.version,
             receipt: receipt.version.clone(),
             producer: product.producer.clone(),
+            producer_class: product.producer_class,
             interpretation: product.interpretation.clone(),
             association: None,
         },
@@ -2635,6 +2638,7 @@ pub(crate) fn decode_product_association(
             association.payload.as_slice(),
             association.dependencies.as_slice(),
             association.producer.as_bytes(),
+            association.producer_class.as_str().as_bytes(),
             association.interpretation.as_bytes(),
         ],
     )
@@ -2659,6 +2663,7 @@ pub(crate) fn decode_product_association(
         payload: association.payload,
         dependencies: association.dependencies,
         producer: association.producer,
+        producer_class: association.producer_class,
         interpretation: association.interpretation,
     })
 }
@@ -2667,10 +2672,10 @@ const PRODUCT_ACK: &str = r#"BEGIN;
 SELECT * FROM type::record('canonical_guards','retention:'+$problem) FOR UPDATE;
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $saved = SELECT * FROM ONLY type::record('canonical_product_descriptors',$descriptor.key);
-IF $saved != NONE AND ($saved.issuing_store != $descriptor.issuing_store OR $saved.problem != $descriptor.problem OR $saved.request != $descriptor.request OR $saved.payload != $descriptor.payload OR $saved.dependencies != $descriptor.dependencies OR $saved.content != $descriptor.content OR $saved.receipt != $descriptor.receipt OR $saved.producer != $descriptor.producer OR $saved.interpretation != $descriptor.interpretation) { THROW 'PSE_REFUSAL:immutable_descriptor_hash_collision'; };
+IF $saved != NONE AND ($saved.issuing_store != $descriptor.issuing_store OR $saved.problem != $descriptor.problem OR $saved.request != $descriptor.request OR $saved.payload != $descriptor.payload OR $saved.dependencies != $descriptor.dependencies OR $saved.content != $descriptor.content OR $saved.receipt != $descriptor.receipt OR $saved.producer != $descriptor.producer OR $saved.producer_class != $descriptor.producer_class OR $saved.interpretation != $descriptor.interpretation) { THROW 'PSE_REFUSAL:immutable_descriptor_hash_collision'; };
 LET $association = IF $saved = NONE OR $saved.association = NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_product_associations',$saved.association) };
 LET $root = IF $association = NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_roots',$association.key) FOR UPDATE };
-IF $association != NONE AND ($association.descriptor != $descriptor.key OR $association.issuing_store != $descriptor.issuing_store OR $association.problem != $descriptor.problem OR $association.request != $descriptor.request OR $association.payload != $descriptor.payload OR $association.dependencies != $descriptor.dependencies OR $association.content != $descriptor.content OR $association.receipt != $descriptor.receipt OR $association.producer != $descriptor.producer OR $association.interpretation != $descriptor.interpretation) { THROW 'PSE_REFUSAL:descriptor_association_equality_differs'; };
+IF $association != NONE AND ($association.descriptor != $descriptor.key OR $association.issuing_store != $descriptor.issuing_store OR $association.problem != $descriptor.problem OR $association.request != $descriptor.request OR $association.payload != $descriptor.payload OR $association.dependencies != $descriptor.dependencies OR $association.content != $descriptor.content OR $association.receipt != $descriptor.receipt OR $association.producer != $descriptor.producer OR $association.producer_class != $descriptor.producer_class OR $association.interpretation != $descriptor.interpretation) { THROW 'PSE_REFUSAL:descriptor_association_equality_differs'; };
 LET $rpc_result = IF $root != NONE AND $root.key = $association.key AND $root.owner_kind = 'product' AND $root.owner = $association.key AND $root.problem = $association.problem AND $root.revision = $association.revision { $association.key } ELSE { NONE };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 RETURN $rpc_result; COMMIT;"#;
@@ -2687,7 +2692,7 @@ FOR $part IN [{ordinal:0dec,kind:'pse.body-content.v1',record:$content},{ordinal
     LET $manifest = SELECT * FROM ONLY type::record('canonical_version_manifests',$part.record.version);
     IF $child = NONE OR $child.stage != $operation OR $child.ordinal != $part.ordinal OR $child.version != $part.record.version OR $child.logical != $part.kind OR $child.scope != $part.kind OR $child.name != $part.kind OR $manifest = NONE OR $manifest.closed = false OR $manifest.logical != $part.kind OR $manifest.kind != $part.kind OR $manifest.interpretation != $product.interpretation OR $manifest.reference_count != 0dec OR $manifest.payload_digest != $part.record.digest OR $manifest.payload_len != $part.record.bytes { THROW 'PSE_REFUSAL:product_physical_part_association_invalid'; };
 };
-IF $product.issuing_store != (SELECT * FROM ONLY canonical_interpretations:current).issuing_store OR $descriptor.issuing_store != $product.issuing_store OR $descriptor.key != $product.descriptor OR $descriptor.content != $content.key OR $descriptor.receipt != $receipt.key OR $product.content != $content.key OR $product.receipt != $receipt.key OR $content.version != $content.key OR $receipt.version != $receipt.key OR $content.producer != $product.producer OR $content.interpretation != $product.interpretation OR $receipt.interpretation != $product.interpretation OR $content.format != 'pse.body-content.v1' OR $receipt.format != 'pse.selection-receipt.v1' { THROW 'PSE_REFUSAL:product_physical_meaning_differs'; };
+IF $product.issuing_store != (SELECT * FROM ONLY canonical_interpretations:current).issuing_store OR $descriptor.issuing_store != $product.issuing_store OR $descriptor.key != $product.descriptor OR $descriptor.producer_class != $product.producer_class OR $descriptor.content != $content.key OR $descriptor.receipt != $receipt.key OR $product.content != $content.key OR $product.receipt != $receipt.key OR $content.version != $content.key OR $receipt.version != $receipt.key OR $content.producer != $product.producer OR $content.interpretation != $product.interpretation OR $receipt.interpretation != $product.interpretation OR $content.format != 'pse.body-content.v1' OR $receipt.format != 'pse.selection-receipt.v1' { THROW 'PSE_REFUSAL:product_physical_meaning_differs'; };
 LET $old_content = SELECT * FROM ONLY type::record('canonical_body_contents',$content.key);
 IF $old_content = NONE { CREATE type::record('canonical_body_contents',$content.key) CONTENT $content; } ELSE {
     IF $old_content.version != $content.version OR $old_content.digest != $content.digest OR $old_content.bytes != $content.bytes OR $old_content.producer != $content.producer OR $old_content.interpretation != $content.interpretation OR $old_content.format != $content.format { THROW 'PSE_REFUSAL:immutable_body_content_collision'; };
@@ -2697,10 +2702,10 @@ IF $old_receipt = NONE { CREATE type::record('canonical_selection_receipts',$rec
     IF $old_receipt.version != $receipt.version OR $old_receipt.digest != $receipt.digest OR $old_receipt.bytes != $receipt.bytes OR $old_receipt.interpretation != $receipt.interpretation OR $old_receipt.format != $receipt.format { THROW 'PSE_REFUSAL:immutable_selection_receipt_collision'; };
 };
 LET $saved = SELECT * FROM ONLY type::record('canonical_product_descriptors',$descriptor.key) FOR UPDATE;
-IF $saved != NONE AND ($saved.issuing_store != $descriptor.issuing_store OR $saved.problem != $descriptor.problem OR $saved.request != $descriptor.request OR $saved.payload != $descriptor.payload OR $saved.dependencies != $descriptor.dependencies OR $saved.content != $descriptor.content OR $saved.receipt != $descriptor.receipt OR $saved.producer != $descriptor.producer OR $saved.interpretation != $descriptor.interpretation) { THROW 'PSE_REFUSAL:immutable_descriptor_hash_collision'; };
+IF $saved != NONE AND ($saved.issuing_store != $descriptor.issuing_store OR $saved.problem != $descriptor.problem OR $saved.request != $descriptor.request OR $saved.payload != $descriptor.payload OR $saved.dependencies != $descriptor.dependencies OR $saved.content != $descriptor.content OR $saved.receipt != $descriptor.receipt OR $saved.producer != $descriptor.producer OR $saved.producer_class != $descriptor.producer_class OR $saved.interpretation != $descriptor.interpretation) { THROW 'PSE_REFUSAL:immutable_descriptor_hash_collision'; };
 LET $equivalent = IF $saved = NONE OR $saved.association = NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_product_associations',$saved.association) };
 LET $equivalent_root = IF $equivalent = NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_roots',$equivalent.key) FOR UPDATE };
-IF $equivalent != NONE AND ($equivalent.descriptor != $descriptor.key OR $equivalent.issuing_store != $descriptor.issuing_store OR $equivalent.problem != $descriptor.problem OR $equivalent.request != $descriptor.request OR $equivalent.payload != $descriptor.payload OR $equivalent.dependencies != $descriptor.dependencies OR $equivalent.content != $descriptor.content OR $equivalent.receipt != $descriptor.receipt OR $equivalent.producer != $descriptor.producer OR $equivalent.interpretation != $descriptor.interpretation) { THROW 'PSE_REFUSAL:descriptor_association_equality_differs'; };
+IF $equivalent != NONE AND ($equivalent.descriptor != $descriptor.key OR $equivalent.issuing_store != $descriptor.issuing_store OR $equivalent.problem != $descriptor.problem OR $equivalent.request != $descriptor.request OR $equivalent.payload != $descriptor.payload OR $equivalent.dependencies != $descriptor.dependencies OR $equivalent.content != $descriptor.content OR $equivalent.receipt != $descriptor.receipt OR $equivalent.producer != $descriptor.producer OR $equivalent.producer_class != $descriptor.producer_class OR $equivalent.interpretation != $descriptor.interpretation) { THROW 'PSE_REFUSAL:descriptor_association_equality_differs'; };
 LET $eligible = $equivalent_root != NONE AND $equivalent_root.key = $equivalent.key AND $equivalent_root.problem = $equivalent.problem AND $equivalent_root.revision = $equivalent.revision AND $equivalent_root.owner_kind = 'product' AND $equivalent_root.owner = $equivalent.key;
 IF $eligible = false {
     LET $existing = SELECT * FROM ONLY type::record('canonical_product_associations',$product.key);
@@ -2709,7 +2714,7 @@ IF $eligible = false {
         fn::pse_execution_v1::source_creator($pse_rpc_expires_at,$problem,$product.key);
         CREATE type::record('canonical_roots',$product.key) SET key=$product.key,problem=$problem,revision=$product.revision,sequence=$sequence,owner_kind='product',owner=$product.key;
     } ELSE {
-        IF $existing.issuing_store != $product.issuing_store OR $existing.problem != $product.problem OR $existing.revision != $product.revision OR $existing.descriptor != $product.descriptor OR $existing.request != $product.request OR $existing.payload != $product.payload OR $existing.dependencies != $product.dependencies OR $existing.content != $product.content OR $existing.receipt != $product.receipt OR $existing.producer != $product.producer OR $existing.interpretation != $product.interpretation { THROW 'PSE_REFUSAL:immutable_product_identity_reused'; };
+        IF $existing.issuing_store != $product.issuing_store OR $existing.problem != $product.problem OR $existing.revision != $product.revision OR $existing.descriptor != $product.descriptor OR $existing.request != $product.request OR $existing.payload != $product.payload OR $existing.dependencies != $product.dependencies OR $existing.content != $product.content OR $existing.receipt != $product.receipt OR $existing.producer != $product.producer OR $existing.producer_class != $product.producer_class OR $existing.interpretation != $product.interpretation { THROW 'PSE_REFUSAL:immutable_product_identity_reused'; };
         LET $root = SELECT * FROM ONLY type::record('canonical_roots',$product.key) FOR UPDATE;
         IF $root=NONE OR $root.problem!=$existing.problem OR $root.revision!=$existing.revision OR $root.owner_kind!='product' OR $root.owner!=$existing.key { THROW 'PSE_REFUSAL:product_retention_explicitly_released_or_changed'; };
     };
@@ -3521,6 +3526,7 @@ mod description_unit {
             // Preparation always takes complete actual premises rather than this caller field.
             dependencies: b"untrusted caller dependencies".to_vec().into(),
             producer: "producer".into(),
+            producer_class: pse_model::generated::enums::CanonicalProducerClass::General,
             interpretation: wire::INTERPRETATION.into(),
         }
     }
@@ -3616,6 +3622,11 @@ mod description_unit {
             store_one.key, store_two.key,
             "issuing stores cannot confer each other's ACKs"
         );
+        let mut qualified = header.clone();
+        qualified.producer_class = pse_model::generated::enums::CanonicalProducerClass::LibraryMathematics;
+        let qualified_descriptor = descriptor_for_product(&qualified, "00000000-0000-4000-8000-000000000001").unwrap();
+        assert_eq!(qualified.payload, header.payload, "authority does not rewrite scientific body bytes");
+        assert_ne!(store_one.key, qualified_descriptor.key, "a generic publication cannot borrow a qualified producer's acknowledgement");
     }
     #[test]
     fn shared_body_description_retains_exact_payload_allocation_without_copy() {
@@ -3813,6 +3824,9 @@ mod canonical_server_unit {
             .await
             .unwrap();
         let request = |key: &str| RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: key.into(),
             revision: revision.clone(),
             sources: vec![],
@@ -3875,7 +3889,10 @@ mod canonical_server_unit {
                             4..=6 => {
                                 let key = format!("pacing-start-{lane}");
                                 let request = RunRequest {
-                                    key: key.clone(),
+                                    purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                                    admission_study: None,
+                                    admission_point: None,
+                                    key: key.clone().into(),
                                     revision: revision.clone(),
                                     sources: vec![],
                                     request: vec![1],

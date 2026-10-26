@@ -1,12 +1,27 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Owner-native development concepts above immutable source-version provenance.
-use super::declarations::{column, enumeration, relation, relation_version};
+use super::declarations::{column, enumeration};
 use crate::{
     RegistryBuilder,
     model::{FieldContract as T, Namespace as N, SnapshotClass as S},
 };
 use arrow_schema::DataType as D;
+
+fn relation(b: &mut RegistryBuilder, namespace: N, name: &'static str, class: S, keys: &[&'static str], columns: Vec<T>, doc: &'static str) {
+    relation_version(b, namespace, name, 1, class, keys, columns, doc);
+}
+fn relation_version(b: &mut RegistryBuilder, namespace: N, name: &'static str, version: u32, class: S, keys: &[&'static str], columns: Vec<T>, doc: &'static str) {
+    let columns = columns.into_iter().map(T::canonical_default_readonly).collect();
+    b.declare_relation(super::declarations::canonical_declaration(namespace, name, version, class, keys, columns, doc)
+        .with_canonical(crate::model::CanonicalRelation {
+            retention: crate::model::CanonicalRetention::Derived,
+            backup: crate::model::CanonicalBackup::Recovered,
+            inline_vertex: false,
+            enforced: true,
+            generation_references: true,
+        }));
+}
 
 /// Derived interpretation, independent of scientific research and source authority.
 pub const INTERPRETATION: &str = "pse-development-knowledge-v2";
@@ -423,7 +438,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         &["key"],
         vec![
             column("key", text()),
-            column("active_generation", text()).optional(),
+            column("active_generation", text()).canonical_mutable().optional(),
         ],
         "Independent corpus activation pointer; no evidence pointer is changed.",
     );
@@ -431,7 +446,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
     for (_, name) in FAMILIES {
         generation.push(column(name, T::native(D::UInt64)));
     }
-    generation.push(column("state", T::enumeration("KnowledgeGenerationState")));
+    generation.push(column("state", T::enumeration("KnowledgeGenerationState")).canonical_mutable().with_canonical_assertion("($before=NONE AND $value='staged') OR ($before='staged' AND $value IN ['staged','active']) OR ($before='active' AND $value='active')"));
     relation_version(
         b,
         N::Runtime,
@@ -570,9 +585,9 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("key", text()),
             column("generation", text()),
             column("production_id", text()),
-            link("declaration_key", "runtime.knowledge_subjects"),
-            link("generator_key", "runtime.knowledge_subjects"),
-            link("artifact_key", "runtime.knowledge_subjects"),
+            link("declaration_key", "runtime.knowledge_subjects").with_canonical_reference_kind("declaration"),
+            link("generator_key", "runtime.knowledge_subjects").with_canonical_reference_kind("generator"),
+            link("artifact_key", "runtime.knowledge_subjects").with_canonical_reference_kind("generated_artifact"),
             column("direction", T::enumeration("KnowledgeDirection")).optional(),
             column("basis", T::enumeration("KnowledgeBasis")),
         ],

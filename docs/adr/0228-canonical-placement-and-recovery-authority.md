@@ -61,6 +61,13 @@ artifact profile membership and separate backup/retention classification. Canoni
 remain distinct from scientific SemanticId and preserve their bytes. Generate mechanical codecs,
 assertions and projections; remove generator name interpretation and parallel backup lists.
 
+Product producer authority is a declared General/LibraryMathematics/LocalScientificReplay class,
+separate from the exact producer receipt string. Native receiving capability determines scientific
+class; ordinary publication cannot mint it by using a reserved-looking string. Class participates
+in canonical publication/descriptor identity and exact candidate matching. Scientific body identity,
+ProductBlob and replay v5 bodies do not change. Opaque key wrappers preserve original spellings;
+new v9 publication bindings include the newly explicit authority fact.
+
 A small shared settlement domain distinguishes exact acknowledgement, different immutable request,
 owner-proven refusal/absence and unresolved effect. Unresolved results retain both original and
 readback causes with owner/intent attribution. A missing row alone supplies no absence proof.

@@ -3,7 +3,7 @@
 
 //! Canonical substrate envelopes. Scientific payload shapes remain at their semantic owner.
 
-use super::declarations::{column, declaration};
+use super::declarations::{column, canonical_declaration as declaration};
 use crate::{
     RegistryBuilder,
     model::{FieldContract, Namespace, SnapshotClass},
@@ -14,7 +14,7 @@ use arrow_schema::DataType;
 pub const SOURCE_PACKAGE_EDITS: usize = 8_192;
 
 /// Exact schema/codec/structural-operation interpretation.
-pub const INTERPRETATION: &str = "pse.substrate.v8";
+pub const INTERPRETATION: &str = "pse.substrate.v9";
 
 /// Self-contained scientific IPC admission, independent of derived indexes.
 pub const RESULT_BLOCK_BYTES: usize = 32 * 1024 * 1024;
@@ -25,7 +25,11 @@ pub const RESULT_INDEX_BYTES: usize = 128 * 1024;
 /// Closed admitted-batch statistics envelope, independent of scientific payload size.
 pub const RESULT_STATISTICS_BYTES: usize = 16 * 1024;
 /// Codec version for exact statistics produced with admitted native result files.
-pub const RESULT_STATISTICS_VERSION: u32 = 1;
+pub const RESULT_STATISTICS_VERSION: u32 = 2;
+/// Maximum complete encoded body held directly in the canonical transaction.
+pub const RESULT_INLINE_BYTES: usize = 64 * 1024;
+/// Target append envelope including inline body bytes, below actual RPC admission.
+pub const RESULT_APPEND_TARGET_BYTES: usize = 2 * 1024 * 1024;
 /// Maximum metadata rows in one artifact attachment transaction.
 pub const ARTIFACT_APPEND_ROWS: usize = 64;
 /// Complete uncompressed native RPC message admission.
@@ -37,61 +41,6 @@ pub const METADATA_ID_BYTES: usize = 4096;
 /// only increase its extent. This ceiling protects loops, never chooses blocks.
 pub const RESULT_INDEX_RECORDS: usize = RESULT_INDEX_BYTES / 7;
 
-/// Relations whose endpoints exist before insertion, including first publication.
-/// Study dependencies are installed after every occurrence node exists.
-pub const ENFORCED_RELATIONS: &[&str] = &[
-    "canonical_memberships",
-    "canonical_analysis_edges",
-    "canonical_analysis_inputs",
-    "canonical_problem_runs",
-    "canonical_run_sources",
-    "canonical_study_dependencies",
-];
-
-/// Bounded adjacency caches on reached vertex tables; high-degree records use native fallback.
-pub const INLINE_VERTICES: &[&str] = &[
-    "canonical_problems",
-    "canonical_runs",
-    "canonical_revisions",
-    "canonical_versions",
-    "canonical_study_points",
-    "canonical_analyses",
-    "canonical_analysis_nodes",
-    "canonical_artifacts",
-];
-/// Legal physical attempt phase changes; same-phase mutation is independently constrained.
-pub const ATTEMPT_TRANSITIONS: &[(&str, &str)] = &[
-    ("ingesting", "closed_awaiting_manifest"),
-    ("ingesting", "closed_with_manifest"),
-    ("closed_awaiting_manifest", "closed_with_manifest"),
-    ("closed_with_manifest", "terminal"),
-    ("terminal", "terminal_compacted"),
-];
-/// Immutable attempt identity, unlike mutable closure authority and compactable completion.
-pub const IMMUTABLE_ATTEMPT_FIELDS: &[&str] = &[
-    "run",
-    "generation",
-    "claim_operation",
-    "request",
-    "worker",
-    "finalization_study",
-];
-/// Publication fields whose final value, including absence, is fixed at terminal seal.
-/// The synchronous event owns full before/after comparison, including optional NONE.
-pub const TERMINAL_IMMUTABLE_ATTEMPT_FIELDS: &[&str] = &["seed_manifest"];
-/// Immutable study authoring identity; staging progress and cancellation stay mutable.
-pub const IMMUTABLE_STUDY_FIELDS: &[&str] = &[
-    "run",
-    "problem",
-    "revision",
-    "metadata",
-    "physical_revision",
-    "physical_identity",
-    "context",
-    "interpretation",
-    "point_count",
-    "dependency_count",
-];
 /// Artifact holder kinds and their shared attach/release fencing behavior.
 pub const ARTIFACT_HOLDERS: &[(&str, &str, &str)] = &[
     (
@@ -178,6 +127,7 @@ indexes! {
     attempt_live: canonical_attempts [run, phase, generation] false,
     result_set_attempt: canonical_result_sets [attempt, name] true,
     result_batch_order: canonical_result_batches [result_set, ordinal] true,
+    result_batch_inline_body: canonical_result_batches [inline_key, key] false,
     execution_operation_run: canonical_execution_operations [run, kind] false,
     execution_operation_compaction: canonical_execution_operations [run, minimal, key] false,
     history_run_locators: canonical_history_locators [run, key] false,
@@ -233,7 +183,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         (
             "canonical_maintenance_operations",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::MaintenanceOperation),
                 column("operation", text()),
                 column("generation", text()),
                 column("phase", text()),
@@ -246,11 +196,12 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("complete", flag()),
             ],
             "Current fenced privileged maintenance generation and immutable exact-operation page effects. Historical installation remains separately privileged; page replay never repeats authority rotation or placement mutation.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Receipt, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_maintenance_activations",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::MaintenanceActivation),
                 column("input_sha256", text()),
                 column("predecessor", bytes()),
                 column("interpretation", text()),
@@ -259,6 +210,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("issuing_store", text()),
             ],
             "Exact immutable schema activation effect receipt under the original rollout nonce; marker and issuing identity publication are atomic with this acknowledgement.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Receipt, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_interpretations",
@@ -271,6 +223,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("payload_incarnation", text()),
             ],
             "Installed schema, codec and structural operation interpretation.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_file_admission",
@@ -281,11 +234,12 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("gc_frozen", flag()),
             ],
             "Selected file placement incarnation and jointly locked admission/collection freeze; ordinary opening never provisions missing placement.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::LiveAuthority, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_file_owners",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::FileOwner),
                 column("issuing_store", text()),
                 column("storage_incarnation", text()),
                 column("boot", text()),
@@ -299,11 +253,12 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("drained", flag()),
             ],
             "Authenticated actual Linux process owner; boot, PID namespace, PID and start bind every file capability. Silence and finite deadlines never prove drain.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::LiveAuthority, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_file_instances",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::FileInstance),
                 column("intent", text()),
                 column("request_digest", text()),
                 column("owner", text()),
@@ -317,25 +272,27 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("batch_count", uint()),
                 column("schema", text()),
                 column("interpretation", text()),
-                column("state", text()),
+                column("state", FieldContract::enumeration("CanonicalFileState")),
             ],
             "Never-reused physical file instance reserved before file work. Original unresolved intent protects pending/sealed publication; collecting and collected are irreversible.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_file_borrowers",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::FileBorrower),
                 column("instance", text()),
                 column("owner_kind", text()),
                 column("owner", text()),
                 column("released", flag()),
             ],
             "Independent exact physical-file borrower and permanent released attribution; logical result/artifact lifetimes arbitrate with collection under the instance guard.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_manifest_tickets",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ManifestTicket),
                 column("kind", text()),
                 column("selection", text()),
                 column("run", text()).optional(),
@@ -346,20 +303,22 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("released", flag()),
             ],
             "Nonexpiring exact immutable selection read ticket covering future unread files; only actual authenticated owner death or completed reader drain releases it.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::LiveAuthority, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_problems",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::Problem),
                 column("head", text()),
                 column("sequence", uint()),
             ],
             "Linear problem head; guarded compare-and-set advances it.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: true, enforced: false, generation_references: false },
         ),
         (
             "canonical_revisions",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision),
                 column("problem", text()),
                 column("sequence", uint()),
                 column("parent", text()).optional(),
@@ -368,6 +327,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("interpretation", text()),
             ],
             "Immutable authored revision and idempotent edit operation.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: true, enforced: false, generation_references: false },
         ),
         (
             "canonical_versions",
@@ -379,6 +339,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("interpretation", text()),
             ],
             "Immutable logical object version; payload codec belongs to the scientific declaration owner.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: true, enforced: false, generation_references: false },
         ),
         (
             "canonical_memberships",
@@ -397,6 +358,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("to_sequence", uint()).optional(),
             ],
             "Changed membership interval and native problem-to-version graph edge; historical selection is explicit.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: true, generation_references: false },
         ),
         (
             "canonical_guards",
@@ -410,6 +372,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("source_reclaim_after", text()).optional(),
             ],
             "Named conflict register; generation is separate from semantic eligibility.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::LiveAuthority, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_edges",
@@ -421,6 +384,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("target_name", text()),
             ],
             "Authored structural reference resolved at a selected immutable revision.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_version_manifests",
@@ -437,6 +401,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("closed", flag()),
             ],
             "Closed immutable source payload manifest; transport blocks do not change scientific meaning.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_payload_blocks",
@@ -448,11 +413,13 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("digest", text()),
             ],
             "Bounded exact source payload transport block.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_version_receipts",
             vec![column("key", text()), column("content_digest", text())],
             "Permanent immutable version identity fence, retained after payload reclamation.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Receipt, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_stages",
@@ -470,6 +437,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("cleanup_complete", flag()),
             ],
             "Fenced bounded staging lease and permanent idempotent operation identity.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_staged_edits",
@@ -483,6 +451,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("version", text()).optional(),
             ],
             "Source edit metadata activated atomically after immutable payload staging closes.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_protections",
@@ -498,6 +467,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("authority_incarnation", text()).optional(),
             ],
             "Protected immutable read/preparation selection; expiry fences further use.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::LiveAuthority, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_roots",
@@ -510,6 +480,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("owner", text()),
             ],
             "Explicitly retained immutable revision root for a product, run, analysis or history.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_reclaimed_ranges",
@@ -520,25 +491,28 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("to_sequence", uint()),
             ],
             "Bounded reclamation tombstone; receipt retention does not resurrect reclaimed source selection.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Receipt, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_products",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::Product),
                 column("problem", text()),
                 column("revision", text()),
                 column("request", bytes()),
                 column("payload", bytes()),
                 column("dependencies", bytes()),
                 column("producer", text()),
+                column("producer_class", FieldContract::enumeration("CanonicalProducerClass")),
                 column("interpretation", text()),
             ],
             "Portable admitted scientific description and complete dependency witness; contains no native handles.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Derived, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_body_contents",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::BodyContent),
                 column("version", text()),
                 column("digest", text()),
                 column("bytes", uint()),
@@ -547,11 +521,12 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("format", text()),
             ],
             "Immutable body bytes and complete reconstruction meaning, independent of selection receipts.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Derived, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_selection_receipts",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::SelectionReceipt),
                 column("version", text()),
                 column("digest", text()),
                 column("bytes", uint()),
@@ -559,11 +534,12 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("format", text()),
             ],
             "Immutable complete selected and acquired predicates; not permission to publish.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Derived, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_product_associations",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProductAssociation),
                 column("issuing_store", text()),
                 column("problem", text()),
                 column("revision", text()),
@@ -574,14 +550,16 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("receipt", text()),
                 column("descriptor", text()),
                 column("producer", text()),
+                column("producer_class", FieldContract::enumeration("CanonicalProducerClass")),
                 column("interpretation", text()),
             ],
             "Original immutable publication provenance; payload is a bounded physical descriptor, never scientific body bytes.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Derived, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_product_descriptors",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProductDescriptor),
                 column("issuing_store", text()),
                 column("problem", text()),
                 column("request", bytes()),
@@ -590,19 +568,24 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("content", text()),
                 column("receipt", text()),
                 column("producer", text()),
+                column("producer_class", FieldContract::enumeration("CanonicalProducerClass")),
                 column("interpretation", text()),
                 column("association", text()).optional(),
             ],
             "Fully checked exact descriptor with the lowest currently rooted association; hashes only index equality.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Derived, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_runs",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::Run),
+                column("purpose", FieldContract::enumeration("CanonicalRunPurpose")).canonical_readonly().with_canonical_assertion("($value='execution' AND $this.admission_study=NONE AND $this.admission_point=NONE) OR ($value='study_admission' AND $this.admission_study!=NONE AND $this.admission_point!=NONE)"),
+                column("admission_study", text()).with_canonical_key(crate::model::CanonicalKeyKind::Study).canonical_readonly().with_fk("runtime.canonical_studies", "key").optional(),
+                column("admission_point", text()).with_canonical_key(crate::model::CanonicalKeyKind::StudyPoint).canonical_readonly().with_fk("runtime.canonical_study_points", "key").optional(),
                 column("research_selection", text()).optional(),
                 column("research_dataset", text()).optional(),
-                column("problem", text()),
-                column("revision", text()),
+                column("problem", text()).with_canonical_key(crate::model::CanonicalKeyKind::Problem),
+                column("revision", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision),
                 column("source_sequence", uint()),
                 column("sequence", uint()),
                 column("request", bytes()),
@@ -610,9 +593,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("attestation", bytes()),
                 column("interpretation", text()),
                 column("current_generation", uint()),
-                column("current_attempt", text()).optional(),
+                column("current_attempt", text()).with_canonical_key(crate::model::CanonicalKeyKind::Attempt).optional(),
                 column("cancelled", flag()),
-                column("terminal_attempt", text()).optional(),
+                column("terminal_attempt", text()).with_canonical_key(crate::model::CanonicalKeyKind::Attempt).optional(),
                 column(
                     "terminal_class",
                     FieldContract::enumeration("CanonicalTerminalOutcome"),
@@ -620,30 +603,32 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 .optional(),
             ],
             "One semantic execution, exact input selection and executable provenance; retry attempts retain this run identity.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: true, enforced: false, generation_references: false },
         ),
         (
             "canonical_attempts",
             vec![
-                column("key", text()),
-                column("run", text()),
-                column("generation", uint()),
-                column("claim_operation", text()),
-                column("request", bytes()),
-                column("worker", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::Attempt),
+                column("run", text()).with_canonical_key(crate::model::CanonicalKeyKind::Run).canonical_readonly(),
+                column("generation", uint()).canonical_readonly(),
+                column("claim_operation", text()).with_canonical_key(crate::model::CanonicalKeyKind::Operation).canonical_readonly(),
+                column("request", bytes()).canonical_readonly(),
+                column("worker", text()).canonical_readonly(),
                 column("expires_at", timestamp()),
-                column("phase", FieldContract::enumeration("CanonicalAttemptPhase")),
+                column("phase", FieldContract::enumeration("CanonicalAttemptPhase")).with_canonical_initial("ingesting").with_canonical_transition_exception("type::record('canonical_runs',$this.run).purpose='study_admission' AND $before IN ['ingesting','closed_awaiting_manifest','closed_with_manifest'] AND $value='terminal'").with_canonical_assertion("(($value='ingesting' AND $this.close_generation=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_awaiting_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value='closed_with_manifest' AND $this.close_generation!=NONE AND $this.closed_manifest!=NONE AND $this.outcome=NONE AND $this.completion=NONE AND $this.seed_manifest=NONE) OR ($value IN ['terminal','terminal_compacted'] AND (($value='terminal_compacted' AND $this.completion=NONE) OR ($value='terminal' AND ((type::record('canonical_runs',$this.run).purpose='study_admission' AND $this.outcome='failed' AND $this.completion=NONE) OR ($this.completion!=NONE AND !(type::record('canonical_runs',$this.run).purpose='study_admission' AND $this.outcome='failed'))))) AND $this.outcome IN ['succeeded','failed','partial','cancelled'] AND (type::record('canonical_runs',$this.run).purpose='study_admission' OR ($this.close_generation!=NONE AND $this.closed_manifest!=NONE))))"),
                 column("close_generation", uint()).optional(),
                 column(
                     "outcome",
                     FieldContract::enumeration("CanonicalTerminalOutcome"),
-                )
+                ).with_canonical_assertion("$before=NONE OR $before=$value")
                 .optional(),
-                column("closed_manifest", text()).optional(),
-                column("completion", bytes()).optional(),
-                column("seed_manifest", text()).optional(),
-                column("finalization_study", text()).optional(),
+                column("closed_manifest", text()).with_canonical_assertion("($value=NONE OR $value=$this.key) AND ($before=NONE OR $before=$value)").optional(),
+                column("completion", bytes()).with_canonical_assertion("($this.phase!='terminal_compacted' OR $value=NONE) AND ($before=NONE OR $before=$value OR ($value=NONE AND $this.phase='terminal_compacted'))").optional(),
+                column("seed_manifest", text()).with_canonical_seal("$before.phase IN ['terminal','terminal_compacted']").with_canonical_seal_refusal(super::canonical_refusals::RefusalCode::ExecutionTerminalSeedManifestImmutable.wire()).optional(),
+                column("finalization_study", text()).with_canonical_key(crate::model::CanonicalKeyKind::Study).canonical_readonly().optional(),
             ],
             "Fenced actual execution attempt; closure authority is distinct from the revoked worker generation.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_result_sets",
@@ -656,6 +641,23 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("row_count", uint()),
             ],
             "Private ordered scientific result membership; closure freezes the contiguous batch selection.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
+        ),
+        (
+            "canonical_inline_payloads",
+            vec![
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::InlinePayload),
+                column("attempt", text()),
+                column("digest", text()),
+                column("encoding", text()),
+                column("schema", text()),
+                column("interpretation", text()),
+                column("payload_bytes", uint()),
+                column("batch_count", uint()),
+                column("body", bytes()),
+            ],
+            "One immutable complete bounded encoded body shared by exact logical batch members.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_result_batches",
@@ -666,15 +668,17 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("ordinal", uint()),
                 column("digest", text()),
                 column("row_count", uint()),
-                column("file_binding", text()),
-                column("file_instance", text()),
-                column("file_digest", text()),
-                column("file_batch_index", uint()),
+                column("payload_binding", text()),
+                column("placement", FieldContract::enumeration("CanonicalPayloadPlacement")),
+                column("inline_key", text()).optional(),
+                column("file_instance", text()).optional(),
+                column("payload_index", uint()),
                 column("payload_bytes", uint()),
                 column("schema", text()),
                 column("encoding", text()),
             ],
             "Immutable bounded ingestion receipt; repeating the identity with different bytes is refused.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_result_manifests",
@@ -686,23 +690,25 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("descriptors", bytes()),
             ],
             "Closed exact result-set descriptor with frozen batch extents and coverage; does not imply scientific success.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_execution_operations",
             vec![
-                column("key", text()),
-                column("run", text()),
-                column("attempt", text()).optional(),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::Operation),
+                column("run", text()).with_canonical_key(crate::model::CanonicalKeyKind::Run),
+                column("attempt", text()).with_canonical_key(crate::model::CanonicalKeyKind::Attempt).optional(),
                 column("kind", text()),
                 column("request", bytes()),
                 column("result", bytes()),
                 column("issuing_store", text()),
-                column("study", text()).optional(),
-                column("point", text()).optional(),
+                column("study", text()).with_canonical_key(crate::model::CanonicalKeyKind::Study).optional(),
+                column("point", text()).with_canonical_key(crate::model::CanonicalKeyKind::StudyPoint).optional(),
                 column("minimal", flag()),
                 column("disposition", text()),
             ],
             "Immutable lifecycle effect identity and settlement receipt after an uncertain acknowledgment.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Receipt, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_history_retirements",
@@ -712,12 +718,13 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("owner", text()),
                 column("issuing_store", text()),
                 column("outcome", text()),
-                column("revision", text()),
-                column("generation", uint()),
+                column("revision", text()).canonical_readonly(),
+                column("generation", uint()).canonical_readonly(),
                 column("complete", flag()),
                 column("after_locator", text()).optional(),
             ],
             "Permanent explicit detailed-history release and truthful minimal outcome; bounded collection cursor never grants replay or resurrection.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Receipt, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_history_locators",
@@ -729,6 +736,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("issuing_store", text()),
             ],
             "Permanent exact point and summary owner attribution created atomically with study membership; opaque identities remain fenced after detail deletion.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_history_identities",
@@ -740,6 +748,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("issuing_store", text()),
             ],
             "Permanent original attempt, manifest, seed and effect-free run owner attribution; no successful numerical result is invented for absent effects.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_history_obligations",
@@ -753,11 +762,13 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("released", flag()),
             ],
             "Independent attributed audit or unsettled-effect history obligation; exact released tombstones reject delayed re-acquisition and identity reuse.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_history_obligation_counts",
             vec![column("key", text()), column("count", uint())],
             "Transactionally maintained bounded owner-obligation lookup; counts cannot substitute for immutable obligation attribution.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_result_blocks",
@@ -780,6 +791,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("interpretation", text()),
             ],
             "Independently decodable exact scientific Arrow block; indexed range metadata is derived from its admitted coordinates.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Derived, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_result_block_outputs",
@@ -796,6 +808,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("interpretation", text()),
             ],
             "Derived native output-group index references exact original IPC rows; dense arrays never create per-element database cells.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Derived, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_result_protections",
@@ -806,6 +819,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("manifest", text()),
             ],
             "Exact result read association to the same-key revision protection; result reclamation checks its live protection under the retention guard.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::LiveAuthority, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_result_retirements",
@@ -816,16 +830,18 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("complete", flag()),
             ],
             "Explicit irreversible withdrawal of a run's scientific payloads; bounded cleanup resumes without reopening scientific execution or deleting immutable lifecycle receipts.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Receipt, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_study_retirements",
             vec![column("key", text()), column("study", text())],
             "Explicit withdrawal of a terminal study's result retention obligation; its occurrence and scientific outcome receipts remain immutable.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Receipt, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_artifacts",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::Artifact),
                 column("kind", text()),
                 column("revision", text()),
                 column("primary_problem", text()),
@@ -841,6 +857,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("retiring", flag()),
             ],
             "Independent selected scientific closure; finite original creation authority, owned copied content and source roots survive producer collection.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: true, enforced: false, generation_references: false },
         ),
         (
             "canonical_artifact_blocks",
@@ -860,31 +877,35 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("rows", uint()),
             ],
             "One bounded artifact-owned capsule or standalone IPC block; original and copied encoding digests are distinct provenance.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_artifact_obligations",
             vec![
                 column("key", text()),
                 column("artifact", text()),
-                column("owner_kind", text()),
+                column("owner_kind", FieldContract::enumeration("CanonicalArtifactHolderKind")),
                 column("owner", text()),
             ],
             "Independent attributed study, user, project, analysis or audit obligation; only the matching owner releases it.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_artifact_releases",
             vec![
                 column("key", text()),
                 column("artifact", text()),
-                column("owner_kind", text()),
+                column("owner_kind", FieldContract::enumeration("CanonicalArtifactHolderKind")),
                 column("owner", text()),
             ],
             "Permanent exact obligation release; a delayed attach cannot recreate a released owner lifetime.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Receipt, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_artifact_reads",
             vec![column("key", text()), column("artifact", text())],
             "Artifact read association to the same-key finite canonical source protection grant; collection joins actual grant settlement.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::LiveAuthority, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_artifact_staging_inputs",
@@ -896,6 +917,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("manifest", text()),
             ],
             "Protective exact producer selection during staged or uncertain scientific transfer; removed only after activation or exact creation settlement.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_study_inputs",
@@ -906,11 +928,12 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("artifact", text()),
             ],
             "Exact external seed selection admitted before study activation; one obligation per distinct selected solution preserves original occurrence policy.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_analyses",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::Analysis),
                 column("revision", text()),
                 column("method", text()),
                 column("configuration", bytes()),
@@ -927,16 +950,18 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("retiring", flag()),
             ],
             "Derived analysis method, exact configuration and source lineage; activation follows complete graph membership and never changes authored problem authority.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: true, enforced: false, generation_references: false },
         ),
         (
             "canonical_analysis_nodes",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::AnalysisNode),
                 column("analysis", text()),
                 column("semantic", text()),
                 column("kind", text()),
             ],
             "Selected semantic objects within one immutable derived analysis graph.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: true, enforced: false, generation_references: false },
         ),
         (
             "canonical_analysis_edges",
@@ -956,6 +981,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("evidence_field", text()).optional(),
             ],
             "Method-scoped incidence, dependency, topology or quantitative evidence edge; each relation meaning is explicit.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: true, generation_references: false },
         ),
         (
             "canonical_analysis_inputs",
@@ -969,6 +995,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                     .with_graph_endpoint(false),
             ],
             "Independent scientific input artifact consumed by a retained derived analysis; explicit attributed obligations survive original producer collection.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: true, generation_references: false },
         ),
         (
             "canonical_result_seeds",
@@ -992,6 +1019,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("digest", text()),
             ],
             "Indexed exact scientific seed descriptor; immutable chunks belong to the closed result selection, and completion independently grants eligibility.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Derived, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_problem_runs",
@@ -1005,6 +1033,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                     .with_graph_endpoint(false),
             ],
             "Native problem-to-run relationship; execution identity remains distinct from authored revision identity.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: true, generation_references: false },
         ),
         (
             "canonical_run_sources",
@@ -1018,35 +1047,40 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                     .with_graph_endpoint(false),
             ],
             "Exact selected source revision of a run; supports connected provenance traversal.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: true, generation_references: false },
         ),
         (
             "canonical_studies",
             vec![
-                column("key", text()),
-                column("run", text()),
-                column("problem", text()),
-                column("revision", text()),
-                column("metadata", bytes()),
-                column("physical_revision", text()).optional(),
-                column("physical_identity", text()).optional(),
-                column("context", text()).optional(),
-                column("interpretation", text()),
-                column("point_count", uint()),
-                column("next_ordinal", uint()),
-                column("dependency_count", uint()),
-                column("installed_dependencies", uint()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::Study),
+                column("run", text()).with_canonical_key(crate::model::CanonicalKeyKind::Run).canonical_readonly(),
+                column("problem", text()).with_canonical_key(crate::model::CanonicalKeyKind::Problem).canonical_readonly(),
+                column("revision", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision).canonical_readonly(),
+                column("metadata", bytes()).canonical_readonly(),
+                column("physical_revision", text()).canonical_readonly().optional(),
+                column("physical_identity", text()).canonical_readonly().optional(),
+                column("context", text()).canonical_readonly().optional(),
+                column("interpretation", text()).canonical_readonly(),
+                column("point_count", uint()).canonical_readonly(),
+                column("next_ordinal", uint()).with_canonical_assertion("$value>=0dec AND $value<=18446744073709551615dec AND math::floor($value)=$value AND $value<=$this.point_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR $value=$this.point_count)"),
+                column("dependency_count", uint()).canonical_readonly(),
+                column("installed_dependencies", uint()).with_canonical_assertion("$value>=0dec AND $value<=18446744073709551615dec AND math::floor($value)=$value AND $value<=$this.dependency_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR ($value=$this.dependency_count AND $this.next_ordinal=$this.point_count))"),
                 column("active", flag()),
                 column("cancelled", flag()),
                 column("generation", uint()),
                 column("terminal", flag()),
             ],
             "Immutable study selection and bounded staged occurrence membership; activation follows complete admission.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_study_points",
             vec![
-                column("key", text()),
-                column("study", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::StudyPoint),
+                column("study", text()).with_canonical_key(crate::model::CanonicalKeyKind::Study),
+                column("admission_run", text()).with_canonical_key(crate::model::CanonicalKeyKind::Run).canonical_readonly().with_fk("runtime.canonical_runs", "key").optional(),
+                column("variant_problem", text()).with_canonical_key(crate::model::CanonicalKeyKind::Problem).canonical_readonly().optional(),
+                column("variant_operation", text()).with_canonical_key(crate::model::CanonicalKeyKind::Operation).canonical_readonly().optional(),
                 column("ordinal", uint()),
                 column("occurrence", uint()),
                 column("seed_solution", text()).optional(),
@@ -1055,14 +1089,15 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("admission", bytes()).optional(),
                 column("facts", bytes()),
                 column("outcome", bytes()).optional(),
-                column("run", text()),
+                column("run", text()).with_canonical_key(crate::model::CanonicalKeyKind::Run),
                 column("revision", uint()),
                 column("assigned", flag()),
                 column("settled", flag()),
-                column("attempt", text()).optional(),
+                column("attempt", text()).with_canonical_key(crate::model::CanonicalKeyKind::Attempt).optional(),
                 column("start", bytes()).optional(),
             ],
             "Distinct requested occurrence, immutable operation and policy, fenced observations and actual selected start. Query flags are derived from the shared policy owner.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: true, enforced: false, generation_references: false },
         ),
         (
             "canonical_study_dependencies",
@@ -1078,6 +1113,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("kind", text()),
             ],
             "Native occurrence dependency edge; ordering, scientific usability and selected seed roles retain distinct meanings.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: true, generation_references: false },
         ),
         (
             "canonical_study_readiness",
@@ -1096,6 +1132,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("notify_after", text()),
             ],
             "Derived discovery only: complete observed premise revisions, pending predecessor observations and pure-policy eligibility. Durable bounded outgoing notification never grants a scientific claim.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Derived, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
         (
             "canonical_study_readiness_cursors",
@@ -1110,9 +1147,10 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("pending_operation", text()).optional(),
             ],
             "Derived per-study round-robin notification and resumable rebuild/verification cursors. Scientific state transitions never write this row.",
+            crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Derived, backup: crate::model::CanonicalBackup::Recovered, inline_vertex: false, enforced: false, generation_references: false },
         ),
     ];
-    for (name, columns, doc) in declarations {
+    for (name, columns, doc, policy) in declarations {
         builder.declare_relation(declaration(
             Namespace::Runtime,
             name,
@@ -1121,6 +1159,6 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             &["key"],
             columns,
             doc,
-        ));
+        ).with_canonical(policy));
     }
 }

@@ -16,6 +16,7 @@ from unittest.mock import patch
 from scripts import surreal_server as server
 from scripts.tests import canonical_recovery_check as recovery
 from scripts.tests import canonical_recovery_science as science
+from scripts.tests import test_surreal_server as supervisor_controls
 from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
 from scripts.tests.test_surrealism_module import fixture_module
 
@@ -323,6 +324,7 @@ class ScientificRecoveryControls(unittest.TestCase):
             Path("profile"),
             scientific=True,
             output_directory=Path("evidence"),
+            payload_verifier=None,
         )
 
     def test_explicit_inventory_contains_actual_authored_and_physical_inputs(
@@ -436,6 +438,9 @@ class ScientificRecoveryControls(unittest.TestCase):
 class CanonicalRecoveryProfileTests(unittest.TestCase):
     def setUp(self) -> None:
         fixture_build_context(self)
+        physical = patch.object(server, "native_payload_operation", side_effect=supervisor_controls.fixture_native_payload_operation)
+        physical.start()
+        self.addCleanup(physical.stop)
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)

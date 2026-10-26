@@ -576,6 +576,7 @@ impl RegistryBuilder {
     /// Resolve only declarations. Bootstrap consumers do not recursively build a registry.
     fn resolve_base(&self) -> Result<Registry, SchemaError> {
         let mut relations = self.resolve_relations()?;
+        inherit_canonical_keys(&mut relations)?;
         let identities = identities::resolve(&mut relations, &self.identities)?;
         let structures = structures::resolve(&relations)?;
         let relation_index = index_relations(&relations);
@@ -585,6 +586,16 @@ impl RegistryBuilder {
             .map(|(index, spec)| (spec.id, index))
             .collect();
         let enums = self.resolve_enums()?;
+        for relation in &relations {
+            for column in &relation.columns {
+                if let Some(initial) = column.canonical_initial() {
+                    let declared = column.enum_name().and_then(|name| enums.iter().find(|spec| spec.name == name));
+                    if !declared.is_some_and(|spec| spec.members.iter().any(|member| member.name == initial)) {
+                        return Err(crate::checks::invalid(format!("{}.{}",relation.key,column.name()), "initial lifecycle value must be a member of the declared vocabulary"));
+                    }
+                }
+            }
+        }
         let logical_types = collect_logical_types(&relations, &enums)?;
 
         let mut registry = Registry {
@@ -641,6 +652,7 @@ impl RegistryBuilder {
             }
             crate::checks::relation_declaration(decl)?;
             out.push(RelationSpec {
+                canonical: decl.canonical,
                 id: registry_id(&format!("relation:{name}")),
                 key: decl.key,
                 authority: decl.authority,
@@ -701,10 +713,44 @@ impl RegistryBuilder {
                 idaes_source: decl.idaes_source,
                 source: decl.source,
                 default_member: decl.default_member,
+                transitions: decl.transitions.clone(),
+                projections: decl.projections.clone(),
                 members: decl.members.clone(),
             });
         }
         out.sort_by_key(|spec| spec.name);
+        for spec in &out {
+            let members = spec.members.iter().map(|member| member.name).collect::<BTreeSet<_>>();
+            let mut edges = BTreeSet::new();
+            for edge in &spec.transitions {
+                if !members.contains(edge.before) || !members.contains(edge.after)
+                    || !edges.insert((edge.before, edge.after)) {
+                    return Err(crate::checks::invalid(format!("enum {} transition", spec.name), "edges must be unique and name declared members"));
+                }
+            }
+            let mut methods = BTreeSet::new();
+            for projection in &spec.projections {
+                let targets = if projection.target == "bool" {
+                    BTreeSet::from(["false", "true"])
+                } else {
+                    let target = out.iter().find(|candidate| candidate.name == projection.target)
+                        .ok_or_else(|| crate::checks::invalid(format!("enum {} projection", spec.name), "target vocabulary is undeclared"))?;
+                    target.members.iter().map(|member| member.name).collect::<BTreeSet<_>>()
+                };
+                let mut covered = BTreeSet::new();
+                for member in &projection.members {
+                    if !members.contains(member.source) || !covered.insert(member.source)
+                        || !targets.contains(member.value)
+                        || member.when_true.is_some() != projection.input.is_some()
+                        || member.when_true.is_some_and(|value| !targets.contains(value)) {
+                        return Err(crate::checks::invalid(format!("enum {} projection {}", spec.name, projection.method), "projection must map each source exactly once to declared target members and match its boolean input"));
+                    }
+                }
+                if covered != members || !methods.insert(projection.method) || spec.source.is_some() {
+                    return Err(crate::checks::invalid(format!("enum {} projection {}", spec.name, projection.method), "projection must be total, uniquely named and owned by a generated vocabulary"));
+                }
+            }
+        }
         Ok(out)
     }
 }
@@ -723,6 +769,32 @@ fn index_relations(relations: &[RelationSpec]) -> BTreeMap<String, usize> {
             .or_insert(position);
     }
     index
+}
+
+/// A reference carries its explicitly declared target's nominal text-key domain.
+/// Names never choose a domain; only the actual declared reference supplies it.
+fn inherit_canonical_keys(relations: &mut [RelationSpec]) -> Result<(), SchemaError> {
+    let index = index_relations(relations);
+    loop {
+        let mut changes = Vec::new();
+        for (position, relation) in relations.iter().enumerate() {
+            let mut references = relation.columns.iter().filter_map(|column| column.fk().map(|reference| (column.name(), reference.relation, reference.column))).collect::<Vec<_>>();
+            for reference in &relation.foreign_keys {
+                references.extend(reference.columns.iter().zip(&reference.target_columns).map(|(&local,&target)| (local,reference.target,target)));
+            }
+            for (local, target, remote) in references {
+                let Some(target) = index.get(target).and_then(|&position| relations.get(position)).and_then(|relation| relation.column(remote)).and_then(FieldContract::canonical_key) else { continue; };
+                let Some(column) = relation.columns.iter().position(|column| column.name() == local) else { continue; };
+                match relation.columns[column].canonical_key() {
+                    Some(local) if local != target => return Err(crate::checks::invalid(format!("{}.{}",relation.key,relation.columns[column].name()), "reference and target carry different canonical lookup domains")),
+                    Some(_) => {},
+                    None => changes.push((position,column,target)),
+                }
+            }
+        }
+        if changes.is_empty() { return Ok(()); }
+        for (relation,column,kind) in changes { relations[relation].columns[column] = relations[relation].columns[column].clone().with_canonical_key(kind); }
+    }
 }
 
 /// Records `ty` and every type reachable from it in the catalog under construction.

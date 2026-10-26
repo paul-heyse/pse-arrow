@@ -261,14 +261,24 @@ DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string)
     LET $sets=SELECT key FROM canonical_result_sets WHERE attempt=$attempt.key ORDER BY name LIMIT 1;
     IF array::len($sets)!=0 {
         LET $set=$sets[0].key;
-        LET $batches=SELECT key FROM canonical_result_batches WHERE result_set=$set ORDER BY ordinal LIMIT 1;
+        LET $batches=SELECT key,placement,inline_key FROM canonical_result_batches WHERE result_set=$set ORDER BY ordinal LIMIT 1;
         IF array::len($batches)!=0 {
             LET $batch=$batches[0].key;
             LET $outputs=SELECT key FROM canonical_result_block_outputs WHERE batch=$batch ORDER BY key LIMIT 64;
             DELETE $outputs.map(|$row|type::record('canonical_result_block_outputs',$row.key));
             LET $remaining_outputs=SELECT key FROM canonical_result_block_outputs WHERE batch=$batch LIMIT 1;
             LET $deleted=array::len($remaining_outputs)=0;
-            IF $deleted { fn::pse_files_v1::release_borrower($rpc_expiry,'result:'+$batch); DELETE ONLY type::record('canonical_result_blocks',$batch); DELETE ONLY type::record('canonical_result_batches',$batch); };
+            IF $deleted {
+                IF $batches[0].placement='sealed' { fn::pse_files_v1::release_borrower($rpc_expiry,'result:'+$batch); };
+                LET $inline=$batches[0].inline_key;
+                IF $inline!=NONE { SELECT key FROM ONLY type::record('canonical_inline_payloads',$inline) FOR UPDATE; };
+                DELETE ONLY type::record('canonical_result_blocks',$batch);
+                DELETE ONLY type::record('canonical_result_batches',$batch);
+                IF $inline!=NONE {
+                    LET $remaining=SELECT key FROM canonical_result_batches WHERE inline_key=$inline LIMIT 1;
+                    IF array::len($remaining)=0 { DELETE ONLY type::record('canonical_inline_payloads',$inline); };
+                };
+            };
             LET $rpc_result = {complete:false,batches:IF $deleted {1dec} ELSE {0dec},indexes:<decimal>array::len($outputs),sets:0dec};
             fn::pse_execution_v1::deadline($rpc_expiry);
             RETURN $rpc_result;

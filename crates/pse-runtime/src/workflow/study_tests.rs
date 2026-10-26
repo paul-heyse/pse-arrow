@@ -3845,7 +3845,10 @@ async fn managed_primary_multipage_read_overlaps_compiler_leases_and_original_sc
     let revision = store.edit(&key, None, "transport-only", &[]).await.unwrap();
     store
         .begin_run(&RunRequest {
-            key: key.clone(),
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
+            key: key.clone().into(),
             revision,
             sources: vec![],
             request: vec![1],
@@ -4561,7 +4564,10 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
         .unwrap();
     store
         .begin_run(&RunRequest {
-            key: transport_run.clone(),
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
+            key: transport_run.clone().into(),
             revision: revision.clone(),
             sources: vec![],
             request: vec![1],

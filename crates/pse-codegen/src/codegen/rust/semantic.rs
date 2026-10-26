@@ -306,6 +306,8 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
             pub mod products;
             /// Typed entity ids declared by the registry (ADR-0115).
             pub mod identities;
+            /// Nominal opaque-text canonical keys and table classifications.
+            pub mod canonical;
         },
     )?;
     Ok(())

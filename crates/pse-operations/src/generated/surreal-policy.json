@@ -1,9 +1,434 @@
 {
   "generated_by": "pse-schema",
-  "interpretation": "pse.substrate.v8",
+  "interpretation": "pse.substrate.v9",
   "result_block_bytes": 33554432,
   "result_file_target_bytes": 16777216,
   "result_index_bytes": 131072,
   "max_message_bytes": 4194304,
-  "result_index_records": 18724
+  "result_index_records": 18724,
+  "application_backup_tables": [
+    "canonical_analyses",
+    "canonical_analysis_edges",
+    "canonical_analysis_inputs",
+    "canonical_analysis_nodes",
+    "canonical_artifact_blocks",
+    "canonical_artifact_obligations",
+    "canonical_artifact_reads",
+    "canonical_artifact_releases",
+    "canonical_artifact_staging_inputs",
+    "canonical_artifacts",
+    "canonical_attempts",
+    "canonical_context_ancestry",
+    "canonical_context_journals",
+    "canonical_draft_diagnostics",
+    "canonical_edges",
+    "canonical_execution_operations",
+    "canonical_file_borrowers",
+    "canonical_file_instances",
+    "canonical_history_identities",
+    "canonical_history_locators",
+    "canonical_history_obligation_counts",
+    "canonical_history_obligations",
+    "canonical_history_retirements",
+    "canonical_inline_payloads",
+    "canonical_maintenance_activations",
+    "canonical_maintenance_operations",
+    "canonical_memberships",
+    "canonical_payload_blocks",
+    "canonical_problem_runs",
+    "canonical_problems",
+    "canonical_project_ancestry",
+    "canonical_project_bookmarks",
+    "canonical_project_branches",
+    "canonical_project_contexts",
+    "canonical_project_draft_versions",
+    "canonical_project_drafts",
+    "canonical_project_imports",
+    "canonical_project_operations",
+    "canonical_project_savepoints",
+    "canonical_projects",
+    "canonical_protections",
+    "canonical_reclaimed_ranges",
+    "canonical_research_datasets",
+    "canonical_research_publications",
+    "canonical_research_references",
+    "canonical_research_selections",
+    "canonical_result_batches",
+    "canonical_result_manifests",
+    "canonical_result_protections",
+    "canonical_result_retirements",
+    "canonical_result_sets",
+    "canonical_revisions",
+    "canonical_roots",
+    "canonical_run_sources",
+    "canonical_runs",
+    "canonical_staged_edits",
+    "canonical_stages",
+    "canonical_studies",
+    "canonical_study_dependencies",
+    "canonical_study_inputs",
+    "canonical_study_points",
+    "canonical_study_retirements",
+    "canonical_version_manifests",
+    "canonical_version_receipts",
+    "canonical_versions"
+  ],
+  "table_classifications": {
+    "canonical_analyses": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_analysis_edges": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_analysis_inputs": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_analysis_nodes": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_artifact_blocks": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_artifact_obligations": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_artifact_reads": {
+      "retention": "LiveAuthority",
+      "backup": "Required"
+    },
+    "canonical_artifact_releases": {
+      "retention": "Receipt",
+      "backup": "Required"
+    },
+    "canonical_artifact_staging_inputs": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_artifacts": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_attempts": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_body_contents": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "canonical_context_ancestry": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_context_journals": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_draft_diagnostics": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_edges": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_execution_operations": {
+      "retention": "Receipt",
+      "backup": "Required"
+    },
+    "canonical_file_admission": {
+      "retention": "LiveAuthority",
+      "backup": "Recovered"
+    },
+    "canonical_file_borrowers": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_file_instances": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_file_owners": {
+      "retention": "LiveAuthority",
+      "backup": "Recovered"
+    },
+    "canonical_guards": {
+      "retention": "LiveAuthority",
+      "backup": "Recovered"
+    },
+    "canonical_history_identities": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_history_locators": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_history_obligation_counts": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_history_obligations": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_history_retirements": {
+      "retention": "Receipt",
+      "backup": "Required"
+    },
+    "canonical_inline_payloads": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_interpretations": {
+      "retention": "Durable",
+      "backup": "Recovered"
+    },
+    "canonical_maintenance_activations": {
+      "retention": "Receipt",
+      "backup": "Required"
+    },
+    "canonical_maintenance_operations": {
+      "retention": "Receipt",
+      "backup": "Required"
+    },
+    "canonical_manifest_tickets": {
+      "retention": "LiveAuthority",
+      "backup": "Recovered"
+    },
+    "canonical_memberships": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_payload_blocks": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_problem_runs": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_problems": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_product_associations": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "canonical_product_descriptors": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "canonical_products": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "canonical_project_ancestry": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_project_bookmarks": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_project_branches": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_project_contexts": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_project_draft_versions": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_project_drafts": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_project_imports": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_project_operations": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_project_savepoints": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_projects": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_protections": {
+      "retention": "LiveAuthority",
+      "backup": "Required"
+    },
+    "canonical_reclaimed_ranges": {
+      "retention": "Receipt",
+      "backup": "Required"
+    },
+    "canonical_research_datasets": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_research_publications": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_research_references": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_research_selections": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_result_batches": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_result_block_outputs": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "canonical_result_blocks": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "canonical_result_manifests": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_result_protections": {
+      "retention": "LiveAuthority",
+      "backup": "Required"
+    },
+    "canonical_result_retirements": {
+      "retention": "Receipt",
+      "backup": "Required"
+    },
+    "canonical_result_seeds": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "canonical_result_sets": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_revisions": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_roots": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_run_sources": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_runs": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_selection_receipts": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "canonical_staged_edits": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_stages": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_studies": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_study_dependencies": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_study_inputs": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_study_points": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_study_readiness": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "canonical_study_readiness_cursors": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "canonical_study_retirements": {
+      "retention": "Receipt",
+      "backup": "Required"
+    },
+    "canonical_version_manifests": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_version_receipts": {
+      "retention": "Receipt",
+      "backup": "Required"
+    },
+    "canonical_versions": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "knowledge_excerpts": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "knowledge_generations": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "knowledge_productions": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "knowledge_sources": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "knowledge_state": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "knowledge_subject_edges": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "knowledge_subject_sources": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "knowledge_subject_topics": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    },
+    "knowledge_subjects": {
+      "retention": "Derived",
+      "backup": "Recovered"
+    }
+  }
 }

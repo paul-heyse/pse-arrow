@@ -186,7 +186,7 @@ impl ProgressStream {
             response.clone(),
             self.services
                 .canonical_store()?
-                .result_file_batch_descriptors(read, set, &[self.ordinal]),
+                .result_payload_batch_descriptors(read, set, &[self.ordinal]),
         )
         .await?;
         let descriptor = descriptors

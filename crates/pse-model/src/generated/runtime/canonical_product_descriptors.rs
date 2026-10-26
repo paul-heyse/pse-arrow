@@ -27,6 +27,8 @@ pub struct RuntimeCanonicalProductDescriptorsRow {
     pub r#receipt: String,
     ///producer
     pub r#producer: String,
+    ///producer_class
+    pub r#producer_class: crate::generated::enums::CanonicalProducerClass,
     ///interpretation
     pub r#interpretation: String,
     ///association
@@ -48,6 +50,10 @@ impl crate::SemanticEq for RuntimeCanonicalProductDescriptorsRow {
             && crate::SemanticEq::semantic_eq(&self.r#receipt, &other.r#receipt)
             && crate::SemanticEq::semantic_eq(&self.r#producer, &other.r#producer)
             && crate::SemanticEq::semantic_eq(
+                &self.r#producer_class,
+                &other.r#producer_class,
+            )
+            && crate::SemanticEq::semantic_eq(
                 &self.r#interpretation,
                 &other.r#interpretation,
             )
@@ -57,6 +63,18 @@ impl crate::SemanticEq for RuntimeCanonicalProductDescriptorsRow {
 impl PartialEq for RuntimeCanonicalProductDescriptorsRow {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl RuntimeCanonicalProductDescriptorsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::ProductDescriptorKey {
+        crate::generated::canonical::ProductDescriptorKey::from(self.r#key.as_str())
+    }
+}
+impl RuntimeCanonicalProductDescriptorsRow {
+    /// Observation projected from the field's declared closed vocabulary.
+    pub const fn r#scientific(&self) -> bool {
+        self.r#producer_class.r#scientific()
     }
 }
 /// The concrete generated relation row.
@@ -81,6 +99,8 @@ impl crate::SemanticFrame for RuntimeCanonicalProductDescriptorsRow {
         crate::SemanticFrame::frame(&self.r#receipt, hash);
         hash.str(stringify!(r#producer));
         crate::SemanticFrame::frame(&self.r#producer, hash);
+        hash.str(stringify!(r#producer_class));
+        crate::SemanticFrame::frame(&self.r#producer_class, hash);
         hash.str(stringify!(r#interpretation));
         crate::SemanticFrame::frame(&self.r#interpretation, hash);
         hash.str(stringify!(r#association));
@@ -99,6 +119,7 @@ impl crate::HeapUsage for RuntimeCanonicalProductDescriptorsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#content))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#receipt))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#producer))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#producer_class))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#interpretation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#association))
     }

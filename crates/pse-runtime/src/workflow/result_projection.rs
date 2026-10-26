@@ -411,26 +411,19 @@ impl<'a> ResultAppendQueue<'a> {
         let seal_deadline = self
             .append_deadline
             .map_or(deadline, |clock| clock.min(deadline));
-        let file = pse_operations::canonical::operation_scope(seal_deadline, async {
-            let intent = self
-                .store
-                .reserve_result_file(self.fence, &operation, &digest)
-                .await?;
-            self.store
-                .seal_file(
-                    &intent,
-                    admitted.bytes(),
-                    pse_operations::canonical_files::ARROW_IPC_FILE,
-                    batches.len() as u64,
-                    &schema,
-                )
-                .await
-        })
-        .await?;
-        // Physical publication is synchronous; seal_file's RPC binds only the
-        // descriptor. No byte-bearing transport outlives its return. Drop every
-        // batch alias and byte allocation before releasing the encoder allowance.
-        let admitted_file = AdmittedSealedResultFile::bind(file, admitted)?;
+        let inline = admitted.bytes().len() <= pse_schema::catalog::substrate::RESULT_INLINE_BYTES;
+        let (inline_body, sealed_body) = if inline {
+            (Some(Arc::new(admitted)), None)
+        } else {
+            let file = pse_operations::canonical::operation_scope(seal_deadline, async {
+                let intent = self.store.reserve_result_file(self.fence, &operation, &digest).await?;
+                self.store.seal_file(
+                    &intent, admitted.bytes(), pse_operations::canonical_files::ARROW_IPC_FILE,
+                    batches.len() as u64, &schema,
+                ).await
+            }).await?;
+            (None, Some(AdmittedSealedResultFile::bind(file, admitted)?))
+        };
         drop(batches);
         let metadata = items
             .into_iter()
@@ -451,11 +444,25 @@ impl<'a> ResultAppendQueue<'a> {
         {
             // The sealed payload has no resident bytes. Its existing per-item
             // metadata lease covers the descriptor, intent and request copies.
-            let payload = ResultPayload::from_admitted_sealed_owned(
-                &admitted_file,
-                index as u64,
-                owner.clone(),
-            )?;
+            let owner = if let Some(body) = &inline_body {
+                // Encoded body custody and native request/value copies have distinct owners.
+                // Prepay every per-member append representation before constructing it.
+                let extent = body.bytes().len().checked_mul(16)
+                    .and_then(|bytes| bytes.checked_add(owner.size()))
+                    .and_then(|bytes| bytes.checked_add(4096))
+                    .ok_or_else(|| contract("inline append copy extent"))?;
+                let reservation = MemoryConsumer::new("canonical:inline-append-transport").register(self.pool);
+                reservation.try_grow(extent).map_err(pse_engine::EngineError::from)?;
+                pse_columnar::AllocationLease::new(reservation)
+            } else { owner };
+            let payload = if let Some(body) = &inline_body {
+                ResultPayload::from_admitted_encoded_owned(body.clone(), index as u64, &operation, owner.clone())?
+            } else {
+                ResultPayload::from_admitted_sealed_owned(
+                    sealed_body.as_ref().ok_or_else(|| contract("selected sealed body absent"))?,
+                    index as u64, owner.clone(),
+                )?
+            };
             block.payload_bytes = payload.byte_len();
             block.payload_digest = payload.digest().to_owned();
             let append = ResultBlockAppend::new(
@@ -475,12 +482,12 @@ impl<'a> ResultAppendQueue<'a> {
                 .encoded_extent()
                 .checked_add(4096)
                 .ok_or_else(|| contract("sealed append metadata extent"))?;
-            if extent > owner.size() || extent > pse_operations::canonical::PAYLOAD_BYTES - 4096 {
+            if extent > owner.size() || extent > pse_schema::catalog::substrate::RESULT_APPEND_TARGET_BYTES - 4096 {
                 return Err(contract("sealed append exceeds admitted metadata extent"));
             }
             if !self.appends.is_empty()
                 && (self.append_extent.saturating_add(extent)
-                    > pse_operations::canonical::PAYLOAD_BYTES
+                    > pse_schema::catalog::substrate::RESULT_APPEND_TARGET_BYTES
                     || self.appends.len()
                         == pse_operations::generated::surreal::RESULT_INDEX_RECORDS)
             {
@@ -1324,6 +1331,9 @@ mod result_projection_unit {
             .unwrap();
         store
             .begin_run(&pse_operations::canonical_execution::RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "actual-projection-run".into(),
                 revision,
                 sources: vec![],
@@ -1358,7 +1368,7 @@ mod result_projection_unit {
         assert_eq!(
             queue.items.len(),
             0,
-            "each complete projection seals its homogeneous file"
+            "each complete projection closes its admitted homogeneous body"
         );
         assert_eq!(queue.appends.len(), 2);
         assert_eq!(queue.complete.len(), 2);
@@ -1381,6 +1391,9 @@ mod result_projection_unit {
             .unwrap();
         store
             .begin_run(&pse_operations::canonical_execution::RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "cold-projection-run".into(),
                 revision,
                 sources: vec![],
@@ -1495,6 +1508,9 @@ mod result_projection_unit {
             .await
             .unwrap();
         let request = |key: &str| pse_operations::canonical_execution::RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: key.into(),
             revision: revision.clone(),
             sources: vec![],
@@ -1698,6 +1714,9 @@ mod result_projection_unit {
             .unwrap();
         store
             .begin_run(&pse_operations::canonical_execution::RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "append-queue-run".into(),
                 revision,
                 sources: vec![],
@@ -1971,6 +1990,9 @@ mod result_projection_unit {
             .unwrap();
         store
             .begin_run(&pse_operations::canonical_execution::RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "cold-append-run".into(),
                 revision,
                 sources: vec![],
@@ -2117,6 +2139,9 @@ mod result_projection_unit {
             .unwrap();
         store
             .begin_run(&pse_operations::canonical_execution::RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "allocating-append-run".into(),
                 revision,
                 sources: vec![],

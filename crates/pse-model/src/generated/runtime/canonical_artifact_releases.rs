@@ -14,7 +14,7 @@ pub struct RuntimeCanonicalArtifactReleasesRow {
     ///artifact
     pub r#artifact: String,
     ///owner_kind
-    pub r#owner_kind: String,
+    pub r#owner_kind: crate::generated::enums::CanonicalArtifactHolderKind,
     ///owner
     pub r#owner: String,
 }

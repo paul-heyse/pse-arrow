@@ -941,6 +941,9 @@ mod lane_tests {
             .await
             .unwrap();
         let request = |key: &str| RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: key.into(),
             revision: revision.clone(),
             sources: vec![],
@@ -1012,6 +1015,9 @@ mod lane_tests {
             .await
             .unwrap();
         let request = |key: &str| RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: key.into(),
             revision: revision.clone(),
             sources: vec![],

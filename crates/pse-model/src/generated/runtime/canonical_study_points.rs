@@ -13,6 +13,12 @@ pub struct RuntimeCanonicalStudyPointsRow {
     pub r#key: String,
     ///study
     pub r#study: String,
+    ///admission_run
+    pub r#admission_run: Option<String>,
+    ///variant_problem
+    pub r#variant_problem: Option<String>,
+    ///variant_operation
+    pub r#variant_operation: Option<String>,
     ///ordinal
     pub r#ordinal: u64,
     ///occurrence
@@ -46,7 +52,18 @@ impl crate::SemanticEq for RuntimeCanonicalStudyPointsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#key, &other.r#key)
             && crate::SemanticEq::semantic_eq(&self.r#study, &other.r#study)
-            && crate::SemanticEq::semantic_eq(&self.r#ordinal, &other.r#ordinal)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#admission_run,
+                &other.r#admission_run,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#variant_problem,
+                &other.r#variant_problem,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#variant_operation,
+                &other.r#variant_operation,
+            ) && crate::SemanticEq::semantic_eq(&self.r#ordinal, &other.r#ordinal)
             && crate::SemanticEq::semantic_eq(&self.r#occurrence, &other.r#occurrence)
             && crate::SemanticEq::semantic_eq(
                 &self.r#seed_solution,
@@ -69,6 +86,56 @@ impl PartialEq for RuntimeCanonicalStudyPointsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalStudyPointsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::StudyPointKey {
+        crate::generated::canonical::StudyPointKey::from(self.r#key.as_str())
+    }
+}
+impl RuntimeCanonicalStudyPointsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn study_domain(&self) -> crate::generated::canonical::StudyKey {
+        crate::generated::canonical::StudyKey::from(self.r#study.as_str())
+    }
+}
+impl RuntimeCanonicalStudyPointsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn admission_run_domain(&self) -> Option<crate::generated::canonical::RunKey> {
+        self.r#admission_run.as_deref().map(crate::generated::canonical::RunKey::from)
+    }
+}
+impl RuntimeCanonicalStudyPointsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn variant_problem_domain(
+        &self,
+    ) -> Option<crate::generated::canonical::ProblemKey> {
+        self.r#variant_problem
+            .as_deref()
+            .map(crate::generated::canonical::ProblemKey::from)
+    }
+}
+impl RuntimeCanonicalStudyPointsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn variant_operation_domain(
+        &self,
+    ) -> Option<crate::generated::canonical::OperationKey> {
+        self.r#variant_operation
+            .as_deref()
+            .map(crate::generated::canonical::OperationKey::from)
+    }
+}
+impl RuntimeCanonicalStudyPointsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn run_domain(&self) -> crate::generated::canonical::RunKey {
+        crate::generated::canonical::RunKey::from(self.r#run.as_str())
+    }
+}
+impl RuntimeCanonicalStudyPointsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn attempt_domain(&self) -> Option<crate::generated::canonical::AttemptKey> {
+        self.r#attempt.as_deref().map(crate::generated::canonical::AttemptKey::from)
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalStudyPointsRow;
 impl crate::SemanticFrame for RuntimeCanonicalStudyPointsRow {
@@ -77,6 +144,12 @@ impl crate::SemanticFrame for RuntimeCanonicalStudyPointsRow {
         crate::SemanticFrame::frame(&self.r#key, hash);
         hash.str(stringify!(r#study));
         crate::SemanticFrame::frame(&self.r#study, hash);
+        hash.str(stringify!(r#admission_run));
+        crate::SemanticFrame::frame(&self.r#admission_run, hash);
+        hash.str(stringify!(r#variant_problem));
+        crate::SemanticFrame::frame(&self.r#variant_problem, hash);
+        hash.str(stringify!(r#variant_operation));
+        crate::SemanticFrame::frame(&self.r#variant_operation, hash);
         hash.str(stringify!(r#ordinal));
         crate::SemanticFrame::frame(&self.r#ordinal, hash);
         hash.str(stringify!(r#occurrence));
@@ -112,6 +185,9 @@ impl crate::HeapUsage for RuntimeCanonicalStudyPointsRow {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#study))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#admission_run))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#variant_problem))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#variant_operation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#ordinal))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#occurrence))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#seed_solution))

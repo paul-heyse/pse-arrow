@@ -55,7 +55,10 @@ async fn publish(runtime: &Runtime, evidence: ResponseEvidence) -> FixtureResult
         .await?;
     store
         .begin_run(&RunRequest {
-            key: key.clone(),
+            purpose: CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
+            key: key.clone().into(),
             revision: source,
             sources: vec![],
             request: vec![1],

@@ -42,6 +42,16 @@ pub(crate) fn relation_declaration(decl: &RelationDecl) -> Result<(), SchemaErro
     })?;
     let mut columns = BTreeSet::new();
     for column in &decl.columns {
+        if column.canonical_key().is_some()
+            && (column.data_type() != arrow_schema::DataType::Utf8
+                || column.identity().is_some() || column.enum_name().is_some()) {
+            return Err(invalid(format!("{context}.{}",column.name()), "canonical lookup keys require opaque text, distinct from semantic identities and vocabularies"));
+        }
+        if let Some(initial) = column.canonical_initial() {
+            if column.enum_name().is_none() || initial.is_empty() {
+                return Err(invalid(format!("{context}.{}",column.name()), "canonical lifecycle requires a declared vocabulary and initial member"));
+            }
+        }
         if !columns.insert(column.name()) {
             return Err(SchemaError::DuplicateDeclaration {
                 kind: "column",

@@ -141,6 +141,8 @@ pub struct ForeignKeyDecl {
 /// A declared relation (blueprint §4.1 `reference.schema_relations`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RelationSpec {
+    /// Native canonical policy, absent for relations without that role.
+    pub canonical: Option<super::CanonicalRelation>,
     /// `named_id(REGISTRY_PACKAGE_ID, "relation:<ns>.<name>@<v>")` (ADR-0050).
     pub id: SemanticId,
     /// The relation's name and version.
@@ -199,6 +201,8 @@ impl RelationSpec {
 /// A [`RelationSpec`] before assembly, when it has neither identity nor fingerprint.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RelationDecl {
+    /// See [`RelationSpec::canonical`].
+    pub canonical: Option<super::CanonicalRelation>,
     /// See [`RelationSpec::key`].
     pub key: RelationKey,
     /// See [`RelationSpec::authority`].
@@ -236,6 +240,7 @@ impl RelationDecl {
         doc: &'static str,
     ) -> Self {
         Self {
+            canonical: None,
             key: RelationKey::new(namespace, name, version),
             authority,
             snapshot_class,
@@ -249,6 +254,10 @@ impl RelationDecl {
             doc,
         }
     }
+
+    /// Declare the relation's native canonical policy.
+    #[must_use]
+    pub const fn with_canonical(mut self, policy: super::CanonicalRelation) -> Self { self.canonical = Some(policy); self }
 
     /// The same declaration with `primary_key` set.
     #[must_use]

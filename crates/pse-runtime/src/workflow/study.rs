@@ -736,7 +736,10 @@ impl Runtime {
                     &definition.research,
                 ))?;
                 let request = StoredRequest {
-                    key: run,
+                    purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                    admission_study: None,
+                    admission_point: None,
+                    key: run.into(),
                     revision: revision.clone(),
                     sources: vec![physical_revision.clone()],
                     request: document(&(
@@ -785,7 +788,10 @@ impl Runtime {
                             policy: policy.clone(),
                             descriptor: descriptor.clone(),
                             run: StoredRequest {
-                                key: format!("run:{point_run}"),
+                                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                                admission_study: None,
+                                admission_point: None,
+                                key: format!("run:{point_run}").into(),
                                 revision: revision.clone(),
                                 sources: vec![physical_revision.clone()],
                                 request: document(&(
@@ -1046,7 +1052,10 @@ impl Runtime {
                     .await?
                     .ok_or_else(|| WorkflowError::Integrity("lazy admission run absent".into()))?;
                 let request = StoredRequest {
-                    key: point.run.clone(),
+                    purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                    admission_study: None,
+                    admission_point: None,
+                    key: point.run.clone().into(),
                     revision,
                     sources: vec![physical_revision],
                     request: document(&(
@@ -1863,58 +1872,54 @@ impl Runtime {
                     let columns = batch.batch().num_columns() as u64;
                     let base = offset;
                     offset += batch.batch().num_rows() as u64;
-                    super::result_files::visit_result_files_async(
-                        batch.batch(),
-                        |start, rows, payload| {
-                            let current = ordinal;
-                            ordinal += 1;
-                            let start = base + start as u64;
-
-                            let set = set.clone();
-                            let fence = &fence;
-                            async move {
-                                let operation = format!("study-summary:{}:{current}", fence.attempt());
-                                let digest = pse_operations::canonical_execution::result_payload_digest(&payload);
-                                let intent = store.reserve_result_file(fence, &operation, &digest).await?;
-                                let sealed = store.seal_file(&intent, &payload, pse_operations::canonical_files::ARROW_IPC_FILE, 1, &relation.to_string()).await?;
-                                let payload = pse_operations::canonical_execution::ResultPayload::from_sealed(sealed, 0)?;
-                                let block =
-                                    pse_model::generated::runtime::canonical_result_blocks::Row {
-                                        key: result_batch_key(fence.attempt(), &set, current),
-                                        result_set: set.clone(),
-                                        batch: result_batch_key(fence.attempt(), &set, current),
-                                        output: relation.to_string(),
-                                        partition: "0".into(),
-                                        ordinal: current,
-                                        start,
-                                        end: start + rows as u64,
-                                        rows: rows as u64,
-                                        columns,
-                                        coordinate_min: None,
-                                        coordinate_max: None,
-                                        payload_bytes: payload.byte_len(),
-                                        payload_digest: payload.digest().to_owned(),
-                                        statistics: None,
-                                        interpretation:
-                                            pse_operations::generated::surreal::INTERPRETATION
-                                                .into(),
-                                    };
-                                store
-                                    .append_result_block(
-                                        fence,
-                                        &format!("study-summary:{}:{current}", fence.attempt()),
-                                        &relation.to_string(),
-                                        current,
-                                        payload,
-                                        rows as u64,
-                                        &block,
-                                    )
-                                    .await?;
-                                Ok::<_, WorkflowError>(())
-                            }
-                        },
-                    )
-                    .await?;
+                    let preparation = self.preparation_services();
+                    let pool = preparation.pool();
+                    let cancel = pse_columnar::CancellationToken::new();
+                    let mut local_start = 0;
+                    while local_start < batch.batch().num_rows() {
+                        let rows = super::result_files::result_prefix_rows(
+                            batch.batch(), local_start, batch.batch().num_rows() - local_start,
+                        )?;
+                        let selected = batch.slice(local_start, rows).map_err(super::relation)?;
+                        let admitted = pse_relations::result_batch::AdmittedResultFile::encode(
+                            preparation.registry(), &[selected], super::result_files::MAX_FILE_BYTES,
+                            &pool, &cancel,
+                        ).map_err(super::relation)?;
+                        let current = ordinal;
+                        ordinal += 1;
+                        let start = base + local_start as u64;
+                        let operation = format!("study-summary:{}:{current}", fence.attempt());
+                        let metadata = pse_columnar::MemoryConsumer::new("study:summary-append")
+                            .register(&pool);
+                        metadata.try_grow(pse_schema::catalog::substrate::RESULT_INDEX_BYTES * 16 + 4096)
+                            .map_err(pse_engine::EngineError::from)?;
+                        let owner = pse_columnar::AllocationLease::new(metadata);
+                        let payload = if admitted.bytes().len() <= pse_schema::catalog::substrate::RESULT_INLINE_BYTES {
+                            pse_operations::canonical_execution::ResultPayload::from_admitted_encoded_owned(
+                                Arc::new(admitted), 0, &operation, owner,
+                            )?
+                        } else {
+                            let digest = pse_operations::canonical_execution::result_payload_digest(admitted.bytes());
+                            let intent = store.reserve_result_file(&fence, &operation, &digest).await?;
+                            let sealed = store.seal_file(&intent, admitted.bytes(), pse_operations::canonical_files::ARROW_IPC_FILE, 1, &relation.to_string()).await?;
+                            let admitted = pse_operations::canonical_execution::AdmittedSealedResultFile::bind(sealed, admitted)?;
+                            pse_operations::canonical_execution::ResultPayload::from_admitted_sealed_owned(&admitted, 0, owner)?
+                        };
+                        let block = pse_model::generated::runtime::canonical_result_blocks::Row {
+                            key: result_batch_key(fence.attempt(), &set, current),
+                            result_set: set.clone(), batch: result_batch_key(fence.attempt(), &set, current),
+                            output: relation.to_string(), partition: "0".into(), ordinal: current,
+                            start, end: start + rows as u64, rows: rows as u64, columns,
+                            coordinate_min: None, coordinate_max: None,
+                            payload_bytes: payload.byte_len(), payload_digest: payload.digest().to_owned(),
+                            statistics: None,
+                            interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
+                        };
+                        store.append_result_block(
+                            &fence, &operation, &relation.to_string(), current, payload, rows as u64, &block,
+                        ).await?;
+                        local_start += rows;
+                    }
                     store
                         .renew_attempt(&fence, operations.policy().lease())
                         .await?;

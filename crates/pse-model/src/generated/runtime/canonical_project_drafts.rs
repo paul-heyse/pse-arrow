@@ -38,6 +38,30 @@ impl PartialEq for RuntimeCanonicalProjectDraftsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalProjectDraftsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::ProjectDraftKey {
+        crate::generated::canonical::ProjectDraftKey::from(self.r#key.as_str())
+    }
+}
+impl RuntimeCanonicalProjectDraftsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn project_domain(&self) -> crate::generated::canonical::ProjectKey {
+        crate::generated::canonical::ProjectKey::from(self.r#project.as_str())
+    }
+}
+impl RuntimeCanonicalProjectDraftsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn branch_domain(&self) -> crate::generated::canonical::ProjectBranchKey {
+        crate::generated::canonical::ProjectBranchKey::from(self.r#branch.as_str())
+    }
+}
+impl RuntimeCanonicalProjectDraftsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn version_domain(&self) -> crate::generated::canonical::DraftVersionKey {
+        crate::generated::canonical::DraftVersionKey::from(self.r#version.as_str())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalProjectDraftsRow;
 impl crate::SemanticFrame for RuntimeCanonicalProjectDraftsRow {

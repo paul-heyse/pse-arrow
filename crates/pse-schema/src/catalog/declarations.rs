@@ -21,6 +21,29 @@ pub(super) fn relation(
     relation_version(builder, namespace, name, 1, class, keys, columns, doc);
 }
 
+/// Explicit native canonical owner; the declaration's key is the native record key.
+pub(super) fn canonical_relation(
+    builder: &mut RegistryBuilder, namespace: Namespace, name: &'static str,
+    class: SnapshotClass, keys: &[&'static str], columns: Vec<FieldContract>, doc: &'static str,
+) {
+    builder.declare_relation(canonical_declaration(namespace, name, 1, class, keys, columns, doc));
+}
+
+/// Canonical declaration with source-owned storage metadata.
+pub(super) fn canonical_declaration(
+    namespace: Namespace, name: &'static str, version: u32,
+    class: SnapshotClass, keys: &[&'static str], columns: Vec<FieldContract>, doc: &'static str,
+) -> RelationDecl {
+    let mut declaration = declaration(namespace, name, version, class, keys, columns, doc)
+        .with_canonical(crate::model::CanonicalRelation::DURABLE);
+    if let [key] = keys {
+        for column in &mut declaration.columns {
+            if column.name() == *key { *column = column.clone().canonical_record_key(); }
+        }
+    }
+    declaration
+}
+
 /// A meaning-changing schema revision is explicit at its authoritative declaration.
 #[expect(
     clippy::too_many_arguments,

@@ -41,6 +41,42 @@ impl PartialEq for RuntimeCanonicalResearchReferencesRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalResearchReferencesRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::ResearchReferenceKey {
+        crate::generated::canonical::ResearchReferenceKey::from(self.r#key.as_str())
+    }
+}
+impl RuntimeCanonicalResearchReferencesRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn project_domain(&self) -> crate::generated::canonical::ProjectKey {
+        crate::generated::canonical::ProjectKey::from(self.r#project.as_str())
+    }
+}
+impl RuntimeCanonicalResearchReferencesRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn revision_domain(&self) -> crate::generated::canonical::RevisionKey {
+        crate::generated::canonical::RevisionKey::from(self.r#revision.as_str())
+    }
+}
+impl RuntimeCanonicalResearchReferencesRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn artifact_domain(&self) -> Option<crate::generated::canonical::ArtifactKey> {
+        self.r#artifact.as_deref().map(crate::generated::canonical::ArtifactKey::from)
+    }
+}
+impl RuntimeCanonicalResearchReferencesRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn run_domain(&self) -> Option<crate::generated::canonical::RunKey> {
+        self.r#run.as_deref().map(crate::generated::canonical::RunKey::from)
+    }
+}
+impl RuntimeCanonicalResearchReferencesRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn attempt_domain(&self) -> Option<crate::generated::canonical::AttemptKey> {
+        self.r#attempt.as_deref().map(crate::generated::canonical::AttemptKey::from)
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalResearchReferencesRow;
 impl crate::SemanticFrame for RuntimeCanonicalResearchReferencesRow {

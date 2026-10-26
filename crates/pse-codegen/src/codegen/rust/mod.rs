@@ -11,6 +11,7 @@ mod enums;
 mod expression_fields;
 mod field_facets;
 pub(crate) mod identities;
+pub(crate) mod canonical;
 pub mod physical;
 mod products;
 mod registry;
@@ -128,6 +129,8 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             pub mod extension_values;
             /// Typed entity ids and their Arrow codecs.
             pub mod identities;
+            /// Nominal opaque-text canonical keys and table classifications.
+            pub mod canonical;
             /// Enforced algorithm argument projections.
             pub mod algorithm_arguments;
             /// Scientific access fields and new-batch ordering from registry declarations.
@@ -235,6 +238,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     )?;
     // After the split: typed ids are declared in pse-model and only re-exported here.
     identities::emit(&mut tree, reg)?;
+    canonical::emit(&mut tree, reg)?;
     Ok(tree)
 }
 

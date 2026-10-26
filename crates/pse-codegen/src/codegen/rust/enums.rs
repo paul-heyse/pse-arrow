@@ -101,25 +101,52 @@ fn declared(spec: &crate::model::EnumSpec) -> TokenStream {
             }
         })
         .collect::<Vec<_>>();
-    let projection = if spec.name == "CanonicalTerminalOutcome" {
+    let projection = spec.projections.iter().map(|projection| {
+        let method = format_ident!("{}", projection.method);
+        let target = if projection.target == "bool" { quote!(bool) } else {
+            let target = format_ident!("{}", super::types::pascal(projection.target));
+            quote!(#target)
+        };
+        let input = projection.input.map(|input| format_ident!("{input}"));
+        let parameter = input.as_ref().map(|input| quote!(, #input: bool));
+        let arms = projection.members.iter().map(|member| {
+            let source = format_ident!("{}", super::types::pascal(member.source));
+            let value = format_ident!("{}", super::types::pascal(member.value));
+            let result = if projection.target == "bool" {
+                let value = member.value == "true";
+                quote!(#value)
+            } else { match (input.as_ref(), member.when_true) {
+                (Some(input), Some(when_true)) if member.value != when_true => {
+                    let when_true = format_ident!("{}", super::types::pascal(when_true));
+                    quote!(if #input { #target::#when_true } else { #target::#value })
+                }
+                _ => quote!(#target::#value),
+            } };
+            quote!(Self::#source => #result,)
+        });
         quote! { impl #name {
-            /// Observational attempt state; physical closure remains independent.
-            pub const fn attempt_state(self) -> AttemptState {
-                match self { Self::Succeeded => AttemptState::Completed, Self::Failed => AttemptState::Failed, Self::Partial => AttemptState::Partial, Self::Cancelled => AttemptState::Cancelled }
-            }
-            /// Point lifecycle additionally needs the scientific owner's admitted
-            /// usability for partial coverage; storage does not invent that fact.
-            pub const fn study_point_state(self, partial_usable: bool) -> StudyPointState {
-                match self { Self::Succeeded => StudyPointState::Completed, Self::Failed => StudyPointState::Failed, Self::Cancelled => StudyPointState::Cancelled, Self::Partial => if partial_usable { StudyPointState::Completed } else { StudyPointState::Failed } }
+            /// Total projection declared by the owning closed vocabulary.
+            pub const fn #method(self #parameter) -> #target { match self { #(#arms)* } }
+        } }
+    });
+    let transitions = if spec.transitions.is_empty() { quote!() } else {
+        let edges = spec.transitions.iter().map(|edge| {
+            let before = format_ident!("{}", super::types::pascal(edge.before));
+            let after = format_ident!("{}", super::types::pascal(edge.after));
+            quote!((Self::#before, Self::#after))
+        });
+        quote! { impl #name {
+            /// Declared lifecycle edges, including an unchanged member.
+            pub const fn permits_transition(self, next: Self) -> bool {
+                self.ordinal() == next.ordinal() || matches!((self, next), #(#edges)|*)
             }
         } }
-    } else {
-        quote!()
     };
     let length = variants.len();
     let ordinals = (0..variants.len()).collect::<Vec<_>>();
     quote! {
-        #projection
+        #(#projection)*
+        #transitions
         /// A string enumeration projected from the registry.
         #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, strum::EnumString, strum::Display, strum::VariantArray, strum::IntoStaticStr, serde::Serialize, serde::Deserialize)]
         #default_derive

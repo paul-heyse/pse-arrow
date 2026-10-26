@@ -242,6 +242,16 @@ Member names are canonical string values; declaration order is presentation only
 | `diagnostic_only` | `` | false |
 | `unusable` | `` | false |
 
+## `CanonicalArtifactHolderKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `study` | `` | false |
+| `analysis` | `` | false |
+| `user` | `` | false |
+| `project` | `` | false |
+| `audit` | `` | false |
+
 ## `CanonicalAttemptPhase`
 
 | Member | IDAES name | Deprecated |
@@ -251,6 +261,74 @@ Member names are canonical string values; declaration order is presentation only
 | `closed_with_manifest` | `` | false |
 | `terminal` | `` | false |
 | `terminal_compacted` | `` | false |
+
+## `CanonicalFileOwnerKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `result` | `` | false |
+| `artifact` | `` | false |
+
+## `CanonicalFileState`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `pending` | `` | false |
+| `sealed` | `` | false |
+| `attached` | `` | false |
+| `abandoned` | `` | false |
+| `collecting` | `` | false |
+| `collected` | `` | false |
+
+## `CanonicalHistoryOwnerKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `run` | `` | false |
+| `study` | `` | false |
+| `point` | `` | false |
+| `analysis` | `` | false |
+| `user` | `` | false |
+| `project` | `` | false |
+| `audit` | `` | false |
+
+## `CanonicalPayloadEncoding`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `arrow-ipc-file` | `` | false |
+| `opaque-json` | `` | false |
+| `opaque-bytes` | `` | false |
+
+## `CanonicalPayloadPlacement`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `inline` | `` | false |
+| `sealed` | `` | false |
+
+## `CanonicalProducerClass`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `general` | `` | false |
+| `library_mathematics` | `` | false |
+| `local_scientific_replay` | `` | false |
+
+## `CanonicalProjectPublicationKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `import` | `` | false |
+| `fork` | `` | false |
+| `publish` | `` | false |
+
+## `CanonicalRunPurpose`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `execution` | `` | false |
+| `study_admission` | `` | false |
 
 ## `CanonicalTerminalOutcome`
 

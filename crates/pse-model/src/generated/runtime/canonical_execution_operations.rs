@@ -54,6 +54,36 @@ impl PartialEq for RuntimeCanonicalExecutionOperationsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalExecutionOperationsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::OperationKey {
+        crate::generated::canonical::OperationKey::from(self.r#key.as_str())
+    }
+}
+impl RuntimeCanonicalExecutionOperationsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn run_domain(&self) -> crate::generated::canonical::RunKey {
+        crate::generated::canonical::RunKey::from(self.r#run.as_str())
+    }
+}
+impl RuntimeCanonicalExecutionOperationsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn attempt_domain(&self) -> Option<crate::generated::canonical::AttemptKey> {
+        self.r#attempt.as_deref().map(crate::generated::canonical::AttemptKey::from)
+    }
+}
+impl RuntimeCanonicalExecutionOperationsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn study_domain(&self) -> Option<crate::generated::canonical::StudyKey> {
+        self.r#study.as_deref().map(crate::generated::canonical::StudyKey::from)
+    }
+}
+impl RuntimeCanonicalExecutionOperationsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn point_domain(&self) -> Option<crate::generated::canonical::StudyPointKey> {
+        self.r#point.as_deref().map(crate::generated::canonical::StudyPointKey::from)
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalExecutionOperationsRow;
 impl crate::SemanticFrame for RuntimeCanonicalExecutionOperationsRow {

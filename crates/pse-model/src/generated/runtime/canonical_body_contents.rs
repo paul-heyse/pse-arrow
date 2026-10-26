@@ -42,6 +42,12 @@ impl PartialEq for RuntimeCanonicalBodyContentsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalBodyContentsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::BodyContentKey {
+        crate::generated::canonical::BodyContentKey::from(self.r#key.as_str())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalBodyContentsRow;
 impl crate::SemanticFrame for RuntimeCanonicalBodyContentsRow {

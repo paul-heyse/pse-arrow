@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    5u8, 251u8, 71u8, 183u8, 253u8, 213u8, 96u8, 183u8, 218u8, 178u8, 105u8, 237u8,
-    156u8, 106u8, 119u8, 168u8, 99u8, 134u8, 138u8, 152u8, 26u8, 8u8, 149u8, 9u8, 108u8,
-    106u8, 41u8, 172u8, 90u8, 134u8, 51u8, 86u8,
+    73u8, 21u8, 8u8, 172u8, 97u8, 140u8, 86u8, 239u8, 138u8, 47u8, 219u8, 251u8, 27u8,
+    109u8, 34u8, 185u8, 68u8, 67u8, 238u8, 135u8, 211u8, 172u8, 206u8, 224u8, 23u8,
+    217u8, 242u8, 206u8, 132u8, 212u8, 88u8, 105u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalArtifactReleasesRow {
     fn append(
@@ -56,7 +56,9 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalArtifactReleasesRow {
         let children = output.field_builders_mut();
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <crate::generated::enums::CanonicalArtifactHolderKind as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
         <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         output.append(false);
         Ok(())
@@ -76,7 +78,7 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalArtifactReleasesRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#owner_kind: <String as crate::columnar::ArrowValue>::read(
+            r#owner_kind: <crate::generated::enums::CanonicalArtifactHolderKind as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
@@ -203,7 +205,7 @@ impl crate::columnar::RelationRow for RuntimeCanonicalArtifactReleasesRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#owner_kind).len())?,
+            crate::columnar::allocation_add(8, (self.r#owner_kind).as_str().len())?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,

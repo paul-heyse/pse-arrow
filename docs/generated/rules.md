@@ -129,6 +129,7 @@
 | `runtime.canonical_history_obligation_counts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_history_obligation_counts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_history_obligations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_history_obligations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_history_retirements` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_history_retirements" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_inline_payloads` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_inline_payloads" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_interpretations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_interpretations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_maintenance_activations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_maintenance_activations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_maintenance_operations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_maintenance_operations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
@@ -173,6 +174,8 @@
 | `runtime.canonical_run_sources` | `foreign_key:revision` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."revision" AS "__pse_value" FROM "runtime"."canonical_run_sources" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_revisions" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_run_sources` | `foreign_key:run` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."run" AS "__pse_value" FROM "runtime"."canonical_run_sources" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_runs" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_run_sources` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_run_sources" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_runs` | `foreign_key:admission_point` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."admission_point" AS "__pse_value" FROM "runtime"."canonical_runs" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_study_points" t WHERE s."__pse_value" = t."key")` |
+| `runtime.canonical_runs` | `foreign_key:admission_study` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."admission_study" AS "__pse_value" FROM "runtime"."canonical_runs" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_studies" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_runs` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_runs" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_selection_receipts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_selection_receipts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_staged_edits` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_staged_edits" s GROUP BY s."key" HAVING COUNT(*) > 1` |
@@ -182,6 +185,7 @@
 | `runtime.canonical_study_dependencies` | `foreign_key:predecessor` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."predecessor" AS "__pse_value" FROM "runtime"."canonical_study_dependencies" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_study_points" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_study_dependencies` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_dependencies" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_study_inputs` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_inputs" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_study_points` | `foreign_key:admission_run` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."admission_run" AS "__pse_value" FROM "runtime"."canonical_study_points" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_runs" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_study_points` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_points" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_study_readiness` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_readiness" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_study_readiness_cursors` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_readiness_cursors" s GROUP BY s."key" HAVING COUNT(*) > 1` |

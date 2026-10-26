@@ -51,7 +51,7 @@ impl CanonicalStore {
         ] {
             identity(key)?;
         }
-        if row.project != project.key || row.members.len() > 131072 {
+        if row.project_domain() != project.key_domain() || row.members.len() > 131072 {
             return Err(CanonicalError::PayloadLimit);
         }
         row.request = encode(&(
@@ -104,7 +104,7 @@ impl CanonicalStore {
         ] {
             identity(key)?;
         }
-        if row.project != project.key || row.selection.len() > 131072 {
+        if row.project_domain() != project.key_domain() || row.selection.len() > 131072 {
             return Err(CanonicalError::PayloadLimit);
         }
         row.request = encode(&(

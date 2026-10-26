@@ -15,6 +15,23 @@ use datafusion::arrow::{
 };
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
+/// Native IPC reads retain either the protected physical owner or the charged inline bytes.
+#[derive(Debug)]
+pub(super) enum ResultFileSource {
+    Sealed(pse_operations::canonical_files::ProtectedFile),
+    Inline(Cursor<Vec<u8>>),
+}
+impl Read for ResultFileSource {
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+        match self { Self::Sealed(file) => file.read(bytes), Self::Inline(body) => body.read(bytes) }
+    }
+}
+impl Seek for ResultFileSource {
+    fn seek(&mut self, position: SeekFrom) -> std::io::Result<u64> {
+        match self { Self::Sealed(file) => file.seek(position), Self::Inline(body) => body.seek(position) }
+    }
+}
+
 /// Default packing target; acknowledgement boundaries can seal smaller files.
 pub const TARGET_FILE_BYTES: usize = pse_operations::canonical_files::FILE_TARGET_BYTES;
 /// Every complete file, including its footer, fits this bound.

@@ -317,7 +317,7 @@ impl CanonicalStore {
                         "protection",
                         codec::encode_string(input.protected_selection().key().to_owned())?,
                     );
-                    row.insert("obligation", wire::encode_canonical_artifact_obligations(&crate::canonical_artifacts::artifact_obligation(&input.header().key,"analysis",&header.key))?);
+                    row.insert("obligation", wire::encode_canonical_artifact_obligations(&crate::canonical_artifacts::artifact_obligation(&input.header().key_domain(),crate::canonical_artifacts::CanonicalArtifactHolderKind::Analysis,&header.key))?);
                     selected.push(row);
                 }
                 let row = wire::encode_canonical_analyses(header)?;

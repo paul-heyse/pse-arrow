@@ -183,8 +183,9 @@ surreal-fixture-test:
 [doc('Source-built canonical schema, source/product and gated offline recovery control')]
 [positional-arguments]
 canonical-recovery-test *args:
-    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin pse-canonical-recovery --no-default-features --features canonical-tools --locked
-    "{{ py }}" -m scripts.tests.canonical_recovery_check target/debug/pse-canonical-recovery "$@"
+    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p pse-operations --bin pse-canonical-recovery --locked
+    scripts/pse-env --native= -- "{{ py }}" -m scripts.arrow_validation build -p xtask --bin pse-canonical-recovery-fixture --no-default-features --features canonical-tools --locked
+    "{{ py }}" -m scripts.tests.canonical_recovery_check target/debug/pse-canonical-recovery-fixture --payload-verifier target/debug/pse-canonical-recovery "$@"
 
 [group('local')]
 [doc('Native gRPC exact codec and guarded revision controls against a supervised server state')]

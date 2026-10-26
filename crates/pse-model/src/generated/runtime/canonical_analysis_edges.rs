@@ -58,6 +58,18 @@ impl PartialEq for RuntimeCanonicalAnalysisEdgesRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalAnalysisEdgesRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn source_domain(&self) -> crate::generated::canonical::AnalysisNodeKey {
+        crate::generated::canonical::AnalysisNodeKey::from(self.r#source.as_str())
+    }
+}
+impl RuntimeCanonicalAnalysisEdgesRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn target_domain(&self) -> crate::generated::canonical::AnalysisNodeKey {
+        crate::generated::canonical::AnalysisNodeKey::from(self.r#target.as_str())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalAnalysisEdgesRow;
 impl crate::SemanticFrame for RuntimeCanonicalAnalysisEdgesRow {

@@ -24,6 +24,10 @@
       ],
       "type": "string"
     },
+    "AttemptKey": {
+      "description": "An opaque canonical lookup key; never a scientific semantic identity.",
+      "type": "string"
+    },
     "AuthoredDocumentsRowOutput": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -4659,6 +4663,14 @@
       },
       "type": "array"
     },
+    "CanonicalProjectPublicationKind": {
+      "enum": [
+        "import",
+        "fork",
+        "publish"
+      ],
+      "type": "string"
+    },
     "ConstraintScalingScheme": {
       "enum": [
         "harmonicMean",
@@ -4678,8 +4690,8 @@
           "type": "string"
         },
         "project": {
-          "description": "Stable project identity.",
-          "type": "string"
+          "$ref": "#/$defs/ProjectKey",
+          "description": "Stable project identity."
         },
         "sequence": {
           "description": "Last included journal position.",
@@ -6075,12 +6087,24 @@
       ],
       "type": "string"
     },
+    "OperationKey": {
+      "description": "An opaque canonical lookup key; never a scientific semantic identity.",
+      "type": "string"
+    },
     "PresolvePolicyKind": {
       "enum": [
         "off",
         "auto",
         "explicit"
       ],
+      "type": "string"
+    },
+    "ProblemKey": {
+      "description": "An opaque canonical lookup key; never a scientific semantic identity.",
+      "type": "string"
+    },
+    "ProjectBranchKey": {
+      "description": "An opaque canonical lookup key; never a scientific semantic identity.",
       "type": "string"
     },
     "ProjectBranchRecordBodyOutput": {
@@ -6216,12 +6240,20 @@
       ],
       "type": "object"
     },
+    "ProjectDraftKey": {
+      "description": "An opaque canonical lookup key; never a scientific semantic identity.",
+      "type": "string"
+    },
+    "ProjectKey": {
+      "description": "An opaque canonical lookup key; never a scientific semantic identity.",
+      "type": "string"
+    },
     "ProjectPublicationBodyOutput": {
       "additionalProperties": false,
       "description": "Original source-publication intent. Retain it unchanged through uncertain completion.",
       "properties": {
         "branch": {
-          "type": "string"
+          "$ref": "#/$defs/ProjectBranchKey"
         },
         "branch_generation": {
           "format": "uint64",
@@ -6238,9 +6270,13 @@
           ]
         },
         "draft": {
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProjectDraftKey"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "draft_generation": {
@@ -6252,14 +6288,18 @@
           ]
         },
         "expected": {
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RevisionKey"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "extra_parents": {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/RevisionKey"
           },
           "type": "array"
         },
@@ -6277,22 +6317,26 @@
           "type": "string"
         },
         "kind": {
-          "type": "string"
+          "$ref": "#/$defs/CanonicalProjectPublicationKind"
         },
         "operation": {
-          "type": "string"
+          "$ref": "#/$defs/OperationKey"
         },
         "origin_revision": {
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RevisionKey"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "problem": {
-          "type": "string"
+          "$ref": "#/$defs/ProblemKey"
         },
         "project": {
-          "type": "string"
+          "$ref": "#/$defs/ProjectKey"
         },
         "project_generation": {
           "format": "uint64",
@@ -6453,8 +6497,8 @@
       "description": "Exact original protected fit evidence and explicit authored target mapping.\nThis binding stores identities and decisions, never a second copy of fitted values.",
       "properties": {
         "attempt": {
-          "description": "Actual original attempt.",
-          "type": "string"
+          "$ref": "#/$defs/AttemptKey",
+          "description": "Actual original attempt."
         },
         "manifest_digest": {
           "description": "Exact closed manifest digest selected by protected read.",
@@ -6475,12 +6519,12 @@
           "type": "string"
         },
         "run": {
-          "description": "Actual original run.",
-          "type": "string"
+          "$ref": "#/$defs/RunKey",
+          "description": "Actual original run."
         },
         "selection": {
-          "description": "Frozen original research selection.",
-          "type": "string"
+          "$ref": "#/$defs/ResearchSelectionKey",
+          "description": "Frozen original research selection."
         },
         "source_selection": {
           "description": "Original run's immutable consumed source receipt, independently compared in activation.",
@@ -6574,6 +6618,18 @@
         "targets"
       ],
       "type": "object"
+    },
+    "ResearchSelectionKey": {
+      "description": "An opaque canonical lookup key; never a scientific semantic identity.",
+      "type": "string"
+    },
+    "RevisionKey": {
+      "description": "An opaque canonical lookup key; never a scientific semantic identity.",
+      "type": "string"
+    },
+    "RunKey": {
+      "description": "An opaque canonical lookup key; never a scientific semantic identity.",
+      "type": "string"
     },
     "ShootingMethod": {
       "enum": [

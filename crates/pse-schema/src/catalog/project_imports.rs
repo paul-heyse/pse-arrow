@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Immutable logical-project import identity and monotonic completed membership.
-use super::declarations::{column, relation};
+use super::declarations::{column, canonical_relation as relation};
 use super::substrate::NativeIndex;
 use crate::{
     RegistryBuilder,
@@ -33,18 +33,18 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         S::Derived,
         &["key"],
         vec![
-            column("key", text()),
-            column("issuing_store", text()),
-            column("bundle_digest", text()),
-            column("project", text()),
-            column("branch", text()),
-            column("problem", text()),
-            column("revision", text()),
-            column("origin", bytes()),
-            column("request", bytes()),
-            column("artifact", bytes()).optional(),
+            column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectImport),
+            column("issuing_store", text()).canonical_readonly(),
+            column("bundle_digest", text()).canonical_readonly(),
+            column("project", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project).canonical_readonly(),
+            column("branch", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectBranch).canonical_readonly(),
+            column("problem", text()).with_canonical_key(crate::model::CanonicalKeyKind::Problem).canonical_readonly(),
+            column("revision", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision).canonical_readonly(),
+            column("origin", bytes()).canonical_readonly(),
+            column("request", bytes()).canonical_readonly(),
+            column("artifact", bytes()).with_canonical_assertion("$before=NONE OR $before=$value").optional(),
             column("retired_artifacts", bytes()).optional(),
-            column("complete", T::native(D::Boolean)),
+            column("complete", T::native(D::Boolean)).with_canonical_default("false").with_canonical_assertion("($before=NONE AND $value=false) OR $before=$value OR ($before=false AND $value=true AND $this.artifact!=NONE)"),
         ],
         "Original immutable fresh-authority import intent; source admission is pending until exact copied evidence artifact ownership finishes. Historical terminals remain origin evidence only.",
     );

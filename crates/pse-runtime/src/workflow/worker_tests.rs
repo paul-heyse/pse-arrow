@@ -69,6 +69,9 @@ async fn canonical_cancelled_dependent_refreshes_rejected_predecessor_premise() 
         .await
         .unwrap();
     let request = |key: &str| RunRequest {
+        purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+        admission_study: None,
+        admission_point: None,
         key: key.into(),
         revision: revision.clone(),
         sources: vec![],

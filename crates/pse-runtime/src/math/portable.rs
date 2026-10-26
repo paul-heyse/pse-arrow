@@ -427,13 +427,12 @@ pub enum ReplayAdmission {
 #[derive(Clone, Debug)]
 pub(crate) struct ValidatedReplayNamespace {
     producer: String,
-    local: bool,
+    producer_class: pse_model::generated::enums::CanonicalProducerClass,
     deadline: Option<std::time::Instant>,
 }
 impl ValidatedReplayNamespace {
-    pub(crate) fn producer_key(&self) -> &str {
-        &self.producer
-    }
+    pub(crate) fn producer_key(&self) -> &str { &self.producer }
+    pub(crate) fn producer_class(&self) -> pse_model::generated::enums::CanonicalProducerClass { self.producer_class }
 }
 impl From<QualifiedProducer> for ReplayAdmission {
     fn from(value: QualifiedProducer) -> Self {
@@ -441,6 +440,10 @@ impl From<QualifiedProducer> for ReplayAdmission {
     }
 }
 impl ReplayAdmission {
+    pub(crate) fn producer_class(&self) -> pse_model::generated::enums::CanonicalProducerClass {
+        use pse_model::generated::enums::CanonicalProducerClass as C;
+        match self { Self::Local(_) => C::LocalScientificReplay, Self::QualifiedProducer(_) => C::LibraryMathematics }
+    }
     /// Original finite observation clock used by the worker and Python startup roots.
     pub const STARTUP_OBSERVATION_LIMIT: std::time::Duration = std::time::Duration::from_secs(60);
 
@@ -613,7 +616,7 @@ impl ReplayAdmission {
         }
         Ok(Some(ValidatedReplayNamespace {
             producer: self.key(),
-            local: matches!(self, Self::Local(_)),
+            producer_class: self.producer_class(),
             deadline,
         }))
     }
@@ -656,7 +659,7 @@ impl ValidatedReplayNamespace {
         operation: impl FnOnce() -> Result<T, PortableError>,
     ) -> Result<T, PortableError> {
         receiving_checkpoint(cancelled, self.deadline)?;
-        if self.local {
+        if self.producer_class == pse_model::generated::enums::CanonicalProducerClass::LocalScientificReplay {
             pse_buildinfo::with_local_runtime_scope(|| Ok(operation()))
                 .map_err(observation_error)?
         } else {
@@ -1241,6 +1244,7 @@ pub async fn publish_body(
         read,
         selection_material(service, read)?,
         namespace.producer_key().to_owned(),
+        namespace.producer_class(),
         body,
         context,
     )?;
@@ -1287,6 +1291,7 @@ async fn publish_with_producer_key(
         read,
         selection_material(service, read)?,
         producer,
+        pse_model::generated::enums::CanonicalProducerClass::General,
         body,
         context,
     )?;
@@ -1321,7 +1326,6 @@ impl EncodedBody {
 pub(crate) struct BodyDescription {
     pub(crate) description: pse_operations::canonical_selection::ProductDescription,
     pub(crate) semantic_identity: SemanticBodyHash,
-    producer: Arc<String>,
     _content_owner: Arc<pse_columnar::AllocationLease>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
@@ -1387,6 +1391,7 @@ pub(crate) fn describe_body(
     read: &SelectedRead,
     selection: Arc<pse_operations::canonical_selection::SelectionMaterial>,
     producer: String,
+    producer_class: pse_model::generated::enums::CanonicalProducerClass,
     body: &AdmittedBody,
     context: &CompilerContext,
 ) -> Result<Arc<BodyDescription>, PortableError> {
@@ -1401,6 +1406,7 @@ pub(crate) fn describe_body(
         .str("product")
         .part(&encoded.request)
         .str(&producer)
+        .str(producer_class.as_str())
         .part(&encoded.payload);
     let revision = read.selection().revision();
     let product = pse_model::generated::runtime::canonical_products::Row {
@@ -1411,6 +1417,7 @@ pub(crate) fn describe_body(
         payload: Vec::new().into(),
         dependencies: Vec::new().into(),
         producer: producer.clone(),
+        producer_class,
         interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
     };
     let description =
@@ -1433,7 +1440,6 @@ pub(crate) fn describe_body(
     )?;
     Ok(Arc::new(BodyDescription {
         description,
-        producer: Arc::new(producer),
         semantic_identity: encoded.semantic_identity,
         _owner: owner,
         _content_owner: content_owner,
@@ -1453,7 +1459,7 @@ pub(crate) async fn publish_description(
     // Callers may use original provenance only for acknowledgment. New eligible
     // publication must establish a current namespace before constructing this value.
     let publication = || async {
-        if pse_operations::canonical_selection::is_replay_producer(&description.producer) {
+        if description.description.producer_class() != pse_model::generated::enums::CanonicalProducerClass::General {
             // SAFETY: this private path is reached only after current receiving admission;
             // descriptions are compiler-sealed and bound to the consumer's exact read.
             unsafe {
@@ -1551,6 +1557,7 @@ pub(crate) async fn product_candidate_presence(
             read.selection(),
             &request(identity, physical),
             &producer.key(),
+            producer.producer_class(),
             after,
         )
         .await?)
@@ -1578,6 +1585,7 @@ pub(crate) async fn reuse_body_current(
                 read.selection(),
                 &request(identity, physical),
                 namespace.producer_key(),
+                namespace.producer_class(),
                 &after,
             )
             .await?
@@ -2933,6 +2941,7 @@ mod canonical_portable_body_tests {
                     physical_identity(&context.quantities, &context.preconditions),
                 ),
                 &producer.key(),
+                producer.producer_class(),
                 "",
             )
             .await
@@ -3055,6 +3064,7 @@ mod canonical_portable_body_tests {
                     payload: payload.to_vec().into(),
                     dependencies: Vec::new().into(),
                     producer: "fixture".into(),
+                    producer_class: pse_model::generated::enums::CanonicalProducerClass::General,
                     interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
                 },
                 material.clone(),
@@ -3604,6 +3614,7 @@ mod canonical_portable_body_tests {
                     physical_identity(&context.quantities, &context.preconditions),
                 ),
                 &unqualified_key,
+                pse_model::generated::enums::CanonicalProducerClass::General,
                 "",
             )
             .await
@@ -3911,6 +3922,7 @@ mod canonical_portable_body_tests {
                     payload: b"corrupt scientifically typed bytes".to_vec().into(),
                     dependencies: Vec::new().into(),
                     producer: producer(68).key(),
+                    producer_class: producer(68).producer_class(),
                     interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
                 },
             )

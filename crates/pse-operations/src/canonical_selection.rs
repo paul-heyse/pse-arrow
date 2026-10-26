@@ -7,6 +7,7 @@ use crate::{
     canonical::{CanonicalError, CanonicalStore, PROTECTED_BEGIN, ProtectedSelection},
     generated::surreal as wire,
 };
+pub use pse_model::generated::enums::CanonicalProducerClass;
 use pse_model::generated::runtime::{
     canonical_memberships::Row as Membership, canonical_products::Row as Product,
     canonical_versions::Row as ObjectVersion,
@@ -35,6 +36,8 @@ pub struct ProductHeader {
     pub revision: String,
     /// Original producer namespace; no runtime qualification is implied.
     pub producer: String,
+    /// Source-owned producer capability class; receipt text confers no class.
+    pub producer_class: CanonicalProducerClass,
     /// Native scientific interpretation recorded at publication.
     pub interpretation: String,
     /// Original content and dependency descriptor reference.
@@ -59,21 +62,6 @@ pub const SCIENTIFIC_PRODUCER_PREFIX: &str = "pse.qualified-math-producer.v1:";
 
 /// Reserved independently observed exact deployment-local replay admission.
 pub const LOCAL_RUNTIME_PRODUCER_PREFIX: &str = "pse.local-runtime.v2:";
-const HISTORICAL_LOCAL_RUNTIME_PRODUCER_PREFIX: &str = "pse.local-runtime.v1:";
-
-/// Scientific and both current/historical local namespaces are reserved. Generic
-/// publication cannot confer their guarantees from caller-selected producer bytes.
-pub fn is_replay_producer(producer: &str) -> bool {
-    producer.starts_with(SCIENTIFIC_PRODUCER_PREFIX)
-        || producer.starts_with(LOCAL_RUNTIME_PRODUCER_PREFIX)
-        || producer.starts_with(HISTORICAL_LOCAL_RUNTIME_PRODUCER_PREFIX)
-}
-
-fn scientific_producer(producer: &str) -> bool {
-    producer.starts_with(SCIENTIFIC_PRODUCER_PREFIX)
-        || producer.starts_with(LOCAL_RUNTIME_PRODUCER_PREFIX)
-}
-
 // Emit a scoped equality only when selected. Keeping an optional OR in SQL
 // hides the equality from the native composite (problem, scope, key) access path.
 fn membership_scope_predicate(scoped: bool, parameter: &str) -> String {
@@ -1001,6 +989,8 @@ impl ProductDescription {
             selection,
         })
     }
+    /// Exact declared class of this original producer binding.
+    pub fn producer_class(&self) -> CanonicalProducerClass { self.material.product.producer_class }
     /// Immutable complete premises, without protection or permission.
     pub fn selected_dependencies(&self) -> &SelectedDependencies {
         self.selection.selected_dependencies()
@@ -1085,6 +1075,7 @@ impl ProductDescription {
             .str(&material.product.problem)
             .str(&material.product.interpretation)
             .str(&material.product.producer)
+            .str(material.product.producer_class.as_str())
             .part(material.product.request.as_slice())
             .part(payload)
             .part(dependencies);
@@ -1103,6 +1094,9 @@ pub struct ProductCandidate {
     retained_bytes: usize,
 }
 impl ProductCandidate {
+    /// Exact declared class; discovery alone grants no scientific admission.
+    pub fn producer_class(&self) -> CanonicalProducerClass { self.product.producer_class }
+
     /// Cursor for the next discovery after an incompatible candidate.
     pub fn key(&self) -> &str {
         &self.product.key
@@ -1128,6 +1122,8 @@ impl ReusableProduct {
     pub fn payload(&self) -> &[u8] {
         self.product.payload.as_slice()
     }
+    /// Exact producer class retained through canonical qualification.
+    pub fn producer_class(&self) -> CanonicalProducerClass { self.product.producer_class }
     /// Exact producer interpretation used for eligibility.
     pub fn producer(&self) -> &str {
         &self.product.producer
@@ -1933,7 +1929,7 @@ impl CanonicalStore {
         let activity = self.selection_activity(read.selection())?;
         activity
             .scope(async {
-                if is_replay_producer(&description.material.product.producer) {
+                if description.material.product.producer_class != CanonicalProducerClass::General {
                     return Err(CanonicalError::Configuration(
                         "generic product publication cannot impersonate scientific admission"
                             .into(),
@@ -2001,9 +1997,9 @@ impl CanonicalStore {
         description: &ProductDescription,
         deadline: tokio::time::Instant,
     ) -> Result<String, CanonicalError> {
-        if !scientific_producer(&description.material.product.producer) {
+        if !description.material.product.producer_class.scientific() {
             return Err(CanonicalError::Configuration(
-                "scientific publication requires its current reserved qualified producer".into(),
+                "scientific publication requires its actual admitted producer class".into(),
             ));
         }
         self.publish_description_inner(read, description, deadline)
@@ -2021,7 +2017,7 @@ impl CanonicalStore {
                 let deadline = crate::canonical::transport::original_deadline(
                     crate::canonical::REQUEST_TIMEOUT,
                 );
-                if is_replay_producer(&product.producer) {
+                if product.producer_class != CanonicalProducerClass::General {
                     return Err(CanonicalError::Configuration(
                         "generic product publication cannot impersonate scientific admission"
                             .into(),
@@ -2053,9 +2049,9 @@ impl CanonicalStore {
                 let deadline = crate::canonical::transport::original_deadline(
                     crate::canonical::REQUEST_TIMEOUT,
                 );
-                if !scientific_producer(&product.producer) {
+                if !product.producer_class.scientific() {
                     return Err(CanonicalError::Configuration(
-                        "scientific publication requires its current reserved qualified producer"
+                        "scientific publication requires its actual admitted producer class"
                             .into(),
                     ));
                 }
@@ -2197,7 +2193,7 @@ impl CanonicalStore {
             } else { String::new() };
             let mut response = self.protected_query(&revision.problem, crate::canonical::QueryEffect::Read,
                 "canonical_selection::product_headers", || Ok(self.db.query(format!(
-                    "{PROTECTED_BEGIN}\nLET $rpc_result = SELECT key, revision, producer, interpretation, descriptor, content, receipt FROM canonical_product_associations WHERE problem = $problem AND revision = $revision AND key > $after AND issuing_store = $issuing_store AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 33 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+                    "{PROTECTED_BEGIN}\nLET $rpc_result = SELECT key, revision, producer, producer_class, interpretation, descriptor, content, receipt FROM canonical_product_associations WHERE problem = $problem AND revision = $revision AND key > $after AND issuing_store = $issuing_store AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 33 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
                     .bind(("problem", revision.problem.clone())).bind(("revision", revision.key.clone()))
                     .bind(("sequence", crate::canonical_codec::encode_uint(revision.sequence)?))
                     .bind(("protection", selection.key().to_owned())).bind(("issuing_store", issuer.to_owned()))
@@ -2214,6 +2210,7 @@ impl CanonicalStore {
             };
             let rows = rows.iter().map(|row| Ok(ProductHeader {
                 key: text(row, "key")?, revision: text(row, "revision")?, producer: text(row, "producer")?,
+                producer_class: text(row,"producer_class")?.parse::<CanonicalProducerClass>().map_err(|error|CanonicalError::Configuration(error.to_string()))?,
                 interpretation: text(row, "interpretation")?, descriptor: text(row, "descriptor")?,
                 content: text(row, "content")?, receipt: text(row, "receipt")?,
             })).collect::<Result<Vec<_>, CanonicalError>>()?;
@@ -2232,6 +2229,7 @@ impl CanonicalStore {
         selection: &ProtectedSelection,
         request: &[u8],
         producer: &str,
+        producer_class: CanonicalProducerClass,
         after: &str,
     ) -> Result<bool, CanonicalError> {
         let activity = self.selection_activity(selection)?;
@@ -2246,7 +2244,7 @@ impl CanonicalStore {
             || {
                 Ok(self
                     .db
-                    .query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT VALUE true FROM canonical_product_associations WHERE issuing_store = $issuing_store AND problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+                    .query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT VALUE true FROM canonical_product_associations WHERE issuing_store = $issuing_store AND problem = $problem AND producer = $producer AND producer_class = $producer_class AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
                     .bind(("problem", selection.revision().problem.clone()))
                     .bind(("revision", selection.revision().key.clone()))
                     .bind((
@@ -2254,7 +2252,7 @@ impl CanonicalStore {
                         crate::canonical_codec::encode_uint(selection.revision().sequence)?,
                     ))
                     .bind(("protection", selection.key().to_owned()))
-                    .bind(("issuing_store", self.issuing_store()?.to_owned())).bind(("producer", producer.to_owned()))
+                    .bind(("issuing_store", self.issuing_store()?.to_owned())).bind(("producer", producer.to_owned())).bind(("producer_class", producer_class.as_str().to_owned()))
                     .bind(("request", surrealdb::types::Bytes::from(request.to_vec())))
                     .bind(("after", after.to_owned()))
                     .bind(("interpretation", wire::INTERPRETATION.to_owned())))
@@ -2271,6 +2269,7 @@ impl CanonicalStore {
         selection: &ProtectedSelection,
         request: &[u8],
         producer: &str,
+        producer_class: CanonicalProducerClass,
         after: &str,
     ) -> Result<Option<ProductCandidate>, CanonicalError> {
         let activity = self.selection_activity(selection)?;
@@ -2281,9 +2280,9 @@ impl CanonicalStore {
         {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_selection::product_candidate", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_product_associations WHERE issuing_store = $issuing_store AND problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_selection::product_candidate", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_product_associations WHERE issuing_store = $issuing_store AND problem = $problem AND producer = $producer AND producer_class = $producer_class AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?))
-            .bind(("protection", selection.key().to_owned())).bind(("issuing_store", self.issuing_store()?.to_owned())).bind(("producer", producer.to_owned())).bind(("request", surrealdb::types::Bytes::from(request.to_vec()))).bind(("after", after.to_owned())).bind(("interpretation", wire::INTERPRETATION.to_owned())))).await?;
+            .bind(("protection", selection.key().to_owned())).bind(("issuing_store", self.issuing_store()?.to_owned())).bind(("producer", producer.to_owned())).bind(("producer_class", producer_class.as_str().to_owned())).bind(("request", surrealdb::types::Bytes::from(request.to_vec()))).bind(("after", after.to_owned())).bind(("interpretation", wire::INTERPRETATION.to_owned())))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         let Some(row) = rows.into_iter().next() else {
             return Ok(None);
@@ -2724,22 +2723,6 @@ impl CanonicalStore {
     }
 }
 
-#[cfg(test)]
-mod producer_namespace_unit {
-    use super::*;
-    #[test]
-    fn historical_local_claims_are_reserved_but_cannot_be_new_scientific_admissions() {
-        assert!(is_replay_producer("pse.local-runtime.v1:old-receipt"));
-        assert!(!scientific_producer("pse.local-runtime.v1:old-receipt"));
-        assert!(is_replay_producer("pse.local-runtime.v2:current-receipt"));
-        assert!(scientific_producer("pse.local-runtime.v2:current-receipt"));
-        assert!(scientific_producer(
-            "pse.qualified-math-producer.v1:compiler"
-        ));
-        assert!(!is_replay_producer("ordinary-producer"));
-    }
-}
-
 #[cfg(all(test, feature = "canonical-tests"))]
 impl CanonicalStore {
     async fn test_reuse_product(
@@ -2751,7 +2734,7 @@ impl CanonicalStore {
     ) -> Result<Option<ReusableProduct>, CanonicalError> {
         let mut cursor = after.to_owned();
         while let Some(candidate) = self
-            .product_candidate(read.selection(), request, producer, &cursor)
+            .product_candidate(read.selection(), request, producer, CanonicalProducerClass::General, &cursor)
             .await?
         {
             cursor = candidate.key().to_owned();
@@ -2819,6 +2802,7 @@ mod canonical_server_unit {
             payload: payload.to_vec().into(),
             dependencies: Vec::new().into(),
             producer: "qualified-fixture".into(),
+            producer_class: CanonicalProducerClass::General,
             interpretation: wire::INTERPRETATION.into(),
         }
     }
@@ -2860,6 +2844,25 @@ mod canonical_server_unit {
         ])
     }
 
+    #[tokio::test]
+    async fn generic_product_receipt_text_never_confers_scientific_class() {
+        let store=fixture().await;
+        let revision=store.edit("p",None,"producer-class-source",&[]).await.unwrap();
+        let selected=read(&store,revision).await;
+        for producer in ["pse.qualified-math-producer.v1:claimed","pse.local-runtime.v2:claimed","pse.local-runtime.v1:historical"] {
+            let mut offered=product(&selected,b"generic native product");
+            offered.producer=producer.into();
+            assert_eq!(offered.producer_class,CanonicalProducerClass::General);
+            store.publish_product(&selected,offered).await.unwrap();
+            assert!(store.product_candidate(selected.selection(),b"exact-request",producer,CanonicalProducerClass::General,"").await.unwrap().is_some());
+            for class in [CanonicalProducerClass::LibraryMathematics,CanonicalProducerClass::LocalScientificReplay] {
+                assert!(!store.product_candidate_presence(selected.selection(),b"exact-request",producer,class,"").await.unwrap());
+                assert!(store.product_candidate(selected.selection(),b"exact-request",producer,class,"").await.unwrap().is_none());
+            }
+        }
+        store.release(selected.selection()).await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
     #[tokio::test]
     async fn canonical_split_products_share_independent_parts_and_keyed_ack_never_revives_roots() {
         let store = fixture().await;
@@ -4432,7 +4435,7 @@ mod canonical_server_unit {
             .await
             .unwrap();
         let candidate = store
-            .product_candidate(old.selection(), b"exact-request", "qualified-fixture", "")
+            .product_candidate(old.selection(), b"exact-request", "qualified-fixture", CanonicalProducerClass::General, "")
             .await
             .unwrap()
             .unwrap();
@@ -4494,7 +4497,7 @@ mod canonical_server_unit {
             .product_candidate(
                 current.selection(),
                 b"exact-request",
-                "qualified-fixture",
+                "qualified-fixture", CanonicalProducerClass::General,
                 "",
             )
             .await
@@ -4596,7 +4599,7 @@ mod canonical_server_unit {
             .product_candidate(
                 selected.selection(),
                 b"exact-request",
-                "qualified-fixture",
+                "qualified-fixture", CanonicalProducerClass::General,
                 "",
             )
             .await
@@ -4809,7 +4812,7 @@ mod canonical_server_unit {
             .product_candidate(
                 second.selection(),
                 b"exact-request",
-                "qualified-fixture",
+                "qualified-fixture", CanonicalProducerClass::General,
                 "",
             )
             .await
@@ -4819,7 +4822,7 @@ mod canonical_server_unit {
             .product_candidate(
                 second.selection(),
                 b"second-request",
-                "qualified-fixture",
+                "qualified-fixture", CanonicalProducerClass::General,
                 "",
             )
             .await
@@ -4994,7 +4997,7 @@ mod canonical_server_unit {
                 .product_candidate(
                     second.selection(),
                     b"second-request",
-                    "qualified-fixture",
+                    "qualified-fixture", CanonicalProducerClass::General,
                     ""
                 )
                 .await
@@ -5101,7 +5104,7 @@ mod canonical_server_unit {
                 .product_candidate_presence(
                     selected.selection(),
                     b"exact-request",
-                    "qualified-fixture",
+                    "qualified-fixture", CanonicalProducerClass::General,
                     "",
                 )
                 .await
@@ -5112,7 +5115,7 @@ mod canonical_server_unit {
                 .product_candidate_presence(
                     selected.selection(),
                     b"other-request",
-                    "qualified-fixture",
+                    "qualified-fixture", CanonicalProducerClass::General,
                     "",
                 )
                 .await
@@ -5124,7 +5127,7 @@ mod canonical_server_unit {
                 .product_candidate_presence(
                     selected.selection(),
                     b"exact-request",
-                    "qualified-fixture",
+                    "qualified-fixture", CanonicalProducerClass::General,
                     "",
                 )
                 .await
@@ -5136,7 +5139,7 @@ mod canonical_server_unit {
                 .product_candidate(
                     selected.selection(),
                     b"exact-request",
-                    "qualified-fixture",
+                    "qualified-fixture", CanonicalProducerClass::General,
                     ""
                 )
                 .await
@@ -5167,7 +5170,7 @@ mod canonical_server_unit {
             .product_candidate(
                 selected.selection(),
                 b"exact-request",
-                "qualified-fixture",
+                "qualified-fixture", CanonicalProducerClass::General,
                 "",
             )
             .await
@@ -5223,7 +5226,7 @@ mod canonical_server_unit {
                 .product_candidate(
                     selected.selection(),
                     b"exact-request",
-                    "qualified-fixture",
+                    "qualified-fixture", CanonicalProducerClass::General,
                     ""
                 )
                 .await
@@ -5249,7 +5252,7 @@ mod canonical_server_unit {
                 .product_candidate(
                     selected.selection(),
                     b"exact-request",
-                    "qualified-fixture",
+                    "qualified-fixture", CanonicalProducerClass::General,
                     ""
                 )
                 .await
@@ -5287,7 +5290,7 @@ mod canonical_server_unit {
                 .product_candidate(
                     selected.selection(),
                     b"exact-request",
-                    "qualified-fixture",
+                    "qualified-fixture", CanonicalProducerClass::General,
                     ""
                 )
                 .await
@@ -5374,7 +5377,8 @@ mod canonical_server_unit {
             .unwrap();
         let mut selected = read(&store, first.clone()).await;
         let mut forged = product(&selected, b"caller-made proof receipts");
-        forged.producer = format!("{SCIENTIFIC_PRODUCER_PREFIX}claimed-compiler");
+        forged.producer = "caller-chosen-receipt".into();
+        forged.producer_class = CanonicalProducerClass::LibraryMathematics;
         assert!(matches!(store.publish_product(&selected, forged).await,
                         Err(CanonicalError::Configuration(reason)) if reason.contains("impersonate")));
         assert_eq!(

@@ -6694,7 +6694,7 @@ class ContextCut(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
     #: Issuing canonical database identity.
     issuing_store: str
     #: Stable project identity.
-    project: str
+    project: ProjectKey
     #: Last included journal position.
     sequence: Annotated[int, msgspec.Meta(ge=0)]
 
@@ -6708,7 +6708,7 @@ class ContextCutBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Issuing canonical database identity.
     issuing_store: str
     #: Stable project identity.
-    project: str
+    project: ProjectKey
     #: Last included journal position.
     sequence: Annotated[int, msgspec.Meta(ge=0)]
 
@@ -18258,13 +18258,15 @@ class ProductHeader(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     key: str
     #: Original producer namespace; no runtime qualification is implied.
     producer: str
+    #: Source-owned producer capability class; receipt text confers no class.
+    producer_class: enums.CanonicalProducerClass
     #: Original sealed receipt identity; no bytes are hydrated.
     receipt: str
     #: Exact original canonical source, not receiving compatibility.
     revision: str
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.content), v.scalar_key(self.descriptor), v.scalar_key(self.interpretation), v.scalar_key(self.key), v.scalar_key(self.producer), v.scalar_key(self.receipt), v.scalar_key(self.revision),))
+        return (type(self), (v.scalar_key(self.content), v.scalar_key(self.descriptor), v.scalar_key(self.interpretation), v.scalar_key(self.key), v.scalar_key(self.producer), v.scalar_key(self.producer_class), v.scalar_key(self.receipt), v.scalar_key(self.revision),))
 
 
 class ProductHeaderCursor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -20477,21 +20479,21 @@ class ProjectPublication(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     _pse_required_version_field: ClassVar[str] = "document_version"
 
     document_version: Literal[1] = 1
-    branch: str
+    branch: ProjectBranchKey
     branch_generation: Annotated[int, msgspec.Meta(ge=0)]
     branch_name: str
     context_commitment: str | None = None
-    draft: str | None = None
+    draft: ProjectDraftKey | None = None
     draft_generation: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    expected: str | None = None
-    extra_parents: tuple[str, ...]
+    expected: RevisionKey | None = None
+    extra_parents: tuple[RevisionKey, ...]
     import_: ImportBinding | None = msgspec.field(default=None, name="import")
     issuing_store: str
-    kind: str
-    operation: str
-    origin_revision: str | None = None
-    problem: str
-    project: str
+    kind: enums.CanonicalProjectPublicationKind
+    operation: OperationKey
+    origin_revision: RevisionKey | None = None
+    problem: ProblemKey
+    project: ProjectKey
     project_generation: Annotated[int, msgspec.Meta(ge=0)]
     request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
     research: ResearchPublicationBinding | None = None
@@ -20503,21 +20505,21 @@ class ProjectPublication(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 class ProjectPublicationBody(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Original source-publication intent. Retain it unchanged through uncertain completion."""
 
-    branch: str
+    branch: ProjectBranchKey
     branch_generation: Annotated[int, msgspec.Meta(ge=0)]
     branch_name: str
     context_commitment: str | None = None
-    draft: str | None = None
+    draft: ProjectDraftKey | None = None
     draft_generation: Annotated[int, msgspec.Meta(ge=0)] | None = None
-    expected: str | None = None
-    extra_parents: tuple[str, ...]
+    expected: RevisionKey | None = None
+    extra_parents: tuple[RevisionKey, ...]
     import_: ImportBinding | None = msgspec.field(default=None, name="import")
     issuing_store: str
-    kind: str
-    operation: str
-    origin_revision: str | None = None
-    problem: str
-    project: str
+    kind: enums.CanonicalProjectPublicationKind
+    operation: OperationKey
+    origin_revision: RevisionKey | None = None
+    problem: ProblemKey
+    project: ProjectKey
     project_generation: Annotated[int, msgspec.Meta(ge=0)]
     request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
     research: ResearchPublicationBinding | None = None
@@ -20529,21 +20531,21 @@ class ProjectPublicationBody(msgspec.Struct, frozen=True, forbid_unknown_fields=
 class ProjectPublicationBodyOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Original source-publication intent. Retain it unchanged through uncertain completion."""
 
-    branch: str
+    branch: ProjectBranchKey
     branch_generation: Annotated[int, msgspec.Meta(ge=0)]
     branch_name: str
     context_commitment: str | None
-    draft: str | None
+    draft: ProjectDraftKey | None
     draft_generation: Annotated[int, msgspec.Meta(ge=0)] | None
-    expected: str | None
-    extra_parents: tuple[str, ...]
+    expected: RevisionKey | None
+    extra_parents: tuple[RevisionKey, ...]
     import_: ImportBinding | None = msgspec.field(name="import")
     issuing_store: str
-    kind: str
-    operation: str
-    origin_revision: str | None
-    problem: str
-    project: str
+    kind: enums.CanonicalProjectPublicationKind
+    operation: OperationKey
+    origin_revision: RevisionKey | None
+    problem: ProblemKey
+    project: ProjectKey
     project_generation: Annotated[int, msgspec.Meta(ge=0)]
     request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
     research: ResearchPublicationBinding | None
@@ -20559,21 +20561,21 @@ class ProjectPublicationOutput(msgspec.Struct, frozen=True, forbid_unknown_field
     _pse_required_version_field: ClassVar[str] = "document_version"
 
     document_version: Literal[1] = 1
-    branch: str
+    branch: ProjectBranchKey
     branch_generation: Annotated[int, msgspec.Meta(ge=0)]
     branch_name: str
     context_commitment: str | None
-    draft: str | None
+    draft: ProjectDraftKey | None
     draft_generation: Annotated[int, msgspec.Meta(ge=0)] | None
-    expected: str | None
-    extra_parents: tuple[str, ...]
+    expected: RevisionKey | None
+    extra_parents: tuple[RevisionKey, ...]
     import_: ImportBinding | None = msgspec.field(name="import")
     issuing_store: str
-    kind: str
-    operation: str
-    origin_revision: str | None
-    problem: str
-    project: str
+    kind: enums.CanonicalProjectPublicationKind
+    operation: OperationKey
+    origin_revision: RevisionKey | None
+    problem: ProblemKey
+    project: ProjectKey
     project_generation: Annotated[int, msgspec.Meta(ge=0)]
     request: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
     research: ResearchPublicationBinding | None
@@ -23621,7 +23623,7 @@ class ResearchPublicationBinding(msgspec.Struct, frozen=True, forbid_unknown_fie
     """
 
     #: Actual original attempt.
-    attempt: str
+    attempt: AttemptKey
     #: Exact closed manifest digest selected by protected read.
     manifest_digest: str
     #: Explicit cell/target identities and physical/bound premises.
@@ -23629,9 +23631,9 @@ class ResearchPublicationBinding(msgspec.Struct, frozen=True, forbid_unknown_fie
     #: Original qualified export set coordinate.
     result_set: str
     #: Actual original run.
-    run: str
+    run: RunKey
     #: Frozen original research selection.
-    selection: str
+    selection: ResearchSelectionKey
     #: Original run's immutable consumed source receipt, independently compared in activation.
     source_selection: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
 
@@ -31443,6 +31445,8 @@ ArithmeticMappingScope = ArithmeticMappingScopeSelectedCompiledProduct | Arithme
 
 ArrowFieldStep = ArrowFieldStepStructField | ArrowFieldStepListElement
 
+AttemptKey = str
+
 AttemptOriginalConclusion = Literal["satisfied", "refused", "unavailable"]
 
 BackendSettings = IpoptSettingsDocument | PounceSettingsDocument | KinsolSettingsDocument | HighsSettingsDocument | ClarabelSettingsDocument | ScipSettingsDocument | PounceConvexSettingsDocument | UnoSettingsDocument | PetscSettingsDocument
@@ -31567,6 +31571,8 @@ ObservationCoordinates = Literal["SubmittedOracle", "PhysicalTears"]
 
 OccurrenceKey = Annotated[int, msgspec.Meta(ge=0)]
 
+OperationKey = str
+
 OperationRequest = OperationRequestDeclaredCase | OperationRequestSimulation | OperationRequestFit | OperationRequestHorizon
 
 OperationRequestOutput = OperationRequestOutputDeclaredCase | OperationRequestOutputSimulation | OperationRequestOutputFit | OperationRequestOutputHorizon
@@ -31597,6 +31603,8 @@ PreparationFact = PreparationFactRoute | PreparationFactDynamic | PreparationFac
 
 PreparationStructuralValue = PreparationStructuralValueBoolean | PreparationStructuralValueInteger | PreparationStructuralValueNumber | PreparationStructuralValueCoordinate | PreparationStructuralValueText | PreparationStructuralValueEntity | PreparationStructuralValueEnumeration | PreparationStructuralValueIdentifier | PreparationStructuralValueDefinition | PreparationStructuralValueFunction | PreparationStructuralValueRow | PreparationStructuralValueSet | PreparationStructuralValueTuple | PreparationStructuralValueQuantityType | PreparationStructuralValueReferenceState | PreparationStructuralValueMissing
 
+ProblemKey = str
+
 ProducerRole = Literal["native_callback", "coordinate_transport", "original_oracle", "native_iteration", "evaluator", "provider", "workflow", "native_factor"]
 
 ProductAvailability = Literal["available", "unavailable", "not_requested"]
@@ -31615,7 +31623,13 @@ ProgressWriteStage = ProgressWriteStageClaim | ProgressWriteStageAllocation | Pr
 
 ProgressWriterOutcome = ProgressWriterOutcomeComplete | ProgressWriterOutcomeMemoryRefused | ProgressWriterOutcomeFailed | ProgressWriterOutcomeJoinFailed
 
+ProjectBranchKey = str
+
+ProjectDraftKey = str
+
 ProjectImportRecoveryState = Literal["project_complete", "ready_for_artifact", "original_cleanup_pending", "original_collected"]
+
+ProjectKey = str
 
 ProjectMergeProposal = ProjectMergeProposalRevision | ProjectMergeProposalDraft
 
@@ -31691,6 +31705,8 @@ ResearchReadResult = ResearchReadResultDatasets | ResearchReadResultDataset | Re
 
 ResearchReadResultOutput = ResearchReadResultOutputDatasets | ResearchReadResultOutputDataset | ResearchReadResultOutputSelection
 
+ResearchSelectionKey = str
+
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
 
 ResultCellUnavailable = Literal["unsupported_storage", "value_extent"]
@@ -31720,6 +31736,10 @@ ReviewQuery = Literal["timeline", "numerical", "coverage"]
 ReviewQueryStatus = Literal["completed", "unavailable", "failed", "timed_out", "cancelled", "output_limit", "malformed"]
 
 ReviewTableKind = Literal["detail", "invocation", "capture", "engine", "query"]
+
+RevisionKey = str
+
+RunKey = str
 
 SeedAvailability = SeedAvailabilityUnresolved | SeedAvailabilityCompatible | SeedAvailabilityAbsent | SeedAvailabilityIncompatible | SeedAvailabilityInternalFailure
 
@@ -31839,6 +31859,7 @@ __all__ = [
     "AttemptFinding",
     "AttemptIntervals",
     "AttemptIntervalsOutput",
+    "AttemptKey",
     "AttemptOriginalConclusion",
     "AttemptStartSummary",
     "AttemptStartSummaryOutput",
@@ -32648,6 +32669,7 @@ __all__ = [
     "OperationContractOutput",
     "OperationId",
     "OperationIdBody",
+    "OperationKey",
     "OperationPage",
     "OperationPageOutput",
     "OperationRequest",
@@ -32803,6 +32825,7 @@ __all__ = [
     "PreparationStructuralValueText",
     "PreparationStructuralValueTuple",
     "PresolveSeedTransformation",
+    "ProblemKey",
     "ProcessCheckpoint",
     "ProcessCheckpointOutput",
     "ProcessLocator",
@@ -32870,6 +32893,7 @@ __all__ = [
     "ProjectAcknowledgement",
     "ProjectAcknowledgementOutput",
     "ProjectArtifactBlockMetadata",
+    "ProjectBranchKey",
     "ProjectBranchPage",
     "ProjectBranchPageOutput",
     "ProjectBranchRecord",
@@ -32898,6 +32922,7 @@ __all__ = [
     "ProjectDraftDelta",
     "ProjectDraftDeltaOutput",
     "ProjectDraftDocuments",
+    "ProjectDraftKey",
     "ProjectDraftRecord",
     "ProjectDraftRecordOutput",
     "ProjectDraftSaveIntent",
@@ -32917,6 +32942,7 @@ __all__ = [
     "ProjectImportReportBody",
     "ProjectImportReportBodyOutput",
     "ProjectImportReportOutput",
+    "ProjectKey",
     "ProjectManifest",
     "ProjectManifestOutput",
     "ProjectMergeConflict",
@@ -33182,6 +33208,7 @@ __all__ = [
     "ResearchReferenceOutput",
     "ResearchSelection",
     "ResearchSelectionBody",
+    "ResearchSelectionKey",
     "ResearchSelectionRequest",
     "ResearchSelectionRequestBody",
     "ResearchSelectionRequestBodyOutput",
@@ -33299,10 +33326,12 @@ __all__ = [
     "ReviewTableDocument",
     "ReviewTableKind",
     "ReviewTableRequest",
+    "RevisionKey",
     "RouteDocument",
     "RouteDocumentOutput",
     "RunControls",
     "RunControlsOutput",
+    "RunKey",
     "RunSettings",
     "RunSettingsOutput",
     "Runtime",
@@ -33600,4 +33629,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:0badb9903a5f460fbec0d2ec8f0d2eccc9b53a700817bddcf217761d2c2e99da"
+SCHEMA_SET_FINGERPRINT = "blake3:230b8aebef21cbcd027846287d389052c72c9ef36855e77787512292c35922b0"

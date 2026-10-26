@@ -32,6 +32,18 @@ impl PartialEq for RuntimeCanonicalDraftDiagnosticsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalDraftDiagnosticsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::DraftDiagnosticKey {
+        crate::generated::canonical::DraftDiagnosticKey::from(self.r#key.as_str())
+    }
+}
+impl RuntimeCanonicalDraftDiagnosticsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn version_domain(&self) -> crate::generated::canonical::DraftVersionKey {
+        crate::generated::canonical::DraftVersionKey::from(self.r#version.as_str())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalDraftDiagnosticsRow;
 impl crate::SemanticFrame for RuntimeCanonicalDraftDiagnosticsRow {

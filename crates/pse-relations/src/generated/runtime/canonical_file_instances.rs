@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    69u8, 114u8, 49u8, 211u8, 169u8, 199u8, 74u8, 192u8, 11u8, 149u8, 147u8, 23u8, 160u8,
-    205u8, 194u8, 32u8, 137u8, 131u8, 67u8, 37u8, 138u8, 172u8, 28u8, 29u8, 64u8, 214u8,
-    211u8, 31u8, 54u8, 139u8, 20u8, 160u8,
+    108u8, 71u8, 40u8, 128u8, 14u8, 202u8, 174u8, 111u8, 162u8, 211u8, 152u8, 79u8, 33u8,
+    8u8, 38u8, 18u8, 30u8, 185u8, 140u8, 48u8, 57u8, 53u8, 130u8, 179u8, 44u8, 219u8,
+    18u8, 186u8, 22u8, 180u8, 16u8, 149u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalFileInstancesRow {
     fn append(
@@ -106,7 +106,7 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalFileInstancesRow {
         <String as crate::columnar::ArrowValue>::append_null(
             children[13usize].as_mut(),
         )?;
-        <String as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::enums::CanonicalFileState as crate::columnar::ArrowValue>::append_null(
             children[14usize].as_mut(),
         )?;
         output.append(false);
@@ -175,7 +175,7 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalFileInstancesRow {
                 input.column(13usize).as_ref(),
                 index,
             )?,
-            r#state: <String as crate::columnar::ArrowValue>::read(
+            r#state: <crate::generated::enums::CanonicalFileState as crate::columnar::ArrowValue>::read(
                 input.column(14usize).as_ref(),
                 index,
             )?,
@@ -377,7 +377,7 @@ impl crate::columnar::RelationRow for RuntimeCanonicalFileInstancesRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#state).len())?,
+            crate::columnar::allocation_add(8, (self.r#state).as_str().len())?,
         )?;
         Ok(bytes)
     }

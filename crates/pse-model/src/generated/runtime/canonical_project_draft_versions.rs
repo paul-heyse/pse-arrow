@@ -49,6 +49,42 @@ impl PartialEq for RuntimeCanonicalProjectDraftVersionsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalProjectDraftVersionsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::DraftVersionKey {
+        crate::generated::canonical::DraftVersionKey::from(self.r#key.as_str())
+    }
+}
+impl RuntimeCanonicalProjectDraftVersionsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn draft_domain(&self) -> crate::generated::canonical::ProjectDraftKey {
+        crate::generated::canonical::ProjectDraftKey::from(self.r#draft.as_str())
+    }
+}
+impl RuntimeCanonicalProjectDraftVersionsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn project_domain(&self) -> crate::generated::canonical::ProjectKey {
+        crate::generated::canonical::ProjectKey::from(self.r#project.as_str())
+    }
+}
+impl RuntimeCanonicalProjectDraftVersionsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn branch_domain(&self) -> crate::generated::canonical::ProjectBranchKey {
+        crate::generated::canonical::ProjectBranchKey::from(self.r#branch.as_str())
+    }
+}
+impl RuntimeCanonicalProjectDraftVersionsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn base_revision_domain(&self) -> crate::generated::canonical::RevisionKey {
+        crate::generated::canonical::RevisionKey::from(self.r#base_revision.as_str())
+    }
+}
+impl RuntimeCanonicalProjectDraftVersionsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn artifact_domain(&self) -> Option<crate::generated::canonical::ArtifactKey> {
+        self.r#artifact.as_deref().map(crate::generated::canonical::ArtifactKey::from)
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalProjectDraftVersionsRow;
 impl crate::SemanticFrame for RuntimeCanonicalProjectDraftVersionsRow {

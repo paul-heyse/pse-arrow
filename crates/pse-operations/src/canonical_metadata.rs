@@ -12,6 +12,8 @@ pub enum MetadataResponse {
     /// Release/renew transactions return at most the guard and protection rows,
     /// statement acknowledgements, and bounded errors; they carry no payloads.
     Protection,
+    /// One explicitly requested complete inline body, never a descriptor page.
+    InlinePayload,
     /// At most two header rows, each below 32 declared fields. Run headers carry
     /// request/source-selection bytes (up to the transport limit together).
     Header,
@@ -31,6 +33,14 @@ impl MetadataResponse {
     /// Limits include 32 statement envelopes of at most eight fields, errors,
     /// and the root envelope. Keys are counted separately from their values.
     pub fn limits(self) -> surrealdb::opt::ResponseLimits {
+        if matches!(self, Self::InlinePayload) {
+            return surrealdb::opt::ResponseLimits {
+                wire_bytes: wire::RESULT_INLINE_BYTES + 64 * 1024,
+                nodes: 256, depth: 16, container_items: 32,
+                string_bytes: 32 * 1024, string_length: wire::METADATA_ID_BYTES,
+                blob_bytes: wire::RESULT_INLINE_BYTES, blob_length: wire::RESULT_INLINE_BYTES,
+            };
+        }
         if matches!(self, Self::DiagnosticPlan) {
             return surrealdb::opt::ResponseLimits {
                 wire_bytes: 1 << 20,
@@ -44,7 +54,7 @@ impl MetadataResponse {
             };
         }
         let rows = match self {
-            Self::Protection | Self::Header | Self::Selection => 2,
+            Self::Protection | Self::Header | Self::Selection | Self::InlinePayload => 2,
             Self::Page => crate::canonical_results::PAGE,
             Self::JoinedBlockPage => 2 * crate::canonical_results::PAGE,
             Self::OutputPage => 3 * crate::canonical_results::PAGE,
@@ -54,7 +64,7 @@ impl MetadataResponse {
         let strings =
             (rows * 32 * wire::METADATA_ID_BYTES + 512 * 64).min(wire::RESULT_MESSAGE_BYTES);
         let blobs = match self {
-            Self::Protection | Self::Page | Self::DiagnosticPlan => 0,
+            Self::Protection | Self::Page | Self::DiagnosticPlan | Self::InlinePayload => 0,
             Self::JoinedBlockPage => {
                 crate::canonical_results::PAGE
                     * (pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES

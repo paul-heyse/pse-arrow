@@ -54,6 +54,64 @@ impl std::hash::Hash for FieldContract {
 }
 
 impl FieldContract {
+    /// Declare a nominal opaque-text lookup domain, separate from semantic identity.
+    #[must_use]
+    pub fn with_canonical_key(self, kind: super::CanonicalKeyKind) -> Self { self.facet(super::field_facets::CANONICAL_KEY, kind.as_str()) }
+    /// Nominal canonical text-key domain.
+    pub fn canonical_key(&self) -> Option<super::CanonicalKeyKind> { self.get(super::field_facets::CANONICAL_KEY).and_then(super::CanonicalKeyKind::parse) }
+    /// Freeze the field after insertion.
+    #[must_use]
+    pub fn canonical_readonly(self) -> Self { self.facet(super::field_facets::CANONICAL_READONLY, "true") }
+    /// Whether native storage freezes this field after insertion.
+    pub fn is_canonical_readonly(&self) -> bool { self.get(super::field_facets::CANONICAL_READONLY) == Some("true") }
+    /// Explicitly allow mutation under the owning native assertion or transaction.
+    #[must_use]
+    pub fn canonical_mutable(self) -> Self { self.facet(super::field_facets::CANONICAL_READONLY, "false") }
+    /// Freeze by default, preserving an explicit mutable declaration.
+    #[must_use]
+    pub fn canonical_default_readonly(self) -> Self {
+        if self.get(super::field_facets::CANONICAL_READONLY).is_some() { self } else { self.canonical_readonly() }
+    }
+    /// Bind this field to the native record key.
+    #[must_use]
+    pub fn canonical_record_key(self) -> Self { self.facet(super::field_facets::CANONICAL_RECORD_KEY, "true").canonical_readonly() }
+    /// Whether this field is the native record key projection.
+    pub fn is_canonical_record_key(&self) -> bool { self.get(super::field_facets::CANONICAL_RECORD_KEY).is_some() }
+    /// Exact source-owned native SurrealQL assertion.
+    #[must_use]
+    pub fn with_canonical_assertion(self, value: &str) -> Self { self.facet(super::field_facets::CANONICAL_ASSERT, value) }
+    /// Exact source-owned native SurrealQL assertion.
+    pub fn canonical_assertion(&self) -> Option<&str> { self.get(super::field_facets::CANONICAL_ASSERT) }
+    /// Native default expression.
+    #[must_use]
+    pub fn with_canonical_default(self, value: &str) -> Self { self.facet(super::field_facets::CANONICAL_DEFAULT, value) }
+    /// Native default expression.
+    pub fn canonical_default(&self) -> Option<&str> { self.get(super::field_facets::CANONICAL_DEFAULT) }
+    /// Initial lifecycle member over its enum transitions.
+    #[must_use]
+    pub fn with_canonical_initial(self, value: &str) -> Self { self.facet(super::field_facets::CANONICAL_TRANSITION, value) }
+    /// Initial lifecycle member over its enum transitions.
+    pub fn canonical_initial(&self) -> Option<&str> { self.get(super::field_facets::CANONICAL_TRANSITION) }
+    /// Native before-row predicate sealing this field including absence.
+    #[must_use]
+    pub fn with_canonical_seal(self, value: &str) -> Self { self.facet(super::field_facets::CANONICAL_SEALED, value) }
+    /// Native before-row predicate sealing this field including absence.
+    pub fn canonical_seal(&self) -> Option<&str> { self.get(super::field_facets::CANONICAL_SEALED) }
+    /// Required referenced native record kind.
+    #[must_use]
+    pub fn with_canonical_reference_kind(self, value: &str) -> Self { self.facet(super::field_facets::CANONICAL_REFERENCE_KIND, value) }
+    /// Required referenced native record kind.
+    pub fn canonical_reference_kind(&self) -> Option<&str> { self.get(super::field_facets::CANONICAL_REFERENCE_KIND) }
+    /// Exceptional transition admitted by an explicit native association.
+    #[must_use]
+    pub fn with_canonical_transition_exception(self, value: &str) -> Self { self.facet(super::field_facets::CANONICAL_TRANSITION_EXCEPTION, value) }
+    /// Exceptional transition predicate owned by this field.
+    pub fn canonical_transition_exception(&self) -> Option<&str> { self.get(super::field_facets::CANONICAL_TRANSITION_EXCEPTION) }
+    /// Refusal emitted when a sealed field changes.
+    #[must_use]
+    pub fn with_canonical_seal_refusal(self, value: &str) -> Self { self.facet(super::field_facets::CANONICAL_SEAL_REFUSAL, value) }
+    /// Declared refusal for a sealed-field change.
+    pub fn canonical_seal_refusal(&self) -> Option<&str> { self.get(super::field_facets::CANONICAL_SEAL_REFUSAL) }
     /// Declare the scientific access role at the owning field.
     #[must_use]
     pub fn with_result_selection(self, role: super::ResultSelectionRole) -> Self {

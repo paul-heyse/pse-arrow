@@ -430,7 +430,9 @@ def journey(
     *,
     scientific: bool = False,
     output_directory: Path | None = None,
+    payload_verifier: Path | None = None,
 ) -> None:
+    physical_helper = payload_verifier or binary.with_name("pse-canonical-recovery")
     profile_args = profile_arguments(profile_state)
     selected = None
     if profile_state is not None:
@@ -474,7 +476,7 @@ def journey(
                     "--interpretation",
                     server.SUBSTRATE_INTERPRETATION,
                     "--payload-verifier",
-                    str(binary.resolve()),
+                    str(physical_helper.resolve()),
                     *profile_args,
                 ]
             )
@@ -776,7 +778,8 @@ def journey(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("binary", type=Path)
+    parser.add_argument("binary", type=Path, help="Separate xtask recovery fixture binary")
+    parser.add_argument("--payload-verifier", type=Path, help="Product pse-canonical-recovery physical helper")
     parser.add_argument(
         "--directory",
         type=Path,
@@ -798,6 +801,7 @@ def main() -> None:
         args.profile_state,
         scientific=args.scientific,
         output_directory=args.directory,
+        payload_verifier=args.payload_verifier,
     )
 
 

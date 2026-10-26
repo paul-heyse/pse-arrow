@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Project organization and exact research lineage; canonical source remains authoritative.
-use super::declarations::{column, relation};
+use super::declarations::{column, canonical_relation as relation};
 use super::substrate::NativeIndex;
 use crate::{
     RegistryBuilder,
@@ -141,7 +141,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         (
             "canonical_projects",
             vec![
-                column("key", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project),
                 column("title", text()),
                 column("deleted", T::native(D::Boolean)),
                 column("generation", uint()),
@@ -151,11 +151,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         (
             "canonical_project_branches",
             vec![
-                column("key", text()),
-                column("project", text()),
-                column("problem", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectBranch),
+                column("project", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project).canonical_readonly(),
+                column("problem", text()).with_canonical_key(crate::model::CanonicalKeyKind::Problem).canonical_readonly(),
                 column("name", text()),
-                column("origin_revision", text()).optional(),
+                column("origin_revision", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision).canonical_readonly().optional(),
                 column("generation", uint()),
             ],
             "One independent canonical source problem per writable project branch. Origin is ancestry, never a second head.",
@@ -163,11 +163,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         (
             "canonical_project_drafts",
             vec![
-                column("key", text()),
-                column("project", text()),
-                column("branch", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectDraft),
+                column("project", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project),
+                column("branch", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectBranch),
                 column("generation", uint()),
-                column("version", text()),
+                column("version", text()).with_canonical_key(crate::model::CanonicalKeyKind::DraftVersion),
                 column("deleted", T::native(D::Boolean)),
             ],
             "Generation-fenced draft head selecting one immutable original raw version; deletion changes visibility only.",
@@ -175,25 +175,25 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         (
             "canonical_project_draft_versions",
             vec![
-                column("key", text()),
-                column("draft", text()),
-                column("project", text()),
-                column("branch", text()),
-                column("base_revision", text()),
-                column("generation", uint()),
-                column("content", bytes()),
-                column("artifact", text()).optional(),
-                column("retired", T::native(D::Boolean)),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::DraftVersion),
+                column("draft", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectDraft).canonical_readonly(),
+                column("project", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project).canonical_readonly(),
+                column("branch", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectBranch).canonical_readonly(),
+                column("base_revision", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision).canonical_readonly(),
+                column("generation", uint()).canonical_readonly(),
+                column("content", bytes()).with_canonical_assertion("$before=NONE OR $before=$value OR ($this.retired=true AND bytes::len($value)=0)"),
+                column("artifact", text()).with_canonical_key(crate::model::CanonicalKeyKind::Artifact).canonical_readonly().optional(),
+                column("retired", T::native(D::Boolean)).with_canonical_default("false").with_canonical_assertion("($before=NONE AND $value=false) OR ($before=$value) OR ($before=false AND $value=true AND bytes::len($this.content)=0)"),
             ],
             "Immutable original raw draft version. Opaque artifacts retain larger malformed bodies; saving grants no scientific admission.",
         ),
         (
             "canonical_project_savepoints",
             vec![
-                column("key", text()),
-                column("project", text()),
-                column("draft", text()),
-                column("version", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectSavepoint),
+                column("project", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project),
+                column("draft", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectDraft),
+                column("version", text()).with_canonical_key(crate::model::CanonicalKeyKind::DraftVersion),
                 column("name", text()),
                 column("deleted", T::native(D::Boolean)),
             ],
@@ -202,9 +202,9 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         (
             "canonical_project_bookmarks",
             vec![
-                column("key", text()),
-                column("project", text()),
-                column("revision", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectBookmark),
+                column("project", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project),
+                column("revision", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision),
                 column("name", text()),
             ],
             "Presentation-only exact source bookmark, retained through the canonical source owner.",
@@ -212,45 +212,45 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         (
             "canonical_project_ancestry",
             vec![
-                column("key", text()),
-                column("revision", text()),
-                column("parent", text()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectAncestry),
+                column("revision", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision).canonical_readonly(),
+                column("parent", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision).canonical_readonly(),
             ],
             "Immutable additional accepted source ancestry, independent of scientific object identity.",
         ),
         (
             "canonical_draft_diagnostics",
             vec![
-                column("key", text()),
-                column("version", text()),
-                column("message", text()),
-                column("admitted", T::native(D::Boolean)),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::DraftDiagnostic),
+                column("version", text()).with_canonical_key(crate::model::CanonicalKeyKind::DraftVersion).canonical_readonly(),
+                column("message", text()).canonical_readonly(),
+                column("admitted", T::native(D::Boolean)).canonical_readonly(),
             ],
             "Version-linked local admission diagnostics; no executable authority is granted by this record.",
         ),
         (
             "canonical_project_operations",
             vec![
-                column("key", text()),
-                column("kind", text()),
-                column("project", text()),
-                column("branch", text()).optional(),
-                column("request", bytes()),
-                column("revision", text()).optional(),
-                column("generation", uint()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::Operation),
+                column("kind", text()).canonical_readonly(),
+                column("project", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project).canonical_readonly(),
+                column("branch", text()).with_canonical_key(crate::model::CanonicalKeyKind::ProjectBranch).canonical_readonly().optional(),
+                column("request", bytes()).canonical_readonly(),
+                column("revision", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision).canonical_readonly().optional(),
+                column("generation", uint()).canonical_readonly(),
             ],
             "Immutable exact operation acknowledgement, including original input digest/coordinates; settlement never infers success from the current head.",
         ),
         (
             "canonical_research_references",
             vec![
-                column("key", text()),
-                column("project", text()),
-                column("revision", text()),
-                column("artifact", text()).optional(),
-                column("run", text()).optional(),
-                column("attempt", text()).optional(),
-                column("request", bytes()),
+                column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::ResearchReference),
+                column("project", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project).canonical_readonly(),
+                column("revision", text()).with_canonical_key(crate::model::CanonicalKeyKind::Revision).canonical_readonly(),
+                column("artifact", text()).with_canonical_key(crate::model::CanonicalKeyKind::Artifact).canonical_readonly().optional(),
+                column("run", text()).with_canonical_key(crate::model::CanonicalKeyKind::Run).canonical_readonly().optional(),
+                column("attempt", text()).with_canonical_key(crate::model::CanonicalKeyKind::Attempt).canonical_readonly().optional(),
+                column("request", bytes()).canonical_readonly(),
             ],
             "Explicit source/result lineage reference. Source roots and selected artifact obligations preserve the exact original closure; no numerical value is copied as a new scientific authority.",
         ),

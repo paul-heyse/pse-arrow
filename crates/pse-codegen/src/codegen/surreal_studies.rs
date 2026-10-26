@@ -356,15 +356,15 @@ DEFINE FUNCTION fn::pse_study_v1::append($rpc_expiry: int, $study: string, $poin
         };
         LET $old = SELECT * FROM ONLY type::record('canonical_study_points', $point.key);
         IF $old != NONE {
-            IF $old.seed_solution != $point.seed_solution OR $old.ordinal != $point.ordinal OR $old.occurrence != $point.occurrence OR $old.policy != $point.policy OR $old.descriptor != $point.descriptor OR $old.run != $point.run { THROW 'PSE_REFUSAL:study_immutable_occurrence_changed'; };
+            IF $old.admission_run!=$point.admission_run OR $old.variant_problem!=$point.variant_problem OR $old.variant_operation!=$point.variant_operation OR $old.seed_solution != $point.seed_solution OR $old.ordinal != $point.ordinal OR $old.occurrence != $point.occurrence OR $old.policy != $point.policy OR $old.descriptor != $point.descriptor OR $old.run != $point.run { THROW 'PSE_REFUSAL:study_immutable_occurrence_changed'; };
         } ELSE {
             fn::pse_execution_v1::result_creator($rpc_expiry,$point.run);
             fn::pse_execution_v1::touch($rpc_expiry,'study-association:'+$point.run);
             SELECT * FROM ONLY type::record('canonical_study_points',$point.key) FOR UPDATE;
             LET $run = SELECT * FROM ONLY type::record('canonical_runs', $point.run);
-            LET $admission_run = SELECT * FROM ONLY type::record('canonical_runs', 'study-admission:'+$point.key);
+            LET $admission_run = IF $point.admission_run=NONE {NONE} ELSE {SELECT * FROM ONLY type::record('canonical_runs', $point.admission_run)};
             IF $run=NONE {
-                IF $admission_run=NONE OR $admission_run.problem!=$s.problem OR $admission_run.revision!=$s.revision { THROW 'PSE_REFUSAL:study_lazy_admission_source_run_unavailable'; };
+                IF $admission_run=NONE OR $admission_run.purpose!='study_admission' OR $admission_run.admission_study!=$study OR $admission_run.admission_point!=$point.key OR $admission_run.problem!=$s.problem OR $admission_run.revision!=$s.revision { THROW 'PSE_REFUSAL:study_lazy_admission_source_run_unavailable'; };
                 LET $locator='admission:'+$point.key;
                 LET $issuing=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
                 CREATE ONLY type::record('canonical_history_locators',$locator) SET key=$locator,study=$study,run=$admission_run.key,point=$point.key,issuing_store=$issuing;
@@ -466,7 +466,7 @@ DEFINE FUNCTION fn::pse_study_v1::settle($rpc_expiry: int, $study: string, $gene
     IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE {
         LET $run=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.run);
         IF $run=NONE {
-            LET $input=SELECT key FROM ONLY type::record('canonical_runs','study-admission:'+$point);
+            LET $input=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.admission_run);
             IF $input=NONE { THROW 'PSE_REFUSAL:unadmitted_occurrence_input_owner_unavailable'; };
             fn::pse_history_v1::identity($rpc_expiry,'effect-free-run',$rpc_result.run,$rpc_result.run);
         } ELSE { fn::pse_history_v1::effect_free($rpc_expiry,$rpc_result); };
@@ -546,8 +546,8 @@ DEFINE FUNCTION fn::pse_study_v1::seal($rpc_expiry: int, $study: string, $run: s
 
 // Shared mutation admission: exact original point/premises, cancellation, owner and lease.
 DEFINE FUNCTION fn::pse_study_v1::admission_authority($rpc_expiry:int,$authority:object) -> object {
-    IF $authority.run!='study-admission:'+$authority.point { THROW 'PSE_REFUSAL:scientific_admission_capability_belongs_elsewhere'; };
     LET $p=fn::pse_study_v1::guard($rpc_expiry,$authority.study,$authority.generation,false,$authority.point,$authority.expected);
+    IF $authority.run!=$p.admission_run { THROW 'PSE_REFUSAL:scientific_admission_capability_belongs_elsewhere'; };
     IF $p.admission!=NONE { THROW 'PSE_REFUSAL:scientific_admission_already_settled'; };
     fn::pse_execution_v1::current_writer($rpc_expiry,$authority.run);
     RETURN fn::pse_execution_v1::fence($rpc_expiry,$authority.run,$authority.attempt,$authority.authority);
@@ -557,10 +557,10 @@ DEFINE FUNCTION fn::pse_study_v1::admission_authority($rpc_expiry:int,$authority
 DEFINE FUNCTION fn::pse_study_v1::admission_claim($rpc_expiry:int,$study:string,$generation:decimal,$point:string,$expected:array<object>,$operation:string,$request:bytes,$attempt:string,$worker:string,$lifetime:int) -> option<object> {
     LET $p=fn::pse_study_v1::guard($rpc_expiry,$study,$generation,false,$point,$expected);
     IF $p.admission!=NONE { RETURN NONE; };
-    LET $run='study-admission:'+$point;
+    LET $run=$p.admission_run;
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
     LET $r=SELECT * FROM ONLY type::record('canonical_runs',$run) FOR UPDATE;
-    IF $r=NONE { THROW 'PSE_REFUSAL:scientific_admission_run_unavailable'; };
+    IF $r=NONE OR $r.purpose!='study_admission' OR $r.admission_study!=$study OR $r.admission_point!=$point { THROW 'PSE_REFUSAL:scientific_admission_run_unavailable'; };
     IF $r.current_attempt!=NONE {
         LET $old=SELECT * FROM ONLY type::record('canonical_attempts',$r.current_attempt) FOR UPDATE;
         IF $old!=NONE AND ($old.phase NOT IN ['terminal','terminal_compacted']) {
@@ -589,8 +589,8 @@ DEFINE FUNCTION fn::pse_study_v1::admission_complete($rpc_expiry:int,$study:stri
         IF $saved.admission!=$admission OR $op=NONE { THROW 'PSE_REFUSAL:immutable_scientific_admission_differs'; };
         RETURN $saved;
     };
-    IF $run!='study-admission:'+$point { THROW 'PSE_REFUSAL:scientific_admission_owner_differs'; };
     LET $p=fn::pse_study_v1::guard($rpc_expiry,$study,$generation,false,$point,$expected);
+    IF $run!=$p.admission_run { THROW 'PSE_REFUSAL:scientific_admission_owner_differs'; };
     LET $a=fn::pse_execution_v1::fence($rpc_expiry,$run,$attempt,$authority);
     IF $outcome=NONE {
         LET $science=SELECT key FROM ONLY type::record('canonical_runs',$p.run);
@@ -660,7 +660,7 @@ DEFINE FUNCTION fn::pse_study_v1::observe($rpc_expiry: int, $point: string, $rev
     IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE {
         LET $run=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.run);
         IF $run=NONE {
-            LET $input=SELECT key FROM ONLY type::record('canonical_runs','study-admission:'+$point);
+            LET $input=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.admission_run);
             IF $input=NONE { THROW 'PSE_REFUSAL:unadmitted_occurrence_input_owner_unavailable'; };
             fn::pse_history_v1::identity($rpc_expiry,'effect-free-run',$rpc_result.run,$rpc_result.run);
         } ELSE { fn::pse_history_v1::effect_free($rpc_expiry,$rpc_result); };

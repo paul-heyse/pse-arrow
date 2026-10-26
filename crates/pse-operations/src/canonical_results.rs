@@ -1062,7 +1062,7 @@ impl CanonicalStore {
 
     /// Fetch only an explicitly demanded bounded set of exact logical members.
     /// Callers prepay each page before accumulating frozen snapshot metadata.
-    pub async fn result_file_batch_descriptors(
+    pub async fn result_payload_batch_descriptors(
         &self,
         read: &ResultRead,
         set_key: &str,
@@ -1074,14 +1074,14 @@ impl CanonicalStore {
         self.files.require_current()?;
         if !read.belongs_to(self){return Err(invalid("result read belongs to another store"));}
         let set=read.set(set_key)?;
-        if ordinals.len()>64||ordinals.windows(2).any(|pair|pair[0]>=pair[1])||ordinals.iter().any(|ordinal|*ordinal>=set.batch_count){return Err(invalid("demanded file descriptor page exceeds exact manifest scope"));}
+        if ordinals.len()>64||ordinals.windows(2).any(|pair|pair[0]>=pair[1])||ordinals.iter().any(|ordinal|*ordinal>=set.batch_count){return Err(invalid("demanded payload descriptor page exceeds exact manifest scope"));}
         if ordinals.is_empty(){return Ok(Vec::new());}
         let selected=ordinals.iter().map(|value|canonical_codec::encode_uint(*value)).collect::<Result<Vec<_>,_>>()?;
         let mut response=self.protected_query(&read.run.problem,crate::canonical::QueryEffect::Read,"canonical_results::file_descriptors",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page, format!("{PROTECTED_BEGIN}\nRETURN SELECT * FROM canonical_result_batches WHERE result_set=$set AND ordinal IN $selected ORDER BY ordinal LIMIT 64; COMMIT;"))
         .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone())).bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?)).bind(("protection",read.owner.selection.key().to_owned())).bind(("set",set_key.to_owned())).bind(("selected",selected.clone())))).await?;
         let index=response.num_statements().saturating_sub(2);let page:Vec<Object>=response.take(index)?;
-        if page.len()!=ordinals.len(){return Err(invalid("frozen demanded file inventory is incomplete"));}
-        page.into_iter().zip(ordinals).map(|(row,ordinal)|{let batch=wire::decode_canonical_result_batches(row)?;crate::canonical_execution::validate_result_batch(&batch)?;if batch.ordinal!=*ordinal||batch.attempt!=read.attempt.key||batch.result_set!=set_key{return Err(invalid("frozen demanded file coordinate differs"));}Ok(batch)}).collect()
+        if page.len()!=ordinals.len(){return Err(invalid("frozen demanded payload inventory is incomplete"));}
+        page.into_iter().zip(ordinals).map(|(row,ordinal)|{let batch=wire::decode_canonical_result_batches(row)?;crate::canonical_execution::validate_result_batch(&batch)?;if batch.ordinal!=*ordinal||batch.attempt!=read.attempt.key||batch.result_set!=set_key{return Err(invalid("frozen demanded payload coordinate differs"));}Ok(batch)}).collect()
         }).await
         }).await
     }
@@ -1137,17 +1137,65 @@ impl CanonicalStore {
         )?)
         }).await
     }
+    /// Hydrate one exact inline encoding under its original manifest read ticket.
+    /// Descriptor pages stay body-free; the caller supplies the actual prepaid
+    /// InlinePayload response ownership through physical completion.
+    pub async fn read_inline_payload(
+        &self, read: &ResultRead, batch: &ResultBatch,
+    ) -> Result<pse_model::generated::runtime::canonical_inline_payloads::Row, CanonicalError> {
+        if !read.belongs_to(self) || batch.attempt != read.attempt.key {
+            return Err(invalid("inline payload belongs to another exact reader"));
+        }
+        let set = read.set(&batch.result_set)?;
+        if batch.ordinal >= set.batch_count { return Err(invalid("inline payload outside admitted descriptor")); }
+        self.read_inline_payload_owner(&read.owner, batch).await
+    }
+    async fn read_inline_payload_owner(
+        &self, owner: &Arc<ReadOwner>, batch: &ResultBatch,
+    ) -> Result<pse_model::generated::runtime::canonical_inline_payloads::Row, CanonicalError> {
+        use crate::canonical_execution::{PayloadLocator, result_payload_locator, result_payload_digest, validate_result_batch};
+        validate_result_batch(batch)?;
+        let PayloadLocator::Inline { key, index } = result_payload_locator(batch)? else { return Err(invalid("inline payload requires inline locator")); };
+        if !self.db.same_driver(&owner.store.db) { return Err(invalid("inline payload reader belongs to another store")); }
+        let activity = owner.store.selection_activity(&owner.selection)?;
+        activity.scope(crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::InlinePayload, async {
+            let revision = owner.selection.revision();
+            let expected = wire::encode_canonical_result_batches(batch)?;
+            let mut response = self.protected_query(&revision.problem, crate::canonical::QueryEffect::Read, "canonical_results::inline_payload", || Ok(self.db.metadata_query(crate::canonical::MetadataResponse::InlinePayload, format!("{PROTECTED_BEGIN}\nLET $descriptor=SELECT * FROM ONLY type::record('canonical_result_batches',$batch); IF $descriptor=NONE OR object::remove($descriptor,'id')!=$expected {{ THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; }}; LET $body=SELECT * FROM ONLY type::record('canonical_inline_payloads',$inline); fn::pse_execution_v1::deadline($pse_rpc_expires_at); IF $pin.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }}; RETURN $body; COMMIT;"))
+                .bind(("problem",revision.problem.clone())).bind(("revision",revision.key.clone()))
+                .bind(("sequence",canonical_codec::encode_uint(revision.sequence)?))
+                .bind(("protection",owner.selection.key().to_owned())).bind(("batch",batch.key.clone()))
+                .bind(("inline",key.clone())).bind(("expected",expected.clone())))).await?;
+            let statement = response.num_statements().saturating_sub(2);
+            let body = response.take::<Option<Object>>(statement)?.map(wire::decode_canonical_inline_payloads).transpose()?.ok_or_else(|| invalid("admitted inline body unavailable"))?;
+            if body.key != key || body.attempt != batch.attempt || body.digest != batch.digest
+                || body.payload_bytes != batch.payload_bytes || body.body.len() as u64 != body.payload_bytes
+                || body.body.len() > pse_schema::catalog::substrate::RESULT_INLINE_BYTES
+                || body.schema != batch.schema || body.encoding != batch.encoding || body.interpretation != wire::INTERPRETATION
+                || result_payload_digest(body.body.as_slice()) != body.digest
+                || (body.encoding == crate::canonical_files::ARROW_IPC_FILE && (body.batch_count == 0 || index >= body.batch_count))
+                || (body.encoding != crate::canonical_files::ARROW_IPC_FILE && (body.batch_count != 0 || index != 0)) {
+                return Err(invalid("inline payload differs from immutable admitted encoding"));
+            }
+            Ok(body)
+        })).await
+    }
     async fn hydrate_result_batch(
         &self,
         batch: ResultBatch,
         owner: Arc<ReadOwner>,
     ) -> Result<HydratedResultBatch, CanonicalError> {
         use std::io::Read;
-        let descriptor = self.file_descriptor(&batch).await?;
-        let mut file = self.open_physical_file(descriptor, owner)?;
-        let mut bytes = Vec::with_capacity(batch.payload_bytes as usize);
-        file.read_to_end(&mut bytes)
-            .map_err(|e| invalid(&e.to_string()))?;
+        let bytes = match crate::canonical_execution::result_payload_locator(&batch)? {
+            crate::canonical_execution::PayloadLocator::Inline { .. } => self.read_inline_payload_owner(&owner, &batch).await?.body.to_vec(),
+            crate::canonical_execution::PayloadLocator::Sealed { .. } => {
+                let descriptor = self.file_descriptor(&batch).await?;
+                let mut file = self.open_physical_file(descriptor, owner)?;
+                let mut bytes = Vec::with_capacity(batch.payload_bytes as usize);
+                file.read_to_end(&mut bytes).map_err(|error| invalid(&error.to_string()))?;
+                bytes
+            }
+        };
         Ok(HydratedResultBatch {
             descriptor: batch,
             payload: bytes.into(),
@@ -1440,6 +1488,9 @@ mod canonical_results_server_unit {
         let (store, _database, revision) = fixture().await;
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "run".into(),
                 revision,
                 sources: vec![],
@@ -1540,6 +1591,9 @@ mod canonical_results_server_unit {
         let (store, _database, revision) = fixture().await;
         store
             .begin_run(&RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "run".into(),
                 revision,
                 sources: vec![],
@@ -1783,15 +1837,22 @@ mod canonical_results_server_unit {
         let mut changed = page[0].clone();
         changed.payload_digest = "wrong".into();
         assert!(store.result_block(&read, changed).await.is_err());
-        // Corrupt the isolated original file while leaving its catalog digest
-        // and admitted logical locators unchanged. Fresh native IO must refuse.
+        // Remove/corrupt only this fixture's physical payload owner while
+        // leaving the admitted logical locator unchanged. Fresh access refuses.
         let descriptor = store
-            .result_file_batch_descriptors(&read, &set, &[page[0].ordinal])
+            .result_payload_batch_descriptors(&read, &set, &[page[0].ordinal])
             .await
             .unwrap()
             .remove(0);
-        let path = store.files.path(&descriptor.file_instance).unwrap();
-        std::fs::write(&path, [2u8; 32]).unwrap();
+        match crate::canonical_execution::result_payload_locator(&descriptor).unwrap() {
+            crate::canonical_execution::PayloadLocator::Sealed { instance, .. } => {
+                let path = store.files.path(&instance).unwrap();
+                std::fs::write(&path, [2u8; 32]).unwrap();
+            }
+            crate::canonical_execution::PayloadLocator::Inline { key, .. } => {
+                bounded_query(store.db.query("DELETE ONLY type::record('canonical_inline_payloads',$key);").bind(("key",key))).await.unwrap();
+            }
+        }
         assert!(store.result_block(&read, page[0].clone()).await.is_err());
         assert_eq!(blob.batch.payload.as_slice(), [1u8; 32]);
         drop(read);

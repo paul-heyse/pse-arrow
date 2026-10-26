@@ -47,6 +47,50 @@ impl PartialEq for RuntimeCanonicalResearchPublicationsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalResearchPublicationsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn key_domain(&self) -> crate::generated::canonical::ResearchPublicationKey {
+        crate::generated::canonical::ResearchPublicationKey::from(self.r#key.as_str())
+    }
+}
+impl RuntimeCanonicalResearchPublicationsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn project_domain(&self) -> crate::generated::canonical::ProjectKey {
+        crate::generated::canonical::ProjectKey::from(self.r#project.as_str())
+    }
+}
+impl RuntimeCanonicalResearchPublicationsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn selection_domain(&self) -> crate::generated::canonical::ResearchSelectionKey {
+        crate::generated::canonical::ResearchSelectionKey::from(
+            self.r#selection.as_str(),
+        )
+    }
+}
+impl RuntimeCanonicalResearchPublicationsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn run_domain(&self) -> crate::generated::canonical::RunKey {
+        crate::generated::canonical::RunKey::from(self.r#run.as_str())
+    }
+}
+impl RuntimeCanonicalResearchPublicationsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn attempt_domain(&self) -> crate::generated::canonical::AttemptKey {
+        crate::generated::canonical::AttemptKey::from(self.r#attempt.as_str())
+    }
+}
+impl RuntimeCanonicalResearchPublicationsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn revision_domain(&self) -> crate::generated::canonical::RevisionKey {
+        crate::generated::canonical::RevisionKey::from(self.r#revision.as_str())
+    }
+}
+impl RuntimeCanonicalResearchPublicationsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn parent_domain(&self) -> crate::generated::canonical::RevisionKey {
+        crate::generated::canonical::RevisionKey::from(self.r#parent.as_str())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalResearchPublicationsRow;
 impl crate::SemanticFrame for RuntimeCanonicalResearchPublicationsRow {

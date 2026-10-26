@@ -215,7 +215,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 |---|---|---|---|---|---|
 | `key` | `Utf8` | false | `key` | — | — |
 | `artifact` | `Utf8` | false | `payload` | — | — |
-| `owner_kind` | `Utf8` | false | `payload` | — | — |
+| `owner_kind` | `enum:CanonicalArtifactHolderKind` | false | `payload` | — | — |
 | `owner` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_artifact_reads`
@@ -239,7 +239,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 |---|---|---|---|---|---|
 | `key` | `Utf8` | false | `key` | — | — |
 | `artifact` | `Utf8` | false | `payload` | — | — |
-| `owner_kind` | `Utf8` | false | `payload` | — | — |
+| `owner_kind` | `enum:CanonicalArtifactHolderKind` | false | `payload` | — | — |
 | `owner` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_artifact_staging_inputs`
@@ -437,7 +437,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `batch_count` | `UInt64` | false | `payload` | — | — |
 | `schema` | `Utf8` | false | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
-| `state` | `Utf8` | false | `payload` | — | — |
+| `state` | `enum:CanonicalFileState` | false | `payload` | — | — |
 
 ## `canonical_file_owners`
 
@@ -548,6 +548,24 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `generation` | `UInt64` | false | `payload` | — | — |
 | `complete` | `Boolean` | false | `payload` | — | — |
 | `after_locator` | `Utf8` | true | `payload` | — | — |
+
+## `canonical_inline_payloads`
+
+One immutable complete bounded encoded body shared by exact logical batch members.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `attempt` | `Utf8` | false | `payload` | — | — |
+| `digest` | `Utf8` | false | `payload` | — | — |
+| `encoding` | `Utf8` | false | `payload` | — | — |
+| `schema` | `Utf8` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `payload_bytes` | `UInt64` | false | `payload` | — | — |
+| `batch_count` | `UInt64` | false | `payload` | — | — |
+| `body` | `Binary` | false | `payload` | — | — |
 
 ## `canonical_interpretations`
 
@@ -692,6 +710,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `receipt` | `Utf8` | false | `payload` | — | — |
 | `descriptor` | `Utf8` | false | `payload` | — | — |
 | `producer` | `Utf8` | false | `payload` | — | — |
+| `producer_class` | `enum:CanonicalProducerClass` | false | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_product_descriptors`
@@ -711,6 +730,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `content` | `Utf8` | false | `payload` | — | — |
 | `receipt` | `Utf8` | false | `payload` | — | — |
 | `producer` | `Utf8` | false | `payload` | — | — |
+| `producer_class` | `enum:CanonicalProducerClass` | false | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 | `association` | `Utf8` | true | `payload` | — | — |
 
@@ -729,6 +749,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `payload` | `Binary` | false | `payload` | — | — |
 | `dependencies` | `Binary` | false | `payload` | — | — |
 | `producer` | `Utf8` | false | `payload` | — | — |
+| `producer_class` | `enum:CanonicalProducerClass` | false | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_project_ancestry`
@@ -1007,10 +1028,11 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `ordinal` | `UInt64` | false | `payload` | — | — |
 | `digest` | `Utf8` | false | `payload` | — | — |
 | `row_count` | `UInt64` | false | `payload` | — | — |
-| `file_binding` | `Utf8` | false | `payload` | — | — |
-| `file_instance` | `Utf8` | false | `payload` | — | — |
-| `file_digest` | `Utf8` | false | `payload` | — | — |
-| `file_batch_index` | `UInt64` | false | `payload` | — | — |
+| `payload_binding` | `Utf8` | false | `payload` | — | — |
+| `placement` | `enum:CanonicalPayloadPlacement` | false | `payload` | — | — |
+| `inline_key` | `Utf8` | true | `payload` | — | — |
+| `file_instance` | `Utf8` | true | `payload` | — | — |
+| `payload_index` | `UInt64` | false | `payload` | — | — |
 | `payload_bytes` | `UInt64` | false | `payload` | — | — |
 | `schema` | `Utf8` | false | `payload` | — | — |
 | `encoding` | `Utf8` | false | `payload` | — | — |
@@ -1192,6 +1214,9 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `key` | `Utf8` | false | `key` | — | — |
+| `purpose` | `enum:CanonicalRunPurpose` | false | `payload` | — | — |
+| `admission_study` | `Utf8` | true | `payload` | `runtime.canonical_studies.key` | — |
+| `admission_point` | `Utf8` | true | `payload` | `runtime.canonical_study_points.key` | — |
 | `research_selection` | `Utf8` | true | `payload` | — | — |
 | `research_dataset` | `Utf8` | true | `payload` | — | — |
 | `problem` | `Utf8` | false | `payload` | — | — |
@@ -1322,6 +1347,9 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 |---|---|---|---|---|---|
 | `key` | `Utf8` | false | `key` | — | — |
 | `study` | `Utf8` | false | `payload` | — | — |
+| `admission_run` | `Utf8` | true | `payload` | `runtime.canonical_runs.key` | — |
+| `variant_problem` | `Utf8` | true | `payload` | — | — |
+| `variant_operation` | `Utf8` | true | `payload` | — | — |
 | `ordinal` | `UInt64` | false | `payload` | — | — |
 | `occurrence` | `UInt64` | false | `payload` | — | — |
 | `seed_solution` | `Utf8` | true | `payload` | — | — |

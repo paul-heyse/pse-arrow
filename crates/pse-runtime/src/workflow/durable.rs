@@ -1407,7 +1407,10 @@ impl DurableAttempt {
             .operations
             .store
             .begin_run(&pse_operations::canonical_execution::RunRequest {
-                key: run.clone(),
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
+                key: run.clone().into(),
                 revision: primary.clone(),
                 sources,
                 request,
@@ -2141,7 +2144,11 @@ impl DurableAttempt {
             AttemptState::Completed => TerminalClass::Succeeded,
             AttemptState::Partial => TerminalClass::Partial,
             AttemptState::Cancelled => TerminalClass::Cancelled,
-            _ => TerminalClass::Failed,
+            AttemptState::Failed => TerminalClass::Failed,
+            AttemptState::Planned | AttemptState::Queued | AttemptState::Running
+            | AttemptState::Stale | AttemptState::Superseded => {
+                return Err(contract("nonterminal attempt state cannot authorize terminal publication"));
+            }
         };
         let seeds = if stored.completion.is_some() {
             SeedEligibility::CompleteOriginalInventory
@@ -4174,6 +4181,9 @@ mod canonical_durable_codec {
         operations
             .store
             .begin_run(&pse_operations::canonical_execution::RunRequest {
+                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                admission_study: None,
+                admission_point: None,
                 key: "codec-run".into(),
                 revision,
                 sources: vec![],
@@ -4498,6 +4508,9 @@ mod canonical_durable_codec {
             .await
             .unwrap();
         let request = |key: &str| pse_operations::canonical_execution::RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: key.into(),
             revision: revision.clone(),
             sources: vec![],

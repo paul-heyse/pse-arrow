@@ -37,6 +37,8 @@ canonical-tests = []
 canonical-maintenance = ["dep:surrealdb-syn", "dep:surrealdb-sql"]
 
 [dependencies]
+clap.workspace = true
+hex.workspace = true
 pse-engine = { workspace = true, optional = true }
 datafusion = { workspace = true, optional = true }
 pse-columnar = { workspace = true, optional = true }
@@ -81,3 +83,7 @@ hyper-util.workspace = true
 arrow-schema.workspace = true
 pse-codegen.workspace = true
 url.workspace = true
+
+[[bin]]
+name = "pse-canonical-recovery"
+path = "src/bin/pse-canonical-recovery.rs"

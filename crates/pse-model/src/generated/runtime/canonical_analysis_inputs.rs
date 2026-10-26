@@ -28,6 +28,18 @@ impl PartialEq for RuntimeCanonicalAnalysisInputsRow {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+impl RuntimeCanonicalAnalysisInputsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn analysis_domain(&self) -> crate::generated::canonical::AnalysisKey {
+        crate::generated::canonical::AnalysisKey::from(self.r#analysis.as_str())
+    }
+}
+impl RuntimeCanonicalAnalysisInputsRow {
+    /// Project the declared nominal lookup domain from native transport storage.
+    pub fn artifact_domain(&self) -> crate::generated::canonical::ArtifactKey {
+        crate::generated::canonical::ArtifactKey::from(self.r#artifact.as_str())
+    }
+}
 /// The concrete generated relation row.
 pub type Row = RuntimeCanonicalAnalysisInputsRow;
 impl crate::SemanticFrame for RuntimeCanonicalAnalysisInputsRow {

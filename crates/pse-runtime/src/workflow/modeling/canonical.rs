@@ -3188,7 +3188,7 @@ impl crate::workflow::SourceServices {
         if let Some(selected) = &document.context {
             if selected.context.source_identity != package.revision.identity().to_string()
                 || selected.context.physical_context != package.physical.identity().to_string()
-                || selected.context.project != selected.cut.project
+                || selected.context.project_domain() != selected.cut.project
                 || selected.context.recorded_sequence > selected.cut.sequence
                 || selected.context.effective_from_us > selected.effective_at_us
                 || selected

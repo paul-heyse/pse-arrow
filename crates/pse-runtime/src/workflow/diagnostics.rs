@@ -7,6 +7,34 @@ use pse_model::diagnostic::{BoundaryDiagnostic, Observation};
 use pse_diagnostics::TypedDiagnostic;
 use pse_model::diagnostic::{DiagnosticProjection, DiagnosticRule, DiagnosticStage, project_facts};
 
+fn canonical_diagnostic(
+    error: &pse_operations::canonical::CanonicalError,
+    stage: DiagnosticStage,
+) -> BoundaryDiagnostic {
+    use pse_operations::canonical::CanonicalError as E;
+    let mut diagnostic = pse_model::diagnostic::project_typed(error, stage);
+    match error {
+        E::SettlementUnresolved { owner, operation, request, source, readback } => {
+            diagnostic.observations.insert("canonical_owner".into(), Observation::Text((*owner).into()));
+            diagnostic.observations.insert("canonical_operation".into(), Observation::Text(operation.clone()));
+            diagnostic.observations.insert("publication_effect".into(), Observation::Text("unresolved".into()));
+            diagnostic.observations.insert("immutable_request_bytes".into(), Observation::Integer(request.len() as i64));
+            diagnostic.causes.push(canonical_diagnostic(source, stage));
+            if let Some(readback) = readback { diagnostic.causes.push(canonical_diagnostic(readback, stage)); }
+        }
+        E::SourceEditUnsettled { source, .. } | E::SourceEditRefused { source, .. }
+        | E::AnalysisUnsettled { source, .. } | E::ArtifactUnsettled { source, .. }
+        => {
+            diagnostic.causes.push(canonical_diagnostic(source, stage));
+        }
+        E::PhysicalClose { source } | E::ProtectionRelease { source } => {
+            diagnostic.causes.push(canonical_diagnostic(source, stage));
+        }
+        _ => {}
+    }
+    diagnostic
+}
+
 impl super::WorkflowError {
     pub(crate) fn strategy_trace(&self) -> Option<&std::sync::Arc<crate::math::strategy::Trace>> {
         match self {
@@ -110,7 +138,7 @@ impl DiagnosticProjection for super::WorkflowError {
             Self::Authoring(e) => e.boundary_diagnostic(stage),
             Self::Engine(e) => pse_model::diagnostic::project_typed(e, stage),
             Self::SeedRead(e) => pse_model::diagnostic::project_typed(e, stage),
-            Self::Canonical(e) => pse_model::diagnostic::project_typed(e, stage),
+            Self::Canonical(e) => canonical_diagnostic(e, stage),
             Self::ResultBlock(e) => pse_model::diagnostic::project_typed(e, stage),
             Self::DocumentDecode(_) => pse_model::diagnostic::project_typed(self, stage),
             Self::Input(_)
@@ -1123,5 +1151,25 @@ mod admission_failure_tests {
                 expected
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod canonical_settlement_projection_tests {
+    use super::*;
+    use pse_operations::canonical::CanonicalError;
+    #[test]
+    fn unresolved_canonical_effect_retains_both_causes_without_request_content() {
+        let error = super::super::WorkflowError::Canonical(CanonicalError::SettlementUnresolved {
+            owner: "research", operation: "original-op".into(), request: b"private-request".to_vec(),
+            source: Box::new(CanonicalError::Timeout),
+            readback: Some(Box::new(CanonicalError::IncompleteResponse)),
+        });
+        let diagnostic = error.boundary_diagnostic();
+        assert_eq!(diagnostic.causes.len(), 2);
+        assert!(matches!(diagnostic.observations.get("publication_effect"), Some(Observation::Text(value)) if value == "unresolved"));
+        assert!(matches!(diagnostic.observations.get("canonical_operation"), Some(Observation::Text(value)) if value == "original-op"));
+        let document = serde_json::to_string(&diagnostic).unwrap();
+        assert!(!document.contains("private-request"));
     }
 }

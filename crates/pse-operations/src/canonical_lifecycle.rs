@@ -336,6 +336,9 @@ mod canonical_lifecycle_tests {
             .await
             .unwrap();
         let request = RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: "run".into(),
             revision,
             sources: vec![],

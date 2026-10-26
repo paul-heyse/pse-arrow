@@ -28,6 +28,9 @@ async fn pruning_fixture(
     let source = store.edit(name, None, "source", &[]).await?;
     store
         .begin_run(&RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: name.into(),
             revision: source,
             sources: vec![],
@@ -428,7 +431,7 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
         "cancelled decoder turns create no new working grant"
     );
     let mut foreign = descriptor.clone();
-    foreign.file_instance = "00000000-0000-0000-0000-000000000099".into();
+    foreign.file_instance = Some("00000000-0000-0000-0000-000000000099".into());
     assert!(
         wrong
             .validate_pruned_block(block, &foreign, &CancellationToken::new())

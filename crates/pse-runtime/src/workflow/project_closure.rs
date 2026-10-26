@@ -337,7 +337,7 @@ impl Runtime {
             let selection = pse_operations::canonical_contexts::ContextSelection {
                 cut: pse_operations::canonical_contexts::ContextCut {
                     issuing_store: store.issuing_store()?.into(),
-                    project: row.project.clone(),
+                    project: row.project.clone().into(),
                     sequence: row.recorded_sequence,
                 },
                 effective_at_us: row.effective_from_us,

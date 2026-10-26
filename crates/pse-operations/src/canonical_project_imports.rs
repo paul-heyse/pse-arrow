@@ -270,8 +270,8 @@ impl CanonicalStore {
         )
         .map_err(|e| CanonicalError::Configuration(e.to_string()))?;
         let obligation = crate::canonical_artifacts::artifact_obligation(
-            &artifact.key,
-            "project",
+            &artifact.key_domain(),
+            crate::canonical_artifacts::CanonicalArtifactHolderKind::Project,
             intent.operation(),
         );
         let result=protected_query("canonical_project_imports::finish",||Ok(self.project_query("RETURN fn::pse_project_import_v1::finish($pse_rpc_expires_at,$key,$request,$artifact,$bytes,$obligation);")?.bind(("key",intent.operation().to_owned())).bind(("request",surrealdb::types::Bytes::from(intent.publication.request().to_vec()))).bind(("artifact",Value::Object(wire::encode_canonical_artifacts(&artifact)?))).bind(("bytes",surrealdb::types::Bytes::from(row.artifact.as_ref().ok_or(CanonicalError::IncompleteResponse)?.as_slice().to_vec()))).bind(("obligation",Value::Object(wire::encode_canonical_artifact_obligations(&obligation)?))))).await;

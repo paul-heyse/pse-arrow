@@ -121,6 +121,15 @@ fn key(value: RelationKey) -> Result<TokenStream, SchemaError> {
     Ok(quote!(RelationKey::new(#ns,#name,#version)))
 }
 fn relation(pool: &NativeJsonPool, value: &RelationSpec) -> Result<TokenStream, SchemaError> {
+    let canonical = value.canonical.map(|policy| -> Result<TokenStream, SchemaError> {
+        let retention = unit("CanonicalRetention", policy.retention)?;
+        let backup = unit("CanonicalBackup", policy.backup)?;
+        let inline_vertex = policy.inline_vertex;
+        let enforced = policy.enforced;
+        let generation_references = policy.generation_references;
+        Ok(quote!(CanonicalRelation { retention: #retention, backup: #backup, inline_vertex: #inline_vertex, enforced: #enforced, generation_references: #generation_references }))
+    }).transpose()?;
+    let canonical = option(canonical, |value| value);
     let id = id(value.id);
     let key = key(value.key)?;
     let authority = unit("Authority", value.authority)?;
@@ -151,7 +160,7 @@ fn relation(pool: &NativeJsonPool, value: &RelationSpec) -> Result<TokenStream, 
     Ok(outlined(
         pool,
         quote!(RelationSpec),
-        quote!(RelationSpec {id:#id,key:#key,authority:#authority,snapshot_class:#snapshot_class,
+        quote!(RelationSpec {canonical:#canonical,id:#id,key:#key,authority:#authority,snapshot_class:#snapshot_class,
         derivation_granularity:#granularity,stability:#stability,primary_key:#primary_key,columns:#columns,
         checks:#checks,unique_keys:vec![#(#unique),*],foreign_keys:vec![#(#foreign),*],doc:#doc,fingerprint:#fingerprint}),
     ))
@@ -162,6 +171,23 @@ fn enumeration(pool: &NativeJsonPool, v: &EnumSpec) -> TokenStream {
     let source = optstr(v.source);
     let idaes = optstr(v.idaes_source);
     let default = optstr(v.default_member);
+    let transitions = v.transitions.iter().map(|edge| {
+        let before = edge.before;
+        let after = edge.after;
+        quote!(EnumTransition { before: #before, after: #after })
+    });
+    let projections = v.projections.iter().map(|projection| {
+        let method = projection.method;
+        let target = projection.target;
+        let input = optstr(projection.input);
+        let members = projection.members.iter().map(|member| {
+            let source = member.source;
+            let value = member.value;
+            let when_true = optstr(member.when_true);
+            quote!(EnumProjectionMember { source: #source, value: #value, when_true: #when_true })
+        });
+        quote!(EnumProjection { method: #method, target: #target, input: #input, members: vec![#(#members),*] })
+    });
     let members = v.members.iter().map(|m| {
         let name = m.name;
         let idaes = optstr(m.idaes_name);
@@ -172,7 +198,7 @@ fn enumeration(pool: &NativeJsonPool, v: &EnumSpec) -> TokenStream {
     outlined(
         pool,
         quote!(EnumSpec),
-        quote!(EnumSpec{id:#id,name:#name,idaes_source:#idaes,source:#source,default_member:#default,members:vec![#(#members),*]}),
+        quote!(EnumSpec{id:#id,name:#name,idaes_source:#idaes,source:#source,default_member:#default,transitions:vec![#(#transitions),*],projections:vec![#(#projections),*],members:vec![#(#members),*]}),
     )
 }
 fn invariant(pool: &NativeJsonPool, v: &InvariantSpec) -> Result<TokenStream, SchemaError> {

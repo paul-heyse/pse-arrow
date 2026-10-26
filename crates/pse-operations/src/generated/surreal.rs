@@ -13,9 +13,9 @@ pub const RESULT_MESSAGE_BYTES: usize = 4194304usize;
 /// Derived defensive metadata loop ceiling, independent of framing.
 pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
-pub const INTERPRETATION: &str = "pse.substrate.v8";
+pub const INTERPRETATION: &str = "pse.substrate.v9";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "ee8e9597b65c94be9466607653db5f24066ffca86ddfe533144788ddd7ad077b";
+pub const SCHEMA_DIGEST: &str = "90c113e38f03d41f28eecadda4e6d574f2d9dddc2fcfa56303e860eeed0b6d03";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.
@@ -516,7 +516,7 @@ pub fn encode_canonical_artifact_obligations(
     object
         .insert(
             "owner_kind",
-            crate::canonical_codec::encode_string(row.r#owner_kind.clone())?,
+            crate::canonical_codec::encode_string(row.r#owner_kind.as_str().to_owned())?,
         );
     object.insert("owner", crate::canonical_codec::encode_string(row.r#owner.clone())?);
     Ok(object)
@@ -537,8 +537,10 @@ pub fn decode_canonical_artifact_obligations(
             crate::canonical_codec::required(&mut object, "artifact")?,
         )?,
         r#owner_kind: crate::canonical_codec::decode_string(
-            crate::canonical_codec::required(&mut object, "owner_kind")?,
-        )?,
+                crate::canonical_codec::required(&mut object, "owner_kind")?,
+            )?
+            .parse::<pse_model::generated::enums::CanonicalArtifactHolderKind>()
+            .map_err(|_| crate::canonical_codec::CodecError::Domain("owner_kind"))?,
         r#owner: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "owner")?,
         )?,
@@ -610,7 +612,7 @@ pub fn encode_canonical_artifact_releases(
     object
         .insert(
             "owner_kind",
-            crate::canonical_codec::encode_string(row.r#owner_kind.clone())?,
+            crate::canonical_codec::encode_string(row.r#owner_kind.as_str().to_owned())?,
         );
     object.insert("owner", crate::canonical_codec::encode_string(row.r#owner.clone())?);
     Ok(object)
@@ -631,8 +633,10 @@ pub fn decode_canonical_artifact_releases(
             crate::canonical_codec::required(&mut object, "artifact")?,
         )?,
         r#owner_kind: crate::canonical_codec::decode_string(
-            crate::canonical_codec::required(&mut object, "owner_kind")?,
-        )?,
+                crate::canonical_codec::required(&mut object, "owner_kind")?,
+            )?
+            .parse::<pse_model::generated::enums::CanonicalArtifactHolderKind>()
+            .map_err(|_| crate::canonical_codec::CodecError::Domain("owner_kind"))?,
         r#owner: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "owner")?,
         )?,
@@ -1495,7 +1499,11 @@ pub fn encode_canonical_file_instances(
             "interpretation",
             crate::canonical_codec::encode_string(row.r#interpretation.clone())?,
         );
-    object.insert("state", crate::canonical_codec::encode_string(row.r#state.clone())?);
+    object
+        .insert(
+            "state",
+            crate::canonical_codec::encode_string(row.r#state.as_str().to_owned())?,
+        );
     Ok(object)
 }
 ///Decode the registry row; native id metadata is distinct from the declared key.
@@ -1550,8 +1558,10 @@ pub fn decode_canonical_file_instances(
             crate::canonical_codec::required(&mut object, "interpretation")?,
         )?,
         r#state: crate::canonical_codec::decode_string(
-            crate::canonical_codec::required(&mut object, "state")?,
-        )?,
+                crate::canonical_codec::required(&mut object, "state")?,
+            )?
+            .parse::<pse_model::generated::enums::CanonicalFileState>()
+            .map_err(|_| crate::canonical_codec::CodecError::Domain("state"))?,
     };
     if let Some(native_id) = native_id {
         crate::canonical_codec::check_record_identity(
@@ -2070,6 +2080,90 @@ pub fn decode_canonical_history_retirements(
         crate::canonical_codec::check_record_identity(
             native_id,
             "canonical_history_retirements",
+            &row.r#key,
+        )?;
+    }
+    if !object.is_empty() {
+        return Err(crate::canonical_codec::CodecError::UnknownFields);
+    }
+    Ok(row)
+}
+///Encode the registry row using native exact values.
+pub fn encode_canonical_inline_payloads(
+    row: &pse_model::generated::runtime::canonical_inline_payloads::RuntimeCanonicalInlinePayloadsRow,
+) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb::types::Object::new();
+    object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
+    object
+        .insert(
+            "attempt",
+            crate::canonical_codec::encode_string(row.r#attempt.clone())?,
+        );
+    object
+        .insert("digest", crate::canonical_codec::encode_string(row.r#digest.clone())?);
+    object
+        .insert(
+            "encoding",
+            crate::canonical_codec::encode_string(row.r#encoding.clone())?,
+        );
+    object
+        .insert("schema", crate::canonical_codec::encode_string(row.r#schema.clone())?);
+    object
+        .insert(
+            "interpretation",
+            crate::canonical_codec::encode_string(row.r#interpretation.clone())?,
+        );
+    object
+        .insert(
+            "payload_bytes",
+            crate::canonical_codec::encode_uint(row.r#payload_bytes)?,
+        );
+    object
+        .insert("batch_count", crate::canonical_codec::encode_uint(row.r#batch_count)?);
+    object.insert("body", crate::canonical_codec::encode_bytes(row.r#body.clone())?);
+    Ok(object)
+}
+///Decode the registry row; native id metadata is distinct from the declared key.
+pub fn decode_canonical_inline_payloads(
+    mut object: surrealdb::types::Object,
+) -> Result<
+    pse_model::generated::runtime::canonical_inline_payloads::RuntimeCanonicalInlinePayloadsRow,
+    crate::canonical_codec::CodecError,
+> {
+    let native_id = object.remove("id");
+    let row = pse_model::generated::runtime::canonical_inline_payloads::RuntimeCanonicalInlinePayloadsRow {
+        r#key: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "key")?,
+        )?,
+        r#attempt: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "attempt")?,
+        )?,
+        r#digest: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "digest")?,
+        )?,
+        r#encoding: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "encoding")?,
+        )?,
+        r#schema: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "schema")?,
+        )?,
+        r#interpretation: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "interpretation")?,
+        )?,
+        r#payload_bytes: crate::canonical_codec::decode_uint(
+            crate::canonical_codec::required(&mut object, "payload_bytes")?,
+        )?,
+        r#batch_count: crate::canonical_codec::decode_uint(
+            crate::canonical_codec::required(&mut object, "batch_count")?,
+        )?,
+        r#body: crate::canonical_codec::decode_bytes(
+            crate::canonical_codec::required(&mut object, "body")?,
+        )?,
+    };
+    if let Some(native_id) = native_id {
+        crate::canonical_codec::check_record_identity(
+            native_id,
+            "canonical_inline_payloads",
             &row.r#key,
         )?;
     }
@@ -2717,6 +2811,13 @@ pub fn encode_canonical_product_associations(
         );
     object
         .insert(
+            "producer_class",
+            crate::canonical_codec::encode_string(
+                row.r#producer_class.as_str().to_owned(),
+            )?,
+        );
+    object
+        .insert(
             "interpretation",
             crate::canonical_codec::encode_string(row.r#interpretation.clone())?,
         );
@@ -2764,6 +2865,11 @@ pub fn decode_canonical_product_associations(
         r#producer: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "producer")?,
         )?,
+        r#producer_class: crate::canonical_codec::decode_string(
+                crate::canonical_codec::required(&mut object, "producer_class")?,
+            )?
+            .parse::<pse_model::generated::enums::CanonicalProducerClass>()
+            .map_err(|_| crate::canonical_codec::CodecError::Domain("producer_class"))?,
         r#interpretation: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "interpretation")?,
         )?,
@@ -2822,6 +2928,13 @@ pub fn encode_canonical_product_descriptors(
         );
     object
         .insert(
+            "producer_class",
+            crate::canonical_codec::encode_string(
+                row.r#producer_class.as_str().to_owned(),
+            )?,
+        );
+    object
+        .insert(
             "interpretation",
             crate::canonical_codec::encode_string(row.r#interpretation.clone())?,
         );
@@ -2870,6 +2983,11 @@ pub fn decode_canonical_product_descriptors(
         r#producer: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "producer")?,
         )?,
+        r#producer_class: crate::canonical_codec::decode_string(
+                crate::canonical_codec::required(&mut object, "producer_class")?,
+            )?
+            .parse::<pse_model::generated::enums::CanonicalProducerClass>()
+            .map_err(|_| crate::canonical_codec::CodecError::Domain("producer_class"))?,
         r#interpretation: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "interpretation")?,
         )?,
@@ -2922,6 +3040,13 @@ pub fn encode_canonical_products(
         );
     object
         .insert(
+            "producer_class",
+            crate::canonical_codec::encode_string(
+                row.r#producer_class.as_str().to_owned(),
+            )?,
+        );
+    object
+        .insert(
             "interpretation",
             crate::canonical_codec::encode_string(row.r#interpretation.clone())?,
         );
@@ -2957,6 +3082,11 @@ pub fn decode_canonical_products(
         r#producer: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "producer")?,
         )?,
+        r#producer_class: crate::canonical_codec::decode_string(
+                crate::canonical_codec::required(&mut object, "producer_class")?,
+            )?
+            .parse::<pse_model::generated::enums::CanonicalProducerClass>()
+            .map_err(|_| crate::canonical_codec::CodecError::Domain("producer_class"))?,
         r#interpretation: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "interpretation")?,
         )?,
@@ -4190,23 +4320,29 @@ pub fn encode_canonical_result_batches(
     object.insert("row_count", crate::canonical_codec::encode_uint(row.r#row_count)?);
     object
         .insert(
-            "file_binding",
-            crate::canonical_codec::encode_string(row.r#file_binding.clone())?,
+            "payload_binding",
+            crate::canonical_codec::encode_string(row.r#payload_binding.clone())?,
         );
     object
         .insert(
-            "file_instance",
-            crate::canonical_codec::encode_string(row.r#file_instance.clone())?,
+            "placement",
+            crate::canonical_codec::encode_string(row.r#placement.as_str().to_owned())?,
         );
+    if let Some(value) = &row.r#inline_key {
+        object
+            .insert("inline_key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = &row.r#file_instance {
+        object
+            .insert(
+                "file_instance",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
     object
         .insert(
-            "file_digest",
-            crate::canonical_codec::encode_string(row.r#file_digest.clone())?,
-        );
-    object
-        .insert(
-            "file_batch_index",
-            crate::canonical_codec::encode_uint(row.r#file_batch_index)?,
+            "payload_index",
+            crate::canonical_codec::encode_uint(row.r#payload_index)?,
         );
     object
         .insert(
@@ -4249,17 +4385,24 @@ pub fn decode_canonical_result_batches(
         r#row_count: crate::canonical_codec::decode_uint(
             crate::canonical_codec::required(&mut object, "row_count")?,
         )?,
-        r#file_binding: crate::canonical_codec::decode_string(
-            crate::canonical_codec::required(&mut object, "file_binding")?,
+        r#payload_binding: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "payload_binding")?,
         )?,
-        r#file_instance: crate::canonical_codec::decode_string(
-            crate::canonical_codec::required(&mut object, "file_instance")?,
-        )?,
-        r#file_digest: crate::canonical_codec::decode_string(
-            crate::canonical_codec::required(&mut object, "file_digest")?,
-        )?,
-        r#file_batch_index: crate::canonical_codec::decode_uint(
-            crate::canonical_codec::required(&mut object, "file_batch_index")?,
+        r#placement: crate::canonical_codec::decode_string(
+                crate::canonical_codec::required(&mut object, "placement")?,
+            )?
+            .parse::<pse_model::generated::enums::CanonicalPayloadPlacement>()
+            .map_err(|_| crate::canonical_codec::CodecError::Domain("placement"))?,
+        r#inline_key: match object.remove("inline_key") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+        },
+        r#file_instance: match object.remove("file_instance") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+        },
+        r#payload_index: crate::canonical_codec::decode_uint(
+            crate::canonical_codec::required(&mut object, "payload_index")?,
         )?,
         r#payload_bytes: crate::canonical_codec::decode_uint(
             crate::canonical_codec::required(&mut object, "payload_bytes")?,
@@ -5064,6 +5207,25 @@ pub fn encode_canonical_runs(
 ) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
     let mut object = surrealdb::types::Object::new();
     object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
+    object
+        .insert(
+            "purpose",
+            crate::canonical_codec::encode_string(row.r#purpose.as_str().to_owned())?,
+        );
+    if let Some(value) = &row.r#admission_study {
+        object
+            .insert(
+                "admission_study",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = &row.r#admission_point {
+        object
+            .insert(
+                "admission_point",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
     if let Some(value) = &row.r#research_selection {
         object
             .insert(
@@ -5152,6 +5314,19 @@ pub fn decode_canonical_runs(
         r#key: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "key")?,
         )?,
+        r#purpose: crate::canonical_codec::decode_string(
+                crate::canonical_codec::required(&mut object, "purpose")?,
+            )?
+            .parse::<pse_model::generated::enums::CanonicalRunPurpose>()
+            .map_err(|_| crate::canonical_codec::CodecError::Domain("purpose"))?,
+        r#admission_study: match object.remove("admission_study") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+        },
+        r#admission_point: match object.remove("admission_point") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+        },
         r#research_selection: match object.remove("research_selection") {
             None | Some(surrealdb::types::Value::None) => None,
             Some(value) => Some(crate::canonical_codec::decode_string(value)?),
@@ -5730,6 +5905,27 @@ pub fn encode_canonical_study_points(
     let mut object = surrealdb::types::Object::new();
     object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
     object.insert("study", crate::canonical_codec::encode_string(row.r#study.clone())?);
+    if let Some(value) = &row.r#admission_run {
+        object
+            .insert(
+                "admission_run",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = &row.r#variant_problem {
+        object
+            .insert(
+                "variant_problem",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = &row.r#variant_operation {
+        object
+            .insert(
+                "variant_operation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
     object.insert("ordinal", crate::canonical_codec::encode_uint(row.r#ordinal)?);
     object.insert("occurrence", crate::canonical_codec::encode_uint(row.r#occurrence)?);
     if let Some(value) = &row.r#seed_solution {
@@ -5779,6 +5975,18 @@ pub fn decode_canonical_study_points(
         r#study: crate::canonical_codec::decode_string(
             crate::canonical_codec::required(&mut object, "study")?,
         )?,
+        r#admission_run: match object.remove("admission_run") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+        },
+        r#variant_problem: match object.remove("variant_problem") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+        },
+        r#variant_operation: match object.remove("variant_operation") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_string(value)?),
+        },
         r#ordinal: crate::canonical_codec::decode_uint(
             crate::canonical_codec::required(&mut object, "ordinal")?,
         )?,

@@ -37,6 +37,10 @@ pub struct EnumSpec {
     /// The member used by Rust's derived `Default`, if explicitly declared. Like
     /// `source`, this is generation metadata and does not enter the fingerprint.
     pub default_member: Option<&'static str>,
+    /// Declared lifecycle edges. Reflexive transitions are always admitted.
+    pub transitions: Vec<EnumTransition>,
+    /// Total projections into other declared closed vocabularies.
+    pub projections: Vec<EnumProjection>,
     /// The members, in declaration order. The ordinal is the position and is presentation
     /// only: a dictionary code never carries identity (blueprint §4.5).
     pub members: Vec<EnumMember>,
@@ -53,6 +57,40 @@ pub struct EnumMember {
     pub deprecated: bool,
     /// What the member means.
     pub doc: &'static str,
+}
+
+/// One directed lifecycle edge, stated in the owning vocabulary's spellings.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EnumTransition {
+    /// Original member.
+    pub before: &'static str,
+    /// New member.
+    pub after: &'static str,
+}
+
+/// One total closed-vocabulary projection. A boolean input represents an additional
+/// fact admitted by the scientific owner; storage never derives that fact.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EnumProjection {
+    /// Generated method name.
+    pub method: &'static str,
+    /// Target declared vocabulary.
+    pub target: &'static str,
+    /// Optional boolean input name.
+    pub input: Option<&'static str>,
+    /// Exactly one mapping for every source member.
+    pub members: Vec<EnumProjectionMember>,
+}
+
+/// The result for one source member, with both values explicit for boolean projections.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EnumProjectionMember {
+    /// Member of the source vocabulary.
+    pub source: &'static str,
+    /// Target without an input, or when the input is false.
+    pub value: &'static str,
+    /// Target when the input is true; present exactly when the projection has an input.
+    pub when_true: Option<&'static str>,
 }
 
 impl EnumMember {
@@ -89,6 +127,10 @@ pub struct EnumDecl {
     pub source: Option<&'static str>,
     /// See [`EnumSpec::default_member`].
     pub default_member: Option<&'static str>,
+    /// See [`EnumSpec::transitions`].
+    pub transitions: Vec<EnumTransition>,
+    /// See [`EnumSpec::projections`].
+    pub projections: Vec<EnumProjection>,
     /// See [`EnumSpec::members`].
     pub members: Vec<EnumMember>,
 }
@@ -101,6 +143,8 @@ impl EnumDecl {
             idaes_source: None,
             source: None,
             default_member: None,
+            transitions: Vec::new(),
+            projections: Vec::new(),
             members,
         }
     }
@@ -115,6 +159,8 @@ impl EnumDecl {
             idaes_source: None,
             source: Some(path),
             default_member: None,
+            transitions: Vec::new(),
+            projections: Vec::new(),
             members,
         }
     }
@@ -126,6 +172,8 @@ impl EnumDecl {
             idaes_source: Some(source),
             source: None,
             default_member: None,
+            transitions: Vec::new(),
+            projections: Vec::new(),
             members,
         }
     }
@@ -135,5 +183,58 @@ impl EnumDecl {
     pub const fn with_default(mut self, member: &'static str) -> Self {
         self.default_member = Some(member);
         self
+    }
+
+    /// Declare the allowed nonreflexive lifecycle transitions.
+    pub fn with_transitions(mut self, transitions: &[(&'static str, &'static str)]) -> Self {
+        self.transitions = transitions.iter().map(|&(before, after)| EnumTransition { before, after }).collect();
+        self
+    }
+
+    /// Add a total boolean observation over this vocabulary's declared members.
+    pub fn with_predicate(self, method: &'static str, selected: &[&'static str]) -> Self {
+        let mut members = self.members.iter().map(|member| EnumProjectionMember {
+            source: member.name, value: if selected.contains(&member.name) { "true" } else { "false" }, when_true: None,
+        }).collect::<Vec<_>>();
+        members.extend(selected.iter().filter(|selected| !self.members.iter().any(|member| member.name == **selected)).map(|&source| EnumProjectionMember { source, value: "true", when_true: None }));
+        self.with_projection(EnumProjection { method, target: "bool", input: None, members })
+    }
+
+    /// Add a total typed projection; assembly validates both vocabularies and coverage.
+    pub fn with_projection(mut self, projection: EnumProjection) -> Self {
+        self.projections.push(projection);
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::RegistryBuilder;
+
+    fn projection(members: Vec<EnumProjectionMember>) -> EnumDecl {
+        EnumDecl::platform("Outcome", vec![EnumMember::new("ok", "ok"), EnumMember::new("partial", "partial")])
+            .with_projection(EnumProjection { method: "state", target: "State", input: Some("usable"), members })
+    }
+    fn assemble(declaration: EnumDecl) -> Result<crate::Registry, crate::SchemaError> {
+        let mut builder = RegistryBuilder::new();
+        builder.declare_enum(EnumDecl::platform("State", vec![EnumMember::new("done", "done"), EnumMember::new("failed", "failed")]))
+            .declare_enum(declaration);
+        builder.build()
+    }
+    #[test]
+    fn canonical_projection_rejects_omitted_and_unknown_members() {
+        let ok = EnumProjectionMember { source: "ok", value: "done", when_true: Some("done") };
+        assert!(assemble(projection(vec![ok.clone()])).is_err());
+        assert!(assemble(projection(vec![ok.clone(), EnumProjectionMember { source: "partial", value: "failed", when_true: Some("unknown") }])).is_err());
+        assemble(projection(vec![ok, EnumProjectionMember { source: "partial", value: "failed", when_true: Some("done") }])).unwrap();
+    }
+    #[test]
+    fn canonical_lifecycle_edges_reject_unknown_and_duplicate_transitions() {
+        let vocabulary = || EnumDecl::platform("Phase", vec![EnumMember::new("open", "open"), EnumMember::new("closed", "closed")]);
+        assert!(assemble(vocabulary().with_transitions(&[("open", "missing")])).is_err());
+        assert!(assemble(vocabulary().with_transitions(&[("open", "closed"), ("open", "closed")])).is_err());
+        assert!(assemble(vocabulary().with_predicate("visible", &["missing"])).is_err());
+        assemble(vocabulary().with_transitions(&[("open", "closed")])).unwrap();
     }
 }

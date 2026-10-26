@@ -13,6 +13,7 @@ use crate::{
     generated::surreal as wire,
 };
 use pse_model::generated::enums::StudyPointState;
+use pse_model::generated::canonical::{RunKey, ProblemKey, OperationKey, StudyPointKey};
 pub use pse_model::generated::runtime::{
     canonical_studies::Row as Study, canonical_study_points::Row as StudyPoint,
 };
@@ -94,7 +95,7 @@ impl StudyCandidatesQuery {
     pub fn sql(&self) -> String {
         crate::canonical_history::study_query(
             &format!(
-                "LET $s=SELECT cancelled FROM ONLY type::record('canonical_studies',$study); LET $h=IF $s.cancelled {{ SELECT key FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=false AND ordinal>$after ORDER BY ordinal LIMIT 64 }} ELSE {{ {readiness} }}; RETURN $h.map(|$hint| SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM ONLY type::record('canonical_study_points',$hint.key)).filter(|$point| $point!=NONE AND $point.assigned=false AND $point.settled=false);",
+                "LET $s=SELECT cancelled FROM ONLY type::record('canonical_studies',$study); LET $h=IF $s.cancelled {{ SELECT key FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=false AND ordinal>$after ORDER BY ordinal LIMIT 64 }} ELSE {{ {readiness} }}; RETURN $h.map(|$hint| SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,admission_run,variant_problem,variant_operation,revision,assigned,settled,attempt,start FROM ONLY type::record('canonical_study_points',$hint.key)).filter(|$point| $point!=NONE AND $point.assigned=false AND $point.settled=false);",
                 readiness = READINESS_CANDIDATES_SQL
             ),
             "study",
@@ -220,6 +221,12 @@ pub struct ScopedStudyPoint {
     pub key: String,
     /// Owning study key.
     pub study: String,
+    /// Exact input-admission run association, absent for direct admitted requests.
+    pub admission_run: Option<String>,
+    /// Original independent selected-source destination.
+    pub variant_problem: Option<String>,
+    /// Original selected-source publication operation.
+    pub variant_operation: Option<String>,
     /// Actual immutable membership position.
     pub ordinal: u64,
     /// Authored occurrence identity.
@@ -262,6 +269,9 @@ impl From<&StudyPoint> for ScopedStudyPoint {
         Self {
             key: point.key.clone(),
             study: point.study.clone(),
+            admission_run: point.admission_run.clone(),
+            variant_problem: point.variant_problem.clone(),
+            variant_operation: point.variant_operation.clone(),
             ordinal: point.ordinal,
             occurrence: point.occurrence,
             policy: point.policy.clone(),
@@ -546,7 +556,7 @@ pub struct StudyAdmissionAuthority {
 impl StudyAdmissionAuthority {
     /// Capture the already-claimed input phase, without granting a new scientific start.
     pub fn new(scope: &StudyScope, fence: &AttemptFence) -> Result<Self, CanonicalError> {
-        if fence.run() != study_admission_run(&scope.point.key)
+        if Some(fence.run()) != scope.point.admission_run.as_deref()
             || !matches!(
                 scope.action(None)?.kind,
                 ActionKind::Wait(pse_model::study::WaitReason::ScientificAdmission)
@@ -564,6 +574,14 @@ impl StudyAdmissionAuthority {
     /// Original occurrence, independent of preparation and owner replacement.
     pub fn point_key(&self) -> &str {
         &self.scope.point.key
+    }
+    /// Exact source destination admitted with the occurrence.
+    pub fn variant_problem(&self) -> Result<&str, CanonicalError> {
+        self.scope.point.variant_problem.as_deref().ok_or_else(|| CanonicalError::Configuration("selected-source destination association absent".into()))
+    }
+    /// Exact source operation admitted with the occurrence.
+    pub fn variant_operation(&self) -> Result<&str, CanonicalError> {
+        self.scope.point.variant_operation.as_deref().ok_or_else(|| CanonicalError::Configuration("selected-source operation association absent".into()))
     }
     pub(crate) fn encode(&self) -> Result<Value, CanonicalError> {
         let mut value = Object::new();
@@ -658,10 +676,6 @@ pub fn point_key(study: &str, key: OccurrenceKey) -> String {
         .str(study)
         .u64(u64::from(key.0));
     hash.finish_hash().to_hex()
-}
-/// Stable separate input-admission execution; it never consumes a native point attempt.
-pub fn study_admission_run(point: &str) -> String {
-    format!("study-admission:{point}")
 }
 
 /// Decode the policy facts with the native monotone concurrency revision.
@@ -799,7 +813,7 @@ impl CanonicalStore {
             self.ensure_writes()?;
             let row=pse_model::generated::runtime::canonical_study_inputs::Row { key:format!("{study}:{solution}"),study:study.into(),solution:solution.into(),artifact:artifact.into() };
             let row=wire::encode_canonical_study_inputs(&row)?;
-            let owner=wire::encode_canonical_artifact_obligations(&crate::canonical_artifacts::artifact_obligation(artifact,"study",study))?;
+            let owner=wire::encode_canonical_artifact_obligations(&crate::canonical_artifacts::artifact_obligation(&pse_model::generated::canonical::ArtifactKey::from(artifact),crate::canonical_artifacts::CanonicalArtifactHolderKind::Study,study))?;
             protected_query("canonical_studies::retain_study_input",||Ok(self.db.query("BEGIN; fn::pse_history_v1::check_owner($pse_rpc_expires_at,'study',$study); fn::pse_execution_v1::touch($pse_rpc_expires_at,'study:'+$study); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))!=NONE { THROW 'PSE_REFUSAL:study_retired'; }; LET $s=SELECT * FROM ONLY type::record('canonical_studies',$study); IF $s!=NONE AND ($s.active OR $s.cancelled) { THROW 'PSE_REFUSAL:study_inputs_closed'; }; LET $artifact=fn::pse_artifact_v1::available($pse_rpc_expires_at,$row.artifact); IF $artifact.kind!='seed' { THROW 'PSE_REFUSAL:study_input_is_not_a_seed'; }; fn::pse_artifact_v1::attach($pse_rpc_expires_at,$row.artifact,$owner,true); LET $old=SELECT * FROM ONLY type::record('canonical_study_inputs',$row.key) FOR UPDATE; IF $old!=NONE AND object::remove($old,['id'])!=$row { THROW 'PSE_REFUSAL:study_exact_seed_changed'; }; IF $old=NONE { CREATE ONLY type::record('canonical_study_inputs',$row.key) CONTENT $row; }; COMMIT;")
                 .bind(("study",study.to_owned())).bind(("row",row.clone())).bind(("owner",owner.clone())))).await?;
             Ok(())
@@ -860,7 +874,7 @@ impl CanonicalStore {
                             crate::canonical_study_workbench::index_metadata(metadata)?;
                         let row = Study {
                             key: key.into(),
-                            run: run.key.clone(),
+                            run: run.key.as_str().to_owned(),
                             problem: run.revision.problem.clone(),
                             revision: run.revision.key.clone(),
                             metadata: metadata.to_vec().into(),
@@ -965,6 +979,9 @@ impl CanonicalStore {
                             let native = StudyPoint {
                                 key: key.clone(),
                                 study: row.key.clone(),
+                                admission_run: (point.policy.seed_need == pse_model::study::SeedNeed::Pending).then(|| RunKey::study_admission(&StudyPointKey::from(key.as_str())).into_string()),
+                                variant_problem: (point.policy.seed_need == pse_model::study::SeedNeed::Pending).then(|| ProblemKey::study_variant(&StudyPointKey::from(key.as_str())).into_string()),
+                                variant_operation: (point.policy.seed_need == pse_model::study::SeedNeed::Pending).then(|| OperationKey::study_variant_source(&StudyPointKey::from(key.as_str())).into_string()),
                                 ordinal: ordinal as u64,
                                 occurrence: u64::from(point.policy.key.0),
                                 seed_solution: match &point.policy.start {
@@ -976,7 +993,7 @@ impl CanonicalStore {
                                 admission: None,
                                 facts: encode(&facts)?.into(),
                                 outcome: None,
-                                run: point.run.key.clone(),
+                                run: point.run.key.as_str().to_owned(),
                                 revision: 0,
                                 assigned: false,
                                 settled: false,
@@ -985,7 +1002,10 @@ impl CanonicalStore {
                             };
                             if point.policy.seed_need == pse_model::study::SeedNeed::Pending {
                                 let mut admission_run = point.run.clone();
-                                admission_run.key = study_admission_run(&key);
+                                admission_run.key = RunKey::study_admission(&StudyPointKey::from(key.as_str())).into();
+                                admission_run.purpose = pse_model::generated::enums::CanonicalRunPurpose::StudyAdmission;
+                                admission_run.admission_study = Some(row.key.clone().into());
+                                admission_run.admission_point = Some(key.clone().into());
                                 admission_run.request = encode(&(
                                     1_u8,
                                     "study-scientific-admission",
@@ -1107,13 +1127,16 @@ impl CanonicalStore {
                     || saved.occurrence != u64::from(point.policy.key.0)
                     || saved.descriptor.as_slice() != point.descriptor
                     || saved.policy.as_slice() != policy
-                    || saved.run != point.run.key
+                    || saved.run != point.run.key.as_str()
                 {
                     return Err(CanonicalError::OperationReused);
                 }
                 if point.policy.seed_need == pse_model::study::SeedNeed::Pending {
                     let mut admission_run = point.run.clone();
-                    admission_run.key = study_admission_run(&key);
+                    admission_run.key = RunKey::study_admission(&StudyPointKey::from(key.as_str())).into();
+                    admission_run.purpose = pse_model::generated::enums::CanonicalRunPurpose::StudyAdmission;
+                    admission_run.admission_study = Some(expected.key.clone().into());
+                    admission_run.admission_point = Some(key.clone().into());
                     admission_run.request = encode(&(
                         1_u8,
                         "study-scientific-admission",
@@ -1164,21 +1187,23 @@ impl CanonicalStore {
             let study = match response {
                 Ok(study) => study,
                 Err(error) => {
+                    let intent = encode(&(&expected.key, &expected.run, &expected.problem, &expected.revision, expected.metadata.as_slice(), &expected.physical_revision, &expected.physical_identity, &expected.context, &expected.interpretation, expected.point_count, expected.dependency_count))?;
                     if cancelled() {
-                        let study = self.cancel_study(&expected.key).await?;
+                        let study = self.cancel_study(&expected.key).await.map_err(|readback| crate::canonical::settlement::unresolved("study-activation", &expected.key, &intent, error, Some(readback)))?;
                         check_created_study(expected, &study)?;
                         return Ok(study.active.then_some(study));
                     }
-                    let study = self.canonical_study(&expected.key).await.map_err(|settlement| {
-                        CanonicalError::Configuration(format!(
-                            "study {} activation requires exact settlement: {error}; {settlement}",
-                            expected.key))
-                    })?.ok_or(CanonicalError::IncompleteResponse)?;
+                    let study = match self.canonical_study(&expected.key).await {
+                        Ok(Some(study)) => study,
+                        Ok(None) => return Err(crate::canonical::settlement::unresolved("study-activation", &expected.key, &intent, error, None)),
+                        Err(readback) => return Err(crate::canonical::settlement::unresolved("study-activation", &expected.key, &intent, error, Some(readback))),
+                    };
                     check_created_study(expected, &study)?;
                     if !study.active {
-                        // An inactive read cannot prove an issued request did not commit.
-                        // Fence it before returning its original failure.
-                        self.cancel_study(&expected.key).await?;
+                        // The same native cancellation guard fences a late activation.
+                        if let Err(readback) = self.cancel_study(&expected.key).await {
+                            return Err(crate::canonical::settlement::unresolved("study-activation", &expected.key, &intent, error, Some(readback)));
+                        }
                         return Err(error);
                     }
                     study
@@ -1418,16 +1443,18 @@ impl CanonicalStore {
                     continue;
                 }
                 Err(error) => {
-                    // Only immutable settlement answers an uncertain reply.
-                    // Failure or absence leaves the exact durable pending owner;
-                    // a later invocation fences it before resuming the same body.
-                    if let Ok(mut readback)=protected_query("canonical_studies::readiness_settlement",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
-                        "RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,$operation,$study,$run);")
-                        .bind(("operation",pending.operation.clone())).bind(("study",pending.study.clone())).bind(("run",pending.run.clone())))).await
-                        && let Some(result)=readback.take::<Option<Object>>(0)? {
-                        return settled_readiness_count(&result,&pending.keys,&pending.operation);
-                    }
-                    return Err(error);
+                    let intent = encode(&(&pending.operation, &pending.study, &pending.run, &pending.epoch, &pending.keys))?;
+                    return crate::canonical::settlement::settle_exact(
+                        "study-readiness-page", &pending.operation, &intent, Err(error),
+                        async {
+                            let mut readback = protected_query("canonical_studies::readiness_settlement", || Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page,
+                                "RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,$operation,$study,$run);")
+                                .bind(("operation",pending.operation.clone())).bind(("study",pending.study.clone())).bind(("run",pending.run.clone())))).await?;
+                            readback.take::<Option<Object>>(0)?.map(|result| settled_readiness_count(&result, &pending.keys, &pending.operation)).transpose()
+                        },
+                        |_| true,
+                        |_| false,
+                    ).await;
                 }
             };
             let mut result = response
@@ -1620,7 +1647,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result=protected_query("canonical_studies::study_point_page", || Ok(self.db.query(crate::canonical_history::study_query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND ordinal > $after ORDER BY ordinal LIMIT 64;","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
+            let mut result=protected_query("canonical_studies::study_point_page", || Ok(self.db.query(crate::canonical_history::study_query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,admission_run,variant_problem,variant_operation,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND ordinal > $after ORDER BY ordinal LIMIT 64;","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
             result
                 .take::<Vec<Object>>(0)?
                 .into_iter()
@@ -1726,7 +1753,7 @@ impl CanonicalStore {
         if !matches!(scope.action(None)?.kind, ActionKind::Wait(pse_model::study::WaitReason::ScientificAdmission)) {
             return Err(CanonicalError::Configuration("scientific admission is not eligible".into()));
         }
-        let run = study_admission_run(&scope.point.key);
+        let run = scope.point.admission_run.clone().ok_or_else(|| CanonicalError::Configuration("scientific admission run association absent".into()))?;
         let nonce: pse_ids::SemanticId = crate::mint_id();
         let operation = format!("study-admission-claim:{}:{nonce}", scope.point.key);
         let attempt = execution_attempt_key(&run, &operation);
@@ -1743,9 +1770,15 @@ impl CanonicalStore {
         )).await;
         let row = match response {
             Ok(mut response) => response.take::<Option<Object>>(0)?.map(wire::decode_canonical_attempts).transpose()?,
-            Err(error) => match self.settle_operation_for_run(&operation, "claim", &request, Some(&run)).await? {
-                Some(key) => self.canonical_attempt(&key).await?, None => return Err(error),
-            },
+            Err(error) => Some(crate::canonical::settlement::settle_exact(
+                "study-admission-claim", &operation, &request, Err(error),
+                async { match self.settle_operation_for_run(&operation, "claim", &request, Some(&run)).await? {
+                    Some(key) => Ok(Some(self.canonical_attempt(&key).await?.ok_or(CanonicalError::IncompleteResponse)?)),
+                    None => Ok(None),
+                } },
+                |row| row.run == run && row.key == attempt && row.claim_operation == operation && row.request.as_slice() == request,
+                CanonicalError::source_transaction_refused,
+            ).await?),
         };
         row.map(AttemptFence::from_row).transpose()
         }).await }).await
@@ -1762,7 +1795,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async { within_clock(original_deadline(REQUEST_TIMEOUT), async {
         bounded(admission, 512 * 1024)?;
-        if fence.run() != study_admission_run(&scope.point.key)
+        if Some(fence.run()) != scope.point.admission_run.as_deref()
             || seed_need == Some(pse_model::study::SeedNeed::Pending)
             || seed_need.is_some() == diagnostic.is_some() {
             return Err(CanonicalError::Configuration("invalid selected scientific admission result".into()));
@@ -1792,12 +1825,15 @@ impl CanonicalStore {
         )).await;
         match response {
             Ok(mut response) => Ok(wire::decode_canonical_study_points(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?),
-            Err(error) => {
-                if self.settle_operation_for_run(&operation, "study-admission", &request, Some(fence.run())).await?.is_none() { return Err(error); }
-                let saved = self.canonical_study_point(&scope.point.key).await?;
-                match saved { Some(saved) if saved.admission.as_ref().is_some_and(|value| value.as_slice() == admission) => Ok(saved),
-                    _ => Err(error) }
-            }
+            Err(error) => crate::canonical::settlement::settle_exact(
+                "study-admission-complete", &operation, &request, Err(error),
+                async { match self.settle_operation_for_run(&operation, "study-admission", &request, Some(fence.run())).await? {
+                    Some(_) => Ok(Some(self.canonical_study_point(&scope.point.key).await?.ok_or(CanonicalError::IncompleteResponse)?)),
+                    None => Ok(None),
+                } },
+                |saved| saved.key == scope.point.key && saved.study == scope.study && saved.admission.as_ref().is_some_and(|value| value.as_slice() == admission),
+                CanonicalError::source_transaction_refused,
+            ).await,
         }
         }).await }).await
     }
@@ -1893,20 +1929,20 @@ impl CanonicalStore {
         response: Result<crate::canonical_execution::CanonicalAttempt, CanonicalError>,
     ) -> Result<StudyClaim, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let row = match response {
-                Ok(row) => row,
-                Err(error) => match self
-                    .settle_operation_for_run(
-                        operation,
-                        "study-claim",
-                        request,
-                        Some(&scope.point.run),
-                    )
-                    .await?
-                {
-                    Some(key) => self.canonical_attempt(&key).await?.ok_or(error)?,
-                    None => return Err(error),
-                },
+            let (row, point) = match response {
+                Ok(row) => (row, None),
+                Err(error) => crate::canonical::settlement::settle_exact(
+                    "study-claim", operation, request, Err(error),
+                    async { match self.settle_operation_for_run(operation, "study-claim", request, Some(&scope.point.run)).await? {
+                        Some(key) => Ok(Some((
+                            self.canonical_attempt(&key).await?.ok_or(CanonicalError::IncompleteResponse)?,
+                            Some(self.canonical_study_point(&scope.point.key).await?.ok_or(CanonicalError::IncompleteResponse)?),
+                        ))),
+                        None => Ok(None),
+                    } },
+                    |(row, _)| row.run == scope.point.run && row.key == execution_attempt_key(&scope.point.run, &format!("{operation}:attempt")) && row.claim_operation == format!("{operation}:attempt") && row.request.as_slice() == claim_request,
+                    CanonicalError::source_transaction_refused,
+                ).await?,
             };
             let expected_attempt =
                 execution_attempt_key(&scope.point.run, &format!("{operation}:attempt"));
@@ -1918,10 +1954,10 @@ impl CanonicalStore {
                 return Err(CanonicalError::OperationReused);
             }
             let fence = AttemptFence::from_row(row)?;
-            let point = self
-                .canonical_study_point(&scope.point.key)
-                .await?
-                .ok_or(CanonicalError::IncompleteResponse)?;
+            let point = match point {
+                Some(point) => point,
+                None => self.canonical_study_point(&scope.point.key).await?.ok_or(CanonicalError::IncompleteResponse)?,
+            };
             if point.study != scope.study
                 || point.run != scope.point.run
                 || point.occurrence != scope.point.occurrence
@@ -2065,27 +2101,29 @@ impl CanonicalStore {
                     if !uncertain {
                         return Err(error);
                     }
-                    match self
-                        .settle_operation_for_run(&admission.operation, "study-start", &admission.request,Some(claim.fence.run()))
-                        .await?
-                    {
-                        Some(attempt) if attempt == claim.fence.attempt() => (),
-                        Some(_) => return Err(CanonicalError::OperationReused),
-                        None => return Err(error),
-                    }
-                    // Fence the readback against cancellation, replacement and expiry;
-                    // do not repeat the start transition or authorize another dispatch.
-                    let mut response = self.protected_execution_query(claim.fence.run(), "canonical_studies::finish_study_started", || Ok(self.db.query(
-                        "BEGIN; fn::pse_execution_v1::fence($pse_rpc_expires_at, $run,$attempt,$generation); LET $rpc_result = SELECT * FROM ONLY type::record('canonical_study_points',$point) TIMEOUT $pse_rpc_timeout; fn::pse_execution_v1::fence($pse_rpc_expires_at, $run,$attempt,$generation); RETURN $rpc_result; COMMIT;"
-                    ).bind(("run", claim.fence.run().to_owned()))
-                        .bind(("attempt", claim.fence.attempt().to_owned()))
-                        .bind(("generation", codec::encode_uint(claim.fence.generation())?))
-                        .bind(("point", claim.point.key.clone())))).await?;
-                    let index = response.num_statements().saturating_sub(2);
-                    let Some(row) = response.take::<Option<Object>>(index)? else {
-                        return Err(error);
-                    };
-                    wire::decode_canonical_study_points(row)?
+                    crate::canonical::settlement::settle_exact(
+                        "study-start", &admission.operation, &admission.request, Err(error),
+                        async {
+                            match self.settle_operation_for_run(&admission.operation, "study-start", &admission.request, Some(claim.fence.run())).await? {
+                                Some(attempt) if attempt == claim.fence.attempt() => (),
+                                Some(_) => return Err(CanonicalError::OperationReused),
+                                None => return Ok(None),
+                            }
+                            // Reconcile the exact original start under its existing fence;
+                            // this readback never repeats dispatch.
+                            let mut response = self.protected_execution_query(claim.fence.run(), "canonical_studies::finish_study_started", || Ok(self.db.query(
+                                "BEGIN; fn::pse_execution_v1::fence($pse_rpc_expires_at, $run,$attempt,$generation); LET $rpc_result = SELECT * FROM ONLY type::record('canonical_study_points',$point) TIMEOUT $pse_rpc_timeout; fn::pse_execution_v1::fence($pse_rpc_expires_at, $run,$attempt,$generation); RETURN $rpc_result; COMMIT;"
+                            ).bind(("run", claim.fence.run().to_owned()))
+                                .bind(("attempt", claim.fence.attempt().to_owned()))
+                                .bind(("generation", codec::encode_uint(claim.fence.generation())?))
+                                .bind(("point", claim.point.key.clone())))).await?;
+                            let index = response.num_statements().saturating_sub(2);
+                            let row = response.take::<Option<Object>>(index)?.ok_or(CanonicalError::IncompleteResponse)?;
+                            Ok(Some(wire::decode_canonical_study_points(row)?))
+                        },
+                        |point| point.key == claim.point.key && point.study == claim.point.study && point.run == claim.fence.run(),
+                        |_| false,
+                    ).await?
                 }
             };
             if point.study != claim.point.study
@@ -2200,13 +2238,15 @@ impl CanonicalStore {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let row = match response {
                 Ok(row) => row,
-                Err(error) => match self
-                    .settle_operation_for_run(operation, "claim", request, Some(run))
-                    .await?
-                {
-                    Some(key) => Some(self.canonical_attempt(&key).await?.ok_or(error)?),
-                    None => return Err(error),
-                },
+                Err(error) => Some(crate::canonical::settlement::settle_exact(
+                    "study-finalization", operation, request, Err(error),
+                    async { match self.settle_operation_for_run(operation, "claim", request, Some(run)).await? {
+                        Some(key) => Ok(Some(self.canonical_attempt(&key).await?.ok_or(CanonicalError::IncompleteResponse)?)),
+                        None => Ok(None),
+                    } },
+                    |row| row.run == run && row.key == execution_attempt_key(run, operation) && row.claim_operation == operation && row.request.as_slice() == request,
+                    CanonicalError::source_transaction_refused,
+                ).await?),
             };
             row.map(|row| {
                 if row.run != run
@@ -2232,7 +2272,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result=protected_query("canonical_studies::study_assigned_page", || Ok(self.db.query(crate::canonical_history::study_query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=true AND ordinal>$after ORDER BY ordinal LIMIT 64;","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
+            let mut result=protected_query("canonical_studies::study_assigned_page", || Ok(self.db.query(crate::canonical_history::study_query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,admission_run,variant_problem,variant_operation,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=true AND ordinal>$after ORDER BY ordinal LIMIT 64;","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
             result
                 .take::<Vec<Object>>(0)?
                 .into_iter()
@@ -2317,18 +2357,15 @@ impl CanonicalStore {
         response: Result<Study, CanonicalError>,
     ) -> Result<Study, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let intent = encode(&("cancel", key))?;
             let study = match response {
                 Ok(study) => study,
-                Err(error) => self
-                    .canonical_study(key)
-                    .await
-                    .map_err(|settlement| {
-                        CanonicalError::Configuration(format!(
-                            "study {key} cancellation requires exact settlement: {error}; {settlement}"
-                        ))
-                    })?
-                    .filter(|study| study.cancelled)
-                    .ok_or(error)?,
+                Err(error) => crate::canonical::settlement::settle_exact(
+                    "study-cancel", key, &intent, Err(error),
+                    async { Ok(self.canonical_study(key).await?.filter(|study| study.cancelled)) },
+                    |study| study.key == key,
+                    CanonicalError::source_transaction_refused,
+                ).await?,
             };
             if study.key != key || !study.cancelled {
                 return Err(CanonicalError::IncompleteResponse);
@@ -2398,6 +2435,9 @@ fn decode_scope_point(mut row: Object) -> Result<ScopedStudyPoint, CanonicalErro
     let point = ScopedStudyPoint {
         key: decode_string(required(&mut row, "key")?)?,
         study: decode_string(required(&mut row, "study")?)?,
+        admission_run: row.remove("admission_run").filter(|value| !matches!(value, Value::None)).map(decode_string).transpose()?,
+        variant_problem: row.remove("variant_problem").filter(|value| !matches!(value, Value::None)).map(decode_string).transpose()?,
+        variant_operation: row.remove("variant_operation").filter(|value| !matches!(value, Value::None)).map(decode_string).transpose()?,
         ordinal: decode_uint(required(&mut row, "ordinal")?)?,
         occurrence: decode_uint(required(&mut row, "occurrence")?)?,
         policy: decode_bytes(required(&mut row, "policy")?)?,
@@ -2820,7 +2860,7 @@ mod canonical_studies_server_unit {
             .await
             .unwrap();
         let mut expected_sources = vec![(
-            parent.key.clone(),
+            parent.key.as_str().to_owned(),
             GraphEdge {
                 identity: format!("canonical_run_sources:{}", parent.key),
                 source: format!("canonical_runs:{}", parent.key),
@@ -2852,7 +2892,7 @@ mod canonical_studies_server_unit {
             &CanonicalGraphRequest {
                 version: pse_model::document::Version,
                 anchor: GraphAnchor::Run {
-                    run: parent.key.clone(),
+                    run: parent.key.as_str().to_owned(),
                     revision: revision.key.clone(),
                 },
                 scope: GraphScope::RecordedSources,
@@ -3241,6 +3281,9 @@ mod canonical_studies_server_unit {
 
     fn request(revision: &crate::canonical::Revision, key: &str) -> RunRequest {
         RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: key.into(),
             revision: revision.clone(),
             sources: vec![],
@@ -4852,7 +4895,7 @@ mod canonical_studies_server_unit {
                 // sibling has its own run/attempt, but every fence and seal also
                 // touches the same actual study cancellation guard.
                 let run = store.begin_run(&point.run).await.unwrap();
-                assert_eq!(run.key, point.run.key);
+                assert_eq!(run.key, point.run.key.as_str());
                 let scope = store
                     .study_scope(&point_key("siblings", point.policy.key))
                     .await

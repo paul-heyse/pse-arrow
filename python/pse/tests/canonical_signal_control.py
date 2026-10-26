@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """Manual entered-pull/SIGINT control for an exclusively owned canonical fixture.
 
-The default pull control requires a two-file pse-canonical-recovery receipt.
+The default pull control requires a two-file pse-canonical-recovery-fixture receipt.
 The --analysis control creates its own scalar result in the selected private database.
 Both require a force-validated installed extension. The selected
 private fixture's results are collected after cancellation and transport drain;

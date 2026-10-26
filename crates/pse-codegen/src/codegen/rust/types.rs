@@ -70,20 +70,7 @@ pub(super) fn structure(name: &str, fields: &[(String, TokenStream, String)]) ->
     } else {
         quote!(#(crate::SemanticEq::semantic_eq(&self.#names, &other.#names))&&*)
     };
-    let lifecycle = if name == "RuntimeCanonicalAttemptsRow" {
-        quote! { impl #name {
-            /// Whether scientific ingestion remains admitted by this physical phase.
-            pub const fn ingestion_open(&self) -> bool { use crate::generated::enums::CanonicalAttemptPhase as Phase; match self.phase { Phase::Ingesting => true, Phase::ClosedAwaitingManifest | Phase::ClosedWithManifest | Phase::Terminal | Phase::TerminalCompacted => false } }
-            /// Whether ingestion has closed, independently of manifest availability.
-            pub const fn closed(&self) -> bool { !self.ingestion_open() }
-            /// Whether the original scientific owner has recorded a terminal outcome.
-            pub const fn terminal(&self) -> bool { use crate::generated::enums::CanonicalAttemptPhase as Phase; match self.phase { Phase::Terminal | Phase::TerminalCompacted => true, Phase::Ingesting | Phase::ClosedAwaitingManifest | Phase::ClosedWithManifest => false } }
-        } }
-    } else {
-        quote!()
-    };
     quote! {
-            #lifecycle
             /// A row or nested value projected from the registry declaration.
             #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
             #[serde(deny_unknown_fields)]

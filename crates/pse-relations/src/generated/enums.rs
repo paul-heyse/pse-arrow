@@ -9,47 +9,51 @@ pub use pse_model::generated::r#enums::{
     AccuracyResolutionStatus, AccuracyUnavailableReason, ArtifactOwnerKind,
     AssertionStatus, AttemptState, Authority, BasisKind, BasisRule, BoundActivity,
     BoundKind, BoundStatus, CandidateBoundOrigin, CandidateQualifier, CandidateRefusal,
-    CandidateUse, CanonicalAttemptPhase, CanonicalTerminalOutcome, CaptureKind,
-    CaptureOutputKind, CaptureStatus, ClarabelDirect, ClarabelMergeMethod, ClarabelMode,
-    ClosureAssessment, ClosurePolicy, ColumnRole, CompositionBasis, ComputationKind,
-    ConformanceExecution, ConformancePresolve, ConstraintScalingScheme, ConversionKind,
-    CovarianceApproximation, CovarianceInputOrigin, DerivationGranularity,
-    DerivedQuantity, Determinism, DiagnosticCode, DiagnosticNonfiniteObservation,
-    DiagnosticObservationKind, DiagnosticRule, DiagnosticSeverity, DiagnosticStage,
-    DiffsolLinear, DiffsolMethod, DualQualification, DynamicSensitivity, DynamicsMethod,
-    EndpointPolicy, EngineeringScaleKind, EntityKind, EventDirection, EvidenceCoverage,
-    EvidenceGenerationState, EvidenceUnavailableReason, ExecutorRole,
-    ExternalDerivativeSource, FailureClass, FeralOrdering, FeralScaling, FindingSeverity,
-    FitDerivatives, HessianMode, HighsMethod, IdPolicy, IdasInitialization,
-    IncumbentPolicy, InputConsumptionKind, IntervalEnd, IntervalMethod, IntervalOutcome,
-    InvariantKind, IpoptLinearSolver, KinsolOrthogonalization, KinsolStrategy,
-    KnowledgeBasis, KnowledgeDirection, KnowledgeDocumentRole, KnowledgeGenerationState,
-    KnowledgeRelationKind, KnowledgeSourceRole, KnowledgeSourceStatus,
-    KnowledgeSubjectKind, LiveSimulationEventKind, MigrationOp, ModelingAccumulatorMode,
-    ModelingAnalysisRoute, ModelingAnnotationKind, ModelingApplicabilityBasis,
-    ModelingApplicabilityKind, ModelingApplicabilityOutcome, ModelingCellKind,
-    ModelingCheckBasis, ModelingCheckKind, ModelingConformanceKind,
-    ModelingConformanceStatus, ModelingContributionRole, ModelingDataFacet,
-    ModelingDeclarationKind, ModelingDiagnosticSampleStop, ModelingDiagonalPolicy,
-    ModelingDiscreteInitialization, ModelingElasticObservation, ModelingEnvelopeExtent,
-    ModelingFactNamespace, ModelingFixtureBinding, ModelingInitializationStep,
-    ModelingKeyCellKind, ModelingKindFacet, ModelingKnowledgeValueKind,
-    ModelingLineageKind, ModelingMissingPolicy, ModelingObjectiveRoute,
-    ModelingPermissionTarget, ModelingProcedure, ModelingRealValueKind,
-    ModelingRealizationPolicy, ModelingStructuralRequirement, ModelingTransferDirection,
-    ModelingTypeNode, ModelingUncertaintyKind, ModelingValidityLayer,
-    ModelingVariableDomain, ModelingVersionOperator, MuStrategy, MumpsOrdering,
-    Namespace, NativeArtifactDemand, NativeAssessmentState, NativeAssurance,
-    NativeBackend, NativeBoundaryClass, NativeCandidateKind, NativeCertificateAccuracy,
-    NativeCertificateKind, NativeConstraintForm, NativeDerivativeCapability,
-    NativeEvidenceDemand, NativeIneligibility, NativeInfeasibilityWitness,
-    NativeLexicographicDegradation, NativeLexicographicRealization, NativeMetricKind,
-    NativeObjectiveSense, NativePetscLinear, NativePetscMethod,
-    NativePetscPreconditioner, NativePrimalCoordinateRole, NativeProblemClass,
-    NativeQualification, NativeRayCoordinate, NativeRepresentation, NativeRouteKind,
-    NativeRouteRefusal, NativeRouteSelection, NativeRunState, NativeSolveIntent,
-    NativeStartPolicy, NativeStructuralMode, NativeStructuralPolicy, NativeTaskClass,
-    NativeTermination, NativeUnoMethod, NativeWarmCapability, NextObservation, NonFinite,
+    CandidateUse, CanonicalArtifactHolderKind, CanonicalAttemptPhase,
+    CanonicalFileOwnerKind, CanonicalFileState, CanonicalHistoryOwnerKind,
+    CanonicalPayloadEncoding, CanonicalPayloadPlacement, CanonicalProducerClass,
+    CanonicalProjectPublicationKind, CanonicalRunPurpose, CanonicalTerminalOutcome,
+    CaptureKind, CaptureOutputKind, CaptureStatus, ClarabelDirect, ClarabelMergeMethod,
+    ClarabelMode, ClosureAssessment, ClosurePolicy, ColumnRole, CompositionBasis,
+    ComputationKind, ConformanceExecution, ConformancePresolve, ConstraintScalingScheme,
+    ConversionKind, CovarianceApproximation, CovarianceInputOrigin,
+    DerivationGranularity, DerivedQuantity, Determinism, DiagnosticCode,
+    DiagnosticNonfiniteObservation, DiagnosticObservationKind, DiagnosticRule,
+    DiagnosticSeverity, DiagnosticStage, DiffsolLinear, DiffsolMethod, DualQualification,
+    DynamicSensitivity, DynamicsMethod, EndpointPolicy, EngineeringScaleKind, EntityKind,
+    EventDirection, EvidenceCoverage, EvidenceGenerationState, EvidenceUnavailableReason,
+    ExecutorRole, ExternalDerivativeSource, FailureClass, FeralOrdering, FeralScaling,
+    FindingSeverity, FitDerivatives, HessianMode, HighsMethod, IdPolicy,
+    IdasInitialization, IncumbentPolicy, InputConsumptionKind, IntervalEnd,
+    IntervalMethod, IntervalOutcome, InvariantKind, IpoptLinearSolver,
+    KinsolOrthogonalization, KinsolStrategy, KnowledgeBasis, KnowledgeDirection,
+    KnowledgeDocumentRole, KnowledgeGenerationState, KnowledgeRelationKind,
+    KnowledgeSourceRole, KnowledgeSourceStatus, KnowledgeSubjectKind,
+    LiveSimulationEventKind, MigrationOp, ModelingAccumulatorMode, ModelingAnalysisRoute,
+    ModelingAnnotationKind, ModelingApplicabilityBasis, ModelingApplicabilityKind,
+    ModelingApplicabilityOutcome, ModelingCellKind, ModelingCheckBasis,
+    ModelingCheckKind, ModelingConformanceKind, ModelingConformanceStatus,
+    ModelingContributionRole, ModelingDataFacet, ModelingDeclarationKind,
+    ModelingDiagnosticSampleStop, ModelingDiagonalPolicy, ModelingDiscreteInitialization,
+    ModelingElasticObservation, ModelingEnvelopeExtent, ModelingFactNamespace,
+    ModelingFixtureBinding, ModelingInitializationStep, ModelingKeyCellKind,
+    ModelingKindFacet, ModelingKnowledgeValueKind, ModelingLineageKind,
+    ModelingMissingPolicy, ModelingObjectiveRoute, ModelingPermissionTarget,
+    ModelingProcedure, ModelingRealValueKind, ModelingRealizationPolicy,
+    ModelingStructuralRequirement, ModelingTransferDirection, ModelingTypeNode,
+    ModelingUncertaintyKind, ModelingValidityLayer, ModelingVariableDomain,
+    ModelingVersionOperator, MuStrategy, MumpsOrdering, Namespace, NativeArtifactDemand,
+    NativeAssessmentState, NativeAssurance, NativeBackend, NativeBoundaryClass,
+    NativeCandidateKind, NativeCertificateAccuracy, NativeCertificateKind,
+    NativeConstraintForm, NativeDerivativeCapability, NativeEvidenceDemand,
+    NativeIneligibility, NativeInfeasibilityWitness, NativeLexicographicDegradation,
+    NativeLexicographicRealization, NativeMetricKind, NativeObjectiveSense,
+    NativePetscLinear, NativePetscMethod, NativePetscPreconditioner,
+    NativePrimalCoordinateRole, NativeProblemClass, NativeQualification,
+    NativeRayCoordinate, NativeRepresentation, NativeRouteKind, NativeRouteRefusal,
+    NativeRouteSelection, NativeRunState, NativeSolveIntent, NativeStartPolicy,
+    NativeStructuralMode, NativeStructuralPolicy, NativeTaskClass, NativeTermination,
+    NativeUnoMethod, NativeWarmCapability, NextObservation, NonFinite,
     NumericalAccuracyClass, NumericalAttemptObservation, NumericalBranchPolicy,
     NumericalCompositionPolicy, NumericalCoordinates, NumericalEventKind,
     NumericalMechanism, NumericalOriginalConclusion, NumericalPathEventKind,
@@ -699,6 +703,35 @@ impl crate::columnar::ArrowValue for CandidateUse {
             })
     }
 }
+impl crate::columnar::ArrowValue for CanonicalArtifactHolderKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(CanonicalArtifactHolderKind).to_owned(),
+                enumeration: stringify!(CanonicalArtifactHolderKind).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
 impl crate::columnar::ArrowValue for CanonicalAttemptPhase {
     fn append(
         &self,
@@ -720,6 +753,238 @@ impl crate::columnar::ArrowValue for CanonicalAttemptPhase {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(CanonicalAttemptPhase).to_owned(),
                 enumeration: stringify!(CanonicalAttemptPhase).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for CanonicalFileOwnerKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(CanonicalFileOwnerKind).to_owned(),
+                enumeration: stringify!(CanonicalFileOwnerKind).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for CanonicalFileState {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(CanonicalFileState).to_owned(),
+                enumeration: stringify!(CanonicalFileState).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for CanonicalHistoryOwnerKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(CanonicalHistoryOwnerKind).to_owned(),
+                enumeration: stringify!(CanonicalHistoryOwnerKind).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for CanonicalPayloadEncoding {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(CanonicalPayloadEncoding).to_owned(),
+                enumeration: stringify!(CanonicalPayloadEncoding).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for CanonicalPayloadPlacement {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(CanonicalPayloadPlacement).to_owned(),
+                enumeration: stringify!(CanonicalPayloadPlacement).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for CanonicalProducerClass {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(CanonicalProducerClass).to_owned(),
+                enumeration: stringify!(CanonicalProducerClass).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for CanonicalProjectPublicationKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(CanonicalProjectPublicationKind).to_owned(),
+                enumeration: stringify!(CanonicalProjectPublicationKind).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for CanonicalRunPurpose {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(CanonicalRunPurpose).to_owned(),
+                enumeration: stringify!(CanonicalRunPurpose).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value

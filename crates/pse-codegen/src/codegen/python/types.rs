@@ -152,6 +152,14 @@ impl super::super::native::Policy for PythonPolicy<'_> {
             return Ok(Some(scalar(&format!("e.{}", pascal(name)))));
         }
         if matches!(mode, super::super::native::Mode::Domain) {
+            if let Some(kind) = ty.canonical_key() {
+                return Ok(Some(Type {
+                    item_key: None,
+                    equality_key: "v.scalar_key".into(),
+                    annotation: format!("k.{}", super::super::rust::canonical::type_name(kind)),
+                    validator: "attrs.validators.instance_of(b.str)".into(),
+                }));
+            }
             // A named structure is declared once in `structures` (Plan 22 X11).
             if let Some(name) = ty.structure_name() {
                 return Ok(Some(scalar(&format!("s.{name}"))));

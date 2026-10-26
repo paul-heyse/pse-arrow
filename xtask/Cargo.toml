@@ -141,8 +141,8 @@ miette.workspace = true
 pse-quantity = { workspace = true, features = ["fixtures"] }
 
 [[bin]]
-name = "pse-canonical-recovery"
-path = "src/bin/pse-canonical-recovery.rs"
+name = "pse-canonical-recovery-fixture"
+path = "src/bin/pse-canonical-recovery-fixture.rs"
 required-features = ["canonical-tools"]
 
 [[bin]]
@@ -181,7 +181,7 @@ test = false
 doc = false
 bench = false
 
-# src/bin/pse-canonical-recovery.rs links this parent-relative module.
+# src/bin/pse-canonical-recovery-fixture.rs links this parent-relative module.
 # cargo-shear path-module limitation: https://github.com/Boshen/cargo-shear/issues/589
 [package.metadata.cargo-shear]
 ignored-paths = ["src/canonical_recovery.rs"]

@@ -18,7 +18,7 @@ pub struct ContextCut {
     /// Issuing canonical database identity.
     pub issuing_store: String,
     /// Stable project identity.
-    pub project: String,
+    pub project: pse_model::generated::canonical::ProjectKey,
     /// Last included journal position.
     pub sequence: u64,
 }
@@ -193,7 +193,7 @@ impl CanonicalStore {
         identity(scope)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
-            let mut response=bounded_query(self.context_query("IF !fn::pse_project_import_v1::available($project) {THROW 'PSE_REFUSAL:project_context_unavailable';}; LET $selected=fn::pse_context_v1::select($pse_rpc_expires_at,$project,$scope,$effective,$cut); IF $selected!=NONE {fn::pse_context_v1::available($pse_rpc_expires_at,$selected.revision); fn::pse_context_v1::available($pse_rpc_expires_at,$selected.physical_revision);}; RETURN $selected;")?.bind(("project",cut.project.clone())).bind(("scope",scope.to_owned())).bind(("effective",effective_at_us)).bind(("cut",codec::encode_uint(cut.sequence)?))).await?;
+            let mut response=bounded_query(self.context_query("IF !fn::pse_project_import_v1::available($project) {THROW 'PSE_REFUSAL:project_context_unavailable';}; LET $selected=fn::pse_context_v1::select($pse_rpc_expires_at,$project,$scope,$effective,$cut); IF $selected!=NONE {fn::pse_context_v1::available($pse_rpc_expires_at,$selected.revision); fn::pse_context_v1::available($pse_rpc_expires_at,$selected.physical_revision);}; RETURN $selected;")?.bind(("project",cut.project.as_str().to_owned())).bind(("scope",scope.to_owned())).bind(("effective",effective_at_us)).bind(("cut",codec::encode_uint(cut.sequence)?))).await?;
             Ok(final_object(&mut response)?.map(wire::decode_canonical_project_contexts).transpose()?.map(|context|ContextSelection{cut:cut.clone(),effective_at_us,context}))
         })).await
     }
@@ -203,7 +203,7 @@ impl CanonicalStore {
         selection: &ContextSelection,
     ) -> Result<(), CanonicalError> {
         self.check_cut(&selection.cut)?;
-        if selection.context.project != selection.cut.project {
+        if selection.context.project_domain() != selection.cut.project {
             return Err(CanonicalError::OperationReused);
         }
         let selected = self

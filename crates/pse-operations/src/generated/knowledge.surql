@@ -20,7 +20,7 @@ DEFINE FIELD topic_count ON knowledge_generations TYPE decimal READONLY ASSERT $
 DEFINE FIELD excerpt_count ON knowledge_generations TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD edge_count ON knowledge_generations TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD production_count ON knowledge_generations TYPE decimal READONLY ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
-DEFINE FIELD state ON knowledge_generations TYPE "staged" | "active" ASSERT ($before=NONE AND $value='staged') OR ($before='staged' AND $value IN ['staged','active']) OR ($before='active' AND $value='active');
+DEFINE FIELD state ON knowledge_generations TYPE "staged" | "active" ASSERT (($before=NONE AND $value='staged') OR ($before='staged' AND $value IN ['staged','active']) OR ($before='active' AND $value='active'));
 DEFINE TABLE knowledge_productions SCHEMAFULL;
 DEFINE FIELD key ON knowledge_productions TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD generation ON knowledge_productions TYPE string READONLY;

@@ -210,6 +210,9 @@ mod canonical_history_tests {
     }
     async fn request(store: &CanonicalStore, key: &str) -> RunRequest {
         RunRequest {
+            purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+            admission_study: None,
+            admission_point: None,
             key: key.into(),
             revision: store
                 .edit(key, None, &format!("source-{key}"), &[])
@@ -249,7 +252,7 @@ mod canonical_history_tests {
             result_set: batch.result_set.clone(),
             first_ordinal: 0,
             attempt: fence.attempt().into(),
-            run: request.key.clone(),
+            run: request.key.as_str().to_owned(),
             layout: "layout".into(),
             preparation: "preparation".into(),
             profile: "profile".into(),
@@ -312,7 +315,7 @@ mod canonical_history_tests {
     async fn explicit_history_release_preserves_fences_and_compact_truthful_receipts() {
         let store = fixture().await;
         let request = request(&store, "exploratory").await;
-        let owner = HistoryOwner::Run(request.key.clone());
+        let owner = HistoryOwner::Run(request.key.as_str().to_owned());
         assert!(store.release_history(&owner).await.is_err());
         let attempt = finish(&store, &request).await;
         assert!(store.release_history(&owner).await.is_err());
@@ -413,7 +416,7 @@ mod canonical_history_tests {
         .unwrap();
         assert!(row.minimal);
         assert!(row.request.is_empty() && row.result.is_empty());
-        assert_eq!(row.run, request.key);
+        assert_eq!(row.run, request.key.as_str());
         assert_eq!(row.attempt.as_deref(), Some(attempt.as_str()));
         assert_eq!(row.disposition, "settled");
         assert_eq!(row.issuing_store, store.issuing_store().unwrap());
@@ -541,7 +544,7 @@ mod canonical_history_tests {
         assert!(store.release_history(&owner).await.is_err());
         assert!(
             store
-                .release_history(&HistoryOwner::Run(child.run.key.clone()))
+                .release_history(&HistoryOwner::Run(child.run.key.as_str().to_owned()))
                 .await
                 .is_err()
         );
@@ -549,7 +552,7 @@ mod canonical_history_tests {
         // A separately held member obligation protects the enclosing study.
         let member = HistoryObligation {
             key: "member-audit".into(),
-            owner: HistoryOwner::Run(child.run.key.clone()),
+            owner: HistoryOwner::Run(child.run.key.as_str().to_owned()),
             ..audit.clone()
         };
         store.retain_history_obligation(&member).await.unwrap();
