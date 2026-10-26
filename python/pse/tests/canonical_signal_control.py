@@ -25,7 +25,7 @@ from scripts import surreal_server as server
 
 import pse
 from pse._build import compiled_features
-from pse.contracts.documents import SensitivityRequest
+from pse.contracts.documents import AnalysisDirection, SensitivityRequest
 from pse.contracts.enums import NativeSolveIntent
 from pse.tests.physical_input_fixture import inspection_request
 from pse.tests.test_canonical_results import (
@@ -153,7 +153,9 @@ def analysis_signal_control(
         interruption: KeyboardInterrupt | None = None
         try:
             runtime.result_analysis(
-                run, attempt, pse.AnalysisControls(roots=(), direction="downstream")
+                run,
+                attempt,
+                pse.AnalysisControls(roots=(), direction=AnalysisDirection.DOWNSTREAM),
             )
         except KeyboardInterrupt as error:
             interruption = error
@@ -175,7 +177,9 @@ def analysis_signal_control(
             assert time.monotonic() < deadline, "analysis response did not drain"
             time.sleep(0.01)
         graph = runtime.result_analysis(
-            run, attempt, pse.AnalysisControls(roots=(), direction="downstream")
+            run,
+            attempt,
+            pse.AnalysisControls(roots=(), direction=AnalysisDirection.DOWNSTREAM),
         )
         assert runtime.analysis(graph.key).key == graph.key
         return {

@@ -116,7 +116,7 @@ def test_frozen_review_public_ingress_is_recorded_and_relocatable(
     assert expected.inspection.operation.read_at == original.operation.read_at
     assert relocated.read_bytes() == raw
     inventory_request = documents.ReviewInventoryRequest(
-        attempts="current", maximum_members=32
+        attempts=documents.ReviewAttemptSelection.CURRENT, maximum_members=32
     )
     inventory = diagnostics.inventory_from_evidence(restored, inventory_request)
     assert any(

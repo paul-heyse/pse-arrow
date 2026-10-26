@@ -558,7 +558,7 @@ def test_query_table_cli_writes_registry_typed_ipc_stream(
         query_version=specification.query_version,
         sql=specification.sql,
         tool_version="fixture 1.0",
-        status="completed",
+        status=d.ReviewQueryStatus.COMPLETED,
         exit_code=0,
         columns=tuple(
             codec.convert_document(
@@ -578,7 +578,9 @@ def test_query_table_cli_writes_registry_typed_ipc_stream(
     evidence = replace(saved()[0], query_results=(query,))
     source = tmp_path / "frozen.json"
     source.write_bytes(codec.encode_json(evidence))
-    table_request = d.ReviewTableRequest(kind="query", index=0, memory_bytes=4 << 20)
+    table_request = d.ReviewTableRequest(
+        kind=d.ReviewTableKind.QUERY, index=0, memory_bytes=4 << 20
+    )
     selection = tmp_path / "table.json"
     selection.write_bytes(codec.encode_json(table_request))
     output = tmp_path / "table"

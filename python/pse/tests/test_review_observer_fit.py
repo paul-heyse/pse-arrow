@@ -183,7 +183,7 @@ def observer_fit_probe(
             observations.collect(
                 d.DetailRequest(
                     families=families,
-                    requirement="complete",
+                    requirement=d.DetailRequirement.COMPLETE,
                     sample_every=1,
                     boundary_thread_cpu=True,
                     duration=d.ClosedDuration(secs=30, nanos=0),

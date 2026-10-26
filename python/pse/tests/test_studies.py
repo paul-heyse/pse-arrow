@@ -23,6 +23,7 @@ from pse.contracts.documents import (
     ClosedDuration,
     ControllerOperation,
     DetailRequest,
+    DetailRequirement,
     EvaluatorCompiledScalar,
     EvaluatorInterpreted,
     ObservationContracts,
@@ -1404,7 +1405,7 @@ def test_managed_selected_detail_retains_actual_worker_owners_and_complete_prefi
     slots = sum(item.policy.attempt_limit for item in local.points)
     request = DetailRequest(
         families=("native_owner_return.v1",),
-        requirement="complete",
+        requirement=DetailRequirement.COMPLETE,
         sample_every=1,
         duration=ClosedDuration(secs=120, nanos=0),
         output=str(tmp_path / "managed-detail"),

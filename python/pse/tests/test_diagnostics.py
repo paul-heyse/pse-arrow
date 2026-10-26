@@ -26,6 +26,7 @@ from pse.contracts.documents import (
     ClosedDuration,
     ComparisonPolicy,
     DetailRequest,
+    DetailRequirement,
     DiagnosticListRequest,
     DiagnosticProcessPage,
     DiagnosticProcessPageOutput,
@@ -809,7 +810,7 @@ def test_selected_native_detail_current_history_zero_and_invocation_endpoints(
     try:
         request = DetailRequest(
             families=("root_evaluation.v1", "native_owner_return.v1"),
-            requirement="complete",
+            requirement=DetailRequirement.COMPLETE,
             sample_every=1,
             boundary_thread_cpu=True,
             duration=ClosedDuration(secs=30, nanos=0),

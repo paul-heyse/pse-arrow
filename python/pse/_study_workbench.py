@@ -25,13 +25,13 @@ if TYPE_CHECKING:
 
     from pse._runs import RunHandle
     from pse.contracts.documents import (
-        StudyCohortClassificationPageOutput,
-        StudyCohortHeaderPageOutput,
-        StudyCohortMemberPageOutput,
+        StudyCohortClassificationPage,
+        StudyCohortHeaderPage,
+        StudyCohortMemberPage,
         StudyCohortPageRequest,
-        StudyCohortReceiptOutput,
+        StudyCohortReceipt,
         StudyCohortRequest,
-        StudyCohortScanProgressOutput,
+        StudyCohortScanProgress,
         StudyKpiRequest,
         StudyObservationCursor,
         StudyObservationCursorOutput,
@@ -49,7 +49,7 @@ class StudyKpiAnalysis:
     _handle: _NativeStudyKpiAnalysis
 
     @property
-    def cohort(self) -> StudyCohortReceiptOutput:
+    def cohort(self) -> StudyCohortReceipt:
         return self._handle.cohort
 
     @property
@@ -61,12 +61,12 @@ class StudyKpiAnalysis:
         return self._handle.unavailable
 
     @property
-    def progress(self) -> StudyCohortScanProgressOutput:
+    def progress(self) -> StudyCohortScanProgress:
         return self._handle.progress
 
     def classification_page(
         self, request: StudyCohortPageRequest
-    ) -> StudyCohortClassificationPageOutput:
+    ) -> StudyCohortClassificationPage:
         return self._handle.classification_page(codec.encode_json(request))
 
     def batches(self) -> tuple[pa.RecordBatch, ...]:
@@ -81,17 +81,13 @@ class FrozenStudyCohort:
     _handle: _NativeFrozenStudyCohort
 
     @property
-    def receipt(self) -> StudyCohortReceiptOutput:
+    def receipt(self) -> StudyCohortReceipt:
         return self._handle.receipt
 
-    def header_page(
-        self, request: StudyCohortPageRequest
-    ) -> StudyCohortHeaderPageOutput:
+    def header_page(self, request: StudyCohortPageRequest) -> StudyCohortHeaderPage:
         return self._handle.header_page(codec.encode_json(request))
 
-    def member_page(
-        self, request: StudyCohortPageRequest
-    ) -> StudyCohortMemberPageOutput:
+    def member_page(self, request: StudyCohortPageRequest) -> StudyCohortMemberPage:
         return self._handle.member_page(codec.encode_json(request))
 
     def result(

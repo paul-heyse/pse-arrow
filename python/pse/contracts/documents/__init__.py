@@ -9,13 +9,15 @@ types are the authority. Scientific vocabularies retain registry identity; other
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Annotated, ClassVar, Literal
 
 import msgspec
 
 from pse.contracts import enums, identities
 from pse.contracts import values as v
-from enum import StrEnum
+from pse.contracts.values import _convert_document as _document_default
+
 
 class AdviceMetric(StrEnum):
     NATIVE_EXECUTION_NANOSECONDS = "native_execution_nanoseconds"
@@ -471,8 +473,6 @@ class StudyObservationContinuity(StrEnum):
     GAP_CURRENT_RESYNC = "gap_current_resync"
     LIVE_NUMERICS_UNAVAILABLE = "live_numerics_unavailable"
     HISTORY_UNAVAILABLE = "history_unavailable"
-
-from pse.contracts.values import _convert_document as _document_default
 
 
 class AccuracyDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):

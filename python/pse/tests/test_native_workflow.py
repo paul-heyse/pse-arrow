@@ -858,7 +858,7 @@ def test_residual_lm_public_result_exposes_actual_stopping_and_original_qualific
         FitId(identity(158)),
         pse.PhysicalFitRequest(
             settings=documents.FitPreparationDocumentForPhysicalSimulationRequest(
-                optimizer="residual_lm",
+                optimizer=documents.FitOptimizer.RESIDUAL_LM,
                 solver=pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE),
             ),
         ),

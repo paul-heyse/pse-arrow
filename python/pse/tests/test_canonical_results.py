@@ -27,6 +27,7 @@ import pse
 from pse import codec
 from pse._build import compiled_features
 from pse.contracts.documents import (
+    AnalysisDirection,
     ArtifactIntent,
     HistoryObligation,
     HistoryOwner,
@@ -376,7 +377,7 @@ def test_canonical_result_selection_and_progress_reopen(
         sensitivity=SensitivityRequest(parameters=(parameter,)),
     )
     prepared = package.prepare_solve(case, settings)
-    controls = pse.AnalysisControls(roots=(), direction="downstream")
+    controls = pse.AnalysisControls(roots=(), direction=AnalysisDirection.DOWNSTREAM)
     dependencies = prepared.dependency_analysis(controls)
     dependency_rows = pa.table(dependencies.edges()).to_pylist()
     assert any(row["kind"] == "numerical_incidence" for row in dependency_rows)
@@ -416,7 +417,8 @@ def test_canonical_result_selection_and_progress_reopen(
     ) as invalid_analysis:
         prepared.dependency_analysis(
             pse.AnalysisControls(
-                roots=("missing-scientific-object",), direction="downstream"
+                roots=("missing-scientific-object",),
+                direction=AnalysisDirection.DOWNSTREAM,
             )
         )
     assert isinstance(invalid_analysis.value.report, pse.DiagnosticReport)
@@ -512,7 +514,8 @@ def test_canonical_result_selection_and_progress_reopen(
             run,
             attempt,
             pse.AnalysisControls(
-                roots=("missing-scientific-object",), direction="downstream"
+                roots=("missing-scientific-object",),
+                direction=AnalysisDirection.DOWNSTREAM,
             ),
         )
     transfer_report = graph_transfer.value.report
@@ -1339,7 +1342,7 @@ def test_result_analysis_root_scope_and_withheld_neighborhood(
     graph = runtime.result_analysis(
         result.canonical_run_key,
         result.canonical_attempt_key,
-        pse.AnalysisControls(roots=(), direction="downstream"),
+        pse.AnalysisControls(roots=(), direction=AnalysisDirection.DOWNSTREAM),
     )
     edges = pa.table(graph.edges()).to_pylist()
     kinds = {row["kind"] for row in edges}

@@ -131,7 +131,7 @@ def fit(package: pse.ModelingPackage, fit_id: FitId) -> pse.RunResult:
             fit_id,
             pse.PhysicalFitRequest(
                 settings=d.FitPreparationDocumentForPhysicalSimulationRequest(
-                    optimizer="native_nlp",
+                    optimizer=d.FitOptimizer.NATIVE_NLP,
                     solver=pse.SolveSettings(
                         intent=NativeSolveIntent.OPTIMIZE, backend=NativeBackend.IPOPT
                     ),

@@ -173,7 +173,7 @@ def run_query(
         query_version=spec.query_version,
         sql=spec.sql,
         tool_version=None,
-        status="unavailable",
+        status=ReviewQueryStatus.UNAVAILABLE,
         exit_code=None,
         columns=spec.columns,
         covered_interval=None,
@@ -227,13 +227,13 @@ def run_query(
             end - time.monotonic(),
             cancelled,
         )
-        state: ReviewQueryStatus = "completed"
+        state: ReviewQueryStatus = ReviewQueryStatus.COMPLETED
         if reason is not None and reason.startswith("timed_out"):
-            state = "timed_out"
+            state = ReviewQueryStatus.TIMED_OUT
         elif reason is not None and reason.startswith("cancelled"):
-            state = "cancelled"
+            state = ReviewQueryStatus.CANCELLED
         elif reason is not None:
-            state = "failed"
+            state = ReviewQueryStatus.FAILED
             result = replace(
                 result,
                 limitations=(
@@ -245,17 +245,17 @@ def run_query(
             rows.stat().st_size >= request.output_bytes // 2
             or errors.stat().st_size >= request.output_bytes // 2
         ):
-            state = "output_limit"
+            state = ReviewQueryStatus.OUTPUT_LIMIT
         elif status != 0:
-            state = "failed"
+            state = ReviewQueryStatus.FAILED
         result = replace(result, status=state, exit_code=status)
-        if state == "completed":
+        if state == ReviewQueryStatus.COMPLETED:
             try:
                 result = replace(result, rows=_validate_csv(rows, spec))
             except (OSError, UnicodeError, ValueError, csv.Error) as error:
                 result = replace(
                     result,
-                    status="malformed",
+                    status=ReviewQueryStatus.MALFORMED,
                     limitations=(*result.limitations, str(error)),
                 )
     except (OSError, ValueError) as error:
@@ -263,7 +263,7 @@ def run_query(
     except BaseException:
         result = replace(
             result,
-            status="cancelled",
+            status=ReviewQueryStatus.CANCELLED,
             limitations=(
                 *result.limitations,
                 "Caller interrupted; owned query child joined.",

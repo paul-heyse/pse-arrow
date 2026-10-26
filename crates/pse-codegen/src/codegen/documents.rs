@@ -1548,10 +1548,11 @@ fn python_module(
     );
     }
     if !emitter.local_enums.is_empty() {
-        source.push_str("from enum import StrEnum\n");
-        for definition in emitter.local_enums.values() {
-            let _ = write!(source, "\n{definition}\n");
-        }
+        source = source.replacen(
+            "from typing import ",
+            "from enum import StrEnum\nfrom typing import ",
+            1,
+        );
     }
     if emitter
         .classes
@@ -1562,6 +1563,9 @@ fn python_module(
             .push_str("from pse.contracts.values import _convert_document as _document_default\n");
     }
     source.push('\n');
+    for definition in emitter.local_enums.values() {
+        let _ = write!(source, "\n{definition}\n");
+    }
     // Class annotations are postponed; alias assignments are evaluated immediately.
     // Define records first, then aliases/unions in their actual dependency order.
     for class in emitter.classes.values() {
@@ -1866,7 +1870,8 @@ mod tests {
             schema: schemars::schema_for!(Report).to_value(),
         };
         let tree =
-            generate_private_family(&registry, "initialization", &[document.clone()]).unwrap();
+            generate_private_family(&registry, "initialization", std::slice::from_ref(&document))
+                .unwrap();
         let source =
             std::str::from_utf8(&tree.files[&PathBuf::from("scripts/generated/initialization.py")])
                 .unwrap();

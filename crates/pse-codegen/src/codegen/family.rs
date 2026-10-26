@@ -4,7 +4,7 @@
 //! Responsibility-local output context for the existing Rust renderer.
 use super::{GeneratedTree, rust};
 use crate::{Registry, SchemaError};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use syn::visit_mut::VisitMut;
 
 /// Private values and native relation codecs use the same admitted renderer as product rows.
@@ -57,7 +57,7 @@ pub fn development_rust(registry: &Registry) -> Result<GeneratedTree, SchemaErro
         for mut relationship in original
             .relationships
             .iter()
-            .filter(|row| PathBuf::from(&row.output_path) == path)
+            .filter(|row| Path::new(&row.output_path) == path)
             .cloned()
         {
             relationship.output_path = output.to_string_lossy().into_owned();

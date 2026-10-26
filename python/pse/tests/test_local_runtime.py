@@ -162,7 +162,7 @@ def test_retained_attempt_summary_and_replay_use_original_inputs(
     # This original root has no established equivalent convex optimization cohort.
     assert prepared.advice_inputs is None
     with pytest.raises(pse.InspectionError, match="equivalence"):
-        prepared.freeze_advice("native_execution_nanoseconds", ())
+        prepared.freeze_advice(documents.AdviceMetric.NATIVE_EXECUTION_NANOSECONDS, ())
     replay = result.replay()
     document = replay.document(bytes=128 * 1024 * 1024)
     assert document.coverage.usable == result.usable
@@ -215,19 +215,23 @@ def test_frozen_advice_uses_actual_native_cohort_and_survives_replay(
             candidate=candidate,
             cohort=inputs.cohort,
             matched=inputs.candidates[0],
-            outcome="complete",
+            outcome=documents.AdviceOutcome.COMPLETE,
             value=float(index + 1),
         )
         for index, candidate in enumerate(inputs.candidates)
     )
-    frozen = prepared.freeze_advice("native_execution_nanoseconds", observations)
+    frozen = prepared.freeze_advice(
+        documents.AdviceMetric.NATIVE_EXECUTION_NANOSECONDS, observations
+    )
     assert isinstance(frozen.support, documents.AdviceSupportCompleteMatched)
     assert frozen.support.pairs == 1
     assert (
         codec.decode_json(codec.encode_json(frozen), documents.FrozenAdviceOutput)
         == frozen
     )
-    tied = prepared.freeze_advice("native_execution_nanoseconds", ())
+    tied = prepared.freeze_advice(
+        documents.AdviceMetric.NATIVE_EXECUTION_NANOSECONDS, ()
+    )
     assert isinstance(tied.support, documents.AdviceSupportBaselineTie)
     assert tied.ordered == tied.baseline
     settings = msgspec.structs.replace(

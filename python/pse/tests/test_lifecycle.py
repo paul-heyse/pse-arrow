@@ -9,6 +9,7 @@ import pytest
 
 import pse
 from pse.contracts.documents import (
+    LifecycleKind,
     LifecycleTarget,
     ProjectNavigationProjectVisibility,
     ProjectNavigationRequest,
@@ -53,7 +54,7 @@ def test_referenced_source_explanation_is_not_a_foreign_or_stale_release_grant(
     runtime = canonical_substrate.runtime(inspection_settings)
     revision = project_source(runtime)
     selected = runtime.lifecycle_select(
-        LifecycleTarget(kind="source_history", key=revision)
+        LifecycleTarget(kind=LifecycleKind.SOURCE_HISTORY, key=revision)
     )
     explanation = runtime.lifecycle_explain(selected)
     assert explanation.selection.issuing_store == selected.issuing_store
@@ -102,7 +103,7 @@ def test_historical_draft_release_rechecks_head_generation_and_keeps_summary(
         first_bytes,
     )
     runtime.project_draft_save(first, first_bytes)
-    target = LifecycleTarget(kind="draft_version", key="first-raw")
+    target = LifecycleTarget(kind=LifecycleKind.DRAFT_VERSION, key="first-raw")
     current = runtime.lifecycle_select(target)
     assert any(
         b.kind == "current_draft_head"
