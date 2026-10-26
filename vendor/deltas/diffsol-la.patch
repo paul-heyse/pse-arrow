@@ -1,0 +1,14 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 94d16bafd2fa2d288d3c0b4c62ad1de69f595698..20bc232826d753825d48ac4c175f80883ecaebcc 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -73,7 +73,8 @@ version = "0.35"
+ version = "0.2.17"
+ 
+ [dependencies.suitesparse_sys]
+-version = "0.1"
++version = "=0.1.4"
++path = "../suitesparse-sys"
+ optional = true
+ 
+ [dependencies.thiserror]

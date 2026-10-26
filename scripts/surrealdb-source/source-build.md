@@ -30,6 +30,11 @@ There is no released-binary fallback.
 | `canonical-profile.patch` | Refuses persistent startup unless AOL is synchronous, fsync is every append, and periodic snapshots have a valid interval larger than 30 seconds; invalid configuration cannot silently disable snapshots. |
 | `diskann-0.56.0.patch` | One explicit `Arc::as_ref()` at the generic batch call; fixes compilation without changing the vector-index capability or algorithm. The installer checks the original crate archive before applying it. |
 | `pinned-compiler.patch` | Removes ignored/redundant manifest fields, inherits declared lints, replaces deprecated module float constants with identical primitive constants, and uses the atomic method to which the deprecated spelling delegates. Moves only `cfg_aliases` to its compatible patch release, whose three expression-position semicolon removals resolve the Nix build warning. |
+| `surrealism-locked-build.patch` | Uses locked Cargo build/metadata for modules and requires an already declared `.cargo/config.toml`; module compilation does not write project configuration. |
+| `surrealism-build-features.patch` | Carries explicit module feature selections from the CLI into the locked Cargo build. |
+| `surrealism-global-controllers.patch` | Adds process-wide fail-fast controller admission whose permit follows the physical WASM Store through idle pooling/cache eviction; propagates a typed capacity refusal. |
+| `surrealism-memory-count.patch` | Limits each admitted Store to one linear memory so the controller count times its per-memory allowance bounds aggregate linear memory. |
+| `surrealism-controller-deadline.patch` | Preserves the original context/module deadline across queueing, cold instantiation, initialization and invocation; handles cancellation and zero remaining time before allocation/work. Adds focused deadline controls. |
 
 The upstream integration is described by the [MX release migration notes](https://github.com/surrealdb/surrealmx/releases/tag/v1.0.0),
 [SurrealDB adapter](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealdb/kvs-mem/src/lib.rs)

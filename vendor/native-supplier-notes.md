@@ -1,21 +1,14 @@
 # Local native supplier corrections
 
-These are the published, locked crates.io sources, including their packaged native
-trees and upstream license files. The package SHA256 values below were checked
-against the original `.crate` archives when importing them. Every packaged file
-matches that archive except the local edits described here. Package versions stay
-unchanged; these are local build freshness corrections, not upstream releases.
-
-| Package | Version | Original package SHA256 |
-| --- | --- | --- |
-| `suitesparse_sys` | 0.1.4 | `9e4ced97d4de36a6c50e381ae4f9d91d89d056576ceedd2252e4c688dd96b15f` |
-| `sundials-sys` | 0.6.2 | `6fbd1d53481b83fc758406097f07b668bf243945e2b1f7db93a8f997cf6b44c9` |
-| `diffsol` | 0.16.2 | `4b324c954a5178683516e35e06051f02e3e2471d22b8175d9a01b274bd81269d` |
-| `diffsol-la` | 0.1.1 | `0fd836b0b52b6459b1e16c4ebfe267599b39c07a2eb638426a4e72a279a4e384` |
-| `diffsol-nl` | 0.1.1 | `6b24ab3f56ff94c563ab85e7897ba57f884617d0dc83a081028d28ec800213a1` |
+These are edited copies of the published, locked crates.io sources, including their
+packaged native trees and upstream license files. Package versions stay unchanged;
+they are local integrations, not upstream releases. The exact archives, checksums,
+packaged VCS revisions and complete byte-preserving deltas are recorded in
+[deltas/readme.md](deltas/readme.md). That record includes all added and removed files,
+not just the build-script changes described below.
 
 Cargo cache markers and `.cargo-checksum.json` are omitted. The original package
-checksums above identify the imported sources; they do not authenticate patched
+checksums in the linked archive table identify the imported sources; they do not authenticate patched
 files. `Cargo.toml.orig`, VCS metadata and packaged lockfiles remain upstream
 snapshots. The normalized `Cargo.toml` files select these local sources; production
 resolution belongs to the repository's root lockfile.
@@ -26,7 +19,9 @@ Diffsol and diffsol-nl likewise select the sibling diffsol-la/diffsol-nl package
 `=0.1.1`. This keeps one `links = "suitesparse"` source across optional SUNDIALS and
 SuiteSparse features. It requires corresponding exact-version path selections for
 the repository's direct dependencies. No dependency override table is needed.
-All upstream feature selections and numerical Rust/C sources are preserved.
+The Diffsol, diffsol-la and diffsol-nl numerical Rust/C sources are unchanged from
+their archives. SUNDIALS numerical C sources are locally modified as described below;
+the published feature declarations remain intact.
 Two SuiteSparse files retain their published CRLF bytes through a local
 `.gitattributes` exception to the repository's LF normalization policy.
 `REUSE.toml` records wrapper licenses separately from native trees. SuiteSparse's
@@ -80,8 +75,45 @@ Directory watches conservatively cover changes throughout the selected native
 include/library directories, including additions and replacements. This may observe
 unrelated files within those directories. Default linker search without a known
 library directory remains linker-owned; these scripts do not invent a linker search
-algorithm. Bundled native trees and existing CMake/compiler options remain intact.
-No speed or scientific qualification claim follows from these source corrections.
+algorithm. The build-freshness corrections retain the existing CMake/compiler options. The
+bundled SUNDIALS tree also contains the separately described changes below. No speed
+or scientific qualification claim follows from this provenance reconciliation.
+
+## Bundled SUNDIALS integration and upstream defect
+
+Against the checksum-verified `sundials-sys` archive, twelve files have substantive
+edits; none is a whitespace-only edit. `Cargo.toml` and `build.rs` contain the local
+provider and freshness wiring above. The remaining ten files are:
+
+| Files relative to `vendor/sundials-sys` | Local change |
+|---|---|
+| `vendor/include/idas/idas.h` | Declares checkpoint population/usage, backward-problem count and accepted-step budget/query APIs. |
+| `vendor/src/idas/idaa.c`, `vendor/src/idas/idaa_io.c` | Maintains checkpoint population/high-water accounting, refuses checkpoint growth above its limit, exposes backward count, and bounds checkpoint replay without renewing the owner budget on restoration. |
+| `vendor/src/idas/idas_impl.h`, `vendor/src/idas/idas_io.c` | Stores/initializes the IDAS budget/accounting state and exposes accepted-step budget/query functions. |
+| `vendor/src/idas/idas.c` | Checks and charges accepted physical steps, and factors the existing quadrature derivative initialization into helpers reusable after consistent initialization. |
+| `vendor/src/idas/idas_ic.c` | Calls `IDAInitialQuadDerivatives` after successful `IDACalcIC`, in both the ordinary/simultaneous and staggered-sensitivity paths. |
+| `vendor/include/sunlinsol/sunlinsol_klu.h`, `vendor/src/sunlinsol/klu/sunlinsol_klu.c` | Adds opt-in `SUNLinSol_KLUFixedPattern`, canonical CSC-pattern checks, valid symbolic reuse, read-only work counters and synchronous work notifications. Fixed-pattern owners refuse mutable native accessors; the generic constructor retains its upstream mode. |
+| `wrapper.h` | Includes the KLU header for bindgen exposure of those APIs. |
+
+The genuine upstream-defect workaround is the quadrature history refresh, introduced
+by commit `8dc1f9a9e`. In bundled SUNDIALS 7.1.1, `IDACalcIC` corrects the primal and
+sensitivity initial state after the quadrature derivative history was initialized.
+The local correction refreshes `phiQ[1]` and, when enabled, `phiQS[1]` from that
+corrected state without resetting the solver/work counters or the initial quadrature
+values. Callback failures propagate before physical integration starts. This is a
+numerical behavior correction, not a build-freshness change. The checkpoint/budget,
+KLU accounting and fixed-pattern additions are local integrations; missing upstream
+APIs alone do not make them upstream defects.
+
+The enduring behavior is declared by blueprint §13. Historical functional controls
+are `quadrature_histories_use_corrected_algebraic_initial_state_and_sensitivities`,
+`quadrature_histories_use_corrected_algebraic_scheduled_state_and_sensitivities` and
+`corrected_quadrature_history_callback_failures_stop_before_physical_steps` in
+`crates/pse-backend-native/src/dynamics/idas_initial_tests.rs`; current qualification
+has its owner in blueprint §24.2. This reconciliation does not rerun those controls
+or claim new native qualification. Register R-41 owns the release/report revisit for
+the quadrature defect. At a supplier move, compare the pinned upstream fix with this
+hunk and run those controls before removing it.
 
 ## Proposed functional probes
 

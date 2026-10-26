@@ -75,6 +75,27 @@ or incomplete transaction cannot become successful IndexedResults. The bounded
 streaming trait uses this completed buffered result before emitting items;
 canonical metadata and protected-result operations remain bounded page requests.
 
+## W3C context and dependency-built controls
+
+The `protocol-grpc` feature also selects exact `opentelemetry` / `opentelemetry_sdk`
+0.33.1 and `tracing-opentelemetry` 0.34.0 dependencies. `RequestTrace` in
+`src/engine/remote/grpc_lifecycle.rs` captures the actual tracing/OpenTelemetry parent,
+subscriber and request span, and carries them through spawned request work and
+response conversion. At the HTTP/2 request seam it removes stale `traceparent` and
+`tracestate` fields, then injects the standard W3C carrier with `TraceContextPropagator`.
+An absent provider can propagate authentic API context without manufacturing a parent.
+Observation retains no deadline, admission or physical-drain authority.
+
+`grpc-lifecycle-test-support` enables dependency-built lifecycle controls, selecting
+`protocol-grpc`, the optional `tracing-subscriber` registry and `hyper/server`. Those
+controls live in `src/engine/remote/grpc_lifecycle_tests.rs`; production does not select
+the support feature or install providers through it. These changes arrived with Plan
+52 (`78b26a9d9`) and belong in a supplier rebase alongside the lifecycle patch.
+
+The complete upstream-to-edited-tree delta, including whitespace, manifests, the
+standalone lockfile and added files, is linked from [../patches.md](../patches.md).
+The embedded wire-schema extraction remains the separate, pinned maintenance route below.
+
 ## Maintaining the pinned wire boundary
 
 `src/engine/remote/grpc_wire_schema.rs` contains structural field shapes extracted

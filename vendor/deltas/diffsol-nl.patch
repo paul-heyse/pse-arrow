@@ -1,0 +1,14 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index b1a24ed00e713efc38a41cea48ad0a0a273efd8a..39eaed728eec513868b22a0fede0941a401b4775 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -46,7 +46,8 @@ name = "diffsol_nl"
+ path = "src/lib.rs"
+ 
+ [dependencies.diffsol-la]
+-version = "0.1.1"
++version = "=0.1.1"
++path = "../diffsol-la"
+ default-features = false
+ 
+ [dependencies.log]

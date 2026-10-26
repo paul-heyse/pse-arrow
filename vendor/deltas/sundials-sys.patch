@@ -1,0 +1,1194 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 84e403cec66d368a612fb75ed9b43df49c22691d..67f0d6cad6e067ad6211e1178017dc36dbcb739a 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -74,7 +74,8 @@ name = "cvode"
+ path = "tests/cvode.rs"
+ 
+ [dependencies.suitesparse_sys]
+-version = "0.1.3"
++version = "=0.1.4"
++path = "../suitesparse-sys"
+ optional = true
+ 
+ [build-dependencies.bindgen]
+diff --git a/build.rs b/build.rs
+index ac1fc936b1fccab44351b33ee18cf51f944403cb..9a492275d1009515a77b7d5ad27b58eaaf0a0848 100644
+--- a/build.rs
++++ b/build.rs
+@@ -71,10 +71,53 @@ struct Library {
+     inc: Option<String>,
+     /// Location of the library.
+     lib: Option<String>,
++    /// Headers produced by this build's CMake invocation, rather than a provider.
++    generated_include: Option<PathBuf>,
++}
++
++#[derive(Debug)]
++struct CargoInputs {
++    generated_include: Option<PathBuf>,
++}
++
++impl bindgen::callbacks::ParseCallbacks for CargoInputs {
++    fn include_file(&self, filename: &str) {
++        let generated = self.generated_include.as_ref().is_some_and(|include| {
++            let Ok(canonical_include) = include.canonicalize() else {
++                return false;
++            };
++            let header = Path::new(filename);
++            // Keep external aliases watched, even when their target is generated.
++            if !header.starts_with(include) && !header.starts_with(&canonical_include) {
++                return false;
++            }
++            // A symlink or parent component escaping the output namespace is an input.
++            header
++                .canonicalize()
++                .is_ok_and(|path| path.starts_with(&canonical_include))
++        });
++        if !generated {
++            bindgen::callbacks::ParseCallbacks::include_file(&bindgen::CargoCallbacks, filename);
++        }
++    }
++
++    fn read_env_var(&self, key: &str) {
++        bindgen::callbacks::ParseCallbacks::read_env_var(&bindgen::CargoCallbacks, key);
++    }
+ }
+ 
+ /// Build the Sundials code vendor with sundials-sys.
+ fn build_vendor_sundials(klu: &Library) -> (Library, &'static str) {
++    println!("cargo:rerun-if-changed=vendor");
++    // SundialsSetupConfig.cmake exports CI metadata or a CMake timestamp through
++    // public SUN_JOB_* macros. CMake's timestamp also consumes epoch/timezone.
++    for name in ["CI_JOB_ID", "CI_JOB_STARTED_AT", "SOURCE_DATE_EPOCH", "TZ"] {
++        println!("cargo:rerun-if-env-changed={}", name);
++    }
++    // This directory is consumed by CMake only on the bundled SUNDIALS path.
++    if let Some(dir) = &klu.lib {
++        println!("cargo:rerun-if-changed={}", dir);
++    }
+     macro_rules! feature {
+         ($s:tt) => {
+             if cfg!(feature = $s) {
+@@ -120,12 +163,22 @@ fn build_vendor_sundials(klu: &Library) -> (Library, &'static str) {
+     let dst = config.build();
+     let dst_disp = dst.display();
+     let lib_loc = Some(format!("{}/lib", dst_disp));
+-    let inc_dir = Some(format!("{}/include", dst_disp));
+-    (Library { inc: inc_dir, lib: lib_loc }, library_type)
++    let generated_include = dst.join("include");
++    let inc_dir = Some(generated_include.display().to_string());
++    (
++        Library {
++            inc: inc_dir,
++            lib: lib_loc,
++            generated_include: Some(generated_include),
++        },
++        library_type,
++    )
+ }
+ 
+-fn generate_bindings(inc_dirs: &[Option<String>]) -> Result<Bindings, BindgenError>
+-{
++fn generate_bindings(
++    inc_dirs: &[Option<String>],
++    generated_include: Option<PathBuf>,
++) -> Result<Bindings, BindgenError> {
+     macro_rules! define {
+         ($a:tt, $b:tt) => {
+             format!(
+@@ -136,7 +189,11 @@ fn generate_bindings(inc_dirs: &[Option<String>]) -> Result<Bindings, BindgenErr
+         };
+     }
+ 
+-    let mut builder = bindgen::Builder::default().header("wrapper.h");
++    let mut builder = bindgen::Builder::default()
++        .header("wrapper.h")
++        // Parse the header typedefs rather than Clang builtin prototypes, so
++        // C size_t remains Rust usize without changing native compilation.
++        .clang_arg("-fno-builtin");
+     for dir in inc_dirs {
+         if let Some(dir) = dir {
+             builder = builder.clang_arg(format!("-I{}", dir))
+@@ -154,11 +211,23 @@ fn generate_bindings(inc_dirs: &[Option<String>]) -> Result<Bindings, BindgenErr
+             define!("nvecopenmp", OPENMP),
+             define!("nvecpthreads", PTHREADS),
+         ])
++        // CMake-installed headers are outputs. Watching them would make a
++        // timestamp-changing build invalidate itself after Cargo starts it.
++        .parse_callbacks(Box::new(CargoInputs { generated_include }))
+         .parse_callbacks(Box::new(ParseSignedConstants))
+         .parse_callbacks(Box::new(IgnoreMacros::new()))
+         .generate()
+ }
+ 
++fn write_bindings_if_changed(bindings: &Bindings, path: &Path) -> std::io::Result<()> {
++    let mut bytes = Vec::new();
++    bindings.write(Box::new(&mut bytes))?;
++    if std::fs::read(path).ok().as_deref() != Some(bytes.as_slice()) {
++        std::fs::write(path, bytes)?;
++    }
++    Ok(())
++}
++
+ fn get_sundials_version_major(bindings: impl AsRef<Path>) -> Option<u32> {
+     let b = File::open(bindings).expect("Couldn't read file bindings.rs!");
+     let mut b = BufReader::new(b).bytes();
+@@ -192,19 +261,36 @@ fn get_sundials_version_major(bindings: impl AsRef<Path>) -> Option<u32> {
+ }
+ 
+ fn main() {
+-    // get klu dirs
+-    let klu_inc = env::var("DEP_SUITESPARSE_SUITESPARSE_INCLUDE").ok();
+-    let klu_lib = env::var("DEP_SUITESPARSE_SUITESPARSE_LIB").ok();
++    println!("cargo:rerun-if-changed=build.rs");
++    println!("cargo:rerun-if-changed=wrapper.h");
++    // Cargo supplies DEP_* from the selected links dependency, not the caller's
++    // environment. Its build metadata invalidates us; do not emit env watches.
++    let klu = if cfg!(feature = "klu") {
++        Library {
++            inc: env::var("DEP_SUITESPARSE_SUITESPARSE_INCLUDE").ok(),
++            lib: env::var("DEP_SUITESPARSE_SUITESPARSE_LIB").ok(),
++            generated_include: None,
++        }
++    } else {
++        Library { inc: None, lib: None, generated_include: None }
++    };
++    if let Some(dir) = &klu.inc {
++        println!("cargo:rerun-if-changed={}", dir);
++    }
+ 
+     // First, we build the SUNDIALS library, with requested modules with CMake
+-    let klu = Library { inc: klu_inc, lib: klu_lib };
+-    let mut sundials = Library { inc: None, lib: None };
++    let mut sundials = Library { inc: None, lib: None, generated_include: None };
+     let mut library_type = "dylib";
+     if cfg!(any(feature = "build_libraries", target_family = "wasm")) {
+         (sundials, library_type) = build_vendor_sundials(&klu);
+     } else {
++        println!("cargo:rerun-if-env-changed=SUNDIALS_INCLUDE_DIR");
++        println!("cargo:rerun-if-env-changed=SUNDIALS_LIBRARY_DIR");
+         sundials.inc = env::var("SUNDIALS_INCLUDE_DIR").ok();
+         sundials.lib = env::var("SUNDIALS_LIBRARY_DIR").ok();
++        for dir in [sundials.inc.as_ref(), sundials.lib.as_ref()].into_iter().flatten() {
++            println!("cargo:rerun-if-changed={}", dir);
++        }
+     }
+ 
+     if sundials.lib.is_none() && sundials.inc.is_none() {
+@@ -224,8 +310,11 @@ fn main() {
+         .join("bindings.rs");
+     let mut build_vendor = true;
+     let mut sundials_version_major = 0;
+-    if let Ok(bindings) = generate_bindings(&[sundials.inc, klu.inc.clone()]) {
+-        bindings.write_to_file(&bindings_rs)
++    if let Ok(bindings) = generate_bindings(
++        &[sundials.inc, klu.inc.clone()],
++        sundials.generated_include,
++    ) {
++        write_bindings_if_changed(&bindings, &bindings_rs)
+             .expect("Couldn't write file bindings.rs!");
+         if let Some(v) = get_sundials_version_major(&bindings_rs) {
+             if v >= 6 {
+@@ -239,9 +328,11 @@ fn main() {
+     }
+     if build_vendor {
+         (sundials, library_type) = build_vendor_sundials(&klu);
+-        if let Ok(bindings) = generate_bindings(&[sundials.inc, klu.inc.clone()]) {
+-            bindings
+-                .write_to_file(&bindings_rs)
++        if let Ok(bindings) = generate_bindings(
++            &[sundials.inc, klu.inc.clone()],
++            sundials.generated_include,
++        ) {
++            write_bindings_if_changed(&bindings, &bindings_rs)
+                 .expect("Couldn't write file bindings.rs!");
+             sundials_version_major = get_sundials_version_major(&bindings_rs)
+                 .expect("Cannot determine vendor sundials version!");
+diff --git a/vendor/include/idas/idas.h b/vendor/include/idas/idas.h
+index 3f82d6f47ade94a1e13bd9e0d511506787698e27..8e35c52468f6d115e7ed40d412f1421b91b64c3a 100644
+--- a/vendor/include/idas/idas.h
++++ b/vendor/include/idas/idas.h
+@@ -456,6 +456,26 @@ SUNDIALS_EXPORT int IDAAdjInit(void* ida_mem, long int steps, int interp);
+ 
+ SUNDIALS_EXPORT int IDAAdjReInit(void* ida_mem);
+ 
++/* Maintained checkpoint population owner. Limit includes the initial checkpoint;
++ * zero refuses its creation. Negative limits are invalid. Setting a limit does
++ * not clear a prior refusal or native history. Reinit releases current population
++ * and clears refusal, retaining the installed limit and lifetime high-water mark. */
++SUNDIALS_EXPORT int IDASetCheckpointLimit(void* ida_mem, long int maximum);
++SUNDIALS_EXPORT int IDAGetCheckpointUsage(void* ida_mem, long int* current,
++                                       long int* peak, int* refused);
++
++
++/* Maintained bounded checkpoint-replay owner API. Zero refuses advancement;
++   negative disables the guard. Setting permission resets only this observation,
++   never native history. Reinitialization/checkpoint restoration do not renew it. */
++/* Maintained owner budget, usable on forward or IDAGetAdjIDABmem memory.
++ * Zero permits covered output/root service but no further native advancement;
++ * negative disables the guard. Counter is accepted steps since the setter. */
++SUNDIALS_EXPORT int IDASetAcceptedStepBudget(void* ida_mem, long int remaining);
++SUNDIALS_EXPORT int IDAGetAcceptedBudgetSteps(void* ida_mem, long int* accepted);
++SUNDIALS_EXPORT int IDASetReplayStepLimit(void* ida_mem, long int remaining);
++SUNDIALS_EXPORT int IDAGetReplayNumSteps(void* ida_mem, long int* accepted);
++
+ SUNDIALS_EXPORT void IDAAdjFree(void* ida_mem);
+ 
+ /* Backward Problem Setup Functions */
+diff --git a/vendor/include/sunlinsol/sunlinsol_klu.h b/vendor/include/sunlinsol/sunlinsol_klu.h
+index cdedc9d1d39ee810e120186092019aa4b56b95d3..a762ee14822cb4fe89c0fc6a0bf3cd19457d841f 100644
+--- a/vendor/include/sunlinsol/sunlinsol_klu.h
++++ b/vendor/include/sunlinsol/sunlinsol_klu.h
+@@ -26,6 +26,7 @@
+ #ifndef _SUNLINSOL_KLU_H
+ #define _SUNLINSOL_KLU_H
+ 
++#include <stdint.h>
+ #include <sundials/sundials_linearsolver.h>
+ #include <sundials/sundials_matrix.h>
+ #include <sundials/sundials_nvector.h>
+@@ -88,14 +89,43 @@ typedef sunindextype (*KLUSolveFn)(sun_klu_symbolic*, sun_klu_numeric*,
+                                    sunindextype, sunindextype, double*,
+                                    sun_klu_common*);
+ 
++/* Source-owned lifetime work; queries never initiate numerical work. Issued
++ * counts precede actual calls; completed means that call returned successfully.
++ * Overflow makes all reported totals unavailable, never a silently exact cap. */
++typedef struct {
++  uint64_t setup_issued, setup_completed;
++  uint64_t symbolic_issued, symbolic_completed;
++  uint64_t numeric_factor_issued, numeric_factor_completed;
++  uint64_t refactor_issued, refactor_completed;
++  uint64_t rcond_issued, rcond_completed;
++  uint64_t condest_issued, condest_completed;
++  uint64_t solve_issued, solve_completed;
++  int overflow;
++} SUNLinearSolver_KLUWork;
++
++/* Optional synchronous owner notification. Phase IDs: 1 symbolic, 2 numeric
++ * factor, 3 refactor, 4 rcond, 5 condest, 6 substitution. Begin is 1, end is 0;
++ * every issued native call has an end, including failed calls. No result/admission
++ * is taken from this observer; caller owns userdata until it clears the hook. */
++typedef void (*SUNLinearSolver_KLUObserver)(int phase, int begin, void* userdata);
++
+ struct _SUNLinearSolverContent_KLU
+ {
+   int last_flag;
+   int first_factorize;
++  SUNLinearSolver_KLUWork work;
++  SUNLinearSolver_KLUObserver observer;
++  void* observer_data;
+   sun_klu_symbolic* symbolic;
+   sun_klu_numeric* numeric;
+   sun_klu_common common;
+   KLUSolveFn klu_solver;
++  /* Private fixed-pattern integration: the caller owns canonical CSC indices.
++   * No second pattern copy is stored here. A non-NULL matrix binds this owner. */
++  SUNMatrix fixed_matrix;
++  sunindextype fixed_dimension;
++  sunindextype fixed_nnz;
++  int numeric_valid;
+ };
+ 
+ typedef struct _SUNLinearSolverContent_KLU* SUNLinearSolverContent_KLU;
+@@ -106,6 +136,15 @@ typedef struct _SUNLinearSolverContent_KLU* SUNLinearSolverContent_KLU;
+ 
+ SUNDIALS_EXPORT SUNLinearSolver SUNLinSol_KLU(N_Vector y, SUNMatrix A,
+                                               SUNContext sunctx);
++/* Canonical defaults, CSC only. The caller must preserve exact index support and
++ * call BeginApplication before every nonlinear application, including accepted
++ * starts. Initialize is idempotent; each application's first setup fully factors
++ * current coefficients while retaining valid symbolic analysis. */
++SUNDIALS_EXPORT SUNLinearSolver SUNLinSol_KLUFixedPattern(N_Vector y, SUNMatrix A,
++                                                         SUNContext sunctx);
++SUNDIALS_EXPORT SUNErrCode SUNLinSol_KLUBeginApplication(SUNLinearSolver S);
++/* Read-only accounting; fixed owners refuse all mutable native accessors. */
++SUNDIALS_EXPORT SUNErrCode SUNLinSol_KLUGetMemUsage(SUNLinearSolver S, size_t* bytes);
+ SUNDIALS_EXPORT int SUNLinSol_KLUReInit(SUNLinearSolver S, SUNMatrix A,
+                                         sunindextype nnz, int reinit_type);
+ SUNDIALS_EXPORT int SUNLinSol_KLUSetOrdering(SUNLinearSolver S,
+@@ -118,6 +157,10 @@ SUNDIALS_EXPORT int SUNLinSol_KLUSetOrdering(SUNLinearSolver S,
+ SUNDIALS_EXPORT sun_klu_symbolic* SUNLinSol_KLUGetSymbolic(SUNLinearSolver S);
+ SUNDIALS_EXPORT sun_klu_numeric* SUNLinSol_KLUGetNumeric(SUNLinearSolver S);
+ SUNDIALS_EXPORT sun_klu_common* SUNLinSol_KLUGetCommon(SUNLinearSolver S);
++SUNDIALS_EXPORT SUNErrCode SUNLinSol_KLUGetWork(SUNLinearSolver S, SUNLinearSolver_KLUWork* work);
++
++SUNDIALS_EXPORT SUNErrCode SUNLinSol_KLUSetObserver(SUNLinearSolver S,
++  SUNLinearSolver_KLUObserver observer, void* userdata);
+ 
+ /* -----------------------------------------------
+  *  Implementations of SUNLinearSolver operations
+diff --git a/vendor/src/idas/idaa.c b/vendor/src/idas/idaa.c
+index 803d1efa87c8d151508d07d5bd1fa94ec272bd69..b02e38af88dc70c6d03cf1d032b6d450ae93ecdb 100644
+--- a/vendor/src/idas/idaa.c
++++ b/vendor/src/idas/idaa.c
+@@ -20,6 +20,7 @@
+ /*                  Import Header Files                            */
+ /*=================================================================*/
+ 
++#include <limits.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <sundials/sundials_math.h>
+@@ -149,9 +150,15 @@ int IDAAdjInit(void* ida_mem, long int steps, int interp)
+   IDAADJ_mem->ia_nckpnts   = 0;
+   IDAADJ_mem->ia_ckpntData = NULL;
+ 
++  IDAADJ_mem->ia_pse_checkpoint_limit = -1;
++  IDAADJ_mem->ia_pse_checkpoint_peak = 0;
++  IDAADJ_mem->ia_pse_checkpoint_refused = SUNFALSE;
++
+   /* Initialization of interpolation data. */
+   IDAADJ_mem->ia_interpType = interp;
+   IDAADJ_mem->ia_nsteps     = steps;
++  IDAADJ_mem->ia_pse_replay_remaining = -1;
++  IDAADJ_mem->ia_pse_replay_steps = 0;
+ 
+   /* Last index used in IDAAfindIndex, initailize to invalid value */
+   IDAADJ_mem->ia_ilast = -1;
+@@ -262,6 +269,7 @@ int IDAAdjReInit(void* ida_mem)
+   IDAADJ_mem->ck_mem       = NULL;
+   IDAADJ_mem->ia_nckpnts   = 0;
+   IDAADJ_mem->ia_ckpntData = NULL;
++  IDAADJ_mem->ia_pse_checkpoint_refused = SUNFALSE;
+ 
+   /* Flags for tracking the first calls to IDASolveF and IDASolveF. */
+   IDAADJ_mem->ia_firstIDAFcall = SUNTRUE;
+@@ -272,6 +280,34 @@ int IDAAdjReInit(void* ida_mem)
+   return (IDA_SUCCESS);
+ }
+ 
++/* Maintained owner hooks. The population includes ck_mem's initial checkpoint,
++ * whereas upstream ia_nckpnts counts only later checkpoints. */
++int IDASetCheckpointLimit(void* ida_mem, long int maximum)
++{
++  if (ida_mem == NULL) { return IDA_MEM_NULL; }
++  IDAMem mem = (IDAMem)ida_mem;
++  if (mem->ida_adjMallocDone == SUNFALSE) { return IDA_NO_ADJ; }
++  IDAadjMem adj = mem->ida_adj_mem;
++  long int current = (adj->ck_mem == NULL) ? 0 : ((long int)adj->ia_nckpnts + 1);
++  if (maximum < 0 || maximum > INT_MAX || maximum < current) { return IDA_ILL_INPUT; }
++  adj->ia_pse_checkpoint_limit = maximum;
++  return IDA_SUCCESS;
++}
++
++int IDAGetCheckpointUsage(void* ida_mem, long int* current, long int* peak,
++                          int* refused)
++{
++  if (ida_mem == NULL) { return IDA_MEM_NULL; }
++  if (current == NULL || peak == NULL || refused == NULL) { return IDA_ILL_INPUT; }
++  IDAMem mem = (IDAMem)ida_mem;
++  if (mem->ida_adjMallocDone == SUNFALSE) { return IDA_NO_ADJ; }
++  IDAadjMem adj = mem->ida_adj_mem;
++  *current = (adj->ck_mem == NULL) ? 0 : ((long int)adj->ia_nckpnts + 1);
++  *peak = adj->ia_pse_checkpoint_peak;
++  *refused = (adj->ia_pse_checkpoint_refused == SUNTRUE) ? 1 : 0;
++  return IDA_SUCCESS;
++}
++
+ /*
+  * IDAAdjFree
+  *
+@@ -397,6 +433,11 @@ int IDASolveF(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
+     return (IDA_NO_ADJ);
+   }
+   IDAADJ_mem = IDA_mem->ida_adj_mem;
++  if (IDAADJ_mem->ia_pse_checkpoint_refused)
++  {
++    SUNDIALS_MARK_FUNCTION_END(IDA_PROFILER);
++    return IDA_MEM_FAIL;
++  }
+ 
+   /* Check for yret != NULL */
+   if (yret == NULL)
+@@ -453,6 +494,12 @@ int IDASolveF(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
+    */
+   if (IDAADJ_mem->ia_firstIDAFcall)
+   {
++    if (IDAADJ_mem->ia_pse_checkpoint_limit == 0)
++    {
++      IDAADJ_mem->ia_pse_checkpoint_refused = SUNTRUE;
++      SUNDIALS_MARK_FUNCTION_END(IDA_PROFILER);
++      return IDA_MEM_FAIL;
++    }
+     IDAADJ_mem->ia_tinitial = IDA_mem->ida_tn;
+     IDAADJ_mem->ck_mem      = IDAAckpntInit(IDA_mem);
+     if (IDAADJ_mem->ck_mem == NULL)
+@@ -463,6 +510,11 @@ int IDASolveF(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
+       return (IDA_MEM_FAIL);
+     }
+ 
++    if (IDAADJ_mem->ia_pse_checkpoint_peak < 1)
++    {
++      IDAADJ_mem->ia_pse_checkpoint_peak = 1;
++    }
++
+     if (!IDAADJ_mem->ia_mallocDone)
+     {
+       /* Do we need to store sensitivities? */
+@@ -568,6 +620,14 @@ int IDASolveF(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
+     {
+       IDAADJ_mem->ck_mem->ck_t1 = IDA_mem->ida_tn;
+ 
++      /* Refuse before allocating, including zero-advance root/stop returns. */
++      if (IDAADJ_mem->ia_pse_checkpoint_limit >= 0 &&
++          (long int)IDAADJ_mem->ia_nckpnts + 1 >= IDAADJ_mem->ia_pse_checkpoint_limit)
++      {
++        IDAADJ_mem->ia_pse_checkpoint_refused = SUNTRUE;
++        flag = IDA_MEM_FAIL;
++        break;
++      }
+       /* Create a new check point, load it, and append it to the list */
+       tmp = IDAAckpntNew(IDA_mem);
+       if (tmp == NULL)
+@@ -579,6 +639,10 @@ int IDASolveF(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
+       tmp->ck_next       = IDAADJ_mem->ck_mem;
+       IDAADJ_mem->ck_mem = tmp;
+       IDAADJ_mem->ia_nckpnts++;
++      if ((long int)IDAADJ_mem->ia_nckpnts + 1 > IDAADJ_mem->ia_pse_checkpoint_peak)
++      {
++        IDAADJ_mem->ia_pse_checkpoint_peak = (long int)IDAADJ_mem->ia_nckpnts + 1;
++      }
+ 
+       IDA_mem->ida_forceSetup = SUNTRUE;
+ 
+@@ -2398,7 +2462,7 @@ static int IDAAdataStore(IDAMem IDA_mem, IDAckpntMem ck_mem)
+   IDAadjMem IDAADJ_mem;
+   IDAdtpntMem* dt_mem;
+   sunrealtype t;
+-  long int i;
++  long int i, before, accepted;
+   int flag, sign;
+ 
+   IDAADJ_mem = IDA_mem->ida_adj_mem;
+@@ -2423,8 +2487,25 @@ static int IDAAdataStore(IDAMem IDA_mem, IDAckpntMem ck_mem)
+   /* Run IDASolve in IDA_ONE_STEP mode to set following structures in dt_mem[i]. */
+   i = 1;
+   do {
++    /* This loop is hidden inside IDASolveB. The public per-call mxstep setting
++       cannot bound it because each nested call requests ONE_STEP. Guard at the
++       actual replay owner, independently of restored checkpoint counters. */
++    if (IDAADJ_mem->ia_pse_replay_remaining == 0)
++    {
++      return (IDA_TOO_MUCH_WORK);
++    }
++    before = IDA_mem->ida_nst;
+     flag = IDASolve(IDA_mem, ck_mem->ck_t1, &t, IDAADJ_mem->ia_yyTmp,
+                     IDAADJ_mem->ia_ypTmp, IDA_ONE_STEP);
++    accepted = IDA_mem->ida_nst - before;
++    if (accepted > 0 && IDAADJ_mem->ia_pse_replay_remaining >= 0)
++    {
++      IDAADJ_mem->ia_pse_replay_steps += accepted;
++      if (IDAADJ_mem->ia_pse_replay_remaining > 0)
++      {
++        IDAADJ_mem->ia_pse_replay_remaining -= accepted;
++      }
++    }
+     if (flag < 0) { return (IDA_FWD_FAIL); }
+ 
+     dt_mem[i]->t = t;
+diff --git a/vendor/src/idas/idaa_io.c b/vendor/src/idas/idaa_io.c
+index 0dc65d4592a2e3910d318d29bf7afe7ecaf5c7d5..8e4f420ade1498a7c9dc2536f2431a3bf3c6872e 100644
+--- a/vendor/src/idas/idaa_io.c
++++ b/vendor/src/idas/idaa_io.c
+@@ -40,6 +40,28 @@
+ 
+ #define ONE SUN_RCONST(1.0)
+ 
++int IDASetReplayStepLimit(void* ida_mem, long int remaining)
++{
++  IDAMem mem;
++  if (ida_mem == NULL) { return IDA_MEM_NULL; }
++  mem = (IDAMem)ida_mem;
++  if (mem->ida_adj_mem == NULL) { return IDA_NO_ADJ; }
++  mem->ida_adj_mem->ia_pse_replay_remaining = remaining;
++  mem->ida_adj_mem->ia_pse_replay_steps = 0;
++  return IDA_SUCCESS;
++}
++
++int IDAGetReplayNumSteps(void* ida_mem, long int* accepted)
++{
++  IDAMem mem;
++  if (ida_mem == NULL) { return IDA_MEM_NULL; }
++  mem = (IDAMem)ida_mem;
++  if (mem->ida_adj_mem == NULL) { return IDA_NO_ADJ; }
++  if (accepted == NULL) { return IDA_ILL_INPUT; }
++  *accepted = mem->ida_adj_mem->ia_pse_replay_steps;
++  return IDA_SUCCESS;
++}
++
+ /*
+  * -----------------------------------------------------------------
+  * Optional input functions for ASA
+diff --git a/vendor/src/idas/idas.c b/vendor/src/idas/idas.c
+index 3174660c12708297400cdafb004edfe212e6eec2..07a9f0e01fc3f2ff8b6b63220003348a63abde31 100644
+--- a/vendor/src/idas/idas.c
++++ b/vendor/src/idas/idas.c
+@@ -263,6 +263,9 @@ static void IDAQuadSensFreeVectors(IDAMem ida_mem);
+ /* Initial setup */
+ 
+ int IDAInitialSetup(IDAMem IDA_mem);
++int IDAInitialQuadDerivatives(IDAMem IDA_mem);
++static int IDAQuadInitialDerivative(IDAMem IDA_mem);
++static int IDAQuadSensInitialDerivative(IDAMem IDA_mem);
+ 
+ static int IDAEwtSetSS(IDAMem IDA_mem, N_Vector ycur, N_Vector weight);
+ static int IDAEwtSetSV(IDAMem IDA_mem, N_Vector ycur, N_Vector weight);
+@@ -439,6 +442,8 @@ void* IDACreate(SUNContext sunctx)
+   IDA_mem->ida_edata          = NULL;
+   IDA_mem->ida_maxord         = MAXORD_DEFAULT;
+   IDA_mem->ida_mxstep         = MXSTEP_DEFAULT;
++  IDA_mem->ida_pse_accepted_remaining = -1;
++  IDA_mem->ida_pse_accepted_steps = 0;
+   IDA_mem->ida_hmax_inv       = HMAX_INV_DEFAULT;
+   IDA_mem->ida_hmin           = HMIN_DEFAULT;
+   IDA_mem->ida_eta_max_fx     = ETA_MAX_FX_DEFAULT;
+@@ -2860,7 +2865,8 @@ int IDASolve(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
+   {
+     /* Check for too many steps taken. */
+ 
+-    if ((IDA_mem->ida_mxstep > 0) && (nstloc >= IDA_mem->ida_mxstep))
++    if (IDA_mem->ida_pse_accepted_remaining == 0 ||
++        ((IDA_mem->ida_mxstep > 0) && (nstloc >= IDA_mem->ida_mxstep)))
+     {
+       IDAProcessError(IDA_mem, IDA_ILL_INPUT, __LINE__, __func__, __FILE__,
+                       MSG_MAX_STEPS, IDA_mem->ida_tn);
+@@ -2980,7 +2986,18 @@ int IDASolve(void* ida_mem, sunrealtype tout, sunrealtype* tret, N_Vector yret,
+ 
+     /* Call IDAStep to take a step. */
+ 
+-    sflag = IDAStep(IDA_mem);
++    {
++      long int before = IDA_mem->ida_nst;
++      sflag = IDAStep(IDA_mem);
++      long int accepted = IDA_mem->ida_nst - before;
++      /* IDAStep owns rejected trials; only its accepted counter consumes this
++         permission, including acceptance preceding a later failed return. */
++      if (accepted > 0 && IDA_mem->ida_pse_accepted_remaining >= 0)
++      {
++        IDA_mem->ida_pse_accepted_steps += accepted;
++        IDA_mem->ida_pse_accepted_remaining -= accepted;
++      }
++    }
+ 
+     /* Process all failed-step cases, and exit loop. */
+ 
+@@ -4969,23 +4986,8 @@ int IDAInitialSetup(IDAMem IDA_mem)
+ 
+   if (IDA_mem->ida_quadr)
+   {
+-    /* Evaluate quadrature rhs and set phiQ[1] */
+-    ier = IDA_mem->ida_rhsQ(IDA_mem->ida_tn, IDA_mem->ida_phi[0],
+-                            IDA_mem->ida_phi[1], IDA_mem->ida_phiQ[1],
+-                            IDA_mem->ida_user_data);
+-    IDA_mem->ida_nrQe++;
+-    if (ier < 0)
+-    {
+-      IDAProcessError(IDA_mem, IDA_QRHS_FAIL, __LINE__, __func__, __FILE__,
+-                      MSG_QRHSFUNC_FAILED);
+-      return (IDA_QRHS_FAIL);
+-    }
+-    else if (ier > 0)
+-    {
+-      IDAProcessError(IDA_mem, IDA_FIRST_QRHS_ERR, __LINE__, __func__, __FILE__,
+-                      MSG_QRHSFUNC_FIRST);
+-      return (IDA_FIRST_QRHS_ERR);
+-    }
++    ier = IDAQuadInitialDerivative(IDA_mem);
++    if (ier != IDA_SUCCESS) { return ier; }
+ 
+     if (IDA_mem->ida_errconQ)
+     {
+@@ -5032,26 +5034,8 @@ int IDAInitialSetup(IDAMem IDA_mem)
+ 
+   if (IDA_mem->ida_quadr_sensi)
+   {
+-    /* store the quadrature sensitivity residual. */
+-    ier = IDA_mem->ida_rhsQS(IDA_mem->ida_Ns, IDA_mem->ida_tn,
+-                             IDA_mem->ida_phi[0], IDA_mem->ida_phi[1],
+-                             IDA_mem->ida_phiS[0], IDA_mem->ida_phiS[1],
+-                             IDA_mem->ida_phiQ[1], IDA_mem->ida_phiQS[1],
+-                             IDA_mem->ida_user_dataQS, IDA_mem->ida_tmpS1,
+-                             IDA_mem->ida_tmpS2, IDA_mem->ida_tmpS3);
+-    IDA_mem->ida_nrQSe++;
+-    if (ier < 0)
+-    {
+-      IDAProcessError(IDA_mem, IDA_QSRHS_FAIL, __LINE__, __func__, __FILE__,
+-                      MSG_QSRHSFUNC_FAILED);
+-      return (IDA_QRHS_FAIL);
+-    }
+-    else if (ier > 0)
+-    {
+-      IDAProcessError(IDA_mem, IDA_FIRST_QSRHS_ERR, __LINE__, __func__,
+-                      __FILE__, MSG_QSRHSFUNC_FIRST);
+-      return (IDA_FIRST_QSRHS_ERR);
+-    }
++    ier = IDAQuadSensInitialDerivative(IDA_mem);
++    if (ier != IDA_SUCCESS) { return ier; }
+ 
+     /* If using the internal DQ functions, we must have access to fQ
+      * (i.e. quadrature integration must be enabled) and to the problem parameters */
+@@ -5174,6 +5158,75 @@ int IDAInitialSetup(IDAMem IDA_mem)
+   return (IDA_SUCCESS);
+ }
+ 
++/* Refresh only quadrature derivative history after consistent initial conditions.
++ * The state/sensitivity correction does not change the quadrature initial values.
++ * Reinitializing the solver here would discard the work counters of that correction.
++ */
++int IDAInitialQuadDerivatives(IDAMem IDA_mem)
++{
++  int ier;
++  if (IDA_mem->ida_quadr)
++  {
++    ier = IDAQuadInitialDerivative(IDA_mem);
++    if (ier != IDA_SUCCESS) { return ier; }
++  }
++  if (IDA_mem->ida_quadr_sensi)
++  {
++    ier = IDAQuadSensInitialDerivative(IDA_mem);
++    if (ier != IDA_SUCCESS) { return ier; }
++  }
++  return IDA_SUCCESS;
++}
++
++static int IDAQuadInitialDerivative(IDAMem IDA_mem)
++{
++  int ier;
++  /* Evaluate quadrature rhs and set phiQ[1] */
++  ier = IDA_mem->ida_rhsQ(IDA_mem->ida_tn, IDA_mem->ida_phi[0],
++                          IDA_mem->ida_phi[1], IDA_mem->ida_phiQ[1],
++                          IDA_mem->ida_user_data);
++  IDA_mem->ida_nrQe++;
++  if (ier < 0)
++  {
++    IDAProcessError(IDA_mem, IDA_QRHS_FAIL, __LINE__, __func__, __FILE__,
++                    MSG_QRHSFUNC_FAILED);
++    return (IDA_QRHS_FAIL);
++  }
++  else if (ier > 0)
++  {
++    IDAProcessError(IDA_mem, IDA_FIRST_QRHS_ERR, __LINE__, __func__, __FILE__,
++                    MSG_QRHSFUNC_FIRST);
++    return (IDA_FIRST_QRHS_ERR);
++  }
++  return IDA_SUCCESS;
++}
++
++static int IDAQuadSensInitialDerivative(IDAMem IDA_mem)
++{
++  int ier;
++  /* store the quadrature sensitivity residual. */
++  ier = IDA_mem->ida_rhsQS(IDA_mem->ida_Ns, IDA_mem->ida_tn,
++                           IDA_mem->ida_phi[0], IDA_mem->ida_phi[1],
++                           IDA_mem->ida_phiS[0], IDA_mem->ida_phiS[1],
++                           IDA_mem->ida_phiQ[1], IDA_mem->ida_phiQS[1],
++                           IDA_mem->ida_user_dataQS, IDA_mem->ida_tmpS1,
++                           IDA_mem->ida_tmpS2, IDA_mem->ida_tmpS3);
++  IDA_mem->ida_nrQSe++;
++  if (ier < 0)
++  {
++    IDAProcessError(IDA_mem, IDA_QSRHS_FAIL, __LINE__, __func__, __FILE__,
++                    MSG_QSRHSFUNC_FAILED);
++    return (IDA_QRHS_FAIL);
++  }
++  else if (ier > 0)
++  {
++    IDAProcessError(IDA_mem, IDA_FIRST_QSRHS_ERR, __LINE__, __func__,
++                    __FILE__, MSG_QSRHSFUNC_FIRST);
++    return (IDA_FIRST_QSRHS_ERR);
++  }
++  return IDA_SUCCESS;
++}
++
+ /*
+  * IDAEwtSet
+  *
+diff --git a/vendor/src/idas/idas_ic.c b/vendor/src/idas/idas_ic.c
+index c2f4d030ba68dec7ce4b4c1783865c90cf61e389..23b6039a5f64e4346629eccdae1a264c3b0b03bb 100644
+--- a/vendor/src/idas/idas_ic.c
++++ b/vendor/src/idas/idas_ic.c
+@@ -58,6 +58,7 @@
+  */
+ 
+ extern int IDAInitialSetup(IDAMem IDA_mem);
++extern int IDAInitialQuadDerivatives(IDAMem IDA_mem);
+ 
+ extern int IDASensEwtSet(IDAMem IDA_mem, N_Vector* yScur, N_Vector* weightS);
+ 
+@@ -375,8 +376,9 @@ int IDACalcIC(void* ida_mem, int icopt, sunrealtype tout1)
+       N_VDestroyVectorArray(IDA_mem->ida_ypS0, IDA_mem->ida_Ns);
+     }
+ 
++    icret = IDAInitialQuadDerivatives(IDA_mem);
+     SUNDIALS_MARK_FUNCTION_END(IDA_PROFILER);
+-    return (IDA_SUCCESS);
++    return (icret);
+   }
+ 
+   /* Find consistent I.C. for sensitivities using a staggered approach */
+@@ -475,9 +477,10 @@ int IDACalcIC(void* ida_mem, int icopt, sunrealtype tout1)
+     return (icret);
+   }
+ 
+-  /* Otherwise return success flag. */
++  /* Refresh derivatives using the corrected state and sensitivity history. */
++  icret = IDAInitialQuadDerivatives(IDA_mem);
+   SUNDIALS_MARK_FUNCTION_END(IDA_PROFILER);
+-  return (IDA_SUCCESS);
++  return (icret);
+ }
+ 
+ /*
+diff --git a/vendor/src/idas/idas_impl.h b/vendor/src/idas/idas_impl.h
+index e54b593bc5efcd9452aaaa588e99f56497259524..9a899c12a765f4dead7d884e485e2872e29440a7 100644
+--- a/vendor/src/idas/idas_impl.h
++++ b/vendor/src/idas/idas_impl.h
+@@ -355,6 +355,10 @@ typedef struct IDAMemRec
+     --------*/
+ 
+   long int ida_nst; /* number of internal steps taken                    */
++  /* Maintained accepted-advancement budget, independent of per-call mxstep.
++     Reinitialization/restoration never grants new permission. */
++  long int ida_pse_accepted_remaining;
++  long int ida_pse_accepted_steps;
+ 
+   long int ida_nre; /* number of function (res) calls                    */
+   long int ida_nrQe;
+@@ -801,6 +805,12 @@ struct IDAadjMemRec
+   /* Number of checkpoints. */
+   int ia_nckpnts;
+ 
++  /* Maintained owner bound on actual checkpoint population, including the initial
++     checkpoint. A refused allocation is terminal until adjoint reinitialization. */
++  long int ia_pse_checkpoint_limit;
++  long int ia_pse_checkpoint_peak;
++  sunbooleantype ia_pse_checkpoint_refused;
++
+   /* ------------------
+    * Interpolation data
+    * ------------------ */
+@@ -808,6 +818,11 @@ struct IDAadjMemRec
+   /* Number of steps between 2 check points */
+   long int ia_nsteps;
+ 
++  /* Maintained owner-side guard for accepted checkpoint replay advancement.
++     Checkpoint restoration must not restore this permission or its observation. */
++  long int ia_pse_replay_remaining;
++  long int ia_pse_replay_steps;
++
+   /* Last index used in IDAAfindIndex */
+   long int ia_ilast;
+ 
+diff --git a/vendor/src/idas/idas_io.c b/vendor/src/idas/idas_io.c
+index ffbc13f95f1111d59a6dfd1175b4486c177f458d..6b0194576750eb1c866a3eabd9fce2a9af95ec7e 100644
+--- a/vendor/src/idas/idas_io.c
++++ b/vendor/src/idas/idas_io.c
+@@ -34,6 +34,23 @@
+  * =================================================================
+  */
+ 
++int IDASetAcceptedStepBudget(void* ida_mem, long int remaining)
++{
++  if (ida_mem == NULL) { return IDA_MEM_NULL; }
++  IDAMem mem = (IDAMem)ida_mem;
++  mem->ida_pse_accepted_remaining = remaining;
++  mem->ida_pse_accepted_steps = 0;
++  return IDA_SUCCESS;
++}
++
++int IDAGetAcceptedBudgetSteps(void* ida_mem, long int* accepted)
++{
++  if (ida_mem == NULL) { return IDA_MEM_NULL; }
++  if (accepted == NULL) { return IDA_ILL_INPUT; }
++  *accepted = ((IDAMem)ida_mem)->ida_pse_accepted_steps;
++  return IDA_SUCCESS;
++}
++
+ int IDASetDeltaCjLSetup(void* ida_mem, sunrealtype dcj)
+ {
+   IDAMem IDA_mem;
+diff --git a/vendor/src/sunlinsol/klu/sunlinsol_klu.c b/vendor/src/sunlinsol/klu/sunlinsol_klu.c
+index b2a1f290e2dad896caca0c1506b4c41613943679..d457bfae02e224c2f9a0c2d1110d9bfc47af18fe 100644
+--- a/vendor/src/sunlinsol/klu/sunlinsol_klu.c
++++ b/vendor/src/sunlinsol/klu/sunlinsol_klu.c
+@@ -44,6 +44,44 @@
+ #define NUMERIC(S)        (KLU_CONTENT(S)->numeric)
+ #define COMMON(S)         (KLU_CONTENT(S)->common)
+ #define SOLVE(S)          (KLU_CONTENT(S)->klu_solver)
++#define WORK(S)           (KLU_CONTENT(S)->work)
++#define FIXED(S)          (KLU_CONTENT(S)->fixed_matrix != NULL)
++/* Constant-time object guards. Exact CSC support is owned and checked by the
++ * integration before replacement, then restored by its Jacobian callback. */
++static int fixed_matrix_matches(SUNLinearSolver S, SUNMatrix A) {
++  return A && A == KLU_CONTENT(S)->fixed_matrix &&
++    SUNMatGetID(A) == SUNMATRIX_SPARSE &&
++    SUNSparseMatrix_SparseType(A) == CSC_MAT &&
++    SUNSparseMatrix_Rows(A) == KLU_CONTENT(S)->fixed_dimension &&
++    SUNSparseMatrix_Columns(A) == KLU_CONTENT(S)->fixed_dimension &&
++    SUNSparseMatrix_NP(A) == KLU_CONTENT(S)->fixed_dimension &&
++    SUNSparseMatrix_NNZ(A) == KLU_CONTENT(S)->fixed_nnz;
++}
++static void invalidate_numeric(SUNLinearSolver S) {
++  KLU_CONTENT(S)->numeric_valid = 0;
++  FIRSTFACTORIZE(S) = 1;
++  if (NUMERIC(S)) { sun_klu_free_numeric(&NUMERIC(S), &COMMON(S)); }
++}
++static int setup_failure(SUNLinearSolver S, int flag, int preserve_symbolic) {
++  if (FIXED(S)) {
++    invalidate_numeric(S);
++    if (!preserve_symbolic && SYMBOLIC(S)) {
++      sun_klu_free_symbolic(&SYMBOLIC(S), &COMMON(S));
++    }
++  }
++  LASTFLAG(S) = flag;
++  return flag;
++}
++static void count_work(uint64_t* value, int* overflow) {
++  if (*value == UINT64_MAX) { *overflow = 1; }
++  else { ++*value; }
++}
++#define COUNT_WORK(S, field) count_work(&WORK(S).field, &WORK(S).overflow)
++static void observe_work(SUNLinearSolver S, int phase, int begin) {
++  if (KLU_CONTENT(S)->observer) {
++    KLU_CONTENT(S)->observer(phase, begin, KLU_CONTENT(S)->observer_data);
++  }
++}
+ 
+ /*
+  * -----------------------------------------------------------------
+@@ -105,8 +143,15 @@ SUNLinearSolver SUNLinSol_KLU(N_Vector y, SUNMatrix A, SUNContext sunctx)
+   /* Fill content */
+   content->last_flag       = 0;
+   content->first_factorize = 1;
++  content->work = (SUNLinearSolver_KLUWork){0};
++  content->observer = NULL;
++  content->observer_data = NULL;
+   content->symbolic        = NULL;
+   content->numeric         = NULL;
++  content->fixed_matrix    = NULL;
++  content->fixed_dimension = 0;
++  content->fixed_nnz       = 0;
++  content->numeric_valid   = 0;
+ 
+ #if defined(SUNDIALS_INT64_T)
+   if (SUNSparseMatrix_SparseType(A) == CSC_MAT)
+@@ -135,6 +180,41 @@ SUNLinearSolver SUNLinSol_KLU(N_Vector y, SUNMatrix A, SUNContext sunctx)
+   return (S);
+ }
+ 
++SUNLinearSolver SUNLinSol_KLUFixedPattern(N_Vector y, SUNMatrix A, SUNContext sunctx)
++{
++  SUNLinearSolver S;
++  if (!A || !y || SUNMatGetID(A) != SUNMATRIX_SPARSE ||
++      SUNSparseMatrix_SparseType(A) != CSC_MAT) { return NULL; }
++  S = SUNLinSol_KLU(y, A, sunctx);
++  if (!S) { return NULL; }
++  KLU_CONTENT(S)->fixed_matrix = A;
++  KLU_CONTENT(S)->fixed_dimension = SUNSparseMatrix_Rows(A);
++  KLU_CONTENT(S)->fixed_nnz = SUNSparseMatrix_NNZ(A);
++  return S;
++}
++
++SUNErrCode SUNLinSol_KLUBeginApplication(SUNLinearSolver S)
++{
++  if (!S || !S->content) { return SUN_ERR_ARG_CORRUPT; }
++  if (SUNLinSolGetID(S) != SUNLINEARSOLVER_KLU || !FIXED(S)) {
++    return SUN_ERR_ARG_INCOMPATIBLE;
++  }
++  invalidate_numeric(S);
++  if (!fixed_matrix_matches(S, KLU_CONTENT(S)->fixed_matrix)) {
++    return setup_failure(S, SUN_ERR_ARG_INCOMPATIBLE, 0);
++  }
++  LASTFLAG(S) = SUN_SUCCESS;
++  return SUN_SUCCESS;
++}
++
++SUNErrCode SUNLinSol_KLUGetMemUsage(SUNLinearSolver S, size_t* bytes)
++{
++  if (!S || !S->content || !bytes) { return SUN_ERR_ARG_CORRUPT; }
++  if (SUNLinSolGetID(S) != SUNLINEARSOLVER_KLU) { return SUN_ERR_ARG_INCOMPATIBLE; }
++  *bytes = COMMON(S).memusage;
++  return SUN_SUCCESS;
++}
++
+ /* ----------------------------------------------------------------------------
+  * Function to reinitialize a KLU linear solver
+  */
+@@ -144,6 +224,7 @@ SUNErrCode SUNLinSol_KLUReInit(SUNLinearSolver S, SUNMatrix A, sunindextype nnz,
+ {
+   /* Check for non-NULL SUNLinearSolver */
+   if ((S == NULL) || (A == NULL)) { return SUN_ERR_ARG_CORRUPT; }
++  if (FIXED(S)) { return SUN_ERR_ARG_INCOMPATIBLE; }
+ 
+   /* Check for valid SUNMatrix */
+   if (SUNMatGetID(A) != SUNMATRIX_SPARSE) { return SUN_ERR_ARG_INCOMPATIBLE; }
+@@ -184,6 +265,7 @@ SUNErrCode SUNLinSol_KLUSetOrdering(SUNLinearSolver S, int ordering_choice)
+ 
+   /* Check for non-NULL SUNLinearSolver */
+   if (S == NULL) { return SUN_ERR_ARG_CORRUPT; }
++  if (FIXED(S)) { return SUN_ERR_ARG_INCOMPATIBLE; }
+ 
+   /* Set ordering_choice */
+   COMMON(S).ordering = ordering_choice;
+@@ -199,18 +281,39 @@ SUNErrCode SUNLinSol_KLUSetOrdering(SUNLinearSolver S, int ordering_choice)
+ 
+ sun_klu_symbolic* SUNLinSol_KLUGetSymbolic(SUNLinearSolver S)
+ {
++  if (!S || !S->content || FIXED(S)) { return NULL; }
+   return (SYMBOLIC(S));
+ }
+ 
+ sun_klu_numeric* SUNLinSol_KLUGetNumeric(SUNLinearSolver S)
+ {
++  if (!S || !S->content || FIXED(S)) { return NULL; }
+   return (NUMERIC(S));
+ }
+ 
+ sun_klu_common* SUNLinSol_KLUGetCommon(SUNLinearSolver S)
+ {
++  if (!S || !S->content || FIXED(S)) { return NULL; }
+   return (&(COMMON(S)));
+ }
++SUNErrCode SUNLinSol_KLUGetWork(SUNLinearSolver S, SUNLinearSolver_KLUWork* work)
++{
++  if (!S || !S->content || !work) { return SUN_ERR_ARG_CORRUPT; }
++  if (SUNLinSolGetID(S) != SUNLINEARSOLVER_KLU) { return SUN_ERR_ARG_INCOMPATIBLE; }
++  *work = WORK(S);
++  return SUN_SUCCESS;
++}
++
++SUNErrCode SUNLinSol_KLUSetObserver(SUNLinearSolver S,
++  SUNLinearSolver_KLUObserver observer, void* userdata)
++{
++  if (!S || !S->content) { return SUN_ERR_ARG_CORRUPT; }
++  if (SUNLinSolGetID(S) != SUNLINEARSOLVER_KLU) { return SUN_ERR_ARG_INCOMPATIBLE; }
++  KLU_CONTENT(S)->observer = observer;
++  KLU_CONTENT(S)->observer_data = observer ? userdata : NULL;
++  return SUN_SUCCESS;
++}
++
+ 
+ /*
+  * -----------------------------------------------------------------
+@@ -230,6 +333,10 @@ SUNLinearSolver_ID SUNLinSolGetID_KLU(SUNDIALS_MAYBE_UNUSED SUNLinearSolver S)
+ 
+ SUNErrCode SUNLinSolInitialize_KLU(SUNLinearSolver S)
+ {
++  if (!S || !S->content) { return SUN_ERR_ARG_CORRUPT; }
++  if (FIXED(S)) {
++    return SUNLinSol_KLUBeginApplication(S);
++  }
+   /* Force factorization */
+   FIRSTFACTORIZE(S) = 1;
+ 
+@@ -242,101 +349,135 @@ int SUNLinSolSetup_KLU(SUNLinearSolver S, SUNMatrix A)
+   int retval;
+   sunrealtype uround_twothirds;
+ 
++  if (!S || !S->content) { return SUN_ERR_ARG_CORRUPT; }
++  COUNT_WORK(S, setup_issued);
++  if (!A) { return setup_failure(S, SUN_ERR_ARG_CORRUPT, 1); }
++  if (FIXED(S)) {
++    if (!fixed_matrix_matches(S, A)) {
++      return setup_failure(S, SUN_ERR_ARG_INCOMPATIBLE, 0);
++    }
++    KLU_CONTENT(S)->numeric_valid = 0;
++  }
+   uround_twothirds = SUNRpowerR(SUN_UNIT_ROUNDOFF, TWOTHIRDS);
+ 
+   /* Ensure that A is a sparse matrix */
+   if (SUNMatGetID(A) != SUNMATRIX_SPARSE)
+   {
+-    LASTFLAG(S) = SUN_ERR_ARG_INCOMPATIBLE;
+-    return (LASTFLAG(S));
++    return setup_failure(S, SUN_ERR_ARG_INCOMPATIBLE, 1);
+   }
+ 
+   /* On first decomposition, get the symbolic factorization */
+   if (FIRSTFACTORIZE(S))
+   {
++    /* Generic mode preserves upstream analysis semantics. Fixed mode retains
++     * analysis only while its caller-owned pattern and native owner stay valid. */
++    if (!FIXED(S) || !SYMBOLIC(S)) {
+     /* Perform symbolic analysis of sparsity structure */
+     if (SYMBOLIC(S)) { sun_klu_free_symbolic(&SYMBOLIC(S), &COMMON(S)); }
++    COUNT_WORK(S, symbolic_issued);
++    observe_work(S, 1, 1);
+     SYMBOLIC(S) = sun_klu_analyze(SUNSparseMatrix_NP(A),
+                                   SUNSparseMatrix_IndexPointers(A),
+                                   SUNSparseMatrix_IndexValues(A), &COMMON(S));
++    observe_work(S, 1, 0);
+     if (SYMBOLIC(S) == NULL)
+     {
+-      LASTFLAG(S) = SUN_ERR_EXT_FAIL;
+-      return (LASTFLAG(S));
++      return setup_failure(S, SUN_ERR_EXT_FAIL, 0);
++    }
++
++    COUNT_WORK(S, symbolic_completed);
+     }
+ 
+     /* ------------------------------------------------------------
+        Compute the LU factorization of the matrix
+        ------------------------------------------------------------*/
+     if (NUMERIC(S)) { sun_klu_free_numeric(&NUMERIC(S), &COMMON(S)); }
++    COUNT_WORK(S, numeric_factor_issued);
++    observe_work(S, 2, 1);
+     NUMERIC(S) = sun_klu_factor(SUNSparseMatrix_IndexPointers(A),
+                                 SUNSparseMatrix_IndexValues(A),
+                                 SUNSparseMatrix_Data(A), SYMBOLIC(S), &COMMON(S));
++    observe_work(S, 2, 0);
+     if (NUMERIC(S) == NULL)
+     {
+-      LASTFLAG(S) = SUN_ERR_EXT_FAIL;
+-      return (LASTFLAG(S));
++      return setup_failure(S, SUN_ERR_EXT_FAIL, 1);
+     }
+ 
++    COUNT_WORK(S, numeric_factor_completed);
+     FIRSTFACTORIZE(S) = 0;
+   }
+   else
+   { /* not the first decomposition, so just refactor */
+ 
++    COUNT_WORK(S, refactor_issued);
++    observe_work(S, 3, 1);
+     retval = sun_klu_refactor(SUNSparseMatrix_IndexPointers(A),
+                               SUNSparseMatrix_IndexValues(A),
+                               SUNSparseMatrix_Data(A), SYMBOLIC(S), NUMERIC(S),
+                               &COMMON(S));
++    observe_work(S, 3, 0);
+     if (retval == 0)
+     {
+-      LASTFLAG(S) = SUNLS_PACKAGE_FAIL_REC;
+-      return (LASTFLAG(S));
++      return setup_failure(S, SUNLS_PACKAGE_FAIL_REC, 1);
+     }
+ 
++    COUNT_WORK(S, refactor_completed);
++
+     /*-----------------------------------------------------------
+       Check if a cheap estimate of the reciprocal of the condition
+       number is getting too small.  If so, delete
+       the prior numeric factorization and recompute it.
+       -----------------------------------------------------------*/
+ 
++    COUNT_WORK(S, rcond_issued);
++    observe_work(S, 4, 1);
+     retval = sun_klu_rcond(SYMBOLIC(S), NUMERIC(S), &COMMON(S));
++    observe_work(S, 4, 0);
+     if (retval == 0)
+     {
+-      LASTFLAG(S) = SUNLS_PACKAGE_FAIL_REC;
+-      return (LASTFLAG(S));
++      return setup_failure(S, SUNLS_PACKAGE_FAIL_REC, 1);
+     }
+ 
++    COUNT_WORK(S, rcond_completed);
+     if (COMMON(S).rcond < uround_twothirds)
+     {
+       /* Condition number may be getting large.
+ 	 Compute more accurate estimate */
++      COUNT_WORK(S, condest_issued);
++      observe_work(S, 5, 1);
+       retval = sun_klu_condest(SUNSparseMatrix_IndexPointers(A),
+                                SUNSparseMatrix_Data(A), SYMBOLIC(S), NUMERIC(S),
+                                &COMMON(S));
++      observe_work(S, 5, 0);
+       if (retval == 0)
+       {
+-        LASTFLAG(S) = SUNLS_PACKAGE_FAIL_REC;
+-        return (LASTFLAG(S));
++        return setup_failure(S, SUNLS_PACKAGE_FAIL_REC, 1);
+       }
+ 
++      COUNT_WORK(S, condest_completed);
+       if (COMMON(S).condest > (ONE / uround_twothirds))
+       {
+         /* More accurate estimate also says condition number is
+            large, so recompute the numeric factorization */
+         sun_klu_free_numeric(&NUMERIC(S), &COMMON(S));
++        COUNT_WORK(S, numeric_factor_issued);
++        observe_work(S, 2, 1);
+         NUMERIC(S) = sun_klu_factor(SUNSparseMatrix_IndexPointers(A),
+                                     SUNSparseMatrix_IndexValues(A),
+                                     SUNSparseMatrix_Data(A), SYMBOLIC(S),
+                                     &COMMON(S));
++        observe_work(S, 2, 0);
+         if (NUMERIC(S) == NULL)
+         {
+-          LASTFLAG(S) = SUN_ERR_EXT_FAIL;
+-          return (LASTFLAG(S));
++          return setup_failure(S, SUN_ERR_EXT_FAIL, 1);
+         }
++        COUNT_WORK(S, numeric_factor_completed);
+       }
+     }
+   }
+ 
++  if (FIXED(S)) { KLU_CONTENT(S)->numeric_valid = 1; }
++  COUNT_WORK(S, setup_completed);
+   LASTFLAG(S) = SUN_SUCCESS;
+   return (LASTFLAG(S));
+ }
+@@ -347,11 +488,20 @@ int SUNLinSolSolve_KLU(SUNLinearSolver S, SUNMatrix A, N_Vector x, N_Vector b,
+   int flag;
+   sunrealtype* xdata;
+ 
++  if (S && S->content) { COUNT_WORK(S, solve_issued); }
+   /* check for valid inputs */
+-  if ((A == NULL) || (S == NULL) || (x == NULL) || (b == NULL))
++  if (!S || !S->content) { return SUN_ERR_ARG_CORRUPT; }
++  if ((A == NULL) || (x == NULL) || (b == NULL))
+   {
++    if (FIXED(S)) { return setup_failure(S, SUN_ERR_ARG_CORRUPT, 1); }
+     return SUN_ERR_ARG_CORRUPT;
+   }
++  if (FIXED(S) && (!fixed_matrix_matches(S, A) ||
++      !KLU_CONTENT(S)->numeric_valid || !SYMBOLIC(S) || !NUMERIC(S) ||
++      N_VGetLength(x) != KLU_CONTENT(S)->fixed_dimension ||
++      N_VGetLength(b) != KLU_CONTENT(S)->fixed_dimension)) {
++    return setup_failure(S, SUN_ERR_ARG_INCOMPATIBLE, fixed_matrix_matches(S, A));
++  }
+ 
+   /* copy b into x */
+   N_VScale(ONE, b, x);
+@@ -360,19 +510,20 @@ int SUNLinSolSolve_KLU(SUNLinearSolver S, SUNMatrix A, N_Vector x, N_Vector b,
+   xdata = N_VGetArrayPointer(x);
+   if (xdata == NULL)
+   {
+-    LASTFLAG(S) = SUN_ERR_MEM_FAIL;
+-    return (LASTFLAG(S));
++    return setup_failure(S, SUN_ERR_MEM_FAIL, 1);
+   }
+ 
+   /* Call KLU to solve the linear system */
++  observe_work(S, 6, 1);
+   flag = SOLVE(S)(SYMBOLIC(S), NUMERIC(S), SUNSparseMatrix_NP(A), 1, xdata,
+                   &COMMON(S));
++  observe_work(S, 6, 0);
+   if (flag == 0)
+   {
+-    LASTFLAG(S) = SUNLS_PACKAGE_FAIL_REC;
+-    return (LASTFLAG(S));
++    return setup_failure(S, SUNLS_PACKAGE_FAIL_REC, 1);
+   }
+ 
++  COUNT_WORK(S, solve_completed);
+   LASTFLAG(S) = SUN_SUCCESS;
+   return (LASTFLAG(S));
+ }
+diff --git a/wrapper.h b/wrapper.h
+index bac89a306487829429c8b94f65ff30406071e8c6..6044cd88e669be12efada413f05816974378d5ce 100644
+--- a/wrapper.h
++++ b/wrapper.h
+@@ -30,6 +30,7 @@
+ 
+ #if USE_IDAS
+ #include <idas/idas.h>
++#include <idas/idas_bbdpre.h>
+ #endif
+ 
+ #if USE_KINSOL

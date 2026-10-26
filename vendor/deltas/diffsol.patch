@@ -1,0 +1,104 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 9eb01eadb9e0c419d50520b3f4058fcab90ef755..9c20c9cba80a07581f10acf13baf6f6314578dba 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -162,7 +162,8 @@ features = ["rayon"]
+ optional = true
+ 
+ [dependencies.diffsol-la]
+-version = "0.1.1"
++version = "=0.1.1"
++path = "../diffsol-la"
+ features = [
+     "nalgebra",
+     "faer",
+@@ -170,7 +171,8 @@ features = [
+ default-features = false
+ 
+ [dependencies.diffsol-nl]
+-version = "0.1.1"
++version = "=0.1.1"
++path = "../diffsol-nl"
+ features = [
+     "nalgebra",
+     "faer",
+@@ -194,7 +196,8 @@ features = ["derive"]
+ version = "1.0"
+ 
+ [dependencies.suitesparse_sys]
+-version = "0.1"
++version = "=0.1.4"
++path = "../suitesparse-sys"
+ optional = true
+ 
+ [dependencies.thiserror]
+diff --git a/build.rs b/build.rs
+index e99eab509452531979cd04429f04d85b2f37f817..ef32b0009e678f379bcf2cb307fdd70feadb6b36 100644
+--- a/build.rs
++++ b/build.rs
+@@ -86,21 +86,32 @@ mod if_sundials {
+ 
+     impl Library {
+         pub fn new_sundials() -> Self {
++            println!("cargo:rerun-if-env-changed=SUNDIALS_INCLUDE_DIR");
++            println!("cargo:rerun-if-env-changed=SUNDIALS_LIBRARY_DIR");
+             Self {
+                 inc: env::var("SUNDIALS_INCLUDE_DIR").ok(),
+                 lib: env::var("SUNDIALS_LIBRARY_DIR").ok(),
+             }
+         }
+         pub fn new_suitesparse() -> Self {
++            // DEP_* is Cargo-generated links metadata; dependency invalidation
++            // carries it, rather than rerun-if-env-changed on caller variables.
+             Self {
+                 inc: env::var("DEP_SUITESPARSE_SUITESPARSE_INCLUDE").ok(),
+                 lib: env::var("DEP_SUITESPARSE_SUITESPARSE_LIB").ok(),
+             }
+         }
++        pub fn watch_inputs(&self) {
++            for dir in [self.inc.as_ref(), self.lib.as_ref()].into_iter().flatten() {
++                println!("cargo:rerun-if-changed={}", dir);
++            }
++        }
+     }
+ 
+     pub fn compile_benches(sundials: &Library, suitesparse: &Library) -> Vec<String> {
+         let basedir = "benches/sundials/";
++        // These C translation units also include local headers and other C files.
++        println!("cargo:rerun-if-changed={}", basedir);
+         let files = [
+             "cvRoberts_block_klu.c",
+             "idaFoodWeb_bnd_5.c",
+@@ -143,6 +154,7 @@ mod if_sundials {
+             builder = builder.clang_arg(format!("-I{}", dir));
+         }
+         let bindings = builder
++            .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+             .parse_callbacks(Box::new(IgnoreMacros::new()))
+             .parse_callbacks(Box::new(ParseSignedConstants))
+             .generate()
+@@ -150,9 +162,11 @@ mod if_sundials {
+ 
+         let bindings_rs = PathBuf::from(env::var("OUT_DIR").unwrap()).join("bindings.rs");
+ 
+-        bindings
+-            .write_to_file(bindings_rs.clone())
+-            .expect("Couldn't write file bindings.rs!");
++        let mut bytes = Vec::new();
++        bindings.write(Box::new(&mut bytes)).expect("Couldn't render bindings!");
++        if std::fs::read(&bindings_rs).ok().as_deref() != Some(bytes.as_slice()) {
++            std::fs::write(&bindings_rs, bytes).expect("Couldn't write file bindings.rs!");
++        }
+         Ok(bindings_rs)
+     }
+ 
+@@ -200,6 +214,9 @@ fn main() -> Result<(), String> {
+         }
+         let sundials = Library::new_sundials();
+         let suitesparse = Library::new_suitesparse();
++        sundials.watch_inputs();
++        suitesparse.watch_inputs();
++        println!("cargo:rerun-if-changed=wrapper.h");
+ 
+         // generate sundials bindings
+         let bindings_rs = generate_bindings(&suitesparse, &sundials)?;
