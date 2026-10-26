@@ -11,6 +11,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from scripts import backup_image
 from scripts import surreal_server as server
 
@@ -106,7 +108,7 @@ class BackupResumeTests(unittest.TestCase):
         )
 
     def interrupted(self) -> dict[str, object]:
-        with self.assertRaisesRegex(server.SupervisorError, "interrupted native"):
+        with pytest.raises(server.SupervisorError, match="interrupted native"):
             self.backup()
         return server.read_json(self.state / "config.json")
 
@@ -131,14 +133,14 @@ class BackupResumeTests(unittest.TestCase):
         other = self.root / "same-bytes-other-helper"
         other.write_bytes(self.helper.read_bytes())
         other.chmod(0o700)
-        with self.assertRaisesRegex(
-            server.SupervisorError, "original exact native payload helper"
+        with pytest.raises(
+            server.SupervisorError, match="original exact native payload helper"
         ):
             self.explicit_helper("backup", other)
-        self.assertEqual((self.state / "config.json").read_bytes(), original)
+        assert (self.state / "config.json").read_bytes() == original
         self.payload.side_effect = None
         self.backup()
-        self.assertTrue((self.destination / "backup.json").is_file())
+        assert (self.destination / "backup.json").is_file()
         self.freeze.assert_called_once()
 
     def test_maintenance_recovery_different_helper_refuses_before_configuration_or_cutover(
@@ -151,16 +153,16 @@ class BackupResumeTests(unittest.TestCase):
         other.chmod(0o700)
         with (
             patch.object(server, "maintenance_payloads") as effects,
-            self.assertRaisesRegex(
-                server.SupervisorError, "original exact native payload helper"
+            pytest.raises(
+                server.SupervisorError, match="original exact native payload helper"
             ),
         ):
             self.explicit_helper("recover-maintenance", other)
         effects.assert_not_called()
-        self.assertEqual((self.state / "config.json").read_bytes(), original)
+        assert (self.state / "config.json").read_bytes() == original
         self.payload.side_effect = None
         self.backup()
-        self.assertTrue((self.destination / "backup.json").is_file())
+        assert (self.destination / "backup.json").is_file()
 
     def test_same_helper_path_changed_bytes_refuse_without_rewriting_pending_configuration(
         self,
@@ -172,19 +174,19 @@ class BackupResumeTests(unittest.TestCase):
         for command in ("backup", "recover-maintenance"):
             with (
                 self.subTest(command=command),
-                self.assertRaisesRegex(
-                    server.SupervisorError, "original exact native payload helper"
+                pytest.raises(
+                    server.SupervisorError, match="original exact native payload helper"
                 ),
             ):
                 self.explicit_helper(command, self.helper)
-            self.assertEqual((self.state / "config.json").read_bytes(), original)
-            self.assertEqual(self.helper.read_bytes(), b"#!/bin/sh\nexit 3\n")
+            assert (self.state / "config.json").read_bytes() == original
+            assert self.helper.read_bytes() == b"#!/bin/sh\nexit 3\n"
         # Restore only this test's deliberately changed executable, then exercise
         # the original unchanged backup request. Production never repairs it.
         self.helper.write_bytes(original_helper)
         self.payload.side_effect = None
         self.backup()
-        self.assertTrue((self.destination / "backup.json").is_file())
+        assert (self.destination / "backup.json").is_file()
 
     def test_equal_helper_selection_does_not_write_before_original_backup_resume(
         self,
@@ -196,14 +198,14 @@ class BackupResumeTests(unittest.TestCase):
         def original_resume(
             state: Path, config: dict[str, object], destination: Path
         ) -> dict[str, object]:
-            self.assertEqual((state / "config.json").read_bytes(), original)
+            assert (state / "config.json").read_bytes() == original
             return resume(state, config, destination)
 
         self.payload.side_effect = None
         with patch.object(server, "backup", side_effect=original_resume):
-            self.assertEqual(self.explicit_helper("backup", self.helper), 0)
-        self.assertNotIn("backup_pending", server.read_json(self.state / "config.json"))
-        self.assertTrue((self.destination / "backup.json").is_file())
+            assert self.explicit_helper("backup", self.helper) == 0
+        assert "backup_pending" not in server.read_json(self.state / "config.json")
+        assert (self.destination / "backup.json").is_file()
         self.freeze.assert_called_once()
 
     def test_equal_helper_never_grants_maintenance_cutover_or_changes_original_backup(
@@ -213,11 +215,11 @@ class BackupResumeTests(unittest.TestCase):
         original = (self.state / "config.json").read_bytes()
         with (
             patch.object(server, "maintenance_payloads") as effects,
-            self.assertRaisesRegex(server.SupervisorError, "original backup resume"),
+            pytest.raises(server.SupervisorError, match="original backup resume"),
         ):
             self.explicit_helper("recover-maintenance", self.helper)
         effects.assert_not_called()
-        self.assertEqual((self.state / "config.json").read_bytes(), original)
+        assert (self.state / "config.json").read_bytes() == original
         self.payload.side_effect = None
         self.backup()
 
@@ -239,10 +241,10 @@ class BackupResumeTests(unittest.TestCase):
             for command in ("backup", "recover-maintenance"):
                 with (
                     self.subTest(command=command, pending=invalid),
-                    self.assertRaises(server.SupervisorError),
+                    pytest.raises(server.SupervisorError),
                 ):
                     self.explicit_helper(command, self.helper)
-                self.assertEqual((self.state / "config.json").read_bytes(), retained)
+                assert (self.state / "config.json").read_bytes() == retained
         for change in (
             {"instance_id": "replacement"},
             {"resources": {"changed": "allocation"}},
@@ -252,38 +254,40 @@ class BackupResumeTests(unittest.TestCase):
             for command in ("backup", "recover-maintenance"):
                 with (
                     self.subTest(command=command, change=change),
-                    self.assertRaisesRegex(
-                        server.SupervisorError, "source configuration differs"
+                    pytest.raises(
+                        server.SupervisorError, match="source configuration differs"
                     ),
                 ):
                     self.explicit_helper(command, self.helper)
-                self.assertEqual((self.state / "config.json").read_bytes(), retained)
+                assert (self.state / "config.json").read_bytes() == retained
         # Test-only fixture restoration demonstrates that neither refusal rewrote
         # the original request or its archive. It is not a production repair path.
         (self.state / "config.json").write_bytes(original)
         self.payload.side_effect = None
         self.backup()
-        self.assertTrue((self.destination / "backup.json").is_file())
+        assert (self.destination / "backup.json").is_file()
 
     def test_normal_command_resumes_original_snapshot_without_thaw_or_recapture(
         self,
     ) -> None:
         interrupted = self.interrupted()
         original = (self.destination / "database/data").stat().st_ino
-        self.assertEqual(interrupted["backup_pending"]["phase"], "payload")
+        pending = interrupted["backup_pending"]
+        assert isinstance(pending, dict)
+        assert pending["phase"] == "payload"
         self.payload.side_effect = None
         self.backup()
         selected = server.read_json(self.state / "config.json")
-        self.assertNotIn("backup_pending", selected)
-        self.assertFalse(selected["accepting_writes"])
-        self.assertTrue(selected["payload_frozen"])
-        self.assertEqual((self.destination / "database/data").stat().st_ino, original)
+        assert "backup_pending" not in selected
+        assert not (selected["accepting_writes"])
+        assert selected["payload_frozen"]
+        assert (self.destination / "database/data").stat().st_ino == original
         self.freeze.assert_called_once()
         self.capture.assert_called_once()
         manifest = server.read_json(self.destination / "backup.json")
-        self.assertEqual(manifest["application_inventory"], {"semantic": "original"})
-        self.assertNotIn(
-            "backup_pending", server.read_json(self.destination / "config.json")
+        assert manifest["application_inventory"] == {"semantic": "original"}
+        assert "backup_pending" not in server.read_json(
+            self.destination / "config.json"
         )
 
     def test_partial_metadata_phase_is_resumable_without_named_partial_files(
@@ -301,45 +305,47 @@ class BackupResumeTests(unittest.TestCase):
 
         with (
             patch.object(server.backup_image, "copy", side_effect=copy),
-            self.assertRaises(InterruptedError),
+            pytest.raises(InterruptedError),
         ):
             self.backup()
-        self.assertFalse((self.destination / "database/data").exists())
+        assert not ((self.destination / "database/data").exists())
         selected = server.read_json(self.state / "config.json")
-        self.assertEqual(selected["backup_pending"]["phase"], "metadata")
+        pending = selected["backup_pending"]
+        assert isinstance(pending, dict)
+        assert pending["phase"] == "metadata"
         self.payload.side_effect = None
         self.backup()
-        self.assertTrue((self.destination / "backup.json").is_file())
+        assert (self.destination / "backup.json").is_file()
         self.freeze.assert_called_once()
 
     def test_source_snapshot_changes_refuse_and_pending_owner_survives(self) -> None:
         self.interrupted()
         (self.state / "database/data").write_bytes(b"changed frozen source")
-        with self.assertRaisesRegex(server.SupervisorError, "source image differs"):
+        with pytest.raises(server.SupervisorError, match="source image differs"):
             self.backup()
-        self.assertIn("backup_pending", server.read_json(self.state / "config.json"))
+        assert "backup_pending" in server.read_json(self.state / "config.json")
 
     def test_unknown_destination_content_is_retained(self) -> None:
         self.interrupted()
         unknown = self.destination / "unrelated"
         unknown.write_bytes(b"retain")
         unknown.chmod(0o600)
-        with self.assertRaisesRegex(server.SupervisorError, "Unknown or changed"):
+        with pytest.raises(server.SupervisorError, match="Unknown or changed"):
             self.backup()
-        self.assertEqual(unknown.read_bytes(), b"retain")
-        self.assertFalse((self.destination / "backup.json").exists())
+        assert unknown.read_bytes() == b"retain"
+        assert not ((self.destination / "backup.json").exists())
 
     def test_replaced_destination_directory_and_other_targets_are_not_adopted(
         self,
     ) -> None:
         self.interrupted()
-        with self.assertRaisesRegex(server.SupervisorError, "destination differs"):
+        with pytest.raises(server.SupervisorError, match="destination differs"):
             self.backup(self.root / "other")
         self.destination.rename(self.root / "original-destination")
         self.destination.mkdir(mode=0o700)
-        with self.assertRaisesRegex(server.SupervisorError, "destination differs"):
+        with pytest.raises(server.SupervisorError, match="destination differs"):
             self.backup()
-        self.assertEqual(list(self.destination.iterdir()), [])
+        assert list(self.destination.iterdir()) == []
 
     def test_pending_owner_blocks_start_readmission_reconfiguration_and_cutover(
         self,
@@ -347,25 +353,25 @@ class BackupResumeTests(unittest.TestCase):
         selected = self.interrupted()
         for operation in (
             lambda: server.start(self.state, selected),
-            lambda: server._readmit_supervisor(self.state),
+            lambda: server.readmit_supervisor(self.state),
             lambda: server.reconfigure(
                 self.state, selected, server.argparse.Namespace()
             ),
             lambda: server.private_offline_state(self.state, selected),
         ):
-            with self.assertRaisesRegex(server.SupervisorError, "[Bb]ackup|backup"):
+            with pytest.raises(server.SupervisorError, match=r"[Bb]ackup|backup"):
                 operation()
-        self.assertIn("backup_pending", server.read_json(self.state / "config.json"))
+        assert "backup_pending" in server.read_json(self.state / "config.json")
 
     def test_unrelated_nonempty_destination_refuses_before_freezing_source(
         self,
     ) -> None:
         self.destination.mkdir(mode=0o700)
         (self.destination / "unrelated").write_bytes(b"retain")
-        with self.assertRaises(server.SupervisorError):
+        with pytest.raises(server.SupervisorError):
             self.backup()
         self.freeze.assert_not_called()
-        self.assertEqual((self.destination / "unrelated").read_bytes(), b"retain")
+        assert (self.destination / "unrelated").read_bytes() == b"retain"
 
 
 if __name__ == "__main__":

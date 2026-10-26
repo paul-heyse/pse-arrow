@@ -1466,18 +1466,18 @@ class NativeOperationTests(unittest.TestCase):
                 [str(generation)],
             )
             self.assertFalse(
-                operation_lifetime.drained(operation._record(handoff)).complete
-            )  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
+                operation_lifetime.drained(json.loads(handoff.read_text())).complete
+            )
             child_owner = {"unit": unit, "group": "/worker", "invocation": "b" * 32}
             with patch.object(
                 operation_lifetime, "scope_owner", return_value=child_owner
             ):
                 operation.bind_handoff(handoff)
-            self.assertEqual(operation._record(handoff)["scope"], child_owner)  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
+            self.assertEqual(json.loads(handoff.read_text())["scope"], child_owner)
             with patch.object(operation_lifetime, "populated", return_value=True):
                 self.assertFalse(
-                    operation_lifetime.drained(operation._record(handoff)).complete
-                )  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
+                    operation_lifetime.drained(json.loads(handoff.read_text())).complete
+                )
             with (
                 patch.object(
                     operation_lifetime,

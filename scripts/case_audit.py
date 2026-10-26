@@ -965,16 +965,16 @@ def collect_review_artifacts(
         selected_file(
             "original_handoff",
             receipt_path,
-            "context",
-            "json",
+            d.PackMemberRole.CONTEXT,
+            d.PackFormat.JSON,
             receipt_path.stat().st_size,
         )
         for index, member in enumerate(receipt.members):
             selected_file(
                 f"original_context_{index:03d}",
                 receipt_path.parent / member.path,
-                "context",
-                "json",
+                d.PackMemberRole.CONTEXT,
+                d.PackFormat.JSON,
                 member.bytes,
             )
     except (OSError, ValueError, RuntimeError, diagnostics.InspectionError) as error:
@@ -1008,8 +1008,8 @@ def collect_review_artifacts(
         selected_file(
             "source_records",
             Path(detail.records),
-            "detail",
-            "json_lines",
+            d.PackMemberRole.DETAIL,
+            d.PackFormat.JSON_LINES,
             detail.readable_prefix_bytes,
         )
     except (OSError, ValueError, RuntimeError, diagnostics.InspectionError) as error:
@@ -1044,8 +1044,8 @@ def collect_review_artifacts(
                     selected_file(
                         f"managed_source_{ordinal:03d}",
                         records,
-                        "detail",
-                        "json_lines",
+                        d.PackMemberRole.DETAIL,
+                        d.PackFormat.JSON_LINES,
                         detail.readable_prefix_bytes,
                         scope=f"Actual managed attempt {reference.run}/{reference.attempt}; coverage is per writer",
                     )
@@ -1095,8 +1095,10 @@ def collect_review_artifacts(
             selected_file(
                 f"original_sidecar_{index:03d}",
                 source_path,
-                "context",
-                "json" if source_path.suffix == ".json" else "text",
+                d.PackMemberRole.CONTEXT,
+                d.PackFormat.JSON
+                if source_path.suffix == ".json"
+                else d.PackFormat.TEXT,
                 size,
                 scope="Original direct mathematical/preparation bytes; no workflow invocation inferred",
             )
@@ -1106,11 +1108,11 @@ def collect_review_artifacts(
             break
 
     capture_formats: dict[str, PackFormat] = {
-        "Perfetto": "perfetto",
-        "PerfData": "profile_binary",
-        "Samply": "profile_binary",
-        "Symbols": "text",
-        "ToolLog": "text",
+        "Perfetto": d.PackFormat.PERFETTO,
+        "PerfData": d.PackFormat.PROFILE_BINARY,
+        "Samply": d.PackFormat.PROFILE_BINARY,
+        "Symbols": d.PackFormat.TEXT,
+        "ToolLog": d.PackFormat.TEXT,
     }
     capture_paths = sorted(audit.glob("capture-*.json"))
     for path in capture_paths:
@@ -1128,7 +1130,7 @@ def collect_review_artifacts(
                 selected_file(
                     f"capture_{len(captures):02d}_{index:02d}",
                     Path(output.path),
-                    "capture",
+                    d.PackMemberRole.CAPTURE,
                     format_name,
                     output.readable_prefix_bytes,
                     scope=(
@@ -1195,11 +1197,11 @@ def collect_review_artifacts(
         observer.write("review-analysis-request.json", analysis_request)
         analysis = analyze_case_evidence(observer, evidence, analysis_request, result)
         table_sources: tuple[tuple[d.ReviewTableKind, tuple[object, ...]], ...] = (
-            ("detail", evidence.detail_pages),
-            ("invocation", evidence.invocations),
-            ("capture", evidence.captures),
-            ("engine", evidence.engine_observations),
-            ("query", evidence.query_results),
+            (d.ReviewTableKind.DETAIL, evidence.detail_pages),
+            (d.ReviewTableKind.INVOCATION, evidence.invocations),
+            (d.ReviewTableKind.CAPTURE, evidence.captures),
+            (d.ReviewTableKind.ENGINE, evidence.engine_observations),
+            (d.ReviewTableKind.QUERY, evidence.query_results),
         )
         export_request = d.PackExportRequest(
             files=tuple(files),

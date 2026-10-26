@@ -248,14 +248,16 @@ print(json.dumps(sorted(providers)))
     if len(result.stdout) > 1024 * 1024:
         raise ClosureError("Frozen receiver provider inventory exceeds its bound")
     try:
-        paths = json.loads(result.stdout)
-        if not isinstance(paths, list) or not all(
-            isinstance(path, str) for path in paths
-        ):
-            raise ValueError("invalid provider paths")
-        return {path: digest(Path(path)) for path in paths}
+        return _provider_files(result.stdout)
     except (OSError, ValueError, TypeError) as error:
         raise ClosureError("Frozen receiver provider inventory is malformed") from error
+
+
+def _provider_files(raw: bytes) -> dict[str, str]:
+    paths = json.loads(raw)
+    if not isinstance(paths, list) or not all(isinstance(path, str) for path in paths):
+        raise ValueError("invalid provider paths")
+    return {path: digest(Path(path)) for path in paths}
 
 
 def digest(path: Path) -> str:

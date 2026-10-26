@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import shutil
 import struct
 import subprocess
@@ -27,7 +28,7 @@ from scripts.tests.test_surrealism_module import fixture_module
 class PrivateActivationControls(unittest.TestCase):
     def setUp(self) -> None:
         self.state = Path("/private-fixture/live")
-        self.config = {
+        self.config: dict[str, object] = {
             "instance_id": "original",
             "service_supervisor": {"selected": "frozen"},
             "resources": {"selected": "original"},
@@ -455,6 +456,7 @@ class ScientificRecoveryControls(unittest.TestCase):
             scientific=True,
             output_directory=Path("evidence"),
             payload_verifier=None,
+            backup_scale_bytes=0,
         )
 
     def test_explicit_inventory_contains_actual_authored_and_physical_inputs(
@@ -575,6 +577,22 @@ class CanonicalRecoveryProfileTests(unittest.TestCase):
         )
         physical.start()
         self.addCleanup(physical.stop)
+        # This profile control supplies the same already-prepared input fixture as
+        # the supervisor controls. Provider preparation/refusal has its own tests.
+        self.enterContext(
+            patch.object(
+                server.receiver_environment,
+                "capture",
+                side_effect=lambda capabilities, _environment: json.dumps(
+                    {
+                        "version": 1,
+                        "capabilities": list(capabilities),
+                        "values": {},
+                        "provider_receipts": {},
+                    }
+                ).encode(),
+            )
+        )
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)

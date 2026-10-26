@@ -121,9 +121,9 @@ def export(
                     members=(
                         d.PackMemberSelection(
                             id="investigation",
-                            role="query",
+                            role=d.PackMemberRole.QUERY,
                             required=True,
-                            format="json",
+                            format=d.PackFormat.JSON,
                             document_version=2,
                             source="openobserve-1.1.2-v1; individually recorded source cuts",
                         ),

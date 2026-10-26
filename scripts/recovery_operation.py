@@ -4,23 +4,23 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
 import subprocess
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import msgspec
 
 from scripts import host_metadata, resource_store
+from scripts.generated import deployment
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from pathlib import Path
     from typing import BinaryIO
-
-    from scripts.generated import deployment
 
 
 class RecoveryError(ValueError):
@@ -41,9 +41,6 @@ def checkpoint_path(
 
 
 def observation(path: Path) -> deployment.RecoveryCheckpoint | None:
-    from scripts.generated import (
-        deployment,
-    )
 
     try:
         descriptor = os.open(
@@ -123,10 +120,8 @@ def run(
                     raise RecoveryError(
                         f"Native recovery stalled during {phase}; checkpoint={checkpoint}; explicit resume required"
                     )
-                try:
+                with contextlib.suppress(subprocess.TimeoutExpired):
                     child.wait(timeout=host_metadata.remaining(deadline, 0.1))
-                except subprocess.TimeoutExpired:
-                    pass
             if child.returncode == 0:
                 final = observation(checkpoint)
                 if (

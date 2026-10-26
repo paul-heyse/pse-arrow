@@ -167,12 +167,12 @@ class BuildModeTests(unittest.TestCase):
             child.mkdir(parents=True)
             for directory in (root, parent, child):
                 (directory / "memory.max").write_text("max")
-            pse_env.require_unbounded_group(child, root=root)
+            systemd_environment.require_unbounded_group(child, root=root)
             for directory in (root, parent, child):
                 with self.subTest(directory=directory):
                     (directory / "memory.max").write_text("1048576")
                     with self.assertRaises(pse_env.BoundaryError):
-                        pse_env.require_unbounded_group(child, root=root)
+                        systemd_environment.require_unbounded_group(child, root=root)
                     (directory / "memory.max").write_text("max")
 
     def test_build_parent_and_allocation_emit_no_memory_properties(self) -> None:

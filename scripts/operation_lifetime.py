@@ -14,7 +14,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 
-from scripts import process_observation, resource_store
+from scripts import process_observation, resource_store, systemd_environment
 from scripts.process_observation import populated, process_group, start_identity
 
 if TYPE_CHECKING:
@@ -77,7 +77,6 @@ def admission_remaining(deadline: float) -> float:
 def manager_control_environment() -> dict[str, str]:
     # The foreground observer can run outside the composed child environment.
     # Observation, stop and mandatory kill must address the same user manager.
-    from scripts import systemd_environment
 
     return {**os.environ, **systemd_environment.manager_environment()}
 
@@ -252,11 +251,13 @@ def drained(
         if deadline is not None:
             admission_remaining(deadline)
         inode = record.get("scope_inode")
-        if type(inode) is int:
-            if process_observation.group_identity(owner["group"]) != inode:
-                return DrainObservation(
-                    selected, DrainPhase.COMPLETE, "bound kernel scope lifetime ended"
-                )
+        if (
+            type(inode) is int
+            and process_observation.group_identity(owner["group"]) != inode
+        ):
+            return DrainObservation(
+                selected, DrainPhase.COMPLETE, "bound kernel scope lifetime ended"
+            )
         if populated(owner["group"]):
             return DrainObservation(
                 selected, DrainPhase.POPULATED, "owned descendants remain"

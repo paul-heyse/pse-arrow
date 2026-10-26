@@ -15,7 +15,7 @@ import uuid
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import evidence_store, resource_store, surreal_server
+from scripts import evidence_store, resource_store, service_borrowers, surreal_server
 from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
 
 
@@ -148,9 +148,7 @@ class EvidenceStoreTests(unittest.TestCase):
     def test_supervisor_drain_observes_service_only_lifetime(self) -> None:
         with (
             surreal_server.tooling_activity(self.state, deadline=self.deadline),
-            patch.object(
-                surreal_server.test_resources, "resource_status", return_value={}
-            ),
+            patch.object(service_borrowers, "obligations", return_value=[]),
             self.assertRaisesRegex(surreal_server.SupervisorError, "live tooling"),
         ):
             surreal_server.require_borrowers_drained(self.state)

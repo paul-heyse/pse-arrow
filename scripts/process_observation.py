@@ -9,7 +9,6 @@ manager invocation identity remains a separately supplied observation.
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass, field
 from enum import Enum
@@ -47,13 +46,13 @@ def start_identity(pid: int) -> str:
 
 
 def pid_namespace(pid: int) -> str:
-    return os.readlink(f"/proc/{pid}/ns/pid")
+    return str(Path(f"/proc/{pid}/ns/pid").readlink())
 
 
 def executable(pid: int) -> tuple[str, tuple[int, int]]:
     path = Path(f"/proc/{pid}/exe")
     identity = path.stat()
-    return os.readlink(path), (identity.st_dev, identity.st_ino)
+    return str(path.readlink()), (identity.st_dev, identity.st_ino)
 
 
 def group_identity(group: str) -> int | None:

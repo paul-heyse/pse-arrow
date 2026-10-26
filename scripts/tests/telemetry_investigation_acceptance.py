@@ -220,9 +220,9 @@ def offline(output: Path, answers: list[QueryAnswer]) -> dict[str, object]:
                     members=(
                         d.PackMemberSelection(
                             id="investigation",
-                            role="query",
+                            role=d.PackMemberRole.QUERY,
                             required=True,
-                            format="json",
+                            format=d.PackFormat.JSON,
                             document_version=1,
                             source="explicit missing fixture",
                         ),

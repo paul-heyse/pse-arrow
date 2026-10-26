@@ -10,10 +10,12 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from pydantic import JsonValue
+if TYPE_CHECKING:
+    from pydantic import JsonValue
 
-from scripts import evidence_store, resource_store
+from scripts import evidence_store
 from scripts.capabilities.execution_basis import AdmissionRefusedError, verify
 from scripts.capabilities.native_contracts import EvidenceCompare
 from scripts.capabilities.native_schema import JSON_OBJECT, SchemaSet
@@ -56,9 +58,9 @@ def execute(
         directory = Path(temporary)
         request_path = directory / "request.json"
         observations_path = directory / "observations.json"
-        resource_store.publish(request_path, request.request)
-        resource_store.publish(observations_path, request.observations)
-        arguments = [
+        request_path.write_text(json.dumps(request.request, allow_nan=False))
+        observations_path.write_text(json.dumps(request.observations, allow_nan=False))
+        command_arguments = [
             "--request",
             str(request_path),
             "--observations",
@@ -66,13 +68,13 @@ def execute(
         ]
         for index, snapshot in enumerate(request.snapshots):
             path = directory / f"snapshot-{index}.json"
-            resource_store.publish(path, snapshot)
-            arguments.extend(["--input", str(path)])
+            path.write_text(json.dumps(snapshot, allow_nan=False))
+            command_arguments.extend(["--input", str(path)])
         with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as output:
             try:
                 code = evidence_store.run_offline(
                     root / "target/debug/pse-evidence",
-                    arguments,
+                    command_arguments,
                     deadline=deadline,
                     operation="compare-offline",
                     stdout=output,
@@ -99,22 +101,27 @@ def execute(
         }
 
 
+def admitted_arguments(raw: bytes) -> dict[str, JsonValue]:
+    if len(raw) > MAXIMUM_REQUEST_BYTES:
+        raise ValueError("private evidence request exceeds its byte allowance")
+    verify(ROOT, "evidence", "evidence_compare", raw)
+    envelope = JSON_OBJECT.validate_json(raw, strict=True)
+    if (
+        set(envelope) != {"operation", "arguments"}
+        or envelope["operation"] != "evidence_compare"
+    ):
+        raise ValueError("unsupported private evidence operation")
+    arguments = envelope["arguments"]
+    if not isinstance(arguments, dict):
+        raise TypeError("private evidence arguments must be an object")
+    return arguments
+
+
 def main() -> int:
     """Consume only the admitted fixed worker envelope; stdout contains its bounded answer."""
     raw = sys.stdin.buffer.read(MAXIMUM_REQUEST_BYTES + 1)
     try:
-        if len(raw) > MAXIMUM_REQUEST_BYTES:
-            raise ValueError("private evidence request exceeds its byte allowance")
-        verify(ROOT, "evidence", "evidence_compare", raw)
-        envelope = JSON_OBJECT.validate_json(raw, strict=True)
-        if (
-            set(envelope) != {"operation", "arguments"}
-            or envelope["operation"] != "evidence_compare"
-        ):
-            raise ValueError("unsupported private evidence operation")
-        arguments = envelope["arguments"]
-        if not isinstance(arguments, dict):
-            raise TypeError("private evidence arguments must be an object")
+        arguments = admitted_arguments(raw)
         value = execute(arguments)
     except AdmissionRefusedError as error:
         value = {"outcome": "stale_interface", **error.detail()}

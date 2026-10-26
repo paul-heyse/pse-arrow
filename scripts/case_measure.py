@@ -131,7 +131,6 @@ def stop_managed_primary(state: Path, database: str) -> None:
                 "refuse to stop a primary not associated with this fixture"
             )
         pid = surreal_server.integer(marker["pid"])
-        process = Path(f"/proc/{pid}")
         start = operation_lifetime.start_identity(pid)
         descriptor = os.pidfd_open(pid)
         try:

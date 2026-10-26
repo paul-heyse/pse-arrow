@@ -24,8 +24,13 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, Protocol, TypedDict, cast
 
+from scripts import (
+    execution_profiles,
+    process_observation,
+    resource_store,
+    systemd_environment,
+)
 from scripts import operation_lifetime as operation
-from scripts import process_observation, resource_store, systemd_environment
 from scripts.host_metadata import (
     AdmissionError,
     control_run,
@@ -192,9 +197,6 @@ def settings(name: str) -> dict[str, int]:
 
 
 def execution(name: str) -> dict[str, int]:
-    from scripts import (
-        execution_profiles,
-    )
 
     return execution_profiles.execution(name)
 
@@ -267,10 +269,6 @@ def select(name: str, requested: str | None = None) -> Profile:
     elif name == "timing":
         result = Profile(name, settings(name)["slot_gib"] * GIB, name, 1, timing)
     elif name == "reference":
-        from scripts import (
-            execution_profiles,
-        )
-
         admitted = execution_profiles.profile("reference")
         memory = integer(admitted["native_worker_memory_bytes"])
         result = Profile(name, memory, "exclusive", 2, all_cores, True)
@@ -301,10 +299,6 @@ def select(name: str, requested: str | None = None) -> Profile:
 def aggregate(profile: Profile) -> int:
     config = policy()
     if profile.name == "reference":
-        from scripts import (
-            execution_profiles,
-        )
-
         return integer(execution_profiles.profile("reference")["total_memory_bytes"])
     if profile.exclusive:
         resident = settings("exclusive")
@@ -737,6 +731,12 @@ def withdraw_parked_service(state: Path, *, directory: Path | None = None) -> No
         ledger["parked_services"] = [item for item in parked if item != selected]
 
 
+def required_services(services: ServicePolicy | None) -> ServicePolicy:
+    if services is None:
+        raise AdmissionError("Service parking requires its composed lifetime policy")
+    return services
+
+
 def reconcile(
     directory: Path,
     deadline: float | None = None,
@@ -777,7 +777,7 @@ def reconcile(
         )
         if parked:
             state["parked_services"] = []
-    if parked:
+    if parked and services is not None:
         for selected in parked:
             try:
                 services.resume(Path(selected), deadline=deadline)
@@ -1322,11 +1322,9 @@ def acquire(
                 )
                 if profile.exclusive and parkable:
                     try:
-                        if services is None:
-                            raise AdmissionError(
-                                "Service parking requires its composed lifetime policy"
-                            )
-                        services.park(directory, parkable, deadline=deadline)
+                        required_services(services).park(
+                            directory, parkable, deadline=deadline
+                        )
                         reconcile(
                             directory, deadline, resume_parked=False, services=services
                         )

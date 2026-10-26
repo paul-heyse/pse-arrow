@@ -16,6 +16,10 @@ import json
 from pathlib import Path
 
 from scripts import evidence_comparison_report
+from scripts.generated.evidence_comparison_output import EvidenceComparison
+from scripts.generated.evidence_comparison_request_input import (
+    EvidenceComparisonRequest,
+)
 
 
 def _supplied(path: Path, maximum: int) -> bytes:
@@ -65,12 +69,6 @@ def run(
 
     from scripts.capabilities import evidence_worker  # noqa: PLC0415
     from scripts.capabilities.native_schema import SchemaSet  # noqa: PLC0415
-    from scripts.generated.evidence_comparison_output import (
-        EvidenceComparison,
-    )
-    from scripts.generated.evidence_comparison_request_input import (
-        EvidenceComparisonRequest,
-    )
 
     request = msgspec.json.decode(request_raw, type=EvidenceComparisonRequest)
     fingerprint = SchemaSet(evidence_worker.ROOT, family="evidence").fingerprint

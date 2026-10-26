@@ -34,6 +34,7 @@ from scripts import (  # noqa: E402 -- direct-script path routing
     host_admission,
     native_cache,
     operation_lifetime,
+    receiver_environment,
     systemd_environment,
 )
 
@@ -1973,10 +1974,7 @@ def main() -> int:
     if args.prepared_environment is not None:
         if args.shell:
             parser.error("a prepared receiver runs only its selected child")
-        from scripts import (  # noqa: PLC0415 -- immutable launch boundary
-            receiver_environment,
-            surreal_server,
-        )
+        from scripts import surreal_server  # noqa: PLC0415 -- immutable launch boundary
 
         if args.prepared_environment != ROOT / "native-environment.json":
             raise ValueError(
@@ -1988,10 +1986,6 @@ def main() -> int:
 
     def selected_environment(source: dict[str, str]) -> dict[str, str]:
         if args.prepared_environment is not None:
-            from scripts import (
-                receiver_environment,
-            )
-
             return receiver_environment.restore(
                 args.prepared_environment, requested, source
             )

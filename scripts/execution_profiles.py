@@ -14,11 +14,11 @@ from typing import TYPE_CHECKING, cast
 import msgspec
 
 from scripts import host_metadata
+from scripts.generated import deployment
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from scripts.generated import deployment
 
 ROOT = Path(__file__).resolve().parents[1]
 # Ephemeral exact validator receipts, never a second admission or resource ledger.
@@ -65,13 +65,8 @@ def operator() -> Path:
 def request(
     value: Mapping[str, object], *, deadline: float | None = None
 ) -> dict[str, object]:
-    # Bootstrap records are emitted from the same Rust document family. Import
-    # only when a deployment operation is requested; ordinary command placement
-    # remains usable while that product artifact is being bootstrapped.
-    from scripts.generated import (
-        deployment,
-    )
-
+    # The imported bootstrap records come from the same Rust document family;
+    # the deployment operator is invoked only for an explicit product request.
     wire = {"document_version": 1, **value}
     payload = _encoded(wire)
     if len(payload) > 1024 * 1024:
@@ -194,10 +189,6 @@ def declarations() -> deployment.ProductionProfiles:
     """Decode only the separately declared production section from its Rust schema."""
     import tomllib  # noqa: PLC0415 -- source-only declaration decoding
 
-    from scripts.generated import (
-        deployment,
-    )
-
     raw = tomllib.loads((ROOT / ".config/agent-capacity.toml").read_text())[
         "production"
     ]
@@ -226,9 +217,6 @@ def _projection(
 def validate_configuration(
     config: Mapping[str, object], *, deadline: float | None = None
 ) -> None:
-    from scripts.generated import (
-        deployment,
-    )
 
     try:
         # Preserve the required persisted header; generated construction defaults

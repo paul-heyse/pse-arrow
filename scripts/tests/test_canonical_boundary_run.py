@@ -355,7 +355,7 @@ class RestartPeerTests(unittest.TestCase):
             patch.object(
                 boundary.server, "config_for", return_value=self.options["selection"]
             ),
-            patch.object(boundary.test_resources, "registry", return_value=registry),
+            patch.object(boundary.service_borrowers, "registry", return_value=registry),
             patch.object(
                 boundary.test_resources,
                 "read_invocation",
@@ -367,9 +367,11 @@ class RestartPeerTests(unittest.TestCase):
                 return_value=("parent", "selected-python-peer"),
             ),
             patch.object(boundary.test_resources, "storage") as store,
-            patch.object(boundary.test_resources, "borrower_alive", return_value=True),
             patch.object(
-                boundary.test_resources, "service_resources", return_value=records
+                boundary.service_borrowers, "borrower_alive", return_value=True
+            ),
+            patch.object(
+                boundary.service_borrowers, "service_resources", return_value=records
             ) as query,
             patch.object(
                 boundary,
@@ -622,7 +624,7 @@ class RestartPeerTests(unittest.TestCase):
                 return_value=self.directory / "native.so",
             ),
             patch.object(
-                overlap.producer_deployment, "file_observation", return_value={}
+                overlap.producer_receipts, "file_observation", return_value={}
             ),
             patch.object(overlap.test_run, "run_python", return_value=0) as run,
         ):

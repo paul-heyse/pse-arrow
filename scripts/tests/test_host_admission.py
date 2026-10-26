@@ -21,8 +21,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
+from scripts import (
+    execution_profiles,
+    operation_lifetime,
+    surreal_server,
+    test_resources,
+)
 from scripts import host_admission as host
-from scripts import operation_lifetime, surreal_server, test_resources
 from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
 from scripts.tests.test_surrealism_module import fixture_module
 
@@ -1327,6 +1332,7 @@ class HostAdmissionTests(unittest.TestCase):
             "owner": surreal_server.OWNER,
             "profile_version": 3,
             "instance_id": "parked-reference",
+            "credentials_file": str(service / "credentials.json"),
             "telemetry_state": str(self.directory / "telemetry"),
             "server": {
                 **fixture_receipt(),
@@ -1350,6 +1356,7 @@ class HostAdmissionTests(unittest.TestCase):
             "admission": "quiesced",
             "accepting_writes": False,
         }
+        config["service_supervisor"] = surreal_server.publish_generation(service)
         surreal_server.write_json(service / "config.json", config)
         surreal_server.queue_parked_service(self.directory, service)
         admitted = False
@@ -1362,6 +1369,7 @@ class HostAdmissionTests(unittest.TestCase):
             services: host.ServicePolicy | None = None,
         ) -> host.Allocation | None:
             nonlocal owner
+            self.assertIsInstance(services, surreal_server.ServiceAdmission)
             self.assertGreater(deadline, time.monotonic())
             if not admitted:
                 return None
@@ -2217,8 +2225,6 @@ class HostAdmissionTests(unittest.TestCase):
         self.assertEqual(run.call_args.kwargs["maximum"], 5)
 
     def test_profile_widening_preserves_reference_and_role_sums(self) -> None:
-        from scripts import execution_profiles
-
         self.assertEqual(host.select("functional", "64G").name, "wide")
         self.assertEqual(host.select("functional", "128G").name, "exclusive")
         reference = host.select("reference")
@@ -2231,20 +2237,28 @@ class HostAdmissionTests(unittest.TestCase):
             host.select("reference", "64G")
         for name in ("functional", "wide", "timing", "exclusive", "exclusive-observer"):
             resources = surreal_server.execution_resources(name)
+            server_memory = resources["server_memory_bytes"]
+            worker_memory = resources["native_worker_memory_bytes"]
+            execution_resources = resources["execution"]
+            total_memory = resources["total_memory_bytes"]
+            assert isinstance(server_memory, int)
+            assert isinstance(worker_memory, int)
+            assert isinstance(execution_resources, dict)
+            observer_memory = execution_resources["observer_memory_bytes"]
+            assert isinstance(observer_memory, int)
+            assert isinstance(total_memory, int)
             selected = execution_profiles.profile(name)
             self.assertEqual(resources, selected)
             self.assertLessEqual(
-                resources["server_memory_bytes"]
-                + resources["native_worker_memory_bytes"]
-                + resources["execution"]["observer_memory_bytes"],
-                resources["total_memory_bytes"],
+                server_memory + worker_memory + observer_memory,
+                total_memory,
             )
             if name != "exclusive-observer":
                 profile = host.select(name)
                 self.assertEqual(
                     profile.memory,
-                    resources["native_worker_memory_bytes"]
-                    + resources["execution"]["observer_memory_bytes"]
+                    worker_memory
+                    + observer_memory
                     + host.settings(name)["control_gib"] * host.GIB,
                 )
                 execution = host.execution(name)

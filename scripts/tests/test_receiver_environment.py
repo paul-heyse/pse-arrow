@@ -13,9 +13,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from scripts import native_cache as cache
 from scripts import native_operation as operation
 from scripts import receiver_environment as receiver
+from scripts.surreal_server import WORKER_CAPABILITIES
 
 
 class ReceiverEnvironmentTests(unittest.TestCase):
@@ -76,18 +79,18 @@ class ReceiverEnvironmentTests(unittest.TestCase):
         ):
             self.capture()
             raw = self.path.read_bytes()
-            self.assertNotIn(b"setup-secret", raw)
-            self.assertNotIn(b"OMP_NUM_THREADS", raw)
+            assert b"setup-secret" not in raw
+            assert b"OMP_NUM_THREADS" not in raw
             restored = receiver.restore(
                 self.path,
                 ["isolation"],
                 {"OMP_NUM_THREADS": "7", "SYMBOLICA_LICENSE": "invocation-secret"},
             )
-        self.assertEqual(restored["OMP_NUM_THREADS"], "7")
-        self.assertEqual(restored["SYMBOLICA_LICENSE"], "invocation-secret")
-        self.assertEqual(restored["CLANG_PATH"], self.environment["CLANG_PATH"])
-        self.assertEqual(restored["CXXFLAGS"], "-fno-fast-math")
-        self.assertTrue(list((self.base / ".operations").glob("*.json")))
+        assert restored["OMP_NUM_THREADS"] == "7"
+        assert restored["SYMBOLICA_LICENSE"] == "invocation-secret"
+        assert restored["CLANG_PATH"] == self.environment["CLANG_PATH"]
+        assert restored["CXXFLAGS"] == "-fno-fast-math"
+        assert list((self.base / ".operations").glob("*.json"))
 
     def test_absent_compiler_inputs_stay_absent_in_actual_child_environment(
         self,
@@ -123,16 +126,15 @@ class ReceiverEnvironmentTests(unittest.TestCase):
         )
         actual = json.loads(child.stdout)
         for name in absent:
-            self.assertNotIn(name, actual)
-        self.assertEqual(actual["CLANG_PATH"], self.environment["CLANG_PATH"])
-        self.assertEqual(actual["CXXFLAGS"], self.environment["CXXFLAGS"])
-        self.assertEqual(actual["OMP_NUM_THREADS"], "7")
-        self.assertEqual(actual["SYMBOLICA_LICENSE"], "invocation-secret")
+            assert name not in actual
+        assert actual["CLANG_PATH"] == self.environment["CLANG_PATH"]
+        assert actual["CXXFLAGS"] == self.environment["CXXFLAGS"]
+        assert actual["OMP_NUM_THREADS"] == "7"
+        assert actual["SYMBOLICA_LICENSE"] == "invocation-secret"
 
     def test_complete_worker_capabilities_verify_all_managed_generations_without_preparation(
         self,
     ) -> None:
-        from scripts.surreal_server import WORKER_CAPABILITIES
 
         environment = dict(self.environment)
         interfaces = {
@@ -188,9 +190,10 @@ class ReceiverEnvironmentTests(unittest.TestCase):
             self.path.write_bytes(receiver.capture(WORKER_CAPABILITIES, environment))
             self.path.chmod(0o600)
             restored = receiver.restore(self.path, WORKER_CAPABILITIES, environment)
-        self.assertEqual(len(receiver.read(self.path).provider_receipts), 5)
-        self.assertEqual(
-            restored["SUITESPARSE_INCLUDE_DIR"], environment["SUITESPARSE_INCLUDE_DIR"]
+        assert len(receiver.read(self.path).provider_receipts) == 5
+        assert (
+            restored["SUITESPARSE_INCLUDE_DIR"]
+            == environment["SUITESPARSE_INCLUDE_DIR"]
         )
 
     def test_original_receipt_hash_is_not_a_substitute_for_actual_generation_verification(
@@ -200,17 +203,17 @@ class ReceiverEnvironmentTests(unittest.TestCase):
         artifact = self.prefix / cache.ISOLATION_FILES[0]
         artifact.chmod(0o600)
         artifact.write_text("changed actual library")
-        with self.assertRaisesRegex(ValueError, "corrupt"):
+        with pytest.raises(ValueError, match="corrupt"):
             receiver.restore(self.path, ["isolation"], self.environment)
-        self.assertEqual(artifact.read_text(), "changed actual library")
+        assert artifact.read_text() == "changed actual library"
 
     def test_missing_preparation_wrong_capabilities_unknown_fields_and_versions_refuse(
         self,
     ) -> None:
-        with self.assertRaisesRegex(receiver.ReceiverEnvironmentError, "Prepare"):
+        with pytest.raises(receiver.ReceiverEnvironmentError, match="Prepare"):
             receiver.capture(["isolation"], {})
         self.capture()
-        with self.assertRaisesRegex(receiver.ReceiverEnvironmentError, "capability"):
+        with pytest.raises(receiver.ReceiverEnvironmentError, match="capability"):
             receiver.restore(self.path, ["solver"], self.environment)
         original = json.loads(self.path.read_bytes())
         for changed in (
@@ -219,7 +222,7 @@ class ReceiverEnvironmentTests(unittest.TestCase):
             {key: value for key, value in original.items() if key != "version"},
         ):
             self.path.write_text(json.dumps(changed))
-            with self.assertRaises(ValueError):
+            with pytest.raises(ValueError, match=r"version|unknown"):
                 receiver.read(self.path)
 
     def test_changed_receipt_or_injected_budget_cannot_be_reinterpreted(self) -> None:
@@ -227,13 +230,13 @@ class ReceiverEnvironmentTests(unittest.TestCase):
         receipt = self.prefix / ".complete.json"
         receipt.chmod(0o600)
         receipt.write_text(receipt.read_text() + "\n")
-        with self.assertRaisesRegex(receiver.ReceiverEnvironmentError, "readmit"):
+        with pytest.raises(receiver.ReceiverEnvironmentError, match="readmit"):
             receiver.restore(self.path, ["isolation"], self.environment)
         self.capture()
         value = json.loads(self.path.read_bytes())
         value["values"]["OMP_NUM_THREADS"] = "1000"
         self.path.write_text(json.dumps(value))
-        with self.assertRaisesRegex(receiver.ReceiverEnvironmentError, "capability"):
+        with pytest.raises(receiver.ReceiverEnvironmentError, match="capability"):
             receiver.restore(self.path, ["isolation"], self.environment)
 
     def test_shared_prefix_retains_every_selected_capability_interface(self) -> None:
@@ -242,7 +245,7 @@ class ReceiverEnvironmentTests(unittest.TestCase):
             "IPOPT_DIR": str(self.prefix),
             "SCIPOPTDIR": str(self.prefix),
         }
-        with self.assertRaisesRegex(ValueError, "required consumed interfaces"):
+        with pytest.raises(ValueError, match="required consumed interfaces"):
             receiver.capture(["solver", "isolation"], environment)
         for name in cache.SOLVER_FILES:
             path = self.prefix / name
@@ -253,7 +256,7 @@ class ReceiverEnvironmentTests(unittest.TestCase):
         value["files"] = cache.installation_files(self.prefix)
         receipt.write_text(json.dumps(value))
         raw = receiver.capture(["solver", "isolation"], environment)
-        self.assertEqual(len(json.loads(raw)["provider_receipts"]), 1)
+        assert len(json.loads(raw)["provider_receipts"]) == 1
 
 
 if __name__ == "__main__":

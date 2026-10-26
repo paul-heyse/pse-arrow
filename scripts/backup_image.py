@@ -4,14 +4,15 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import os
 import stat
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
+    from pathlib import Path
 
 
 class ImageError(ValueError):
@@ -47,6 +48,16 @@ def _owned(value: os.stat_result) -> None:
         raise ImageError("Backup image must remain an owned regular file")
 
 
+def _private_owned_directory(information: os.stat_result) -> None:
+    if information.st_uid != os.getuid() or information.st_mode & 0o077:
+        raise ImageError("Backup destination directory must remain private and owned")
+
+
+def _same_directory(information: os.stat_result, named: os.stat_result) -> None:
+    if (information.st_dev, information.st_ino) != (named.st_dev, named.st_ino):
+        raise ImageError("Backup destination directory changed during creation")
+
+
 def _private_directory(path: Path) -> tuple[int, os.stat_result]:
     """Create every missing component privately, relative to held owned parents."""
     missing: list[str] = []
@@ -61,26 +72,15 @@ def _private_directory(path: Path) -> tuple[int, os.stat_result]:
     try:
         for name in [*reversed(missing), None]:
             information = os.fstat(directory)
-            if information.st_uid != os.getuid() or information.st_mode & 0o077:
-                raise ImageError(
-                    "Backup destination directory must remain private and owned"
-                )
+            _private_owned_directory(information)
             if name is None:
                 _real(path)
                 named = path.stat()
-                if (information.st_dev, information.st_ino) != (
-                    named.st_dev,
-                    named.st_ino,
-                ):
-                    raise ImageError(
-                        "Backup destination directory changed during creation"
-                    )
+                _same_directory(information, named)
                 return directory, information
-            try:
+            # A concurrent name is never repaired or granted weaker ownership.
+            with contextlib.suppress(FileExistsError):
                 os.mkdir(name, mode=0o700, dir_fd=directory)
-            except FileExistsError:
-                # A concurrent name is never repaired or granted weaker ownership.
-                pass
             child = os.open(
                 name,
                 os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,

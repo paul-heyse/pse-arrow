@@ -13,11 +13,11 @@ import msgspec
 
 from scripts import native_cache as cache
 from scripts import native_operation as operation
+from scripts.generated import deployment
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
-    from scripts.generated import deployment
 
 # Existing capability path declarations remain the owner of those variables.
 # These are additional nonsecret dynamic compiler/loader selections, never budgets.
@@ -133,9 +133,6 @@ def _receipts(capabilities: Sequence[str], values: Mapping[str, str]) -> dict[st
 
 
 def capture(capabilities: Sequence[str], environment: Mapping[str, str]) -> bytes:
-    from scripts.generated import (
-        deployment,
-    )
 
     values = {
         name: environment[name]
@@ -161,9 +158,6 @@ def capture(capabilities: Sequence[str], environment: Mapping[str, str]) -> byte
 
 
 def read(path: Path) -> deployment.PreparedReceiverEnvironment:
-    from scripts.generated import (
-        deployment,
-    )
 
     if path.is_symlink() or any(parent.is_symlink() for parent in path.parents):
         raise ReceiverEnvironmentError(

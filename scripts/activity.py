@@ -33,6 +33,7 @@ from scripts import (  # noqa: E402 -- direct-script path routing
     pressure_observation,
     pse_env,
     run_inspection,
+    systemd_environment,
 )
 
 BUILD_TOOLS = {"cargo", "rustc", "cargo-nextest", "clippy-driver", "rustdoc", "maturin"}
@@ -449,7 +450,7 @@ def main(argv: list[str] | None = None) -> int:
     selected = None
     try:
         selected = pse_env.slice_name(os.environ)
-        bounds = pse_env.limits(selected)
+        bounds = systemd_environment.limits(selected)
     except (OSError, ValueError, pse_env.BoundaryError) as error:
         bounds = None
         errors.append(f"aggregate limits unavailable: {error}")

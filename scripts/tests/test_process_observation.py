@@ -8,6 +8,8 @@ import os
 import unittest
 from unittest.mock import patch
 
+import pytest
+
 from scripts import process_observation as observation
 from scripts import service_borrowers
 
@@ -25,12 +27,12 @@ class ProcessObservationTests(unittest.TestCase):
             "InvocationID": "a" * 32,
         }
         result = observation.observe_process(pid, unit=unit, manager=manager)
-        self.assertEqual(result.availability, observation.Availability.PRESENT)
-        self.assertEqual(result.start, observation.start_identity(pid))
-        self.assertEqual(result.namespace, observation.pid_namespace(pid))
-        self.assertEqual(result.executable, observation.executable(pid))
-        self.assertEqual(result.invocation, manager["InvocationID"])
-        self.assertEqual(result.uncertainty, {})
+        assert result.availability == observation.Availability.PRESENT
+        assert result.start == observation.start_identity(pid)
+        assert result.namespace == observation.pid_namespace(pid)
+        assert result.executable == observation.executable(pid)
+        assert result.invocation == manager["InvocationID"]
+        assert result.uncertainty == {}
 
     def test_process_reuse_never_combines_old_and_new_owner_facts(self) -> None:
         original = ["S", *(["0"] * 18), "original"]
@@ -39,17 +41,17 @@ class ProcessObservationTests(unittest.TestCase):
             observation, "process_stat", side_effect=[original, replacement]
         ):
             result = observation.observe_process(os.getpid())
-        self.assertEqual(result.availability, observation.Availability.CHANGED)
-        self.assertIsNone(result.start)
-        self.assertIsNone(result.executable)
+        assert result.availability == observation.Availability.CHANGED
+        assert result.start is None
+        assert result.executable is None
 
     def test_unavailable_boot_is_not_process_absence(self) -> None:
         with patch.object(observation, "boot", side_effect=FileNotFoundError):
             result = observation.observe_process(os.getpid())
-        self.assertEqual(result.availability, observation.Availability.UNAVAILABLE)
+        assert result.availability == observation.Availability.UNAVAILABLE
         with patch.object(observation, "process_stat", side_effect=FileNotFoundError):
             result = observation.observe_process(os.getpid())
-        self.assertEqual(result.availability, observation.Availability.ABSENT)
+        assert result.availability == observation.Availability.ABSENT
 
     def test_optional_executable_failure_and_manager_mismatch_remain_explicit(
         self,
@@ -63,15 +65,17 @@ class ProcessObservationTests(unittest.TestCase):
             result = observation.observe_process(
                 os.getpid(), unit="foreign.scope", manager=manager
             )
-        self.assertEqual(result.availability, observation.Availability.PRESENT)
-        self.assertIsNone(result.executable)
-        self.assertIsNone(result.invocation)
-        self.assertEqual(set(result.uncertainty), {"executable", "invocation"})
+        assert result.availability == observation.Availability.PRESENT
+        assert result.executable is None
+        assert result.invocation is None
+        assert set(result.uncertainty) == {"executable", "invocation"}
 
     def test_unreadable_group_is_not_reported_empty(self) -> None:
-        with patch.object(observation.Path, "stat", side_effect=PermissionError):
-            with self.assertRaises(PermissionError):
-                observation.populated("/unreadable.scope")
+        with (
+            patch.object(observation.Path, "stat", side_effect=PermissionError),
+            pytest.raises(PermissionError),
+        ):
+            observation.populated("/unreadable.scope")
 
     def test_unavailable_borrower_identity_retains_the_obligation(self) -> None:
         record = {
@@ -80,9 +84,9 @@ class ProcessObservationTests(unittest.TestCase):
             "boot": observation.boot(),
         }
         with patch.object(observation, "start_identity", side_effect=PermissionError):
-            self.assertTrue(service_borrowers.borrower_alive(record))
+            assert service_borrowers.borrower_alive(record)
         with patch.object(observation, "start_identity", side_effect=FileNotFoundError):
-            self.assertFalse(service_borrowers.borrower_alive(record))
+            assert not (service_borrowers.borrower_alive(record))
 
 
 if __name__ == "__main__":

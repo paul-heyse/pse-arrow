@@ -971,11 +971,10 @@ def _stop(config: Mapping[str, object], environment: Mapping[str, str] | None) -
                 "Telemetry stop did not establish a drained service"
             )
         group = observations[name].get("ControlGroup", "")
-        if group:
-            if process_observation.populated(group):
-                raise TelemetryServiceError(
-                    "Telemetry children remain in the owned cgroup after stop"
-                )
+        if group and process_observation.populated(group):
+            raise TelemetryServiceError(
+                "Telemetry children remain in the owned cgroup after stop"
+            )
 
 
 def stop(

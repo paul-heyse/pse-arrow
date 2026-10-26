@@ -6,12 +6,16 @@
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from scripts import evidence_store
+from scripts.capabilities import evidence_worker
+from scripts.capabilities.native_contracts import BINDINGS
 
 
 class EvidenceComparisonDispatchTests(unittest.TestCase):
@@ -102,10 +106,6 @@ class PrivateEvidenceWorkerTests(unittest.TestCase):
     def test_private_comparison_uses_existing_cli_without_scientific_extension(
         self,
     ) -> None:
-        import sys
-        from types import SimpleNamespace
-
-        from scripts.capabilities import evidence_worker
 
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -163,9 +163,6 @@ class PrivateEvidenceWorkerTests(unittest.TestCase):
     def test_private_interface_mismatch_refuses_before_cli_or_source_effects(
         self,
     ) -> None:
-        from types import SimpleNamespace
-
-        from scripts.capabilities import evidence_worker
 
         with (
             patch.object(
@@ -180,7 +177,6 @@ class PrivateEvidenceWorkerTests(unittest.TestCase):
         execute.assert_not_called()
 
     def test_private_binding_requires_only_its_independent_executable(self) -> None:
-        from scripts.capabilities.native_contracts import BINDINGS
 
         binding = next(
             item for item in BINDINGS if item.operation == "evidence_compare"

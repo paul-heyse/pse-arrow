@@ -10,6 +10,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from scripts import backup_image as image
 
 
@@ -26,13 +28,13 @@ class BackupImageTests(unittest.TestCase):
         image.copy(self.source, self.target, self.expected)
         inode = self.target.stat().st_ino
         image.copy(self.source, self.target, self.expected)
-        self.assertEqual(self.target.stat().st_ino, inode)
-        self.assertEqual(image.digest(self.target), self.expected)
-        self.assertEqual(self.target.stat().st_mode & 0o777, 0o600)
+        assert self.target.stat().st_ino == inode
+        assert image.digest(self.target) == self.expected
+        assert self.target.stat().st_mode & 0o777 == 0o600
         self.target.write_bytes(b"unexpected")
-        with self.assertRaises(image.ImageError):
+        with pytest.raises(image.ImageError):
             image.copy(self.source, self.target, self.expected)
-        self.assertEqual(self.target.read_bytes(), b"unexpected")
+        assert self.target.read_bytes() == b"unexpected"
 
     def test_nested_sibling_copies_create_every_ancestor_privately_for_real_umasks(
         self,
@@ -50,12 +52,12 @@ class BackupImageTests(unittest.TestCase):
                     image.copy(self.source, target, self.expected)
                 for path in [destination, *destination.rglob("*")]:
                     if path.is_dir():
-                        self.assertEqual(path.stat().st_mode & 0o777, 0o700)
+                        assert path.stat().st_mode & 0o777 == 0o700
                 for target in targets:
                     original = target.stat().st_ino
                     image.copy(self.source, target, self.expected)
-                    self.assertEqual(target.stat().st_ino, original)
-                    self.assertEqual(image.digest(target), self.expected)
+                    assert target.stat().st_ino == original
+                    assert image.digest(target) == self.expected
             finally:
                 os.umask(previous)
 
@@ -69,57 +71,55 @@ class BackupImageTests(unittest.TestCase):
             unknown = destination / "unrelated"
             unknown.write_bytes(b"retain this original directory and data")
             before = destination.stat()
-            with self.assertRaisesRegex(image.ImageError, "private and owned"):
+            with pytest.raises(image.ImageError, match="private and owned"):
                 image.copy(self.source, destination / "nested/image", self.expected)
-            self.assertEqual(destination.stat().st_ino, before.st_ino)
-            self.assertEqual(destination.stat().st_mode & 0o777, mode)
-            self.assertEqual(set(destination.iterdir()), {unknown})
-            self.assertEqual(
-                unknown.read_bytes(), b"retain this original directory and data"
-            )
+            assert destination.stat().st_ino == before.st_ino
+            assert destination.stat().st_mode & 0o777 == mode
+            assert set(destination.iterdir()) == {unknown}
+            assert unknown.read_bytes() == b"retain this original directory and data"
 
     def test_interruption_before_publication_leaves_no_named_partial(self) -> None:
         with (
             patch.object(
                 image.os, "link", side_effect=InterruptedError("injected interruption")
             ),
-            self.assertRaises(InterruptedError),
+            pytest.raises(InterruptedError),
         ):
             image.copy(self.source, self.target, self.expected)
-        self.assertEqual(list(self.target.parent.iterdir()), [])
+        assert list(self.target.parent.iterdir()) == []
         image.copy(self.source, self.target, self.expected)
-        self.assertEqual(image.digest(self.target), self.expected)
+        assert image.digest(self.target) == self.expected
 
     def test_unknown_entries_aliases_and_changed_source_are_preserved(self) -> None:
         self.target.parent.mkdir(mode=0o700)
         unknown = self.target.parent / "unknown"
         unknown.write_bytes(b"retain")
         unknown.chmod(0o600)
-        with self.assertRaisesRegex(image.ImageError, "Unknown"):
+        with pytest.raises(image.ImageError, match="Unknown"):
             image.check_destination(
                 self.target.parent, {"image": self.expected}, "a" * 64
             )
-        self.assertEqual(unknown.read_bytes(), b"retain")
-        os.symlink(self.source, self.target)
-        with self.assertRaises(image.ImageError):
+        assert unknown.read_bytes() == b"retain"
+        self.target.symlink_to(self.source)
+        with pytest.raises(image.ImageError):
             image.copy(self.source, self.target, self.expected)
         self.target.unlink()
         self.source.write_bytes(b"changed source")
-        with self.assertRaisesRegex(image.ImageError, "Stopped backup source"):
+        with pytest.raises(image.ImageError, match="Stopped backup source"):
             image.copy(self.source, self.target, self.expected)
-        self.assertFalse(self.target.exists())
+        assert not (self.target.exists())
 
     def test_historical_engine_mode_is_preserved_and_live_source_alias_is_refused(
         self,
     ) -> None:
         self.source.chmod(0o644)
         image.copy(self.source, self.target, self.expected)
-        self.assertEqual(self.target.stat().st_mode & 0o777, 0o644)
+        assert self.target.stat().st_mode & 0o777 == 0o644
         alias = self.target.parent / "alias"
         os.link(self.source, alias)
-        with self.assertRaises(image.ImageError):
+        with pytest.raises(image.ImageError):
             image.copy(self.source, alias, self.expected)
-        self.assertEqual(alias.stat().st_ino, self.source.stat().st_ino)
+        assert alias.stat().st_ino == self.source.stat().st_ino
 
 
 if __name__ == "__main__":

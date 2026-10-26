@@ -11,10 +11,30 @@ import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING, ParamSpec, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 from unittest.mock import patch
+
+import pytest
 
 from scripts import host_metadata
 from scripts import recovery_operation as recovery
+
+Parameters = ParamSpec("Parameters")
+Result = TypeVar("Result")
+
+
+def record_calls(
+    function: Callable[Parameters, Result], results: list[Result]
+) -> Callable[Parameters, Result]:
+    def recorded(*args: Parameters.args, **kwargs: Parameters.kwargs) -> Result:
+        result = function(*args, **kwargs)
+        results.append(result)
+        return result
+
+    return recorded
 
 
 class RecoveryOperationTests(unittest.TestCase):
@@ -25,25 +45,25 @@ class RecoveryOperationTests(unittest.TestCase):
         self.errors = self.enterContext(tempfile.TemporaryFile())
         self.checkpoint = self.directory / "progress.json"
         self.children: list[subprocess.Popen] = []
-        original = subprocess.Popen
-
-        def launch(*args: object, **options: object) -> subprocess.Popen:
-            child = original(*args, **options)
-            self.children.append(child)
-            return child
-
         self.enterContext(
-            patch.object(recovery.subprocess, "Popen", side_effect=launch)
+            patch.object(
+                recovery.subprocess,
+                "Popen",
+                side_effect=record_calls(subprocess.Popen, self.children),
+            )
         )
 
-    def run_child(self, **options: object) -> int:
+    def run_child(
+        self, *, deadline: float | None = None, stall_seconds: float = 120
+    ) -> int:
         return recovery.run(
             [sys.executable, "-c", "import time; time.sleep(0.6)"],
             self.request,
             self.response,
             self.errors,
             self.checkpoint,
-            **options,
+            deadline=deadline,
+            stall_seconds=stall_seconds,
         )
 
     def test_continuing_byte_progress_outlives_the_stall_interval(self) -> None:
@@ -65,9 +85,9 @@ class RecoveryOperationTests(unittest.TestCase):
             )
 
         with patch.object(recovery, "observation", side_effect=observe):
-            self.assertEqual(self.run_child(stall_seconds=0.25), 0)
-        self.assertGreater(time.monotonic() - started, 0.5)
-        self.assertIsNotNone(self.children[0].poll())
+            assert self.run_child(stall_seconds=0.25) == 0
+        assert time.monotonic() - started > 0.5
+        assert self.children[0].poll() is not None
 
     def test_stale_checkpoint_does_not_extend_an_unresponsive_attempt(self) -> None:
         stale = SimpleNamespace(
@@ -75,18 +95,18 @@ class RecoveryOperationTests(unittest.TestCase):
         )
         with (
             patch.object(recovery, "observation", return_value=stale),
-            self.assertRaisesRegex(recovery.RecoveryError, "stalled.*explicit resume"),
+            pytest.raises(recovery.RecoveryError, match=r"stalled.*explicit resume"),
         ):
             self.run_child(stall_seconds=0.15)
-        self.assertIsNotNone(self.children[0].poll())
+        assert self.children[0].poll() is not None
 
     def test_original_caller_deadline_settles_the_exact_native_child(self) -> None:
         with (
             patch.object(recovery, "observation", return_value=None),
-            self.assertRaises(host_metadata.AdmissionError),
+            pytest.raises(host_metadata.AdmissionError),
         ):
             self.run_child(deadline=time.monotonic() + 0.15)
-        self.assertIsNotNone(self.children[0].poll())
+        assert self.children[0].poll() is not None
 
     def test_progress_regression_refuses_without_waiting_for_success(self) -> None:
         def observed(sequence: int) -> SimpleNamespace:
@@ -100,15 +120,15 @@ class RecoveryOperationTests(unittest.TestCase):
             patch.object(
                 recovery, "observation", side_effect=[None, observed(3), observed(2)]
             ),
-            self.assertRaisesRegex(recovery.RecoveryError, "authority changed"),
+            pytest.raises(recovery.RecoveryError, match="authority changed"),
         ):
             self.run_child()
-        self.assertIsNotNone(self.children[0].poll())
+        assert self.children[0].poll() is not None
 
     def test_success_without_native_complete_is_refused(self) -> None:
         with (
             patch.object(recovery, "observation", return_value=None),
-            self.assertRaisesRegex(recovery.RecoveryError, "omitted complete"),
+            pytest.raises(recovery.RecoveryError, match="omitted complete"),
         ):
             self.run_child()
 

@@ -43,19 +43,23 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from scripts import (
+from scripts import (  # noqa: E402 -- direct-script path routing
     build_environment,
+    host_admission,
+    native_operation,
     operation_lifetime,
+    surreal_server,
 )
-from scripts import host_admission as host  # noqa: E402 -- placement owner
-from scripts import native_operation as operation  # noqa: E402 -- same routing
-from scripts.systemd_environment import (
+from scripts.systemd_environment import (  # noqa: E402 -- same routing
     BoundaryError,
     current_memory_ceiling,
     manager_environment,
     require_unbounded_slice,
     slice_group,
 )
+
+host = host_admission
+operation = native_operation
 
 FAILURE = 125
 LOCAL = ".envrc.local"
@@ -737,10 +741,6 @@ def owned_scope(command: Sequence[str], env: dict[str, str]) -> int:
     prefix and never enters this terminal owner. Release refusal is a boundary
     failure; diagnostics retain the independent raw and normalized child status.
     """
-    from scripts import (
-        surreal_server,
-    )
-
     allocation = host.inherit(env, services=surreal_server.ServiceAdmission())
     if allocation is None:
         raise BoundaryError("New scope has no acquired allocation to settle")

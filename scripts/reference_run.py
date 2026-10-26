@@ -16,6 +16,7 @@ from pathlib import Path
 import msgspec
 
 from scripts import host_admission, native_operation, surreal_server, test_resources
+from scripts.generated import deployment
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,6 +32,23 @@ def phase(command: str, state: Path, *extra: str) -> int:
         [command, "--state", str(state), *extra]
     )
     return surreal_server.dispatch(arguments)
+
+
+def _initializer_description(code: int, description: bytes) -> None:
+    if (
+        code != 0
+        or len(description) > 64 * 1024
+        or "version" not in json.loads(description)
+    ):
+        raise ValueError("initializer description unavailable")
+    report = msgspec.json.decode(
+        description, type=deployment.CanonicalInitializationReport
+    )
+    if (
+        not report.canonical_initialize
+        or report.phase is not deployment.CanonicalInitializationPhase.DESCRIPTION
+    ):
+        raise ValueError("initializer did not describe the selected operation")
 
 
 def freeze_initializer(source: Path, invocation: Path) -> Path:
@@ -51,9 +69,6 @@ def freeze_initializer(source: Path, invocation: Path) -> Path:
         ):
             raise ValueError("canonical initializer changed during artifact capture")
     target.chmod(0o500)
-    from scripts.generated import (
-        deployment,
-    )
 
     with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
         probe = subprocess.run(
@@ -66,20 +81,7 @@ def freeze_initializer(source: Path, invocation: Path) -> Path:
         output.seek(0)
         description = output.read(64 * 1024 + 1)
     try:
-        if (
-            probe.returncode != 0
-            or len(description) > 64 * 1024
-            or "version" not in json.loads(description)
-        ):
-            raise ValueError("initializer description unavailable")
-        report = msgspec.json.decode(
-            description, type=deployment.CanonicalInitializationReport
-        )
-        if (
-            not report.canonical_initialize
-            or report.phase is not deployment.CanonicalInitializationPhase.DESCRIPTION
-        ):
-            raise ValueError("initializer did not describe the selected operation")
+        _initializer_description(probe.returncode, description)
     except (ValueError, TypeError) as error:
         raise ValueError(
             "captured initializer does not expose the product initialization protocol; rebuild pse-canonical-init"
