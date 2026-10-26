@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 280
+revision: 281
 date: 2026-10-25
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 281 | 2026-10-25 | Select Plan56c declared canonical contracts, exact settlement, bounded inline/sealed placement and product offline recovery helper (§3.2/§20/§21), with coordinated fresh v9 activation. | Explicit RC01 and narrow RC04 selection; proposed ADR-0228 and focused review Accept at Proposed strength precede implementation; PSE_DESIGN_EDIT=1. 56c owns delivery/evidence. |
 | 280 | 2026-10-25 | Record required fit-profile v2 qualifier/header semantics (§19.4) and selected Plan56b scientific/service/native/canonical/public acceptance with composite evidence and exclusions (§24.2). | Maintainer-authorized 56b closeout under proposed ADR-0227; PSE_DESIGN_EDIT=1. B01–B06 complete, broader Plan56 and formal ADR acceptance remain separate. |
 | 279 | 2026-10-25 | Publish Plan56b completion/product permission, strict tagged replay and stored completion, explicit scientific service/binding/issuer boundaries, typed admission effects and adapter-owned public capabilities (§19.2/§19.3/§19.8/§21.1). | Maintainer-authorized B01–B06 and minimal C/F adoption under proposed ADR-0227; PSE_DESIGN_EDIT=1. Execution and qualification status remain in 56b; no broader Plan56 closure inferred. |
 | 278 | 2026-10-25 | Record selected Plan56b completion/operation-fact and explicit service contract amendment (§19.2/§19.4/§19.8/§21.1). | Maintainer-authorized implementation; PSE_DESIGN_EDIT=1; proposed ADR-0227, implementation and qualification remain with 56b. |

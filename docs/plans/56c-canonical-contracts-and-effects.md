@@ -1,8 +1,8 @@
 ---
 title: "Plan 56c: Canonical contracts and effects"
-status: draft
+status: in-progress
 date: 2026-10-25
-adrs: [ADR-0227]
+adrs: [ADR-0227, ADR-0228]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
 scenario_sources: [docs/design_review/audit/system-architecture.md]
 doc_role: plan
@@ -67,8 +67,10 @@ IPC file descriptor/batch coordinate. Schema/encoding, interpretation, exact siz
 run/attempt and ordinal remain explicit. No fake file id, empty schema sentinel or legacy decoder
 is used. Both placements use the same original validation, visibility and read-protection owner.
 
-Proposed initial placement defaults are 64 KiB per inline encoded member and 2 MiB target encoded
-append transaction, additionally bounded by the existing actual RPC admission after envelope
+Selected initial placement defaults are 64 KiB per complete inline encoded body and 2 MiB target encoded
+append transaction. One body may contain homogeneous native batch members, but its complete encoding
+must meet the inline limit; member descriptors share that body once. Admission is additionally
+bounded by the existing actual RPC admission after envelope
 accounting. Declare these defaults once in the publication policy; they are tunable physical
 choices, not scientific identities, host limits or capacity promises. Test threshold boundaries
 before delivery. Demand never waits merely to fill a batch.
@@ -177,3 +179,12 @@ qualified at the Outcome's exact composite scopes, then drained/stopped with dat
 The selected preexisting store was preserved. This supplies the necessary C03/C05 adoption for B;
 full C01/C02/C04, payload placement/RC01 and the broader coordinated activation remain pending.
 There is no compatibility path or authorization to reset other deployments.
+
+## Execution checkpoint — 2026-10-25
+
+The maintainer authorized C01–C05 after selecting RC01 inline/sealed payload placement and only
+the RC04 product recovery helper slice. ADR-0228 records the coordinated v9 contract before
+implementation and its focused decision review. Preserve the existing selected store, completed
+56b fixtures and their original evidence. The existing 56c package table remains the status owner;
+working shared contracts, all current consumers and fresh owned activation precede acceptance.
+No production package is complete from the earlier 56a/b prerequisite adoption alone.

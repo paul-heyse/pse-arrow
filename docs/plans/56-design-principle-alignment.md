@@ -123,10 +123,10 @@ revised proposal. No rejection silently waives a supported MUST.
 
 | Rule | Current owner and proposed change | Consequence if current rule is kept | Confirmation |
 |---|---|---|---|
-| RC01 | ADR-0187 / blueprint §20: permit bounded small encoded scientific payloads inline, with sealed native IPC for larger members, one typed locator/validation/visibility owner | Keep file-only placement; group metadata and larger same-relation packing, but separately address/justify remaining tiny-file protocol work | pending |
+| RC01 | ADR-0187 / blueprint §20: permit bounded small encoded scientific payloads inline, with sealed native IPC for larger members, one typed locator/validation/visibility owner | Keep file-only placement; group metadata and larger same-relation packing, but separately address/justify remaining tiny-file protocol work | selected 2026-10-25; ADR-0228/review before dependent implementation |
 | RC02 | ADR-0116 / boundary generation and D1 wording as affected: permit responsibility-owned document sets and owner-local non-scientific enums, with generated Python/schema types; scientific registry vocabularies remain canonical | Keep the all-enums-in-registry rule; redesign development/type partition before claiming DA-020/040 closure | pending |
 | RC03 | Reconsider I21's development/product placement conclusion for widened consumers: move development evidence/knowledge implementation/publication to existing xtask composition; retain product observability/hub and no new crate | Retain current placement and propose another effective dependency seam; nominal feature gating is insufficient | pending |
-| RC04 | Blueprint §3.2 composition roots: place actual product worker/project and product recovery roots in existing product package targets; retain fixture controls and I24 exploration in xtask | Keep xtask roots but provide a genuinely product-only build/closure without fixture/development dependencies; adapt E02 before implementation | pending |
+| RC04 | Blueprint §3.2 composition roots: place actual product worker/project and product recovery roots in existing product package targets; retain fixture controls and I24 exploration in xtask | Keep xtask roots but provide a genuinely product-only build/closure without fixture/development dependencies; adapt E02 before implementation | selected only offline recovery helper for 56c; remaining worker/project relocation pending |
 | RC05 | Production profile authority: put separately typed product profile values upstream in existing capacity configuration with Rust validation/materialization; conformance selects/consumes, with no selected numeric reduction | Preserve conformance authority; remove duplicate literals but explicitly resolve the remaining test-to-production dependency in the target | pending |
 | RC06 | Blueprint §24.1 fresh-worker wording: allow an actually witnessed foreground endpoint/workload read worker to remain admitted across exact pages/calls, retiring on changed supported basis and draining before replacement | Keep fresh children, improve currency and use one explicit multi-page workload where possible; retain/reassess remaining cross-call setup work | pending |
 
@@ -308,3 +308,8 @@ databases/receipts retained; the preexisting selected store was preserved.
 RC07's scoped review and proposed ADR preceded dependent implementation; ADR-0226 and ADR-0227
 remain proposed. RC01–RC06 require their separate decision route. No remaining companion execution,
 other deployment reset or other plan-series completion follows from selected A/B acceptance.
+
+**56c execution decision — 2026-10-25:** C01–C05 are authorized with bounded inline/sealed RC01
+and only the product recovery-helper portion of RC04. ADR-0228 and its focused decision review
+precede dependent contract changes. Fresh owned v8-to-v9 activation preserves the selected existing
+store and prior qualification databases/receipts. Other RC04 work and RC02/03/05/06 remain pending.

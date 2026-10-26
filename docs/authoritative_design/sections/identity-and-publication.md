@@ -509,6 +509,15 @@ lookup key and compiler physical-context identity.
 Immutable revision receipts remain attributable after explicit source reclamation; range
 markers prevent those receipts from reopening removed content.
 
+> Selected amendment: [ADR-0228](../../adr/0228-canonical-placement-and-recovery-authority.md)
+> (proposed; focused review accepts the Plan56c target). Canonical declarations own key/state/
+> association/retention meaning. One complete admitted encoded body through 64 KiB inclusive may
+> be inline; larger bodies retain sealed native IPC. Shared members reference one body. Inline
+> bytes, descriptors and original ACK publish atomically, with canonical read-ticket/reference
+> protection; scientific permission remains original. The append target is 2 MiB under actual
+> 4 MiB RPC admission and the separate 128 KiB index bound. Choose before file work; allocation
+> pressure cannot change placement. Plan56c owns the v9 migration and current delivery status.
+
 **Sealed payload results.** Registry-admitted Arrow rows use completed uncompressed IPC files in the selected private state's `payloads/<payload_incarnation>/<database>/` root. Compatible batches share one file only within an attempt, relation, schema and interpretation. Packing targets 16 MiB and has a 32 MiB hard encoded-file bound; demanded acknowledgements and live-prefix boundaries flush immediately rather than waiting for unrelated work. Logical descriptors retain original ordering/coordinates and bind unique file instance, encoding digest, batch index, schema and interpretation. JSON seed/completion owners retain their exact declared codecs through the same opaque file tier. File framing/layout/integrity admission precedes decoder allocation; neither file completion nor a submitted write is a catalog acknowledgement. Selected qualified coverage belongs to the Plan39d Outcome (§24.2).
 
 Sparse scalar indexes and dense output descriptors reference the original IPC batch and
