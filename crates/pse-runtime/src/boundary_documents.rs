@@ -144,7 +144,7 @@ macro_rules! for_each_boundary_document {
             (PhysicalFitRequest, pse_runtime::workflow::PhysicalFitRequest, "physical-fit-request", Both, Native),
             (ParameterCovariance, pse_runtime::math::settings::ParameterCovariance, "parameter-covariance", Both, Native),
             (FitExecutionDocument, pse_runtime::workflow::FitExecutionDocument, "fit-execution", Output, FlatV1),
-            (FitProfileDocument, pse_runtime::workflow::FitProfileDocument, "fit-profiles", Output, FlatV1),
+            (FitProfileDocument, pse_runtime::workflow::FitProfileDocument, "fit-profiles", Output, FlatV2),
             (FitDeclarations, pse_runtime::workflow::FitDeclarations, "fit-declarations", Both, FlatV1),
             (RunControls, pse_runtime::workflow::RunControls, "run-controls", Both, FlatV1),
             (StudyRunControls, pse_runtime::workflow::StudyRunControls, "study-run-controls", Both, FlatV1),

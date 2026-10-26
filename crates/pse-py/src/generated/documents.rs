@@ -406,8 +406,8 @@ impl crate::documents::DocumentType for pse_runtime::workflow::FitProfileDocumen
     const INPUT_NAME: &'static str = "FitProfileDocument";
     const OUTPUT_NAME: &'static str = "FitProfileDocument";
     const DISTINCT_DIRECTIONS: bool = false;
-    const VERSION: Option<u32> = Some(1);
-    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
+    const VERSION: Option<u32> = Some(2);
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV2;
 }
 impl crate::documents::DocumentType for pse_runtime::workflow::FitUncertainty {
     const INPUT_NAME: &'static str = "FitUncertainty";

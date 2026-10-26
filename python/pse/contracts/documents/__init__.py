@@ -9787,10 +9787,10 @@ class FitPreparationDocumentForPhysicalSimulationRequestOutput(msgspec.Struct, f
 class FitProfileDocumentAvailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="available"):
     """Every chain, including worker failures and its actual parallelism."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
     _pse_required_version_field: ClassVar[str] = "document_version"
 
-    document_version: Literal[1] = 1
+    document_version: Literal[2] = 2
     #: Every retained chain, including distinct worker failures.
     chains: tuple[ProfileChain, ...]
 
@@ -9801,10 +9801,10 @@ class FitProfileDocumentAvailable(msgspec.Struct, frozen=True, forbid_unknown_fi
 class FitProfileDocumentNotRequested(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="not_requested"):
     """No profile request was made."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
     _pse_required_version_field: ClassVar[str] = "document_version"
 
-    document_version: Literal[1] = 1
+    document_version: Literal[2] = 2
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version),))
@@ -9813,10 +9813,10 @@ class FitProfileDocumentNotRequested(msgspec.Struct, frozen=True, forbid_unknown
 class FitProfileDocumentWithheld(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="withheld"):
     """The native reason and retained diagnostic explanation."""
 
-    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version: ClassVar[int] = 2
     _pse_required_version_field: ClassVar[str] = "document_version"
 
-    document_version: Literal[1] = 1
+    document_version: Literal[2] = 2
     #: Retained explanation of the refusal.
     detail: str
     #: Canonical native reason for withholding.
@@ -33600,4 +33600,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:59957dfdbb23f5799ad9020593af2b0f92e896cb0bc0c6dec10c0faf33eba23a"
+SCHEMA_SET_FINGERPRINT = "blake3:0badb9903a5f460fbec0d2ec8f0d2eccc9b53a700817bddcf217761d2c2e99da"

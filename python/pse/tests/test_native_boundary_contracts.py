@@ -270,7 +270,7 @@ def test_owned_flow_document_is_a_shape_not_native_domain_admission() -> None:
 @pytest.mark.unit
 def test_profile_document_retains_worker_failure_and_absent_scientific_bound() -> None:
     document = codec.decode_json(
-        b'{"document_version":1,"status":"available","chains":[{"qualifiers":[],"worker_failure":{"kind":"sched'
+        b'{"document_version":2,"status":"available","chains":[{"qualifiers":[],"worker_failure":{"kind":"sched'
         b'uling","detail":"pool unavailable"},"scheduling_failures":[],"ac'
         b'tual_parallelism":0,"parameter":"0707070707070707070707070707070'
         b'7","end":"lower","estimate":2.0,"bound":{"value":null,"outcome":'
@@ -284,9 +284,16 @@ def test_profile_document_retains_worker_failure_and_absent_scientific_bound() -
     assert document.chains[0].actual_parallelism == 0
     assert document.chains[0].worker_failure.detail == "pool unavailable"
     assert document.chains[0].bound.value is None
+    assert document.document_version == 2
+    assert document.chains[0].qualifiers == ()
+    with pytest.raises(msgspec.ValidationError, match="document_version"):
+        codec.decode_json(
+            b'{"document_version":1,"status":"available","chains":"historical body"}',
+            documents.FitProfileDocument,
+        )
     with pytest.raises(msgspec.ValidationError):
         codec.decode_json(
-            b'{"document_version":1,"status":"not_requested","chains":[]}',
+            b'{"document_version":2,"status":"not_requested","chains":[]}',
             documents.FitProfileDocument,
         )
 

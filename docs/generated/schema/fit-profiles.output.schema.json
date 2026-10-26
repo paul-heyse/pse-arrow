@@ -2002,8 +2002,8 @@
       "description": "No profile request was made.",
       "properties": {
         "document_version": {
-          "const": 1,
-          "default": 1,
+          "const": 2,
+          "default": 2,
           "type": "integer"
         },
         "status": {
@@ -2029,8 +2029,8 @@
           "type": "array"
         },
         "document_version": {
-          "const": 1,
-          "default": 1,
+          "const": 2,
+          "default": 2,
           "type": "integer"
         },
         "status": {
@@ -2054,8 +2054,8 @@
           "type": "string"
         },
         "document_version": {
-          "const": 1,
-          "default": 1,
+          "const": 2,
+          "default": 2,
           "type": "integer"
         },
         "reason": {
@@ -2078,8 +2078,8 @@
   ],
   "properties": {
     "document_version": {
-      "const": 1,
-      "default": 1,
+      "const": 2,
+      "default": 2,
       "type": "integer"
     }
   },

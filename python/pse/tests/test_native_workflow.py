@@ -934,6 +934,9 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
     assert rows[0]["prediction"] == 2.0
     assert rows[0]["objective_contribution"] == 0.0
     assert isinstance(result.fit_execution, documents.FitExecutionDocumentEvaluation)
+    profiles = result.fit_profiles
+    assert isinstance(profiles, documents.FitProfileDocumentNotRequested)
+    assert profiles.document_version == 2
     assert job.wait().run_id == result.run_id
     assert not result.diagnostics()
     assert result.usable
