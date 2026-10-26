@@ -781,33 +781,54 @@ fn open_regular(path: &Path) -> Result<File, CanonicalError> {
     Ok(file)
 }
 fn validate_file(file: &mut File, descriptor: &FileDescriptor) -> Result<(), CanonicalError> {
-    validate_file_observed(file, descriptor, &mut |_| Ok(()))
+    validate_file_length(file.metadata().map_err(configuration)?.len(), descriptor)?;
+    let digest = file_payload_digest_observed(file, descriptor.bytes, &mut |_| Ok(()))?;
+    validate_file_digest(&digest, descriptor)?;
+    file.seek(SeekFrom::Start(0)).map_err(configuration)?;
+    Ok(())
 }
-fn validate_file_observed(file: &mut File, descriptor: &FileDescriptor,
-    progress: &mut dyn FnMut(usize) -> std::io::Result<()>) -> Result<(), CanonicalError> {
-    if file.metadata().map_err(configuration)?.len() != descriptor.bytes {
+fn validate_file_length(bytes: u64, descriptor: &FileDescriptor) -> Result<(), CanonicalError> {
+    if bytes != descriptor.bytes {
         return Err(configuration("sealed file length differs"));
     }
+    Ok(())
+}
+fn validate_file_digest(digest: &str, descriptor: &FileDescriptor) -> Result<(), CanonicalError> {
+    if digest != descriptor.digest.as_str() {
+        return Err(configuration("sealed file integrity differs"));
+    }
+    Ok(())
+}
+/// Stream the one canonical framing owner while another integrity purpose may
+/// consume the same bytes. Ordinary live validation supplies a no-op observer.
+fn file_payload_digest_observed(
+    file: &mut File,
+    bytes: u64,
+    observe: &mut dyn FnMut(&[u8]) -> std::io::Result<()>,
+) -> Result<String, CanonicalError> {
     struct Observed<'a> {
         file: &'a mut File,
-        progress: &'a mut dyn FnMut(usize) -> std::io::Result<()>,
+        observe: &'a mut dyn FnMut(&[u8]) -> std::io::Result<()>,
     }
     impl Read for Observed<'_> {
         fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
             let length = self.file.read(bytes)?;
-            (self.progress)(length)?;
+            (self.observe)(&bytes[..length])?;
             Ok(length)
         }
     }
     let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
     hash.str("pse.execution.result-payload.v1");
-    hash.part_reader(descriptor.bytes, &mut Observed { file: &mut *file, progress }, &|| Ok(()))
-        .map_err(configuration)?;
-    if hash.finish_hash().to_hex() != descriptor.digest {
-        return Err(configuration("sealed file integrity differs"));
-    }
-    file.seek(SeekFrom::Start(0)).map_err(configuration)?;
-    Ok(())
+    hash.part_reader(
+        bytes,
+        &mut Observed {
+            file: &mut *file,
+            observe,
+        },
+        &|| Ok(()),
+    )
+    .map_err(configuration)?;
+    Ok(hash.finish_hash().to_hex())
 }
 // This unique lock path survives collection. Deleting it would let a late
 // waiter and a new opener lock different inodes for one physical instance.
