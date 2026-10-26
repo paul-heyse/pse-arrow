@@ -242,6 +242,27 @@ class LifecycleClockTests(unittest.TestCase):
 
 
 class SurrealSupervisorTests(unittest.TestCase):
+    def test_parser_bootstrap_needs_no_deployment_operator(self) -> None:
+        with patch.object(server.execution_profiles, "declarations", side_effect=AssertionError("operator entered")):
+            parser = server.parser()
+            self.assertEqual(parser.parse_args(["build-server"]).command, "build-server")
+            for profile in server.deployment.ProductionProfileName:
+                if profile is not server.deployment.ProductionProfileName.SERVICE:
+                    self.assertEqual(parser.parse_args(["setup", "--execution-profile", profile.value]).execution_profile,
+                                     profile.value)
+            with self.assertRaises(SystemExit) as help_exit, contextlib.redirect_stdout(io.StringIO()):
+                parser.parse_args(["--help"])
+            self.assertEqual(help_exit.exception.code, 0)
+
+    def test_recovery_receiver_retains_exact_product_helper_execution_mode(self) -> None:
+        config = self.initialized()
+        selected = server.object_mapping(config["service_supervisor"])
+        recovery.receiver_equivalence(selected, selected, self.state, self.state, primary=False)
+        operator = Path(str(selected["supervisor_script"])).parents[1] / "bin/pse-deployment"
+        operator.chmod(0o600)
+        with self.assertRaisesRegex(server.SupervisorError, "execution mode"):
+            recovery.receiver_equivalence(selected, selected, self.state, self.state, primary=False)
+
     def test_recovery_equivalence_accepts_exact_relocation_and_fresh_incarnation(
         self,
     ) -> None:

@@ -10922,8 +10922,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--native-worker-memory-mib", type=int)
     result.add_argument(
         "--execution-profile",
-        choices=[profile.name.value for profile in execution_profiles.declarations().profiles
-                 if profile.execution is not None],
+        choices=[profile.value for profile in deployment.ProductionProfileName
+                 if profile is not deployment.ProductionProfileName.SERVICE],
     )
     result.add_argument("--worker-executable", type=Path)
     result.add_argument(

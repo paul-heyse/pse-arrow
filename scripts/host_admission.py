@@ -55,7 +55,6 @@ HostPolicy = TypedDict(
         "wide": dict[str, int],
         "timing": dict[str, int],
         "exclusive": dict[str, int],
-        "exclusive-observer": dict[str, int],
         "test-runner": dict[str, int],
     },
 )

@@ -6,11 +6,13 @@
 from __future__ import annotations
 
 import shutil
+import contextlib
 import struct
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from scripts import operation_lifetime
@@ -20,6 +22,81 @@ from scripts.tests import canonical_recovery_science as science
 from scripts.tests import test_surreal_server as supervisor_controls
 from scripts.tests.server_receipt_fixture import fixture_build_context, fixture_receipt
 from scripts.tests.test_surrealism_module import fixture_module
+
+
+class PrivateActivationControls(unittest.TestCase):
+    def setUp(self) -> None:
+        self.state = Path("/private-fixture/live")
+        self.config = {"instance_id": "original", "service_supervisor": {"selected": "frozen"},
+                       "resources": {"selected": "original"}, "admission": "quiesced", "accepting_writes": False}
+        self.unit = "pse-surreal-exact.service"
+        self.observed = SimpleNamespace(phase=server.Readiness.ACTIONABLE_ABSENT, state=self.state,
+                                        instance_id="original", unit=self.unit, listener_owned=False,
+                                        manager={"ActiveState": "inactive", "ControlGroup": ""})
+        self.enterContext(patch.object(server, "lifecycle_reservation", side_effect=lambda *_args, **_kwargs: contextlib.nullcontext()))
+        self.configuration = self.enterContext(patch.object(server, "config_for", return_value=dict(self.config)))
+        self.observation = self.enterContext(patch.object(server, "service_readiness", return_value=self.observed))
+        self.enterContext(patch.object(server, "unit_name", return_value=self.unit))
+        self.population = self.enterContext(patch.object(server, "group_populated", return_value=False))
+        self.drain = self.enterContext(patch.object(server, "all_contexts_drained"))
+        self.reset = self.enterContext(patch.object(server, "reset_failure_window"))
+        self.start = self.enterContext(patch.object(server, "start"))
+
+    def test_explicit_activation_rechecks_exact_stopped_owner_after_drain_before_reset(self) -> None:
+        events = []
+        self.observation.side_effect = lambda *_args: events.append("observe") or self.observed
+        self.drain.side_effect = lambda *_args: events.append("drain")
+        self.reset.side_effect = lambda *_args: events.append("reset")
+        self.start.side_effect = lambda *_args: events.append("start")
+        recovery.start_after_fixture_stop(self.state, self.config)
+        self.assertEqual(events, ["observe", "drain", "observe", "reset", "start"])
+        self.start.assert_called_once_with(self.state, self.config)
+
+    def test_changed_owner_live_service_or_uncertain_observation_refuses_before_reset(self) -> None:
+        changes = ({"phase": server.Readiness.UNAVAILABLE}, {"phase": server.Readiness.READY},
+                   {"state": Path("/foreign")}, {"instance_id": "replacement"}, {"unit": "foreign.service"},
+                   {"listener_owned": True}, {"manager": {"ActiveState": "active", "ControlGroup": ""}},
+                   {"manager": {"ActiveState": "failed"}},
+                   {"manager": {"ActiveState": "failed", "ControlGroup": "/foreign.service"}})
+        for change in changes:
+            with self.subTest(change=change):
+                self.observation.return_value = SimpleNamespace(**{**vars(self.observed), **change})
+                with self.assertRaises(server.SupervisorError):
+                    recovery.start_after_fixture_stop(self.state, self.config)
+                self.reset.assert_not_called()
+                self.start.assert_not_called()
+        self.observation.return_value = self.observed
+        for change in ({"instance_id": "replacement"}, {"resources": {"selected": "different"}},
+                       {"accepting_writes": True}, {"admission": "open"}):
+            with self.subTest(change=change):
+                self.configuration.return_value = {**self.config, **change}
+                with self.assertRaises(server.SupervisorError):
+                    recovery.start_after_fixture_stop(self.state, self.config)
+                self.reset.assert_not_called()
+                self.start.assert_not_called()
+
+    def test_populated_group_or_failed_context_drain_never_resets(self) -> None:
+        self.observation.return_value = SimpleNamespace(**{**vars(self.observed), "manager": {
+            "ActiveState": "failed", "ControlGroup": "/owned/" + self.unit}})
+        self.population.return_value = True
+        with self.assertRaises(server.SupervisorError):
+            recovery.start_after_fixture_stop(self.state, self.config)
+        self.reset.assert_not_called()
+        self.start.assert_not_called()
+        self.observation.return_value = self.observed
+        self.drain.side_effect = server.SupervisorError("descendant authority uncertain")
+        with self.assertRaisesRegex(server.SupervisorError, "descendant authority uncertain"):
+            recovery.start_after_fixture_stop(self.state, self.config)
+        self.reset.assert_not_called()
+        self.start.assert_not_called()
+
+    def test_lifetime_change_during_drain_refuses_without_reset_or_retry(self) -> None:
+        self.configuration.side_effect = [dict(self.config), {**self.config, "instance_id": "replacement"}]
+        with self.assertRaises(server.SupervisorError):
+            recovery.start_after_fixture_stop(self.state, self.config)
+        self.drain.assert_called_once_with(self.state)
+        self.reset.assert_not_called()
+        self.start.assert_not_called()
 
 
 class ScientificRecoveryControls(unittest.TestCase):
