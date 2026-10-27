@@ -128,6 +128,8 @@ impl StudyCandidatesQuery {
     }
 }
 
+const STUDY_SUMMARY_COLUMNS: &str = "key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal";
+
 /// Actual bounded study discovery fields, without scientific metadata or occurrence descriptors.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1318,11 +1320,29 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result = protected_query("canonical_studies::canonical_study_summary", || Ok(self.db.query(crate::canonical_history::study_query("SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM ONLY type::record('canonical_studies',$key);","key"))
+            let mut result = protected_query("canonical_studies::canonical_study_summary", || Ok(self.db.query(crate::canonical_history::study_query(&format!("SELECT {STUDY_SUMMARY_COLUMNS} FROM ONLY type::record('canonical_studies',$key);"),"key"))
                 .bind(("key",key.to_owned())))).await?;
             result.take::<Option<Object>>(0)?.map(decode_study_summary).transpose()
         }).await
             }).await
+    }
+    /// Read the exact indexed parent association without its occurrence graph or definition.
+    pub async fn canonical_study_summary_for_run(
+        &self,
+        run: &str,
+    ) -> Result<Option<StudySummary>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
+            within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                let mut result = protected_query("canonical_studies::canonical_study_summary_for_run", || {
+                    Ok(self.db.query(crate::canonical_history::run_query(
+                        &format!("SELECT {STUDY_SUMMARY_COLUMNS} FROM canonical_studies WHERE run=$run LIMIT 1;"), "run"))
+                        .bind(("run", run.to_owned())))
+                }).await?;
+                let mut rows = result.take::<Vec<Object>>(0)?;
+                rows.pop().map(decode_study_summary).transpose()
+            }).await
+        }).await
     }
     /// Read the complete stored study header when its definition is needed.
     pub async fn canonical_study(&self, key: &str) -> Result<Option<Study>, CanonicalError> {

@@ -105,7 +105,7 @@ pub(crate) fn study_query(sql: &str, binding: &'static str) -> String {
 pub(crate) fn point_query(sql: &'static str, binding: &'static str) -> String {
     format!("RETURN {{ fn::pse_history_v1::point($pse_rpc_expires_at,${binding}); {sql} }};")
 }
-pub(crate) fn run_query(sql: &'static str, binding: &'static str) -> String {
+pub(crate) fn run_query(sql: &str, binding: &'static str) -> String {
     format!("RETURN {{ fn::pse_history_v1::run($pse_rpc_expires_at,${binding}); {sql} }};")
 }
 

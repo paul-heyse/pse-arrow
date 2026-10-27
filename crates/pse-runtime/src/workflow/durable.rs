@@ -411,18 +411,53 @@ impl Operations {
             .await
     }
 
+    async fn result_scientific_completion(
+        &self,
+        read: &ResultRead,
+    ) -> Result<Option<Arc<pse_columnar::Leased<StoredCompletion>>>, WorkflowError> {
+        let Some(bytes) = read.attempt().completion.as_ref() else {
+            return Ok(None);
+        };
+        // Shape selects a codec only; the native parent association below supplies
+        // authority. Scientific and recovery object receipts retain their decoder.
+        if bytes
+            .as_slice()
+            .iter()
+            .find(|byte| !byte.is_ascii_whitespace())
+            == Some(&b'[')
+        {
+            let owner = pooled_response_owner(
+                &self.pool,
+                "result:study-parent-association",
+                pse_operations::canonical::MetadataResponse::Selection,
+            )?;
+            let parent = pse_operations::canonical::response_ownership_scope(
+                owner.clone(),
+                self.store.canonical_study_summary_for_run(&read.run().key),
+            )
+            .await?;
+            super::study::original_summary_conclusion(
+                bytes.as_slice(),
+                &read.run().key,
+                &read.run().revision,
+                parent.as_ref(),
+            )?;
+            return Ok(None); // Availability/lifecycle is not scientific or product permission.
+        }
+        self.decode_completion(CompletionSelection::Full(read))
+            .await
+            .map(Some)
+    }
+
     /// Original governing permission from the very same protected terminal result selection.
     /// Missing completion is unknown; corrupt or unreadable original completion propagates.
     pub(super) async fn result_governing_permission(
         &self,
         read: &ResultRead,
     ) -> Result<Option<bool>, WorkflowError> {
-        if read.attempt().completion.is_none() {
+        let Some(completion) = self.result_scientific_completion(read).await? else {
             return Ok(None);
-        }
-        let completion = self
-            .decode_completion(CompletionSelection::Full(read))
-            .await?;
+        };
         Ok(completion
             .completion
             .as_ref()
@@ -435,12 +470,9 @@ impl Operations {
         read: &ResultRead,
         quantity: pse_model::generated::enums::DerivedQuantity,
     ) -> Result<Option<bool>, WorkflowError> {
-        if read.attempt().completion.is_none() {
+        let Some(stored) = self.result_scientific_completion(read).await? else {
             return Ok(None);
-        }
-        let stored = self
-            .decode_completion(CompletionSelection::Full(read))
-            .await?;
+        };
         Ok(stored
             .completion
             .as_ref()

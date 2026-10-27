@@ -40,6 +40,24 @@ pub(super) fn summary_conclusion(
     Ok(Some(conclusion))
 }
 
+/// Validate a retained conclusion against its exact native study-parent identity.
+pub(super) fn original_summary_conclusion(
+    bytes: &[u8],
+    run: &str,
+    revision: &str,
+    parent: Option<&StudySummary>,
+) -> Result<pse_model::study::Conclusion, WorkflowError> {
+    let parent =
+        parent.ok_or_else(|| contract("study conclusion has no original parent association"))?;
+    if parent.run != run || parent.revision != revision {
+        return Err(contract(
+            "study conclusion belongs to another original parent",
+        ));
+    }
+    summary_conclusion(bytes)?
+        .ok_or_else(|| contract("study conclusion receipt is not a current tuple"))
+}
+
 #[cfg(test)]
 mod summary_conclusion_tests {
     #![allow(
@@ -63,6 +81,58 @@ mod summary_conclusion_tests {
         assert!(
             summary_conclusion(br#"[1,{"availability":"none","lifecycle":"terminal"},0]"#).is_err()
         );
+    }
+
+    #[test]
+    fn original_study_conclusion_requires_exact_parent_and_current_receipt() {
+        let parent = StudySummary {
+            key: "study".into(),
+            run: "parent-run".into(),
+            problem: "problem".into(),
+            revision: "original-revision".into(),
+            interpretation: "current".into(),
+            point_count: 1,
+            next_ordinal: 1,
+            active: true,
+            cancelled: false,
+            generation: 1,
+            terminal: true,
+        };
+        let bytes = br#"[1,{"availability":"complete","lifecycle":"terminal"}]"#;
+        let original =
+            original_summary_conclusion(bytes, "parent-run", "original-revision", Some(&parent))
+                .unwrap();
+        assert_eq!(
+            original.availability,
+            pse_model::study::Availability::Complete
+        );
+        assert!(
+            original_summary_conclusion(bytes, "parent-run", "original-revision", None).is_err()
+        );
+        assert!(
+            original_summary_conclusion(bytes, "other-run", "original-revision", Some(&parent))
+                .is_err()
+        );
+        assert!(
+            original_summary_conclusion(bytes, "parent-run", "other-revision", Some(&parent))
+                .is_err()
+        );
+        for invalid in [
+            br#"[2,{"availability":"complete","lifecycle":"terminal"}]"#.as_slice(),
+            br#"[1,{"availability":"complete"}]"#,
+            br#"[1,{"availability":"complete","lifecycle":"terminal"},0]"#,
+            br#"{"version":1,"inline":null}"#,
+        ] {
+            assert!(
+                original_summary_conclusion(
+                    invalid,
+                    "parent-run",
+                    "original-revision",
+                    Some(&parent)
+                )
+                .is_err()
+            );
+        }
     }
 
     #[test]
