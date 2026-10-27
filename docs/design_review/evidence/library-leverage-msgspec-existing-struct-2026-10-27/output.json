@@ -1,0 +1,7 @@
+{
+  "msgspec_version": "0.21.1",
+  "same_target_returns_original": true,
+  "invalid_same_target_field": "bad",
+  "mapping_retains_invalid_nested_struct": true,
+  "raw_mapping_refused": "Expected `float`, got `str` - at `$.facts[0].value`"
+}
