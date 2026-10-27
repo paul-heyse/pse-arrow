@@ -64,30 +64,6 @@ Research date 2026-10-27. Sources: installed checkout `~/.cargo/git/checkouts/po
 
 ## Current applicability
 
-### [CBO-032](../../../library_leverage/codebase/native-solver-integration.md#cbo-032) — KKT-point sensitivity built beside fuller library sensitivity surfaces
-- **Types:** pounce/engine-agnostic-parametric-sensitivity
-- **Realization:** installed fork revision.
-- **Conclusion:** ruled out here for further discharge. The local code already uses most of the
-  engine-agnostic surface; the remaining library surfaces are engine-coupled or IPM-specific.
-- **What it would discharge / what remains local:** already used: `SensApplication`
-  (`parametric_step`, `compute_reduced_hessian`, `compute_reduced_hessian_eigen`),
-  `IndexSchurData`, `SensOptions`, `SensBacksolver`/`BoundRow`, `boundcheck::step_along_path`
-  (which calls `path_direction`), `rowlimit`, and `pounce_qp::ParametricActiveSetSolver`.
-  The local pin formulation, KKT assembly and validity gating are domain policy.
-  `activity_kernel` targets IPM iterates, not a qualified active-set candidate.
-  `pounce-sensitivity` would couple sensitivity to POUNCE as the solving engine, contrary to the
-  backend-independence constraint. sIPOPT on the retained Ipopt is not built into the native
-  image (no `sipopt` in the solver build scripts), and it is same-solver-coupled too.
-- **Semantic gaps against the CBO's preservation constraints:** both remaining routes violate
-  "independence from the solving backend".
-- **Unsettled premises and what would settle them:** whether `boundcheck::refine_step_onto_bounds`
-  (fix-relax) is already reached through `step_along_path`, or would add value at the advance
-  step — read `kkt/advance.rs` against `boundcheck.rs`.
-- **Evidence:** Interface-checked; local imports read in `kkt/{sensitivity,advance,path,activity}.rs`
-  and `kkt/path/qp.rs`; application Proposed.
-
-**Reviewer correction (2026-10-27).** Confirmed: `SensApplication`, `IndexSchurData`, `step_along_path`, `rowlimit` and `ParametricActiveSetSolver` are in use, and `refine_step_onto_bounds` is unused by the advanced step's own contract. The comparative review recommends retiring the opportunity; fix-relax for the advanced step would be a functional change. See the [comparative review](../../reviews/native-solver-integration.md#cbo-032).
-
 ### [CBO-031](../../../library_leverage/codebase/native-solver-integration.md#cbo-031) — Convex and conic encodings (POUNCE part)
 - **Types:** pounce/convex-qp-and-cone-form
 - **Conclusion:** ruled out here for a shared layout. The conventions genuinely differ from

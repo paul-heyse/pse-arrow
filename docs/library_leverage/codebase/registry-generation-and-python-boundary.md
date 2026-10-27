@@ -68,6 +68,12 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
 - **Library assessment correction (2026-10-27).** The registry product types derive no serde; only Arrow `Field` is serialized today. A blob route must first give the model a serialization contract, including deterministic ordering for Arrow `Field` metadata, which is a `HashMap`. See [postcard](../libraries/postcard/README.md) and [ciborium](../libraries/ciborium/README.md).
 - **Comparative review correction (2026-10-27).** "The same products serialized three ways" is wrong: each sub-product is encoded once, by what its type supports. Rust literals carry the hand-written model types; `standard-data.jsonl` is a deduplicated canonical-JSON pool of serde-capable leaves (Arrow `Field`, references, description `Value`s), with 4,576 lines and 6,548 `native(` decodes; IPC carries the 15 self-description batches. `HashMap` ordering is already solved on the JSON route by `pse_columnar::native_field::canonical_json` (`NativeJsonPool` in `pse-codegen/src/codegen/rust/registry.rs`), so the Field-ordering prerequisite above applies only if Field were serialized through postcard natively. `pse-codegen` re-exports `pse-schema`, which compiles `mod generated;` unconditionally. A later probe confirmed the coupling: a model field added together with its emitter breaks `just codegen` (258 × `E0063` in `standard_registry.rs`, nothing regenerated), and the only workaround found is a manual stub of the generated file. The generated module accounts for about 18 s (about 72%) of a full `pse-schema` build and is recompiled whenever its line numbers shift, while peak RSS stays under 2 GB (*Tested* and *Measured*; [evidence](../../design_review/evidence/library-leverage-registry-build-coupling-2026-10-27/README.md)). The governing proposed ADR-0210 records 304 ms versus 30 ms, fixture-bounded. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-040).
 
+- **Reassessment correction (2026-10-27, source `4f52fd239`).** The embedded-blob preference stands
+  conditionally; its complete compatibility/integrity mechanism is unresolved. A constant generated
+  alongside a blob can be stale with it. Postcard from_bytes ignores trailing input; take_from_bytes plus
+  remainder refusal is needed for complete-value admission. Layout, payload integrity and
+  source-versus-hydrated equivalence remain separate guarantees.
+
 <a id="cbo-041"></a>
 
 ## CBO-041 — Boundary documents transcoded through JSON, with checks in both languages
@@ -109,6 +115,10 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
     is needed?
 - **Library assessment correction (2026-10-27).** The catalogue has 250 entries, not about 70: 155 FlatV1, 91 Native, 3 FlatV2 and 1 ValueV1. A probe of msgspec 0.21.1 found that a single tagged Struct does not require its tag, while a union of two or more tagged Structs does ([evidence](../../design_review/evidence/library-leverage-msgspec-tagged-decode-2026-10-27/README.md)). See [msgspec](../libraries/msgspec/README.md).
 - **Comparative review correction (2026-10-27).** The header rule has one implementation, Rust `pse_model::document::check_required_header`; Python reaches it through `_native.check_document_header` and owns only traversal and message wording. The import-time `_check_native_compatibility` (called from `pse/__init__.py`) already compares `boundary_schema_fingerprint`, and generated version fields are `Literal[N] = N`. Two real duplications remain: `pse-py/src/documents.rs` `decode_document` runs `check_required_header` and `Wire::decode_slice` then runs `check_header::<N>` again (FlatV1, FlatV2 and ValueV1), and Rust→Python decode re-runs the untrusted-input traversal, with a callback into Rust, on bytes Rust just wrote. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-041).
+
+- **Reassessment correction (2026-10-27, source `4f52fd239`).** Reuse the existing bounded per-thread
+  decoder cache for trusted immediate native output. Per-type cached class/callable handles do not justify
+  sharing decoder instances globally; public untrusted header admission remains.
 
 <a id="cbo-042"></a>
 
@@ -220,6 +230,12 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
   - Are bulk getters available?
 - **Library assessment correction (2026-10-27).** The 405 forwards count is exact. The stub generator strips docstrings on purpose (`xtask/src/codegen/python_stubs/validate.rs`), although pyo3-introspection would emit them.
 - **Comparative review correction (2026-10-27).** 41 wrapper classes hold `_handle`, 6 of them Python-constructed (for example `Runtime`), and there are 22 cross-wrapper `._handle` unwraps (`# noqa: SLF001`). `Runtime` is a Python class composing generated host-operation mixins, so `#[pyclass(subclass)]` works for user-constructed owners but not for Rust-returned objects, which are always base-class instances. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-044).
+
+- **Reassessment correction (2026-10-27, source `4f52fd239`).** Wrapper removal is not one-to-one.
+  CompactStudyResult is an indexed view over the same native report wrapped by StudyReport, so it needs a
+  native indexed view or a retained small wrapper. Handle-identity equality/hash, attrs mutation exceptions,
+  constructors and helpers are not preserved merely by PyO3 name/module/frozen/eq/hash attributes. The final
+  deletion count remains unestablished.
 
 <a id="cbo-045"></a>
 

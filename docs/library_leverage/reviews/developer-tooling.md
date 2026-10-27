@@ -1,12 +1,13 @@
 # Developer tooling
 
-**Group G9 of the [first comparative review](README.md), 2026-10-27.** Focused comparative advice;
+**Group G9 of the [comparative review](README.md), 2026-10-27.** Focused comparative advice;
 it authorizes nothing.
 
 | Item | Value |
 | --- | --- |
+| Reassessment | 2026-10-27 at source `4f52fd239`; consumes the complete original review and updated inputs at `b29fcf802`, base patterns 0.2 and additional patterns revision 3 (refined to 4 here). All named dispositions were reconsidered with representative current source, consumers and inherited evidence; unchanged evidence retains its original conditions. |
 | Opportunities | [CBO-049](../codebase/developer-tooling.md#cbo-049), [CBO-050](../codebase/developer-tooling.md#cbo-050), [CBO-051](../codebase/developer-tooling.md#cbo-051), [CBO-052](../codebase/developer-tooling.md#cbo-052) |
-| Source inspected | `main` at `3e9a2525b` plus its dirty tree. `git diff --stat dbc4c9436..HEAD -- scripts/ xtask/ justfile .config/nextest.toml` is empty, so the audit baseline still holds for this group. |
+| Original source inspected | `main` at `3e9a2525b` plus its dirty tree. `git diff --stat dbc4c9436..HEAD -- scripts/ xtask/ justfile .config/nextest.toml` is empty, so the audit baseline still holds for this group. |
 | Consumed accounts | Codebase account (published at `c2f8b485a`), including its dated corrections. The library accounts from the first assessment (2026-10-27): cargo-nextest, cargo-hack, sqlite, duckdb, parquet-datafusion-index, opentelemetry-proto, grpcio, h2, python-frontmatter, cyclopts, typer, just and fastmcp. Patterns: base edition 0.2, plus additional patterns revision 2 (LOP-X010 is central here). |
 | Realizations | Host tools: cargo-nextest 0.9.146 and just 1.58.0. cargo-hack 0.6.45 as the library account records it. Python pins: msgspec 0.21.1 (base), tomlkit 0.15.1, cyclopts 5.3.0, pyarrow 25.0.1 and opentelemetry-exporter-otlp-proto-http 1.45.1. Server: SurrealDB 3.3.4, the workspace pin; its upstream server source was read at tag `v3.3.4`. |
 | Standard | Core 3.4 (DP-01, DP-13, DP-14, DP-16 and DP-17 are the most relevant) and the pse-arrow binding. The process-simulator profile is not engaged, because no scientific semantics are in scope. |
@@ -19,8 +20,8 @@ code that remains is one of three things: the extension point a tool offers, the
 repository-specific rule, or a deliberate test peer. The pass makes one bounded recommendation,
 which spans CBO-050 and touches CBO-052: the Python wrappers for the Rust-owned evidence and
 knowledge requests should consume the Python wire types the registry already generates, instead of
-re-declaring them. Every other opportunity is retained, or its premise is rejected on evidence.
-The store question in CBO-050 depends on U3.
+re-declaring them. Reassessment retains the other directions except CBO-051's sink choice,
+which is reopened on incomplete-capture reporting. The store question in CBO-050 depends on U3.
 
 **Corrections that drive the result.**
 - **nextest overlay.** A tool config cannot express the scheduling policy against the repository's
@@ -36,8 +37,8 @@ The store question in CBO-050 depends on U3.
 **Interactions with other groups.**
 - **G8, the registry and Python boundary (CBO-040–043).** The recommended change uses
   registry-generated msgspec Structs on the Python side. G8's msgspec probe found that constructing
-  a Struct validates nothing, so validation belongs at the point of publication, through
-  `msgspec.convert`. Reconcile with G8's answer to "must Python re-check documents declared by
+  a Struct validates nothing; same-target conversion does not revalidate it either. Validate
+  raw nested input or the exact encoded document at a real publication boundary. Reconcile with G8's answer to "must Python re-check documents declared by
   Rust?".
 - **G3, SurrealDB transport and SurrealQL (CBO-009, 016, 046 and the SurrealDB parts of 048).** The
   tooling evidence and knowledge stores (`xtask/src/development/{evidence,knowledge}.rs`) consume
@@ -242,7 +243,8 @@ Python msgspec types: `scripts/generated/evidence_snapshot_input.py` (`EvidenceS
 `EvidenceFact`) and `scripts/generated/knowledge_query_input.py` (`KnowledgeQuery`, `KnowledgeMode`
 and the kind enums). The real restatements are on the Python side:
 - `evidence_projection.py` re-declares `EvidenceSnapshot` and `EvidenceFact` as hand-written
-  TypedDicts, field for field.
+  TypedDicts for the same meanings. They are not literal field-for-field replacements:
+  optional absent fields become explicit `None` and lists become tuples in generated Structs.
 - `knowledge_store.py` re-declares the query fields and the `--mode` choices.
 - Neither generated module has a non-test importer. They are loaded only by
   `check_private_contracts.py` (a `rg` search across the repository, excluding generated, target and
@@ -277,20 +279,22 @@ and the kind enums). The real restatements are on the Python side:
   boundary, so the two-language split is deliberate (DP-17). The defect is that Python does not use
   the declaration (DP-01, DP-16: generated output must not be bypassed by a hand twin).
 
-**Option 2 is a clear, light win.**
+**Option 2 is a bounded consolidation with explicit adapter work.**
 - **What it does.**
   - Delete the two TypedDicts.
   - Type the adapters against the generated `EvidenceSnapshot` and `EvidenceFact`.
-  - Validate once, with `msgspec.convert(value, EvidenceSnapshot)`, at the existing publication
-    points before `resource_store.publish` (snapshot, import and offline in `evidence_store.py`).
+  - Validate raw nested mappings before Struct construction, or the exact finite-safe encoded
+    document through typed decode, at snapshot/import/offline publication boundaries.
+  - Adapt admitted Structs to the publisher's mapping/JSON input; preserve redaction and
+    optional-field/list conventions. Converting existing Structs does not revalidate them.
   - Build the knowledge query request through `KnowledgeQuery`.
   - Take `--mode` and the enumerated choices from the generated `StrEnum`s.
-- **What it gains.** A registry change now surfaces statically, with pyrefly or ty over the
-  generated types, and refusal happens in Python before the native binary is spawned. Today the
-  first refusal is Rust's decode.
-- **Risk.** Low. Rust computes the generation identity from the decoded, typed snapshot
-  (`EvidenceSnapshot::identity` in `import_snapshot`), so `null`-versus-absent encoding differences
-  cannot trigger `Reused`.
+- **What it gains.** Registry changes reach the typed producer without a hand-maintained twin.
+  Early Python refusal covers only the constraints checked by the selected boundary; Rust still
+  enforces the complete domain contract.
+- **Risk.** Keep the transition local, but verify actual field shapes, finite refusal, publication
+  and decoded identity before claiming low risk or unchanged output. Typed native identity does
+  not by itself establish that an adapted document decodes to the same value.
 
 **Options 3 to 5 depend on U3.**
 - **What they would remove:** the service dependency for indexed reads, the private tooling roles
@@ -331,14 +335,24 @@ conditional on U3.
 
 **Bounded target.**
 - **Mechanisms:**
-  - msgspec 0.21.1 `msgspec.convert`, strict, with the generated `forbid_unknown_fields` Structs;
+  - msgspec 0.21.1 generated `forbid_unknown_fields` Structs, with validation of raw nested
+    mappings before construction or typed decode of the exact encoded document;
   - the generated `StrEnum`s for argparse `choices`;
   - no new dependency and no generator change. The generated modules already exist and pass the
-    bootstrap import boundary in `check_private_contracts.py`, which imports only msgspec.
+    candidate annotation/import checks in `check_private_contracts.py`. That checker imports
+    msgspec and pydantic; it neither enforces a msgspec-only closure nor validates instances.
 - **Responsibility boundaries.** The Rust registry stays the authority. Python adapters remain owner
   readers and become typed producers. Rust decode stays the final enforcement point (DP-03).
-- **Behaviour change.** Malformed snapshots and requests are refused in Python with a msgspec error
-  before the native binary runs. No output change.
+- **Validation boundary.** Struct constructors do not validate fields. `msgspec.convert` returns
+  an existing target Struct unchanged, including nested Struct values; constructing a snapshot
+  then converting it is not revalidation. The [existing-Struct probe](../../design_review/evidence/library-leverage-msgspec-existing-struct-2026-10-27/README.md)
+  Tests this at 0.21.1. Preserve finite-number refusal before an encoder can turn NaN/infinity
+  into JSON null. Rust remains the final structural and domain enforcement point; the generated
+  `KnowledgeQuery.limit` annotation supplies only `ge=0`, not its complete 1–64 domain rule.
+- **Publication.** `resource_store.publish` accepts a mapping and calls `json.dumps`; it cannot
+  directly publish Structs. Adapt admitted values to JSON-compatible mappings, or add a bounded
+  byte-publication route under the existing atomic owner. Preserve redaction, optional-field
+  conventions and the actual emitted wire shape. Unchanged output must be checked, not assumed.
 - **Machinery that disappears:** the TypedDicts in `evidence_projection.py` and the hand-written
   `--mode` choices list.
 - **Machinery that remains:**
@@ -383,7 +397,7 @@ different deployment boundary, which is its revisit trigger.
 
 - *Interface-checked:*
   - the generated modules and their absence of importers (searched with `rg` across the repository);
-  - the field-for-field match between the TypedDicts and the generated Structs;
+  - the related meanings in the TypedDicts and generated Structs, with optional/list adaptation;
   - Rust `import_snapshot` computing identity from the typed snapshot;
   - the routing of `evidence_store.py` (`analyze` and `run_offline`) and `knowledge_store.py`;
   - `evidence_tools.rs`;
@@ -449,14 +463,18 @@ different deployment boundary, which is its revisit trigger.
 - **The probe is withdrawn.** The library accounts' probe request about the OTLP HTTP exporter is
   answered statically.
 
-**The capture sink is a minimal fixed peer that is stricter than library defaults.**
+**The capture sink is a bounded, deliberately partial peer.** Resource bounds do not establish
+stricter HTTP/2 semantics. `Receiver.handle` catches EOF/socket errors without recording
+pending-stream incompleteness; RST_STREAM/GOAWAY can also discard pending input. It ignores
+HEADERS/CONTINUATION and does not validate the method, path, content type or header state.
 - **It refuses** compressed messages, oversized frames and streams, and too many concurrent streams.
 - **It keeps only** span identities.
 - **Option 3** removes about 25 lines that walk OTLP v1 field numbers. Those numbers are frozen by
   OTLP's stability guarantees. In exchange it adds a direct pin, a protobuf import and
   unknown-field tolerance. `grpc_wire` stays anyway for the test helper, so this is not a clear win.
-- **Option 4** removes the frame loop and the static HPACK bytes for three new pins, in a
-  diagnostic-only sink. It is not a clear win under "tooling changes stay light".
+- **Option 4** is a credible sink-only alternative: retain socketserver, capture bounds,
+  deadlines, gRPC framing and span selection locally while h2 owns HTTP/2 state, HPACK and
+  flow control. The raw test client's special purpose does not rule out this composition.
 - **Option 5** adds a compiled C-core runtime with threads to manage, for a finite sink. It is
   dominated.
 - **Option 6** removes all hand protocol code, but makes capture depend on the optional collector
@@ -480,15 +498,19 @@ protocol would add a codegen hop for a test helper.
 
 A future SurrealDB release changes tonic's HTTP/2 behaviour, for example by sending CONTINUATION
 frames or a larger SETTINGS frame.
-- **The hand peer** ignores unknown frame kinds and still acknowledges SETTINGS and PING, so it
-  degrades to "capture error recorded" rather than a false capture. That is acceptable for a
-  diagnostic sink, and the failure stays visible in `capture_errors`.
-- **Option 4 (h2)** would handle such changes better. The case does not justify three pins now.
+- **The hand peer** can discard interrupted or unsupported input while `capture_errors` stays
+  empty. Ignoring frame kinds does not establish explicit failure reporting.
+- **Option 4 (h2)** offers a supported state-machine route. Compare it with adding explicit
+  incomplete-capture reporting locally according to the diagnostic consumer's actual guarantee.
 
 ### Disposition
 
-**Retain current.** The premise is rejected for the OTLP/HTTP route and for the front-matter
-consolidation.
+**Retain the raw abrupt-drop test client and current front-matter owners; reopen the capture
+sink's disposition.** The HTTP exporter route is unavailable at this server pin. Retaining the
+sink is defensible for an explicitly best-effort contract with incomplete transport recorded
+separately from decoded spans. If dependable transport handling is required, h2 is a credible
+small alternative. Decide whether the consumer needs explicit incomplete accounting or only
+successful best-effort observations before selecting the sink remedy.
 
 **Residual work.** Add a one-line §F reason to the module docstring of `surreal_telemetry.py`
 (DP-13: "with its reason stated briefly where the next reader will look"). It should say that
@@ -503,7 +525,7 @@ framing.
 `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` with an `http-proto` feature) becomes a legitimate option. It
 is not available until released, and its value is small: about 60 lines of framing.
 
-**U1 = no.** Retain until the trigger fires.
+**U1 = no.** The sink-only completeness question remains; it does not depend on a future exporter.
 
 ### Rule impacts
 

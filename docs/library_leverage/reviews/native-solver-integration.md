@@ -1,15 +1,16 @@
 # Native solver integration
 
-**Group G6 of the [first comparative review](README.md), 2026-10-27.**
+**Group G6 of the [comparative review](README.md), 2026-10-27.**
 This page compares complete options for the native-solver opportunities
 [CBO-026](../codebase/native-solver-integration.md#cbo-026) to
-[CBO-032](../codebase/native-solver-integration.md#cbo-032), and supplies the native input to
+[original CBO-032](https://github.com/paul-heyse/pse-arrow/blob/b29fcf802f29251961871b2e12fb2dc57111aefb/docs/library_leverage/codebase/native-solver-integration.md#cbo-032), and supplies the native input to
 the joint judgment of [CBO-001](../codebase/cross-cutting-mechanisms.md#cbo-001), which G4
-owns. It recommends and authorizes nothing. Targets are *Proposed*.
+owns. It authorizes no implementation. Targets are *Proposed*.
 
 | Item | Value |
 | --- | --- |
-| Source inspected | `main` at `3e9a2525b`. `git log dbc4c9436..HEAD` shows no change under `crates/pse-backend-native`, `crates/pse-uno-sys`, `crates/pse-ipopt-sys`, the vendored SUNDIALS/Diffsol/SuiteSparse trees, `docker/solvers` or `Cargo.toml`. The audit baseline therefore still describes this subsystem. |
+| Reassessment | 2026-10-27 at source `4f52fd239`; consumes the complete original review and updated inputs at `b29fcf802`, base patterns 0.2 and additional patterns revision 3 (refined to 4 here). All named dispositions were reconsidered with representative current source, consumers and inherited evidence; unchanged evidence retains its original conditions. |
+| Original source inspected | `main` at `3e9a2525b`. `git log dbc4c9436..HEAD` shows no change under `crates/pse-backend-native`, `crates/pse-uno-sys`, `crates/pse-ipopt-sys`, the vendored SUNDIALS/Diffsol/SuiteSparse trees, `docker/solvers` or `Cargo.toml`. The audit baseline therefore still describes this subsystem. |
 | Accounts consumed | Codebase account (native page plus CBO-001, including the dated library-assessment corrections). Library accounts: `faer/sparse-lu-scratch-and-reuse`, `feral/*`, `klu/symbolic-estimates-and-measured-usage`, `diffsol/*`, `sundials/*`, `uno/*`, `pounce/*`, `clarabel/*`, `quick-cache/weighted-native-handle-retention`. Patterns: base edition 0.2 and additional patterns revision 2. |
 | Library realizations | Installed pins: faer 0.24.4, FERAL 0.18.0 and POUNCE 0.12.0 at fork revision `7f5e2e9d`, `suitesparse_sys` 0.1.4, `sundials-sys` 0.6.2 (bundled SUNDIALS 7.1.1, locally patched), Diffsol 0.16.2 / `diffsol-la` 0.1.1, Clarabel 0.11.1, Uno `805a27ec` plus `uno-pse.patch`, `quick_cache` 0.6.24. Upgrade routes come from the library accounts. The SUNDIALS 7.2–7.9 changelog was re-read for this review. |
 | Design standard | Core 3.4, process-simulator profile 1.5 and the pse-arrow binding, applied qualitatively. The authoritative contracts are numerical-execution §15.4, §16.5, §18.2, §18.3, §18.8 and §18.10. |
@@ -377,7 +378,8 @@ R-41 own the revisit.
   replacement is unknown.
 - **Option 4 depends on U1** and is still "not yet available" until released.
 
-**The bit-reproducibility question.** The move changes the bits of every IDAS and KINSOL result.
+**The bit-reproducibility question.** The move can change numerical results and counters;
+it does not imply that every IDAS or KINSOL result changes bits.
 Is that acceptable or remedy-open? It is **acceptable**, on these grounds:
 - **The identity contract already absorbs supplier moves as declared identity changes.**
   - §16.5 frames the linked native build into `pse.solver.profile.v4` through
@@ -735,7 +737,9 @@ should serve the advanced step, is not a leverage question. `kkt/advance.rs` *re
 prediction whose active set changes; that is its validity contract. Using fix-relax would
 change which predictions are admitted. That is a functional change with accuracy tradeoffs.
 
-**Disposition: Premise rejected; retire CBO-032** at the next audit refresh. Route the fix-relax
+**Disposition: Premise rejected; CBO-032 retired in this reassessment.** Its named library
+facilities are already consumed; the codebase occurrence and obsolete applicability match were
+removed, while the reusable library type and this rationale remain. The ID will not be reused. Route the fix-relax
 question to a functional-extension review if the maintainer wants it.
 
 <a id="faer-kernels-and-the-fma-free-premise"></a>
@@ -750,26 +754,29 @@ multiply-adds. faer reaches FMA by a different route that this rule does not cov
 - faer 0.24.4 declares `pulp` with `features = ["x86-v3"]` unconditionally, so the workspace's
   `default-features = false` does not remove it.
 - pulp selects its V3 path at run time (`Arch::new()`), and that path uses `_mm256_fmadd_pd`.
-- faer's dense kernels, including the `linalg::matmul` that supernodal sparse LU calls, dispatch
-  through it. nalgebra's f64 `gemm` goes through `matrixmultiply`, which also selects an FMA
-  kernel at run time.
+- This is not the only dispatch owner. With the workspace-enabled `std` feature on x86_64,
+  faer `linalg/matmul/mod.rs` selects `private_gemm_x86::InstrSet::{Avx512, Avx256}` directly
+  using CPU features; small products use `nano_gemm::planless`, with `gemm` on the remaining
+  path. Those routes are not disabled by a pulp V3 patch. nalgebra can separately enter
+  `matrixmultiply`.
 - `pse.native.build.v1` frames compile-time facts only, so results from these kernels vary with
   the CPU class under an unchanged identity. The numerical-workflows page already relies on this
-  for fit statistics; this page had wrongly listed "no FMA" as a retained rule.
+  for fit statistics; this page had wrongly listed "no FMA" as a retained rule. Source
+  establishes the potential variation; no cross-CPU product difference was measured here.
 
-**Disposition: Remedy-open.** No option removes the CPU-class dependence without a cost elsewhere:
-- **U1 = yes:** contribute a scalar or no-FMA override to faer and pulp upstream; not available
-  until released.
-- **U1 = no:** vendor a pulp patch that disables V3 dispatch, at a dense-kernel speed cost the
-  maintainer would have to accept. That is the compromise this review may not choose alone.
-- **U2 = replay of recorded values:** record the dispatched ISA level as attribution beside the
-  build identity; recorded results stay valid, and reruns on another CPU class are tolerant
-  reruns, as §18.3 already allows across solvers.
-- **U2 = regeneration from a seed:** either force scalar kernels or frame the ISA level into
-  identity, so a result is never claimed reproducible on a CPU class that cannot reproduce it.
+**Disposition: Remedy-open; preserve the standing FMA-free requirement.** A supplier override
+or maintained patch must cover the complete consumed factorization/kernel closure. No complete
+no-FMA configuration was demonstrated, and a pulp-only patch is insufficient. A released
+upstream override remains a U1 option; a local maintained patch remains another, with neither
+its full coverage nor its throughput cost established.
 
-Either way the CBO-028 identity prerequisite extends to cover this: identity must name everything
-that fixes bits, including run-time kernel dispatch.
+ISA attribution or identity framing can explain which implementation produced a result, but
+neither removes FMA nor satisfies the arithmetic requirement. U2 concerns design-input replay
+versus regeneration; it does not waive solver arithmetic rules. If dispatch attribution is
+selected, it must describe actual relevant kernels, build configuration and arithmetic policy,
+not assume one pulp ISA label accounts for the whole closure. Keep supplier-build identity
+repair as a separate prerequisite. A change to the arithmetic requirement itself belongs to its
+decision owner, not this review.
 
 <a id="cbo-001-native"></a>
 
@@ -796,6 +803,10 @@ These satisfy §15.4: "input-shape estimates never become that missing bound". S
 refuses strict-memory requests outright. Their AP-07 consequence is growth: they refuse large
 sparse problems whose actual factors are small. Their remedy is a *structure-derived* complete
 bound, not a library reporter.
+
+Any proposed BTF-derived replacement must include symbolic storage, off-diagonal `nzoff`,
+growth/reallocation overlap and work arrays as well as block factors. A sum of block-square
+terms alone is not an established complete bound. The real-Jacobian check remains unrun.
 
 **The kinds of library size information** (LOP-X001 revision 2):
 

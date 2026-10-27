@@ -1,12 +1,13 @@
 # Host processes, containment and durable files
 
-**Group G1 of the [first comparative review](README.md), 2026-10-27.** This page covers CBO-003, CBO-004, CBO-019,
-CBO-020, CBO-047 and the non-SurrealDB parts of CBO-048. It is focused comparative advice. It
+**Group G1 of the [comparative review](README.md), 2026-10-27.** This page covers CBO-003, CBO-004, CBO-019,
+CBO-020, CBO-047, the non-SurrealDB parts of CBO-048 and new CBO-053. It is focused comparative advice. It
 recommends bounded targets and authorizes no implementation.
 
 | Item | Value |
 | --- | --- |
-| Source inspected | `main` at `3e9a2525b`. The audit baseline was `dbc4c9436`. Inside this scope the only change since then is a signature change to `canonical::operation_scope`, which does not matter here. Uncommitted changes in other files were not consumed. |
+| Reassessment | 2026-10-27 at source `4f52fd239`; consumes the complete original review and updated inputs at `b29fcf802`, base patterns 0.2 and additional patterns revision 3 (refined to 4 here). All named dispositions were reconsidered with representative current source, consumers and inherited evidence; unchanged evidence retains its original conditions. |
+| Original source inspected | `main` at `3e9a2525b`. The audit baseline was `dbc4c9436`. Inside this scope the only change since then is a signature change to `canonical::operation_scope`, which does not matter here. Uncommitted changes in other files were not consumed. |
 | Accounts consumed | Codebase pages `cross-cutting-mechanisms.md`, `execution-lifecycle-and-observation.md` and `developer-tooling.md`, plus the library accounts, all at `34f9f07ee`, including the dated correction bullets. Base patterns edition 0.2 and additional patterns revision 2, also at `34f9f07ee`. |
 | Library realizations | rustix 1.1.5 (workspace pin, `fs`/`process`/`event`), tempfile 3.27.0 and libc 0.2.190 (all installed); tokio 1.53.2 (no `net` feature); procfs-core 0.18.0, jeepney 0.9.0 and zbus_systemd 0.26201.0 from the library accounts; CPython 3.14 stdlib. |
 | Host realizations (read-only observation, 2026-10-27) | Kernel 7.0.0-38, systemd 255.4, ext4 home, `pid_max` 4194304, `CLK_TCK` 100. `user.delegate` is set on `user@1000.service`. No `user.invocation_id` xattr was found on user-manager units (one app scope and two `pse-telemetry-*` services). |
@@ -33,7 +34,7 @@ through the manager (`systemctl kill --kill-whom=all`), and act on processes thr
 | Lifetime fact | Evidence object | Status |
 | --- | --- | --- |
 | A unit or allocation has drained | cgroup directory inode plus `populated` from `cgroup.events` | Keep. Python already uses it. The Rust runtime adopts it (CBO-020). |
-| Acting on a live process (signal, wait) | pidfd, opened race-free for an unreaped child, or opened then verified for a recorded process | Keep and extend. Both languages already use it. The runtime holds one on the primary (CBO-020). |
+| Acting on a live process (signal, wait) | pidfd, opened race-free for an unreaped child, or opened then verified for a recorded process | Keep and extend existing process use. CBO-020 proposes a primary handoff, with group semantics still preserved. |
 | A persisted process is still the same process | (boot ID, pid namespace, PID, start ticks), parsed in one place per language | Keep the rule. Do not adopt the pidfs inode as a persisted identity (CBO-019). |
 | An in-process child group has drained | Process-group inventory with pidfd re-check, in one shared type | Consolidate (CBO-004). Delegated child cgroups are the next decision. |
 | Manager facts (state, invocation) | `systemctl --user show` in Python; one call per file-session registration in Rust | Keep (CBO-048). |
@@ -283,7 +284,9 @@ Lock loops are also spelled separately, with 10, 20 and 50 ms polls or blocking 
 1. **Retain current.**
 2. **A lock or atomic-write library.** filelock, portalocker, fasteners, flufl.lock or
    atomicwrites. All are ruled out in their accounts:
-   - filelock falls back to a soft lock without warning and has no shared `flock`;
+   - filelock's default Unix fallback uses a soft lock with a warning; explicit native
+     configuration fails closed and its descriptor API preserves caller ownership, but it
+     still lacks shared `flock`, a composed absolute deadline and the stdlib-only bootstrap route;
    - fasteners uses `lockf`, which does not conflict with `flock`;
    - flufl.lock implements leases;
    - atomicwrites is unmaintained and has no `O_NOFOLLOW` or mode checks.
@@ -497,8 +500,10 @@ must say so: "the owned process group drained". Only containment (option 3) woul
 - **Transition.** Local to two crates. G5 should know that supervision leaves `pse-math`.
 
 **Next decision (not part of the target).** Add a delegated-cgroup containment mode to the same
-type. It would apply when the supervisor's cgroup lies inside a delegated subtree, detected by
-the `user.delegate` xattr (systemd ≥ 251, kernel ≥ 5.6; observed on `user@1000.service`).
+type. Authenticate delegation from this exact unit's manager `Delegate` property or an explicit
+launch handoff bound to that unit and cgroup. The retained probe shows that the systemd 255 user
+manager omits `user.delegate` on its units; an ancestor xattr or writable cgroup directory does
+not establish delegation of the selected unit.
 
 **What it would require:**
 - `Delegate=yes` on the scopes the repository creates. These are in `pse_env.py` (two lists),
@@ -647,9 +652,11 @@ grants release authority (`ManagedPrimary::observe`).
 **What `HEAD` shows.** `ensure-primary` is launched once per study run. It hands back a
 `PrimaryOwner`: {unit, cgroup, invocation} plus `scope_inode`. After that, `wait_study_inventory`
 (`study_execution.rs`) spawns `python3 surreal_server.py observe-primary` at every heartbeat. That
-script re-derives the drain phase with `operation_lifetime.drained`, which reads:
-- the kernel cgroup inode and `populated`;
-- `systemctl show` for LoadState, InvocationID, ControlGroup and ActiveState.
+script re-derives the drain phase with `operation_lifetime.drained`, which reads the kernel
+cgroup inode and `populated` first. A populated group returns before `systemctl show`; manager
+LoadState, InvocationID, ControlGroup and ActiveState are consulted only on remaining paths.
+Inventory polling is normally 100 ms, but receiver observation follows the admitted heartbeat,
+normally 10 s; these are distinct cadences.
 
 The runtime then re-checks the JSON identity. The runtime is the only consumer of `observe-primary`
 (repository-wide `rg`). It collapses `Drained` and `OwnerChanged` into "unavailable", and treats a
@@ -671,22 +678,23 @@ service-borrower accounting would need a second writer language. Python admissio
 working before any Rust artifact exists. ADR-0229 (proposed) sets the opposite direction: Rust
 owns the documents, and Python realizes them in systemd.
 
-**Option 4 keeps a manager dependency** for facts this consumer does not need.
+**Option 4 retains a manager dependency** for cases not settled by held kernel evidence. It
+remains a credible narrow fallback; removing it requires preservation of its remaining meaning.
 
 **Option 3 uses the evidence this consumer actually needs.** That is whether the bound receiver
 lifetime still exists. Two kernel objects answer it, and the runtime can hold both:
 - **The cgroup.** Its directory is identified by inode, and its `populated` flag covers
   descendants.
-- **A pidfd on the main process.** Once opened and verified, it is a race-free exit signal. It
-  also tells an old invocation from a new one even if a stale cgroup directory survived. The
-  transient primary is a `--collect`, `KillMode=control-group` service, so that case is unlikely,
-  but the pidfd removes the need to reason about it.
+- **A pidfd on an authenticated process.** It gives a race-free exit signal for that process,
+  not for all descendants. systemd's main process is `native_operation.py`, which launches the
+  receiver worker; `_primary_process` separately authenticates the marker's `pse-worker` PID.
+  Supervisor exit must not silently replace the current receiver-group drain decision.
 
-What option 3 removes:
+What option 3 can remove once the complete observation contract is preserved:
 - the interpreter start at every heartbeat (CBO-016's "spawning an interpreter to read state");
 - the doubled identity comparison;
-- the dependence on the user bus during waits. A bus hiccup today reads as `Live` forever. A
-  kernel read is unaffected.
+- unnecessary manager reads when held kernel facts suffice. A narrow fallback remains for
+  unresolved observations; uncertainty still grants no release authority.
 
 ADR-0229's "dependency-leaf process observer [that] reports authenticated facts and uncertainty",
 with no "universal alive predicate", is exactly this shape: the owner composes its own decision
@@ -694,9 +702,10 @@ from shared leaf facts.
 
 ### Revealing case
 
-The supervisor restarts the receiver under the same unit name while a study wait is in progress.
-With kernel facts alone, a new invocation in a surviving cgroup directory would read `Live`. The
-held main-process pidfd reads exited, so the waiter stops correctly.
+The supervisor exits while a worker descendant remains. A main-process pidfd becomes readable,
+but the cgroup is still populated. Calling this group drain would change today's semantics.
+Treat the process event as a wake hint and retain the authoritative inventory re-read unless a
+broader receiver-unavailable condition is explicitly selected and qualified.
 
 A second case: the manager is unreachable for a few seconds. Today `observe-primary` fails and
 the wait continues. Under the target the kernel read continues, and no release authority is
@@ -705,31 +714,36 @@ gained in either case.
 ### Disposition: Recommend
 
 **Bounded target.**
-- **Handoff.** Extend `ensure-primary`'s readiness response with the main PID. Python already
-  reads `MainPID` in `primary_observation`.
+- **Handoff.** Distinguish the main supervisor PID from the authenticated receiver worker.
+  Bind the chosen process to boot ID, PID namespace and start ticks captured during the
+  authenticated handoff, together with the unit, invocation and cgroup identity.
 - **Authentication at handoff.**
   1. Stat `/sys/fs/cgroup<group>` and require its `st_ino` to equal `scope_inode`.
-  2. `pidfd_open(main_pid)` through rustix.
+  2. Open the selected process pidfd through rustix and verify its recorded start/boot identity.
   3. Require the `0::` line of `/proc/<pid>/cgroup` to equal or descend from `group`, through the
      CBO-019 reader.
-  4. Require the pidfd not yet readable.
+  4. Recheck unchanged cgroup identity and require the pidfd not yet readable.
   5. Require the runtime to share the manager's PID namespace (compare `/proc/self/ns/pid` with
      the handoff's recorded namespace), because a PID from another namespace names a different
      process. On a mismatch, fall back to today's observer rather than refuse, so a runtime in a
      different namespace keeps working. No such context was found, so the fallback is a guard,
      not a supported mode. *(Revised after the omission and preservation challenge.)*
 
-  On any mismatch, refuse ("managed primary is not ready").
-- **Observation.** `Ended` when the pidfd is readable, the cgroup path is gone or its inode
-  differs, or `populated` reads 0. `Live` otherwise. `Unavailable` means "keep waiting", as today.
+  On an identity mismatch, refuse ("managed primary is not ready"). For a namespace mismatch
+  or specifically unsupported kernel-evidence case, use the authenticated observer fallback;
+  do not convert uncertainty into drain or release authority.
+- **Observation.** Preserve the current group-lifetime decision, explicit changed-owner and
+  uncertain outcomes, and final authoritative inventory re-read. Process exit is a wake hint,
+  not proof of group drain. Keep a narrow manager-observation fallback where kernel evidence
+  cannot settle the current contract. `Unavailable` still means keep waiting, not release.
 - **Cadence.** Unchanged: a zero-timeout `poll` at the heartbeat. Whether any wait becomes an
   `AsyncFd` event wait (which needs tokio `net`) is owned by G2 under CBO-016; this target does
   not need it, and neither do CBO-004 or CBO-018.
 - **Shared leaf.** One Rust cgroup-lifetime leaf (inode-bound `populated`) that CBO-004's
   containment branch can reuse.
-- **Retired.**
-  - `observe-primary`, `observe_primary()` and `scripts/tests/test_primary_observation.py`.
-  - The observation subprocess, JSON parse and bounded-response path in `worker.rs`.
+- **Eligible for retirement.** Ordinary observation subprocess/JSON overhead when the new
+  handoff and kernel evidence settle the same decision. Do not promise deletion of
+  `observe-primary` or its owner-level contract tests until the fallback need is resolved.
 - **Retained.**
   - The script's `ensure-primary`: admission, `systemd-run` transient service, protocol readiness
     (G3), receipts, and drain for release.
@@ -737,10 +751,9 @@ gained in either case.
   - `canonical_files` file-owner registration, which makes one `systemctl show` call per session.
     The invocation is not available as an xattr on this host's user-manager units.
 - **Not adopted.** zbus and zbus_systemd.
-- **Transition.**
-  - One protocol field added.
-  - One command removed.
-  - Land it within Plan56e's deployment-ownership acceptance.
+- **Transition.** Extend the authenticated handoff, qualify process-versus-group semantics and
+  fallback behavior, then remove replaced paths. Plan56 is complete and authorizes no new
+  work; selected implementation needs its current planning owner.
 
 **Rule impacts.** The change concerns the runtime and supervisor control protocol. That is not the
 PyO3 Python boundary and not a D1–D14 decision. Check the scope of ADR-0229 (proposed) before
@@ -762,7 +775,8 @@ implementation. No new ADR is expected.
 
 Bound concurrent workloads across independent processes without a daemon, using 16 lanes, the
 explicit `unbounded` mode, release that is never inferred from a missing caller, and drain
-reports that remain possible when the manager is unavailable. Place every workload in a capped
+reports that remain possible when the manager is unavailable. Honor the selected placement,
+including the explicitly unbounded host mode, rather than assuming every workload is in a capped
 systemd user scope.
 
 ### Premise check
@@ -876,3 +890,35 @@ page relies on nothing in them beyond the `ensure-primary` handoff.
   `assessment_store.py` were counted but not each read.
 - **Host observations.** These are single read-only snapshots taken on 2026-10-27. The cause of
   the stale allocation slices and temps was not traced.
+
+<a id="cbo-053"></a>
+
+## CBO-053 — Maintenance CLI output ownership
+
+**New opportunity from reassessment; Interface-checked at `4f52fd239`, targets Proposed.**
+Expanded supervisor reading found that `maintenance_sql` captures complete stdout/stderr
+before bounding retained failure tails. `copy_current_database` also captures CLI output with
+no local timeout, while passing the actual database export through an owned file. This does not
+demonstrate a runaway command or establish that its complete enclosing lifetime is unbounded.
+The [codebase account](../codebase/developer-tooling.md#cbo-053) owns that observation.
+
+**Complete options.** Retain capture if real output is small and its lifetime policy is
+intentional; drain both pipes incrementally while retaining operation-shaped bounds; or route
+complete structured output to an admitted private file and decode it under a separate grant.
+Discarding success output plus bounded failure tails is also credible for import/export control
+logs, but not for nonce acknowledgements or catalog results. Existing
+[stdlib subprocess facilities](../libraries/python-subprocess/README.md) support these routes
+without another supervisor or a new third-party dependency.
+
+**Judgment: investigate and preserve the alternatives; realization unresolved.** Tail truncation
+after complete capture does not bound live output memory. It is worth separating acknowledgement,
+catalog and copy-log demand, but their acceptable extents and complete lifetime policy were not
+established. Catalogs can be legitimately large, and a long restore may be intentional. Prefer
+demand-shaped ownership over a universal cap or timeout. Any selected route retains nonce checks,
+redaction before publication, original deadline meaning, export identity and actual maintenance
+listener/descendant drain. A direct child wait or CLI timeout is not group-drain evidence.
+
+**Settling evidence.** Inspect actual success/failure output requirements and enclosing clocks;
+then exercise large stdout/stderr, unterminated chunks, acknowledgement truncation, cancellation
+and cleanup with disposable CLI peers. No such workload was run here. This inquiry does not
+reopen the retained systemd/physical-backup division or authorize maintenance implementation.

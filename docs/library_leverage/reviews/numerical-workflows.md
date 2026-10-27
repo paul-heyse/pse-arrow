@@ -1,13 +1,14 @@
 # Numerical workflows
 
-**Group G7 of the [first comparative review](README.md), 2026-10-27.** Covers
+**Group G7 of the [comparative review](README.md), 2026-10-27.** Covers
 [CBO-033](../codebase/numerical-workflows.md#cbo-033) to
 [CBO-036](../codebase/numerical-workflows.md#cbo-036). This is a comparative judgment. It
 authorizes nothing and does not replace a formal review that is due.
 
 | Item | Value |
 | --- | --- |
-| Source inspected | `main` at `3e9a2525b`. Between the audit baseline `dbc4c9436` and `HEAD`, the only `pse-runtime` change is in `workflow/modeling/canonical{,/delta}.rs`, which no G7 conclusion depends on. |
+| Reassessment | 2026-10-27 at source `4f52fd239`; consumes the complete original review and updated inputs at `b29fcf802`, base patterns 0.2 and additional patterns revision 3 (refined to 4 here). All named dispositions were reconsidered with representative current source, consumers and inherited evidence; unchanged evidence retains its original conditions. |
+| Original source inspected | `main` at `3e9a2525b`. Between the audit baseline `dbc4c9436` and `HEAD`, the only `pse-runtime` change is in `workflow/modeling/canonical{,/delta}.rs`, which no G7 conclusion depends on. |
 | Consumed accounts | The codebase account, library accounts and `assessment-patterns.md` revision 2, all as published at `34f9f07ee`. The egobox-doe probe evidence as published at `2f06c3266`. |
 | Standard | Core 3.4 with the efficient-architecture heuristics, process-simulator profile 1.5 (PS-10, PS-11, PS-12 and PS-09 apply here) and the pse-arrow binding. |
 | Parity sources read | `external/idaes-pse` (2.13.0): `core/util/parameter_sweep.py`, `core/surrogate/pysmo/sampling.py`, `core/util/convergence/convergence_base.py` and `apps/uncertainty_propagation/uncertainties.py`. Pyomo 6.10.1 `contrib/parmest/parmest.py` in `.venv-parity`. |
@@ -86,7 +87,8 @@ around fits and studies. Two questions settle most of them.
 **Shared prerequisites.**
 - The U2 answer shapes the CBO-033 target. It does not change whether CBO-033 is recommended.
 - CBO-034, if it were ever reopened, depends on CBO-033's producer and on U2.
-- CBO-036 is independent of U2, because its statistics are deterministic.
+- CBO-036's absolute-versus-estimated-scale policy is independent of U2's design-input replay
+  choice; quantiles and algebra retain their documented platform/library limits.
 
 **Reinforcing and competing choices.**
 - **Reinforcing.** Choosing egobox-doe for CBO-033 keeps the ndarray 0.16 / rand 0.8 universe in
@@ -145,7 +147,7 @@ bounds.
 | Option | Description |
 | --- | --- |
 | A. Retain current | Every caller supplies its own points. |
-| B. Rust producer over egobox-doe 0.35.1 | `SamplingMethod::normalized_sample` gives `[0,1]^d` designs from `Lhs::new(&xlimits).kind(LhsKind::Classic | Centered | Maximin | CenteredMaximin).with_rng(rand_xoshiro::Xoshiro256Plus::seed_from_u64(seed))` and `Random::new(&xlimits).with_rng(…)`. Local code maps unit values exactly onto physical ranges and discrete levels. Local code also builds a per-coordinate uniform grid, because egobox `FullFactorial` truncates and has no per-coordinate level control. ([egobox-doe/seeded-space-filling-designs](../libraries/egobox-doe/README.md)) |
+| B. Rust producer over egobox-doe 0.35.1 | `SamplingMethod::normalized_sample` gives `[0,1]^d` designs from `Lhs::new_with_rng(&xlimits, rand_xoshiro::Xoshiro256Plus::seed_from_u64(seed)).kind(LhsKind::Classic | Centered | Maximin | CenteredMaximin)` and `Random::new_with_rng(&xlimits, …)`. Local code maps unit values exactly onto physical ranges and discrete levels. Local code also builds a per-coordinate uniform grid, because egobox `FullFactorial` truncates and has no per-coordinate level control. ([egobox-doe/seeded-space-filling-designs](../libraries/egobox-doe/README.md)) |
 | C. Python producer over scipy.stats.qmc 1.18.1 | Promote scipy from the `test` group to a runtime or extra dependency of `pse`, and use `qmc.LatinHypercube`, `qmc.Sobol`, `qmc.Halton`, `qmc.scale` and `QMCEngine.integers`. ([scipy-qmc/design-engines](../libraries/scipy-stats-qmc/README.md)) |
 | D. Integer-defined QMC with sobol_burley 0.5.0 | A new zero-dependency crate. Compose `parts::{sobol_rev, owen_scramble_rev, hash}` and keep the `u32`, which converts exactly to `f64`. Its points are random-access by index. ([sobol-burley/seeded-owen-scrambled-sobol](../libraries/sobol-burley/README.md)) |
 | E. Local LHS over a direct rand_chacha stream | Bespoke stratified permutations. |
@@ -237,8 +239,10 @@ samplers. Halton, Hammersley and CVT parity are residual items, not part of this
     `n`; and a seed.
   - *Outputs:* ordered realized points and a provenance record (kind, n, seed, generator
     algorithm and crate versions).
-  - *Execution:* a fresh seeded sampler per design, using egobox-doe 0.35.1
-    `normalized_sample` with `Xoshiro256Plus::seed_from_u64(seed)`. Never use the
+  - *Execution:* construct a fresh sampler with `Lhs::new_with_rng` or
+    `Random::new_with_rng`, passing `Xoshiro256Plus::seed_from_u64(seed)`, then call
+    `normalized_sample` once. `new(...).with_rng(...)` first consults OS entropy and discards
+    that RNG; the direct seeded constructors already exist at egobox-doe 0.35.1. Never use the
     entropy-default constructors, and never call `sample()` twice on one instance.
 - **Domain rules kept local.**
   - The default range is the finite authored bounds.
@@ -290,8 +294,14 @@ samplers. Halton, Hammersley and CVT parity are residual items, not part of this
   - LHS Classic, Centered, Maximin and CenteredMaximin; Random; Grid.
   - `Optimized` is excluded because its φp criterion calls `powf`.
   - Static reading and the [probe](../../design_review/evidence/library-leverage-egobox-doe-determinism-2026-10-27/README.md)
-    support these kinds on one host.
-- **Value-defining crates are held.**
+    support the inspected simple constructions on one host. The retained probe called `sample()`,
+    not the proposed `normalized_sample` plus local physical/discrete mapping and Grid producer.
+    That complete route and its cross-platform regeneration have not been tested.
+- **The complete value definition is versioned.** The four listed crate holds alone are not a
+  complete inventory: ndarray linspace, permutation/distribution dependencies and local
+  grid/bounds arithmetic also participate. Use the committed lock, a complete algorithm version
+  and golden designs together. Cross-platform complete-producer regeneration remains Proposed.
+- **Value-defining crate holds considered:**
   - Hold `egobox-doe` 0.35.1, `rand` 0.8.8, `rand_xoshiro` 0.6.0 and `ndarray-rand` 0.15.0 in
     `[workspace.metadata.pse.pins]`, with the reason.
   - Golden-hash tests guard each kind.
@@ -400,12 +410,14 @@ addition.
 - **Use C before D** for propagation through later solves.
 - **Reproducibility of C or D.**
   - *If U2 means replay,* record the realized parameter samples as explicit study points.
-    Faer and statrs at their pins are then acceptable.
+    This avoids requiring portable sample regeneration; it does not make a faer FMA closure
+    conform to the independent standing arithmetic requirement. That remedy remains open in G6.
   - *If U2 means regeneration,* use explicit `libm` crate calls for normal transforms. At
     libm 0.2.16, `exp` and `log` are pure software on x86-64 with SSE2 and on aarch64; the
     architecture overrides replace only the correctly rounded `sqrt` and `fma`. Factor the
     covariance square root with local scalar code instead of faer, and use an integer-defined
-    point source. Even then the solve results stay CPU-class-dependent.
+    point source. Current unresolved runtime kernel dispatch is a separate source of potential
+    CPU-class variation, not accepted target behavior merely because samples were recorded.
 
 **Rule impacts on reopening:**
 - A new relation family for sampled or profiled prediction intervals needs a short ADR.
@@ -491,8 +503,9 @@ separately decided method extension.
   - Contributing `statrs = { default-features = false }` to egobox-moe would remove nalgebra
     0.33 from the graph. It remains unavailable until released, and an egobox family move must
     precede it. That move conflicts with CBO-033 if reproducibility means regenerating from a seed
-    (U2): CBO-033 holds egobox-doe 0.35.1 so seeded designs regenerate bit-identically, so the
-    family move would need a design-identity version change. Under replay of recorded values there
+    (U2): a future complete-producer contract would version its value-defining closure, so the
+    family move would need compatibility evidence or a design-identity version change. The
+    existing pins/host probe do not establish that full contract. Under replay of recorded values there
     is no conflict. *(Revised after the omission and preservation challenge.)*
   - rust-cv PR #28 (IEEE-754 zero tolerance checks), if merged, would change termination
     semantics. Absorbing it means a version change of the criteria.
@@ -547,7 +560,7 @@ What option B changes, and what it reuses:
 | Wald intervals | statrs 0.18.0 `StudentsT::new(0.0, 1.0, ν).inverse_cdf((1+level)/2)` replaces the normal quantile. |
 | Profile likelihood | The statistic becomes (S(θ)−S(θ̂))/s², compared against `FisherSnedecor::new(1.0, ν)` (equivalently t²). The chain machinery is unchanged. |
 | Propagation | Inherits the scaled covariance and names the assumption. |
-| Library arguments | Guarded before each call, because both statrs constructors panic on out-of-domain input. |
+| Library arguments | Map `StudentsT::new` and `FisherSnedecor::new` constructor Results to typed errors. Validate the probability before `inverse_cdf`, which can panic outside its domain. |
 
 ### Comparative argument
 

@@ -238,3 +238,12 @@ The following are legitimately custom:
 
 - **Comparative review correction (2026-10-27).** The open isolator question is settled, and the live hazard is a different one. `isolate_real_root_intervals` confines each interval to one closed half-line, so zero-symmetric and zero-straddling intervals are unreachable on the isolate→refine path. For repeated-root cubics, however, an isolating interval can strictly contain another root, which `refine_root_interval_until_disjoint` does not detect and the p(a)/p(b) screen does not catch. For (3x − 8)(2x − 3)² the ladder panics in debug, and in release returns `[1.5, 1.5]`: 8/3 is lost and a valid unique root is falsely refused. Over (αx − β)²(γx − δ) with integers in −12..=12 (8,556 root pairs), no interval straddled zero, 90 pairs showed containment, and 20 lost their simple root in release. The `IsolatedRoot` fallback is the common path (5,651 of the 8,556 release pairs), mostly because the binary64 agreement check fails for non-dyadic roots, so the unbounded process-global `RootCache` is populated on most solves in this family (*Tested*, [evidence](../../design_review/evidence/library-leverage-symbolica-root-containment-2026-10-27/README.md)). See the [comparative review](../reviews/mathematics-preparation.md#cbo-025).
 
+- **Reassessment correction (2026-10-27, source `4f52fd239`).** Square-free isolation and bounded refinement
+  remain recommended, but correctly rounded binary64 output is a stronger proposed contract than the current
+  original-residual/branch verification. If selected, its cells use exact predecessor/successor midpoints,
+  not symmetric ulps; the new [arithmetic
+  probe](../../design_review/evidence/library-leverage-binary64-rounding-cells-2026-10-27/README.md)
+  disproves that formula. Conversion, endpoint-root selection and temporary-storage bounds remain part of
+  the remedy. The replacement is Proposed, not Tested, and no one-ulp delta or 20-line implementation is
+  established.
+

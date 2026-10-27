@@ -1,6 +1,6 @@
 # Library applicability assessments
 
-**Account state: first assessment, 2026-10-27.** This collection is maintained by the
+**Account state: first assessment with integrated comparative reassessment, 2026-10-27.** This collection is maintained by the
 [library assessment skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/leverage-library-assessment/SKILL.md).
 For each [codebase opportunity](../codebase/README.md) it records which library or native-system
 capabilities could address it, under what conditions, and with what work left to the codebase.
@@ -16,14 +16,16 @@ applicability judgment, not a recommendation. Comparative selection belongs to
 [comparative reviews](../reviews/README.md).
 
 Read alongside the [framework](../library-leverage-framework.md), the [base patterns](../patterns.md)
-and the shared [additional patterns](../assessment-patterns.md) (`LOP-X001`–`LOP-X010`,
-revision 2). Revision 2 added seven patterns found in this pass.
+and the shared [additional patterns](../assessment-patterns.md) (`LOP-X001`–`LOP-X014`,
+revision 4). Original research consumed revisions 1–2; the first comparative review published
+revision 3, and reassessment refines the affected definitions without resetting inherited coverage.
 
 ## Baseline and method
 
 | Item | Value |
 | --- | --- |
 | Research date | 2026-10-27 |
+| Current reassessment | Consumes the review and integrated inputs at `b29fcf802`, source `4f52fd239`; corrects the affected capability/applicability claims below, adds python-subprocess for CBO-053 and removes CBO-032's obsolete match while retaining its reusable type. 97 directory-backed library accounts (96 in the consumed publication), not 97 freshly repeated library investigations. |
 | Opportunities consumed | [Codebase account](../codebase/README.md) published at `c2f8b485a` (source baseline `dbc4c9436`); `CBO-001`–`CBO-052` |
 | Patterns consumed | Base edition 0.2; additional patterns revision 1 at the start, revision 2 published with this pass |
 | Realizations | Each account names its realizations: installed pins from `Cargo.lock`, `uv.lock` and `vendor/`, and upgrade routes with release dates. On this host that also means kernel 7.0, systemd 255, CPython 3.14.8 and the pinned nightly. Unreleased upstream work is labelled as such. |
@@ -55,8 +57,9 @@ output of the pass:
   - single flights: moka, quick_cache, async_singleflight;
   - the I/O gate: `LimitStore`;
   - native join waits: `run_until_cancelled`, `timeout_at`.
-- **Python lock libraries.** filelock, fasteners and flufl.lock cannot preserve `flock`
-  semantics, absolute deadlines or fail-closed behaviour.
+- **Python lock libraries.** These do not remove the complete shared-flock, composed-clock
+  and stdlib-bootstrap contract. Filelock can explicitly fail closed and preserve descriptor
+  ownership; its default fallback warns, so an intrinsic fail-open premise is incorrect.
 - **Process supervision.** process-wrap cannot prove that a process group drained.
 - **Identity framing.** The serde framer cannot reproduce the existing identity byte layout.
 - **Symbolica refinement.** The cubic-refinement guard is required, as the probe showed.
@@ -193,7 +196,7 @@ Each item records the search scope in its library account or cluster notes:
   (CBO-023). The cgroup limit walk (CBO-019). A deadline-bounded `flock` (CBO-003).
 - **No consolidated route.** The following were assessed only as consolidation or premise
   corrections, with no consolidated library route: CBO-002 (combined cap, refusal and
-  checkpoint), CBO-008, CBO-012, CBO-018 (unsettled pending the pidfd probe), CBO-031, CBO-032
+  checkpoint), CBO-008, CBO-012, CBO-018 (unsettled pending the pidfd probe), CBO-031
   and CBO-036 (statistics policy).
 
 ## Coverage limits
@@ -217,7 +220,8 @@ Refresh entries in place:
   changes.
 - Retain reusable types after their matches retire, and list such types in a "retained without
   current match" section here. In this first pass, every type was researched for a current
-  opportunity.
+  opportunity. Reassessment retained `pounce/engine-agnostic-parametric-sensitivity` without a
+  current leverage match after CBO-032 retired on its corrected premise.
 - Remove obsolete applicability entries when their opportunities retire, carrying justified
   lessons into the type.
 - Correct or merge misleading types deliberately.
@@ -257,7 +261,6 @@ Refresh entries in place:
 | [CBO-029](../codebase/native-solver-integration.md#cbo-029) | [pounce/solvers-and-sensitivity](pounce/solvers-and-sensitivity.md): no library route; [uno](uno/README.md): fits with conditions |
 | [CBO-030](../codebase/native-solver-integration.md#cbo-030) | [quick-cache/weighted-session-cache](quick-cache/weighted-session-cache.md): fits with conditions (session LRU only) |
 | [CBO-031](../codebase/native-solver-integration.md#cbo-031) | [pounce/solvers-and-sensitivity](pounce/solvers-and-sensitivity.md): ruled out here; [clarabel](clarabel/README.md): ruled out here |
-| [CBO-032](../codebase/native-solver-integration.md#cbo-032) | [pounce/solvers-and-sensitivity](pounce/solvers-and-sensitivity.md): ruled out here |
 | [CBO-033](../codebase/numerical-workflows.md#cbo-033) | [egobox-doe](egobox-doe/README.md): fits with conditions; [rand-family](rand-family/README.md): fits with conditions; [scipy-stats-qmc](scipy-stats-qmc/README.md): fits with conditions; [sobol-burley](sobol-burley/README.md): fits with conditions; [sobol-qmc](sobol-qmc/README.md): fits with conditions |
 | [CBO-034](../codebase/numerical-workflows.md#cbo-034) | [faer/dense-decompositions](faer/dense-decompositions.md): fits with conditions; [rand-family](rand-family/README.md): fits with conditions; [sobol-burley](sobol-burley/README.md): fits with conditions; [statrs](statrs/README.md): ruled out here |
 | [CBO-035](../codebase/numerical-workflows.md#cbo-035) | [faer/dense-decompositions](faer/dense-decompositions.md): fits with conditions; [argmin](argmin/README.md): ruled out here; [basin](basin/README.md): fits with conditions; [egobox-doe](egobox-doe/README.md): unsettled; [levenberg-marquardt](levenberg-marquardt/README.md): fits; [statrs](statrs/README.md): unsettled |
@@ -277,6 +280,7 @@ Refresh entries in place:
 | [CBO-049](../codebase/developer-tooling.md#cbo-049) | [cargo-hack](cargo-hack/README.md): premise corrected (already adopted); [cargo-nextest](cargo-nextest/README.md): fits with conditions |
 | [CBO-050](../codebase/developer-tooling.md#cbo-050) | [duckdb](duckdb/README.md): unsettled; [parquet-datafusion-index](parquet-datafusion-index/README.md): fits with conditions; [sqlite](sqlite/README.md): unsettled |
 | [CBO-051](../codebase/developer-tooling.md#cbo-051) | [grpcio](grpcio/README.md): fits with conditions; [h2](h2/README.md): fits with conditions; [opentelemetry-proto](opentelemetry-proto/README.md): fits with conditions; [python-frontmatter](python-frontmatter/README.md): ruled out here |
+| [CBO-053](../codebase/developer-tooling.md#cbo-053) | [python-subprocess](python-subprocess/README.md): fits with conditions; complete realization unresolved |
 | [CBO-052](../codebase/developer-tooling.md#cbo-052) | [cargo-nextest](cargo-nextest/README.md): ruled out here; [cyclopts](cyclopts/README.md): fits with conditions; [fastmcp](fastmcp/README.md): ruled out here; [just](just/README.md): fits with conditions; [typer](typer/README.md): ruled out here |
 
 ## Library index
@@ -336,7 +340,7 @@ Refresh entries in place:
 | [parser-generators](parser-generators/README.md) | `grammar-generators/declarative-grammar-with-printing` | CBO-037 |
 | [petgraph-and-rustworkx-core](petgraph-and-rustworkx-core/README.md) | `petgraph/dag-transitive-reduction-closure`, `rustworkx-core/deterministic-dag-order-and-reachability`, `petgraph/matching`, `petgraph/storage-layout-sizing` | CBO-001, CBO-023 |
 | [postcard](postcard/README.md) | `postcard/embedded-serde-blob` | CBO-040 |
-| [pounce](pounce/README.md) | `pounce-presolve/structural-decomposition`, `pounce-nlp/fbbt-tape`, `pounce/engine-agnostic-parametric-sensitivity`, `pounce/convex-qp-and-cone-form`, `pounce/tnlp-and-c-abi` | CBO-023, CBO-024, CBO-029, CBO-031, CBO-032 |
+| [pounce](pounce/README.md) | `pounce-presolve/structural-decomposition`, `pounce-nlp/fbbt-tape`, `pounce/engine-agnostic-parametric-sensitivity`, `pounce/convex-qp-and-cone-form`, `pounce/tnlp-and-c-abi` | CBO-023, CBO-024, CBO-029, CBO-031 |
 | [process-wrap](process-wrap/README.md) | `process-wrap/process-group-command-wrappers` | CBO-004 |
 | [procfs](procfs/README.md) | `procfs/typed-proc-readers`, `procfs/hardened-proc-open` | CBO-019 |
 | [proptest-derive](proptest-derive/README.md) | `proptest-derive/derived-ast-strategies` | CBO-037 |
@@ -345,6 +349,7 @@ Refresh entries in place:
 | [pyo3-async-runtimes](pyo3-async-runtimes/README.md) | `pyo3-async-runtimes/asyncio-cancellation-bridge` | CBO-017 |
 | [python-dbus-clients](python-dbus-clients/README.md) | `python-dbus-clients/pure-python-blocking-client`, `python-dbus-clients/asyncio-client`, `python-dbus-clients/libsystemd-binding` | CBO-020, CBO-048 |
 | [python-file-locks](python-file-locks/README.md) | `python-file-locks/flock-with-timeout-poll`, `python-file-locks/alternatives` | CBO-047 |
+| [python-subprocess](python-subprocess/README.md) | `python-subprocess/demand-shaped-output` | CBO-053 |
 | [python-frontmatter](python-frontmatter/README.md) | `python-frontmatter/delimited-metadata-split` | CBO-051 |
 | [pythonize](pythonize/README.md) | `pythonize/serde-to-python-objects` | CBO-041 |
 | [quick-cache](quick-cache/README.md) | `quick-cache/placeholder-guard`, `quick-cache/weighted-native-handle-retention` | CBO-011, CBO-030 |

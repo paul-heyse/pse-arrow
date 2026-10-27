@@ -1,12 +1,13 @@
 # Result data paths and prepaid accounting
 
-**Group G4 of the [first comparative review](README.md), 2026-10-27.** Focused
+**Group G4 of the [comparative review](README.md), 2026-10-27.** Focused
 comparative advice under `leverage-opportunity-review`. It recommends bounded targets and
 leaves the rest unresolved where it has to. It authorizes nothing.
 
 | Item | Value |
 | --- | --- |
-| Source inspected | `main` at `3e9a2525b`. None of the G4 files read here changed between the audit baseline `dbc4c9436` and `HEAD`. Concurrent uncommitted edits elsewhere (`pse-math`, `pse-operations` transport and staging) were not used as evidence. One fact, the source-object digest checks in `canonical_staging.rs`, was confirmed against the committed `HEAD` version. |
+| Reassessment | 2026-10-27 at source `4f52fd239`; consumes the complete original review and updated inputs at `b29fcf802`, base patterns 0.2 and additional patterns revision 3 (refined to 4 here). All named dispositions were reconsidered with representative current source, consumers and inherited evidence; unchanged evidence retains its original conditions. |
+| Original source inspected | `main` at `3e9a2525b`. None of the G4 files read here changed between the audit baseline `dbc4c9436` and `HEAD`. Concurrent uncommitted edits elsewhere (`pse-math`, `pse-operations` transport and staging) were not used as evidence. One fact, the source-object digest checks in `canonical_staging.rs`, was confirmed against the committed `HEAD` version. |
 | Library realizations | arrow family 59.3.0 (`arrow-ipc`, `arrow-buffer`, `arrow-data`, `arrow-ord`, `arrow-select`, `arrow-schema`), with 58.3.0 and 59.2.0 sources for comparison. DataFusion 55.1.0. `flatbuffers` 25.12.19. Everything else as named in the library accounts consumed. |
 | Inputs consumed | Codebase account (CBO-001, -002, -005, -006, -007, -008, -012 with their 2026-10-27 corrections). Library accounts: `arrow/{ipc,data,compute,json}`, `datafusion`, `rust-std-io`, `bytes`, `retained-size-crates`, `salsa`, `feral`, `faer`, `suitesparse/klu`, `sundials`, `petgraph-and-rustworkx-core`, `object-store`. Additional patterns revision 2: LOP-X001 and LOP-X009 are central. |
 | Criteria | Core 3.4 and the efficient-architecture heuristics, process-simulator profile 1.5, pse-arrow binding. Architecture owners: §19.2 (results), §20.6 (payload results), §4 relations. |
@@ -80,7 +81,7 @@ quantity.
 **Prerequisite order:**
 1. Typed refusals (CBO-002 marker, typed `ResultBlockError` variants).
 2. The shared IPC admission (CBO-005).
-3. The exact read-side charges (CBO-001, result part).
+3. Stronger input extents and complete residual read-side bounds (CBO-001, result part).
 4. The predicate type (CBO-007).
 5. The dense column-wise path (CBO-006).
 
@@ -182,7 +183,7 @@ the G5 and G6 accounts; G4 states the target.
 | Symbolic-phase prediction | FERAL LDLᵀ `symbolic_factorize(..).work_estimate()` (already used); faer `*_scratch() -> StackReq` (already used for LU scratch); faer sparse Cholesky/LDLᵀ/QR `len_val()`; KLU `klu_l_symbolic.lnz/unz` (an estimate, not a bound) | Charge directly where it is a bound. An estimate plus the library's growth rule is not a bound: KLU keeps growing (`memgrow·lusize + 2n + 1`, through `realloc` with old and new both live) until the factor fits, so use G6's per-block dense bound and count the realloc transient. *(Revised after the numerical and solver methods challenge.)* |
 | Published conservative bound | FERAL `Solver::conservative_storage_bytes(n, nrhs)` under `with_bounded_storage_max_dimension` | Charge directly. |
 | Library-polled checkpoint | Symbolica budget or abort carrier, unreleased (G5); DataFusion operators reserve internally against the shared pool | Use where released. Interruption must mean "cancelled", never a silently truncated result. |
-| Exact pre-materialization step | Arrow `BooleanBuffer::count_set_bits` / `FilterPredicate::count`; `FileDecoder` block spans from a verified footer read into a caller-owned buffer; serde's counting sinks (`ExtentWriter`, `CompletionExtent`, …) give exact JSON size; `StreamEncoder::encode` gives exact IPC message sizes | **The main result-path lever.** Charge the exact size, then allocate. |
+| Exact pre-materialization step | Arrow selection counts; verified file-block input spans; serde counting sinks; `StreamEncoder::encode` message sizes | Exact logical/input extents inform admission. Also bound rounded capacity, metadata, wrappers, scratch and copies before allocation; an exact part is not an exact complete decode envelope. |
 | Reuse-time exactness | KLU `klu_l_refactor` allocates nothing; faer symbolic reuse with numeric refresh | Bound the first factorization, then charge refreshes exactly (G6). |
 | Post-hoc measurement | Arrow `get_array_memory_size`; DataFusion `get_record_batch_memory_size`; KLU `Common.memusage`; Salsa `memory_usage` (unstable); SUNDIALS workspace queries (deprecated in 7.3, removed in 8.0) | Never a prepayment. Use only to reconcile downward (`split`/`shrink`/`try_resize`) and for observation. `AllocationScope::attach_borrowed_reserved` already transfers only the actual native extents. |
 | No library information | DataFusion `PhysicalExpr` temporaries (`rows × 64` in `select_original_rows`); pruning intermediates (`fields × 512 + 2048` in `prune_members`); FERAL Markowitz LU fill (G6); std `BTreeMap` node geometry; Symbolica 3.0.1 cost formulas (G5); IDAS/BBD internals (G6) | **One named bound owner per quantity.** It sits in that library's integration owner, records its derivation and the pinned version it was derived against, and is the single place to re-derive on a pin move. |
@@ -190,11 +191,12 @@ the G5 and G6 accounts; G4 states the target.
 Measured against the heuristics:
 - **H1, H4:** the pool and lease stay. What changes is where each number comes from.
 - **DP-16, LOP-11:** one place per quantity to revisit on a version move.
-- **H21, DP-20:** exact or reconciled charges stop wasting shared-pool capacity under 16-lane
+- **H21, DP-20:** stronger part extents plus complete residual bounds can reduce unnecessary shared-pool reservation under 16-lane
   reads. The current read-path over-reservation is up to about 6× the file size per active
   decoder.
-- The cost is a small amount of structure: named bound functions instead of inline
-  multipliers. No new mechanism, crate or checker is needed.
+- The accounting can use existing leases and named bound owners. CBO-005 still requires a
+  shared bounded framing/decoding mechanism and complete residual derivations; no new general
+  accounting framework or checker is justified by this recommendation.
 
 **Derived retained measurement (option 4).**
 - The registry generator already owns this for generated types and should keep it
@@ -215,11 +217,13 @@ Measured against the heuristics:
 
 - **A one-batch decode from a 32 MiB sealed file.**
   - Today: about 128 MiB transient plus 64 MiB cached.
-  - Target: the block span plus `ArrayData` headers, attached to the decoded buffers through
-    `AllocationScope::attach_buffer`, which exists and is tested in `owned_buffer.rs` but has no
-    production IPC caller yet.
+  - Target: exact raw input extent plus the complete pre-admitted metadata/schema, backing
+    capacity, array/wrapper and permitted-copy envelope described by CBO-005. Attach the input
+    through `AllocationScope::attach_buffer` and residual allocations through their reserved
+    owners. Those primitives exist; the complete new IPC allocation envelope is not implemented.
 
-  The guarantee is unchanged: the charge still precedes the allocation, and it is now exact.
+  Prepayment is preserved only when that full envelope is established. No exact-total charge
+  or reduced-refusal result follows from the raw span alone.
 - **FERAL Markowitz LU.** No library number exists, so the target can only consolidate the cubic
   bound into one owner. If that bound refuses ordinary supported blocks (H11), the remedy is an
   upstream owner bound (U1) or a different factor route. That is G6's decision, not a weakening
@@ -248,8 +252,8 @@ Measured against the heuristics:
     - `pse-model` for container geometry;
     - G5 and G6 owners for math and native.
 - **Behaviour changes.**
-  - Charges become smaller and exact where a pre-materialization step exists.
-  - Refusals happen later only in the sense that fewer valid reads are refused for capacity.
+  - Charges use stronger exact part extents and complete residual bounds where available.
+  - Fewer capacity refusals are an expected benefit only after that complete envelope is derived.
   - Bits, coordinates and refusal classes do not change.
 - **Machinery that disappears:**
   - the ×4 and ×2 whole-file decode grants;
@@ -450,10 +454,10 @@ is justified **at arrow 59.3.0**, as the library assessment established check by
     a negative `bodyLength` never completes and `finish()` refuses it.
   - Both still reach `fb_to_schema` and the `read_buffer` span assertion, so the layout checks
     remain necessary.
-- **The writer pads headers to 64 bytes** (`IpcWriteOptions` default alignment 64,
-  `padded_header_len`). A block read into a fresh 64-byte-aligned `MutableBuffer` therefore
-  decodes with `with_require_alignment(true)`. A block sliced out of a whole-file inline `Vec`
-  is aligned only to 8 bytes relative to its base.
+- **Alignment depends on both the backing allocation and each typed buffer offset.** The
+  writer's default 64-byte padding is useful, but an embedded `Vec<u8>` has no guaranteed
+  8-byte base alignment. Check the actual typed-buffer addresses against `BufferSpec` from
+  `arrow_data::layout`; header padding alone does not establish zero-copy eligibility.
 - **§19.2's "Retained scientific rows" text no longer matches the code.** It describes
   independent 512 KiB IPC streams with a preflight. The code (and §20.6) use sealed IPC files
   with a 16 MiB target and the 32 MiB `RESULT_BLOCK_BYTES` bound, plus the inline arm. This is
@@ -473,39 +477,35 @@ is justified **at arrow 59.3.0**, as the library assessment established check by
 
 ### Comparative argument
 
-Option 3 keeps every check arrow 59.3.0 still needs and adds no new protocol. It removes the
-double read and the whole-file decode charge, and extends the same admission to the import
-paths that lack it. Concretely, a `pse-columnar` IPC admission module holds:
+**Reassessment correction (2026-10-27).** Recommend a shared bounded framing and allocation
+owner, with consumer-specific schema and lineage admission. `FileDecoder` and `StreamDecoder`
+delegate array decoding; neither is an allocation-limit or untrusted-message admission API.
+The complete envelope below is a prerequisite to removing the current conservative grants.
 
-1. **Footer admission.** File-size bounds, magic, footer length against the actual size,
-   `root_as_footer_with_opts` with the tighter verifier options, V5, no dictionaries, the
-   `schema_field` walk and registry-schema equality, and the block table checked for order,
-   spans and overlap. The verified `Vec<Block>` and schema are kept as the cached decoder
-   state, charged exactly.
-2. **Per-block decode.**
-   1. Reserve exactly `metaDataLength + bodyLength`.
-   2. Read once into a 64-byte-aligned `MutableBuffer`.
-   3. Attach that buffer with `AllocationScope::attach_buffer`.
-   4. Check the continuation word, message length and `root_as_message_with_opts`.
-   5. Run `layout`, with widths taken from `arrow_data::layout(&DataType)` instead of local
-      match arms.
-   6. Call `FileDecoder::with_require_alignment(true).read_record_batch`.
-
-   The decoded arrays are zero-copy slices that inherit the block owner.
-3. **Inline payloads.** Either copy each block into an aligned buffer (an exact, charged copy)
-   or decode zero-copy from the inline `Buffer` with `require_alignment(false)` and an
-   alignment-copy charge. Which one depends on whether any registered result type needs
-   alignment greater than 8. That is a census of the registered result types, not run in this pass.
-4. **Streams** (reproducer, review-pack preview, portable-payload schema read, physical
-   objects). Use the same message-level checks over `StreamDecoder`, pushing a `Buffer` that is
-   already charged. The alignment question of item 3 applies here too: a stream body inside an
-   embedded document is not 64-byte aligned, so either copy each message body into an aligned,
-   charged buffer, or decode with `require_alignment(false)` and charge Arrow's realignment copy
-   in advance. `require_alignment(true)` on an unaligned body would refuse valid documents, and
-   an uncharged realignment copy would break prepayment. *(Revised after the omission and preservation challenge.)*
-
-**Domain policy stays local and visible:** registry equality, V5, no dictionaries or
-compression, the value-slot bound, surplus node and buffer refusal, and `Null`-field bounds.
+1. **Metadata admission.** Check actual file/message spans, verifier table/depth limits,
+   supported headers and types, node/value limits, buffer spans, dictionary/compression policy
+   and the consumer's schema before delegation. Keep the admitted footer, block inventory and
+   schema for file decoding. Their allocations need admission as well as the body allocation.
+2. **Per-block input.** `metaDataLength + bodyLength` is the exact input extent, not the entire
+   decoder allocation. Pre-admit rounded backing capacity, metadata/schema materialization,
+   array/wrapper inventories and permitted copies before constructing them. Attach the input
+   lease through `AllocationScope::attach_buffer`; separately attach the residual allocations
+   using the existing reserved-allocation mechanisms. Zero-copy slices inherit the input owner.
+3. **Alignment.** Read into an aligned allocation and check each typed buffer address using
+   `arrow_data::layout`. For embedded files and streams, pre-admit any realignment copy or
+   refuse according to the consumer's supported contract. `require_alignment(true)` without
+   establishing those premises can reject valid documents.
+4. **Streams.** Validate each complete encapsulated message outside `StreamDecoder` before
+   feeding it: the decoder has no pre-decode admission callback. Prefer admitted complete
+   message/body buffers. Arbitrary chunking also needs a separate bound for decoder-owned
+   accumulation: `reader/stream.rs` copies fragmented metadata and bodies into `self.buf`
+   while caller input may remain live. Refuse compression before delegation under the current
+   no-compression policy; decompression can allocate from the embedded decoded length.
+5. **Consumer contracts.** Keep registry-schema equality for result files. Scientific exports
+   also carry `pse.canonical.*` metadata produced by `connected_results::write_ipc` and checked
+   by `portable_payload::validate_scientific_lineage`. Bare-registry equality applied unchanged
+   to every stream would reject valid exports. Share transport-safety checks while retaining
+   lineage, value-slot, surplus-node/buffer and `Null`-length policy with its semantic owner.
 
 **Heuristics:** H4 (delegate the decoding, keep the gap), H16 (one read, zero-copy), H18 (put
 admission at the trust boundaries that lack it), H21 (exact charges in the shared pool).
@@ -535,8 +535,10 @@ settled what happens today:
   (signal 6) through `handle_alloc_error`. The same claim on the schema message aborts inside
   `StreamReader::try_new`. A negative length panics. Wrapping the reader in `Read::take` does
   not help.
-- `StreamDecoder` never allocates from an advertised length; every lying length ends in a typed
-  "Unexpected End of Stream" from `finish()`.
+- For the tested lying raw-body lengths, `StreamDecoder` avoids `StreamReader`'s eager
+  advertised-body allocation and `finish()` reports incomplete input. This does not establish
+  absence of internal accumulation, schema/wrapper allocations or advertised decoded-size
+  allocations for compressed inputs.
 - Both readers share the record-batch decode and **panic** on buffer offsets or lengths outside
   the body (`Buffer::slice_with_length`), so the local span check stays necessary after the move.
 - Oversized node and batch lengths are already typed errors through `ArrayData` validation.
@@ -560,8 +562,10 @@ Consumer integration:
 - `reproducer_physical`, `review_pack::presentation`, `portable_payload` and `result_physical`
   call the stream admission.
 
-Removed: `FileReaderBuilder`, the second footer and block read, the ×4 and ×2 grants, and the
-local width tables. Typed refusals map `ArrowError` from delegated validation into the existing
+Eligible for removal after the complete replacement allocation envelope is established:
+`FileReaderBuilder`, the second footer and block read, the ×4 and ×2 grants, and the local width
+tables. A raw input-span lease alone does not justify that removal. Typed refusals map
+`ArrowError` from delegated validation into the existing
 `ResultBlockError` family. Diagnostic codes pinned by tests may need updating; bits, schemas and
 deterministic bytes do not change.
 
@@ -687,7 +691,7 @@ the accepted prefix.
 
 ### Comparative argument
 
-**Option 3** removes the avoidable work and keeps every bit.
+**Option 3** removes avoidable work while retaining the current numerical/encoding contract.
 - **Store path.**
   - Use `View::from_checked(..).symbol_id_column()` and `time_column()` (generated, field
     checking preserved).
@@ -695,12 +699,11 @@ the accepted prefix.
     supports `FixedSizeBinary`, and the scratch is a bitmap of n−1 bits plus the ranges.
   - Check contiguity as a set over run keys.
   - Compute extrema as the **same** `f64::min`/`f64::max` fold over `time_column().values()[range]`,
-    with one explicit signed-zero rule after skipping NaN. Rust documents that `f64::min`/`max`
-    may return either input for +0.0 and −0.0, so "same operations, same order" alone does not
-    guarantee identical stored bits; the explicit rule does, and a test that includes ±0 keeps it.
-    The repository already has a second extremum definition (Arrow total order over finite
-    values, in `pse-relations` `extrema`); the two should be reconciled or their difference
-    named. *(Revised after the numerical and solver methods challenge.)*
+    retaining its current signed-zero/NaN interpretation. Rust permits either zero input for
+    mixed-sign `min`/`max`; introducing an explicit canonical zero is a separate encoding change,
+    not proof of preserving today's stored bits. The repository also has Arrow-total-order
+    finite extrema in `pse-relations`; name the distinction, and select any reconciliation
+    through the numerical/metadata owner rather than bundling it into this restructuring.
   - Reuse the first call's ranges for the accepted prefix.
 - **Read path.**
   - Check identity by comparing the symbol column's 16-byte values over the range and the two
@@ -773,8 +776,11 @@ Removed:
 - the duplicated metadata key handling;
 - the `num_rows × 4` pre-charge.
 
-Behaviour, bits, coordinates and refusals are unchanged. The work is local and needs no
-migration.
+The restructuring should preserve current extrema production and readback interpretation.
+Choosing a new signed-zero canonicalization, or reconciling existing extrema definitions, is a
+separate numerical/metadata semantic decision. Unchanged IEEE comparisons alone do not prove
+unchanged durable coordinate bits. No-migration and unchanged-byte claims are conditional on
+retaining those current encodings.
 
 **Rule impacts.** None, as long as the `pse.canonical.*` export metadata bytes stay identical.
 Changing that encoding would touch the metadata contract and need an ADR.

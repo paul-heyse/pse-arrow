@@ -74,6 +74,15 @@ Sources:
   certify that a value between them rounds to that double. A correctly rounded conversion needs an
   exact method (scaled integer division with round-half-even, or an exact sign test at the
   candidate's rounding half-way points).
+- **Reassessment refinement (2026-10-27):** finite normal rounding cells use the exact
+  midpoints to the predecessor and successor, which need not be equally spaced at a power of
+  two. Ties select the even significand. Zero/subnormal transitions and overflow require explicit
+  treatment. `Rational::to_multi_prec_float` and `Float::from_rational_round` offer a concrete
+  multiprecision route under `float-mpfr`; a 53-bit intermediate alone can double-round when
+  converted to subnormal binary64. Directed enclosures or exact integer conversion must settle
+  the final boundary. Four arithmetic counterexamples to a symmetric cell are
+  [Tested](../../../design_review/evidence/library-leverage-binary64-rounding-cells-2026-10-27/README.md);
+  they do not test Numerica or a root-refinement replacement.
 - **Version / build conditions:** 3.0.1.
 - **Evidence:** Interface-checked (source), plus a Python emulation of the code path under Rust's
   documented round-to-nearest-even casts that misrounded 71,124 of 200,000 bisection midpoints with

@@ -1,14 +1,15 @@
 # Canonical store transport and SurrealQL
 
-**Group G3 of the [first comparative review](README.md), 2026-10-27.** This page gives focused
+**Group G3 of the [comparative review](README.md), 2026-10-27.** This page gives focused
 comparative advice under the leverage-opportunity-review skill. It authorizes nothing and is not a
 formal design review. Every target on this page is *Proposed*.
 
 | Item | Value |
 | --- | --- |
+| Reassessment | 2026-10-27 at source `4f52fd239`; consumes the complete original review and updated inputs at `b29fcf802`, base patterns 0.2 and additional patterns revision 3 (refined to 4 here). All named dispositions were reconsidered with representative current source, consumers and inherited evidence; unchanged evidence retains its original conditions. |
 | Opportunities | [CBO-009](../codebase/persistence-and-transport.md#cbo-009), [CBO-010](../codebase/persistence-and-transport.md#cbo-010) (SurrealQL side), [CBO-016](../codebase/execution-lifecycle-and-observation.md#cbo-016) (store side), [CBO-046](../codebase/registry-generation-and-python-boundary.md#cbo-046) (SurrealQL side), [CBO-048](../codebase/developer-tooling.md#cbo-048) (SurrealDB parts) |
 | Consumed accounts | Codebase account `c2f8b485a` (source baseline `dbc4c9436`); library assessment `34f9f07ee` ([surrealdb](../libraries/surrealdb/README.md) pages: rust-sdk, protocol, surrealql-server-constructs, syn-and-sql, server-tooling); [additional patterns](../assessment-patterns.md) revision 2; base patterns edition 0.2 |
-| Source inspected | `main` at `3e9a2525b`. During this pass, uncommitted concurrent edits appeared in `transport.rs`, `canonical_grpc_peer.rs`, `canonical_staging.rs`, `canonical_studies.rs` and `canonical_transport_tests.rs`. They are mostly formatting and tests; no conclusion here depends on them. Since the audit baseline, `transport.rs` gained `operation_scope`. |
+| Original source inspected | `main` at `3e9a2525b`. During this pass, uncommitted concurrent edits appeared in `transport.rs`, `canonical_grpc_peer.rs`, `canonical_staging.rs`, `canonical_studies.rs` and `canonical_transport_tests.rs`. They are mostly formatting and tests; no conclusion here depends on them. Since the audit baseline, `transport.rs` gained `operation_scope`. |
 | Library realizations | Vendored SDK `surrealdb` and `surrealdb-engine-api` 3.3.4. Clean upstream 3.3.4 was rebuilt in scratch by reverse-applying `vendor/deltas/surrealdb.patch`; the engine-api comparison used the installed registry crate. Also inspected: installed `surrealdb-protocol` 0.13.1, `surrealdb-types` 3.3.4, `surrealdb-rpc` 3.3.4 and `tokio-util` 0.7.19. The server is the source-built 3.3.4 with its patch series (`scripts/surrealdb-source/`). |
 | Criteria | Core 3.4, Efficient Architecture 1.0, process-simulator profile 1.5 (not material here), pse-arrow binding |
 | Method | Static reading, `rg`, `git diff --no-index -w`, and Context7 `/websites/surrealdb` for function transaction semantics. The reviewer ran no builds. The coordinator-run probe G3-P1 ([direct client](../../design_review/evidence/library-leverage-surrealdb-direct-client-2026-10-27/README.md)) tested the second revealing case for CBO-009. |
@@ -218,6 +219,12 @@ hold:
 - a typed request-options struct, replacing `Arc<dyn Debug>` owners threaded through the
   engine-API.
 
+**Reassessment qualification.** `TaskTracker` supplies completion tracking, not admission
+closure: `close()` does not prevent new tokens or tasks. Keep serialized Open/Closing/Closed
+admission, logical-caller closure, admitted continuation rights, readers-first prerequisites,
+independent two-driver settlement and retry progress. These can share one connection owner
+without collapsing into the tracker's closed bit.
+
 The repository's own semantics stay where they are and are not mirrors: operation clocks spanning
 retries (`transport.rs`), readers-first close ordering, and two clients per store.
 
@@ -225,7 +232,8 @@ retries (`transport.rs`), readers-first close ordering, and two clients per stor
 owned hyper connection, with the wire preflight in the response body before prost. No performance
 difference is claimed.
 
-**Failure and recovery.** Semantics are preserved by moving the same code. B must fail closed on
+**Failure and recovery.** The target can preserve these semantics, but changing this ownership
+seam requires requalification of the existing transport and lifetime controls. B must fail closed on
 unknown query-frame variants and on missing `QueryEnd` or trailers, as the delta already does.
 
 **Total machinery.**
@@ -516,9 +524,11 @@ CF still polls. It adds write amplification on hot tables and cursor and retenti
 the claim query is already index-backed.
 
 Protocol 0.13.1 exposes `LiveQueryCapabilities { delivery, resumable, multiple_subscribers, retention }`
-and `SubscribeRequest.resume_from: LiveQueryCursor`. Catch-up could therefore be server-supported
-if advertised. SDK 3.3.4 always sends `resume_from: None`, and the server's advertisement was not
-inspected.
+and `SubscribeRequest.resume_from: LiveQueryCursor`. The inspected source-built server realization
+(`v3.3.4-mx1.0.0-effective-v1-3549c2a97bd565fd2497`, `server/src/rpc/grpc.rs`) advertises
+at-most-once delivery, `resumable=false`, `multiple_subscribers=false` and no retention;
+`Subscribe` explicitly rejects a nonempty resume cursor. SDK 3.3.4 sends `resume_from: None`.
+Protocol expressiveness does not establish this server capability.
 
 ### Disposition: Retain current
 
@@ -529,7 +539,8 @@ across several worker processes.
 - a lifetime separate from per-operation deadlines and allowances;
 - an allowance per notification;
 - `kill` on drop;
-- capability-gated `resume_from`;
+- re-registration after loss followed immediately by authoritative re-read; capability-gated
+  `resume_from` only as a future-server branch;
 - wake hints only;
 - the polling backstop and claim authority unchanged.
 

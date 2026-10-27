@@ -322,10 +322,14 @@ and the consumer falsely refuses a valid unique root; 20 such losses occurred in
 `IsolatedRoot` fallback is the common path (5,651 of 8,556 release pairs), so the unbounded
 `RootCache` is populated on most solves in this family, which is the case against "always
 `IsolatedRoot`" (retention and absolute-radius semantics, not correctness). The comparative review
-recommends, with high priority: isolate on the square-free part u = p / gcd(p, p′) with
-`u.isolate_real_root_intervals()`; refine with a local exact bisection (derivative-side rule at
-root endpoints, per-step cancellation and time checks, stop when the ends round to the same or
-adjacent binary64, typed step cap); delete `refine_root_interval`, the p(a)/p(b) screen and the
-`IsolatedRoot` fallback; and advance the identity to `symbolica.cubic-roots.v2` (*Tested*,
-[evidence](../../../design_review/evidence/library-leverage-symbolica-root-containment-2026-10-27/README.md)). See the
+recommends, with high priority, square-free isolation through `u.isolate_real_root_intervals()`
+and a bounded, cancellable exact refinement/conversion owner. That target remains *Proposed*;
+the [containment evidence](../../../design_review/evidence/library-leverage-symbolica-root-containment-2026-10-27/README.md)
+Tests the old ladder's hazard, not the replacement. A correctly rounded conversion would use
+adjacent-float midpoints, retain the designated root interval and handle ties, signed zero,
+subnormals and overflow. Equal endpoints after an exact correctly rounded conversion certify
+a bracket; merely adjacent rounded endpoints do not. Compare the existing multiprecision
+conversion route with integer conversion, including temporary storage admission, if that
+stronger output contract is selected. Current branch/residual verification alone does not
+declare correctly rounded roots. See the
 [comparative review](../../reviews/mathematics-preparation.md#cbo-025).

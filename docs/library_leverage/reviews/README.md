@@ -1,8 +1,9 @@
 # Comparative library leverage reviews
 
-**Account state: first comparative review, 2026-10-27.** This review covers every live
-opportunity in the [codebase account](../codebase/README.md) (`CBO-001`–`CBO-052`) across nine
-group pages. It is focused comparative advice under the
+**Account state: reassessed comparative review, 2026-10-27.** This pass reconsidered all
+original `CBO-001`–`CBO-052` across nine group pages, retired CBO-032 on its corrected premise,
+and added CBO-053. The [codebase account](../codebase/README.md) therefore has 52 current
+opportunities under non-reused IDs. This is focused comparative advice under the
 [opportunity review skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/leverage-opportunity-review/SKILL.md).
 It recommends bounded targets and leaves choices unresolved where the evidence does not settle
 them. It does not authorize implementation, accept scope or replace a formal review due under the
@@ -10,17 +11,17 @@ existing cadence. Every target is *Proposed*; enabling evidence is labelled wher
 
 | Item | Value |
 | --- | --- |
-| Consumed accounts | Codebase account `c2f8b485a` (source baseline `dbc4c9436`) with its dated library-assessment corrections; library assessment `34f9f07ee`; [additional patterns](../assessment-patterns.md) revision 2, now revision 3; base [patterns](../patterns.md) edition 0.2 |
-| Source inspected | `main` at `3e9a2525b` by the group reviewers, `9cb8e4f4a` by the probes, published at `87f2eb905`. The commits in between touch canonical transport, staging and Plan56 repairs; each page records any change it saw. Concurrent uncommitted product edits were not used as evidence. |
+| Consumed accounts | Original review and its integrated codebase/library corrections at `b29fcf802`; first codebase publication `c2f8b485a` (source `dbc4c9436`) and library publication `34f9f07ee`. Base patterns 0.2 and additional patterns revision 3 consumed; revision 4 refines the affected reasoning here. |
+| Source inspected | Reassessment source `4f52fd239`, initially clean. Original group inspection was at `3e9a2525b` and probes at `9cb8e4f4a`; the original review was published at `b29fcf802`, not `87f2eb905`. Relevant intervening product changes were reconciled. No product edits were made by this pass. |
 | Standard | Core 3.4 (`design-principles.md`, `efficient-architecture-heuristics.md`), process-simulator profile 1.5 and the pse-arrow binding, via `standard.toml`, applied qualitatively |
-| Method | Nine parallel group reviews, five coordinator-run probes, a maintainer checkpoint, then two independent challenges ([omission and preservation; numerical and solver methods](#challenges)) |
+| Method | Three independent read-only reassessments covering all nine groups, coordinator source/evidence checks and cross-account integration. Two new focused counterexample probes ran at `4f52fd239` and were retained at `1540fd164`. The original five review probes, three library probes and two challenges remain inherited evidence under their original conditions; they were not rerun. |
 | Premises | Accepted: this host's kernel 7.0 and systemd 255 floors (pidfd and pidfs, `cgroup.kill`, `cgroup.events`, `Delegate=yes`, the D-Bus API). Standing: SurrealDB canonical for runtime and scientific data with 16-lane parallelism and no daemon; FMA-free determinism; panic=unwind; typed errors; one Arrow family; no library or licence refused; no compromise that regresses another part. Unresolved: [U1–U3](#unresolved-premises-and-their-branches). |
 
 ## Groups
 
 | Group | Page | Opportunities |
 | --- | --- | --- |
-| G1 | [Host processes, containment and durable files](host-processes-and-durable-files.md) | 003, 004, 019, 020, 047, 048 (non-SurrealDB) |
+| G1 | [Host processes, containment and durable files](host-processes-and-durable-files.md) | 003, 004, 019, 020, 047, 048 (non-SurrealDB), 053 |
 | G2 | [Execution lifecycle, cancellation and observation](execution-lifecycle-and-observation.md) | 010 (retry policy), 011, 013, 014, 015, 016 (in-process), 017, 018 |
 | G3 | [Canonical store transport and SurrealQL](canonical-store-transport.md) | 009, 010 (SurrealQL), 016 (store), 046 (SurrealQL), 048 (SurrealDB) |
 | G4 | [Result data paths and prepaid accounting](result-data-and-prepaid-accounting.md) | 001 (joint judgment), 002, 005, 006, 007, 008, 012 |
@@ -32,18 +33,20 @@ existing cadence. Every target is *Proposed*; enabling evidence is labelled wher
 
 ## Synthesis
 
-Most of the codebase's library use is already sound: of the 58 judged items (six CBOs are split
-across groups or mechanisms), 26 keep their current mechanism or have their premise rejected
-after inspection. The recommendations that remain are few, local and mostly
-consolidations. Four of them are also **defect repairs** that the comparison exposed and that
+Most existing library use remains justified. The original review reported 58 mechanism-level
+items, including split CBOs; that count is not a new qualification result. This reassessment
+retains most directions while correcting their complete targets and reopening choices below.
+Four recommendations also address **defect repairs** exposed by the comparison and
 should not wait for the leverage work around them:
 
-1. **A replay document can abort the process** (CBO-005, *Tested*). arrow-ipc 59.3.0's
+1. **A replay document can reach an aborting reader** (CBO-005: library behavior *Tested*,
+   repository reachability *Interface-checked*). arrow-ipc 59.3.0's
    `StreamReader` allocates whatever body length a message claims before reading it, and a
    user-supplied reproducer, bundle or pack reaches it without authentication. A 408-byte stream
    claiming a 1 PiB body ends in SIGABRT, which `panic = "unwind"` cannot contain, so a Python
    caller loses the interpreter ([probe](../../design_review/evidence/library-leverage-arrow-ipc-stream-hostile-2026-10-27/README.md)).
-2. **The cubic root ladder can lose a root** (CBO-025, *Tested*). Symbolica 3.0.1's root
+2. **The cubic root ladder can lose a root** (CBO-025: reconstructed ladder *Tested*, product
+   call path *Interface-checked*). Symbolica 3.0.1's root
    isolation can return an interval that strictly contains a second root. The local ladder then
    panics in debug and, in release, silently returns the double root twice: 20 of 8,556
    double-root cubics lost their simple root
@@ -63,9 +66,10 @@ rather than a single defect:
    `pulp/x86-v3` unconditionally, and pulp's run-time V3 path uses `_mm256_fmadd_pd`. The
    workspace's FMA-free rule (no `target-cpu=native`) does not reach this route, and native-build
    identity frames only compile-time facts, so faer-backed results can vary by CPU class under an
-   unchanged identity. Removing it costs dense-kernel speed or needs an upstream change, so it is
+   unchanged identity. Reassessment found direct faer/private-gemm routes beyond pulp; no complete
+   no-FMA route or its speed cost was established. The standing arithmetic rule remains in force. It is
    recorded as [remedy-open](native-solver-integration.md#faer-kernels-and-the-fma-free-premise)
-   with U1 and U2 branches; the choice is the maintainer's.
+   with supplier/local options; design-input replay under U2 cannot waive that rule.
 
 The same challenge found that Numerica 3.0.1 `Rational::to_f64` rounds twice for large
 numerators or denominators, which affects today's cubic ladder and coefficient conversion; the
@@ -74,36 +78,39 @@ CBO-025 target below avoids it.
 ### Headline recommendations, by consequence
 
 1. **One IPC admission at the trust boundaries** ([CBO-005](result-data-and-prepaid-accounting.md#cbo-005)).
-   Build one `pse-columnar` admission on arrow-ipc 59.3.0 `FileDecoder` and `StreamDecoder` with
-   caller-reserved, 64-byte-aligned block buffers attached through the existing
-   `AllocationScope::attach_buffer`. Keep every local check 59.3.0 still needs (buffer spans
-   panic in both decoders). Extend it to the reproducer, review-pack, portable-payload and
-   physical-object paths first, because that part removes the abort. The double footer read and
-   the ×4 and ×2 grants disappear.
+   Build shared framing/allocation ownership over arrow-ipc 59.3.0 decoders, with complete
+   pre-admission for metadata, wrappers, capacities and permitted copies as well as raw input.
+   Preflight streams before delegation, refuse unsupported compression and retain consumer
+   schema/lineage policy. Extend to exposed imports first. Raw spans alone do not justify
+   deleting the ×4/×2 grants; their complete replacement envelope remains a prerequisite.
 2. **Square-free isolation and exact bisection for cubic roots** ([CBO-025](mathematics-preparation.md#cbo-025)).
-   Isolate on `u = p / gcd(p, p′)`, refine with a local exact bisection (derivative-side rule at
-   root endpoints, cancellation every step), certify the returned double by the exact sign of u at
-   its two rounding half-way points, convert exactly rather than through `Rational::to_f64`, and
-   refuse typed only at a step cap derived from the bracket and the binary64 exponent range, so
-   roots near the subnormal range are still returned. Delete `refine_root_interval`, the endpoint screen and
-   the `IsolatedRoot` fallback, and advance the solver identity. This also stops the cubic path
-   from filling Symbolica's process-global root cache ([LOP-X014](../assessment-patterns.md#lop-x014)).
+   Isolate on `u = p / gcd(p, p′)` and refine with a bounded, cancellable exact owner.
+   Preserve current residual/branch verification by default; correctly rounded binary64 output
+   is a stronger unresolved choice. That branch needs adjacent-float midpoint cells, exact
+   conversion and endpoint/subnormal/overflow handling. Neither a 20-line implementation nor
+   a one-ulp change bound is established. Remove the unsafe/caching route only after the complete
+   replacement is exercised, and advance solver identity. This addresses
+   [LOP-X014](../assessment-patterns.md#lop-x014) without asserting a Tested replacement.
 3. **A repository-owned SurrealDB client on the published protocol** ([CBO-009](canonical-store-transport.md#cbo-009)).
    Replace the vendored SDK delta with a `pse-operations` module over `surrealdb-protocol` 0.13.1
    `SurrealDbServiceClient` and `surrealdb-types` 3.3.4 `proto`, pinning the four SDK result
    rules the [direct-client probe](../../design_review/evidence/library-leverage-surrealdb-direct-client-2026-10-27/README.md)
-   needed for 37/37 parity. The two lifecycle tiers become one owner and the vendored SDK leaves
+   needed for 37/37 result observations. This is not bounded-transport equivalence. Retain
+   admission sealing separately from TaskTracker completion. The two lifecycle tiers become one owner and the vendored SDK leaves
    the workspace. Do it instead of the next SDK rebase, or earlier if a transport change is needed.
 4. **Registry products as a guarded postcard blob** ([CBO-040](declarations-registry-and-python-boundary.md#cbo-040)).
    The [build-coupling probe](../../design_review/evidence/library-leverage-registry-build-coupling-2026-10-27/README.md)
    showed that adding a model field breaks `just codegen` with no routine path and that the
    generated module is about 72% of `pse-schema`'s build. Carry the products as one postcard 1.1.3
-   blob with a shape-digest guard; the 87k-line literal module and its emitter disappear. This
-   amends proposed ADR-0210 before acceptance.
+   blob, provisionally. The exact layout/integrity/equivalence mechanism is unresolved:
+   a digest emitted alongside the blob can be stale with it, and complete decode must refuse
+   trailing bytes. The 87k-line literal module becomes eligible for removal after the full
+   serialization and preservation route is established. Amend proposed ADR-0210 before acceptance.
 5. **Prepaid accounting by kind of size information, one owner per residual bound**
    ([CBO-001](result-data-and-prepaid-accounting.md#cbo-001)). Use the strongest size information
    each library offers, and give every remaining library-internal bound one named owner that
-   records its derivation and pinned version. The decode charge becomes the exact block span; the
+   records its derivation and pinned version. Raw input admission uses the block extent; total
+   decode admission also covers metadata, capacities, wrappers and permitted copies. The
    FERAL Markowitz bound moves into the maintainer-owned POUNCE fork; one conservative B-tree
    helper replaces four inconsistent formulas. Whether a derive should produce `HeapUsage` stays
    unresolved until a census of the hand implementations.
@@ -112,9 +119,33 @@ Next in consequence, each small and local: make `impl_diagnostic!` the single di
 authority ([CBO-045](declarations-registry-and-python-boundary.md#cbo-045)); exhaustive
 destructuring in about 20 identity frames ([CBO-039](declarations-registry-and-python-boundary.md#cbo-039));
 one no-clobber publication helper on `renameat2(RENAME_NOREPLACE)` ([CBO-003](host-processes-and-durable-files.md#cbo-003));
-the runtime observing the primary through cgroup `populated` plus a pidfd instead of spawning an
-interpreter per heartbeat ([CBO-020](host-processes-and-durable-files.md#cbo-020)); and the
+the runtime observing authenticated kernel lifetime facts while preserving receiver-group drain
+and a narrow manager fallback ([CBO-020](host-processes-and-durable-files.md#cbo-020)); and the
 SUNDIALS 7.9 move after its identity prerequisite ([CBO-028](native-solver-integration.md#cbo-028)).
+
+### Material changes from reassessment
+
+- **Revised realizations:** CBO-020 distinguishes supervisor exit from receiver-group drain;
+  CBO-004 authenticates exact-unit delegation rather than relying on a user-manager xattr;
+  CBO-011/014 keeps runtime context out of neutral columnar dependencies.
+- **Qualified targets:** CBO-039 includes nested framed records; CBO-040's preservation guard
+  remains open; CBO-041 retains per-thread decoder lifetime; CBO-044 no longer promises blanket
+  wrapper deletion or attrs equivalence from pyclass attributes.
+- **Corrected input research:** filelock supports explicit fail-closed/descriptor routes;
+  statrs constructors return Results; the inspected SurrealDB server cannot resume subscriptions;
+  sampling uses direct seeded constructors and its host probe does not test the proposed
+  complete normalized/mapped/grid producer.
+- **Reopened CBO-051:** retain the raw test client and front-matter owners, but compare explicit
+  incomplete-capture reporting with an h2-backed sink. The present peer can discard pending input
+  without reporting capture errors.
+- **Improved CBO-050:** reuse declarations with a real validation/publication boundary. Existing
+  Structs bypass `convert` field checks, generated field shapes differ, and the publisher expects
+  mappings. The new probe confirms that validation premise, not pipeline behavior.
+- **Added CBO-053:** investigate maintenance CLI output ownership; truncating diagnostic tails
+  after capture does not bound live capture memory. Its output/lifetime policy and realization
+  remain unresolved; no runaway command was demonstrated.
+- **Retired CBO-032:** its library facilities are already used. Reusable POUNCE capability
+  knowledge and the comparative rationale remain; the ID is not reused.
 
 ### Prerequisite order, kept separate from priority
 
@@ -132,8 +163,8 @@ SUNDIALS 7.9 move after its identity prerequisite ([CBO-028](native-solver-integ
 - **One port of the query sites.** CBO-010's guarded-script envelope and CBO-009 B's client
   touch the same ~355 query sites; design the envelope as the future client's script type and
   schedule them together rather than rewriting the sites twice.
-- **The IPC admission carries the exact decode charge.** CBO-001's decode part is delivered by
-  CBO-005's module, not separately.
+- **The IPC admission carries the complete decode envelope.** CBO-001's raw-input and residual
+  allocation owners are delivered by CBO-005's module, not a separate raw-span-only charge.
 
 ## Interactions between groups
 
@@ -185,9 +216,10 @@ SUNDIALS 7.9 move after its identity prerequisite ([CBO-028](native-solver-integ
 - **U2: replay of recorded values or regeneration from a seed?** It matters only for CBO-033 and,
   on reopening, CBO-034. Under replay, the design producer's realized points are recorded and key
   identity, as identities already do. Under regeneration, the producer must also be bit-portable,
-  which egobox-doe's Classic LHS under a seeded `Xoshiro256Plus` supports, but downstream fit
-  statistics still vary by CPU class because faer selects SIMD kernels at runtime
-  ([LOP-X006](../assessment-patterns.md#lop-x006) revision 3). The evidence leans toward replay.
+  for which the simple seeded unit-cube constructions are credible candidates. The existing
+  probe tested `sample()` on one host, not the proposed normalized/local-mapping/grid producer
+  or cross-platform regeneration. Downstream kernel variation is a separate arithmetic issue
+  ([LOP-X006](../assessment-patterns.md#lop-x006) revision 4). The evidence leans toward replay.
 - **U3: must the development evidence index stay on SurrealDB?** CBO-050's recommendation
   (generated msgspec types in place of hand TypedDicts) holds either way. Only the store choice
   depends on U3; under "no", the index could leave the canonical transport and shrink G3's
@@ -195,7 +227,8 @@ SUNDIALS 7.9 move after its identity prerequisite ([CBO-028](native-solver-integ
 
 ## Open questions
 
-These came up during the review. None blocks a recommendation, and each page states its default.
+The broad directions remain useful, but these choices qualify complete target selection where
+the evidence does not settle it. The relevant pages preserve defaults or competing options.
 
 - Is it intended that the HiGHS process gate stays held while blocking on `resume_compute`
   (CBO-030)?
@@ -204,8 +237,14 @@ These came up during the review. None blocks a recommendation, and each page sta
   admitted heartbeat. Is the inline pause intended (CBO-015)?
 - Is `begin_stage_inner`'s missing retry jitter intentional (CBO-010)?
 - Does work in the maintainer-owned POUNCE fork sit outside U1 (CBO-001 native input)?
-- How should faer's run-time FMA dispatch be resolved: accept CPU-class variation with the ISA
-  level recorded, patch pulp to scalar at a speed cost, or seek an upstream override (U1)?
+- Which complete supplier configuration or maintained patch satisfies the standing FMA-free
+  requirement across all consumed dispatch owners? ISA attribution alone does not.
+- Does CBO-025 need correctly rounded roots, or sufficient deterministic refinement for its
+  existing original-residual/branch contract? The latter remains the default scope.
+- Which independent compiled-type compatibility and payload-integrity route preserves the
+  registry blob's full contract (CBO-040)?
+- Does capture require explicit incomplete-transport accounting or only successful best-effort
+  observations (CBO-051)? What are maintenance CLI output/lifetime demands (CBO-053)?
 - Should the defects above be raised through the bug and plan routes now, independently of
   this review?
 
@@ -213,11 +252,11 @@ These came up during the review. None blocks a recommendation, and each page sta
 
 | CBO | Group | Disposition | Target or reason |
 | --- | --- | --- | --- |
-| [001](result-data-and-prepaid-accounting.md#cbo-001) | G4 (G5, G6 inputs) | Recommend; derive sub-question unresolved | Classify charges by kind of size information; one owner per residual bound; exact decode spans |
+| [001](result-data-and-prepaid-accounting.md#cbo-001) | G4 (G5, G6 inputs) | Recommend; derive sub-question unresolved | Exact input spans plus a complete residual envelope; one owner per bound |
 | [002](result-data-and-prepaid-accounting.md#cbo-002) | G4 | Recommend | One `pse-ids` sink with a typed `LimitReached`; delete the dead trial-encode path |
 | [003](host-processes-and-durable-files.md#cbo-003) | G1 | Recommend | `rustix::fs::renameat_with(NOREPLACE)` publication helper with explicit durability; staging contracts kept |
 | [004](host-processes-and-durable-files.md#cbo-004) | G1 | Recommend | One `SupervisedChild`; delegated-leaf containment as an explicitly signalled mode |
-| [005](result-data-and-prepaid-accounting.md#cbo-005) | G4 | Recommend | One IPC admission on `FileDecoder`/`StreamDecoder` at every trust boundary |
+| [005](result-data-and-prepaid-accounting.md#cbo-005) | G4 | Recommend; allocation envelope qualified | Shared bounded IPC framing/decoding with consumer-specific schema and lineage |
 | [006](result-data-and-prepaid-accounting.md#cbo-006) | G4 | Recommend | Column-wise indexing with `arrow_ord::partition` and `BooleanBuffer`; same `f64::min`/`max` fold |
 | [007](result-data-and-prepaid-accounting.md#cbo-007) | G4 | Recommend; planner premise rejected | One `OutputPredicate`; dense windows already run in SurrealQL |
 | [008](result-data-and-prepaid-accounting.md#cbo-008) | G4 | Retain current | Heterogeneous open-keyed events; overflow joins CBO-002 |
@@ -232,19 +271,19 @@ These came up during the review. None blocks a recommendation, and each page sta
 | [017](execution-lifecycle-and-observation.md#cbo-017) | G2 | Recommend | One interruptible Python wait helper |
 | [018](execution-lifecycle-and-observation.md#cbo-018) | G2 | Recommend | One `NativeThread` owner; thread pidfds deferred |
 | [019](host-processes-and-durable-files.md#cbo-019) | G1 | Recommend (minor) | procfs-core 0.18 reader in `pse-diagnostics`; start-tick identity retained |
-| [020](host-processes-and-durable-files.md#cbo-020) | G1 | Recommend | Cgroup `populated` plus main-PID pidfd from the handoff; no per-heartbeat spawn |
+| [020](host-processes-and-durable-files.md#cbo-020) | G1 | Revised target; fallback unresolved | Authenticated kernel facts preserve receiver-group drain; process exit is a hint |
 | [021](mathematics-preparation.md#cbo-021) | G5 | Retain current, add a pin hold | Mirrors already reconcile with typed refusal |
 | [022](mathematics-preparation.md#cbo-022) | G5 | Premise rejected | Four layers are four lifetimes |
 | [023](mathematics-preparation.md#cbo-023) | G5 | Recommend (narrow) | One checked dense-decomposition function in `pse-structural` |
 | [024](mathematics-preparation.md#cbo-024) | G5 | Premise rejected | One factorable projection; per-consumer rules are semantics |
-| [025](mathematics-preparation.md#cbo-025) | G5 | LDLᵀ: Retain current. Cubic: Recommend | Square-free isolation and exact bisection; identity advanced |
+| [025](mathematics-preparation.md#cbo-025) | G5 | LDLᵀ retained; cubic repair recommended | Square-free bounded refinement; stronger correctly-rounded output remains open |
 | [026](native-solver-integration.md#cbo-026) | G6 | Recommend | One shared faer-LU helper; faer's run-time FMA dispatch is a separate [remedy-open](native-solver-integration.md#faer-kernels-and-the-fma-free-premise) finding |
 | [027](native-solver-integration.md#cbo-027) | G6 | Retain current, two local fixes | Typed terminal cause; outdated `adjoint.rs` doc |
 | [028](native-solver-integration.md#cbo-028) | G6 | SUNDIALS: Recommend after the identity fix. Uno: Retain current | SUNDIALS 7.9.0 (at least 7.5) |
 | [029](native-solver-integration.md#cbo-029) | G6 | Premise rejected | One translation chain, not several |
 | [030](native-solver-integration.md#cbo-030) | G6 | Recommend | `QuiescentGate` helper; hand KINSOL LRU kept |
 | [031](native-solver-integration.md#cbo-031) | G6 | Premise rejected | One hub form with forward maps |
-| [032](native-solver-integration.md#cbo-032) | G6 | Premise rejected; retire | The named facilities are in use |
+| [032](native-solver-integration.md#cbo-032) | G6 | Retired on corrected premise | The named facilities are in use; reusable type retained |
 | [033](numerical-workflows.md#cbo-033) | G7 | Recommend | Seeded design producer on egobox-doe 0.35.1; U2 branches |
 | [034](numerical-workflows.md#cbo-034) | G7 | Retain current | A new category; first-order scope is the contract |
 | [035](numerical-workflows.md#cbo-035) | G7 | Retain current | Removing LM removes no linear-algebra family |
@@ -252,24 +291,26 @@ These came up during the review. None blocks a recommendation, and each page sta
 | [037](declarations-registry-and-python-boundary.md#cbo-037) | G8 | Retain current | Context-sensitive grammar; two optional hardenings |
 | [038](declarations-registry-and-python-boundary.md#cbo-038) | G8 | Recommend (minor) | miette rendering at the source-owning boundary |
 | [039](declarations-registry-and-python-boundary.md#cbo-039) | G8 | Recommend | Exhaustive destructuring in about 20 struct frames |
-| [040](declarations-registry-and-python-boundary.md#cbo-040) | G8 | Recommend | Postcard blob with a shape-digest guard; amends proposed ADR-0210 |
+| [040](declarations-registry-and-python-boundary.md#cbo-040) | G8 | Conditional preference; preservation unresolved | Embedded product, provisionally postcard; independent compatibility/integrity route |
 | [041](declarations-registry-and-python-boundary.md#cbo-041) | G8 | Recommend | Private trusted Rust→Python decode; one header check |
 | [042](declarations-registry-and-python-boundary.md#cbo-042) | G8 | Retain current | Strict flatten and naming are not library-supplied |
 | [043](declarations-registry-and-python-boundary.md#cbo-043) | G8 | Retain current | Two contracts, not one meaning twice |
-| [044](declarations-registry-and-python-boundary.md#cbo-044) | G8 | Recommend (needs ADR and design review) | Native pyclasses become the public types |
+| [044](declarations-registry-and-python-boundary.md#cbo-044) | G8 | Recommend where full public contract fits | Native surfaces with explicit indexed views/residual wrappers; ADR/design review |
 | [045](declarations-registry-and-python-boundary.md#cbo-045) | G8 | Recommend | `impl_diagnostic!` is the authority; migrate the 10 derive sites |
 | [046](declarations-registry-and-python-boundary.md#cbo-046) | G3, G8 | SurrealQL: Retain current. Templating: Recommend | Qualifier context passed to emitters; no template engine |
 | [047](host-processes-and-durable-files.md#cbo-047) | G1 | Recommend | One stdlib ledger and publication module |
 | [048](host-processes-and-durable-files.md#cbo-048) | G1, G3 | Retain current | Manager facts, cgroup evidence and ledger already combine |
 | [049](developer-tooling.md#cbo-049) | G9 | Retain current | One declaration with derived per-run outputs |
-| [050](developer-tooling.md#cbo-050) | G9 | Recommend | Generated msgspec types replace hand TypedDicts; store choice follows U3 |
-| [051](developer-tooling.md#cbo-051) | G9 | Retain current | SurrealDB 3.3.4 exports OTLP only over gRPC |
+| [050](developer-tooling.md#cbo-050) | G9 | Recommend with adaptation | Generated declarations plus actual validation/publication boundary; store follows U3 |
+| [051](developer-tooling.md#cbo-051) | G9 | Sink reopened; other mechanisms retained | Compare explicit incomplete-capture reporting with h2; retain raw test client/front matter |
 | [052](developer-tooling.md#cbo-052) | G9 | Premise rejected | Layers with distinct owners |
+| [053](host-processes-and-durable-files.md#cbo-053) | G1 | New inquiry; realization unresolved | Demand-shaped maintenance CLI output ownership; no runaway failure demonstrated |
 
 ## Probes
 
-All five ran on this host on 2026-10-27, against disposable fixtures; none touched the canonical
-store or the managed primary.
+The original five probes ran on this host on 2026-10-27 against disposable fixtures. The two
+new reassessment probes use only exact stdlib arithmetic or installed msgspec. None touched the
+canonical store or managed primary; original outcomes retain their original environments.
 
 | Probe | Decided | Outcome |
 | --- | --- | --- |
@@ -278,6 +319,8 @@ store or the managed primary.
 | [Symbolica root containment](../../design_review/evidence/library-leverage-symbolica-root-containment-2026-10-27/README.md) | CBO-025 | Containment reproduced; debug panics, release loses roots; the fallback and root cache are the common path. |
 | [SurrealDB direct client](../../design_review/evidence/library-leverage-surrealdb-direct-client-2026-10-27/README.md) | CBO-009 | 37/37 parity with four SDK rules reproduced; one hidden API dependency. |
 | [Registry build coupling](../../design_review/evidence/library-leverage-registry-build-coupling-2026-10-27/README.md) | CBO-040 | A model field breaks `just codegen`; the generated module is about 72% of `pse-schema`'s build. |
+| [Binary64 rounding cells](../../design_review/evidence/library-leverage-binary64-rounding-cells-2026-10-27/README.md) — new reassessment probe | CBO-025 proposed target | Four exact counterexamples disprove symmetric ulp cells at signed powers of two; midpoint ties checked. No product replacement tested. |
+| [Existing msgspec Structs](../../design_review/evidence/library-leverage-msgspec-existing-struct-2026-10-27/README.md) — new reassessment probe | CBO-050 proposed target | At 0.21.1, same-target and nested Struct conversion retain invalid fields; raw nested mappings refuse. No evidence-pipeline test. |
 
 The assessment's earlier probes ([egobox-doe determinism](../../design_review/evidence/library-leverage-egobox-doe-determinism-2026-10-27/README.md),
 [msgspec tagged decode](../../design_review/evidence/library-leverage-msgspec-tagged-decode-2026-10-27/README.md),
@@ -329,7 +372,7 @@ None is initiated by this review.
 
 ## Patterns
 
-The review refined every additional pattern and added four, as
+The original review refined every additional pattern and added four, as
 [additional patterns revision 3](../assessment-patterns.md):
 [LOP-X011](../assessment-patterns.md#lop-x011) (a publication contract keeps interrupted work
 products), [LOP-X012](../assessment-patterns.md#lop-x012) (a retry's classification requires
@@ -338,6 +381,10 @@ kernel's value semantics differ from the domain's) and
 [LOP-X014](../assessment-patterns.md#lop-x014) (library-held process-global retention outlives
 caller ownership). Base-framework notes for LOP-02, LOP-03, LOP-09 and LOP-12 are recorded there
 for optional manual promotion.
+
+Reassessment revision 4 corrects the affected layout-guard, decoder-allocation, nested-framing
+and value-semantics guidance. It adds no pattern IDs and does not imply a fresh assessment of
+every historical application.
 
 ## Limits
 
@@ -351,8 +398,12 @@ for optional manual promotion.
   structure-derived factor bounds on real Jacobians (CBO-001 native), a QP-initialization check
   on rebased Uno (CBO-028), an inventory of legacy published aliases (CBO-003), result-type
   alignment (CBO-005 inline payloads), and stub quality for native pyclasses (CBO-044).
-- The codebase account keeps CBO-032 until its next refresh, which can retire it on this review's
-  evidence.
+- Reassessment expanded supervisor generation/borrower/readiness/backup/maintenance paths and
+  examined MCP diagnostic projection and wrapper/indexed-view examples. This is representative
+  inspection, not complete source coverage of those large modules.
+- Two new counterexample probes ran; original provider, native, direct-client and hostile-IPC
+  probes were not repeated. No replacement implementation, supplier rebase, full wrapper/stub
+  surface, cross-platform regeneration or product qualification was exercised.
 
 ## Maintaining this account
 

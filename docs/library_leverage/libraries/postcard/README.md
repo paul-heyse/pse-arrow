@@ -22,6 +22,9 @@ crates.io API.
   `&[u8]` fields can borrow from the blob (serde implicit borrowing), so no leak or copy is needed for
   string-literal-like fields. Varint integers, length-prefixed sequences/strings, enum variants as
   varint indices; the 1.x wire format is specified and stable.
+- **Complete-input handling:** `from_bytes` at 1.1.3 ignores unused trailing input.
+  `take_from_bytes` returns the value and remainder; reject a nonempty remainder when the
+  enclosing format requires exactly one complete value (`src/de/mod.rs`).
 - **Obligations discharged:** a compact, specified binary encoding and decoding of any serde data
   model value that uses only compile-time-known shapes; zero-copy borrowing of strings/bytes.
 - **Residual caller obligations:** serde derives on every product type (and its transitive members);
@@ -43,9 +46,10 @@ crates.io API.
   - **Stale blobs can decode into the wrong meaning (added 2026-10-27).** Decoding is positional, so
     if two fields of the same type are swapped in the reading type but the blob was not
     regenerated, `from_bytes` succeeds and returns the values in each other's fields. Mitigate with
-    a shape digest in a blob header that the generator writes and the reader recomputes from the
-    same type description (both sides derived, not hand-maintained), or accept that regeneration
-    and equivalence tests own staleness.
+    compatibility evidence derived independently from the current compiled types. A digest or
+    constant generated only alongside the blob can be stale with it. Layout compatibility,
+    payload integrity and equivalence to authoritative source content are different guarantees;
+    one shape digest does not establish them all.
   - A JSON blob is not a drop-in alternative for borrowed `&'static str` fields: serde can borrow a
     `&str` only from an unescaped JSON string, so escaped strings need `Cow` or leaking (well-known
     serde behaviour; not re-verified here).
@@ -109,5 +113,8 @@ generator re-exports the schema crate, which compiles the generated module uncon
 the generated module is about 72% of that crate's full build, recompiled whenever its line
 numbers shift (*Tested* and *Measured*, [evidence](../../../design_review/evidence/library-leverage-registry-build-coupling-2026-10-27/README.md)). The comparative review
 therefore recommends this route, with `Field` and description values carried as canonical-JSON
-text, IPC batches unchanged and a derived shape-digest guard, amending the proposed ADR-0210 (which
-records 304 ms versus 30 ms, fixture-bounded). See the [comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-040).
+text and IPC batches unchanged, amending proposed ADR-0210. Reassessment retains that preference
+conditionally: the complete layout/integrity guard, transitive serialization closure and startup
+cost remain unresolved. A generated constant can be stale with the blob, and layout compatibility
+does not establish payload integrity. Decode must refuse trailing bytes with `take_from_bytes`.
+ADR-0210 records 304 ms versus 30 ms, fixture-bounded. See the [comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-040).

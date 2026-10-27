@@ -50,7 +50,9 @@ Sources:
     `f64::ln` and `f64::exp` methods directly (`statrs-0.18.0/src/function/beta.rs`), not
     `num_traits::Float`, so `num-traits` feature unification does not change statrs results;
     it matters only for `rand_distr` (added 2026-10-27).
-  - **Panics.** Out-of-range arguments panic, which unwinds; they do not return errors.
+  - **Errors and panics.** `StudentsT::new` and `FisherSnedecor::new` return typed Results
+    for invalid constructor arguments. The probability-domain panic applies to `inverse_cdf`,
+    not to those constructors. Map constructor errors and validate quantile probabilities.
 - **Version / build conditions:** Present in 0.18.0. Not re-verified for 0.19.1.
 - **Limits and negative results:**
   - No regression or fit-statistics layer: no residual-variance scaling, covariance

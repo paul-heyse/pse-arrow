@@ -1,6 +1,6 @@
 # Codebase opportunities for library leverage
 
-**Account state: first broad audit, 2026-10-27.** This page is the entry point to the living
+**Account state: broad audit with focused comparative-reassessment corrections, 2026-10-27.** This page is the entry point to the living
 account of where library capabilities could improve how pse-arrow fulfils its responsibilities.
 The [codebase audit skill](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/leverage-codebase-audit/SKILL.md)
 maintains it. Each opportunity has a stable `CBO` ID and one primary home on a topic page.
@@ -14,6 +14,14 @@ belongs to [library assessments](../libraries/README.md). Choosing between optio
 covers every opportunity. Its premise corrections are recorded in place on the topic pages as dated
 "Library assessment correction" bullets.
 
+**Current refresh.** Comparative reassessment at source `4f52fd239` consumed the review and
+integrated inputs at `b29fcf802`, reconsidered all original 52 dispositions and corrected the
+affected opportunities in place. CBO-032 retired because its named library facilities are
+already used; its [comparative rationale](../reviews/native-solver-integration.md#cbo-032) and
+reusable library type remain. New CBO-053 records maintenance CLI output ownership. There are
+52 current opportunities, IDs 001–053 excluding 032; no ID was reused. This is not a fresh
+whole-codebase audit, and unchanged observations retain the original coverage limits below.
+
 Read the [framework](../library-leverage-framework.md), the
 [base patterns](../patterns.md), the [shared vocabulary](../references/shared-language.md) and the
 [shared additional patterns](../assessment-patterns.md) alongside this account.
@@ -23,10 +31,11 @@ Read the [framework](../library-leverage-framework.md), the
 | Item | Value |
 | --- | --- |
 | Inspection date | 2026-10-27 |
-| Source baseline | `main` at `dbc4c94369425fd2a26355585ff98888a2da555d` |
+| Original source baseline | `main` at `dbc4c94369425fd2a26355585ff98888a2da555d` |
+| Reassessment | Source `4f52fd239`, no included dirty product changes; base patterns 0.2 and additional patterns revision 3 consumed, refined to 4. Revised premises are labelled in their owning opportunities; inherited evidence is not redated. |
 | Included dirty changes | None in product, tooling or test source. The working tree had uncommitted edits to three `docs/plans/` files and `history.txt`, plus untracked `docs/libraries/*.md` overviews. None of these were used as evidence. |
 | Criteria | Framework edition 0.2, base patterns edition 0.2 (`LOP-01`–`LOP-12`), [additional patterns](../assessment-patterns.md) revision 1 (`LOP-X001`–`LOP-X003`, created in this pass; revision 2 added `LOP-X004`–`LOP-X010` during the library assessment) |
-| Prior accounts | None. This is the first audit. By operator instruction, prior reviews and plans were consulted only to confirm that `CBO` and `LOP-X` numbering does not collide. |
+| Original prior accounts | None. The first audit consulted prior reviews and plans only to confirm that numbering did not collide. The current refresh consumes the original comparative review. |
 | Method | Nine read-only subsystem passes, using static reading, `rg` and `git`. Builds, tests and probes were not run. The coordinator then spot-checked the decisive claims against source. |
 | Evidence level | Mechanisms are *Interface-checked* by static inspection at the baseline. Every value claim is *Proposed*, and nothing is *Measured*. |
 
@@ -200,7 +209,6 @@ change a later decision:
 | CBO-029 | Two NLP-oracle callback translators | LOP-09, LOP-02 | Proposed | [Native solvers](native-solver-integration.md#cbo-029) |
 | CBO-030 | Native session lifecycles re-expressed per adapter | LOP-08, LOP-09 | Proposed | [Native solvers](native-solver-integration.md#cbo-030) |
 | CBO-031 | Convex and conic encodings hand-synchronized per solver | LOP-02, LOP-09 | Current promise | [Native solvers](native-solver-integration.md#cbo-031) |
-| CBO-032 | KKT-point sensitivity beside fuller library sensitivity surfaces | LOP-03 | Premise false (confirmed by the [comparative review](../reviews/native-solver-integration.md#cbo-032)); retire at the next audit refresh | [Native solvers](native-solver-integration.md#cbo-032) |
 | CBO-033 | No producer of sampling or experimental designs | LOP-12, LOP-03 | Proposed | [Numerical workflows](numerical-workflows.md#cbo-033) |
 | CBO-034 | Only first-order uncertainty propagation | LOP-12 | Proposed | [Numerical workflows](numerical-workflows.md#cbo-034) |
 | CBO-035 | Separate dense-algebra universes for LM and surrogate routes | LOP-09, LOP-11 | Current promise | [Numerical workflows](numerical-workflows.md#cbo-035) |
@@ -221,6 +229,7 @@ change a later decision:
 | CBO-050 | Development evidence and knowledge pipeline in two languages | LOP-09, LOP-06 | Current promise | [Tooling](developer-tooling.md#cbo-050) |
 | CBO-051 | Hand-written wire and front-matter parsers in tooling | LOP-01 | Proposed | [Tooling](developer-tooling.md#cbo-051) |
 | CBO-052 | Several command surfaces without a shared declaration | LOP-02, LOP-09 | Proposed (weak) | [Tooling](developer-tooling.md#cbo-052) |
+| CBO-053 | Maintenance CLI output retained before bounding | LOP-06, LOP-08, LOP-X011 | Observed mechanism; replacement unresolved | [Tooling](developer-tooling.md#cbo-053) |
 
 The Status column distinguishes three cases:
 - *Current promise*: the responsibility is an existing contract, and only its realization is

@@ -49,11 +49,14 @@ was not consulted for this narrow source question.
 - **Mechanisms:** faer 0.24.4 declares `pulp` with `features = ["x86-v3"]` unconditionally, so
   `default-features = false` on faer does not remove it. pulp selects its V3 path at run time
   (`Arch::new()`), and that path uses `_mm256_fmadd_pd`. Dense kernels, including the `matmul`
-  that supernodal sparse LU calls, dispatch through it.
+  that supernodal sparse LU calls, can reach it. With `std` on x86_64, matmul also directly
+  selects `private_gemm_x86::InstrSet::{Avx512, Avx256}` by CPU features; small products use
+  `nano_gemm::planless` and another path uses `gemm`. Pulp is not the only dispatch owner.
 - **Semantic conditions:** results can differ between CPU classes with and without FMA under the
   same build. A compile-time rule against `target-cpu=native` does not reach this route.
-- **Residual caller obligations:** record the dispatched ISA level, force scalar kernels (for
-  example by patching pulp's dispatch), or seek an upstream override; each has a cost.
+- **Residual caller obligations:** a no-FMA policy requires a configuration/patch covering the
+  full consumed kernel closure; a pulp-only patch is insufficient. ISA attribution explains
+  execution but does not remove FMA. No complete no-FMA route or performance cost was established.
 - **Evidence:** Interface-checked (faer 0.24.4 `Cargo.toml`, pulp 0.22.3 `src/x86/v3.rs`), 2026-10-27.
   Not run on a host without FMA.
 

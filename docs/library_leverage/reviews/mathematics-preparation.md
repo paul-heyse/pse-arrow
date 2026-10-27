@@ -1,6 +1,6 @@
 # Mathematics preparation and structure
 
-**Group G5 of the [first comparative review](README.md), 2026-10-27.** This page
+**Group G5 of the [comparative review](README.md), 2026-10-27.** This page
 covers [CBO-021](../codebase/mathematics-and-compilation.md#cbo-021) to
 [CBO-025](../codebase/mathematics-and-compilation.md#cbo-025). It also gives the
 mathematics-specific input to [CBO-001](../codebase/cross-cutting-mechanisms.md#cbo-001),
@@ -8,7 +8,8 @@ whose joint judgment G4 owns.
 
 | Item | Value |
 | --- | --- |
-| Source inspected | `main` at `3e9a2525b`. `git diff dbc4c9436 HEAD` shows no change under `crates/pse-math`, `pse-compiler`, `pse-structural`, `pse-kernels` or `pse-runtime/src/math*`, so the audit baseline is still current for this group. No dirty product source was used. |
+| Reassessment | 2026-10-27 at source `4f52fd239`; consumes the complete original review and updated inputs at `b29fcf802`, base patterns 0.2 and additional patterns revision 3 (refined to 4 here). All named dispositions were reconsidered with representative current source, consumers and inherited evidence; unchanged evidence retains its original conditions. |
+| Original source inspected | `main` at `3e9a2525b`. `git diff dbc4c9436 HEAD` shows no change under `crates/pse-math`, `pse-compiler`, `pse-structural`, `pse-kernels` or `pse-runtime/src/math*`, so the audit baseline is still current for this group. No dirty product source was used. |
 | Library realizations | `symbolica`/`numerica` 3.0.1, installed source. `salsa` 0.28.5. `pounce-presolve` 0.12.0 at fork revision `7f5e2e9`. `petgraph` 0.8.3 and `rustworkx-core` 0.18.1. The vendored `suitesparse_sys` 0.1.4 (SuiteSparse 7.7.0). Upstream Symbolica PR and issue metadata for #103, #115, #127, #129 and #130 was read on 2026-10-27. |
 | Consumed accounts | The codebase account (first audit, 2026-10-27) with its library-assessment corrections. The library accounts for symbolica, numerica, salsa, cacache, sccache, pounce, suitesparse, petgraph-and-rustworkx-core, rug-and-malachite and retained-size-crates. [Additional patterns](../assessment-patterns.md) revision 2. |
 | Standard | Core 3.4 and process-simulator profile 1.5 via `standard.toml`, with the pse-arrow binding. Architecture owners: [§7](../../authoritative_design/sections/mathematics-and-compilation.md#section-7), [§14](../../authoritative_design/sections/mathematics-and-compilation.md#section-14) and [§15](../../authoritative_design/sections/numerical-execution.md#section-15), plus ADR-0082 and ADR-0212. |
@@ -756,27 +757,44 @@ tiny roots. The original-residual check mitigates that.
      produce is a monomial x, and its `(0, 0)` is listed first and resolved correctly.
    - Every non-degenerate interval then has exactly one root of u in its *open* interior,
      though an endpoint may be a different root.
+   - **Output precision is an unresolved target choice.** Today's consumer requires complete
+     root enumeration and a finite representative that passes original-residual and branch
+     verification; it does not declare correctly rounded binary64 roots. Compare bounded exact
+     bracket refinement serving that existing contract with the stronger correctly rounded
+     route detailed below. Preserve the existing contract by default. Do not make adoption of
+     the stronger output promise a prerequisite to fixing containment and global retention.
    - Refine each interval by exact rational bisection on u:
      - take the side sign from u(a), or from u′(a) when u(a) = 0 (u is square-free, so
        u′(a) ≠ 0);
-     - return an exact midpoint root immediately;
+     - return an exact midpoint root through the same correctly rounded conversion boundary;
      - poll cancellation and the existing time limit each step;
-     - stop when the bracket lies within one binary64 rounding cell, then **certify** the
-       returned double d: evaluate the sign of u exactly at d's two rounding half-way points
-       (d ± ulp/2), with ties to even when the root lies exactly on a half-way point. A bracket
-       whose ends merely convert to the same double is not a certificate. *(Revised after the numerical and solver methods challenge.)*
+     - certify the selected root using the exact adjacent-value midpoints
+       `(prev(d) + d)/2` and `(d + next(d))/2`, with ties to the even significand. Restrict a
+       polynomial-sign certificate to the designated one-root interval: a neighbouring endpoint
+       root must not certify the wrong root. Symmetric `d ± ulp(d)/2` is incorrect at powers of
+       two; the [rounding-cell probe](../../design_review/evidence/library-leverage-binary64-rounding-cells-2026-10-27/README.md)
+       Tested four positive/negative counterexamples and midpoint ties, not a product
+       replacement. With an exact correctly rounded conversion, equal rounded endpoints of a
+       monotone bracket are sufficient; the current problem is that `Rational::to_f64` does not
+       provide that conversion. *(Corrected in this reassessment.)*
      - convert rationals to binary64 with an exact, correctly rounded conversion. Never use
        Numerica 3.0.1 `Rational::to_f64`: when numerator and denominator fit in i64 or i128 it
        computes `n as f64 / d as f64`, which rounds twice once either exceeds 2^53. Bisection
        midpoints with non-dyadic denominators land in exactly that range; an emulation misrounded
        71,124 of 200,000 such values and found brackets whose ends both convert to one double
        while the enclosed root rounds to its neighbour. The current ladder shares this defect.
-     - apply a deterministic step cap derived from the bracket, ⌈log₂(b − a)⌉ + 1,076 plus a
-       margin, or bisect on the binary exponent first. A fixed cap near the ordinary step count
+     - derive a deterministic step cap from the bracket and the chosen integer/exponent
+       representation, including retained and temporary rational storage and polling. The
+       earlier log-width-plus-subnormal sketch is not an implemented or established bound.
+       A fixed cap near the ordinary step count
        (about 60, for example 3/7 on (0, 4)) would refuse roots near the subnormal range, which
        take 1,074–1,075 steps (`x − 2⁻¹⁰⁷⁴` on (0, 1)) and which today's fallback returns.
      - map roots that round below the smallest subnormal to ±0 by IEEE rounding, and refuse typed
        a root that rounds beyond `f64::MAX`.
+   - Compare exact integer/bit conversion with directed multiprecision enclosures using the
+     existing `float-mpfr` realization (`Rational::to_multi_prec_float` and
+     `Float::from_rational_round`). A 53-bit intermediate followed by conversion to subnormal
+     binary64 can double-round, so that setting alone is not a complete conversion route.
    - Delete `refine_root_interval`, the p(a)/p(b) screen and the `IsolatedRoot` fallback.
 5. **Numerical refinement on the exact bracket.** This could use the existing `root1d::toms748`
    or the unreleased `solve::nsolve_bracketed` (PR #127). Binary64 sign evaluation near
@@ -792,8 +810,9 @@ tiny roots. The original-residual check mitigates that.
 
 - **Domain authority.** Option 4 keeps certified root *counting and isolation* with Symbolica.
   It keeps the scientific acceptance (residual verification and uniqueness in the branch)
-  local. It owns only exact bisection on a certified bracket, about 20 lines with no domain
-  meaning.
+  local. The proposed local owner includes exact refinement, designated-root certification,
+  correctly rounded conversion and resource handling. Its size and maintenance burden have
+  not been established; it is more than a short bisection loop.
 - **The stated reason for owning generic machinery (PS-09):**
   - the library's interval refiner checks its precondition only with `debug_assert`, with
     profile-dependent failure modes;
@@ -807,13 +826,14 @@ tiny roots. The original-residual check mitigates that.
 - **Machinery.**
   - Removed: one library call with an unchecked contract, the screen, the f64-agreement
     fallback trigger, and the second isolation path through factorisation and complex roots.
-  - Added: a short bisection and one `gcd`/`Div`.
-  - Execution per solve stays close to the current primary path: one gcd of degree ≤ 3,
-    isolation, and about 60 rational bisection steps per ordinary root, up to about 1,075 for
-    roots near the subnormal range unless the exponent is bisected first.
+  - Added: square-free reduction and a bounded exact-refinement/conversion owner, including
+    storage admission and endpoint, midpoint-tie, signed-zero, subnormal and overflow handling.
+  - Typical step counts are explanatory examples, not a measured execution-cost or complete
+    bound for that owner. No performance advantage over a corrected library route is established.
 - **Determinism.** Exact rational arithmetic with binary64 rounding at one boundary, so the
-  result is FMA-independent. The point may differ from today's in the last ulp, so the solver
-  identity string (`symbolica.cubic-roots.v2`) should advance.
+  result is FMA-independent. No uniform one-ulp difference from today's output is established:
+  the existing ladder can lose a root and has a separate conversion defect. Advance the solver
+  identity string (`symbolica.cubic-roots.v2`).
 
 #### Revealing case
 
@@ -830,7 +850,9 @@ Two distinct legitimate cases challenge option 4:
 
 #### Disposition
 
-**Recommend option 4.** This doubles as the product-side fix that the codebase account asked
+**Recommend option 4's square-free isolation and bounded exact refinement direction; reopen
+the binary64 output-strength choice.** The correct-rounding branch above remains a proposed
+strengthening, not an inherited scientific requirement. This doubles as the product-side fix that the codebase account asked
 to be checked. The [probe outcome](#probe-outcome) confirmed the containment trace, so it is high priority.
 
 - **Retained domain rules:**
@@ -843,14 +865,20 @@ to be checked. The [probe outcome](#probe-outcome) confirmed the containment tra
   - repeated-root cubics in the containment geometry stop panicking (debug) and stop refusing
     valid unique roots (release);
   - the root-cache growth path disappears;
-  - points may move by at most an ulp, so advance the solver identity.
+  - returned points and root completeness can change; advance the solver identity without
+    promising a one-ulp bound against defective current outputs.
 - **U1 = yes:** also contribute option 6 upstream. It benefits collocation, which keeps
-  `IsolatedRoot`, and any future caller. Do not switch back to the library refiner merely
-  because it becomes fallible: a 20-line exact bisection on a certified bracket is not a
-  maintenance burden.
+  `IsolatedRoot`, and any future caller. Reconsider a released remedy against the complete
+  refinement, conversion, cancellation and retention contract rather than committing permanently
+  to local code on an unsupported size estimate.
 - **U1 = no:** option 4 stands. Record the three library conditions in the Symbolica account
   and pin hold, together with `Rational::to_f64`'s double rounding, which also affects
   coefficient conversion in `library/admission.rs` (`map_coeff(|c| c.re.to_f64())`).
+
+Before deleting the old route, implementation controls must exercise repeated-root containment,
+neighbouring endpoint roots, signed powers of two, exact midpoint ties, zero/subnormal
+transitions, finite overflow, cancellation and deterministic refusal. Neither the original
+library probe nor the new rounding-cell counterexamples test the proposed replacement.
 
 #### Rule impacts
 

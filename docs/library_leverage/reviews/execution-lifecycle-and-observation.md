@@ -1,6 +1,6 @@
 # Execution lifecycle, cancellation and observation
 
-**Group G2 of the [first comparative review](README.md), 2026-10-27.**
+**Group G2 of the [comparative review](README.md), 2026-10-27.**
 Opportunities: [CBO-010](../codebase/persistence-and-transport.md#cbo-010) (retry policy part),
 [CBO-011](../codebase/persistence-and-transport.md#cbo-011),
 [CBO-013](../codebase/execution-lifecycle-and-observation.md#cbo-013) to
@@ -8,7 +8,8 @@ Opportunities: [CBO-010](../codebase/persistence-and-transport.md#cbo-010) (retr
 
 | Item | Value |
 | --- | --- |
-| Source inspected | `main` at `3e9a2525b`, clean for the inspected paths (dirty files at session start are scripts/docs unrelated to these crates). The audit baseline was `dbc4c9436`; the one material change in scope is `ee44d218d`, which rewrote `pse_operations::transport::operation_scope` as a pinned future that selects the enclosing minimum deadline on first poll and drops a completed or cancelled child inside that clock. It strengthens, and does not change, the original-clock premise of CBO-010. |
+| Reassessment | 2026-10-27 at source `4f52fd239`; consumes the complete original review and updated inputs at `b29fcf802`, base patterns 0.2 and additional patterns revision 3 (refined to 4 here). All named dispositions were reconsidered with representative current source, consumers and inherited evidence; unchanged evidence retains its original conditions. |
+| Original source inspected | `main` at `3e9a2525b`, clean for the inspected paths (dirty files at session start are scripts/docs unrelated to these crates). The audit baseline was `dbc4c9436`; the one material change in scope is `ee44d218d`, which rewrote `pse_operations::transport::operation_scope` as a pinned future that selects the enclosing minimum deadline on first poll and drops a completed or cancelled child inside that clock. It strengthens, and does not change, the original-clock premise of CBO-010. |
 | Accounts consumed | Codebase account `c2f8b485a` (with its 2026-10-27 correction bullets); library assessment `34f9f07ee`; additional patterns revision 2 (`LOP-X001`–`LOP-X010`); base patterns edition 0.2. |
 | Realizations | Installed: tokio 1.53.2, tokio-util 0.7.19, tracing 0.1.44, tracing-subscriber 0.3.23, tracing-opentelemetry 0.34.0, opentelemetry/SDK 0.33.1, futures-util 0.3.34, event-listener (via `pse_diagnostics::Cancellation`), object_store 0.13.2, quick_cache 0.6.24, rustix 1.1.5, pyo3 0.29.2, pyo3-async-runtimes 0.29.0; host kernel 7.0.0, CPython 3.14.8. Not in the workspace, assessed from their accounts: backon 1.6.0, tryhard 0.5.2, moka 0.12.16, async_singleflight 0.6.2, metrics 0.24.6, signal-hook-registry 1.4.8. |
 | Standard | Core 3.4 with the efficient-architecture heuristics; process-simulator profile 1.5 (not central here; no numerical semantics change); pse-arrow binding. Contracts: §18.8, §21 (durable claims and leases), §23.1. |
@@ -197,7 +198,8 @@ volume. If the omission was deliberate, the derivation can say so explicitly
   from "not requested".
 - **Consumers.** `jobs.rs`, `staged.rs` (the `Request` carries one `ExecutionContext` instead of an
   observation field plus loose dispatch and span), `window_team.rs`, `workflow/run.rs`,
-  `pse-py/src/workflow.rs`, flight producer spawns, `NativeThread` (CBO-018).
+  `pse-py/src/workflow.rs`, runtime callers supplying flight producer futures, `NativeThread`
+  (CBO-018). The neutral `pse-columnar` flight module must not import `pse-runtime`.
 - **Machinery that disappears.** Per-site capture/enter blocks; `telemetry::inherit`,
   `observation::inherit` and `invocation::inherit` as separate public wrappers, which become
   `ExecutionContext::capture().instrument(..)`; `RequestObservation`'s loose dispatch and span.
@@ -703,11 +705,11 @@ library flight would drop the producer, releasing its prepaid leases while the n
 That is exactly the regression DP-20 forbids. `load_owned_until` instead requests cancellation and
 awaits the producer's return before the caller releases its own resources.
 
-**Interaction.** The producer spawn propagates only the observation scope. Callers add
-`ProducerContext` and `PopulationScope` by hand. Under CBO-014 the spawn should use
-`ExecutionContext::shared_producer(kind)`, which keeps the linked rather than parented relationship
-and leaves `PopulationScope` explicit. This is an edit inside `flight.rs`'s spawn, not a change of
-mechanism.
+**Interaction.** Runtime callers capture relationship-aware `ExecutionContext` and instrument
+their supplied producer future. The neutral flight owner retains its shared-production
+observation scope and completion ownership. It cannot import the proposed runtime type:
+`pse-runtime` already depends on `pse-columnar`. Any extra propagation hook must stay generic
+and carry no runtime policy. `PopulationScope` and prepaid authority remain explicit.
 
 **Disposition: Retain current**, plus deletion of the unconsumed `pse-engine` flight wrapper.
 

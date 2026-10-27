@@ -115,6 +115,11 @@ The following are legitimately custom:
 - **Library assessment correction (2026-10-27).** The native job spawn passes through five more wrappers before `tokio::spawn`, including `inherit_activity`. There are more than 20 `task_local!` carriers. `staged.rs` passes context inside each request message to a long-lived thread, so a spawn helper alone would not cover it. Production installs a global default dispatcher, so the dispatcher carrier matters only for scoped setups. Symbolica's thread-local `CURRENT_ABORT` is a further carrier. See [tracing](../libraries/tracing/README.md).
 - **Comparative review correction (2026-10-27).** Carrier subsets diverge: `window_team.rs` lanes enter no tracing dispatcher or span, `blocking_native_call` enters no observation or invocation context, and flight producers get only the observation scope. The authority carriers (`ConnectionActivity`, `PopulationScope`, `OPERATION_DEADLINE`, `ACTIVE_IO`) sit beside the attribution carriers and must not be merged with them. `workflow::inherit_runtime_activity` is a further composer of carriers. See the [comparative review](../reviews/execution-lifecycle-and-observation.md#cbo-014).
 
+- **Reassessment correction (2026-10-27, source `4f52fd239`).** A runtime-owned attribution context cannot
+  be imported inside neutral pse-columnar flights, because runtime depends on columnar. Runtime callers
+  instrument their producer futures; neutral flight completion/observation ownership and explicit authority
+  carriers remain.
+
 <a id="cbo-015"></a>
 
 ## CBO-015 — Cancellation, deadline and lease renewal composed separately at each site
@@ -336,3 +341,10 @@ The following are legitimately custom:
     runtime observe or own units directly?
   - Which script operations are generic supervision and which are policy?
 - **Comparative review correction (2026-10-27).** The runtime is the only consumer of `observe-primary` (repository-wide `rg`). `ensure-primary` runs once per study run, while observation spawns the script at every heartbeat. The runtime merges `Drained` and `OwnerChanged`, and maps failures to `Live`. See the [comparative review](../reviews/host-processes-and-durable-files.md#cbo-020).
+
+- **Reassessment correction (2026-10-27, source `4f52fd239`).** The systemd main process is a supervisor,
+  not the separately authenticated receiver worker. Its pidfd becoming readable cannot replace group drain.
+  Bind any process handoff to boot/namespace/start identity and recheck after pidfd open; preserve group
+  semantics, authoritative inventory re-read and a narrow manager fallback until its removal is justified.
+  Populated observations already return before manager reads. See the revised
+  [comparison](../reviews/host-processes-and-durable-files.md#cbo-020).

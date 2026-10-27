@@ -71,6 +71,11 @@ The following are legitimately custom:
   - The Rust analogue is [CBO-003](cross-cutting-mechanisms.md#cbo-003).
 - **Comparative review correction (2026-10-27).** `host_admission.metadata` defaults to `durable=False`; that path goes through `operation_lifetime.write_json`, which uses a PID-suffixed `O_TRUNC` temp, does not fsync and does not clean up. Residue exists: 22 zero-length `allocations.<pid>.tmp` files dated 2026-10-10 in `~/.local/state/pse-arrow/host-admission/`. The intended shared owner already exists in `scripts/host_metadata.py`. Python 3.14.8 exposes no `renameat2`, so stdlib no-clobber publication stays link plus unlink. See the [comparative review](../reviews/host-processes-and-durable-files.md#cbo-047).
 
+- **Reassessment correction (2026-10-27, source `4f52fd239`).** Filelock can fail closed explicitly and its
+  descriptor API preserves caller ownership; the default soft-lock fallback warns. Shared native flock,
+  composed absolute deadlines and stdlib cold start remain reasons for the local owner, as corrected in the
+  [library account](../libraries/python-file-locks/README.md).
+
 <a id="cbo-048"></a>
 
 ## CBO-048 — Host workload admission and service supervision rebuilt above systemd
@@ -202,6 +207,13 @@ The following are legitimately custom:
 - **Library assessment correction (2026-10-27).** The Rust evidence-question path already runs on DataFusion without the SurrealDB service.
 - **Comparative review correction (2026-10-27).** The registry already generates Python msgspec wire types for this pipeline (`scripts/generated/evidence_snapshot_input.py` with `EvidenceSnapshot` and `EvidenceFact`; `knowledge_query_input.py` with `KnowledgeQuery`, `KnowledgeMode` and the enums), but they have no non-test importers. `evidence_projection.py` re-declares both types as TypedDicts field for field, and `knowledge_store.py` re-declares the query fields and the `--mode` choices. The pydantic models in `workspace_domain_contracts.py` belong to the source-only query surface (ADR-0222 design), not the indexed path. Evidence has two Rust read routes, offline and indexed through `source_cut`, both feeding the same DataFusion questions. The store is an architecture contract: blueprint §24.1 "Development knowledge and source-backed changes", §3.2, and the proposed ADR-0219 and ADR-0222 (both Tested 2026-10-23). See the [comparative review](../reviews/developer-tooling.md#cbo-050).
 
+- **Reassessment correction (2026-10-27, source `4f52fd239`).** Generated declarations remain worth reusing,
+  but Struct construction and same-target convert do not validate fields, including nested existing Structs
+  ([probe](../../design_review/evidence/library-leverage-msgspec-existing-struct-2026-10-27/README.md)).
+  Validate raw nested inputs or the encoded document, retain finite/domain checks, and adapt admitted values
+  to the mapping/JSON shape accepted by resource_store.publish. Optional/list representations are not
+  field-for-field twins.
+
 <a id="cbo-051"></a>
 
 ## CBO-051 — Hand-written wire and front-matter parsers in tooling
@@ -228,6 +240,12 @@ The following are legitimately custom:
   - Would routing every consumer through `document_metadata` suffice?
 - **Library assessment correction (2026-10-27).** Front matter has one strict reader, which `adr.py` delegates to, plus two stdlib strippers, not four parsers. The earlier account missed two hand-written pieces: an HTTP/2/gRPC server in `scripts/surreal_telemetry.py` and a gRPC client in `scripts/tests/surreal_mx_check.py` ([LOP-X010](../assessment-patterns.md#lop-x010)).
 - **Comparative review correction (2026-10-27).** Switching SurrealDB's exporter to OTLP/HTTP is not available. At `v3.3.4` the server builds `opentelemetry_otlp::SpanExporter::builder().with_tonic()` and compiles `opentelemetry-otlp` 0.31.1 without `http-proto`, and no protocol variable selects HTTP (read through the GitHub contents API). The hand HTTP/2 sink is therefore the minimal fixed peer, and `surreal_server.py` already points SurrealDB at the collector's `otlp_grpc_endpoint`. See the [comparative review](../reviews/developer-tooling.md#cbo-051).
+
+- **Reassessment correction (2026-10-27, source `4f52fd239`).** The raw abrupt-drop client and the capture
+  sink have different contracts. Receiver.handle silently returns on EOF/socket errors, and terminating
+  streams can lose pending input without a capture_errors entry. Reopen the sink choice between explicit
+  best-effort/incomplete reporting and h2-backed HTTP/2 handling; retain the raw test client and existing
+  front-matter owners. See the revised [comparison](../reviews/developer-tooling.md#cbo-051).
 
 <a id="cbo-052"></a>
 
@@ -259,4 +277,35 @@ The following are legitimately custom:
   - Could just modules collapse the repeated `arrow_validation nextest` compositions?
 - **Library assessment correction (2026-10-27).** `just --dump` reports 231 recipes, not 244.
 - **Comparative review correction (2026-10-27).** The premise is rejected: the surfaces are layers with distinct owners. 194 of 231 recipes have one-line bodies, 100 of them Python forwards. There are 421 long-option declarations across 64 argparse scripts under 281 distinct names, and repeated names are mostly homonyms: `--state` has three or more meanings, one of them a plan lifecycle state in `document_lifecycle`, and `--native` has two or more. Recipe metadata is already derived from `just --dump` (`capabilities/entrypoints.py`). The one real restatement is covered by [CBO-050](#cbo-050). See the [comparative review](../reviews/developer-tooling.md#cbo-052).
+
+<a id="cbo-053"></a>
+
+## CBO-053 — Maintenance CLI output retained before bounding
+
+**Added by comparative reassessment, 2026-10-27, source `4f52fd239`; Interface-checked.**
+Maintenance must authenticate a transaction acknowledgement or copy a database while preserving
+closed admission, owned export files, redacted diagnostics and actual listener drain.
+
+`scripts/surreal_server.py::maintenance_sql` uses `capture_output=True` and a 120 s timeout;
+`maintenance_failure` bounds diagnostic tails only after full capture. `maintenance_catalog`
+also consumes that route and legitimately needs catalog-sized results. `copy_current_database`
+captures import/export control output without a local timeout, although the database payload
+travels through an owned file. In contrast, `administrative_results` bounds bytes before JSON
+decoding and composes a caller deadline.
+
+The opportunity is to shape retained output to each operation's actual demand using existing
+stdlib subprocess/file facilities, rather than accumulating every control stream in memory.
+Patterns: LOP-06, LOP-08 and LOP-X011. This is adjacent to CBO-004's child lifetime and CBO-048's
+maintenance policy, but has a distinct output-ownership responsibility.
+
+**Preserve:** exact nonce/statement checks, full required catalogs, private ownership, credential
+redaction, recovery reservation and listener/descendant settlement. Do not impose a tiny shared
+cap or arbitrary restore timeout that rejects legitimate maintenance.
+
+**Limits:** no runaway output, hang or production failure was demonstrated. No end-to-end
+maintenance clock was established by this static pass. Compare bounded incremental capture,
+file-backed complete output and discarded success output with bounded failure tails after
+establishing each consumer's needs. The library route and complete alternatives are in
+[python-subprocess](../libraries/python-subprocess/README.md) and the
+[comparison](../reviews/host-processes-and-durable-files.md#cbo-053).
 

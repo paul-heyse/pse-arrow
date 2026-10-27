@@ -35,13 +35,16 @@ ordinary implementation and API questions do not initiate this workflow.
 The first broad [codebase opportunity audit](codebase/README.md) was run on 2026-10-27 at
 `dbc4c9436`. It records `CBO-001`–`CBO-052`. The first
 [library applicability assessment](libraries/README.md), also run on 2026-10-27, covers every
-opportunity across 97 library accounts. It added [additional patterns](assessment-patterns.md)
+opportunity across 96 directory-backed library accounts. It added [additional patterns](assessment-patterns.md)
 `LOP-X004`–`LOP-X010` (revision 2) and recorded dated premise corrections in the codebase
-account. The first [comparative review](reviews/README.md), also of 2026-10-27, judges every
-live opportunity across nine group pages, backed by five probes. It recommends bounded targets,
-records retained mechanisms and rejected premises, and keeps three premises explicitly
-unresolved. It added `LOP-X011`–`LOP-X014` and refined the rest (revision 3), and its dated
-corrections are in the codebase and library accounts. Record inspected baselines and limits
+account. The [comparative review](reviews/README.md) was independently reassessed against
+source `4f52fd239` after its original publication `b29fcf802`. All original 52 opportunities
+were reconsidered; CBO-032 retired on its corrected premise and CBO-053 adds maintenance CLI
+output ownership, leaving 52 current opportunities across 97 library accounts. Two new focused
+counterexample probes qualify proposed root-rounding and Struct-validation remedies. Revised
+targets, reopened choices and input corrections are integrated in place; the earlier probes
+retain their original conditions. Additional patterns remain `LOP-X001`–`LOP-X014`, refined to
+revision 4 without new IDs or base-framework changes. Record inspected baselines and limits
 rather than treating empty collections as assessed, and do not invent patterns to populate a
 scaffold.
 

@@ -1,12 +1,13 @@
 # Declarations, registry, Python boundary and diagnostics (G8)
 
-**Group G8 of the [first comparative review](README.md), 2026-10-27.** Focused comparative advice;
+**Group G8 of the [comparative review](README.md), 2026-10-27.** Focused comparative advice;
 it authorizes nothing.
 
 | Item | Value |
 | --- | --- |
+| Reassessment | 2026-10-27 at source `4f52fd239`; consumes the complete original review and updated inputs at `b29fcf802`, base patterns 0.2 and additional patterns revision 3 (refined to 4 here). All named dispositions were reconsidered with representative current source, consumers and inherited evidence; unchanged evidence retains its original conditions. |
 | Opportunities | CBO-037 to CBO-045, and the templating side of CBO-046. The SurrealQL side belongs to G3. |
-| Source baseline | `main` at `3e9a2525b`. That is 9 commits past the audit baseline `dbc4c9436`. `git diff --stat dbc4c9436..HEAD` shows no change in `pse-schema`, `pse-codegen`, `pse-py`, `pse-diagnostics`, `pse-authoring`, `pse-ids`, `pse-model/src/lib.rs`, `boundary_document_wire.rs` or `python/pse/codec`. |
+| Original source baseline | `main` at `3e9a2525b`. That is 9 commits past the audit baseline `dbc4c9436`. `git diff --stat dbc4c9436..HEAD` shows no change in `pse-schema`, `pse-codegen`, `pse-py`, `pse-diagnostics`, `pse-authoring`, `pse-ids`, `pse-model/src/lib.rs`, `boundary_document_wire.rs` or `python/pse/codec`. |
 | Consumed accounts | Codebase account `c2f8b485a`. Library assessment `34f9f07ee`. Additional patterns revision 2, of which LOP-X003 and LOP-X007 are central. Base patterns edition 0.2. |
 | Standard | Core 3.4, process-simulator 1.5 and the pse-arrow binding, applied qualitatively. Architecture owners: §4.1–§4.2, §21 and §21.5, §23.2, D1. Rationale: ADR-0116, ADR-0210 (proposed), ADR-0224 (proposed), ADR-0178 (proposed amendment) and ADR-0229 (proposed). |
 | Evidence | Targets are *Proposed*. Mechanisms are *Interface-checked* where stated. Library behaviour is *Tested* only where the msgspec probe covers it. The CBO-040 build coupling and compile cost were *Tested* and *Measured* by the coordinator-run [registry build-coupling probe](../../design_review/evidence/library-leverage-registry-build-coupling-2026-10-27/README.md); no other quantitative benefit is claimed. |
@@ -77,8 +78,8 @@ Several premises turn round when the source is read:
 | 1 | CBO-045 | A live drift exists between a miette code and a typed code. It is visible in Python exception text against `report.code`. The fix is small and local. |
 | 2 | CBO-039 | About 20 struct frames let a new field escape identity silently. Identity is the hashing contract. The fix is small and changes no bytes. |
 | 3 | CBO-041 | Every Rust→Python document crossing re-runs untrusted-input checks. The fix is small. |
-| 4 | CBO-044 | It removes the most maintained machinery: 405 forwards and 41 wrapper classes. It is the largest transition and needs an ADR and a design review. |
-| 5 | CBO-040 | The probe confirmed that a model change breaks regeneration and that the generated module dominates `pse-schema` compilation. Recommend option 2 with a layout guard; it amends proposed ADR-0210. |
+| 4 | CBO-044 | It can remove forwarding machinery; complete public-family/view coverage is unresolved. It needs an ADR and a design review. |
+| 5 | CBO-040 | The probe confirmed that a model change breaks regeneration and that the generated module dominates `pse-schema` compilation. Prefer an embedded product conditionally; its preservation mechanism remains unresolved and amends proposed ADR-0210. |
 | 6 | CBO-046 | Local risk reduction in the generator. |
 | 7 | CBO-038 | A minor author-facing improvement. |
 | — | CBO-037, CBO-042, CBO-043 | Retain current. |
@@ -135,7 +136,8 @@ Corrections confirmed at HEAD:
   `ContextError`→`AuthoringError` adapter. This includes the end-of-input position
   (`current_token_start` falls back at end of input). That makes it lateral: behaviour parity
   work for a small reduction (H1, H28).
-- **No library removes the drift.** No maintained library derives a printer from a grammar, so
+- **No investigated candidate removes the required renderer.** The bounded search did not
+  find a grammar-derived printer meeting this contract; it does not establish ecosystem-wide absence, so
   parsers and renderers stay two definitions whatever tool is chosen. Rust-peg or pest would turn
   identity derivation into side-effecting actions, which is harder to audit (DP-08).
 - **The walker is already guarded.** Its exhaustive matches turn a new variant into a compile
@@ -151,9 +153,9 @@ Corrections confirmed at HEAD:
 ### Revealing case
 
 An author's file ends mid-declaration. Today the error reads `found: "end of input"` at the text
-length. Under winnow the reported position falls back to the previous token's end. A
-"no behaviour change" rewrite therefore changes author-visible diagnostics, and tests would have
-to be re-baselined for no new capability.
+length. An unadapted winnow `TokenSlice` may use the previous token's end. Retaining source
+length in the adapter can preserve current diagnostics, including trailing whitespace. This is
+migration work, not an inherent inability of winnow to preserve behavior.
 
 ### Disposition
 
@@ -355,7 +357,10 @@ excluding submitted spelling and units").
 
 **Recommend.**
 - Retain hand `SemanticFrame` framing as the identity authority.
-- Convert the roughly 20 field-reading struct frames to exhaustive destructuring.
+- Convert field-reading struct frames to exhaustive destructuring, including nested records
+  whose fields are selected manually. `applicability::Node::frame` reads `self.claim.*`;
+  destructuring only `Node` would not force an include/exclude decision for a new `Claim` field.
+  Cover `Claim`, `Permission` and analogous nested records without changing current frame bytes.
 - Enum frames are already exhaustive unless they use `..`. Check for `..` in struct-variant
   patterns at the same time.
 
@@ -426,7 +431,8 @@ What remains:
    - Mechanics:
      - Serialize with `postcard::to_allocvec` at generation.
      - Embed the blob with `include_bytes!`.
-     - Decode with `postcard::from_bytes(&'static [u8])`. `&'static str` borrows from the static
+     - Decode with `postcard::take_from_bytes(&'static [u8])` and reject a nonempty remainder:
+       `from_bytes` at 1.1.3 ignores trailing bytes. `&'static str` borrows from the static
        blob; `Vec<&str>` and `Option<&str>` fields need `#[serde(borrow)]`.
    - Members postcard cannot carry directly:
      - `FieldContract` becomes a canonical-JSON text member, decoded through serde_json as
@@ -466,8 +472,9 @@ cost is unmeasured.
 
 **What option 2 loses.** Compile-time staleness detection: a named Rust struct literal fails to
 compile if a model type changes. Positional postcard instead depends on `codegen-check` and on
-ADR-0210's source-versus-hydrated equivalence tests. A layout guard can restore runtime detection:
-a generator-computed shape digest stored in a blob header and checked on decode.
+ADR-0210's source-versus-hydrated equivalence tests. A compatibility guard needs an expected
+description derived from the current compiled types independently of the committed blob.
+A digest or constant generated only alongside the blob can remain stale with it.
 
 **Option 4 is narrower.** It fixes only (b), at the cost of a crate decision.
 
@@ -483,9 +490,11 @@ A developer swaps two same-typed fields in a model struct, such as `name` and `v
 - A postcard blob decodes successfully into swapped meanings until `codegen-check` or the
   equivalence tests run.
 
-Option 2 is acceptable only with the layout guard, or with the explicit acceptance that tests and
-`codegen-check` own staleness. Hydration "fails explicitly", which ADR-0210 requires, is preserved
-only with the guard.
+Shape compatibility, payload integrity and independent source-versus-hydrated equivalence are
+different guarantees. A layout digest alone cannot establish all three or detect validly encoded
+value corruption. The exact preservation mechanism remains unresolved. ADR-0210's retained
+corruption controls exercise corrupt/missing/extra IPC batches; do not silently generalize them
+into an already established arbitrary-corruption guarantee.
 
 ### Probe outcome
 
@@ -508,24 +517,26 @@ case).
 
 ### Disposition
 
-**Recommend option 2 with the layout guard.** The probe confirmed both conditions that the
+**Recommend replacing the literal module with an embedded structural product, provisionally
+favouring postcard 1.1.3; the exact preservation mechanism remains unresolved.** The probe confirmed both conditions that the
 first-pass disposition named as deciding for option 2, and retaining the current form would keep a
 generation route that ordinary model extension breaks.
 
 - **Enabling mechanisms.** postcard 1.1.3 with serde derives on `ResolvedRegistryProducts` and its
   members; strings borrowed from the static blob; `FieldContract` and description values carried
   as canonical-JSON text; IPC batches unchanged.
-- **Layout guard.** A shape digest stored in the blob header and checked on decode, so hydration
-  still fails explicitly when the model and the blob disagree (the revealing case above). Both
-  sides of the comparison must be derived from the types, not maintained by hand, or the guard
-  becomes a new mirror: the generator computes the digest it writes, and the runtime computes the
-  expected digest from the same type description (for example a serde-reflection walk of the
-  product types, or a `const` emitted beside the types by the generator's own build). *(Revised after the omission and preservation challenge.)*
+- **Compatibility and integrity.** Reject trailing input with `take_from_bytes`. Derive the
+  expected layout from current compiled types independently of the committed payload; a
+  codegen-emitted constant beside that payload is insufficient. `serde-reflection` is a research
+  lead, not a demonstrated complete guard: enums, constrained deserializers and generic/container
+  naming have tracing limitations. Independently choose the payload-integrity protection and
+  retain source-versus-hydrated equivalence. No complete serialization/guard closure was tested.
 - **Byte determinism.** ADR-0210 requires byte-deterministic generation. Some members carry
   hash-ordered data: `logical_storage: Vec<arrow_schema::DataType>` holds nested `Field` metadata
   in a `HashMap`, which serde writes in iteration order. Every such member must be carried in a
   canonical or sorted form (as `FieldContract` already is, as canonical-JSON text), and
-  `codegen-check` must show that two generation runs produce identical bytes. If some member
+  two fresh generation runs must produce identical bytes. `codegen-check` compares one candidate
+  run with committed artifacts; that comparison alone is not a repeat-run test. If some member
   cannot be canonicalized, the recommendation becomes remedy-open for that member.
 - **Machinery that disappears.** The per-type Rust-literal emitter and the 87k-line generated
   module, and with them the bootstrap coupling and the repeated LLVM work.
@@ -655,6 +666,10 @@ tests. It is not a trust transition, so the case holds.
 - Add a private trusted Rust→Python decode.
 - Remove the duplicate Rust pre-scan in `decode_document` for the flat wires.
 - Generate per-type `PyOnceLock` handles for document classes and codec callables.
+- Reuse `_json_decoder`'s existing bounded per-thread decoder cache and preparation path.
+  Cached class/callable handles must not silently become shared process-wide decoder instances.
+  Restrict trusted decode to immediate native-producer output; public untrusted decode retains
+  required, unique, header-first admission.
 - Leave the public codec and every untrusted path unchanged.
 
 The repeated header traversal on Rust output and its Rust callback disappear. A small generated
@@ -864,9 +879,9 @@ hand Python forward with its own docstring.
    - native methods return public pyclasses directly and accept typed document Structs through
      the existing `DocumentInput`, so the Python `encode_json` disappears;
    - per-index loops become one tuple return (`pyo3/bulk-return-crossing`);
-   - Python-constructed owners such as `Runtime` become Python subclasses of
-     `#[pyclass(subclass)]` native classes. They keep the generated host-operation mixins without
-     `_host_*` forwarding;
+   - Python subclassing of `#[pyclass(subclass)]` native owners is a candidate for retaining
+     host-operation mixins. Constructors/MRO, immutability and returned base instances need an
+     explicit design before claiming removal of `_host_*` forwarding;
    - genuinely Python behaviour either moves to `#[pymethods]` or stays a small module function.
      An example is `TableStream.extension_report`, which uses pyarrow's `compare_schemas`.
 3. **Generated Python forwards** from introspection. This adds another generator hop (LOP-X003).
@@ -875,13 +890,11 @@ hand Python forward with its own docstring.
 
 ### Comparative argument
 
-Option 2 makes the Rust declaration the single authority for each accessor (DP-01, DP-16):
-- the forwards disappear;
-- the hand docstrings disappear;
-- the 22 cross-wrapper unwraps disappear;
-- per-item crossings disappear.
-
-The gate, public naming (`name=`) and frozen semantics all carry over.
+For forwarding-only families with complete native realizations, option 2 can make Rust the
+accessor authority and remove forwards, duplicated docstrings, unwraps and per-item crossings.
+Public naming and gate re-export have interface routes. Indexed views, equality/hash, mutation
+exceptions and Python helpers still need the public-family inventory and ADR design; pyclass
+`frozen` alone does not establish attrs equivalence or a blanket deletion count.
 
 **Conditions.**
 - **Stub docstrings.** The stub contract deliberately strips docstrings
@@ -900,30 +913,37 @@ Option 3 removes hand work but keeps the layer, and adds a generator to maintain
 - `extension_report` becomes either a pyo3-arrow schema comparison in Rust or a module function
   such as `pse.inspection.extension_report(stream, schema)`.
 
-The latter is a small public API change that the ADR must list. No behaviour is lost.
+The latter is a public API change that the ADR must list. Full preservation, including indexed
+views and helper behavior, remains an inventory and qualification obligation.
 
 ### Disposition
 
-**Recommend.** Carry the change out family by family, behaviour-preserving, under an ADR and a
-design review.
+**Recommend moving forwarding-only surfaces to native classes where their complete public
+contract has a coherent native realization.** Inventory and resolve each public family under an
+ADR and design review; complete preservation is not established by class attributes alone.
 
 Target:
 - public pyclasses with `name` and `module`;
 - re-export through `_build`;
 - the stub contract keeps docstrings;
-- Python-constructed owners become native subclasses;
+- Python-constructed owners have an explicit construction/MRO and immutability design;
 - bulk returns;
 - typed documents accepted natively;
 - the residual Python-only helpers listed explicitly.
 
-The 41 wrapper classes, the 405 forwards with their docstrings, and the `_host_*` glue
-disappear. Stub docstrings and some `#[pymethods]` are added.
+The route can remove much of the forwarding layer, but its final deletion count and residual
+wrapper/view set are unestablished. `CompactStudyResult` holds a native study report plus an
+index, while `StudyReport` wraps that same native type alone. Renaming one pyclass cannot replace
+both: introduce an explicit native indexed view or retain a small Python view.
 
-**Semantics the ADR must list.** *(Revised after the omission and preservation challenge.)* All 34 wrapper classes are `@attrs.frozen`, which gives
-them equality, hashing, `repr` and `FrozenInstanceError` on mutation, and `pse.governance` lints
-attrs classes. Pyclasses need `frozen`, `eq` and `hash` (and a `__repr__`) to keep those
-behaviours, and the governance lint must cover them or the types drop out of it. "No behaviour is
-lost" rests on samples from 4 of 13 modules, so the ADR's inventory must cover every module.
+**Semantics the ADR must list.** Preserve or deliberately revise constructors, properties versus
+methods, iteration/context management, repr, mutation exceptions and Python helpers. attrs
+currently compares and hashes wrapped Python handle objects, plus other wrapper fields such as
+the index. Native report/result types generally derive `Clone, Debug`, not `PartialEq, Hash`;
+adding Rust value equality can change semantics. PyO3 `frozen` does not reproduce attrs'
+`FrozenInstanceError`, and `subclass` alone supplies no construction/immutability design.
+The public-family and stub inventory must cover every module; sampled forwarding counts do not
+establish complete preservation.
 
 Coordinate with G2/CBO-017, whose waits sit in the same native methods, and with G9/CBO-052, the
 command surfaces.
@@ -1062,7 +1082,8 @@ Byte-deterministic Python contract modules. The textual risks at HEAD:
   surgery on `from typing import …`.
 
 Today, corruption by these rewrites would surface only through downstream type checks or imports.
-`codegen-check` proves determinism, not correctness.
+`codegen-check` compares a candidate run with committed artifacts and checks candidate contracts;
+it independently proves neither repeat-run determinism nor semantic correctness.
 
 ### Credible complete options
 
@@ -1081,7 +1102,8 @@ Today, corruption by these rewrites would surface only through downstream type c
 ### Comparative argument
 
 Option 2 removes the risky operation, textual rewriting of emitted code, at its source. It needs
-no dependency and does not change output bytes, so `codegen-check` proves equivalence.
+no dependency. A successful `codegen-check` supports unchanged generated bytes for that run;
+relevant generator controls must still exercise qualifier/import behavior.
 
 Options 3 and 4 either miss the rewrites or demand a large lateral rewrite. That would only pay
 off if the whole Python emitter were being restructured.
@@ -1128,7 +1150,7 @@ None.
 - **[LOP-X003](../assessment-patterns.md#lop-x003) refined (revision 3):** bootstrap coupling, where a generator's
   crate compiles the generator's own output and that output constructs hand-written types (CBO-040,
   now *Tested*); sub-products split across formats by type capability; runtime decoding versus a
-  crate split under workspace feature unification; the layout guard as the runtime replacement for
+  crate split under workspace feature unification; the independently derived compatibility guard as a candidate replacement for
   named-literal staleness detection.
 - **[LOP-X007](../assessment-patterns.md#lop-x007) refined (revision 3):** the local projection can be the authority
   and the library-derive sites the drift (CBO-045); exhaustive destructuring is the zero-dependency

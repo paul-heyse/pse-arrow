@@ -258,3 +258,10 @@ depends on the replay-versus-regenerate decision. See the
 remove ndarray from the graph either. The comparative review retains the current routes; an
 upstream `statrs default-features = false` change in egobox-moe would drop nalgebra 0.33 only
 after a release and a family move. See the [comparative review](../../reviews/numerical-workflows.md#cbo-035).
+
+**Reassessment qualification (2026-10-27).** Use `Lhs::new_with_rng` or
+`Random::new_with_rng` to avoid first consulting OS entropy and discarding that RNG through
+`new(...).with_rng(...)`. The existing determinism probe called `sample()`; it did not test the
+proposed complete normalized/local-mapping/Grid producer. Version its local arithmetic and all
+value-defining dependencies, including ndarray/permutation/distribution operations, rather than
+treating four crate holds or one-host repeatability as cross-platform producer qualification.

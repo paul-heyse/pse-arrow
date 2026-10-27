@@ -58,12 +58,18 @@ GitHub releases page (0.21.x, 0.22.0).
   encode/decode (validators run on decode; attrs converters unsupported; private `_x` attributes
   skipped); `msgspec.to_builtins`; `msgspec.Raw` for delayed decoding; `Meta` constraints;
   `__post_init__` runs on init, decode and convert.
-- **Obligations discharged:** strict structural typing on decode/convert (bool is distinct from int;
+- **Obligations discharged:** strict structural typing when decoding/converting raw inputs
+  (existing target Structs take the bypass described below; bool is distinct from int;
   strict mode refuses str→number); `forbid_unknown_fields=True` per Struct; `__post_init__`
   validation surfaced as `ValidationError`.
 - **Residual caller obligations:**
-  - **Struct `__init__` performs no type validation** (documented intentional design; only decode
-    and convert validate). Exact-type checks at construction (attrs `instance_of` validators) have no
+  - **Struct `__init__` performs no type validation** (documented intentional design).
+    `convert` also returns exact-target Struct instances unchanged, including nested instances;
+    it is not a general revalidation API. Validate raw nested input before construction or
+    decode the exact serialized document when revalidation is needed. This behavior is
+    [Tested at 0.21.1](../../../design_review/evidence/library-leverage-msgspec-existing-struct-2026-10-27/README.md)
+    and confirmed in the tagged source's `convert_other` fast path.
+    Exact-type checks at construction (attrs `instance_of` validators) have no
     msgspec equivalent except a hand `__post_init__`.
   - Non-finite floats (Tested): JSON decode refuses `NaN`/`Infinity` literals as malformed JSON
     (`DecodeError`), refuses `null` for a non-optional `float` but accepts it as `None` for

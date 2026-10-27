@@ -29,7 +29,10 @@ scratch: `portalocker-4.4.1/portalocker/portalocker.py`, `fasteners-0.20/fastene
   mode `0600` verification rather than just setting it), fd lifetime across phase changes.
 - **Semantic conditions:** exclusive `flock` only — no shared `flock`; `ReadWriteLock` does not
   conflict with `flock` users. On a filesystem without `flock` it *falls back to `SoftFileLock`
-  with a warning* — a fail-open change of mechanism. Waiting is still polling (default 50 ms).
+  with a warning* by default. `UnixFileLock(fallback_to_soft=False)`, `preserve_lock_file=True`
+  or `on_acquired` can instead fail closed on `ENOSYS`. `lock_descriptor(fd)` preserves the
+  caller's descriptor ownership: no open/truncate/chmod/close/unlink or fallback. Waiting is
+  still polling (default 50 ms).
 - **Version / build conditions:** 3.32.6 (pure Python).
 - **Limits and negative results:** no shared `flock`, no absolute-deadline API, polling only.
 - **Evidence:** Interface-checked: installed 3.32.6 source.
@@ -52,15 +55,17 @@ scratch: `portalocker-4.4.1/portalocker/portalocker.py`, `fasteners-0.20/fastene
 - **Realization:** filelock 3.32.6 is present transitively (would become a declared pin);
   the others are new dependencies.
 - **Conclusion:** ruled out here — none expresses the ledger's rules better than the stdlib:
-  filelock lacks shared `flock` and absolute deadlines and silently degrades to a soft lock;
+  filelock lacks shared `flock` and composed absolute deadlines; its default soft-lock fallback
+  warns and can be disabled, so intrinsic fail-open behavior is not a rejection reason;
   fasteners uses a non-conflicting lock family; flufl.lock has lease semantics; portalocker is a
   thin `flock` wrapper. Stdlib-only cold-start paths also exclude all four. The consolidation the
   CBO seeks is a single in-repo module (the CBO's own counter-hypothesis), not a library.
 - **What it would discharge / what remains local:** at most the poll loop in `lock_until`; lock
   order (invocation → identity → resource), absolute deadlines, `O_NOFOLLOW`/`0600`/owner checks,
   locks surviving phase changes and fail-closed handling stay local.
-- **Semantic gaps against the CBO's preservation constraints:** "fail-closed handling of unknown
-  state" conflicts with filelock's soft-lock fallback; "locks that survive phase changes" depends
-  on fd ownership that filelock's object lifetime would take over.
+- **Semantic gaps against the CBO's preservation constraints:** shared native `flock`, one
+  absolute clock across phases and stdlib-only cold start still remain local. The descriptor
+  API and explicit fail-closed configuration address ownership/fallback concerns, but do not
+  discharge those remaining needs.
 - **Unsettled premises and what would settle them:** none decisive.
 - **Evidence:** Interface-checked; Proposed (negative).

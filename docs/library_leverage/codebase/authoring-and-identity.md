@@ -164,3 +164,8 @@ serde, `FromStr` and `ALL` from one table.
   record is translated more than once was not established. A later pass should start from the
   question: how many times is a record translated between YAML, structs, Arrow and generated
   Rust?
+
+- **Reassessment correction (2026-10-27, source `4f52fd239`).** Exhaustive identity framing must cover
+  manually selected nested records as well as the outer receiver. Node::frame selects Claim fields; an
+  exhaustive Node match alone does not force a decision about a new Claim field. Preserve existing bytes and
+  curated exclusions.

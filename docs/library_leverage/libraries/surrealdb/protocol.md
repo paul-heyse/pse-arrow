@@ -57,7 +57,7 @@ Research date 2026-10-27. Sources:
   - The `rpc` feature (`proto` + tonic + tonic-prost + futures). Tonic 0.14.6 and hyper 1.11 are already in the lockfile.
   - 0.14 removes `ExportDirectory`, adds f16/f32 value kinds, and renews the CBOR vectors and catalogs. Moving the protocol crate means moving the server and SDK protocol in step.
 - **Typed vocabulary without the SDK (added 2026-10-27):** `surrealdb-types` 3.3.4 publicly exposes `Error` (the SDK's `surrealdb::Error` is a re-export) with `from_wire`, `with_cause`, `query_details` and `not_found_details`; `SurrealValue`; and, with feature `proto`, `TryFrom` conversions in both directions for protobuf `Value`, `Object`, `RecordId` and related types plus `encode_proto`/`decode_proto`. A protocol-level client therefore keeps the SDK's value and error vocabulary. Only the roughly 60-line `proto::SurrealError → Error` mapping (`kind_str`, `proto_details`, `proto_error`) is SDK-private, and `Error::from_wire` is `#[doc(hidden)] pub`, which is the only route to the kind-specific codes (−32003 NotExecuted, −32005 Cancelled) and typed details.
-- **SDK result rules a direct client must reproduce (added 2026-10-27).** A probe compared a minimal client on the generated stub with SDK 3.3.4 for 37 script shapes against a server 3.3.4 in-memory fixture (*Measured*, one run per mode; [evidence](../../../design_review/evidence/library-leverage-surrealdb-direct-client-2026-10-27/README.md)). Parity required four SDK rules:
+- **SDK result rules a direct client must reproduce (added 2026-10-27).** A probe compared a minimal client on the generated stub with SDK 3.3.4 for 37 result observations across the documented script cases against a server 3.3.4 in-memory fixture (*Measured*, one run per mode; [evidence](../../../design_review/evidence/library-leverage-surrealdb-direct-client-2026-10-27/README.md)). Parity required four SDK rules:
   - **Script trim:** the query builder strips trailing `;` and whitespace from each submitted query. Only source-echoing text, such as a parse-error excerpt, differs without it.
   - **Statement compaction:** indices that never receive a frame are dropped and the rest re-numbered; `Kill` results are skipped but still use an index.
   - **`take` conversion:** `Option<T>` maps `[]` and `[NONE]` to `None`, `[x]` to `x`, and more than one element to an internal error; `Vec<T>` wraps a non-array; a missing index as `Value` is `None`; conversion failures become `Error::internal(e.to_string())`; any `take` removes an error slot.
@@ -121,3 +121,19 @@ Research date 2026-10-27. Sources:
 - **Evidence:** Interface-checked: generated client and message types. Proposed.
 
 **Reviewer correction (2026-10-27).** The comparative review chose this route (its option B): the bounded lifecycle moves into a `pse-operations` module over `SurrealDbServiceClient<OwnedHttp2>` and `surrealdb-types` `proto`, the vendored SDK and engine-API leave the workspace, and the two lifecycle tiers become one owner, executed instead of the next supplier rebase. The direct-client probe measured the result and error semantics at about 350 transcribed lines with 37/37 parity (see the type above); the bounded lifecycle tier is moved rather than rewritten, consistent with the estimate of about 1k lines of client semantics. Two premises resolve: SurrealKit is built against the vendored SDK but never calls `Config::bounded_requests()` and runs the unbounded upstream-transport profile (only the `surreal-error-bin` trailer decode is not profile-gated), so its dependence on the edit is incidental and dissolves under this route; and the generated codec's `surrealdb::types::…` paths become `surrealdb_types::…`, a generator change. See the [comparative review](../../reviews/canonical-store-transport.md#cbo-009).
+
+**Reassessment qualification (2026-10-27).** The probe deliberately omitted bounded transport,
+wire preflight, admission, owned-driver joins and restoration; 37/37 is not transport equivalence.
+TaskTracker completion does not seal new admission. The proposed owner retains serialized
+connection admission/closing, continuation rights and independent two-driver settlement. Moving
+the same code requires transport/lifetime requalification; SurrealKit on an unpatched SDK was
+not built.
+
+### CBO-016 — Contextual subscription capability
+
+The inspected source-built server receipt `v3.3.4-mx1.0.0-effective-v1-3549c2a97bd565fd2497`
+uses `server/src/rpc/grpc.rs` to advertise at-most-once delivery, no resumption, one subscriber
+and no retention. Subscribe rejects a nonempty resume cursor. The protocol can express more
+than this server supplies; a reopened design must re-register after loss and immediately
+re-read authoritative state. Future-server resumption remains capability-gated. Evidence is
+Interface-checked source, not a subscription workload.

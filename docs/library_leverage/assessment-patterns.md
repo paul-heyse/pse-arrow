@@ -1,9 +1,12 @@
 # Additional library-leverage patterns
 
-**Assessment output · revision 3, 2026-10-27.** Revision 1 came from the first codebase audit;
+**Assessment output · revision 4, 2026-10-27.** Revision 1 came from the first codebase audit;
 revision 2 added `LOP-X004`–`LOP-X010` and refined `LOP-X001`–`LOP-X003` from the first library
 applicability assessment; revision 3 adds `LOP-X011`–`LOP-X014` and refines `LOP-X001`–`LOP-X010`
-from the first [comparative review](reviews/README.md). These are additional framings found during
+from the first [comparative review](reviews/README.md). Reassessment revision 4 corrects
+layout-guard independence, nested projection coverage, decoder allocation and numerical
+value-semantics guidance below; it adds no IDs and does not refresh untouched applications.
+These are additional framings found during
 assessment. They sit alongside the [base patterns](patterns.md) (`LOP-01`–`LOP-12`, edition 0.2),
 and every stage uses them on the same footing as the base set. A pattern match is only a
 recognition aid. It is not evidence of a defect, a library fit or an obligation to adopt.
@@ -281,8 +284,10 @@ See [CBO-040](codebase/registry-generation-and-python-boundary.md#cbo-040) to
 - **Investigate** runtime-decoded data versus a crate split. Workspace-wide feature unification
   can defeat feature gates.
 - **Countercondition:** named literals give compile-time staleness detection that a positional
-  binary format loses. A layout guard (a generator-computed shape digest checked on decode)
-  restores runtime detection. See the
+  binary format loses. A layout guard must derive the expected description from current
+  compiled types independently of the committed blob; a constant generated alongside it can
+  be stale with it. Shape compatibility, payload integrity and independent semantic equivalence
+  are distinct guarantees. See the
   [comparative review](reviews/declarations-registry-and-python-boundary.md#cbo-040).
 
 <a id="lop-x004"></a>
@@ -539,7 +544,8 @@ See [CBO-039](codebase/authoring-and-identity.md#cbo-039),
   declaration. Then migrate the derive sites onto the local projection rather than the reverse.
 - **Forcing a per-field decision.** When a projection must make a deliberate decision per field,
   as identity framing does, exhaustive destructuring is a zero-dependency alternative to a derive
-  whose default includes every field. See the comparative review of
+  whose default includes every field. Cover nested records whose fields are manually selected;
+  an exhaustive outer pattern does not force a decision about a new nested field. See the comparative review of
   [CBO-045 and CBO-039](reviews/declarations-registry-and-python-boundary.md#cbo-045).
 
 <a id="lop-x008"></a>
@@ -683,6 +689,10 @@ See the [Arrow assessment](libraries/arrow/README.md) and
   trusted merely because it shares the codebase, and durable or recorded bytes are untrusted on
   every read.
 - **Ask whether a lower-level decoder lets the guard and the allocation share one read.**
+  Caller-owned encoded input does not prove ownership of internal accumulation, metadata,
+  wrappers, alignment copies or decompression. Check those paths before replacing complete
+  grants with a raw input span; preserve consumer-specific schema/lineage rules when sharing
+  transport-safety mechanics.
 - **Unchecked preconditions.** The hazard can be a library contract asserted only in debug
   builds rather than hostile input. The failure then differs by build profile: a panic in debug,
   a silent wrong result in release. Check whether the same library's companion producer can emit
@@ -865,6 +875,15 @@ within one operation.
 59.3.0 comparison and `arrow-arith` extrema using totalOrder; a scalar result predicate that
 already normalizes signed zero. See the
 [comparative review](reviews/result-data-and-prepaid-accounting.md#cbo-006).
+
+**Reassessment refinement.** Readback equality can hide a durable signed-zero encoding change;
+retain the current encoding unless that semantic change is selected. Exact-to-binary64
+conversion has its own value contract: adjacent-float rounding midpoints are asymmetric at
+powers of two, and a correctly rounded output promise may be stronger than a consumer's
+residual-verification requirement. The
+[rounding-cell counterexamples](../design_review/evidence/library-leverage-binary64-rounding-cells-2026-10-27/README.md)
+Test that proposed formula, not a product replacement. Compare the complete necessary output
+contract before treating stronger certification as mandatory.
 
 <a id="lop-x014"></a>
 

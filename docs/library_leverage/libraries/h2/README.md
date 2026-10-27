@@ -2,10 +2,13 @@
 
 Realizations considered: not installed. Upgrade route `h2` 4.4.1 (PyPI, released
 2026-08-03). It is pure Python and depends on `hpack` and `hyperframe`.
-Research date 2026-10-27. Sources: PyPI JSON. The `H2Connection` API
+Research date 2026-10-27. Sources: PyPI JSON and the current
+[primary API usage guide](https://python-hyper.org/projects/h2/en/stable/basic-usage.html),
+re-read during comparative reassessment after Context7 returned the unrelated Rust h2 twice.
+The `H2Connection` API
 (`initiate_connection`, `receive_data` returning events, `send_headers`, `send_data`,
 `end_stream`, `acknowledge_received_data`, `data_to_send`) is documentation knowledge and
-was not re-read at 4.4.1.
+was checked against that guide, not exercised in a 4.4.1 integration.
 
 ## Types
 
@@ -35,7 +38,8 @@ was not re-read at 4.4.1.
   hand-written server tolerates may be rejected.
 - **Version / build conditions:** Pure Python. Not stdlib.
 - **Limits and negative results:** No gRPC semantics.
-- **Evidence:** Interface-checked for the version (PyPI). API is documentation knowledge.
+- **Evidence:** Interface-checked for release metadata and the primary documented event API.
+  No integration probe or complete exact-release source review was run.
 
 ## Current applicability
 
@@ -63,4 +67,9 @@ was not re-read at 4.4.1.
 SurrealDB server builds its span exporter with `with_tonic()` and compiles `opentelemetry-otlp`
 0.31.1 without `http-proto`, and no protocol variable selects HTTP (see
 `surrealdb-server/telemetry-export-transport` in the [SurrealDB server tooling](../surrealdb/server-tooling.md)
-account). The repository already points the server at the collector's `otlp_grpc_endpoint`. The comparative review retains the hand sink as the minimal fixed peer rather than adopting `h2`. See the [comparative review](../../reviews/developer-tooling.md#cbo-051).
+account). The repository already points the server at the collector's `otlp_grpc_endpoint`.
+Reassessment reopened the sink choice: EOF/socket errors and stream termination can discard
+pending input without a `capture_errors` entry. This is a completeness question, not evidence
+that the hand peer is stricter than h2. Keep the deliberately raw abrupt-drop client separately;
+h2 remains credible for the sink alone if its consumer requires dependable transport handling.
+See the [comparative review](../../reviews/developer-tooling.md#cbo-051).

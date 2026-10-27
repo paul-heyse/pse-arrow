@@ -131,7 +131,7 @@ Research date 2026-10-27. Sources:
   - `KILL` on exit.
 - **Semantic conditions:**
   - Bound to its session and connection.
-  - At most once. Correction (2026-10-27): at most once is what the Rust SDK 3.3.4 delivers, not a fixed property. Protocol 0.13.1 reports delivery, resumability and retention per server (`LiveQueryCapabilities`) and accepts a `resume_from` versionstamp cursor; see `surrealdb-rust-sdk/grpc-live-subscription`.
+  - At most once. Correction (2026-10-27): at most once is what the Rust SDK 3.3.4 delivers, not a fixed property. Protocol 0.13.1 reports delivery, resumability and retention per server (`LiveQueryCapabilities`) and accepts a `resume_from` versionstamp cursor. Reassessment inspected the actual source-built server: it advertises no resumption/retention and rejects a nonempty resume cursor; reconnect requires re-registration and authoritative re-read; see `surrealdb-rust-sdk/grpc-live-subscription`.
   - Documentation for several SDKs states the feature is WebSocket-only. The Rust 3.3.4 gRPC client implements it through `Subscribe`, so support depends on the transport and the SDK.
 - **Version / build conditions:** the server must allow live queries in its capabilities and advertise `LIVE_QUERIES` over gRPC.
 - **Limits and negative results:** it does not suit request-bounded clients without a separate subscription lifecycle. It cannot serve as an authority signal.

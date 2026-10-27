@@ -127,7 +127,8 @@ and #11012 (open); issue #10521; `arrow-ipc/src/reader.rs` on `main` (GitHub con
     `with_projection`, `with_require_alignment(bool)`, `read_dictionary(block, &buf)`,
     `read_record_batch(block, &buf) -> Option<RecordBatch>`. The caller reads each block into a
     `Buffer` of its own making (for example `MutableBuffer` sized after a reservation), so the
-    decoder never allocates from untrusted lengths; the block must start with the encapsulated
+    decoder need not allocate the raw block from its advertised span. Internal schema/wrapper,
+    alignment and decompression allocations remain separate obligations. The block starts with the encapsulated
     message (continuation + length + metadata) followed by the body.
   - `StreamDecoder::{new, with_require_alignment, decode(&mut Buffer), finish}`: push-based;
     message and body bytes are accumulated only as supplied (`extend_from_slice`), and a body that
@@ -143,18 +144,25 @@ and #11012 (open); issue #10521; `arrow-ipc/src/reader.rs` on `main` (GitHub con
   must not be advertised-size; bounding zero-buffer field lengths.
 - **Semantic conditions:** `FileDecoder::read_record_batch` slices `buf` at
   `block.metaDataLength()` with an assertion, so the caller must pass a buffer at least that long.
-  Decoded arrays retain the caller's block buffer (zero-copy), so the reservation for the block
-  covers the batch's retained memory, plus small `ArrayData` headers. `StreamDecoder` at 59.3.0
+  Decoded arrays can retain the caller's block buffer (zero-copy). Its input span is not the
+  complete allocation envelope: rounded backing capacity, schema/metadata materialization,
+  array/wrapper inventories and any alignment/decompression copies need separate pre-admission.
+  `StreamDecoder` at 59.3.0
   still calls `fb_to_schema` (panics on malformed schemas) and `header_as_schema().unwrap()`.
   Further conditions (added 2026-10-27):
-  - `StreamDecoder` never pre-allocates from `bodyLength` (*Tested* by the hostile-stream probe
-    cited above): a lying or negative length leaves the decoder waiting for body bytes, and
+  - For the tested lying raw-body lengths, `StreamDecoder` avoids eager whole-body allocation
+    (*Tested* by the hostile-stream probe cited above): a lying or negative length leaves it waiting, and
     `finish()` refuses with `IpcError("Unexpected End of Stream")`. It still panics on buffer spans
     outside the body, through the shared `read_buffer`, so a span check stays a caller obligation.
-  - Alignment: the IPC writer pads to `IpcWriteOptions` alignment (default 64), and
-    `arrow-buffer` `ALIGNMENT` is 64 on x86_64, so a block read into a fresh `MutableBuffer`
-    decodes with `with_require_alignment(true)`. Blocks sliced from one whole-file `Vec<u8>` are
-    aligned only to 8 bytes relative to its base. Upstream `arrow/examples/zero_copy_ipc.rs`
+  - Fragmented metadata and bodies are copied into the decoder's `self.buf` with
+    `extend_from_slice` (`reader/stream.rs`); the caller's input may remain live simultaneously.
+    Complete admitted messages avoid that fragmentation cost when their layout permits it.
+    No public pre-decode admission callback exists; validate messages before feeding them.
+  - Alignment: writer padding (default 64) does not establish the base alignment of an embedded
+    `Vec<u8>`. Check each typed buffer's actual address against `arrow_data::layout`'s
+    `BufferSpec`, use an aligned backing allocation with compatible offsets, or pre-admit copies.
+    `with_require_alignment(true)` can refuse otherwise-valid embedded data.
+    Upstream `arrow/examples/zero_copy_ipc.rs`
     shows the mmap variant (Context7 listing; not in the crate tarball).
   - `Bytes::claim` (arrow-buffer feature `pool`) replaces any reservation already attached, and
     enabling `pool` adds a `Mutex<Option<Box<dyn MemoryReservation>>>` to every `Bytes` in the
@@ -162,7 +170,8 @@ and #11012 (open); issue #10521; `arrow-ipc/src/reader.rs` on `main` (GitHub con
 - **Version / build conditions:** `FileDecoder` since PR #5249 (merged 2023-12-31); `StreamDecoder` long
   available; both present at 59.3.0 and 60.0.0 with the same signatures.
 - **Limits and negative results:** no decoder-level message verifier options; no decoder check
-  that nodes/buffers are fully consumed.
+  that nodes/buffers are fully consumed. `CompressionCodec::decompress_to_buffer` can allocate
+  from an embedded decoded length; ownership of encoded input is not a decompression bound.
 - **Evidence:** Interface-checked: installed `reader.rs` (`FileDecoder`, `read_record_batch`) and
   `reader/stream.rs` (`StreamDecoder::decode`) at 59.3.0; the `FileDecoder` doc example
   (`read_footer_length` + `root_as_footer` + `fb_to_schema`).

@@ -125,8 +125,14 @@ source (`src/stubs.rs`, `src/model.rs`); pyo3-macros-backend 0.29.2 `src/pyclass
 **Reviewer correction (2026-10-27).** 41 wrapper classes hold `_handle`, 6 of them
 Python-constructed (for example `Runtime`, which composes generated host-operation mixins), and
 there are 22 cross-wrapper `._handle` unwraps. `#[pyclass(subclass)]` therefore serves the
-user-constructed owners, while Rust-returned objects stay base-class instances. The comparative
-review recommends the route but requires an ADR and design review; adopting the PyO3 0.30 stub
+user-constructed owners, while Rust-returned objects stay base-class instances. This is an
+interface route, not a complete preservation design: constructors/MRO, helpers and immutability
+still need explicit realization. `CompactStudyResult` is an indexed view over the native report
+also wrapped by `StudyReport`; a native indexed view or a residual Python class is needed.
+attrs equality/hash currently compares Python handle objects, so automatic Rust value-based
+`eq`/`hash` can change behavior, and `frozen` does not reproduce `FrozenInstanceError`. The final
+wrapper deletion count remains unestablished. The comparative review requires an ADR and design
+review; adopting the PyO3 0.30 stub
 features would be a family-major ADR. See the [comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-044).
 
 ### [CBO-041](../../../library_leverage/codebase/registry-generation-and-python-boundary.md#cbo-041) — Boundary documents transcoded through JSON, with checks in both languages
@@ -135,6 +141,8 @@ features would be a family-major ADR. See the [comparative review](../../reviews
 - **Conclusion:** fits as part of a trusted Rust→Python decode: generated per-type `PyOnceLock`
   handles resolve each document class once.
 - **Semantic gaps:** must be emitted per type by the generator, not as one generic helper.
+  Cache class/callable handles while retaining the existing bounded per-thread msgspec decoder
+  cache; per-type `PyOnceLock` handles do not establish safe shared decoder instances.
 - **Evidence:** Interface-checked; Proposed. Recorded from the comparative review, which found that
   Rust→Python decode re-runs the untrusted-input traversal, with a callback into Rust, on bytes
   Rust just wrote. See the [comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-041).
