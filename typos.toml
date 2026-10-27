@@ -38,6 +38,8 @@ extend-exclude = [
 extend-ignore-re = [
   "(?m)^index [0-9a-f]+\\.\\.[0-9a-f]+(?: [0-7]+)?$",
   "(?m)^[ \\t]*(?:[0-9a-f]{16}[ \\t]+)+[0-9a-f]{16}[ \\t]*$",
+  # Exact malformed statement and its parser excerpt retained in review evidence.
+  "BEGIN; S[E]L[E]C \\* FROM nothing; COMMIT;?",
 ]
 # Native library C symbols (SCIPaddSol, SCIPreleaseCons, SCIPeventGetType, IDA_NO_BCK,
 # POUNCE's OT_String) split into fragments that look like misspellings.

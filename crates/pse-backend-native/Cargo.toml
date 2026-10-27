@@ -15,6 +15,11 @@ publish.workspace = true
 # Links the solver image's single BLAS/LAPACK and OpenMP provider (ADR-0108).
 build = "build.rs"
 
+# The shared source-authentication module is included by path from both build.rs
+# and test lib.rs; cargo-shear does not traverse that hyphenated shared file.
+[package.metadata.cargo-shear]
+ignored = ["sha2"]
+
 [lints]
 workspace = true
 

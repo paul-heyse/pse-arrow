@@ -170,6 +170,44 @@ SPDX-License-Identifier = "MIT OR Apache-2.0"
 # imported documentation, metadata and sources retain upstream terms. The sys
 # wrapper license does not relicense the native sources it packages.
 [[annotations]]
+path = ["vendor/faer-traits/**", "vendor/deltas/faer-traits.patch", "vendor/deltas/faer.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "sarah quiñones and faer contributors",
+  "2026 Paul Heyse (nonfused arithmetic integration)",
+]
+SPDX-License-Identifier = "MIT"
+
+# The crate declares MIT. Its retained LAPACK, AMD, COLAMD and Eigen notices
+# additionally govern their respective ported portions, as recorded verbatim in
+# this component collection; they are not alternative licenses for the crate.
+[[annotations]]
+path = ["vendor/faer/**"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "sarah quiñones and faer contributors",
+  "Third-party copyright holders identified in the retained component notices",
+  "2026 Paul Heyse (nonfused arithmetic integration)",
+]
+SPDX-License-Identifier = "MIT AND LicenseRef-Faer-Components"
+
+[[annotations]]
+path = ["vendor/symbolica/**", "vendor/deltas/symbolica.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2023-2026 Ruijl Research and Symbolica contributors",
+  "2026 Paul Heyse (bounded overload integration)",
+]
+SPDX-License-Identifier = "LicenseRef-Symbolica-Source-Available-1.0"
+
+# This imported benchmark fixture explicitly retains its upstream MIT notice.
+[[annotations]]
+path = ["vendor/symbolica/benches/support/polybench_cases.rs"]
+precedence = "override"
+SPDX-FileCopyrightText = "2020-2026 Takahiro Ueda"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = ["vendor/suitesparse-sys/**", "vendor/deltas/suitesparse-sys.patch"]
 precedence = "override"
 SPDX-FileCopyrightText = ["Martin Robinson", "Richard Lincoln"]

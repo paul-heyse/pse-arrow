@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
 """Exercise the selected faer f64 closure and inspect its optimized arithmetic IR."""
 
 from __future__ import annotations

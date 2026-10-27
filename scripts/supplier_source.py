@@ -30,7 +30,12 @@ def verify_selected_native(tree: Path, scratch: Path) -> str | None:
     if not record.is_file():
         return None
     selected = json.loads(record.read_text())
-    with urllib.request.urlopen(selected["source"], timeout=60) as response:
+    source_url = selected["source"]
+    if not isinstance(source_url, str) or not source_url.startswith("https://"):
+        raise ValueError("selected native source archive must use HTTPS")
+    with urllib.request.urlopen(
+        f"https://{source_url.removeprefix('https://')}", timeout=60
+    ) as response:
         data = response.read()
     if digest(data) != selected["sha256"]:
         raise ValueError("selected native release archive checksum mismatch")
@@ -136,9 +141,12 @@ def refresh(repo: Path, directory: str) -> None:
             mode = metadata.split()[0]
             files[relative] = {"sha256": digest(source.read_bytes()), "mode": mode}
         for path in tree.rglob("*"):
-            if path.is_file() and ".git" not in path.relative_to(tree).parts:
-                if str(path.relative_to(tree)) not in files:
-                    path.unlink()
+            if (
+                path.is_file()
+                and ".git" not in path.relative_to(tree).parts
+                and str(path.relative_to(tree)) not in files
+            ):
+                path.unlink()
         for relative, facts in files.items():
             source = repo / prefix / relative
             target = tree / relative

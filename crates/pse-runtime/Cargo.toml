@@ -132,7 +132,6 @@ miette.workspace = true
 # The operational store: durable attempts, jobs, streams and seeds (ADR-0112).
 pse-operations.workspace = true
 chrono.workspace = true
-flatbuffers.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

@@ -6748,7 +6748,6 @@ dependencies = [
  "egobox-gp",
  "egobox-moe",
  "faer",
- "flatbuffers",
  "futures-util",
  "http",
  "levenberg-marquardt",
