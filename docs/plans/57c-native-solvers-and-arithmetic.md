@@ -109,13 +109,13 @@ existing ownership chain; no compatibility execution route is added.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| C01 | open | [Supplier identity](#c01) | Same-version delta and IDAS-only moves change the consumed build premise; controls pass |
-| C02 | open | [FMA-free closure inquiry and realization](#c02) | Complete FMA-free realization demonstrated; an unresolved inquiry outcome leaves arithmetic conformance open |
-| C03 | pending | [SUNDIALS release move](#c03) | Decision route, identity, integration-hunk rebase, formula/status migration and targeted controls complete |
-| C04 | pending | [LU mechanics and native bounds](#c04) | Three faer consumers migrated; supplier LU bound integrated without unsupported tighter limits |
-| C05 | pending | [Diffsol terminal causes](#c05) | Resource/contract causes survive solver retries and all affected integration paths |
-| C06 | pending | [Quiescent gates](#c06) | Gate consumers migrated with their health/poison/panic behavior; HiGHS inquiry disposed |
-| C07 | pending | [Retained suppliers and conditional upstream work](#c07) | Retention reasons and observable triggers reconciled; no unsolicited rebase/contact |
+| C01 | implemented; provider followthrough and joined qualification pending | [Supplier identity](#c01) | Same-version delta and IDAS-only moves change the consumed build premise; controls pass |
+| C02 | implemented; joined qualification pending | [FMA-free closure inquiry and realization](#c02) | Complete FMA-free realization demonstrated; an unresolved inquiry outcome leaves arithmetic conformance open |
+| C03 | in progress | [SUNDIALS release move](#c03) | Decision route, identity, integration-hunk rebase, formula/status migration and targeted controls complete |
+| C04 | in progress | [LU mechanics and native bounds](#c04) | Three faer consumers migrated; supplier LU bound integrated without unsupported tighter limits |
+| C05 | implemented; joined qualification pending | [Diffsol terminal causes](#c05) | Resource/contract causes survive solver retries and all affected integration paths |
+| C06 | implemented; joined qualification pending | [Quiescent gates](#c06) | Gate consumers migrated with their health/poison/panic behavior; HiGHS inquiry disposed |
+| C07 | retained dispositions; joined reconciliation pending | [Retained suppliers and conditional upstream work](#c07) | Retention reasons and observable triggers reconciled; no unsolicited rebase/contact |
 
 C01 precedes every SUNDIALS source/hunk change. C03 preserves the existing contracts and follows
 ordinary dependency/bug-fix handling; an actual contract change needs its exact decision route
@@ -393,6 +393,43 @@ sleeps. The shared helper's tests do not qualify unrelated adapter initializatio
   of them. `refine_step_onto_bounds` fix-relax would admit active-set-changing predictions that
   the present validity contract refuses; reopening requires a functional decision, not leverage
   cleanup. The historical ID remains traceable through the review and coordinator.
+
+## Execution checkpoint — 2026-10-27
+
+C01 source authentication is integrated in `148969150`; C02's complete maintained faer/traits
+source realization and native arithmetic premise follow in `74cc0636c`. The repeatable source
+and optimized-IR probe traces the consumed primitive, matmul, dense decomposition and sparse
+factor entry points, including dispatch callbacks and vtables. Targeted native arithmetic,
+fitting-rank/PSD and sparse-action controls passed. This is no performance or cross-CPU result.
+Diffsol-only KLU provider framing is being reconciled with the changed-provider campaign.
+
+C03 has the official 7.9.0 native source projected into the existing 0.6.2 wrapper, with the
+integration delta and version-derived storage/status/counter consumers rebased. The source
+receipt distinguishes the published wrapper baseline from the selected native release. Initial
+builds exposed stale CMake-cache contamination and changed public enum names; these were fixed,
+and the changed-provider controls are running. Workaround retirement is conditional on their
+actual corrected-history results.
+
+C04's narrow faer helper now serves response, arclength and Diffsol while their factors, leases,
+parallelism and scratch policies retain their existing owners. C05 retains first terminal typed
+allocation/contract causes across Diffsol recovery with an attempt-scoped transport. Focused
+forward/adjoint scratch-refusal, refresh and clean-reuse controls passed. The FERAL bound is a
+tested local fork commit `a9b950aa`; publishing a reachable immutable supplier revision and
+integrating its caller remain pending. Whole-Jacobian diagnostics retain their opaque allowance;
+a smaller complete structure-derived replacement has not been established.
+
+C06 shares acquisition for PETSc, SCIP and HiGHS/Uno. The controlled writer schedule confirms
+that compute shortage releases the native gate while WAITERS retains writer preference.
+IBEX keeps its existing loop because algorithm checkpoints, poison-as-unavailable and unwind
+restoration have a different error contract; it already drops tentative exclusion before
+capacity waits. Reopen that exception only when a shared interface preserves those semantics
+without obscuring them. No native construction, destruction or quarantine policy was moved.
+Targeted gate/HiGHS controls passed; actual provider and quarantine journeys remain for J.
+
+C07 retains the reviewed Uno, Diffsol, cone hub, strict-LRU cache and successive adapter chain.
+This execution does not trigger a solver-image rebuild, external contact or an unrelated rebase.
+The selected SUNDIALS clause alone can retire on the new numerical evidence; the other supplier
+triggers and distinct original-space acceptance obligations remain intact.
 
 ## Verification and evidence limits
 

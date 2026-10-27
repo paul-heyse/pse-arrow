@@ -270,6 +270,11 @@ still follows the decision route. The first C02 candidate uses maintained faer/t
 scalar arithmetic and generic matmul while preserving caller-selected parallelism; it is not
 accepted as complete until the consumed dispatch closure and scientific controls establish it.
 
-**Current checkpoint:** execution starts from clean `28e025c29`. IPC safety, cubic repair and
-native identity/arithmetic are in progress. Shared allocation/decomposition prerequisites are
-being integrated. No new product qualification or performance result is claimed at this checkpoint.
+**Current checkpoint:** the execution started from clean `28e025c29`. Typed IPC admission,
+shared construction/decomposition, bounded cubic/nonfused arithmetic suppliers, and the minimum
+compiler/capture supervisor are integrated in discrete commits. Result file/selection work,
+SUNDIALS controls, shared native LU/terminal handling and the compiler FBBT soundness remedy
+are being completed in their companion owners. The FERAL owner bound is tested locally;
+a reachable immutable fork publication is pending. Selected focused tests have passed, while
+J's assembled qualification and scope-end static/manual checks have not run. No performance,
+cross-CPU or whole-Plan57 completion is claimed.

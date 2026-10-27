@@ -1,6 +1,6 @@
 ---
 title: "Plan 57j: Qualification and publication"
-status: draft
+status: in-progress
 date: 2026-10-27
 adrs: []
 review_sources: [docs/library_leverage/reviews/README.md]
@@ -56,7 +56,7 @@ pass is useful evidence, not closure of an untested obligation.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| J01 | planned | Coordinator and acceptance owners | Selected scope, delivered prerequisites, conditional decisions and test routes reconciled before joined execution |
+| J01 | selected A–C preparation in progress | Coordinator and acceptance owners | Selected scope, delivered prerequisites, conditional decisions and test routes reconciled before joined execution |
 | J02 | planned | Scientific, canonical, Python and host journey owners | Actual affected public/composed routes pass original and added assertions with owned drain |
 | J03 | planned | Root integrator | Scope-end hygiene/manual/feature checks pass at the zero baseline, or exact unresolved obligations remain open |
 | J04 | planned | Coordinator and measurement owners | Benefits are either appropriately measured or explicitly left unmeasured for a stated decision reason |
@@ -90,6 +90,45 @@ implementation-conformance state are different facts.
 required fixtures/capabilities, independent expectations, implementation prerequisites and any
 explicitly unresolved gap. It is not a second mutable catalogue or prerequisite campaign.
 Use the existing command/validation assessment guidance for what each selected route establishes.
+
+### Selected A–C acceptance preparation — 2026-10-27
+
+The authorized joined campaign covers 57a–57c and only the shared process-reader/supervisor
+prerequisite with compiler and capture/review consumers from G03. Other G03 consumers and D–I
+implementation remain outside this campaign. The whole-series package states above remain
+broader than this selected acceptance slice.
+
+Result-data acceptance will exercise actual persisted/imported replay, portable/physical input,
+project/pack readback, cached-file slice custody and dense/scalar export predicate metadata on
+the canonical path. The focused malformed-message, pre-read allocation refusal, unaligned
+copy, metadata-heavy schema and escaped-owner controls are prerequisites; their pure passes
+are not those assembled journeys. The current producer correctness extension must be rebuilt
+through its force-validated native route before Python readback uses the changed implementation.
+
+Scientific acceptance combines actual cubic worker/Peng–Robinson source controls with admitted
+runtime root/reconstruction journeys, including `actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_chain_actions`,
+`actual_single_root_full_reconstruction_preserves_native_factory_and_original_assessment` and
+`automatic_authored_supplier_actions_match_complete_original_equations`. Original residual,
+branch and complete-original JVP assertions remain. The exact-rational FBBT cancellation and
+exponent controls must reach the compiler big-M consumer before B03 closes. The selected tests
+do not establish every flowsheet or algebraic-root rounding policy.
+
+Native acceptance uses changed-source IDAS/KINSOL corrected histories, retained/restarted
+sessions, fixed-pattern KLU, response/arclength/Diffsol factors, covariance/PSD controls and
+actual PETSc/SCIP gate/quarantine journeys. IDAS-only supplier identity remains a distinct
+feature obligation. The maintained FERAL/POUNCE changes must have a reachable immutable source
+before final publication; local-cache development is not remote reproducibility. The new
+SUNDIALS restart failure remains open until its corrected effective-depth behavior passes.
+Compiler/capture process controls retain their original-owner drain boundaries and do not
+claim escaped-descendant containment.
+
+J02 waits for the selected functional baseline to stabilize. J03 then runs the existing hygiene,
+governance, documentation, native-contract and complete declared feature-powerset recipes.
+The powerset check decides whether changed supplier/binding and helper feature closures compile;
+it is not a performance campaign. No optional timing, cross-CPU, parity, fleet or distribution
+campaign is selected. Benefits beyond deleted duplicate work remain unmeasured because none is
+needed to choose this accepted correction. Independent implementation/scope review uses the
+stable integrated baseline at J05, rather than repeated reviews of each slice.
 
 <a id="j02"></a>
 

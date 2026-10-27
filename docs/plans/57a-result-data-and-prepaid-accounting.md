@@ -81,12 +81,12 @@ store's indexed descriptor selection to DataFusion or change extrema/identity co
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| A01 | open | Result encoding and `pse-ids` | Typed bounded/counting sink adopted at all selected consumers; dead trial path deleted |
-| A02 | open | Columnar framing and import consumers | Complete stream admission precedes decode on replay, pack and portable/physical input routes |
-| A03 | planned | Columnar file admission and runtime readers | Cached admitted file decoder and full allocation envelope replace duplicate reads/whole-file grants |
-| A04 | planned | Runtime result selection | Column-wise indexing and one predicate/metadata owner preserve current results |
-| A05 | planned | Integration-specific bound owners | Selected result/container bounds have a single source-derived owner and all consumers move |
-| A06 | open | Coordinator with retained-size owners | Bounded hand-accounting census selects an idiom or justified derive route; no crate adoption implied |
+| A01 | implemented; joined qualification pending | Result encoding and `pse-ids` | Typed bounded/counting sink adopted at all selected consumers; dead trial path deleted |
+| A02 | implemented; joined qualification pending | Columnar framing and import consumers | Complete stream admission precedes decode on replay, pack and portable/physical input routes |
+| A03 | in progress | Columnar file admission and runtime readers | Cached admitted file decoder and full allocation envelope replace duplicate reads/whole-file grants |
+| A04 | pending | Runtime result selection | Column-wise indexing and one predicate/metadata owner preserve current results |
+| A05 | partial | Integration-specific bound owners | Selected result/container bounds have a single source-derived owner and all consumers move |
+| A06 | implemented; joined qualification pending | Coordinator with retained-size owners | Bounded hand-accounting census selects an idiom or justified derive route; no crate adoption implied |
 
 <a id="a01"></a>
 
@@ -249,6 +249,25 @@ owners, not a permanent symbol census or new lint. Prefer the existing trait/con
 and exhaustive idiom if that covers the actual residue. If a local derive is demonstrably
 worthwhile, adding a proc-macro crate first needs the ADR/formal-review route and operator
 selection; no such crate is authorized by this plan. A05 need not wait for that optional choice.
+
+## Execution checkpoint — 2026-10-27
+
+A01/A02 are integrated in `a15da43ee`: one typed sink preserves forwarded causes, and shared
+IPC message admission checks framing, verifier limits, schemas, spans and complete bodies before
+Arrow materialization. Escaping batches retain schema and working grants. The selected pure
+sink, IPC and runtime-refusal controls passed; assembled replay/import/export remains with J.
+A03 now uses the existing file boundary's admitted decoder and is under targeted verification;
+A04 selection migration follows it.
+
+A05 has moved the selected B-tree geometry to `pse-model::allocation`; structural/compiler/math
+consumers and the non-columnar construction fixes are integrated. Native and result-specific
+allowances remain with their respective allocating/integration owners, rather than a universal
+container estimator. A06 found five handwritten trait owners outside generated implementations:
+model Bytes, BoundaryDiagnostic and NumericalStrategy, admission ModelingRows, and modeling
+DeclarationReferences. They now destructure exhaustively and share conservative container
+accounting. These shapes do not justify a derive crate. No blanket hash-container implementation
+was added; foreign handles and predicted scientific storage retain their distinct policies.
+No measured speed or memory improvement is claimed.
 
 ## Dependencies, retained scope and qualification
 

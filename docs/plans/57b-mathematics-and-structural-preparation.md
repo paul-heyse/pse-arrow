@@ -99,9 +99,9 @@ from KINSOL or native-child consumers that also use `MATCHING_STACK`.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| B01 | open | [Cubic repair](#b01) | Complete bounded enumeration, candidate conversion, admission and old-path deletion; targeted controls pass |
-| B02 | pending | [Checked decomposition](#b02) | Both consumers use the checked non-spawning owner; targeted controls pass |
-| B03 | pending | [Supplier coupling and bounds](#b03) | Hold and math bound consumers integrated; residual/upstream conditions retain explicit dispositions |
+| B01 | implemented; conversion disposition and joined qualification pending | [Cubic repair](#b01) | Complete bounded enumeration, candidate conversion, admission and old-path deletion; targeted controls pass |
+| B02 | implemented; joined qualification pending | [Checked decomposition](#b02) | Both consumers use the checked non-spawning owner; targeted controls pass |
+| B03 | in progress | [Supplier coupling and bounds](#b03) | Hold and math bound consumers integrated; residual/upstream conditions retain explicit dispositions |
 
 B01 is highest consequence and can proceed independently of B02. B03's hold can precede both;
 its final contents must remove couplings actually retired by B01. Packages are outcomes, not
@@ -221,8 +221,9 @@ C++ export modeling, build-time abort retention and global root-cache premises t
 after B01. Include Numerica `Rational::to_f64` double rounding and the consumed coefficient
 conversion contract if B01 retains `map_coeff` conversion; record its correct-or-retain
 disposition rather than assuming the cubic refiner repairs every conversion caller.
-Keep the reason in the canonical pins declaration and let `docs/pins.md` expose that
-owner through the existing policy. Pin changes alone do not require an ADR. Retain
+Keep the reason in the canonical Cargo pins declaration, routed through
+[the dependency policy](../dev/dependency-policy.md#pin-reasons). The earlier `docs/pins.md`
+pointer has no current file and does not justify a second hold declaration. Pin changes alone do not require an ADR. Retain
 `CURRENT_ABORT`, `AbortBinding` and predict/admit/build/reconcile until a released per-call
 abort and deterministic pre-allocation limit can replace them without weakening semantics.
 When scoped cancellation changes elsewhere, preserve the plain atomic flag lent to callbacks.
@@ -281,6 +282,29 @@ retire the corresponding local mirror/binding; keep inexpensive post-build recon
   fork is local integration; an external upstream option follows U1's separate contact boundary.
   Preserve matching order and typed refusal. Changing the algorithm does not by itself release
   the shared stack policy in KINSOL, native child and runtime owners.
+
+## Execution checkpoint — 2026-10-27
+
+B01 is integrated in `74cc0636c`: maintained bounded supplier entry points admit work/storage
+before square-free reduction and isolation, preserve root associations and enumerate the chosen
+midpoint/endpoint candidates through certified rational conversion. An unrepresentable root
+refuses the complete result instead of silently dropping that association. Twelve selected
+cubic/conversion/collocation controls passed in both debug and release. The broader evaluator
+coefficient-conversion question retains its own pending disposition.
+
+B02 is integrated in `3b12321fd`: case incidence and implicit reconstruction use the same checked
+non-spawning matching/DM/BTF owner. Their caller-qualified stack remains charged; no second
+scheduler or matching thread was introduced. Selected structural and reconstruction controls
+passed. The actual admitted runtime preparation journey remains for J.
+
+B03 has canonical source-coupling holds in Cargo metadata and the shared allocation bounds.
+The minimum G03 compiler/capture supervisor prerequisite is integrated in `c89aa0e79`; 57g owns
+its remaining consumers. Exact-source FBBT inquiry found that rounded point constants and
+rounded exponent classification can make the compiler's big-M enclosure unsound. The selected
+remedy extends the existing supplier FBBT leaf with an interval constant, uses exact exponent
+predicates, and adds independent cancellation/amplification controls. This remains in progress;
+disabling backend bound tightening does not settle the compiler consumer. No parallel IR or
+mandatory new coefficient-rounding contract is selected.
 
 ## Verification and evidence limits
 
