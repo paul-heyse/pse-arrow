@@ -267,7 +267,7 @@ impl<R: Read + Seek> StreamReader<R> {
         // ArrayData, concrete array/Arc wrappers, decoder vectors and the ownership
         // attachment rebuild coexist. 4096 per declared node covers these bounded
         // headers/short vectors at 59.3 (no value-proportional decompression).
-        let wrappers = add(mul(fields, 4096)?, 4096)?;
+        let wrappers = crate::allocation_extent::ipc_array_working_extent(fields)?;
         frame.grant.try_grow(add(rounded(frame.body)?, add(wrappers, rounded(frame.metadata.len())?)?)?)?;
         self.cancel.checkpoint()?;
         let mut body = MutableBuffer::from_len_zeroed(frame.body);

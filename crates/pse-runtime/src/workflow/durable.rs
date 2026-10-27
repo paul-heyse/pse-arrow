@@ -3933,6 +3933,7 @@ impl Operations {
                     )?;
                     super::result_blocks::visit_source_blocks_async(
                         table.batch(),
+                        &self.pool,
                         |_, _, payload| {
                             hash.part(&payload);
                             std::future::ready(spool.push(&payload))

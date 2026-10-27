@@ -51,7 +51,7 @@ impl pse_diagnostics::TypedDiagnostic for ResultBlockError {
     }
 }
 
-fn encode_block(batch: &RecordBatch, purpose: Purpose) -> Result<Vec<u8>, ResultBlockError> {
+fn encode_block(batch: &RecordBatch, purpose: Purpose, working: &pse_columnar::MemoryReservation) -> Result<Vec<u8>, ResultBlockError> {
     if batch.num_rows() > MAX_ROWS || batch.num_columns() > MAX_FIELDS {
         return Err(ResultBlockError::Invalid("batch shape exceeds bound"));
     }
@@ -75,8 +75,8 @@ fn encode_block(batch: &RecordBatch, purpose: Purpose) -> Result<Vec<u8>, Result
     for field in batch.schema().fields() {
         writer_metadata_tables(field, &mut tables, &mut schema_bytes, purpose)?;
     }
-    // Bound writer scratch before IpcDataGenerator packs/copies the body. Sliced
-    // arrays count their visible buffers rather than their retained parent buffers.
+    // Estimate the selected representation before allocating writer scratch.
+    // Sliced arrays count their visible buffers rather than retained parents.
     let mut bytes = 0usize;
     let mut values = 0usize;
     for column in batch.columns() {
@@ -87,6 +87,11 @@ fn encode_block(batch: &RecordBatch, purpose: Purpose) -> Result<Vec<u8>, Result
     if bytes > purpose.bytes() {
         return Err(ResultBlockError::LimitReached("batch body exceeds bound"));
     }
+    // The file envelope also covers the stream writer (with a conservative
+    // unused footer allowance). Arrow 59.3 borrows body buffers; generated and
+    // shifted bitmaps, rebased offsets and output reallocation remain prepaid.
+    let extent = pse_columnar::ipc_file::writer_extent(std::slice::from_ref(batch), purpose.bytes())?;
+    working.try_grow(extent.saturating_sub(working.size())).map_err(pse_columnar::CanonError::from)?;
     let mut writer = pse_ids::BoundedSink::new(Vec::new(), purpose.bytes());
     {
         let mut stream = StreamWriter::try_new(&mut writer, batch.schema().as_ref())?;
@@ -103,8 +108,11 @@ fn can_split(error: &ResultBlockError) -> bool {
 }
 
 /// Backpressured canonical source-object ingestion with its fixed input bound.
+/// Writer allocations remain prepaid through the visitor; a visitor retaining
+/// payload bytes after returning supplies its own custody (the spool does so).
 pub(super) async fn visit_source_blocks_async<F, Fut, E>(
     batch: &RecordBatch,
+    pool: &std::sync::Arc<dyn pse_columnar::MemoryPool>,
     mut visitor: F,
 ) -> Result<(), E>
 where
@@ -112,13 +120,16 @@ where
     Fut: Future<Output = Result<(), E>>,
     E: From<ResultBlockError>,
 {
-    visit_blocks_async(batch, &mut visitor, Purpose::CanonicalSource).await
+    let working = pse_columnar::MemoryConsumer::new("canonical:source-stream-writer").register(pool);
+    working.try_grow(pse_columnar::ipc_file::writer_preparation_extent(batch.schema().as_ref(), 1).map_err(ResultBlockError::from)?).map_err(pse_columnar::CanonError::from).map_err(ResultBlockError::from)?;
+    visit_blocks_async(batch, &mut visitor, Purpose::CanonicalSource, &working).await
 }
 
 async fn visit_blocks_async<F, Fut, E>(
     batch: &RecordBatch,
     visitor: &mut F,
     purpose: Purpose,
+    working: &pse_columnar::MemoryReservation,
 ) -> Result<(), E>
 where
     F: FnMut(usize, usize, Vec<u8>) -> Fut,
@@ -126,13 +137,13 @@ where
     E: From<ResultBlockError>,
 {
     if batch.num_rows() == 0 {
-        return visitor(0, 0, encode_block(batch, purpose)?).await;
+        return visitor(0, 0, encode_block(batch, purpose, working)?).await;
     }
     let mut start = 0;
     while start < batch.num_rows() {
         let mut rows = (batch.num_rows() - start).min(MAX_ROWS);
         let payload = loop {
-            match encode_block(&batch.slice(start, rows), purpose) {
+            match encode_block(&batch.slice(start, rows), purpose, working) {
                 Ok(payload) => break payload,
                 Err(error) if rows > 1 && can_split(&error) => rows = rows.div_ceil(2),
                 Err(error) => return Err(error.into()),
@@ -239,6 +250,19 @@ mod source_stream_unit {
         assert!(!can_split(&ResultBlockError::Arrow(error)));
     }
     #[tokio::test]
+    async fn canonical_source_writer_refuses_before_visiting_without_prepaid_working_storage() {
+        let batch = RecordBatch::new_empty(Arc::new(Schema::new(vec![Field::new("value", DataType::Float64, false)])));
+        let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(0));
+        let mut visited = false;
+        let result = visit_source_blocks_async(&batch, &pool, |_, _, _| {
+            visited = true;
+            std::future::ready(Ok::<_, ResultBlockError>(()))
+        }).await;
+        assert!(matches!(result, Err(ResultBlockError::Columnar(_))));
+        assert!(!visited);
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[tokio::test]
     async fn canonical_source_encoder_retains_its_bounded_stream_contract() {
         let schema = Arc::new(Schema::new(vec![Field::new(
             "value",
@@ -253,7 +277,8 @@ mod source_stream_unit {
         )
         .unwrap();
         let mut covered = 0;
-        visit_source_blocks_async(&source, |start, rows, bytes| {
+        let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(32 * 1024 * 1024));
+        visit_source_blocks_async(&source, &pool, |start, rows, bytes| {
             std::future::ready((|| {
                 assert_eq!(start, covered);
                 assert!(bytes.len() <= pse_operations::canonical::PAYLOAD_BYTES);
@@ -269,5 +294,6 @@ mod source_stream_unit {
         .await
         .unwrap();
         assert_eq!(covered, source.num_rows());
+        assert_eq!(pool.reserved(), 0);
     }
 }

@@ -915,32 +915,16 @@ fn transform_data(
     data: ArrayData,
     transform: &mut impl FnMut(Buffer) -> Result<Buffer, CanonError>,
 ) -> Result<ArrayData, CanonError> {
-    let buffers = data
-        .buffers()
-        .iter()
-        .cloned()
-        .map(&mut *transform)
-        .collect::<Result<Vec<_>, _>>()?;
-    let children = data
-        .child_data()
-        .iter()
-        .cloned()
-        .map(|child| transform_data(child, transform))
-        .collect::<Result<Vec<_>, _>>()?;
-    let nulls = data
-        .nulls()
-        .map(|nulls| {
-            transform(nulls.buffer().clone()).map(|buffer| {
-                NullBuffer::new(BooleanBuffer::new(buffer, nulls.offset(), nulls.len()))
-            })
+    let (data_type, length, nulls, offset, buffers, children) = data.into_parts();
+    let buffers = buffers.into_iter().map(&mut *transform).collect::<Result<Vec<_>, _>>()?;
+    let children = children.into_iter().map(|child| transform_data(child, transform)).collect::<Result<Vec<_>, _>>()?;
+    let nulls = nulls.map(|nulls| {
+        transform(nulls.buffer().clone()).map(|buffer| {
+            NullBuffer::new(BooleanBuffer::new(buffer, nulls.offset(), nulls.len()))
         })
-        .transpose()?;
-    Ok(data
-        .into_builder()
-        .buffers(buffers)
-        .child_data(children)
-        .nulls(nulls)
-        .build()?)
+    }).transpose()?;
+    Ok(ArrayData::builder(data_type).len(length).offset(offset)
+        .buffers(buffers).child_data(children).nulls(nulls).build()?)
 }
 
 fn retained_allocations(

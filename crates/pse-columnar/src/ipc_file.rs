@@ -113,6 +113,90 @@ pub fn visible_size(
     }
 }
 
+/// Preparation for Arrow 59.3 file writing, including native batch/column
+/// clones, schema/FlatBuffer metadata and nested ArrayData clones. `write_array_data`
+/// keeps borrowed ancestors alive while slicing descendants; allow the full
+/// declared depth of simultaneous subtree copies before traversing actual arrays.
+/// # Errors
+/// Unsupported shape or checked allocation overflow.
+pub fn writer_preparation_extent(schema: &arrow::datatypes::Schema, batches: usize) -> Result<usize, ArrowError> {
+    fn depth(ty: &DataType) -> usize {
+        match ty {
+            DataType::List(field) | DataType::LargeList(field) | DataType::FixedSizeList(field, _) | DataType::Map(field, _) => 1 + depth(field.data_type()),
+            DataType::Struct(fields) => fields.iter().map(|field| 1 + depth(field.data_type())).max().unwrap_or(0),
+            _ => 0,
+        }
+    }
+    let overflow = || invalid("IPC writer allocation extent overflow");
+    let fields = crate::ipc_admission::expected_shape(schema)?;
+    let depth = schema.fields().iter().map(|field| depth(field.data_type())).max().unwrap_or(0);
+    let batch_headers = schema.fields().len().checked_mul(size_of::<arrow::array::ArrayRef>())
+        .and_then(|bytes| bytes.checked_add(size_of::<RecordBatch>())).and_then(|bytes| bytes.checked_mul(batches))
+        .and_then(|bytes| bytes.checked_mul(2)).ok_or_else(overflow)?;
+    let cloned_node = size_of::<ArrayData>().checked_add(3 * size_of::<arrow::buffer::Buffer>()).ok_or_else(overflow)?;
+    let nested = depth.checked_add(1).and_then(|depth| depth.checked_mul(fields)).and_then(|nodes| nodes.checked_mul(cloned_node))
+        .and_then(|bytes| bytes.checked_mul(2)).ok_or_else(overflow)?;
+    let schema_bytes = crate::schema_working_extent(schema).map_err(|error| ArrowError::ExternalError(Box::new(error)))?;
+    let arrays = crate::allocation_extent::ipc_array_working_extent(fields).map_err(|error| ArrowError::ExternalError(Box::new(error)))?;
+    schema_bytes.checked_mul(4).and_then(|bytes| bytes.checked_add(arrays)).and_then(|bytes| bytes.checked_add(nested))
+        .and_then(|bytes| bytes.checked_add(batch_headers)).ok_or_else(overflow)
+}
+
+/// Complete conservative 59.3 streaming writer envelope. Bodies are borrowed;
+/// there is no copied full-body buffer. Offset rebasing, generated/shifted
+/// validity and Boolean bit slices are retained by the current encoded-buffer
+/// inventory until its write finishes. Footer/record metadata and batch headers
+/// coexist with it. Vec output realloc may hold old (<limit) and new (<2*limit)
+/// backing simultaneously, so its peak allowance is three output limits.
+/// The caller acquires `writer_preparation_extent` before this array traversal.
+/// # Errors
+/// Empty/incompatible/unsupported inventory or checked extent overflow.
+pub fn writer_extent(batches: &[RecordBatch], byte_limit: usize) -> Result<usize, ArrowError> {
+    fn add(a: usize, b: usize) -> Result<usize, ArrowError> { a.checked_add(b).ok_or_else(|| invalid("IPC writer allocation extent overflow")) }
+    fn round(n: usize) -> Result<usize, ArrowError> { Ok(add(n, 63)? / 64 * 64) }
+    fn scratch(data: &ArrayData) -> Result<usize, ArrowError> {
+        let mut bytes = if matches!(data.data_type(), DataType::Null) { 0 } else { round(data.len().div_ceil(8))? };
+        let list = |width: usize, start: usize, end: usize, bytes| -> Result<usize, ArrowError> {
+            let offsets = data.len().checked_add(1).and_then(|length| length.checked_mul(width)).ok_or_else(|| invalid("IPC offset scratch extent"))?;
+            let length = end.checked_sub(start).ok_or_else(|| invalid("negative list offset"))?;
+            add(add(bytes, round(offsets)?)?, scratch(&data.child_data()[0].slice(start, length))?)
+        };
+        match data.data_type() {
+            DataType::List(_) | DataType::Map(_, _) => {
+                let offsets = data.buffer::<i32>(0);
+                list(4, usize::try_from(offsets[0]).map_err(|_| invalid("negative list offset"))?, usize::try_from(offsets[data.len()]).map_err(|_| invalid("negative list offset"))?, bytes)
+            }
+            DataType::LargeList(_) => {
+                let offsets = data.buffer::<i64>(0);
+                list(8, usize::try_from(offsets[0]).map_err(|_| invalid("negative list offset"))?, usize::try_from(offsets[data.len()]).map_err(|_| invalid("negative list offset"))?, bytes)
+            }
+            DataType::FixedSizeList(_, width) => {
+                let width = usize::try_from(*width).map_err(|_| invalid("negative list width"))?;
+                let start = data.offset().checked_mul(width).ok_or_else(|| invalid("list scratch extent"))?;
+                let length = data.len().checked_mul(width).ok_or_else(|| invalid("list scratch extent"))?;
+                add(bytes, scratch(&data.child_data()[0].slice(start, length))?)
+            }
+            DataType::Struct(_) => { for child in data.child_data() { bytes = add(bytes, scratch(child)?)?; } Ok(bytes) }
+            DataType::Boolean => add(bytes, round(data.len().div_ceil(8))?),
+            DataType::Utf8 | DataType::Binary => add(bytes, round(data.len().checked_add(1).and_then(|n| n.checked_mul(4)).ok_or_else(|| invalid("offset scratch extent"))?)?),
+            DataType::LargeUtf8 | DataType::LargeBinary => add(bytes, round(data.len().checked_add(1).and_then(|n| n.checked_mul(8)).ok_or_else(|| invalid("offset scratch extent"))?)?),
+            _ => Ok(bytes),
+        }
+    }
+    let first = batches.first().ok_or_else(|| invalid("empty file inventory"))?;
+    let preparation = writer_preparation_extent(first.schema().as_ref(), batches.len())?;
+    let mut maximum = 0;
+    for batch in batches {
+        if batch.schema() != first.schema() { return Err(invalid("incompatible packed schemas")); }
+        let mut bytes = 0;
+        for array in batch.columns() { bytes = add(bytes, scratch(&array.to_data())?)?; }
+        maximum = maximum.max(bytes);
+    }
+    let output = byte_limit.checked_mul(3).ok_or_else(|| invalid("IPC output capacity extent overflow"))?;
+    let blocks = batches.len().checked_mul(4 * size_of::<arrow::ipc::Block>()).ok_or_else(|| invalid("IPC footer inventory extent overflow"))?;
+    add(add(add(preparation, output)?, maximum)?, blocks)
+}
+
 /// Refuse oversized visible buffers/schema before the native writer allocates.
 /// # Errors
 /// Empty/incompatible inventory, checked extent or selected representation bound.
@@ -176,6 +260,53 @@ mod tests {
         ipc::reader::FileReader,
     };
     use std::{io::Cursor, sync::Arc};
+
+    #[test]
+    fn writer_extent_covers_rebased_offsets_shifted_bits_and_generated_validity() {
+        use arrow::array::{BooleanArray, StringArray, StructArray};
+        let strings = StringArray::from(vec![Some("parent prefix"), Some("abc"), None, Some("z")]);
+        let bits = BooleanArray::from(vec![Some(true), None, Some(false), Some(true)]);
+        let strings: Arc<dyn Array> = Arc::new(strings.slice(1, 3));
+        let bits: Arc<dyn Array> = Arc::new(bits.slice(1, 3));
+        let batch = RecordBatch::try_from_iter(vec![
+            ("text", strings),
+            ("bits", bits),
+        ]).unwrap();
+        let limit = 16384;
+        let preparation = writer_preparation_extent(batch.schema().as_ref(), 1).unwrap();
+        // Both arrays need validity; text needs a rebased offset buffer and
+        // Boolean values start at a non-byte boundary. MutableBuffer rounds
+        // each of these four independent scratch allocations to 64 bytes.
+        assert_eq!(writer_extent(std::slice::from_ref(&batch), limit).unwrap(),
+            preparation + 3 * limit + 4 * 64 + 4 * size_of::<arrow::ipc::Block>());
+        let encoded = encode(std::slice::from_ref(&batch), limit).unwrap();
+        assert_eq!(FileReader::try_new(Cursor::new(encoded), None).unwrap().next().unwrap().unwrap(), batch);
+
+        // This has no input buffers, but the writer creates an all-valid
+        // bitmap. A bound based only on input buffer capacity would miss it.
+        let empty_struct: Arc<dyn Array> = Arc::new(StructArray::new_empty_fields(8192, None));
+        let batch = RecordBatch::try_from_iter(vec![("struct", empty_struct)]).unwrap();
+        let preparation = writer_preparation_extent(batch.schema().as_ref(), 1).unwrap();
+        assert_eq!(writer_extent(std::slice::from_ref(&batch), limit).unwrap(),
+            preparation + 3 * limit + 1024 + 4 * size_of::<arrow::ipc::Block>());
+        assert!(encode(&[batch], limit).is_ok());
+    }
+
+    #[test]
+    fn writer_extent_borrows_values_and_checks_capacity_overflow() {
+        let schema = Arc::new(Schema::new(vec![Field::new("value", DataType::Float64, false)]));
+        let values: Arc<dyn Array> = Arc::new(Float64Array::from(vec![1.0; 65536]));
+        let large = RecordBatch::try_new(schema, vec![values]).unwrap();
+        let small = large.slice(3, 8192);
+        let limit = 1024 * 1024;
+        let difference = writer_extent(std::slice::from_ref(&large), limit).unwrap()
+            - writer_extent(std::slice::from_ref(&small), limit).unwrap();
+        assert_eq!(difference, (65536 - 8192) / 8,
+            "value bodies are borrowed; only generated validity grows");
+        assert!(writer_extent(std::slice::from_ref(&small), usize::MAX).is_err());
+        assert!(writer_preparation_extent(small.schema().as_ref(), usize::MAX).is_err());
+        assert!(writer_extent(&[], limit).is_err());
+    }
 
     #[test]
     fn writer_preflight_refuses_before_native_allocation_and_counts_selected_nested_slice() {
@@ -402,7 +533,7 @@ impl<R: std::io::Read + std::io::Seek> AdmittedFile<R> {
         // Misalignment copies total <= body span + one 64-byte rounding per
         // possible buffer (at most three per node); metadata/node references fit
         // this same per-node header envelope. Compression is rejected below.
-        let working = add(add(mul(self.fields, 4096 + 3 * 64)?, 4096)?, rounded(body)?)?;
+        let working = add(add(crate::allocation_extent::ipc_array_working_extent(self.fields)?, mul(self.fields, 3 * 64)?)?, rounded(body)?)?;
         let grant = reserve(&self.pool, add(rounded(input)?, working)?)?;
         cancel.checkpoint()?;
         let mut bytes = arrow::buffer::MutableBuffer::from_len_zeroed(input);

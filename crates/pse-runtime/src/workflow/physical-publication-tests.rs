@@ -33,9 +33,9 @@ fn reader(
     }
     spool.finish().unwrap()
 }
-async fn encoded(table: &pse_relations::columnar::FieldCheckedBatch) -> Vec<Vec<u8>> {
+async fn encoded(table: &pse_relations::columnar::FieldCheckedBatch, pool: &Arc<dyn MemoryPool>) -> Vec<Vec<u8>> {
     let mut payloads = Vec::new();
-    super::super::result_blocks::visit_source_blocks_async(table.batch(), |_, _, payload| {
+    super::super::result_blocks::visit_source_blocks_async(table.batch(), pool, |_, _, payload| {
         payloads.push(payload);
         std::future::ready(Ok::<_, WorkflowError>(()))
     })
@@ -171,7 +171,7 @@ async fn canonical_physical_grouped_publication_preserves_exact_replay_and_relat
         .filter(|(_, table)| table.batch().num_rows() > 0)
         .min_by_key(|(_, table)| table.batch().get_array_memory_size() / table.batch().num_rows())
         .unwrap();
-    let old_identity = identity(relation, &encoded(table).await);
+    let old_identity = identity(relation, &encoded(table, &runtime.shared.pool()).await);
     let seed = table.slice(0, 1).unwrap();
     // Repeated admitted rows exercise transport and exact retained bytes. They
     // are deliberately not compiled or claimed as a valid scientific context.
@@ -182,7 +182,7 @@ async fn canonical_physical_grouped_publication_preserves_exact_replay_and_relat
             &pse_columnar::CancellationToken::new(),
         )
         .unwrap();
-    let payloads = encoded(&tall).await;
+    let payloads = encoded(&tall, &runtime.shared.pool()).await;
     assert!((2..=4).contains(&payloads.len()));
     assert!(
         payloads.iter().map(Vec::len).sum::<usize>()
@@ -270,7 +270,7 @@ async fn canonical_physical_grouped_publication_preserves_exact_replay_and_relat
             // Five known one-row original IPC blocks isolate the count boundary for
             // interruption/replay. The large fitting relation above exercises real
             // payload publication; this fault fixture makes no throughput claim.
-            let one = encoded(&seed).await;
+            let one = encoded(&seed, &runtime.shared.pool()).await;
             assert_eq!(one.len(), 1);
             let many = vec![one.into_iter().next().unwrap(); 5];
             let content = identity(relation, &many);
