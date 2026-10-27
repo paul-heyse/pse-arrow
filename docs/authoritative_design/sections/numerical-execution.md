@@ -75,9 +75,14 @@ still be singular at a point; that is a numerical observation (§15.4, §15.5).
 - **Coupling.** Blocks record conservative auxiliary coupling. Coupling and conditional
   partitions do not establish independent eliminability or independent subproblems.
 
-The recursive matching search is qualified to 100,000 rows on a dedicated 32 MiB
-thread stack; larger inputs are refused, not truncated. Graph admission checks node and
-edge limits before allocation. Cancellation is checked between library stages.
+Case incidence and implicit reconstruction share one checked, non-spawning dense
+matching/DM/BTF adapter. The caller supplies admitted graph storage and a qualified 32 MiB
+thread stack; case incidence retains its dedicated matching thread, while mathematical
+preparation uses its already admitted worker stack. No second scheduler or matching thread is
+created inside the adapter. The recursive search remains qualified to 100,000 rows; larger
+inputs refuse rather than truncate. Graph admission checks node/edge limits before allocation,
+and cancellation is checked between library stages. Semantic ordering and interpretation of
+returned blocks stay with the caller.
 
 ### 15.4 Numerical checks that require values
 
@@ -516,6 +521,14 @@ identity without an edit to a hashing function. The solver profile identity
 control, the linked native build (library versions, the solver-image manifest and the
 numerical contract, `pse.native.build.v1`; [§18.3](#section-18-3)) and the selection by its
 registry spelling.
+
+The existing native-build frame includes authenticated consumed supplier source/delta and
+arithmetic premises, plus required native version/compiler/provider configuration. IDAS carries
+its SUNDIALS premise even without KINSOL; Diffsol carries its selected KLU provider. Missing
+required facts refuse. Bundled source receipts are independently reconstructed from pinned
+archives and checked at build construction, with Cargo invalidation; a loaded artifact does
+not scan serving-time source. External selection uses the actually selected provider facts,
+not an unused bundled delta. See the [supplier maintenance record](../../../vendor/native-supplier-notes.md).
 
 The lineage request identity of a completed algebraic step (`pse.completed.request.v2`,
 published in `runtime.run_lineage`) frames the revision, instance, preparation, selected
@@ -1020,6 +1033,18 @@ for all callback adapters:
   leave partial buffers or return the previous trial's values;
 - only terminal failures latch; later successful trials preserve native success;
 - per-demand call counts and wall time, including rejected trials, become metrics.
+
+Sparse response actions, arclength and Diffsol share crate-private faer symbolic, scratch,
+factor/error and finite-solve mechanics. Each caller retains factor lifetime, leases,
+parallelism, allowance and original backward-error checks. Symbolic singularity is a contract
+breach only with an authenticated complete matching witness; otherwise it remains numerical.
+The maintained faer f64 realization disables fused dispatch throughout the consumed closure
+without replacing the library algorithms or overriding admitted parallelism; its arithmetic
+source enters the native build premise. This does not establish cross-CPU measurements.
+Diffsol's infallible linearization defers failure through its existing solver interface while
+an attempt-local owner retains the first typed memory/contract cause. Owned cancellation and
+deadline checks precede that latch. Recoverable singular trials retain library step reduction;
+new attempts do not inherit an old terminal cause.
 
 **Regime crossings.** A nested regime selection binds its derivatives to the regime chosen
 at the first derivative request. A later trial that selects another regime is refused as
@@ -1624,11 +1649,23 @@ next-stage construction before active acquisition; tentative failures release te
 owners before waiting under the original clock. Idle sessions retain resident memory and
 joined teardown, but no active permits solely to retain storage. Independent child work
 starts only after genuine parent quiescence and active release; synchronous nested work
-borrows its allowance. A quiescent IBEX waiter pairs library-guard acquisition with immediate
-compute try-resume and drops the guard before any blocking retry. Active siblings prevent
-whole-team release. Drained compatible empty scratch may transfer exclusively to a charged
+borrows its allowance. PETSc, SCIP and HiGHS/Uno share a quiescent acquisition loop: register
+before inspection, tentatively acquire exclusion, try immediate compute reacquisition, then
+release/notify before any blocking capacity wait. Adapter poison, health, nesting and native
+teardown policies remain local. HiGHS/Uno writer preference spans these retries. IBEX retains
+its separate checkpoint, poison-as-unavailable and unwind-restoration loop with the same
+release-before-capacity rule. Active siblings prevent whole-team release. Drained compatible empty scratch may transfer exclusively to a charged
 lane owner after numerical state, witnesses, failures and prior execution controls are reset;
 receivers get fresh controls. Unknown foreign/provider memory remains conservatively guarded.
+
+Compiler and capture/review launchers share checked process facts and one process-group
+supervisor. It authenticates the observer and spawning-thread namespace premises, binds a
+fresh child pidfd to unreaped child ownership, and keeps the leader's WNOWAIT reservation
+until group drain. Descriptor-proven exited members need no live namespace lookup; live
+members retain coherent PID/start/group/namespace checks. Compiler Park and capture Refuse
+policies keep their distinct original-clock and unknown-drain custody. A child exit descriptor
+alone does not establish group drain. Escaped descendants remain outside this process-group
+containment claim; the other host-reader migrations retain their existing owners.
 
 > Proposed amendment: [ADR-0154](../../adr/0154-declared-numerical-strategy.md),
 > [ADR-0158](../../adr/0158-observed-pounce-execution.md), Plan 25n N2/N6.
@@ -1922,6 +1959,16 @@ consistent initial conditions and use fresh current parameters, controls and exe
 reinitialization still performs first setup/factorization; no KLU symbolic or numerical factor
 retention follows. Errors or uncertain reset discard storage while its current callback box
 remains alive through all native returns and teardown. Unsupported profiles use fresh sessions.
+
+The bundled SUNDIALS integration retains checkpoint, original-clock work, fixed-pattern KLU and
+observation hooks through its selected release. Upstream quadrature-history correction replaces
+the former local post-IC workaround. Version-derived Rust storage formulas use actual complete
+native layouts; workspace reporters are post-construction reconciliation, not first-allocation
+permission. Anderson setup uses an effective per-attempt depth while retaining configured
+policy and original storage admission. Cleanup uses allocated array depth and destroys every
+successful clone on partial construction failure. AA payloads omitted from workspace reporters
+are covered explicitly; the maintained source record owns these release-coupled integration
+hunks and their retirement controls.
 
 > Decision: [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — Clarabel's
 > SDP profile runs on the image's single oneMKL BLAS/LAPACK provider (Plan 22 N1,
@@ -2572,8 +2619,12 @@ the original Auto route or explicitly refuse a required transform. Structural BT
 establish nonlinear eliminability, uniqueness or a regular condensed sheet.
 
 Root BlockFactor retains its per-block/global RHS and apply candidates; setup failure
-invalidates all prior numeric factors. Its retained cubic allowance is conservative, not a
-measured native fill bound. KLU and BlockFactor/GMRES remain explicit qualified alternatives;
+invalidates all prior numeric factors. Its retained Markowitz allowance consumes the supplier's
+checked conservative owner bound for fill, historical memberships, heap growth and temporary
+overlap; local CSC/projection capacities remain caller-owned. This is not measured native fill.
+Whole-Jacobian conditioning keeps its existing opaque allowance until a complete replacement
+preserves supported diagnostic sizes. Structural fill counts alone do not establish faer/KLU
+padding, realloc overlap or complete native-factor storage. KLU and BlockFactor/GMRES remain explicit qualified alternatives;
 small coupling/refresh controls select no universal default. Gilbert–Peierls may reuse its
 actual symbolic phase; value-dependent Markowitz gains no fictional symbolic reuse. PETSc
 ILU/Schwarz remain under their native split/one-thread/gate restrictions. No coupled index-1

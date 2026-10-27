@@ -748,13 +748,18 @@ ordinals. Only exact acknowledged final ordinals complete a set. Empty declarati
 samples, horizon prefixes and explicit demanded ACK consumers remain flush barriers. Queue
 pressure can flush early; it cannot renew clocks, imply ACKs or weaken closed coverage.
 
-**Retained scientific rows.** Registry-admitted batches are retained once as independent,
-uncompressed, self-contained Arrow IPC streams, each bounded to 512 KiB including schema,
-one record batch and an explicit end marker. Bounded framing, schema, count and layout
-preflight checks advertised lengths before decoder allocation. Compression and shared
-dictionary state refuse. Canonical physical-source IPC objects serve a different input
-purpose under the existing 3 MiB canonical object bound; their allowance does not enlarge
-result blocks.
+**Retained scientific rows.** Registry-admitted batches retain their original row/field
+coordinates in complete uncompressed Arrow IPC files through the inline/sealed placement and
+encoded-file bounds in [§20.6](identity-and-publication.md#section-20-6). Compatible batches may
+share one file. One admitted file decoder retains the checked footer/schema/block inventory;
+it reads a selected block once after reserving its rounded input, array/control wrappers and
+permitted alignment copies. Escaping arrays retain input, schema and working owners through
+their last slice. Independent IPC streams used by import/export receive complete bounded
+message admission before Arrow materialization. Format safety is separate from the receiving
+consumer's registry meaning and original scientific-lineage checks, including the receiving
+format's declared export metadata. Compression and shared dictionary state refuse at these
+selected boundaries. Canonical physical-source IPC objects retain their distinct existing
+3 MiB object bound; it does not enlarge result placement limits.
 
 Derived scalar cells and dense output descriptors reference these original batches and
 row/field coordinates. They are selection indexes, not another scientific representation.
@@ -770,6 +775,15 @@ this stored order; original sample/time coordinates and every scientific column 
 unchanged. Output selection uses the declared owner, field and partition; dense coordinate
 predicates use time, while scalar predicates use the finite projection or explicit
 missingness. Neither selects another result's values.
+
+Scalar/dense predicate validation, native lowering and canonical export metadata have one
+execution owner. Comparison-only zero normalization leaves stored bits unchanged. Dense
+indexing partitions original symbol/time columns and reuses accepted-prefix ranges; scalar
+selection slices the requested coordinate window before row-proportional masks. Predicate,
+bitmap, index and slice/control work is prepaid separately from shared input backing.
+Selected bounded IPC writers prepay schema/array preparation, sliced offset and bitmap scratch,
+generated validity, footer populations and output-capacity growth. Streaming bodies do not
+justify a copied-body multiplier; retained output is reconciled by its actual capacity.
 
 A read admits one terminal attempt and its closed manifest, then resolves only that
 manifest's exact sets and contiguous batch ordinals. Identity, digest, schema, count and

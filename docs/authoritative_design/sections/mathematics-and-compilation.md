@@ -250,6 +250,11 @@ for reuse.
 
 Factorable transport retains original residuals, selection restrictions and graph fidelity. Exact means equivalent to the selected graph on its admitted domain; residual-only operational selection is Relaxed. An exact-only request refuses a relaxation. Symbolica Rational remains arbitrary precision through folding and export; binary64 conversion is an explicit backend boundary. Canonical normalized numerator/positive denominator and selection dependencies enter new identity frames; historical frames are not reinterpreted.
 
+The general numerical evaluator retains its current supplier rational-to-binary64 conversion;
+that boundary has no general nearest-even guarantee. Certified consumers use separately
+admitted conversion, rather than assuming the evaluator's `map_coeff` is correctly rounded.
+The canonical supplier hold owns the remaining version-coupling and revisit conditions.
+
 > Decision: [ADR-0105](../../adr/0105-scip-factorable-backend.md) — `FactorableProgram`,
 > the library-neutral factorable projection with per-row fidelity, from which presolve
 > derives its tapes and obligation admission (Plan 22 G2, implemented; its SCIP binding and
@@ -396,9 +401,12 @@ output inside a nonlinear term is refused; no production provider declares an en
 **Presolve facts.** `CasePlan::presolve_facts` derives FBBT tapes and obligation admission
 from this projection, under the default request (no implicit definitions or envelopes;
 auxiliary branches). Affine proofs and the objective degree still use the optional
-flattened expressions. An affine row propagates from its affine proof, not from a separately
-built tape, so its constants agree exactly. These facts support interval source-infeasibility
-analysis independently of executable NLP transformations. The pinned binding's untracked
+flattened expressions. Affine row proofs retain their existing coefficient owner. FBBT
+constants are outward intervals containing both each exact authored rational and its current
+numerical projection; exponent classification uses exact integer/half facts, not a rounded
+float. Conversion scratch is prepaid as one population high-water extent. These facts support
+interval source-infeasibility analysis and compiler big-M enclosures independently of executable
+NLP transformations. The pinned binding's untracked
 bound tightening is not admitted to native execution; supported affine elimination retains
 its distinct source and multiplier map ([§18.5](numerical-execution.md#section-18-5)). A
 large factorable body therefore keeps a complete tape, a
@@ -1077,6 +1085,16 @@ Preparation owns the effective thread policy
 ([ADR-0093](../../adr/0093-qualified-native-strategies.md)). Foreign Symbolica/GMP storage
 uses a declared conservative allowance; neither reservations nor allowances claim to bound
 or measure process RSS.
+
+The cubic capability lifts realized finite coefficient bits exactly, then uses bounded
+supplier square-free reduction and real-root isolation under pre-admitted work/storage.
+Each exact-root association keeps its bracket. Directed MPFR conversion supplies certified
+rational candidate images; the selected midpoint image precedes endpoint images, with at
+most one accepted representative per association. Equal float bits never merge distinct
+associations. Missing finite representatives refuse the complete result rather than omit a
+root. Original residual, eligibility and branch checks remain authoritative; this is not a
+correct-rounding promise for algebraic roots. The changed realization has its own identity;
+collocation retains its separate unbounded isolation route and identity.
 
 **Source owners:** `crates/pse-math/src/{typed,jets,library,assembly,binding}.rs`,
 `crates/pse-math/src/library/admission.rs`, `crates/pse-compiler/src/workspace.rs`,
