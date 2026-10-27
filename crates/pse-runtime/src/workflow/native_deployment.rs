@@ -655,8 +655,7 @@ mod native_selection_unit {
         let mut at_limit = serde_json::to_vec(&configuration).unwrap();
         at_limit.resize(256 * 1024, b' ');
         write(&path, &at_limit);
-        let at_limit_selection =
-            NativeExecutionSelection::from_state(root.path(), None).unwrap();
+        let at_limit_selection = NativeExecutionSelection::from_state(root.path(), None).unwrap();
         at_limit_selection.require_configuration_current().unwrap();
         assert!(selected.require_configuration_current().is_err());
         at_limit.push(b' ');

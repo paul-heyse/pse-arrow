@@ -266,7 +266,9 @@ fn verify_placement_hierarchy(
                 if period == 0 || quota / period < cpu_threads as u64 {
                     return Err("ancestor CPU quota cannot admit sixteen case lanes".into());
                 }
-                selected_cpu_quota |= period.checked_mul(cpu_threads as u64) == Some(quota);
+                // Host admission owns the exact logical-CPU envelope; execution
+                // width counts scientific lanes and can be narrower than it.
+                selected_cpu_quota = true;
             }
         }
         group = group
@@ -662,8 +664,19 @@ mod tests {
     }
 
     #[test]
-    fn managed_placement_requires_an_observed_exact_finite_ancestor_cpu_quota() {
-        for quota in ["max 100000\n", "3200000 100000\n"] {
+    fn managed_placement_admits_wider_logical_cpu_envelope_than_scientific_width() {
+        let (root, parent, leaf) = placement_fixture();
+        std::fs::write(parent.join("cpu.max"), "3200000 100000\n").unwrap();
+        assert_eq!(
+            verify_placement_hierarchy(root.path(), &leaf, 140_usize << 30, 16),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn managed_placement_requires_an_observed_finite_ancestor_cpu_quota() {
+        {
+            let quota = "max 100000\n";
             let (root, parent, leaf) = placement_fixture();
             std::fs::write(parent.join("cpu.max"), quota).unwrap();
             let error =
