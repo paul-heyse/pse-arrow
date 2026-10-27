@@ -79,7 +79,7 @@ path = "../suitesparse-sys"
 optional = true
 
 [build-dependencies.bindgen]
-version = "0.68"
+version = "=0.73.2"
 
 [build-dependencies.cmake]
 version = "0.1.50"

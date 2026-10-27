@@ -71,7 +71,7 @@ impl LocalError {
         }
         producer.activate_record_family(FAMILY);
         // Two N-entry native vectors plus their opaque allocation headers. The
-        // consumed 7.1.1 vector/ops/content payloads occupy 992 bytes on this ABI;
+        // consumed 7.9.0 vector/ops/content payloads occupy 1008 bytes on this ABI;
         // 4096 admits those headers, a private context/logger/handler and headroom.
         // No Rust vector or second full copy is retained. Ranking uses stack storage.
         let scratch = n
@@ -263,7 +263,7 @@ impl LocalError {
         let mut contributors = [None; CONTRIBUTORS];
         let reason = reason.or_else(|| {
             let scratch = self.scratch.as_ref()?;
-            // SUNDIALS 7.1.1 idas_io.c copies ida_ewt/ida_ee without checking
+            // SUNDIALS 7.9.0 idas_io.c copies ida_ewt/ida_ee without checking
             // stage validity. Only the actual return/step/freshness guards above
             // authorize calling them; getter success alone never does.
             // SAFETY: guards establish a fresh nonnegative return; vectors are

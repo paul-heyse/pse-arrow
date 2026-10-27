@@ -3,8 +3,11 @@
  *                David J. Gardner @ LLNL
  * ---------------------------------------------------------------------------
  * SUNDIALS Copyright Start
- * Copyright (c) 2002-2024, Lawrence Livermore National Security
+ * Copyright (c) 2025-2026, Lawrence Livermore National Security,
+ * University of Maryland Baltimore County, and the SUNDIALS contributors.
+ * Copyright (c) 2013-2025, Lawrence Livermore National Security
  * and Southern Methodist University.
+ * Copyright (c) 2002-2013, Lawrence Livermore National Security.
  * All rights reserved.
  *
  * See the top-level LICENSE and NOTICE files for details.
@@ -140,6 +143,7 @@ N_Vector N_VNewEmpty_Raja(SUNContext sunctx)
   v->ops->nvgetarraypointer       = N_VGetHostArrayPointer_Raja;
   v->ops->nvgetdevicearraypointer = N_VGetDeviceArrayPointer_Raja;
   v->ops->nvsetarraypointer       = N_VSetHostArrayPointer_Raja;
+  v->ops->nvsetdevicearraypointer = N_VSetDeviceArrayPointer_Raja;
 
   /* standard vector operations */
   v->ops->nvlinearsum    = N_VLinearSum_Raja;
@@ -616,15 +620,8 @@ void N_VPrintFile_Raja(N_Vector X, FILE* outfile)
 
   for (i = 0; i < NVEC_RAJA_CONTENT(X)->length; i++)
   {
-#if defined(SUNDIALS_EXTENDED_PRECISION)
-    fprintf(outfile, "%35.32Lg\n", NVEC_RAJA_HDATAp(X)[i]);
-#elif defined(SUNDIALS_DOUBLE_PRECISION)
-    fprintf(outfile, "%19.16g\n", NVEC_RAJA_HDATAp(X)[i]);
-#else
-    fprintf(outfile, "%11.8g\n", NVEC_RAJA_HDATAp(X)[i]);
-#endif
+    fprintf(outfile, SUN_FORMAT_E "\n", NVEC_RAJA_HDATAp(X)[i]);
   }
-  fprintf(outfile, "\n");
 
   return;
 }
@@ -1861,7 +1858,6 @@ static int FusedBuffer_CopyPtrArray1D(N_Vector v, N_Vector* X, int nvec,
   {
     SUNDIALS_DEBUG_PRINT("ERROR in FusedBuffer_CopyPtrArray1D: Buffer offset "
                          "is exceedes the buffer size\n");
-    return SUN_ERR_GENERIC;
     return SUN_ERR_GENERIC;
   }
 

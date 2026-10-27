@@ -19,7 +19,7 @@ exclude = ["**/*.pdf", "vendor/benchmarks", "vendor/scripts", "vendor/doc",
   "vendor/docker", "vendor/examples", "vendor/test"]
 
 [build-dependencies]
-bindgen = "0.68"
+bindgen = "=0.73.2"
 cmake = "0.1.50"
 pkg-config = { version = "0.3.30", optional = true }
 

@@ -1,0 +1,30 @@
+{
+  "local_integration_files": [
+    "include/idas/idas.h",
+    "include/sunlinsol/sunlinsol_klu.h",
+    "src/idas/idaa.c",
+    "src/idas/idaa_io.c",
+    "src/idas/idas_impl.h",
+    "src/idas/idas_io.c",
+    "src/idas/idas.c",
+    "src/kinsol/kinsol_aa.c",
+    "src/sundials/sundials_nvector.c",
+    "src/sunlinsol/klu/sunlinsol_klu.c"
+  ],
+  "projection": [
+    "CHANGELOG.md",
+    "CITATIONS.md",
+    "CMakeLists.txt",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "cmake",
+    "external",
+    "include",
+    "src"
+  ],
+  "sha256": "13f898a27b48fe3449483f9e438a800ed545abf93bc2e2ceec2d1e00ae8db5ef",
+  "source": "https://github.com/llnl/sundials/releases/download/v7.9.0/sundials-7.9.0.tar.gz",
+  "version": "7.9.0"
+}

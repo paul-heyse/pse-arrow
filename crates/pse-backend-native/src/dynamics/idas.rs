@@ -36,7 +36,7 @@ mod policy_inquiry;
 mod workspace_tests;
 
 type Jacobian = pse_math::SharedAllocation<faer::sparse::SparseColMat<usize, f64>>;
-/// Exact fields exposed together by SUNDIALS 7.1.1 IDAGetIntegratorStats.
+/// Exact fields exposed together by SUNDIALS 7.9.0 IDAGetIntegratorStats.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct IntegratorStatistics {
     steps: c_long,
@@ -484,6 +484,7 @@ pub(crate) fn termination(flag: i32) -> NativeTermination {
         ffi::IDA_MEM_NULL => ("IDA_MEM_NULL", T::Invalid),
         ffi::IDA_MEM_FAIL => ("IDA_MEM_FAIL", T::ResourceExhausted),
         ffi::IDA_ILL_INPUT => ("IDA_ILL_INPUT", T::Invalid),
+        ffi::IDA_TOO_CLOSE => ("IDA_TOO_CLOSE", T::Invalid),
         ffi::IDA_NO_MALLOC => ("IDA_NO_MALLOC", T::Invalid),
         ffi::IDA_BAD_EWT => ("IDA_BAD_EWT", T::Numerical),
         ffi::IDA_BAD_K => ("IDA_BAD_K", T::Invalid),
@@ -520,6 +521,13 @@ pub(crate) fn termination(flag: i32) -> NativeTermination {
         category,
         assurance: Assurance::None,
     }
+}
+
+#[test]
+fn sundials_790_too_close_preserves_native_status() {
+    let value = termination(ffi::IDA_TOO_CLOSE);
+    assert_eq!(value.name, "IDA_TOO_CLOSE");
+    assert_eq!(value.category, crate::solve::Termination::Invalid);
 }
 /// Setup, option and retrieval calls return module-specific flags (IDA, IDALS or
 /// SUNErrCode); a nonzero flag there is an adapter invariant failure.
@@ -2454,11 +2462,11 @@ impl<'a> Session<'a> {
                     _ => Preconditioner::None,
                 };
                 let side = if matches!(linear, IdasLinear::SpgmrBbd { .. }) {
-                    ffi::SUN_PREC_LEFT as i32
+                    ffi::SUNPrecType_SUN_PREC_LEFT as i32
                 } else {
                     (match preconditioner {
-                        Preconditioner::None => ffi::SUN_PREC_NONE,
-                        Preconditioner::Jacobi => ffi::SUN_PREC_LEFT,
+                        Preconditioner::None => ffi::SUNPrecType_SUN_PREC_NONE,
+                        Preconditioner::Jacobi => ffi::SUNPrecType_SUN_PREC_LEFT,
                         Preconditioner::BlockFactor => {
                             return Err(ProblemError::Unsupported(
                                 "IDAS block factor preconditioning is not supplied".into(),
@@ -3122,7 +3130,9 @@ impl<'a> Session<'a> {
         observed_count!(stats.map(|s| s.steps), "steps");
         observed_count!(stats.map(|s| s.residuals), "residual_evaluations");
         count!(IDAGetNumNonlinSolvIters => "nonlinear_iterations",
-            IDAGetNumNonlinSolvConvFails => "nonlinear_convergence_failures");
+            IDAGetNumNonlinSolvConvFails => "nonlinear_convergence_failures",
+            IDAGetNumConstraintFails => "constraint_failures",
+            IDAGetNumConstraintCorrections => "constraint_corrections");
         observed_count!(stats.map(|s| s.error_test_failures), "error_test_failures");
         count!(IDAGetNumBacktrackOps => "initialization_backtracks",
             IDAGetNumGEvals => "root_evaluations",
@@ -4525,7 +4535,7 @@ pub(super) fn integrate_with_storage(
     );
     Ok(report)
 }
-/// Additional bound from pinned IDAS 7.1.1: 10 history/work vectors per
+/// Additional bound from pinned IDAS 7.9.0: 10 history/work vectors per
 /// selected direction, one copied tolerance plus session tolerance/output vectors;
 /// the shared saved RHS; host offsets/result/chain/product scratch and pointer arrays.
 /// This is accounting for selected storage, not a measured RSS claim.

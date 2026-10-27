@@ -31,6 +31,8 @@ mod provider_link {
 }
 #[cfg(any(feature = "kinsol", feature = "idas"))]
 mod sundials_profile;
+#[cfg(all(test, any(feature = "kinsol", feature = "idas")))]
+mod sundials_release_tests;
 #[cfg(test)]
 #[path = "../build-source.rs"]
 mod build_source;

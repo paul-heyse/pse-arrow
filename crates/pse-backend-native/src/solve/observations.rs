@@ -189,7 +189,7 @@ pub enum NativeCounters {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum NativeStepObservation {
-    /// IDAS 7.1.1 optional outputs from the live forward session.
+    /// IDAS 7.9.0 optional outputs from the live forward session.
     Idas {
         /// Order used by the last accepted internal step; absent before any step.
         last_order: Option<u32>,

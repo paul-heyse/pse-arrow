@@ -7,8 +7,11 @@
  *                   @ LLNL
  * -----------------------------------------------------------------
  * SUNDIALS Copyright Start
- * Copyright (c) 2002-2024, Lawrence Livermore National Security
+ * Copyright (c) 2025-2026, Lawrence Livermore National Security,
+ * University of Maryland Baltimore County, and the SUNDIALS contributors.
+ * Copyright (c) 2013-2025, Lawrence Livermore National Security
  * and Southern Methodist University.
+ * Copyright (c) 2002-2013, Lawrence Livermore National Security.
  * All rights reserved.
  *
  * See the top-level LICENSE and NOTICE files for details.
@@ -194,6 +197,7 @@ N_Vector N_VNew_OpenMPDEV(sunindextype length)
       N_VDestroy(v);
       return (NULL);
     }
+    NV_DATA_HOST_OMPDEV(v) = data;
 
     /* Allocate memory on device */
     dev      = omp_get_default_device();
@@ -203,10 +207,7 @@ N_Vector N_VNew_OpenMPDEV(sunindextype length)
       N_VDestroy(v);
       return (NULL);
     }
-
-    /* Attach data */
-    NV_DATA_HOST_OMPDEV(v) = data;
-    NV_DATA_DEV_OMPDEV(v)  = dev_data;
+    NV_DATA_DEV_OMPDEV(v) = dev_data;
   }
 
   return (v);
@@ -284,17 +285,7 @@ void N_VPrintFile_OpenMPDEV(N_Vector x, FILE* outfile)
   N  = NV_LENGTH_OMPDEV(x);
   xd = NV_DATA_HOST_OMPDEV(x);
 
-  for (i = 0; i < N; i++)
-  {
-#if defined(SUNDIALS_EXTENDED_PRECISION)
-    fprintf(outfile, "%11.8Lg\n", xd[i]);
-#elif defined(SUNDIALS_DOUBLE_PRECISION)
-    fprintf(outfile, "%11.8g\n", xd[i]);
-#else
-    fprintf(outfile, "%11.8g\n", xd[i]);
-#endif
-  }
-  fprintf(outfile, "\n");
+  for (i = 0; i < N; i++) { fprintf(outfile, SUN_FORMAT_E "\n", xd[i]); }
 
   return;
 }
@@ -436,6 +427,8 @@ N_Vector N_VClone_OpenMPDEV(N_Vector w)
       return (NULL);
     }
 
+    NV_DATA_HOST_OMPDEV(v) = data;
+
     /* Allocate memory on device */
     dev      = omp_get_default_device();
     dev_data = omp_target_alloc(length * sizeof(sunrealtype), dev);
@@ -446,8 +439,7 @@ N_Vector N_VClone_OpenMPDEV(N_Vector w)
     }
 
     /* Attach data */
-    NV_DATA_HOST_OMPDEV(v) = data;
-    NV_DATA_DEV_OMPDEV(v)  = dev_data;
+    NV_DATA_DEV_OMPDEV(v) = dev_data;
   }
 
   return (v);
@@ -942,7 +934,7 @@ sunrealtype N_VWSqrSumMaskLocal_OpenMPDEV(N_Vector x, N_Vector w, N_Vector id)
 }
 
 /* ----------------------------------------------------------------------------
- * Finds the minimun component of a vector
+ * Finds the minimum component of a vector
  */
 
 sunrealtype N_VMin_OpenMPDEV(N_Vector x)
@@ -2584,7 +2576,7 @@ static int VScaleDiffVectorArray_OpenMPDEV(int nvec, sunrealtype c, N_Vector* X,
   /* get default device identifier */
   dev = omp_get_default_device();
 
-  /* Allocate and store dev ointer to copy to device */
+  /* Allocate and store dev pointer to copy to device */
   xd_dev_ptrs = (sunrealtype**)malloc(nvec * sizeof(sunrealtype*));
   yd_dev_ptrs = (sunrealtype**)malloc(nvec * sizeof(sunrealtype*));
   zd_dev_ptrs = (sunrealtype**)malloc(nvec * sizeof(sunrealtype*));

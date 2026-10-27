@@ -1,9 +1,12 @@
 /*---------------------------------------------------------------
- * Programmer(s): Daniel R. Reynolds @ SMU
+ * Programmer(s): Daniel R. Reynolds @ UMBC
  *---------------------------------------------------------------
  * SUNDIALS Copyright Start
- * Copyright (c) 2002-2024, Lawrence Livermore National Security
+ * Copyright (c) 2025-2026, Lawrence Livermore National Security,
+ * University of Maryland Baltimore County, and the SUNDIALS contributors.
+ * Copyright (c) 2013-2025, Lawrence Livermore National Security
  * and Southern Methodist University.
+ * Copyright (c) 2002-2013, Lawrence Livermore National Security.
  * All rights reserved.
  *
  * See the top-level LICENSE and NOTICE files for details.
@@ -21,10 +24,14 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <sundials/sundials_math.h>
 #include <sundials/sundials_types.h>
 
 #include "arkode_erkstep_impl.h"
+
+#include "sundials_cli.h"
+#include "sundials_utils.h"
 
 /*===============================================================
   Exported optional input functions.
@@ -165,24 +172,41 @@ int ERKStepSetTableName(void* arkode_mem, const char* etable)
   ===============================================================*/
 
 /*---------------------------------------------------------------
-  ERKStepGetNumRhsEvals:
+  erkStep_GetNumRhsEvals:
 
-  Returns the current number of calls to f
+  Returns the current number of RHS calls
   ---------------------------------------------------------------*/
+int erkStep_GetNumRhsEvals(ARKodeMem ark_mem, int partition_index,
+                           long int* rhs_evals)
+{
+  ARKodeERKStepMem step_mem = NULL;
+
+  /* access ARKodeERKStepMem structure */
+  int retval = erkStep_AccessStepMem(ark_mem, __func__, &step_mem);
+  if (retval != ARK_SUCCESS) { return retval; }
+
+  if (rhs_evals == NULL)
+  {
+    arkProcessError(ark_mem, ARK_ILL_INPUT, __LINE__, __func__, __FILE__,
+                    "rhs_evals is NULL");
+    return ARK_ILL_INPUT;
+  }
+
+  if (partition_index > 0)
+  {
+    arkProcessError(ark_mem, ARK_ILL_INPUT, __LINE__, __func__, __FILE__,
+                    "Invalid partition index");
+    return ARK_ILL_INPUT;
+  }
+
+  *rhs_evals = step_mem->nfe;
+
+  return ARK_SUCCESS;
+}
+
 int ERKStepGetNumRhsEvals(void* arkode_mem, long int* fevals)
 {
-  ARKodeMem ark_mem;
-  ARKodeERKStepMem step_mem;
-  int retval;
-
-  /* access ARKodeMem and ARKodeERKStepMem structures */
-  retval = erkStep_AccessARKODEStepMem(arkode_mem, __func__, &ark_mem, &step_mem);
-  if (retval != ARK_SUCCESS) { return (retval); }
-
-  /* get values from step_mem */
-  *fevals = step_mem->nfe;
-
-  return (ARK_SUCCESS);
+  return ARKodeGetNumRhsEvals(arkode_mem, 0, fevals);
 }
 
 /*---------------------------------------------------------------
@@ -239,6 +263,33 @@ int ERKStepGetTimestepperStats(void* arkode_mem, long int* expsteps,
   ===============================================================*/
 
 /*---------------------------------------------------------------
+  erkStep_SetOption:
+
+  Provides string-based control over ERKStep-specific "set" routines.
+  ---------------------------------------------------------------*/
+int erkStep_SetOptions(ARKodeMem ark_mem, int* argidx, char* argv[],
+                       size_t offset, sunbooleantype* arg_used)
+{
+  /* Set lists of keys, and the corresponding set routines */
+  static const struct sunKeyCharPair char_pairs[] = {
+    {"table_name", ERKStepSetTableName}};
+  static const int num_char_keys = sizeof(char_pairs) / sizeof(*char_pairs);
+
+  /* check all "char" keys */
+  int j, retval;
+  retval = sunCheckAndSetCharArgs((void*)ark_mem, argidx, argv, offset,
+                                  char_pairs, num_char_keys, arg_used, &j);
+  if (retval != ARK_SUCCESS)
+  {
+    arkProcessError(ark_mem, retval, __LINE__, __func__, __FILE__,
+                    "error setting key: %s", char_pairs[j].key);
+    return retval;
+  }
+
+  return (ARK_SUCCESS);
+}
+
+/*---------------------------------------------------------------
   erkStep_SetRelaxFn:
 
   Sets up the relaxation module using ERKStep's utility routines.
@@ -259,62 +310,35 @@ int erkStep_SetRelaxFn(ARKodeMem ark_mem, ARKRelaxFn rfn, ARKRelaxJacFn rjac)
 int erkStep_SetDefaults(ARKodeMem ark_mem)
 {
   ARKodeERKStepMem step_mem;
+  sunindextype Blrw, Bliw;
   int retval;
-  long int lenrw, leniw;
 
   /* access ARKodeERKStepMem structure */
   retval = erkStep_AccessStepMem(ark_mem, __func__, &step_mem);
   if (retval != ARK_SUCCESS) { return (retval); }
 
-  /* Remove current SUNAdaptController object, and replace with "PI" */
-  retval = SUNAdaptController_Space(ark_mem->hadapt_mem->hcontroller, &lenrw,
-                                    &leniw);
-  if (retval == SUN_SUCCESS)
-  {
-    ark_mem->liw -= leniw;
-    ark_mem->lrw -= lenrw;
-  }
-  if (ark_mem->hadapt_mem->owncontroller)
-  {
-    retval = SUNAdaptController_Destroy(ark_mem->hadapt_mem->hcontroller);
-    ark_mem->hadapt_mem->owncontroller = SUNFALSE;
-    if (retval != SUN_SUCCESS)
-    {
-      arkProcessError(ark_mem, ARK_MEM_FAIL, __LINE__, __func__, __FILE__,
-                      "SUNAdaptController_Destroy failure");
-      return (ARK_MEM_FAIL);
-    }
-  }
-  ark_mem->hadapt_mem->hcontroller = NULL;
-  ark_mem->hadapt_mem->hcontroller = SUNAdaptController_PI(ark_mem->sunctx);
-  if (ark_mem->hadapt_mem->hcontroller == NULL)
-  {
-    arkProcessError(ark_mem, ARK_MEM_FAIL, __LINE__, __func__, __FILE__,
-                    "SUNAdaptControllerPI allocation failure");
-    return (ARK_MEM_FAIL);
-  }
-  ark_mem->hadapt_mem->owncontroller = SUNTRUE;
-  retval = SUNAdaptController_Space(ark_mem->hadapt_mem->hcontroller, &lenrw,
-                                    &leniw);
-  if (retval == SUN_SUCCESS)
-  {
-    ark_mem->liw += leniw;
-    ark_mem->lrw += lenrw;
-  }
-
-  /* Set default values for integrator optional inputs
-     (overwrite some adaptivity params for ERKStep use) */
+  /* Set default values for integrator optional inputs */
   step_mem->q      = Q_DEFAULT;                  /* method order */
   step_mem->p      = 0;                          /* embedding order */
   step_mem->stages = 0;                          /* no stages */
-  step_mem->B      = NULL;                       /* no Butcher table */
   ark_mem->hadapt_mem->etamxf = SUN_RCONST(0.3); /* max change on error-failed step */
   ark_mem->hadapt_mem->safety = SUN_RCONST(0.99); /* step adaptivity safety factor  */
   ark_mem->hadapt_mem->growth = SUN_RCONST(25.0); /* step adaptivity growth factor */
-  (void)SUNAdaptController_SetErrorBias(ark_mem->hadapt_mem->hcontroller,
-                                        SUN_RCONST(1.2));
-  (void)SUNAdaptController_SetParams_PI(ark_mem->hadapt_mem->hcontroller,
-                                        SUN_RCONST(0.8), -SUN_RCONST(0.31));
+
+  /* Remove pre-existing Butcher table */
+  if (step_mem->B)
+  {
+    ARKodeButcherTable_Space(step_mem->B, &Bliw, &Blrw);
+    ark_mem->liw -= Bliw;
+    ark_mem->lrw -= Blrw;
+    ARKodeButcherTable_Free(step_mem->B);
+  }
+  step_mem->B = NULL;
+
+  /* Load the default SUNAdaptController */
+  retval = arkReplaceAdaptController(ark_mem, NULL, SUNTRUE);
+  if (retval) { return retval; }
+
   return (ARK_SUCCESS);
 }
 
@@ -363,10 +387,34 @@ int erkStep_GetEstLocalErrors(ARKodeMem ark_mem, N_Vector ele)
   if (retval != ARK_SUCCESS) { return (retval); }
 
   /* return an error if local truncation error is not computed */
-  if (ark_mem->fixedstep) { return (ARK_STEPPER_UNSUPPORTED); }
+  if ((ark_mem->fixedstep && (ark_mem->AccumErrorType == ARK_ACCUMERROR_NONE)) ||
+      (step_mem->p <= 0))
+  {
+    return (ARK_STEPPER_UNSUPPORTED);
+  }
 
   /* otherwise, copy local truncation error vector to output */
   N_VScale(ONE, ark_mem->tempv1, ele);
+  return (ARK_SUCCESS);
+}
+
+/*---------------------------------------------------------------
+  erkStep_GetStageIndex:
+
+  Returns the current stage index and number of stages
+  ---------------------------------------------------------------*/
+int erkStep_GetStageIndex(ARKodeMem ark_mem, int* stage, int* max_stages)
+{
+  ARKodeERKStepMem step_mem;
+  int retval;
+
+  /* access ARKodeARKStepMem structure */
+  retval = erkStep_AccessStepMem(ark_mem, __func__, &step_mem);
+  if (retval != ARK_SUCCESS) { return (retval); }
+
+  *stage      = step_mem->istage;
+  *max_stages = step_mem->stages;
+
   return (ARK_SUCCESS);
 }
 
@@ -384,20 +432,7 @@ int erkStep_PrintAllStats(ARKodeMem ark_mem, FILE* outfile, SUNOutputFormat fmt)
   retval = erkStep_AccessStepMem(ark_mem, __func__, &step_mem);
   if (retval != ARK_SUCCESS) { return (retval); }
 
-  switch (fmt)
-  {
-  case SUN_OUTPUTFORMAT_TABLE:
-    fprintf(outfile, "RHS fn evals                 = %ld\n", step_mem->nfe);
-    break;
-  case SUN_OUTPUTFORMAT_CSV:
-    fprintf(outfile, ",RHS fn evals,%ld", step_mem->nfe);
-    fprintf(outfile, "\n");
-    break;
-  default:
-    arkProcessError(ark_mem, ARK_ILL_INPUT, __LINE__, __func__, __FILE__,
-                    "Invalid formatting option.");
-    return (ARK_ILL_INPUT);
-  }
+  sunfprintf_long(outfile, fmt, SUNFALSE, "RHS fn evals", step_mem->nfe);
 
   return (ARK_SUCCESS);
 }

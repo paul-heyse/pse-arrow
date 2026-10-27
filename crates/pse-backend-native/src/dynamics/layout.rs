@@ -190,7 +190,7 @@ impl PreparedLayout {
                 }
                 let m = dimension.into_inner();
                 // Exact native SPGMR/SPFGMR real workspace formulas (SUNDIALS
-                // 7.1.1 SUNLinSolSpace), plus the session's state vectors.
+                // 7.9.0 SUNLinSolSpace), plus the session's state vectors.
                 let solver_vectors = if matches!(
                     linear,
                     IdasLinear::Spgmr { .. } | IdasLinear::SpgmrBbd { .. }

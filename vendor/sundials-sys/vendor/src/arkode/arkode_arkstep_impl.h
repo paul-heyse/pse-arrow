@@ -1,9 +1,12 @@
 /*---------------------------------------------------------------
- * Programmer(s): Daniel R. Reynolds @ SMU
+ * Programmer(s): Daniel R. Reynolds @ UMBC
  *---------------------------------------------------------------
  * SUNDIALS Copyright Start
- * Copyright (c) 2002-2024, Lawrence Livermore National Security
+ * Copyright (c) 2025-2026, Lawrence Livermore National Security,
+ * University of Maryland Baltimore County, and the SUNDIALS contributors.
+ * Copyright (c) 2013-2025, Lawrence Livermore National Security
  * and Southern Methodist University.
+ * Copyright (c) 2002-2013, Lawrence Livermore National Security.
  * All rights reserved.
  *
  * See the top-level LICENSE and NOTICE files for details.
@@ -38,7 +41,7 @@ extern "C" {
 #define CRDOWN SUN_RCONST(0.3)
 /* if |gamma/gammap-1| > DGMAX then call lsetup */
 #define DGMAX SUN_RCONST(0.2)
-/* declare divergence if ratio del/delp > RDIV */
+/* declare divergence if ratio delnrm/delnrm_p > RDIV */
 #define RDIV SUN_RCONST(2.3)
 /* max no. of steps between lsetup calls */
 #define MSBP 20
@@ -77,6 +80,9 @@ typedef struct ARKodeARKStepMemRec
   sunbooleantype deduce_rhs;     /* SUNTRUE if fi is deduced after
                                    a nonlinear solve               */
 
+  /* Adjoint problem specification */
+  SUNAdjRhsFn adj_fe;
+
   /* ARK method storage and parameters */
   N_Vector* Fe;          /* explicit RHS at each stage */
   N_Vector* Fi;          /* implicit RHS at each stage */
@@ -103,14 +109,13 @@ typedef struct ARKodeARKStepMemRec
   sunrealtype gamrat;     /* gamma / gammap                           */
   sunrealtype dgmax;      /* call lsetup if |gamma/gammap-1| >= dgmax */
 
-  int predictor;       /* implicit prediction method to use        */
-  sunrealtype crdown;  /* nonlinear conv rate estimation constant  */
-  sunrealtype rdiv;    /* nonlin divergence if del/delp > rdiv     */
-  sunrealtype crate;   /* estimated nonlin convergence rate        */
-  sunrealtype delp;    /* norm of previous nonlinear solver update */
-  sunrealtype eRNrm;   /* estimated residual norm, used in nonlin
-                            and linear solver convergence tests      */
-  sunrealtype nlscoef; /* coefficient in nonlin. convergence test  */
+  int predictor;        /* implicit prediction method to use        */
+  sunrealtype crdown;   /* nonlinear conv rate estimation constant  */
+  sunrealtype rdiv;     /* nonlin divergence if delnrm/delnrm_p > rdiv     */
+  sunrealtype crate;    /* estimated nonlin convergence rate        */
+  sunrealtype delnrm_p; /* norm of previous nonlinear solver update */
+  sunrealtype delnrm;   /* norm of current nonlinear solver update  */
+  sunrealtype nlscoef;  /* coefficient in nonlin. convergence test  */
 
   int msbp;       /* positive => max # steps between lsetup
                             negative => call at each Newton iter     */
@@ -189,7 +194,11 @@ int arkStep_GetGammas(ARKodeMem ark_mem, sunrealtype* gamma, sunrealtype* gamrat
                       sunbooleantype** jcur, sunbooleantype* dgamma_fail);
 int arkStep_FullRHS(ARKodeMem ark_mem, sunrealtype t, N_Vector y, N_Vector f,
                     int mode);
+int arkStep_TakeStep_ERK_Adjoint(ARKodeMem ark_mem, sunrealtype* dsmPtr,
+                                 int* nflagPtr);
 int arkStep_TakeStep_Z(ARKodeMem ark_mem, sunrealtype* dsmPtr, int* nflagPtr);
+int arkStep_SetOptions(ARKodeMem ark_mem, int* argidx, char* argv[],
+                       size_t offset, sunbooleantype* arg_used);
 int arkStep_SetUserData(ARKodeMem ark_mem, void* user_data);
 int arkStep_SetDefaults(ARKodeMem ark_mem);
 int arkStep_SetOrder(ARKodeMem ark_mem, int ord);
@@ -207,6 +216,8 @@ int arkStep_SetMaxNonlinIters(ARKodeMem ark_mem, int maxcor);
 int arkStep_SetNonlinConvCoef(ARKodeMem ark_mem, sunrealtype nlscoef);
 int arkStep_SetStagePredictFn(ARKodeMem ark_mem, ARKStagePredictFn PredictStage);
 int arkStep_SetDeduceImplicitRhs(ARKodeMem ark_mem, sunbooleantype deduce);
+int arkStep_GetNumRhsEvals(ARKodeMem ark_mem, int partition_index,
+                           long int* rhs_evals);
 int arkStep_GetEstLocalErrors(ARKodeMem ark_mem, N_Vector ele);
 int arkStep_GetCurrentGamma(ARKodeMem ark_mem, sunrealtype* gamma);
 int arkStep_GetNonlinearSystemData(ARKodeMem ark_mem, sunrealtype* tcur,
@@ -226,13 +237,15 @@ int arkStep_Resize(ARKodeMem ark_mem, N_Vector y0, sunrealtype hscale,
 int arkStep_ComputeState(ARKodeMem ark_mem, N_Vector zcor, N_Vector z);
 void arkStep_Free(ARKodeMem ark_mem);
 void arkStep_PrintMem(ARKodeMem ark_mem, FILE* outfile);
+int arkStep_SetInnerForcing(ARKodeMem ark_mem, sunrealtype tshift,
+                            sunrealtype tscale, N_Vector* f, int nvecs);
+int arkStep_GetStageIndex(ARKodeMem ark_mem, int* stage, int* max_stages);
 
 /* Internal utility routines */
 int arkStep_AccessARKODEStepMem(void* arkode_mem, const char* fname,
                                 ARKodeMem* ark_mem, ARKodeARKStepMem* step_mem);
 int arkStep_AccessStepMem(ARKodeMem ark_mem, const char* fname,
                           ARKodeARKStepMem* step_mem);
-sunbooleantype arkStep_CheckNVector(N_Vector tmpl);
 int arkStep_SetButcherTables(ARKodeMem ark_mem);
 int arkStep_CheckButcherTables(ARKodeMem ark_mem);
 int arkStep_Predict(ARKodeMem ark_mem, int istage, N_Vector yguess);
@@ -268,21 +281,19 @@ int arkStep_NlsLSolve(N_Vector delta, void* arkode_mem);
 int arkStep_NlsConvTest(SUNNonlinearSolver NLS, N_Vector y, N_Vector del,
                         sunrealtype tol, N_Vector ewt, void* arkode_mem);
 
-/* private functions for interfacing with MRIStep */
-int arkStep_SetInnerForcing(void* arkode_mem, sunrealtype tshift,
-                            sunrealtype tscale, N_Vector* f, int nvecs);
-int arkStep_MRIStepInnerEvolve(MRIStepInnerStepper stepper, sunrealtype t0,
-                               sunrealtype tout, N_Vector y);
-int arkStep_MRIStepInnerFullRhs(MRIStepInnerStepper stepper, sunrealtype t,
-                                N_Vector y, N_Vector f, int mode);
-int arkStep_MRIStepInnerReset(MRIStepInnerStepper stepper, sunrealtype tR,
-                              N_Vector yR);
-
 /* private functions for relaxation */
 int arkStep_SetRelaxFn(ARKodeMem ark_mem, ARKRelaxFn rfn, ARKRelaxJacFn rjac);
 int arkStep_RelaxDeltaE(ARKodeMem ark_mem, ARKRelaxJacFn relax_jac_fn,
                         long int* relax_jac_fn_evals, sunrealtype* delta_e_out);
 int arkStep_GetOrder(ARKodeMem ark_mem);
+
+/* private functions for adjoints */
+int arkStep_fe_Adj(sunrealtype t, N_Vector sens_partial_stage,
+                   N_Vector sens_complete_stage, void* content);
+
+int arkStepCompatibleWithAdjointSolver(ARKodeMem ark_mem,
+                                       ARKodeARKStepMem step_mem, int lineno,
+                                       const char* fname, const char* filename);
 
 /*===============================================================
   Reusable ARKStep Error Messages

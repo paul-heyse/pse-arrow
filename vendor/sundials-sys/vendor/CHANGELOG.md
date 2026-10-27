@@ -1,10 +1,906 @@
 # SUNDIALS Changelog
 
+## Changes to SUNDIALS in release 7.9.0
+
+### New Features and Enhancements
+
+Updated the MRIStep module in ARKODE to support *extended Super Time Stepping*
+(ExtSTS) methods for multi-physics simulations involving parabolic components,
+through the `MRIStepExtSTSCreate` function.  See the documentation section on
+the mathematical methods in MRIStep for more details on the structure of ExtSTS
+methods, and the documentation section on a skeleton of usage for MRIStep for
+details on its usage.
+
+Added Butcher tables for the classical RK4 (`ARKODE_KUTTA_RK4a_4_4`) and
+3/8-rule (`ARKODE_KUTTA_RK4b_4_4`) methods.
+
+Added CUDA support to the sundials4py Python interface. CUDA N_Vectors can be
+used with CUDA device arrays from CuPy, PyTorch and JAX when built with
+`SUNDIALS_ENABLE_CUDA` set to `ON`.
+
+The KLU SUNLinearSolver is now available in sundials4py.
+
+sundials4py now has a `N_VGetNumpyArray` function which should be used instead
+of `N_VGetArrayPointer`.
+
+The SUNLinearSolver interface to SuperLU_DIST now supports single precision.
+
+Added the function `N_VSetDeviceArrayPointer` to the N_Vector API to set the
+device data pointer for vector implementations with a device memory space.
+
+Added the `SUNDIALS_ENABLE_DEPRECATED_WARNINGS` CMake option to allow users to
+disable compiler warnings emitted by deprecated SUNDIALS API annotations.
+
+### Bug Fixes
+
+Fixed a bug where the factor provided by `ARKodeSetEpsLin` was scaled by 0.1.
+To restore the original behavior, call `ARKodeSetEpsLin` with an argument of
+0.005.
+
+Fixed bug in SUNNonlinearSolver_Auto which resulted in premature switch to
+Newton from fixed point due to convergence rate check occurring after only one
+iteration.
+
+Fixed duplicate keys in IDA and IDAS logging output from consistent initial
+condition solves and order selection diagnostics.
+
+### Deprecation Notices
+
+Renamed the `ARKODE_ARK2_ERK_3_1_2`, `ARKODE_ARK2_DIRK_3_1_2`,
+`ARKODE_ASCHER_ERK_3_1_2`, and `ARKODE_ASCHER_SDIRK_3_1_2` Butcher tables to
+`ARKODE_GKC21_ERK_3_1_2`, `ARKODE_GKC21_DIRK_3_1_2`, `ARKODE_ARS222_ERK_3_1_2`,
+and `ARKODE_ARS222_SDIRK_3_1_2`, respectively, to reflect the original inventors
+of each method.  The previous table names are deprecated and will be removed in
+a future release.
+
+Renamed the `ARKODE_IMEX_MRI_GARK_ARK2` and `ARKODE_IMEX_MRI_GARK_ASCHER_ARK2`
+multirate coupling tables to `ARKODE_IMEX_MRI_GARK_GKC21` and
+`ARKODE_IMEX_MRI_GARK_ARS222` to reflect the original inventors of the base
+Runge--Kutta tables on which these are based.  The previous table names are
+deprecated and will be removed in a future release.
+
+## Changes to SUNDIALS in release 7.8.0
+
+### New Features and Enhancements
+
+We added a new SUNNonlinearSolver implementation, `SUNNonlinearSolver_Auto`,
+which uses an algorithm described in https://doi.org/10.1007/BF01933714 to
+switch between a modified Newton iteration and fixed-point iteration based on an
+estimate of stiffness. This solver may be useful to pair with the BDF method in
+CVODE/CVODES, or with DIRK methods in ARKODE, for users who are unsure about the
+stiffness of their problem. See the module documentation for more
+information. We also extended the SUNNonlinearSolver API with callback setters
+`SUNNonlinSolSetNormFn`, `SUNNonlinSolSetGetUpdateNormFn`, and
+`SUNNonlinSolSetGetConvRateFn`.
+
+Added the `ARKODE_SSP_ERK_3_1_2`, `ARKODE_SSP_ERK_4_1_2`,
+`ARKODE_SSP_ERK_4_2_3`, `ARKODE_SSP_ERK_10_3_4`, `ARKODE_SSP_LSPUM_ERK_3_1_2`,
+and `ARKODE_ASCHER_ERK_3_1_2` embedded explicit Runge-Kutta Butcher tables.
+
+Added the `ARKODE_SSP_DIRK_3_1_2`, `ARKODE_SSP_LSPUM_SDIRK_3_1_2`,
+`ARKODE_ESDIRK_4_2_3`, and `ARKODE_ASCHER_SDIRK_3_1_2` embedded diagonally
+implicit Runge-Kutta Butcher tables.
+
+Of these, embedded additive Runge-Kutta methods may be formed using
+`ARKODE_SSP_ERK_3_1_2`+`ARKODE_SSP_DIRK_3_1_2`,
+`ARKODE_SSP_ERK_4_2_3`+`ARKODE_ESDIRK_4_2_3`,
+`ARKODE_SSP_LSPUM_ERK_3_1_2`+`ARKODE_SSP_LSPUM_SDIRK_3_1_2`, and
+`ARKODE_ASCHER_ERK_3_1_2`+`ARKODE_ASCHER_SDIRK_3_1_2`.
+
+Added the `ARKODE_IMEX_MRI_GARK_ASCHER_ARK2` and `ARKODE_IMEX_MRI_GARK_ARK2`
+embedded implicit-explicit MRI-GARK coupling tables.
+
+When info or debug logging is enabled, i.e., `SUNDIALS_LOGGING_LEVEL` is at
+least 3, it will now print to `stdout` by default. Previously, the default was
+to produce no output, and this behavior can be restored by setting the
+environment variables `SUNLOGGER_INFO_FILENAME` and `SUNLOGGER_DEBUG_FILENAME`
+to an empty string.
+
+Improved the performance of logging when enabled but no file pointer was set.
+
+Added the function `SUNLogger_SetQueueAndFlushMsgFns` to allow for user-defined
+functions to queue and flush log messages.
+
+Updated `examples/cvode/petsc/cv_petsc_ex7.c` to support PETSc 3.25.0.
+
+### Bug Fixes
+
+Fixed a bug where an unrecognized error return flag from a user-provided
+SUNLinearSolver module would register as a successful linear solve.
+
+Fixed a bug that caused `SUNDomEigEstimator_Initialize` to overwrite the
+user-provided initial guess from `SUNDomEigEstimator_SetInitialGuess`. These
+routines are now order-independent.
+
+Fixed memory leaks in CVODES, IDAS, and KINSOL in the unlikely event of a failed
+`malloc`.
+
+Fixed a bug in ERKStep where calling `ARKodeResize` before `ARKodeEvolve` or
+`ARKodeInit` would result in a segmentation fault.
+
+Fixed a bug where the number of required stages for STS methods in the LSRKStep
+module was incorrectly computed using the spectral radius instead of the real
+part of the Jacobian eigenvalues.
+
+Fixed a bug where the negative real extent of the stability region for the RKC
+method was not properly computed, which could result in an underestimation of
+the number of stages required for stability.
+
+Fixed a bug where STS methods were limited to one fewer than the maximum allowed
+number of stages. STS can now use the full maximum number of stages.
+
+Fixed a bug in reporting the maximum number of stages in `ARKodeGetStageIndex`
+when running SSP methods in LSRKStep.
+
+Fixed a bug where IDAS would incorrectly compute the quadrature predictor when
+`IDACalcIC` was used. In some cases, this lead to an inconsistent solution in
+the forward solve compared to the forward recomputation from a checkpoint,
+ultimately causing a segfault.
+
+Fixed a bug in the sundials4py wrappers for user-provided SUNStepper evolve and
+one_step functions.
+
+Fixed a bug in sundials4py where the `CVodeGetRootInfo`, `ARKodeGetRootInfo`,
+and `IDAGetRootInfo` functions did not correctly return the rootsfound
+array. This addresses [Issue #937](https://github.com/llnl/sundials/issues/937).
+
+Removed duplicate logging output that would cause the Python logging tools to
+fail with a repeated key error.
+
+Fixed a CMake issue that prevented finding third-party libraries installed in
+default search locations e.g., paths included in `CMAKE_INSTALL_PREFIX` ([Issue
+#935](https://github.com/llnl/sundials/issues/935)).
+
+Fixed a CMake issue that prevented automatically finding PETSc dependencies.
+
+Fixed empty `elseif()` cases in the CMake files for the Fortran interfaces to
+the ManyVector and MPIPlusX vectors which could results in a missing include
+path when compiling if an MPI compiler wrapper is not found.
+
+Fixed a CMake bug where Fortran modules were not created for LSRKStep,
+ForcingStep, and SplittingStep.
+
+Corrected the version number used in version added, changed, and deprecated
+notes in the documentation to always use the SUNDIALS version number with the
+package version number as a parenthetical note when it differs from the SUNDIALS
+version number.
+
+## Changes to SUNDIALS in release 7.7.0
+
+### New Features and Enhancements
+
+The default number of stages for the SSP Runge-Kutta methods
+`ARKODE_LSRK_SSP_S_2` and `ARKODE_LSRK_SSP_S_3` in LSRKStep were changed from 10
+and 9, respectively, to their minimum allowable values of 2 and 4. Users may
+revert to the previous values by calling `LSRKStepSetNumSSPStages`.
+
+Added the optional function `ARKodeInit` to ARKODE to enable data allocation
+before the first call to `ARKodeEvolve` (but after all other optional input
+routines have been called), to support users who measure memory usage before
+beginning a simulation.
+
+Added the function `ARKodeGetStageIndex` that returns the index of the stage
+currently being processed, and the total number of stages in the method, for
+users who wish to compute auxiliary quantities in their IVP right-hand side
+functions during some stages and not others (e.g., in all but the first or last
+stage).
+
+Added the functions `ARKodeGetLastTime` and `ARKodeGetLastState` to return the
+last successful time and state achieved by ARKODE, respectively.
+
+ARKODE now allows users to supply functions that will be called before each
+internal time step attempt (`ARKodeSetPreStepFn`), after each successful time
+step (`ARKodeSetPostStepFn`), before right-hand side routines are called on an
+updated state (`ARKodeSetPreRhsFn`), and/or once each internal step/stage is
+computed (`ARKodeSetPostprocessStepFn`/ `ARKodeSetPostprocessStageFn`). These
+are considered **advanced** functions, as they should treat the state vector as
+read-only, otherwise all theoretical guarantees of solution accuracy and
+stability will be lost.  As a result of these new functions, the values of
+multiple ARKODE return codes (e.g., ``ARK_INTERP_FAIL``) have been updated;
+users who key off of the named constants will not be affected, but users who
+rely on the values themselves should update their codes accordingly.
+
+Note to users utilizing the previously undocumented `ARKodeSetPostprocessStepFn`
+function, the supplied function is now called on the newly computed state vector
+for all step attempts not just successful steps. To obtain the previous behavior
+of only calling a function on successful steps, switch to using
+`ARKodeSetPostStepFn`.
+
+Added `SUNLogger_Set{Error,Warning,Info,Debug}File` functions to allow setting
+logger output streams with a `FILE*`.
+
+Updated the Kokkos N_Vector to support Kokkos 5.x versions.
+
+### Bug Fixes
+
+Fixed a CMake bug where the SuperLU_MT interface would not be built and
+installed without setting the `SUPERLUMT_WORKS` option to `TRUE`.
+
+Fixed the embedded coefficients for the `ARKODE_TSITOURAS_7_4_5` Butcher table.
+
+Fixed a bug in LSRKStep where an incorrect state vector could be passed to a
+user-supplied dominant eigenvalue function on the first step unless the output
+vector passed to `ARKodeEvolve` contained the initial condition and when an
+eigenvalue estimate is requested on the first step in a subsequent call to
+`ARKodeEvolve` unless the output vector passed contained the most recently
+returned solution.
+
+Fixed a potential bug in LSRKStep's `ARKODE_LSRK_SSP_S_3` method, where a real
+number was used instead of an integer, potentially resulting in a rounding
+error.
+
+Fixed a bug in MRIStep for estimating the first "slow" time step in an adaptive
+multirate calculation.
+
+Fixed a bug in MRIStep when using a custom inner integrator that relies on the
+input state being the initial condition for the fast integration rather than
+retaining the result from the last inner integration or most recent reset call
+and the output vector passed to `ARKodeEvolve` does not contain the initial
+condition on the first call or the last returned solution on subsequent calls.
+
+Added a missing call to `SUNNonlinSolSetup` in MRIStep when using an IMEX-MRI-SR
+method.
+
+Fixed a bug in the ARKODE discrete adjoint checkpointing where an incorrect
+state would be stored on the first step if the output vector passed to
+`ARKodeEvolve` did not contain the initial condition on the first call.
+
+Removed extraneous copy of output vector when using ARKODE in ``ARK_ONE_STEP``
+mode.
+
+Removed an extraneous copy of the output vector in each step with SplittingStep.
+
+Fixed a bug in logging output from ARKODE, where for some time stepping modules,
+the current "time" output in the logger was incorrect.
+
+Fixed a bug where passing an empty string to
+`SUNLogger_Set{Error,Warning,Info,Debug}Filename` did not disable the
+corresponding logging stream ([Issue
+#844](https://github.com/llnl/sundials/issues/844)).
+
+### Deprecation Notices
+
+The `CVodeSetMonitorFn` and `CVodeSetMonitorFrequency` functions have been
+deprecated and will be removed in the next major release.
+
+Several CMake options have been deprecated in favor of namespaced versions
+prefixed with `SUNDIALS_` to avoid naming collisions in applications that
+include SUNDIALS directly within their CMake builds. Additionally, a consistent
+naming convention (`SUNDIALS_ENABLE`) is now used for all boolean options. The
+table below lists the old CMake option names and the new replacements.
+
+| Old Option                              | New Option                                     |
+|-----------------------------------------|------------------------------------------------|
+| `BUILD_ARKODE`                          | `SUNDIALS_ENABLE_ARKODE`                       |
+| `BUILD_CVODE`                           | `SUNDIALS_ENABLE_CVODE`                        |
+| `BUILD_CVODES`                          | `SUNDIALS_ENABLE_CVODES`                       |
+| `BUILD_IDA`                             | `SUNDIALS_ENABLE_IDA`                          |
+| `BUILD_IDAS`                            | `SUNDIALS_ENABLE_IDAS`                         |
+| `BUILD_KINSOL`                          | `SUNDIALS_ENABLE_KINSOL`                       |
+| `ENABLE_MPI`                            | `SUNDIALS_ENABLE_MPI`                          |
+| `ENABLE_OPENMP`                         | `SUNDIALS_ENABLE_OPENMP`                       |
+| `ENABLE_OPENMP_DEVICE`                  | `SUNDIALS_ENABLE_OPENMP_DEVICE`                |
+| `OPENMP_DEVICE_WORKS`                   | `SUNDIALS_ENABLE_OPENMP_DEVICE_CHECKS`         |
+| `ENABLE_PTHREAD`                        | `SUNDIALS_ENABLE_PTHREAD`                      |
+| `ENABLE_CUDA`                           | `SUNDIALS_ENABLE_CUDA`                         |
+| `ENABLE_HIP`                            | `SUNDIALS_ENABLE_HIP`                          |
+| `ENABLE_SYCL`                           | `SUNDIALS_ENABLE_SYCL`                         |
+| `ENABLE_LAPACK`                         | `SUNDIALS_ENABLE_LAPACK`                       |
+| `LAPACK_WORKS`                          | `SUNDIALS_ENABLE_LAPACK_CHECKS`                |
+| `ENABLE_GINKGO`                         | `SUNDIALS_ENABLE_GINKGO`                       |
+| `GINKGO_WORKS`                          | `SUNDIALS_ENABLE_GINKGO_CHECKS`                |
+| `ENABLE_MAGMA`                          | `SUNDIALS_ENABLE_MAGMA`                        |
+| `MAGMA_WORKS`                           | `SUNDIALS_ENABLE_MAGMA_CHECKS`                 |
+| `ENABLE_SUPERLUDIST`                    | `SUNDIALS_ENABLE_SUPERLUDIST`                  |
+| `SUPERLUDIST_WORKS`                     | `SUNDIALS_ENABLE_SUPERLUDIST_CHECKS`           |
+| `ENABLE_SUPERLUMT`                      | `SUNDIALS_ENABLE_SUPERLUMT`                    |
+| `SUPERLUMT_WORKS`                       | `SUNDIALS_ENABLE_SUPERLUMT_CHECKS`             |
+| `ENABLE_KLU`                            | `SUNDIALS_ENABLE_KLU`                          |
+| `KLU_WORKS`                             | `SUNDIALS_ENABLE_KLU_CHECKS`                   |
+| `ENABLE_HYPRE`                          | `SUNDIALS_ENABLE_HYPRE`                        |
+| `HYPRE_WORKS`                           | `SUNDIALS_ENABLE_HYPRE_CHECKS`                 |
+| `ENABLE_PETSC`                          | `SUNDIALS_ENABLE_PETSC`                        |
+| `PETSC_WORKS`                           | `SUNDIALS_ENABLE_PETSC_CHECKS`                 |
+| `ENABLE_TRILINOS`                       | `SUNDIALS_ENABLE_TRILINOS`                     |
+| `ENABLE_RAJA`                           | `SUNDIALS_ENABLE_RAJA`                         |
+| `ENABLE_XBRAID`                         | `SUNDIALS_ENABLE_XBRAID`                       |
+| `XBRAID_WORKS`                          | `SUNDIALS_ENABLE_XBRAID_CHECKS`                |
+| `ENABLE_ONEMKL`                         | `SUNDIALS_ENABLE_ONEMKL`                       |
+| `ONEMKL_WORKS`                          | `SUNDIALS_ENABLE_ONEMKL_CHECKS`                |
+| `ENABLE_CALIPER`                        | `SUNDIALS_ENABLE_CALIPER`                      |
+| `ENABLE_ADIAK`                          | `SUNDIALS_ENABLE_ADIAK`                        |
+| `ENABLE_KOKKOS`                         | `SUNDIALS_ENABLE_KOKKOS`                       |
+| `KOKKOS_WORKS`                          | `SUNDIALS_ENABLE_KOKKOS_CHECKS`                |
+| `ENABLE_KOKKOS_KERNELS`                 | `SUNDIALS_ENABLE_KOKKOS_KERNELS`               |
+| `KOKKOS_KERNELS_WORKS`                  | `SUNDIALS_ENABLE_KOKKOS_KERNELS_CHECKS`        |
+| `BUILD_FORTRAN_MODULE_INTERFACE`        | `SUNDIALS_ENABLE_FORTRAN`                      |
+| `SUNDIALS_BUILD_WITH_PROFILING`         | `SUNDIALS_ENABLE_PROFILING`                    |
+| `SUNDIALS_BUILD_WITH_MONITORING`        | `SUNDIALS_ENABLE_MONITORING`                   |
+| `SUNDIALS_BUILD_PACKAGE_FUSED_KERNELS`  | `SUNDIALS_ENABLE_PACKAGE_FUSED_KERNELS`        |
+| `EXAMPLES_ENABLE_C`                     | `SUNDIALS_ENABLE_C_EXAMPLES`                   |
+| `EXAMPLES_ENABLE_CXX`                   | `SUNDIALS_ENABLE_CXX_EXAMPLES`                 |
+| `EXAMPLES_ENABLE_F2003`                 | `SUNDIALS_ENABLE_FORTRAN_EXAMPLES`             |
+| `EXAMPLES_ENABLE_CUDA`                  | `SUNDIALS_ENABLE_CUDA_EXAMPLES`                |
+| `EXAMPLES_INSTALL`                      | `SUNDIALS_ENABLE_EXAMPLES_INSTALL`             |
+| `EXAMPLES_INSTALL_PATH`                 | `SUNDIALS_EXAMPLES_INSTALL_PATH`               |
+| `BUILD_BENCHMARKS`                      | `SUNDIALS_ENABLE_BENCHMARKS`                   |
+| `BENCHMARKS_INSTALL_PATH`               | `SUNDIALS_BENCHMARKS_INSTALL_PATH`             |
+| `SUNDIALS_BENCHMARK_OUTPUT_DIR`         | `SUNDIALS_BENCHMARKS_OUTPUT_DIR`               |
+| `SUNDIALS_BENCHMARK_CALIPER_OUTPUT_DIR` | `SUNDIALS_BENCHMARKS_CALIPER_OUTPUT_DIR`       |
+| `SUNDIALS_BENCHMARK_NUM_CPUS`           | `SUNDIALS_BENCHMARKS_NUM_CPUS`                 |
+| `SUNDIALS_BENCHMARK_NUM_GPUS`           | `SUNDIALS_BENCHMARKS_NUM_GPUS`                 |
+| `ENABLE_ALL_WARNINGS`                   | `SUNDIALS_ENABLE_ALL_WARNINGS`                 |
+| `ENABLE_WARNINGS_AS_ERRORS`             | `CMAKE_COMPILE_WARNING_AS_ERROR`               |
+| `ENABLE_ADDRESS_SANITIZER`              | `SUNDIALS_ENABLE_ADDRESS_SANITIZER`            |
+| `ENABLE_MEMORY_SANITIZER`               | `SUNDIALS_ENABLE_MEMORY_SANITIZER`             |
+| `ENABLE_LEAK_SANITIZER`                 | `SUNDIALS_ENABLE_LEAK_SANITIZER`               |
+
+Following the updated CMake options, the macros listed below have been
+deprecated and replaced with versions that align with the new CMake options.
+
+| Old Macro                              | New Macro                               |
+|----------------------------------------|-----------------------------------------|
+| `SUNDIALS_BUILD_WITH_PROFILING`        | `SUNDIALS_ENABLE_PROFILING`             |
+| `SUNDIALS_BUILD_WITH_MONITORING`       | `SUNDIALS_ENABLE_MONITORING`            |
+| `SUNDIALS_BUILD_PACKAGE_FUSED_KERNELS` | `SUNDIALS_ENABLE_PACKAGE_FUSED_KERNELS` |
+
+## Changes to SUNDIALS in release 7.6.0
+
+### Major Features
+
+SUNDIALS now has official Python interfaces! With this release, we are shipping
+a **beta version** of the sundials4py Python module (created with nanobind and
+litgen). sundials4py provides explicit interfaces to most features of SUNDIALS.
+See the Python section of the user guide for more information.
+
+### New Features and Enhancements
+
+Added functions to CVODE(S) and IDA(S) to set the maximum number of inequality
+constraint failures in a step attempt (`CVodeSetMaxNumConstraintFails` and
+`IDASetMaxNumConstraintFails`) and to retrieve the total number of failed step
+attempts due to an inequality constraint violation (`CVodeGetNumConstraintFails`
+and `IDAGetNumConstraintFails`). As a result, constraint failures are no longer
+included in the number of step failures due to a solver failure (i.e., the
+values returned by `CVodeGetNumStepSolveFails` and `IDAGetNumStepSolveFails`).
+The functions `CVodeGetNumConstraintCorrections` and
+`IDAGetNumConstraintCorrections` were also added to retrieve the number of steps
+where the corrector was modified to satisfy an inequality constraint without
+failing the step.
+
+The functions `CVodeGetUserDataB` and `IDAGetUserDataB` were added to CVODES and
+IDAS, respectively.
+
+### Bug Fixes
+
+Fixed a bug in the CVODE(S) inequality constraint handling where the predicted
+state was used to compute the step size reduction factor which could lead to an
+insufficient reduction in the step size or, when the prediction violates the
+constraints, an infinitely large step size in the next step attempt ([Issue
+#702](https://github.com/LLNL/sundials/issues/702)).
+
+On the initial time step with a user-supplied initial step size, ARKODE and
+CVODE(S) will now return `ARK_TOO_CLOSE` or `CV_TOO_CLOSE`, respectively, when
+the requested output time is the same as, or within numerical roundoff of, the
+initial time ([Issue #722](https://github.com/llnl/sundials/issues/722)). Before
+a `TOO_CLOSE` error would only be returned when internally estimating the
+initial step size. In IDA(S), added a `IDA_TOO_CLOSE` return value for when the
+initial and output time are too close. Previously, IDA(S) would return
+`IDA_ILL_INPUT`.
+
+Fixed a bug in ARKODE, CVODE(S), and IDA(S) where the linear solver counters
+were not reset on reinitialization until the next call to advance the system. As
+such, non-zero linear solver statistics could be returned if retrieving or
+printing linear solver counters between reinitialization and the next call to
+advance the system.
+
+In CVODES and IDA, added missing return flag names to `CVodeGetReturnFlagName`
+and `IDAGetReturnFlagName`, respectively.
+
+The SPRKStep module now accounts for zero coefficients in the SPRK tables,
+eliminating extraneous function evaluations.
+
+A bug was fixed in KINSOL where the information logging function would always be
+called even when informational logging was disabled ([Issue
+#801](https://github.com/llnl/sundials/issues/801)).
+
+A bug preventing a user supplied `SUNStepper_ResetCheckpointIndex` function from
+being called was fixed.
+
+The interface to Ginkgo batched linear solvers has been updated to fix build
+errors when using 64-bit index types ([Issue
+#797](https://github.com/llnl/sundials/issues/797)). Note, only the batched
+dense matrix in Ginkgo is currently compatible with 64-bit indexing (as of
+Ginkgo 1.10).
+
+The Kokkos N_Vector now properly handles unmanaged views. Previously, if a
+Kokkos `N_Vector` was created from an unmanaged view, the view would become a
+managed view and the data would be freed unexpectedly.
+
+Fixed a CMake bug which resulted in static targets depending on shared targets
+when building both types of libraries in the same build ([Issue
+#692](https://github.com/LLNL/sundials/issues/692)).
+
+Some installed Fortran example makefiles were not linking to
+`sundials_fcore_mod` and `sundials_core` libraries as they should be. This is
+now fixed.
+
+### Deprecation Notices
+
+The `N_Vector_S` typedef to `N_Vector*` is deprecated and will be removed in the
+next major release.
+
+The `CSC_MAT` and `CSR_MAT` macros defined in `sunmatrix_sparse.h` will be
+removed in the next major release. Use `SUN_CSC_MAT` and `SUN_CSR_MAT` instead.
+
+`SUNDIALSFileOpen` and `SUNDIALSFileClose` will be removed in the next major
+release.  Use `SUNFileOpen` and `SUNFileClose` instead.
+
+The `Convert` methods on the `sundials::kokkos:Vector`,
+`sundials::kokkos::DenseMatrix`, `sundials::ginkgo::Matrix`,
+`sundials::ginkgo::BatchMatrix`, `sundials::kokkos::DenseLinearSolver`,
+`sundials::ginkgo::LinearSolver`, and `sundials::ginkgo::BatchLinearSolver`
+classes have been deprecated and will be removed in the next major release. The
+method `get`, should be used instead.
+
+The `CVodeSetMonitorFn` and `CVodeSetMonitorFrequency` functions have been deprecated and will be
+removed in the next major release.
+
+## Changes to SUNDIALS in release 7.5.0
+
+### Major Features
+
+Added the `SUNDomEigEstimator` interface for estimating the dominant eigenvalue value
+of a system. Two implementations are provided: Power Iteration and Arnoldi Iteration.
+The latter method requires building with LAPACK support enabled.
+
+Added the function `LSRKStepSetDomEigEstimator` in LSRKStep to attach a
+`SUNDomEigEstimator`, when using Runge-Kutta-Chebyshev or Runge-Kutta-Legendre
+methods, as an alternative to supplying a user-defined function to compute the dominant
+eigenvalue.
+
+Added `SetOptions` functions all SUNDIALS packages and the classes for
+adaptivity controllers, dominant eigenvalue estimators, linear solvers, and
+nonlinear solvers to support setting options with command line inputs.
+
+### New Features and Enhancements
+
+A new SUNLinearSolver, SUNLINEARSOLVER_GINKGOBATCH, and corresponding SUNMatrix,
+SUNMATRIX_GINKGOBATCH, were added for solving block/batched linear systems with
+the [Ginkgo linear solver library](https://ginkgo-project.github.io/). As a
+result, Ginkgo 1.9.0 or newer is now required when enabling Ginkgo support.
+
+The functions `KINSetMAA` and `KINSetOrthAA` have been updated to allow for
+setting the Anderson acceleration depth and orthogonalization method after
+`KINInit`. Additionally, `KINSetMAA` and `KINSetNumMaxIters` may now be called
+in any order.
+
+### Bug Fixes
+
+Fixed a bug in how MRIStep interacts with an MRIHTol SUNAdaptController object
+(the previous version essentially just reverted to a decoupled multirate
+controller). Removed the upper limit on `inner_max_tolfac` in
+`SUNAdaptController_SetParams_MRIHTol`.
+
+The shared library version numbers for the oneMKL dense linear solver and
+matrix as well as the PETSc SNES nonlinear solver have been corrected.
+
+Fixed a CMake bug where the MRI H-Tol controller was not included in the ARKODE
+Fortran module.
+
+Fixed a bug in the CUDA and HIP implementations of `SUNMemoryHelper_CopyAsync`
+where the execution stream is not extracted correctly from the helper when a
+stream is not provided to `SUNMemoryHelper_CopyAsync`.
+
+Fixed a bug in MRIStep where a segfault would occur when an MRI coupling table
+is not explicitly set and an MRI integrator is nested inside another MRI
+integrator.
+
+Fixed a bug in MRIStep where MERK methods with unordered stage groups (MERK43
+and MERK54) would include stage right-hand side vectors that had not been
+computed yet in fast time scale forcing computations. These vectors were scaled
+by zero, so in most cases the extraneous computations would not impact results.
+However, in cases where these vectors contain `inf` or `nan`, this would lead to
+erroneous forcing terms.
+
+Fixed a bug in `ARKodeSetDefaults` with LSRKStep where the stored spectral
+radius data was reset to zero, flags to update the dominant eigenvalue were
+reset to true, and a flag indicating if an SSP is being used was reset to false.
+
+Fixed a bug introduced in v7.3.0 in KINSOL when using Anderson acceleration and
+solving a problem multiple times with the same KINSOL instance. In this use
+case, the current Anderson acceleration depth from the initial solve was not
+reinitialized on subsequent solves.
+
+Fixed a logging bug in KINSOL where logging messages would not be output.
+
+Fixed a bug in the `suntools.logs` Python module where the `get_history`
+function, when given a `step_status` for filtering output from a multirate
+method, would only extract values from the fast time scale if the slow time
+scale step matched the given status filter. Fixed an additional bug in
+`get_history` with MRI-GARK methods where values would not be extracted from a
+fast time scale integration associated with an embedding.
+
+## Changes to SUNDIALS in release 7.4.0
+
+### New Features and Enhancements
+
+`ARKodeSetCFLFraction` now allows `cfl_frac` to be greater than or equal to one.
+
+Added an option to enable compensated summation of the time accumulator for all
+of ARKODE. This was previously only an option for the SPRKStep module. The new
+function to call to enable this is `ARKodeSetUseCompensatedSums`.
+
+### Bug Fixes
+
+Fixed segfaults in `CVodeAdjInit` and `IDAAdjInit` when called after adjoint
+memory has been freed.
+
+Fixed a CMake bug that would cause the Caliper compile test to fail at configure
+time.
+
+Fixed a bug in the CVODE/CVODES `CVodeSetEtaFixedStepBounds` function which
+disallowed setting `eta_min_fx` or `eta_max_fx` to 1.
+
+`SUNAdjointStepper_PrintAllStats` was reporting the wrong quantity for the
+number of "recompute passes" and has been fixed.
+
+### Deprecation Notices
+
+The `SPRKStepSetUseCompensatedSums` function has been deprecated. Use the
+`ARKodeSetUseCompensatedSums` function instead.
+
+## Changes to SUNDIALS in release 7.3.0
+
+### Major Features
+
+A new discrete adjoint capability for explicit Runge-Kutta methods has been
+added to the ARKODE ERKStep and ARKStep stepper modules. This is based on a
+new set of shared classes, `SUNAdjointStepper` and `SUNAdjointCheckpointScheme`.
+A new example demonstrating this capability can be found in
+`examples/arkode/C_serial/ark_lotka_volterra_ASA.c`.
+
+### New Features and Enhancements
+
+#### ARKODE
+
+The following changes have been made to the default ERK, DIRK, and ARK methods
+in ARKODE to utilize more efficient methods:
+
+| Type               | Old Default                                                      | New Default                                                        |
+| ------------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 2nd Order Explicit | `ARKODE_HEUN_EULER_2_1_2`                                        | `ARKODE_RALSTON_3_1_2`                                             |
+| 4th Order Explicit | `ARKODE_ZONNEVELD_5_3_4`                                         | `ARKODE_SOFRONIOU_SPALETTA_5_3_4`                                  |
+| 5th Order Explicit | `ARKODE_CASH_KARP_6_4_5`                                         | `ARKODE_TSITOURAS_7_4_5`                                           |
+| 6th Order Explicit | `ARKODE_VERNER_8_5_6`                                            | `ARKODE_VERNER_9_5_6`                                              |
+| 8th Order Explicit | `ARKODE_FEHLBERG_13_7_8`                                         | `ARKODE_VERNER_13_7_8`                                             |
+| 2nd Order Implicit | `ARKODE_SDIRK_2_1_2`                                             | `ARKODE_ARK2_DIRK_3_1_2`                                           |
+| 3rd Order Implicit | `ARKODE_ARK324L2SA_DIRK_4_2_3`                                   | `ARKODE_ESDIRK325L2SA_5_2_3`                                       |
+| 4th Order Implicit | `ARKODE_SDIRK_5_3_4`                                             | `ARKODE_ESDIRK436L2SA_6_3_4`                                       |
+| 5th Order Implicit | `ARKODE_ARK548L2SA_DIRK_8_4_5`                                   | `ARKODE_ESDIRK547L2SA2_7_4_5`                                      |
+| 4th Order ARK      | `ARKODE_ARK436L2SA_ERK_6_3_4` and `ARKODE_ARK436L2SA_DIRK_6_3_4` | `ARKODE_ARK437L2SA_ERK_7_3_4` and `ARKODE_ARK437L2SA_DIRK_7_3_4`   |
+| 5th Order ARK      | `ARKODE_ARK548L2SA_ERK_8_4_5` and `ARKODE_ARK548L2SA_DIRK_8_4_5` | `ARKODE_ARK548L2SAb_ERK_8_4_5` and `ARKODE_ARK548L2SAb_DIRK_8_4_5` |
+
+
+The old default methods can be loaded using the functions `ERKStepSetTableName`
+or `ERKStepSetTableNum` with ERKStep and `ARKStepSetTableName` or
+`ARKStepSetTableNum` with ARKStep and passing the desired method name string or
+constant, respectively. For example, the following call can be used to load the
+old default fourth order method with ERKStep:
+```
+/* Load the old 4th order ERK method using the table name */
+ierr = ERKStepSetTableName(arkode_mem, "ARKODE_ZONNEVELD_5_3_4");
+```
+Similarly with ARKStep, the following calls can be used for ERK, DIRK, or ARK
+methods, respectively:
+```
+/* Load the old 4th order ERK method by name */
+ierr = ARKStepSetTableName(arkode_mem, "ARKODE_DIRK_NONE",
+                           "ARKODE_ZONNEVELD_5_3_4");
+
+/* Load the old 4th order DIRK method by name */
+ierr = ARKStepSetTableName(arkode_mem, "ARKODE_SDIRK_5_3_4",
+                           "ARKODE_ERK_NONE");
+
+/* Load the old 4th order ARK method by name */
+ierr = ARKStepSetTableName(arkode_mem, "ARKODE_ARK436L2SA_DIRK_6_3_4",
+                           "ARKODE_ARK436L2SA_ERK_6_3_4");
+```
+
+Additionally, the following changes have been made to the default time step
+adaptivity parameters in ARKODE:
+
+| Parameter             | Old Default           | New Default |
+|-----------------------|-----------------------|-------------|
+| Controller            | PID (PI for ERKStep)  | I           |
+| Safety Factor         | 0.96                  | 0.9         |
+| Bias                  | 1.5 (1.2 for ERKStep) | 1.0         |
+| Fixed Step Bounds     | [1.0, 1.5]            | [1.0, 1.0]  |
+| Adaptivity Adjustment | -1                    | 0           |
+
+The following calls can be used to restore the old defaults for ERKStep:
+```
+SUNAdaptController controller = SUNAdaptController_Soderlind(ctx);
+SUNAdaptController_SetParams_PI(controller, 0.8, -0.31);
+ARKodeSetAdaptController(arkode_mem, controller);
+SUNAdaptController_SetErrorBias(controller, 1.2);
+ARKodeSetSafetyFactor(arkode_mem, 0.96);
+ARKodeSetFixedStepBounds(arkode_mem, 1, 1.5);
+ARKodeSetAdaptivityAdjustment(arkode_mem, -1);
+```
+The following calls can be used to restore the old defaults for other ARKODE
+integrators:
+```
+SUNAdaptController controller = SUNAdaptController_PID(ctx);
+ARKodeSetAdaptController(arkode_mem, controller);
+SUNAdaptController_SetErrorBias(controller, 1.5);
+ARKodeSetSafetyFactor(arkode_mem, 0.96);
+ARKodeSetFixedStepBounds(arkode_mem, 1, 1.5);
+ARKodeSetAdaptivityAdjustment(arkode_mem, -1);
+```
+In both cases above, destroy the controller at the end of the run with
+`SUNAdaptController_Destroy(controller);`.
+
+The Soderlind time step adaptivity controller now starts with an I controller
+until there is sufficient history of past time steps and errors.
+
+Added `ARKodeSetAdaptControllerByName` to set a time step adaptivity controller
+with a string. There are also four new controllers: `SUNAdaptController_H0211`,
+`SUNAdaptController_H0321`, `SUNAdaptController_H211`, and
+`SUNAdaptController_H312`.
+
+Added the `ARKODE_RALSTON_3_1_2` and `ARKODE_TSITOURAS_7_4_5` explicit
+Runge-Kutta Butcher tables.
+
+Improved the precision of the coefficients for `ARKODE_ARK324L2SA_ERK_4_2_3`,
+`ARKODE_VERNER_9_5_6`, `ARKODE_VERNER_10_6_7`, `ARKODE_VERNER_13_7_8`,
+`ARKODE_ARK324L2SA_DIRK_4_2_3`, and `ARKODE_ESDIRK324L2SA_4_2_3`.
+
+#### CVODE / CVODES
+
+Added support for resizing CVODE and CVODES when solving initial value problems
+where the number of equations and unknowns changes over time. Resizing requires
+a user supplied history of solution and right-hand side values at the new
+problem size, see `CVodeResizeHistory` for more information.
+
+#### KINSOL
+
+Added support in KINSOL for setting user-supplied functions to compute the
+damping factor and, when using Anderson acceleration, the depth in fixed-point
+or Picard iterations. See `KINSetDampingFn` and `KINSetDepthFn`, respectively,
+for more information.
+
+#### SUNDIALS Types
+
+A new type, `suncountertype`, was added for the integer type used for counter
+variables. It is currently an alias for `long int`.
+
+### Bug Fixes
+
+#### ARKODE
+
+Fixed bug in `ARKodeResize` which caused it return an error for MRI methods.
+
+Removed error floors from the `SUNAdaptController` implementations which could
+unnecessarily limit the time size growth, particularly after the first step.
+
+Fixed bug in `ARKodeSetFixedStep` where it could return `ARK_SUCCESS` despite
+an error occurring.
+
+Fixed bug in the ARKODE SPRKStep `SPRKStepReInit` function and `ARKodeReset` function
+with SPRKStep that could cause a segmentation fault when compensated summation is not
+used.
+
+#### KINSOL
+
+Fixed a bug in KINSOL where an incorrect damping parameter is applied on the
+initial iteration with Anderson acceleration unless `KINSetDamping` and
+`KINSetDampingAA` are both called with the same value when enabling damping.
+
+Fixed a bug in KINSOL where errors that occurred when computing Anderson
+acceleration were not captured.
+
+Added missing return values to `KINGetReturnFlagName`.
+
+#### CMake
+
+Fixed the behavior of `SUNDIALS_ENABLE_ERROR_CHECKS` so additional runtime error
+checks are disabled by default with all release build types. Previously,
+`MinSizeRel` builds enabled additional error checking by default.
+
+### Deprecation Notices
+
+All work space functions, e.g., `CVodeGetWorkSpace` and `ARKodeGetLinWorkSpace`,
+have been deprecated and will be removed in version 8.0.0.
+
+## Changes to SUNDIALS in release 7.2.1
+
+### New Features and Enhancements
+
+Unit tests were separated from examples. To that end, the following directories
+were moved out of the `examples/` directory to the `test/unit_tests` directory:
+`nvector`, `sunmatrix`, `sunlinsol`, and `sunnonlinsol`.
+
+### Bug Fixes
+
+Fixed a bug in ARKStep where an extra right-hand side evaluation would occur
+each time step when enabling the ``ARKodeSetAutonomous`` option and using an
+IMEX method where the DIRK table has an implicit first stage and is not stiffly
+accurate.
+
+## Changes to SUNDIALS in release 7.2.0
+
+### Major Features
+
+Added a time-stepping module to ARKODE for low storage Runge-Kutta methods,
+LSRKStep.  This currently supports five explicit low-storage methods: the
+second-order Runge-Kutta-Chebyshev and Runge-Kutta-Legendre methods, and the
+second- through fourth-order optimal strong stability preserving Runge-Kutta
+methods. All methods include embeddings for temporal adaptivity.
+
+Added an operator splitting module, SplittingStep, and forcing method module,
+ForcingStep, to ARKODE. These modules support a broad range of operator-split
+time integration methods for multiphysics applications.
+
+Added support for multirate time step adaptivity controllers, based on the
+recently introduced `SUNAdaptController` base class, to ARKODE's MRIStep module.
+As a part of this, we added embeddings for existing MRI-GARK methods, as well as
+support for embedded MERK and IMEX-MRI-SR methods. Added new default MRI methods
+for temporally adaptive versus fixed-step runs.
+
+### New Features and Enhancements
+
+#### Logging
+
+The information level logging output in ARKODE, CVODE(S), and IDA(S) has been
+updated to be more uniform across the packages and a new `tools` directory has
+been added with a Python module, `suntools`, containing utilities for parsing
+logging output. The Python utilities for parsing CSV output have been relocated
+from the `scripts` directory to the Python module.
+
+#### SUNStepper
+
+Added the `SUNStepper` base class to represent a generic solution procedure for
+IVPs. This is used by the SplittingStep and ForcingStep modules of ARKODE. A
+SUNStepper can be created from an ARKODE memory block with the new function
+`ARKodeCreateSUNStepper`. To enable interoperability with `MRIStepInnerStepper`,
+the function `MRIStepInnerStepper_CreateFromSUNStepper` was added.
+
+#### ARKODE
+
+Added functionality to ARKODE to accumulate a temporal error estimate over
+multiple time steps. See the routines `ARKodeSetAccumulatedErrorType`,
+`ARKodeResetAccumulatedError`, and `ARKodeGetAccumulatedError` for details.
+
+Added the `ARKodeSetStepDirection` and `ARKodeGetStepDirection` functions to
+change and query the direction of integration.
+
+Added the function `MRIStepGetNumInnerStepperFails` to retrieve the number of
+recoverable failures reported by the MRIStepInnerStepper.
+
+Added a utility routine to wrap any valid ARKODE integrator for use as an
+MRIStep inner stepper object, `ARKodeCreateMRIStepInnerStepper`.
+
+The following DIRK schemes now have coefficients accurate to quad precision:
+
+* `ARKODE_BILLINGTON_3_3_2`
+* `ARKODE_KVAERNO_4_2_3`
+* `ARKODE_CASH_5_2_4`
+* `ARKODE_CASH_5_3_4`
+* `ARKODE_KVAERNO_5_3_4`
+* `ARKODE_KVAERNO_7_4_5`
+
+#### CMake
+
+The default value of `CMAKE_CUDA_ARCHITECTURES` is no longer set to `70` and is
+now determined automatically by CMake. The previous default was only valid for
+Volta GPUs while the automatically selected value will vary across compilers and
+compiler versions. As such, users are encouraged to override this value with the
+architecture for their system.
+
+The build system has been updated to utilize the CMake LAPACK imported target
+which should ease building SUNDIALS with LAPACK libraries that require setting
+specific linker flags e.g., MKL.
+
+#### Third Party Libraries
+
+The Trilinos Teptra NVector interface has been updated to utilize CMake imported
+targets added in Trilinos 14 to improve support for different Kokkos backends
+with Trilinos. As such, Trilinos 14 or newer is required and the
+`Trilinos_INTERFACE_*` CMake options have been removed.
+
+Example programs using *hypre* have been updated to support v2.20 and newer.
+
+### Bug Fixes
+
+#### CMake
+
+Fixed a CMake bug regarding usage of missing "print_warning" macro that was only
+triggered when the deprecated `CUDA_ARCH` option was used.
+
+Fixed a CMake configuration issue related to aliasing an `ALIAS` target when
+using `ENABLE_KLU=ON` in combination with a static-only build of SuiteSparse.
+
+Fixed a CMake issue which caused third-party CMake variables to be unset.  Users
+may see more options in the CMake GUI now as a result of the fix.  See details
+in GitHub Issue [#538](https://github.com/LLNL/sundials/issues/538).
+
+#### NVector
+
+Fixed a build failure with the SYCL NVector when using Intel oneAPI 2025.0
+compilers. See GitHub Issue [#596](https://github.com/LLNL/sundials/issues/596).
+
+Fixed compilation errors when building the Trilinos Teptra NVector with CUDA
+support.
+
+#### SUNMatrix
+
+Fixed a [bug](https://github.com/LLNL/sundials/issues/581) in the sparse matrix
+implementation of `SUNMatScaleAddI` which caused out of bounds writes unless
+`indexvals` were in ascending order for each row/column.
+
+#### SUNLinearSolver
+
+Fixed a bug in the SPTFQMR linear solver where recoverable preconditioner errors
+were reported as unrecoverable.
+
+#### ARKODE
+
+Fixed `ARKodeResize` not using the default `hscale` when an argument of `0` was
+provided.
+
+Fixed a memory leak that could occur if ``ARKodeSetDefaults`` is called
+repeatedly.
+
+Fixed the loading of ARKStep's default first order explicit method.
+
+Fixed loading the default IMEX-MRI method if `ARKodeSetOrder` is used to specify
+a third or fourth order method. Previously, the default second order method was
+loaded in both cases.
+
+Fixed potential memory leaks and out of bounds array accesses that could occur
+in the ARKODE Lagrange interpolation module when changing the method order or
+polynomial degree after re-initializing an integrator.
+
+Fixed a bug in ARKODE when enabling rootfinding with fixed step sizes and the
+initial value of the rootfinding function is zero. In this case, uninitialized
+right-hand side data was used to compute a state value near the initial
+condition to determine if any rootfinding functions are initially active.
+
+Fixed a bug in MRIStep where the data supplied to the Hermite interpolation
+module did not include contributions from the fast right-hand side
+function. With this fix, users will see one additional fast right-hand side
+function evaluation per slow step with the Hermite interpolation option.
+
+Fixed a bug in SPRKStep when using compensated summations where the error vector
+was not initialized to zero.
+
+#### CVODE(S)
+
+Fixed a bug where `CVodeSetProjFailEta` would ignore the `eta` parameter.
+
+#### Fortran Interfaces
+
+Fixed a bug in the 32-bit ``sunindextype`` Fortran interfaces to
+``N_VGetSubvectorArrayPointer_ManyVector``,
+``N_VGetSubvectorArrayPointer_MPIManyVector``, ``SUNBandMatrix_Column`` and
+``SUNDenseMatrix_Column`` where 64-bit ``sunindextype`` interface functions were
+used.
+
+### Deprecation Notices
+
+Deprecated the ARKStep-specific utility routine for wrapping an ARKStep instance
+as an MRIStep inner stepper object, `ARKStepCreateMRIStepInnerStepper`. Use
+`ARKodeCreateMRIStepInnerStepper` instead.
+
+The ARKODE stepper specific functions to retrieve the number of right-hand side
+function evaluations have been deprecated. Use `ARKodeGetNumRhsEvals` instead.
+
 ## Changes to SUNDIALS in release 7.1.1
 
 ### Bug Fixes
 
-Fixed a [bug](https://github.com/LLNL/sundials/pull/523) in v7.1.0 with the SYCL N_Vector `N_VSpace` function. 
+Fixed a [bug](https://github.com/LLNL/sundials/pull/523) in v7.1.0 with the SYCL
+N_Vector `N_VSpace` function.
 
 ## Changes to SUNDIALS in release 7.1.0
 
@@ -24,6 +920,7 @@ Guide](./CONTRIBUTING.md) for more details.
 Added support for Kokkos Kernels v4.
 
 Added the following Runge-Kutta Butcher tables
+
 * `ARKODE_FORWARD_EULER_1_1`
 * `ARKODE_RALSTON_EULER_2_1_2`
 * `ARKODE_EXPLICIT_MIDPOINT_EULER_2_1_2`
@@ -32,6 +929,7 @@ Added the following Runge-Kutta Butcher tables
 * `ARKODE_IMPLICIT_TRAPEZOIDAL_2_2`
 
 Added the following MRI coupling tables
+
 * `ARKODE_MRI_GARK_FORWARD_EULER`
 * `ARKODE_MRI_GARK_RALSTON2`
 * `ARKODE_MRI_GARK_RALSTON3`
@@ -81,8 +979,7 @@ instead of `SameMajorVersion`. This fixes the issue seen
 [here](https://github.com/AMReX-Codes/amrex/pull/3835).
 
 Fixed a CMake bug that caused an MPI linking error for our C++ examples in some
-instances. Fixes [GitHub Issue
-#464](https://github.com/LLNL/sundials/issues/464).
+instances. Fixes [GitHub Issue #464](https://github.com/LLNL/sundials/issues/464).
 
 Fixed the runtime library installation path for windows systems. This fix
 changes the default library installation path from
@@ -135,7 +1032,7 @@ ARKODE-wide equivalent, instructions have been added to the user guide for how
 to retain the current functionality using other user-callable functions.
 
 The unsupported implementations of `N_VGetArrayPointer` and `N_VSetArrayPointer`
-for the *hypre* and PETSc vectors are now deprecated.  Users should access the
+for the *hypre* and PETSc vectors are now deprecated. Users should access the
 underlying wrapped external library vector objects instead with
 `N_VGetVector_ParHyp` and `N_VGetVector_Petsc`, respectively.
 
@@ -228,20 +1125,20 @@ communicator in place of `MPI_Comm` throughout the SUNDIALS API with a
 `SUNComm`, which is just a typedef to an `int` in builds without MPI
 and a typedef to a `MPI_Comm` in builds with MPI. As a result:
 
-- When MPI is enabled, all SUNDIALS libraries will include MPI symbols and
+* When MPI is enabled, all SUNDIALS libraries will include MPI symbols and
   applications will need to include the path for MPI headers and link against
   the corresponding MPI library.
 
-- All users will need to update their codes because the call to
+* All users will need to update their codes because the call to
   `SUNContext_Create` now takes a `SUNComm` instead
   of type-erased pointer to a communicator. For non-MPI codes,
   pass `SUN_COMM_NULL` to the `comm` argument instead of
   `NULL`. For MPI codes, pass the `MPI_Comm` directly.
 
-- The same change must be made for calls to
+* The same change must be made for calls to
   `SUNLogger_Create` or `SUNProfiler_Create`.
 
-- Some users will need to update their calls to `N_VGetCommunicator`, and
+* Some users will need to update their calls to `N_VGetCommunicator`, and
   update any custom `N_Vector` implementations that provide
   `N_VGetCommunicator`, since it now returns a `SUNComm`.
 
@@ -395,7 +1292,7 @@ disabled.
 
 Fixed a bug in `ARKStepSetTableNum` wherein it did not recognize
 `ARKODE_ARK2_ERK_3_1_2` and `ARKODE_ARK2_DIRK_3_1_2` as a valid additive
-Runge--Kutta Butcher table pair.
+Runge-Kutta Butcher table pair.
 
 Fixed a bug in `MRIStepCoupling_Write` where explicit coupling tables were not
 written to the output file pointer.
@@ -442,9 +1339,9 @@ ARKODE.
 ### New Features
 
 Updated CVODE, CVODES and ARKODE default behavior when returning the solution when
-the internal time has reached a user-specified stop time.  Previously, the output
+the internal time has reached a user-specified stop time. Previously, the output
 solution was interpolated to the value of `tstop`; the default is now to copy the
-internal solution vector.  Users who wish to revert to interpolation may call a new
+internal solution vector. Users who wish to revert to interpolation may call a new
 routine `CVodeSetInterpolateStopTime`, `ARKStepSetInterpolateStopTime`,
 `ERKStepSetInterpolateStopTime`, or `MRIStepSetInterpolateStopTime`.
 
@@ -764,7 +1661,7 @@ instead.
 * `SUNLinSolSetInfoFile_SPBCGS`
 * `SUNLinSolSetPrintLevel_SPBCGS`
 
-The `SUNLinSolSetInfoFile_*` and  `SUNNonlinSolSetInfoFile_*` family of
+The `SUNLinSolSetInfoFile_*` and `SUNNonlinSolSetInfoFile_*` family of
 functions are now enabled by setting the CMake option `SUNDIALS_LOGGING_LEVEL`
 to a value `>= 3`.
 
@@ -925,7 +1822,7 @@ can be enabled with the CMake option `SUNDIALS_BUILD_WITH_PROFILING`. A built-in
 profiler will be used by default, but the
 [Caliper](https://github.com/LLNL/Caliper) library can also be used instead with
 the CMake option `ENABLE_CALIPER`. See the documentation section on profiling
-for more details.  **WARNING**: Profiling will impact performance, and should be
+for more details. **WARNING**: Profiling will impact performance, and should be
 enabled judiciously.
 
 #### IMEX MRI Methods and MRIStepInnerStepper Object
@@ -1260,9 +2157,9 @@ use the `SUNLinSolNewEmpty` constructor will, at a minimum, need set the
 to leverage this new set function to remove one dot product per solve.
 
 The time integrator packages (ARKODE, CVODE(S), and IDA(S)) all now support a
-new "matrix-embedded" SUNLinearSolver type.  This type supports user-supplied
+new "matrix-embedded" SUNLinearSolver type. This type supports user-supplied
 SUNLinearSolver implementations that set up and solve the specified linear
-system at each linear solve call.  Any matrix-related data structures are held
+system at each linear solve call. Any matrix-related data structures are held
 internally to the linear solver itself, and are not provided by the SUNDIALS
 package.
 
@@ -1637,7 +2534,7 @@ should be used instead.
 Added support for a user-supplied function to update the prediction for each
 implicit stage solution in ARKStep. If supplied, this routine will be called
 *after* any existing ARKStep predictor algorithm completes, so that the
-predictor may be modified by the user as desired.  The new user-supplied routine
+predictor may be modified by the user as desired. The new user-supplied routine
 has type `ARKStepStagePredictFn`, and may be set by calling
 `ARKStepSetStagePredictFn`.
 
@@ -1776,7 +2673,7 @@ update their code to set the corresponding `ops` structure member,
 `matvecsetup`, to `NULL`.
 
 The generic SUNMatrix API now defines error codes to be returned by SUNMatrix
-operations. Operations which return an integer flag indiciating success/failure
+operations. Operations which return an integer flag indicating success/failure
 may return different values than previously.
 
 A new SUNMatrix (and SUNLinearSolver) implementation was added to facilitate
@@ -1835,7 +2732,7 @@ The inputs values passed to the first two inputs of the `SUNNonlinSolSolve`
 function in the `SUNNonlinearSolver` have been changed to be the predicted state
 and the initial guess for the correction to that state. Additionally, the
 definitions of `SUNNonlinSolLSetupFn` and `SUNNonlinSolLSolveFn` in the
-SUNNonlinearSolver API have been updated to remove unused input parameters.  For
+SUNNonlinearSolver API have been updated to remove unused input parameters. For
 more information on the nonlinear system formulation and the API functions see
 the `SUNNonlinearSolver` chapter in the user guides.
 
@@ -1888,12 +2785,12 @@ function signatures have been changed including MRIStepCreate which now
 takes an ARKStep memory structure for the fast integration as an input.
 
 The reinitialization functions `ERKStepReInit`, `ARKStepReInit`, and
-`MRIStepReInit` have been updated to retain the minimum and maxiumum step
+`MRIStepReInit` have been updated to retain the minimum and maximum step
 size values from before reinitialization rather than resetting them to the
 default values.
 
 Added two new embedded ARK methods of orders 4 and 5 to ARKODE (from
-Kennedy & Carpenter, Appl. Numer. Math., 136:183--205, 2019).
+Kennedy & Carpenter, Appl. Numer. Math., 136:183-205, 2019).
 
 Support for optional inequality constraints on individual components of the
 solution vector has been added the ARKODE ERKStep and ARKStep modules. See
@@ -1913,7 +2810,7 @@ being built.
 
 Fixed a memory leak in the PETSc `N_Vector` clone function.
 
-Fixed a memeory leak in the ARKODE, CVODE, and IDA F77 interfaces when not using
+Fixed a memory leak in the ARKODE, CVODE, and IDA F77 interfaces when not using
 the default nonlinear solver.
 
 Fixed a bug in the ARKStep time-stepping module in ARKODE that would result in
@@ -2160,7 +3057,7 @@ this, the existing ARK-based methods have been encapsulated inside the new
 `ARKStep` time-stepping module. Two new time-stepping modules have been added:
 
 * The `ERKStep` module provides an optimized implementation for explicit
-  Runge--Kutta methods with reduced storage and number of calls to the ODE
+  Runge-Kutta methods with reduced storage and number of calls to the ODE
   right-hand side function.
 
 * The `MRIStep` module implements two-rate explicit-explicit multirate
@@ -2532,7 +3429,7 @@ accommodate very high order methods, and an 8th-order adaptive ERK method was
 added.
 
 Support was added for the explicit and implicit methods in an additive
-Runge--Kutta method with different stage times to support new SSP-ARK methods.
+Runge-Kutta method with different stage times to support new SSP-ARK methods.
 
 The FARKODE interface was extended to include a routine to set
 scalar/array-valued residual tolerances, to support Fortran applications with
@@ -2570,7 +3467,7 @@ The missing `ARKSpilsGetNumMtimesEvals` function was added -- this had been
 included in the previous documentation but had not been implemented.
 
 The choice of the method vs embedding the Billington and TRBDF2 explicit
-Runge--Kutta methods were swapped, since in those the lower-order coefficients
+Runge-Kutta methods were swapped, since in those the lower-order coefficients
 result in an A-stable method, while the higher-order coefficients do not. This
 change results in significantly improved robustness when using those methods.
 
@@ -2625,7 +3522,7 @@ with sparse direct solvers.
 
 #### KINSOL
 
-The Picard iteration return was chanegd to always return the newest iterate upon
+The Picard iteration return was changed to always return the newest iterate upon
 success.
 
 A minor bug in the line search was fixed to prevent an infinite loop when the

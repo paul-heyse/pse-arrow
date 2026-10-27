@@ -11,7 +11,11 @@ Download each archive from `https://static.crates.io/crates/{package}/{package}-
 The checksum identifies the actual published source, including normalized manifests, lockfiles,
 licenses and packaged VCS metadata. The VCS revision is metadata supplied by that archive; in
 particular the SUNDIALS wrapper declares `dirty: true`, so its Git commit alone cannot reconstruct
-the archive. The wrapper bundles SUNDIALS 7.1.1; its version is distinct from the Rust wrapper's.
+the archive. The published wrapper bundles SUNDIALS 7.1.1. The maintained wrapper selects the
+authenticated SUNDIALS 7.9.0 projection recorded in
+[`native-source.json`](../sundials-sys/native-source.json); native and Rust wrapper versions
+remain distinct. The wrapper archive below remains the reconstruction baseline; the complete
+delta includes its native release replacement and maintained integration.
 
 | Directory | Package | Version | Archive SHA256 | Packaged VCS revision | Packaged VCS path | Origin |
 |---|---|---|---|---|---|---|
@@ -44,7 +48,7 @@ categories describe the diff and do not assert semantic equivalence.
 | Directory | Modified substantive | Modified whitespace-only | Added | Deleted | Delta |
 |---|---:|---:|---:|---:|---|
 | `suitesparse-sys` | 1 | 0 | 1 | 0 | [suitesparse-sys.patch](suitesparse-sys.patch) |
-| `sundials-sys` | 12 | 0 | 0 | 0 | [sundials-sys.patch](sundials-sys.patch) |
+| `sundials-sys` | 657 | 0 | 138 | 103 | [sundials-sys.patch](sundials-sys.patch) |
 | `diffsol` | 2 | 0 | 0 | 0 | [diffsol.patch](diffsol.patch) |
 | `diffsol-la` | 1 | 0 | 0 | 0 | [diffsol-la.patch](diffsol-la.patch) |
 | `diffsol-nl` | 1 | 0 | 0 | 0 | [diffsol-nl.patch](diffsol-nl.patch) |
@@ -58,9 +62,13 @@ The SDK's twenty whitespace-only files include sixteen `src/` files, `build.rs` 
 three benchmark files. Added SDK files are `.cargo-ok`, `src/engine/remote/grpc_lifecycle.rs`,
 `grpc_lifecycle_tests.rs`, `grpc_wire.rs`, `grpc_wire_schema.rs` in that same directory,
 and `tools/update_grpc_wire_schema.py`. The engine API adds `.cargo-ok` and `src/request.rs`.
-SuiteSparse adds `.gitattributes` to retain its two published CRLF files. There are no deleted
-archive files in these supplier trees; the comparison below still checks the entire path
-set and would detect an omitted deletion. The patch itself is the complete hunk inventory.
+SuiteSparse adds `.gitattributes` to retain its two published CRLF files. The SUNDIALS release
+replacement adds 138 and deletes 103 paths relative to the published wrapper, including the
+native provenance record. Its projection retains complete released `cmake/`, `external/`,
+`include/` and `src/` directories and matching root support files; obsolete wrapper-bundled CI,
+SWIG and other removed release paths are deleted. Other listed trees have no deleted archive
+files. The comparison below checks the complete path set, including deletions. The patch itself
+is the complete hunk inventory.
 
 ## Reconstruct and compare
 
@@ -142,6 +150,9 @@ For the build-authenticated native suppliers, run
 intentional source edit. This implements that reconstruction procedure and publishes the
 complete delta plus its derived `<directory>.source.json` receipt only after independently
 reapplying the delta to the checksum-verified archive and comparing every path, byte and mode.
+When `native-source.json` selects a replacement native release, the same owner additionally
+downloads/checks that release, verifies its complete projection and allows changes only in the
+explicit maintained integration files before publishing the checked receipt.
 The receipt is derived evidence; this page remains the published baseline owner and the delta
 the complete maintained change. The native build helper checks the selected source tree and
 delta against that receipt and embeds its digest. Same-version source edits with stale receipts

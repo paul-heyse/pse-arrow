@@ -96,8 +96,9 @@ fn append_history(
 impl Session {
     /// Execute only declared bounded restarts. Every slice uses the original clock,
     /// work admission and iteration remainder; a terminal scientific cause vetoes it.
-    /// Pinned SUNDIALS 7.1.1 KINFP resets kin_nni to zero on each KINSol call;
-    /// Anderson iteration zero overwrites gold/fold and iteration one rebuilds QR.
+    /// Pinned SUNDIALS 7.9.0 KINFP resets kin_nni on each KINSol call;
+    /// KINInitAA first resets current depth to zero, then Anderson iteration zero
+    /// overwrites gold/fold and iteration one rebuilds QR without reallocating.
     /// Screening occurs before that reset, so refused starts cannot erase history.
     #[allow(
         clippy::too_many_arguments,

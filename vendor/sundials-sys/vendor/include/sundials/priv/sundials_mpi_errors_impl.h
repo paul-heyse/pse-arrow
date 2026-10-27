@@ -1,7 +1,10 @@
 /* -----------------------------------------------------------------
  * SUNDIALS Copyright Start
- * Copyright (c) 2002-2024, Lawrence Livermore National Security
+ * Copyright (c) 2025-2026, Lawrence Livermore National Security,
+ * University of Maryland Baltimore County, and the SUNDIALS contributors.
+ * Copyright (c) 2013-2025, Lawrence Livermore National Security
  * and Southern Methodist University.
+ * Copyright (c) 2002-2013, Lawrence Livermore National Security.
  * All rights reserved.
  *
  * See the top-level LICENSE and NOTICE files for details.
@@ -30,7 +33,7 @@ extern "C" {
 
 /*
    SUNCheckMPICallMsg performs the MPI function call, and checks the
-   returned error code. If an error occured, then it will log the error, set the
+   returned error code. If an error occurred, then it will log the error, set the
    last_err value, call the error handler, **and then return SUN_ERR_MPI_FAIL**.
 
    :param call: the MPI function call
@@ -54,7 +57,7 @@ extern "C" {
 
 /*
    SUNCheckMPICallNullMsg performs the MPI function call, and checks the
-   returned error code. If an error occured, then it will log the error, set the
+   returned error code. If an error occurred, then it will log the error, set the
    last_err value, call the error handler, **and then return NULL**.
 
    :param call: the MPI function call
@@ -78,7 +81,7 @@ extern "C" {
 
 /*
    SUNCheckMPICallVoidMsg performs the MPI function call, and checks the
-   returned error code. If an error occured, then it will log the error, set the
+   returned error code. If an error occurred, then it will log the error, set the
    last_err value, call the error handler, **and then return void**.
 
    :param call: the MPI function call
@@ -102,7 +105,7 @@ extern "C" {
 
 /*
    SUNCheckMPICallNoRetMsg performs the MPI function call, and checks the
-   returned error code. If an error occured, then it will log the error, set the
+   returned error code. If an error occurred, then it will log the error, set the
    last_err value, and call the error handler. **It does not return**.
 
    :param call: the MPI function call

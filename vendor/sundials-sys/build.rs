@@ -1,6 +1,7 @@
 use std::{
     collections::HashSet,
     env,
+    hash::{Hash, Hasher},
     fs::File,
     io::{BufReader, Read},
     path::{Path, PathBuf}
@@ -78,6 +79,7 @@ struct Library {
 #[derive(Debug)]
 struct CargoInputs {
     generated_include: Option<PathBuf>,
+    delegate: bindgen::CargoCallbacks,
 }
 
 impl bindgen::callbacks::ParseCallbacks for CargoInputs {
@@ -97,12 +99,12 @@ impl bindgen::callbacks::ParseCallbacks for CargoInputs {
                 .is_ok_and(|path| path.starts_with(&canonical_include))
         });
         if !generated {
-            bindgen::callbacks::ParseCallbacks::include_file(&bindgen::CargoCallbacks, filename);
+            bindgen::callbacks::ParseCallbacks::include_file(&self.delegate, filename);
         }
     }
 
     fn read_env_var(&self, key: &str) {
-        bindgen::callbacks::ParseCallbacks::read_env_var(&bindgen::CargoCallbacks, key);
+        bindgen::callbacks::ParseCallbacks::read_env_var(&self.delegate, key);
     }
 }
 
@@ -136,24 +138,33 @@ fn build_vendor_sundials(klu: &Library) -> (Library, &'static str) {
         _ => unreachable!(),
     };
 
+    // A wrapper version may retain a newer native release. Keep changed upstream
+    // build definitions out of an earlier release's deprecated CMake cache.
+    // This is a cache namespace; authenticated source identity has its own receipt.
+    let mut definition = std::collections::hash_map::DefaultHasher::new();
+    std::fs::read("vendor/CMakeLists.txt").expect("native CMake definition").hash(&mut definition);
     let mut config = cmake::Config::new("vendor");
+    config.out_dir(PathBuf::from(env::var_os("OUT_DIR").expect("Cargo build output"))
+        .join(format!("native-{:016x}", definition.finish())));
     config
         .define("CMAKE_INSTALL_BINDIR", "lib") // v7.1.0
         .define("CMAKE_INSTALL_LIBDIR", "lib") // ≤ v7.0.0
         .define("BUILD_STATIC_LIBS", static_libraries)
         .define("BUILD_SHARED_LIBS", shared_libraries)
-        .define("BUILD_TESTING", "OFF")
-        .define("EXAMPLES_INSTALL", "OFF")
-        .define("EXAMPLES_ENABLE_C", "OFF")
-        .define("BUILD_ARKODE", feature!("arkode"))
-        .define("BUILD_CVODE", feature!("cvode"))
-        .define("BUILD_CVODES", feature!("cvodes"))
-        .define("BUILD_IDA", feature!("ida"))
-        .define("BUILD_IDAS", feature!("idas"))
-        .define("BUILD_KINSOL", feature!("kinsol"))
-		.define("ENABLE_KLU", feature!("klu"))
-        .define("OPENMP_ENABLE", feature!("nvecopenmp"))
-        .define("PTHREAD_ENABLE", feature!("nvecpthreads"));
+        .define("SUNDIALS_TEST_ENABLE_UNIT_TESTS", "OFF")
+        .define("SUNDIALS_TEST_ENABLE_GTEST", "OFF")
+        .define("SUNDIALS_TEST_ENABLE_DEV_TESTS", "OFF")
+        .define("SUNDIALS_ENABLE_EXAMPLES_INSTALL", "OFF")
+        .define("SUNDIALS_ENABLE_C_EXAMPLES", "OFF")
+        .define("SUNDIALS_ENABLE_ARKODE", feature!("arkode"))
+        .define("SUNDIALS_ENABLE_CVODE", feature!("cvode"))
+        .define("SUNDIALS_ENABLE_CVODES", feature!("cvodes"))
+        .define("SUNDIALS_ENABLE_IDA", feature!("ida"))
+        .define("SUNDIALS_ENABLE_IDAS", feature!("idas"))
+        .define("SUNDIALS_ENABLE_KINSOL", feature!("kinsol"))
+		.define("SUNDIALS_ENABLE_KLU", feature!("klu"))
+        .define("SUNDIALS_ENABLE_OPENMP", feature!("nvecopenmp"))
+        .define("SUNDIALS_ENABLE_PTHREAD", feature!("nvecpthreads"));
     if let Some(inc) = &klu.inc {
         config.define("KLU_INCLUDE_DIR", inc);
     }
@@ -214,7 +225,7 @@ fn generate_bindings(
         ])
         // CMake-installed headers are outputs. Watching them would make a
         // timestamp-changing build invalidate itself after Cargo starts it.
-        .parse_callbacks(Box::new(CargoInputs { generated_include }))
+        .parse_callbacks(Box::new(CargoInputs { generated_include, delegate: bindgen::CargoCallbacks::new() }))
         .parse_callbacks(Box::new(ParseSignedConstants))
         .parse_callbacks(Box::new(IgnoreMacros::new()))
         .generate()

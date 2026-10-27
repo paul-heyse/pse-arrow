@@ -25,6 +25,49 @@ def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def verify_selected_native(tree: Path, scratch: Path) -> str | None:
+    record = tree / "native-source.json"
+    if not record.is_file():
+        return None
+    selected = json.loads(record.read_text())
+    with urllib.request.urlopen(selected["source"], timeout=60) as response:
+        data = response.read()
+    if digest(data) != selected["sha256"]:
+        raise ValueError("selected native release archive checksum mismatch")
+    archive = scratch / "native-release.tar.gz"
+    archive.write_bytes(data)
+    extracted = scratch / "native-release"
+    extracted.mkdir()
+    with tarfile.open(archive) as bundle:
+        bundle.extractall(extracted, filter="data")
+    roots = list(extracted.iterdir())
+    if len(roots) != 1:
+        raise ValueError("selected native release has no unique source root")
+    upstream = roots[0]
+    expected = {}
+    for name in selected["projection"]:
+        source = upstream / name
+        paths = source.rglob("*") if source.is_dir() else [source]
+        for path in paths:
+            if path.is_file():
+                expected[str(path.relative_to(upstream))] = (
+                    path.read_bytes(), bool(path.stat().st_mode & stat.S_IXUSR)
+                )
+    actual = {
+        str(path.relative_to(tree / "vendor")): (
+            path.read_bytes(), bool(path.stat().st_mode & stat.S_IXUSR)
+        )
+        for path in (tree / "vendor").rglob("*") if path.is_file()
+    }
+    if actual.keys() != expected.keys():
+        raise ValueError("selected native release projection has added/deleted paths")
+    changed = sorted(name for name, data in expected.items() if actual[name] != data)
+    if changed != sorted(selected["local_integration_files"]):
+        raise ValueError(f"selected native release has unrecorded integration edits: {changed}")
+    print(f"native {selected['version']}: authenticated release/projection; {len(changed)} integration files")
+    return selected["sha256"]
+
+
 def refresh(repo: Path, directory: str) -> None:
     rows = []
     for line in (repo / "vendor/deltas/readme.md").read_text().splitlines():
@@ -36,6 +79,7 @@ def refresh(repo: Path, directory: str) -> None:
     _, package, version, expected, revision, vcs_path, _ = rows[0]
     with tempfile.TemporaryDirectory(prefix="pse-supplier-source-") as temporary:
         scratch = Path(temporary)
+        selected_native = verify_selected_native(repo / "vendor" / directory, scratch)
         archive = scratch / f"{package}-{version}.crate"
         with urllib.request.urlopen(
             f"https://static.crates.io/crates/{package}/{archive.name}", timeout=60
@@ -107,6 +151,8 @@ def refresh(repo: Path, directory: str) -> None:
             raise ValueError(f"complete source reconstruction mismatch: {directory}")
         receipt = {"archive_sha256": expected, "delta_sha256": digest(delta),
                    "package": package, "version": version, "files": files}
+        if selected_native is not None:
+            receipt["selected_native_archive_sha256"] = selected_native
         (repo / f"vendor/deltas/{directory}.source.json").write_text(
             json.dumps(receipt, sort_keys=True, indent=2) + "\n"
         )

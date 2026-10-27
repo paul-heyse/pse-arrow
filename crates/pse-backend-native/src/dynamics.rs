@@ -234,7 +234,7 @@ impl IdasLinear {
         let Self::SpgmrBbd { retained, .. } = self else {
             return Ok(0);
         };
-        // SUNDIALS7.1.1 idas_bbdpre.c owns PP, four cloned serial vectors,
+        // SUNDIALS7.9.0 idas_bbdpre.c owns PP, four cloned serial vectors,
         // two empty serial views and a band solver. sunmatrix_band.c owns
         // n*(stored_upper+lower+1) doubles and n column pointers; the band
         // solver owns n i64 pivots. The fixed allowance covers BBD, six

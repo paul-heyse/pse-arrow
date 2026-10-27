@@ -14,7 +14,7 @@ const TEXT_LIMIT: usize = 1024;
 /// # Safety
 /// `context` is a live SUNDIALS context used exclusively by its owning native thread.
 pub(crate) unsafe fn install(context: ffi::SUNContext) -> Result<(), crate::ProblemError> {
-    // Pinned SUNDIALS 7.1.1 Push adds to the handler stack. Clear must precede it;
+    // Pinned SUNDIALS 7.9.0 Push adds to the handler stack. Clear must precede it;
     // otherwise the default SUNLogErrHandlerFn continues writing to stderr.
     // SAFETY: the caller provides a live, exclusively owned context.
     let clear = unsafe { ffi::SUNContext_ClearErrHandlers(context) };
