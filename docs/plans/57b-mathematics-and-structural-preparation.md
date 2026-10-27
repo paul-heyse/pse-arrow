@@ -99,9 +99,9 @@ from KINSOL or native-child consumers that also use `MATCHING_STACK`.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| B01 | implemented; conversion disposition and joined qualification pending | [Cubic repair](#b01) | Complete bounded enumeration, candidate conversion, admission and old-path deletion; targeted controls pass |
+| B01 | implemented; joined qualification pending | [Cubic repair](#b01) | Complete bounded enumeration, candidate conversion, admission and old-path deletion; targeted controls pass |
 | B02 | implemented; joined qualification pending | [Checked decomposition](#b02) | Both consumers use the checked non-spawning owner; targeted controls pass |
-| B03 | in progress | [Supplier coupling and bounds](#b03) | Hold and math bound consumers integrated; residual/upstream conditions retain explicit dispositions |
+| B03 | implemented; joined qualification pending | [Supplier coupling and bounds](#b03) | Hold and math bound consumers integrated; residual/upstream conditions retain explicit dispositions |
 
 B01 is highest consequence and can proceed independently of B02. B03's hold can precede both;
 its final contents must remove couplings actually retired by B01. Packages are outcomes, not
@@ -289,8 +289,14 @@ B01 is integrated in `74cc0636c`: maintained bounded supplier entry points admit
 before square-free reduction and isolation, preserve root associations and enumerate the chosen
 midpoint/endpoint candidates through certified rational conversion. An unrepresentable root
 refuses the complete result instead of silently dropping that association. Twelve selected
-cubic/conversion/collocation controls passed in both debug and release. The broader evaluator
-coefficient-conversion question retains its own pending disposition.
+cubic/conversion/collocation controls passed in both debug and release. The broader evaluator coefficient conversion deliberately retains its existing numerical
+realization: the actual supplier `map_coeff` control maps `(2^53+3)/(2^53+1)` to `1+2 ulp`,
+where certified nearest is `1+1 ulp`. No general RNE promise exists at that backend boundary.
+The three production conversion paths and their identities remain unchanged; exact proof
+consumers enclose both authored and current numerical values. The canonical hold names the
+remaining double-rounding coupling and requires revisiting a certified-rounding consumer or
+supplier/API change. The bounded root endpoint normalization does not change collocation's
+unbounded isolation route or its separate identity.
 
 B02 is integrated in `3b12321fd`: case incidence and implicit reconstruction use the same checked
 non-spawning matching/DM/BTF owner. Their caller-qualified stack remains charged; no second
@@ -299,11 +305,16 @@ passed. The actual admitted runtime preparation journey remains for J.
 
 B03 has canonical source-coupling holds in Cargo metadata and the shared allocation bounds.
 The minimum G03 compiler/capture supervisor prerequisite is integrated in `c89aa0e79`; 57g owns
-its remaining consumers. Exact-source FBBT inquiry found that rounded point constants and
+its remaining consumers. Its later independent-review hardening for descriptor-proven exited processes with unavailable
+namespace metadata is integrated in `b2cbd8576`, with eighteen diagnostics controls passing in
+debug and release. This host retained ordinary zombie PID-namespace links: the missing-metadata
+fixtures are explicitly injected, not a reproduced ordinary fast-exit hang. Actual compiler/
+capture refresh remains with J. Exact-source FBBT inquiry found that rounded point constants and
 rounded exponent classification can make the compiler's big-M enclosure unsound. The selected
 remedy extends the existing supplier FBBT leaf with an interval constant, uses exact exponent
-predicates, and adds independent cancellation/amplification controls. This remains in progress;
-disabling backend bound tightening does not settle the compiler consumer. No parallel IR or
+predicates, and adds independent cancellation/amplification controls. This is integrated in `73afd65b0`, with thirteen math and three compiler derived-M/rebind
+controls passing in both debug and release. Disabling backend bound tightening did not settle
+the compiler consumer; the independent authored cancellation regression now reaches it. No parallel IR or
 mandatory new coefficient-rounding contract is selected.
 
 ## Verification and evidence limits

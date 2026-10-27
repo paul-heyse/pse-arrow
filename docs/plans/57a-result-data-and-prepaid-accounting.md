@@ -83,9 +83,9 @@ store's indexed descriptor selection to DataFusion or change extrema/identity co
 |---|---|---|---|
 | A01 | implemented; joined qualification pending | Result encoding and `pse-ids` | Typed bounded/counting sink adopted at all selected consumers; dead trial path deleted |
 | A02 | implemented; joined qualification pending | Columnar framing and import consumers | Complete stream admission precedes decode on replay, pack and portable/physical input routes |
-| A03 | in progress | Columnar file admission and runtime readers | Cached admitted file decoder and full allocation envelope replace duplicate reads/whole-file grants |
-| A04 | pending | Runtime result selection | Column-wise indexing and one predicate/metadata owner preserve current results |
-| A05 | partial | Integration-specific bound owners | Selected result/container bounds have a single source-derived owner and all consumers move |
+| A03 | implemented; joined qualification pending | Columnar file admission and runtime readers | Cached admitted file decoder and full allocation envelope replace duplicate reads/whole-file grants |
+| A04 | implemented; joined qualification pending | Runtime result selection | Column-wise indexing and one predicate/metadata owner preserve current results |
+| A05 | implemented selected footprint; joined qualification pending | Integration-specific bound owners | Selected result/container bounds have a single source-derived owner and all consumers move |
 | A06 | implemented; joined qualification pending | Coordinator with retained-size owners | Bounded hand-accounting census selects an idiom or justified derive route; no crate adoption implied |
 
 <a id="a01"></a>
@@ -256,8 +256,9 @@ A01/A02 are integrated in `a15da43ee`: one typed sink preserves forwarded causes
 IPC message admission checks framing, verifier limits, schemas, spans and complete bodies before
 Arrow materialization. Escaping batches retain schema and working grants. The selected pure
 sink, IPC and runtime-refusal controls passed; assembled replay/import/export remains with J.
-A03 now uses the existing file boundary's admitted decoder and is under targeted verification;
-A04 selection migration follows it.
+A03 is integrated in `9fe4dbb31`; its final columnar/runtime selection passed 22 focused
+controls. A04 is integrated in `c3e2881a6`, with twelve pure selection/metadata/index controls
+passing. Actual canonical, imported and Python readback stays with J.
 
 A05 has moved the selected B-tree geometry to `pse-model::allocation`; structural/compiler/math
 consumers and the non-columnar construction fixes are integrated. Native and result-specific
@@ -268,6 +269,17 @@ DeclarationReferences. They now destructure exhaustively and share conservative 
 accounting. These shapes do not justify a derive crate. No blanket hash-container implementation
 was added; foreign handles and predicted scientific storage retain their distinct policies.
 No measured speed or memory improvement is claimed.
+
+A05's writer/header contribution is integrated in `c9164a7d7`. It prepays current supplier
+preparation, rebasing/bitshift/generated validity, footer populations and output capacity
+reallocation overlap, and migrates the selected relation, artifact, study and source-stream
+writers. The final three-root force-validation selection passed 49 controls without warnings.
+`algorithm_decode_extent` and `columnar_validation_extent` remain named conservative execution
+owners, not supplier predictions. The durable publication-response composite retains separate
+transport custody; generic arbitrary alias-header accounting is a remaining investigation,
+not a claim of globally complete `FieldCheckedBatch` accounting. Selected snapshot slices and
+source-writer wrappers have explicit prepayment. CBO-001's overall disposition remains with
+the coordinator rather than being closed from this selected writer contribution.
 
 ## Dependencies, retained scope and qualification
 

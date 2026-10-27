@@ -116,9 +116,12 @@ do not establish every flowsheet or algebraic-root rounding policy.
 Native acceptance uses changed-source IDAS/KINSOL corrected histories, retained/restarted
 sessions, fixed-pattern KLU, response/arclength/Diffsol factors, covariance/PSD controls and
 actual PETSc/SCIP gate/quarantine journeys. IDAS-only supplier identity remains a distinct
-feature obligation. The maintained FERAL/POUNCE changes must have a reachable immutable source
-before final publication; local-cache development is not remote reproducibility. The new
-SUNDIALS restart failure remains open until its corrected effective-depth behavior passes.
+feature obligation. The maintained FERAL/POUNCE changes now have a remotely verified immutable source after
+explicit fork-push approval. The SUNDIALS restart and allocation-custody corrections pass their
+focused controls. The supervisor hardening for descriptor-proven exited processes with unavailable namespace
+metadata is integrated and focused-tested. Ordinary zombie-link disappearance was not observed
+on this host; the fixtures explicitly inject metadata absence while retaining real kernel
+ownership and exit witnesses. Actual compiler/capture refresh remains part of this campaign.
 Compiler/capture process controls retain their original-owner drain boundaries and do not
 claim escaped-descendant containment.
 

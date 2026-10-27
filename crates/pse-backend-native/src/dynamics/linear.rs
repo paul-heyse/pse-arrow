@@ -8,6 +8,12 @@
 //! Allocation and contract failures keep their typed attempt-local terminal cause.
 mod terminal;
 pub(super) use terminal::{scope as attempt_scope, take as take_terminal};
+#[cfg(test)]
+pub(super) fn inject_terminal(error: crate::ProblemError) {
+    // Deterministic failure seam: exercise the real first-cause owner without
+    // provoking allocator exhaustion or inventing a second error-mapping path.
+    terminal::current().defer(error);
+}
 use diffsol::{
     FaerContext, FaerSparseMat, FaerVec, LaError, Matrix, MatrixCommon, Vector, VectorHost,
 };

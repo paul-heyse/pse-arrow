@@ -274,7 +274,7 @@ accepted as complete until the consumed dispatch closure and scientific controls
 shared construction/decomposition, bounded cubic/nonfused arithmetic suppliers, and the minimum
 compiler/capture supervisor are integrated in discrete commits. Result file/selection work,
 SUNDIALS controls, shared native LU/terminal handling and the compiler FBBT soundness remedy
-are being completed in their companion owners. The FERAL owner bound is tested locally;
-a reachable immutable fork publication is pending. Selected focused tests have passed, while
+are being completed in their companion owners. The tested FERAL bound and FBBT interval leaf are published at the selected immutable
+maintainer-fork revision, with remote availability verified. Selected focused tests have passed, while
 J's assembled qualification and scope-end static/manual checks have not run. No performance,
 cross-CPU or whole-Plan57 completion is claimed.

@@ -1873,6 +1873,31 @@ mod forward_initialization_tests {
         }
     }
     #[test]
+    fn owned_stop_precedes_simultaneous_latched_linear_memory_failure() {
+        for cancelled in [true,false] {
+            let _attempt=linear::attempt_scope(None);
+            let mut oracle=Affine::new();
+            let profile=affine_profile(DiffsolLinear::FaerLu);
+            let cancel=Cancellation::default();
+            let mut shared=Shared::new(&mut oracle,&profile,&[1.0],cancel.clone(),Arc::new(crate::solve::Progress::new(16))).unwrap();
+            linear::inject_terminal(ProblemError::memory("deterministic linear allocation failure"));
+            if cancelled { cancel.cancel(); }
+            else { Rc::get_mut(&mut shared).unwrap().deadline=Instant::now(); }
+            let result=catch_unwind(AssertUnwindSafe(|| {shared.check(); Ok(())}));
+            let mut report=Report::new(&profile,SampleRetention::Full,1);
+            shared.contain(result,&mut report);
+            if cancelled {
+                assert_eq!(report.termination,Termination::Cancelled);
+                assert!(matches!(report.error,Some(ProblemError::Math(pse_math::MathError::Cancelled))));
+            } else {
+                assert_eq!(report.termination,Termination::TimeLimit);
+                assert!(matches!(report.error,Some(ProblemError::Limit{kind:crate::LimitKind::Time,..})));
+            }
+            assert!(report.samples.is_empty());
+        }
+    }
+
+    #[test]
     fn affine_bdf_forward_response_respects_physical_allowance_at_public_controls() {
         // This empirical affine control compares a half-scale parameter effect
         // against the public state's frozen physical budget. The native local

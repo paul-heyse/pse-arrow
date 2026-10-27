@@ -632,7 +632,7 @@ pyo3 = { version = "0.29", match = "minor", crates = [
 # each with its reason (ADR-0165). Every dependency is exact anyway; one with no entry here
 # may be bumped when the work calls for it. Remove the entry when the reason lapses.
 [workspace.metadata.pse.pins]
-symbolica = "Maintained 3.0.1 bounded exact-root APIs and certified binary64 conversion; Dualizer, evaluator/export/abort and cache realization are release-coupled. Revisit with exact-source API and scientific controls before removing the patch or changing Symbolica/Numerica. See vendor/symbolica-bounded-roots.md."
+symbolica = "Maintained 3.0.1 bounded exact-root APIs and certified proof conversion; Dualizer expansion, C++ export, build-time abort and remaining global root-cache couplings are release-specific. Numerica Rational::to_f64 double rounds some literals; the three general map_coeff paths retain their existing non-RNE numerical realization. Revisit on supplier/API change or a consumer requiring certified rounding, with exact-source and scientific controls. See vendor/symbolica-bounded-roots.md."
 faer = "Maintained nonfused 0.24.4 kernel realization and companion faer-traits source; update and qualify together, revisiting only with complete consumed dispatch and generated-code controls. See vendor/faer-arithmetic.md."
 levenberg-marquardt = "Exact nalgebra 0.35 compatibility commit; release 0.15 algorithm/API unchanged; revisit when a release carries this family update."
 pounce-presolve = "POUNCE fork at one immutable revision; the whole POUNCE family resolves to one coherent source (Plan 25n)"

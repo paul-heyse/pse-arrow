@@ -109,10 +109,10 @@ existing ownership chain; no compatibility execution route is added.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| C01 | implemented; provider followthrough and joined qualification pending | [Supplier identity](#c01) | Same-version delta and IDAS-only moves change the consumed build premise; controls pass |
+| C01 | implemented; joined qualification pending | [Supplier identity](#c01) | Same-version delta and IDAS-only moves change the consumed build premise; controls pass |
 | C02 | implemented; joined qualification pending | [FMA-free closure inquiry and realization](#c02) | Complete FMA-free realization demonstrated; an unresolved inquiry outcome leaves arithmetic conformance open |
-| C03 | in progress | [SUNDIALS release move](#c03) | Decision route, identity, integration-hunk rebase, formula/status migration and targeted controls complete |
-| C04 | in progress | [LU mechanics and native bounds](#c04) | Three faer consumers migrated; supplier LU bound integrated without unsupported tighter limits |
+| C03 | implemented; joined qualification pending | [SUNDIALS release move](#c03) | Decision route, identity, integration-hunk rebase, formula/status migration and targeted controls complete |
+| C04 | implemented; joined qualification pending | [LU mechanics and native bounds](#c04) | Three faer consumers migrated; supplier LU bound integrated without unsupported tighter limits |
 | C05 | implemented; joined qualification pending | [Diffsol terminal causes](#c05) | Resource/contract causes survive solver retries and all affected integration paths |
 | C06 | implemented; joined qualification pending | [Quiescent gates](#c06) | Gate consumers migrated with their health/poison/panic behavior; HiGHS inquiry disposed |
 | C07 | retained dispositions; joined reconciliation pending | [Retained suppliers and conditional upstream work](#c07) | Retention reasons and observable triggers reconciled; no unsolicited rebase/contact |
@@ -401,21 +401,30 @@ source realization and native arithmetic premise follow in `74cc0636c`. The repe
 and optimized-IR probe traces the consumed primitive, matmul, dense decomposition and sparse
 factor entry points, including dispatch callbacks and vtables. Targeted native arithmetic,
 fitting-rank/PSD and sparse-action controls passed. This is no performance or cross-CPU result.
-Diffsol-only KLU provider framing is being reconciled with the changed-provider campaign.
+Diffsol-only KLU provider framing is integrated and passed its focused changed-provider controls.
 
 C03 has the official 7.9.0 native source projected into the existing 0.6.2 wrapper, with the
 integration delta and version-derived storage/status/counter consumers rebased. The source
 receipt distinguishes the published wrapper baseline from the selected native release. Initial
 builds exposed stale CMake-cache contamination and changed public enum names; these were fixed,
-and the changed-provider controls are running. Workaround retirement is conditional on their
-actual corrected-history results.
+and the changed-provider controls passed. All three corrected-history controls pass, so the
+old quadrature workaround is retired. Actual restart tests exposed a zero-depth AA initialization
+crash; the adapter now supplies the effective per-attempt depth. Source-owner fixes use allocated
+array depth during cleanup and destroy all successful clones on a later clone failure. Retained
+AA accounting includes payloads omitted from the release's workspace reporter. The final focused
+linked campaign passed 42 controls with zero failures or warnings; assembled acceptance remains J.
 
 C04's narrow faer helper now serves response, arclength and Diffsol while their factors, leases,
 parallelism and scratch policies retain their existing owners. C05 retains first terminal typed
 allocation/contract causes across Diffsol recovery with an attempt-scoped transport. Focused
-forward/adjoint scratch-refusal, refresh and clean-reuse controls passed. The FERAL bound is a
-tested local fork commit `a9b950aa`; publishing a reachable immutable supplier revision and
-integrating its caller remain pending. Whole-Jacobian diagnostics retain their opaque allowance;
+forward/adjoint scratch-refusal, refresh and clean-reuse controls passed. A separate actual
+`Shared::check`/contain boundary control confirms owned cancellation/deadline precedence over a
+simultaneously latched linear-memory cause; it does not claim an externally scheduled callback
+race. The FERAL bound and interval-constant supplier leaf are published at immutable
+`141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe` on the maintainer fork's `plan57-lu-owner-bound`
+branch, after explicit push approval and remote-ref verification. The KINSOL caller consumes
+the bound and separately covers its local CSC/projection capacities; five focused block controls
+passed. No unrelated source family was updated. Whole-Jacobian diagnostics retain their opaque allowance;
 a smaller complete structure-derived replacement has not been established.
 
 C06 shares acquisition for PETSc, SCIP and HiGHS/Uno. The controlled writer schedule confirms
