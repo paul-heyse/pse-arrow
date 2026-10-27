@@ -3540,6 +3540,41 @@ class SurrealSupervisorTests(unittest.TestCase):
             ):
                 server.ensure_primary(self.state)
 
+    def test_primary_pending_marker_reuses_generation_without_granting_readiness(
+        self,
+    ) -> None:
+        config = self.reference_fixture()
+        observation = {"ActiveState": "activating", "ControlGroup": "/owned"}
+
+        def admitted(*_args: object) -> dict[str, object]:
+            server.checked_primary(config)
+            captured = digest.call_count
+            self.assertGreater(captured, 0)
+            for _ in range(3):
+                self.assertFalse(
+                    server.primary_ready(self.state, config, observation, "selected")
+                )
+                self.assertEqual(digest.call_count, captured)
+            self.assertEqual(process.call_count, 3)
+            worker = Path(server.primary_association(config)["worker_executable"])
+            original = worker.read_bytes()
+            before = worker.stat()
+            try:
+                worker.write_bytes(b"x" * len(original))
+                os.utime(worker, ns=(before.st_atime_ns, before.st_mtime_ns))
+                with self.assertRaises(server.SupervisorError):
+                    server.primary_ready(self.state, config, observation, "selected")
+            finally:
+                worker.write_bytes(original)
+            return {"ready": False}
+
+        with (
+            patch.object(server, "file_digest", wraps=server.file_digest) as digest,
+            patch.object(server, "_primary_process", return_value=None) as process,
+            patch.object(server, "_ensure_primary", side_effect=admitted),
+        ):
+            self.assertFalse(server.ensure_primary(self.state)["ready"])
+
     def test_primary_new_process_and_association_require_full_generation_capture(
         self,
     ) -> None:

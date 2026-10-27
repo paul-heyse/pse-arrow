@@ -4072,9 +4072,11 @@ def primary_ready(
         return False
     owner = getattr(_STARTUP, "verification", None)
     if owner is not None:
-        # Changing/unknown process or association is a fresh trust transition.
+        # A changed process or association is a fresh trust transition.
         # Always retain _primary_process's actual executable/nonce/database and
         # placement qualification; only unchanged immutable generation is shared.
+        # Pending readiness is not a new process on every poll. A transition
+        # into or out of an observed lifetime still captures generation bytes.
         process = None
         try:
             marker = read_json(state / "primary-receiver.json")
@@ -4093,7 +4095,7 @@ def primary_ready(
             )
         except (OSError, KeyError, SupervisorError):
             pass
-        if process is None or (owner.process_observed and process != owner.process):
+        if owner.process_observed and process != owner.process:
             owner.generations.clear()
         owner.process = process
         owner.process_observed = True
