@@ -1,6 +1,6 @@
 ---
 title: "Plan 57b: Mathematics and structural preparation"
-status: draft
+status: in-progress
 date: 2026-10-27
 adrs: []
 review_sources: [docs/library_leverage/reviews/mathematics-preparation.md, docs/library_leverage/reviews/result-data-and-prepaid-accounting.md]
@@ -99,7 +99,7 @@ from KINSOL or native-child consumers that also use `MATCHING_STACK`.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| B01 | pending | [Cubic repair](#b01) | Complete bounded enumeration, candidate conversion, admission and old-path deletion; targeted controls pass |
+| B01 | open | [Cubic repair](#b01) | Complete bounded enumeration, candidate conversion, admission and old-path deletion; targeted controls pass |
 | B02 | pending | [Checked decomposition](#b02) | Both consumers use the checked non-spawning owner; targeted controls pass |
 | B03 | pending | [Supplier coupling and bounds](#b03) | Hold and math bound consumers integrated; residual/upstream conditions retain explicit dispositions |
 

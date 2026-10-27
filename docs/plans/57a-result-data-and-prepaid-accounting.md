@@ -1,6 +1,6 @@
 ---
 title: "Plan 57a: Result data and prepaid accounting"
-status: draft
+status: in-progress
 date: 2026-10-27
 adrs: [ADR-0055]
 review_sources: [docs/library_leverage/reviews/result-data-and-prepaid-accounting.md]
@@ -81,8 +81,8 @@ store's indexed descriptor selection to DataFusion or change extrema/identity co
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| A01 | planned | Result encoding and `pse-ids` | Typed bounded/counting sink adopted at all selected consumers; dead trial path deleted |
-| A02 | planned | Columnar framing and import consumers | Complete stream admission precedes decode on replay, pack and portable/physical input routes |
+| A01 | open | Result encoding and `pse-ids` | Typed bounded/counting sink adopted at all selected consumers; dead trial path deleted |
+| A02 | open | Columnar framing and import consumers | Complete stream admission precedes decode on replay, pack and portable/physical input routes |
 | A03 | planned | Columnar file admission and runtime readers | Cached admitted file decoder and full allocation envelope replace duplicate reads/whole-file grants |
 | A04 | planned | Runtime result selection | Column-wise indexing and one predicate/metadata owner preserve current results |
 | A05 | planned | Integration-specific bound owners | Selected result/container bounds have a single source-derived owner and all consumers move |

@@ -1,6 +1,6 @@
 ---
 title: "Plan 57: Library leverage and correctness"
-status: draft
+status: in-progress
 date: 2026-10-27
 adrs: [ADR-0055, ADR-0082, ADR-0108, ADR-0118, ADR-0210]
 review_sources: [docs/library_leverage/reviews/README.md]
@@ -250,8 +250,26 @@ Benefits remain Proposed until their selected measurement supports them; optiona
 does not silently block delivery. Retire resolved plan/review material only after its surviving
 meaning and readers move to the established owners, with Git as history.
 
-**Current checkpoint:** the series is authored from the revised review, with all five operator
-directions recorded and navigation/native scope bindings integrated. No product
-implementation, new supplier test, scientific journey or performance campaign has run for this
-plan. The next executable work after separate authorization is selected high-consequence local
-repair plus the prerequisite decision/feasibility packages, following their native state owners.
+## Selected A–C execution — 2026-10-27
+
+The maintainer authorized execution of 57a–57c, the minimum working G03 prerequisite for B03,
+and selected-scope joined qualification through 57j. The G03 slice includes process facts and
+shared supervision with compiler and capture/review consumers; the other G03 migrations remain
+with 57g. This does not authorize optional upstream contact or unrelated supplier rebases.
+
+The selected cubic policy tries the qualified midpoint image, then lower and upper endpoint
+images, with at most one representative per exact-root association. Equal float bits never
+merge distinct root associations. Original residual/branch acceptance remains authoritative;
+correct rounding of algebraic roots is not selected. MPFR directed conversion and deterministic
+work/storage admission are implementation prerequisites.
+
+RC03 is classified as a missing-input correction under the existing build-identity contract:
+`BackendExecution::build` already requires facts beyond the package pin when that pin does not
+fully determine the realization. Keep `NativeBuildV1`; any actual change of hashing meaning
+still follows the decision route. The first C02 candidate uses maintained faer/traits nonfused
+scalar arithmetic and generic matmul while preserving caller-selected parallelism; it is not
+accepted as complete until the consumed dispatch closure and scientific controls establish it.
+
+**Current checkpoint:** execution starts from clean `28e025c29`. IPC safety, cubic repair and
+native identity/arithmetic are in progress. Shared allocation/decomposition prerequisites are
+being integrated. No new product qualification or performance result is claimed at this checkpoint.

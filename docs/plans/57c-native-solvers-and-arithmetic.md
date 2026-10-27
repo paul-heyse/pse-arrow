@@ -1,6 +1,6 @@
 ---
 title: "Plan 57c: Native solvers and arithmetic"
-status: draft
+status: in-progress
 date: 2026-10-27
 adrs: []
 review_sources: [docs/library_leverage/reviews/native-solver-integration.md, docs/library_leverage/reviews/result-data-and-prepaid-accounting.md, docs/library_leverage/reviews/numerical-workflows.md]
@@ -109,8 +109,8 @@ existing ownership chain; no compatibility execution route is added.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| C01 | pending | [Supplier identity](#c01) | Same-version delta and IDAS-only moves change the consumed build premise; controls pass |
-| C02 | pending | [FMA-free closure inquiry and realization](#c02) | Complete FMA-free realization demonstrated; an unresolved inquiry outcome leaves arithmetic conformance open |
+| C01 | open | [Supplier identity](#c01) | Same-version delta and IDAS-only moves change the consumed build premise; controls pass |
+| C02 | open | [FMA-free closure inquiry and realization](#c02) | Complete FMA-free realization demonstrated; an unresolved inquiry outcome leaves arithmetic conformance open |
 | C03 | pending | [SUNDIALS release move](#c03) | Decision route, identity, integration-hunk rebase, formula/status migration and targeted controls complete |
 | C04 | pending | [LU mechanics and native bounds](#c04) | Three faer consumers migrated; supplier LU bound integrated without unsupported tighter limits |
 | C05 | pending | [Diffsol terminal causes](#c05) | Resource/contract causes survive solver retries and all affected integration paths |
