@@ -1,0 +1,303 @@
+gen: valid batch: bodyLength=128 length=4 nodes=[FieldNode { length: 4, null_count: 0 }] buffers=[Buffer { offset: 0, length: 1 }, Buffer { offset: 64, length: 32 }]
+gen: ALLOC realloc 3200016 bytes
+gen: ALLOC realloc 6400032 bytes
+gen: wrote valid_rebuilt: 408 bytes
+gen: wrote body_len_2p50: 408 bytes
+gen: wrote body_len_neg1: 408 bytes
+gen: wrote body_len_8gib: 408 bytes
+gen: wrote body_len_256gib: 408 bytes
+gen: wrote buffer_len_2p40: 408 bytes
+gen: wrote buffer_offset_2p40: 408 bytes
+gen: wrote node_len_2p40: 408 bytes
+gen: wrote node_len_neg1: 408 bytes
+gen: ALLOC alloc 3200016 bytes
+gen: ALLOC alloc 6400032 bytes
+gen: ALLOC realloc 1048576 bytes
+gen: ALLOC realloc 2097152 bytes
+gen: ALLOC realloc 4194304 bytes
+gen: ALLOC realloc 8388608 bytes
+gen: ALLOC realloc 16777216 bytes
+gen: ALLOC alloc 9600136 bytes
+gen: ALLOC alloc 9600136 bytes
+gen: ALLOC realloc 9600272 bytes
+gen: ALLOC realloc 19200544 bytes
+gen: wrote entry_count_huge: 9600408 bytes
+gen: wrote schema_body_len_2p50: 464 bytes
+gen: wrote schema_body_len_neg1: 464 bytes
+gen: wrote meta_len_2gib: 152 bytes
+=== case=body_len_256gib mode=reader cap=none -> signal 6 (ABRT)
+    ALLOC alloc_zeroed 274877906944 bytes
+    memory allocation of 274877906944 bytes failed
+=== case=body_len_256gib mode=reader cap=4GiB -> signal 6 (ABRT)
+    ALLOC alloc_zeroed 274877906944 bytes
+    memory allocation of 274877906944 bytes failed
+=== case=body_len_256gib mode=schema-take cap=none -> exit 0
+    OUTCOME ok schema fields=1
+=== case=body_len_256gib mode=schema-take cap=4GiB -> exit 0
+    OUTCOME ok schema fields=1
+=== case=body_len_256gib mode=decoder cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_256gib mode=decoder cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_256gib mode=decoder-chunk64 cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_256gib mode=decoder-chunk64 cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_2p50 mode=reader cap=none -> signal 6 (ABRT)
+    ALLOC alloc_zeroed 1125899906842624 bytes
+    memory allocation of 1125899906842624 bytes failed
+=== case=body_len_2p50 mode=reader cap=4GiB -> signal 6 (ABRT)
+    ALLOC alloc_zeroed 1125899906842624 bytes
+    memory allocation of 1125899906842624 bytes failed
+=== case=body_len_2p50 mode=schema-take cap=none -> exit 0
+    OUTCOME ok schema fields=1
+=== case=body_len_2p50 mode=schema-take cap=4GiB -> exit 0
+    OUTCOME ok schema fields=1
+=== case=body_len_2p50 mode=decoder cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_2p50 mode=decoder cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_2p50 mode=decoder-chunk64 cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_2p50 mode=decoder-chunk64 cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_8gib mode=reader cap=none -> exit 0
+    ALLOC alloc_zeroed 8589934592 bytes
+    OUTCOME typed-error after 0 rows: Io error: failed to fill whole buffer
+=== case=body_len_8gib mode=reader cap=4GiB -> signal 6 (ABRT)
+    ALLOC alloc_zeroed 8589934592 bytes
+    memory allocation of 8589934592 bytes failed
+=== case=body_len_8gib mode=schema-take cap=none -> exit 0
+    OUTCOME ok schema fields=1
+=== case=body_len_8gib mode=schema-take cap=4GiB -> exit 0
+    OUTCOME ok schema fields=1
+=== case=body_len_8gib mode=decoder cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_8gib mode=decoder cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_8gib mode=decoder-chunk64 cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_8gib mode=decoder-chunk64 cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_neg1 mode=reader cap=none -> exit 101
+    
+    thread 'main' (3705633) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/mutable.rs:168:62:
+    called `Result::unwrap()` on an `Err` value: LayoutError
+=== case=body_len_neg1 mode=reader cap=4GiB -> exit 101
+    
+    thread 'main' (3705651) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/mutable.rs:168:62:
+    called `Result::unwrap()` on an `Err` value: LayoutError
+=== case=body_len_neg1 mode=schema-take cap=none -> exit 0
+    OUTCOME ok schema fields=1
+=== case=body_len_neg1 mode=schema-take cap=4GiB -> exit 0
+    OUTCOME ok schema fields=1
+=== case=body_len_neg1 mode=decoder cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_neg1 mode=decoder cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_neg1 mode=decoder-chunk64 cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=body_len_neg1 mode=decoder-chunk64 cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=buffer_len_2p40 mode=reader cap=none -> exit 101
+    
+    thread 'main' (3705759) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/immutable.rs:288:9:
+    the offset of the new Buffer cannot exceed the existing length: slice offset=0 length=1099511627776 selflen=128
+=== case=buffer_len_2p40 mode=reader cap=4GiB -> exit 101
+    
+    thread 'main' (3705770) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/immutable.rs:288:9:
+    the offset of the new Buffer cannot exceed the existing length: slice offset=0 length=1099511627776 selflen=128
+=== case=buffer_len_2p40 mode=schema-take cap=none -> exit 0
+    OUTCOME ok schema fields=1
+=== case=buffer_len_2p40 mode=schema-take cap=4GiB -> exit 0
+    OUTCOME ok schema fields=1
+=== case=buffer_len_2p40 mode=decoder cap=none -> exit 101
+    
+    thread 'main' (3705805) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/immutable.rs:288:9:
+    the offset of the new Buffer cannot exceed the existing length: slice offset=0 length=1099511627776 selflen=128
+=== case=buffer_len_2p40 mode=decoder cap=4GiB -> exit 101
+    
+    thread 'main' (3705818) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/immutable.rs:288:9:
+    the offset of the new Buffer cannot exceed the existing length: slice offset=0 length=1099511627776 selflen=128
+=== case=buffer_len_2p40 mode=decoder-chunk64 cap=none -> exit 101
+    
+    thread 'main' (3705828) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/immutable.rs:288:9:
+    the offset of the new Buffer cannot exceed the existing length: slice offset=0 length=1099511627776 selflen=128
+=== case=buffer_len_2p40 mode=decoder-chunk64 cap=4GiB -> exit 101
+    
+    thread 'main' (3705842) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/immutable.rs:288:9:
+    the offset of the new Buffer cannot exceed the existing length: slice offset=0 length=1099511627776 selflen=128
+=== case=buffer_offset_2p40 mode=reader cap=none -> exit 101
+    
+    thread 'main' (3705856) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/immutable.rs:288:9:
+    the offset of the new Buffer cannot exceed the existing length: slice offset=1099511627776 length=32 selflen=128
+=== case=buffer_offset_2p40 mode=reader cap=4GiB -> exit 101
+    
+    thread 'main' (3705864) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/immutable.rs:288:9:
+    the offset of the new Buffer cannot exceed the existing length: slice offset=1099511627776 length=32 selflen=128
+=== case=buffer_offset_2p40 mode=schema-take cap=none -> exit 0
+    OUTCOME ok schema fields=1
+=== case=buffer_offset_2p40 mode=schema-take cap=4GiB -> exit 0
+    OUTCOME ok schema fields=1
+=== case=buffer_offset_2p40 mode=decoder cap=none -> exit 101
+    
+    thread 'main' (3705911) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/immutable.rs:288:9:
+    the offset of the new Buffer cannot exceed the existing length: slice offset=1099511627776 length=32 selflen=128
+=== case=buffer_offset_2p40 mode=decoder cap=4GiB -> exit 101
+    
+    thread 'main' (3705927) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/immutable.rs:288:9:
+    the offset of the new Buffer cannot exceed the existing length: slice offset=1099511627776 length=32 selflen=128
+=== case=buffer_offset_2p40 mode=decoder-chunk64 cap=none -> exit 101
+    
+    thread 'main' (3705953) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/immutable.rs:288:9:
+    the offset of the new Buffer cannot exceed the existing length: slice offset=1099511627776 length=32 selflen=128
+=== case=buffer_offset_2p40 mode=decoder-chunk64 cap=4GiB -> exit 101
+    
+    thread 'main' (3705979) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/immutable.rs:288:9:
+    the offset of the new Buffer cannot exceed the existing length: slice offset=1099511627776 length=32 selflen=128
+=== case=entry_count_huge mode=reader cap=none -> exit 0
+    ALLOC realloc 9600136 bytes
+    OUTCOME ok rows=4
+=== case=entry_count_huge mode=reader cap=4GiB -> exit 0
+    ALLOC realloc 9600136 bytes
+    OUTCOME ok rows=4
+=== case=entry_count_huge mode=schema-take cap=none -> exit 0
+    ALLOC alloc 9600408 bytes
+    OUTCOME ok schema fields=1
+=== case=entry_count_huge mode=schema-take cap=4GiB -> exit 0
+    ALLOC alloc 9600408 bytes
+    OUTCOME ok schema fields=1
+=== case=entry_count_huge mode=decoder cap=none -> exit 0
+    ALLOC alloc 9600408 bytes
+    ALLOC alloc 9600408 bytes
+    OUTCOME ok rows=4 finish=Ok
+=== case=entry_count_huge mode=decoder cap=4GiB -> exit 0
+    ALLOC alloc 9600408 bytes
+    ALLOC alloc 9600408 bytes
+    OUTCOME ok rows=4 finish=Ok
+=== case=entry_count_huge mode=decoder-chunk64 cap=none -> exit 0
+    ALLOC alloc 9600408 bytes
+    ALLOC realloc 1048576 bytes
+    ALLOC realloc 2097152 bytes
+    ALLOC realloc 4194304 bytes
+    ALLOC realloc 8388608 bytes
+    ALLOC realloc 16777216 bytes
+    OUTCOME ok rows=4 finish=Ok
+=== case=entry_count_huge mode=decoder-chunk64 cap=4GiB -> exit 0
+    ALLOC alloc 9600408 bytes
+    ALLOC realloc 1048576 bytes
+    ALLOC realloc 2097152 bytes
+    ALLOC realloc 4194304 bytes
+    ALLOC realloc 8388608 bytes
+    ALLOC realloc 16777216 bytes
+    OUTCOME ok rows=4 finish=Ok
+=== case=meta_len_2gib mode=reader cap=none -> exit 0
+    ALLOC realloc 2147483632 bytes
+    OUTCOME typed-error after 0 rows: Io error: failed to fill whole buffer
+=== case=meta_len_2gib mode=reader cap=4GiB -> exit 0
+    ALLOC realloc 2147483632 bytes
+    OUTCOME typed-error after 0 rows: Io error: failed to fill whole buffer
+=== case=meta_len_2gib mode=schema-take cap=none -> exit 0
+    OUTCOME ok schema fields=1
+=== case=meta_len_2gib mode=schema-take cap=4GiB -> exit 0
+    OUTCOME ok schema fields=1
+=== case=meta_len_2gib mode=decoder cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=meta_len_2gib mode=decoder cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=meta_len_2gib mode=decoder-chunk64 cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=meta_len_2gib mode=decoder-chunk64 cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=node_len_2p40 mode=reader cap=none -> exit 0
+    OUTCOME typed-error after 0 rows: Invalid argument error: Need at least 8796093022208 bytes in buffers[0] in array of type Int64, but got 32
+=== case=node_len_2p40 mode=reader cap=4GiB -> exit 0
+    OUTCOME typed-error after 0 rows: Invalid argument error: Need at least 8796093022208 bytes in buffers[0] in array of type Int64, but got 32
+=== case=node_len_2p40 mode=schema-take cap=none -> exit 0
+    OUTCOME ok schema fields=1
+=== case=node_len_2p40 mode=schema-take cap=4GiB -> exit 0
+    OUTCOME ok schema fields=1
+=== case=node_len_2p40 mode=decoder cap=none -> exit 0
+    OUTCOME typed-error after 0 rows: Invalid argument error: Need at least 8796093022208 bytes in buffers[0] in array of type Int64, but got 32
+=== case=node_len_2p40 mode=decoder cap=4GiB -> exit 0
+    OUTCOME typed-error after 0 rows: Invalid argument error: Need at least 8796093022208 bytes in buffers[0] in array of type Int64, but got 32
+=== case=node_len_2p40 mode=decoder-chunk64 cap=none -> exit 0
+    OUTCOME typed-error after 0 rows: Invalid argument error: Need at least 8796093022208 bytes in buffers[0] in array of type Int64, but got 32
+=== case=node_len_2p40 mode=decoder-chunk64 cap=4GiB -> exit 0
+    OUTCOME typed-error after 0 rows: Invalid argument error: Need at least 8796093022208 bytes in buffers[0] in array of type Int64, but got 32
+=== case=node_len_neg1 mode=reader cap=none -> exit 0
+    OUTCOME typed-error after 0 rows: Invalid argument error: Need at least 18446744073709551615 bytes in buffers[0] in array of type Int64, but got 32
+=== case=node_len_neg1 mode=reader cap=4GiB -> exit 0
+    OUTCOME typed-error after 0 rows: Invalid argument error: Need at least 18446744073709551615 bytes in buffers[0] in array of type Int64, but got 32
+=== case=node_len_neg1 mode=schema-take cap=none -> exit 0
+    OUTCOME ok schema fields=1
+=== case=node_len_neg1 mode=schema-take cap=4GiB -> exit 0
+    OUTCOME ok schema fields=1
+=== case=node_len_neg1 mode=decoder cap=none -> exit 0
+    OUTCOME typed-error after 0 rows: Invalid argument error: Need at least 18446744073709551615 bytes in buffers[0] in array of type Int64, but got 32
+=== case=node_len_neg1 mode=decoder cap=4GiB -> exit 0
+    OUTCOME typed-error after 0 rows: Invalid argument error: Need at least 18446744073709551615 bytes in buffers[0] in array of type Int64, but got 32
+=== case=node_len_neg1 mode=decoder-chunk64 cap=none -> exit 0
+    OUTCOME typed-error after 0 rows: Invalid argument error: Need at least 18446744073709551615 bytes in buffers[0] in array of type Int64, but got 32
+=== case=node_len_neg1 mode=decoder-chunk64 cap=4GiB -> exit 0
+    OUTCOME typed-error after 0 rows: Invalid argument error: Need at least 18446744073709551615 bytes in buffers[0] in array of type Int64, but got 32
+=== case=schema_body_len_2p50 mode=reader cap=none -> signal 6 (ABRT)
+    ALLOC alloc_zeroed 1125899906842624 bytes
+    memory allocation of 1125899906842624 bytes failed
+=== case=schema_body_len_2p50 mode=reader cap=4GiB -> signal 6 (ABRT)
+    ALLOC alloc_zeroed 1125899906842624 bytes
+    memory allocation of 1125899906842624 bytes failed
+=== case=schema_body_len_2p50 mode=schema-take cap=none -> signal 6 (ABRT)
+    ALLOC alloc_zeroed 1125899906842624 bytes
+    memory allocation of 1125899906842624 bytes failed
+=== case=schema_body_len_2p50 mode=schema-take cap=4GiB -> signal 6 (ABRT)
+    ALLOC alloc_zeroed 1125899906842624 bytes
+    memory allocation of 1125899906842624 bytes failed
+=== case=schema_body_len_2p50 mode=decoder cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=schema_body_len_2p50 mode=decoder cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=schema_body_len_2p50 mode=decoder-chunk64 cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=schema_body_len_2p50 mode=decoder-chunk64 cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=schema_body_len_neg1 mode=reader cap=none -> exit 101
+    
+    thread 'main' (3715463) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/mutable.rs:168:62:
+    called `Result::unwrap()` on an `Err` value: LayoutError
+=== case=schema_body_len_neg1 mode=reader cap=4GiB -> exit 101
+    
+    thread 'main' (3715472) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/mutable.rs:168:62:
+    called `Result::unwrap()` on an `Err` value: LayoutError
+=== case=schema_body_len_neg1 mode=schema-take cap=none -> exit 101
+    
+    thread 'main' (3715480) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/mutable.rs:168:62:
+    called `Result::unwrap()` on an `Err` value: LayoutError
+=== case=schema_body_len_neg1 mode=schema-take cap=4GiB -> exit 101
+    
+    thread 'main' (3715492) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrow-buffer-59.3.0/src/buffer/mutable.rs:168:62:
+    called `Result::unwrap()` on an `Err` value: LayoutError
+=== case=schema_body_len_neg1 mode=decoder cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=schema_body_len_neg1 mode=decoder cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=schema_body_len_neg1 mode=decoder-chunk64 cap=none -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=schema_body_len_neg1 mode=decoder-chunk64 cap=4GiB -> exit 0
+    OUTCOME typed-error at finish after 0 rows: Ipc error: Unexpected End of Stream
+=== case=valid_rebuilt mode=reader cap=none -> exit 0
+    OUTCOME ok rows=4
+=== case=valid_rebuilt mode=reader cap=4GiB -> exit 0
+    OUTCOME ok rows=4
+=== case=valid_rebuilt mode=schema-take cap=none -> exit 0
+    OUTCOME ok schema fields=1
+=== case=valid_rebuilt mode=schema-take cap=4GiB -> exit 0
+    OUTCOME ok schema fields=1
+=== case=valid_rebuilt mode=decoder cap=none -> exit 0
+    OUTCOME ok rows=4 finish=Ok
+=== case=valid_rebuilt mode=decoder cap=4GiB -> exit 0
+    OUTCOME ok rows=4 finish=Ok
+=== case=valid_rebuilt mode=decoder-chunk64 cap=none -> exit 0
+    OUTCOME ok rows=4 finish=Ok
+=== case=valid_rebuilt mode=decoder-chunk64 cap=4GiB -> exit 0
+    OUTCOME ok rows=4 finish=Ok

@@ -1,0 +1,38 @@
+PARITY 36/37 trim_submitted_script=false
+parity    | 1 signin succeeds (token variant)
+parity    | 1 use succeeds
+parity    | 1 session selection visible to queries
+parity    | 2a protected SELECT ONLY (canonical_results shape) take::<OptObject>
+parity    | 2a protected SELECT ONLY (canonical_results shape) take::<VecObject>
+parity    | 2a protected SELECT ONLY (canonical_results shape) take::<Value>
+parity    | 2a protected SELECT ONLY (canonical_results shape) checked
+parity    | 2b protected LET/RETURN rows (select_names shape) take::<OptObject>
+parity    | 2b protected LET/RETURN rows (select_names shape) take::<VecObject>
+parity    | 2b protected LET/RETURN rows (select_names shape) take::<Value>
+parity    | 2b protected LET/RETURN rows (select_names shape) checked
+parity    | 2c unguarded RETURN object (testing::result_payload_counts shape) take::<OptObject>
+parity    | 2c unguarded RETURN object (testing::result_payload_counts shape) take::<VecObject>
+parity    | 2c unguarded RETURN object (testing::result_payload_counts shape) take::<Value>
+parity    | 2c unguarded RETURN object (testing::result_payload_counts shape) checked
+parity    | 2d unguarded multi-statement (rows, empty, scalar, NONE) take::<OptObject>
+parity    | 2d unguarded multi-statement (rows, empty, scalar, NONE) take::<VecObject>
+parity    | 2d unguarded multi-statement (rows, empty, scalar, NONE) take::<Value>
+parity    | 2d unguarded multi-statement (rows, empty, scalar, NONE) checked
+parity    | 3a THROW expired protection take::<OptObject> per index
+parity    | 3a THROW expired protection checked
+parity    | 3b THROW from fn deadline take::<OptObject> per index
+parity    | 3b THROW from fn deadline checked
+parity    | 4a first commit succeeds
+parity    | 4a second commit error
+parity    | 4b script conflict per-statement errors
+parity    | 4b script conflict checked
+parity    | 5 BEGIN/RETURN fn/COMMIT take::<OptObject>
+parity    | 5 BEGIN/RETURN fn/COMMIT take::<VecObject>
+parity    | 5 BEGIN/RETURN fn/COMMIT take::<Value>
+parity    | 5 checked
+parity    | 6 failing signin error
+parity    | 6 subsequent correct signin
+DIVERGENT | 7 parse error
+parity    | 8 BEGIN/RETURN/RETURN/CREATE/COMMIT take::<Value>
+parity    | 8 BEGIN/RETURN/RETURN/CREATE/COMMIT take::<OptObject>
+parity    | 8 skipped CREATE had no effect

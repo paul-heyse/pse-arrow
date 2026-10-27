@@ -1,0 +1,20 @@
+[package]
+name = "arrow-ipc-stream-hostile-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+arrow-array = { version = "=59.3.0", default-features = false }
+arrow-buffer = "=59.3.0"
+arrow-schema = { version = "=59.3.0", default-features = false }
+arrow-ipc = { version = "=59.3.0", default-features = false }
+flatbuffers = "=25.12.19"
+libc = "=0.2.190"
+
+[profile.dev]
+panic = "unwind"
+[profile.release]
+panic = "unwind"
+
+[workspace]

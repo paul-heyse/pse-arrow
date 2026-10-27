@@ -1,0 +1,8 @@
+profile: debug-assertions ON
+p = (4x - 3)^2 (5x - 8); coefficients low->high [-72, 237, -248, 80]; roots double 3/4 simple 8/5
+  interval (0, 2) mult 1: roots strictly inside 2; u(lo)=24 u(hi)=10; p(lo)=-72 p(hi)=50
+  interval (1/2, 1) mult 2: roots strictly inside 1; u(lo)=11/2 u(hi)=-3; p(lo)=-11/2 p(hi)=-3
+  ladder: panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202 fallback=false points=[]
+  recovered_all=false lost=0 duplicated=0 spurious=0 ; isolate_real_roots route ok=true
+  diag (0, 2) m1: panic assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202
+  diag (1/2, 1) m2: refined to [0.75, 0.75] (f64), agree=true

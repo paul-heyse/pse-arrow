@@ -1,0 +1,27 @@
+[package]
+name = "symbolica-root-containment-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+symbolica = { version = "=3.0.1", default-features = false, features = [
+  "integer-gmp",
+  "float-mpfr",
+] }
+
+# Mirrors the workspace profiles that matter here: dev keeps Cargo's default
+# debug-assertions = true for every package (dependencies at opt-level 3);
+# release disables them. panic = "unwind" in both, as in the workspace.
+[profile.dev]
+opt-level = 2
+panic = "unwind"
+[profile.dev.package."*"]
+opt-level = 3
+[profile.release]
+opt-level = 2
+panic = "unwind"
+[profile.release.package."*"]
+opt-level = 3
+
+[workspace]

@@ -1,0 +1,6 @@
+profile: debug-assertions OFF
+poly [-6.0, 11.0, -6.0, 1.0]: intervals [(Fraction { numerator: 0, denominator: 1 }, Fraction { numerator: 2, denominator: 1 }, 1), (Fraction { numerator: 2, denominator: 1 }, Fraction { numerator: 2, denominator: 1 }, 1), (Fraction { numerator: 8, denominator: 3 }, Fraction { numerator: 16, denominator: 5 }, 1)]
+  ladder: Ok(Ok([1.0, 2.0, 3.0])) fallback=true
+  diag (0, 2) m1: degenerate or endpoint root (not refined)
+  diag (2, 2) m1: degenerate or endpoint root (not refined)
+  diag (8/3, 16/5) m1: refined to [3.0, 3.0] (f64), agree=true

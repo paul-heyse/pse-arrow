@@ -1,0 +1,8 @@
+profile: debug-assertions OFF
+p = (2x - 1)^2 (1x - 3); coefficients low->high [-3, 13, -16, 4]; roots double 1/2 simple 3
+  interval (0, 1/2) mult 2: roots strictly inside 0; u(lo)=3 u(hi)=0; p(lo)=-3 p(hi)=0
+  interval (2, 4) mult 1: roots strictly inside 1; u(lo)=-3 u(hi)=7; p(lo)=-9 p(hi)=49
+  ladder: ok fallback=true points=[0.5 3.0]
+  recovered_all=true lost=0 duplicated=0 spurious=0 ; isolate_real_roots route ok=true
+  diag (0, 1/2) m2: degenerate or endpoint root (not refined)
+  diag (2, 4) m1: refined to [3.0, 3.0] (f64), agree=true

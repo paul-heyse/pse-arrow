@@ -1,0 +1,8 @@
+profile: debug-assertions ON
+p = (1x - -12)^2 (3x - -11); coefficients low->high [1584, 696, 83, 3]; roots double -12 simple -11/3
+  interval (-16, -8) mult 2: roots strictly inside 1; u(lo)=148 u(hi)=-52; p(lo)=-592 p(hi)=-208
+  interval (-4, 0) mult 1: roots strictly inside 1; u(lo)=-8 u(hi)=132; p(lo)=-64 p(hi)=1584
+  ladder: ok fallback=true points=[-12.0 -3.6666666666666665]
+  recovered_all=true lost=0 duplicated=0 spurious=0 ; isolate_real_roots route ok=true
+  diag (-16, -8) m2: refined to [-12.0, -12.0] (f64), agree=true
+  diag (-4, 0) m1: refined to [-3.666666666666667, -3.6666666666666665] (f64), agree=false

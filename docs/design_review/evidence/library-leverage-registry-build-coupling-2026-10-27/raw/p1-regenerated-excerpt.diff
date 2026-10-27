@@ -1,0 +1,45 @@
+# git diff --stat at worktree after stub-bootstrapped just codegen (probe field present)
+ crates/pse-schema/src/generated/standard_registry.rs | 258 +++ (258 insertions, 0 deletions)
+ docs/generated/capabilities/reference.md: unrelated; scratch worktree had no linked native-solver-libraries skill
+
+# first three hunks of the regenerated literal
+diff --git a/crates/pse-schema/src/generated/standard_registry.rs b/crates/pse-schema/src/generated/standard_registry.rs
+index a825a2ff7..4c840c450 100644
+--- a/crates/pse-schema/src/generated/standard_registry.rs
++++ b/crates/pse-schema/src/generated/standard_registry.rs
+@@ -31281,6 +31281,7 @@ fn resolved_product_1135() -> Result<InvariantSpec, crate::SchemaError> {
+         key_columns: vec!["goal_id"],
+         severity: Severity::Error,
+         doc: "The declared primary key identifies exactly one row.",
++        probe_marker: 7u8,
+     })
+ }
+ #[inline(never)]
+@@ -31304,6 +31305,7 @@ fn resolved_product_1136() -> Result<InvariantSpec, crate::SchemaError> {
+         key_columns: vec!["document_id"],
+         severity: Severity::Error,
+         doc: "Every present foreign-key value resolves to its declared relation and column.",
++        probe_marker: 7u8,
+     })
+ }
+ #[inline(never)]
+@@ -31325,6 +31327,7 @@ fn resolved_product_1137() -> Result<InvariantSpec, crate::SchemaError> {
+         key_columns: vec!["document_id"],
+         severity: Severity::Error,
+         doc: "The declared primary key identifies exactly one row.",
++        probe_marker: 7u8,
+     })
+ }
+ #[inline(never)]
+@@ -31350,6 +31353,7 @@ fn resolved_product_1138() -> Result<InvariantSpec, crate::SchemaError> {
+         key_columns: vec!["rule_id"],
+         severity: Severity::Error,
+         doc: "The declared primary key identifies exactly one row.",
++        probe_marker: 7u8,
+     })
+ }
+ #[inline(never)]
+@@ -31371,6 +31375,7 @@ fn resolved_product_1139() -> Result<InvariantSpec, crate::SchemaError> {
+         key_columns: vec!["scale_id"],
+         severity: Severity::Error,
+         doc: "The declared primary key identifies exactly one row.",

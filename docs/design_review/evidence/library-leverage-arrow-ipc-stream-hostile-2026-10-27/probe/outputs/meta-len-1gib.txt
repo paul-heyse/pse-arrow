@@ -1,0 +1,6 @@
+=== case=meta_len_2gib mode=reader cap=1GiB (ulimit -v 1048576)
+ALLOC realloc 2147483632 bytes
+memory allocation of 2147483632 bytes failed
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+_: line 1: 3786674 Aborted                 (core dumped) "$@"
+rc=134

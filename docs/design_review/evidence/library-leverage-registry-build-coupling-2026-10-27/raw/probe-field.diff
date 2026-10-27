@@ -1,0 +1,43 @@
+diff --git a/crates/pse-codegen/src/codegen/rust/registry.rs b/crates/pse-codegen/src/codegen/rust/registry.rs
+index 131c9f7b0..2f1863c64 100644
+--- a/crates/pse-codegen/src/codegen/rust/registry.rs
++++ b/crates/pse-codegen/src/codegen/rust/registry.rs
+@@ -235,11 +235,12 @@ fn invariant(pool: &NativeJsonPool, v: &InvariantSpec) -> Result<TokenStream, Sc
+     let keys = texts(&v.key_columns);
+     let severity = unit("Severity", v.severity)?;
+     let doc = v.doc;
++    let probe_marker = v.probe_marker;
+     Ok(outlined(
+         pool,
+         quote!(InvariantSpec),
+         quote!(InvariantSpec {origin:#origin,id:#id,name:#name.into(),relation:#relation.into(),kind:#kind,
+-        query:#query.into(),inputs:#inputs,key_columns:#keys,severity:#severity,doc:#doc}),
++        query:#query.into(),inputs:#inputs,key_columns:#keys,severity:#severity,doc:#doc,probe_marker:#probe_marker}),
+     ))
+ }
+ fn literal(pool: &NativeJsonPool, v: &crate::NativeLiteral) -> Result<TokenStream, SchemaError> {
+diff --git a/crates/pse-schema/src/builder.rs b/crates/pse-schema/src/builder.rs
+index a0e2d36b6..00934754f 100644
+--- a/crates/pse-schema/src/builder.rs
++++ b/crates/pse-schema/src/builder.rs
+@@ -1241,6 +1241,7 @@ fn resolve_invariants(
+             key_columns: decl.key_columns,
+             severity: decl.severity,
+             doc: decl.doc,
++            probe_marker: 7,
+         });
+     }
+     Ok(out)
+diff --git a/crates/pse-schema/src/model/invariant.rs b/crates/pse-schema/src/model/invariant.rs
+index 4fd8feb87..126fed66a 100644
+--- a/crates/pse-schema/src/model/invariant.rs
++++ b/crates/pse-schema/src/model/invariant.rs
+@@ -69,6 +69,8 @@ pub struct InvariantSpec {
+     pub severity: Severity,
+     /// What the invariant means and why it holds.
+     pub doc: &'static str,
++    /// PROBE (CBO-040 P1): a new model field the baked literal does not construct.
++    pub probe_marker: u8,
+ }
+ 
+ impl InvariantSpec {

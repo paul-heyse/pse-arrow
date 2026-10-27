@@ -2,7 +2,7 @@
 name: design-reviewer
 description: Independently assess architecture and domain models, as focused advice or a formal design review.
 model: opus
-effort: xhigh
+effort: high
 ---
 
 # Design reviewer

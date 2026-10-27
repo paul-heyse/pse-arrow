@@ -1,0 +1,18 @@
+state: {"scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/pse-probe-delegate-4.scope", "leaf": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/pse-probe-delegate-4.scope/leaf-hold", "leaf_inode": 649398, "driver": 3404775, "members": {"child": 3404938, "setsid_grandchild": 3404939, "daemon": 3404941}, "leaf_procs": ["3404938", "3404939", "3404941"]}
+unit Delegate: Delegate=yes DelegateControllers=cpu cpuset io memory pids KillMode=control-group 
+scope xattrs (outside): {}
+scope subtree_control: [] leaf procs: 3404938 3404939 3404941 
+leaf events: populated 1 frozen 0 
+stop rc=0
+stop seconds: 0.036
+systemd-run rc=143
+pid 3404775 gone
+pid 3404938 gone
+pid 3404939 gone
+pid 3404941 gone
+leaf removed
+scope cgroup removed
+Unit pse-probe-delegate-4.scope could not be found.
+[198262.084371] paul-X870-AORUS-ELITE-WIFI7 systemd[2381]: Started pse-probe-delegate-4.scope - /usr/bin/python3 -I /home/paul/pse-arrow/docs/design_review/evidence/library-leverage-delegated-cgroup-containment-2026-10-27/probe/driver.py hold /tmp/claude-1000/-home-paul-pse-arrow/3ce2051e-785f-49b8-b0ea-0218b4c36097/scratchpad/probes/delegated-cgroup/hold-state.json.
+[198262.405714] paul-X870-AORUS-ELITE-WIFI7 systemd[2381]: Stopping pse-probe-delegate-4.scope - /usr/bin/python3 -I /home/paul/pse-arrow/docs/design_review/evidence/library-leverage-delegated-cgroup-containment-2026-10-27/probe/driver.py hold /tmp/claude-1000/-home-paul-pse-arrow/3ce2051e-785f-49b8-b0ea-0218b4c36097/scratchpad/probes/delegated-cgroup/hold-state.json...
+[198262.406915] paul-X870-AORUS-ELITE-WIFI7 systemd[2381]: Stopped pse-probe-delegate-4.scope - /usr/bin/python3 -I /home/paul/pse-arrow/docs/design_review/evidence/library-leverage-delegated-cgroup-containment-2026-10-27/probe/driver.py hold /tmp/claude-1000/-home-paul-pse-arrow/3ce2051e-785f-49b8-b0ea-0218b4c36097/scratchpad/probes/delegated-cgroup/hold-state.json.

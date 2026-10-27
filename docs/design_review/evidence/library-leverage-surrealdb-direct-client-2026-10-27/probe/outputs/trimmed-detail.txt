@@ -1,0 +1,2746 @@
+=== 1 capabilities (direct only; the SDK consumes them internally): NOTE
+server_version="surrealdb-3.3.4+pse.mx.1.0.0.0b38c33f2ed46d50" limits=Some(Limits { max_message_bytes: 4194304, max_chunk_bytes: 262144, max_query_duration: Some(Duration { seconds: 90, nanos: 0 }), max_batch_records: 256 }) capabilities=["SESSIONS", "TRANSACTIONS", "LIVE_QUERIES", "REFRESH_TOKENS"] denied_methods=[] accepted_encodings=["zstd", "gzip", "identity"]
+=== 1 signin/use: NOTE
+sdk token variant=Ok("Token { access: AccessToken") sdk use=Ok(())
+direct token variant=Ok("Access") direct use echo=Ok(("probe", "probe_1d3f6f6521354a62a9fb9fdc68a9cae9")) session=ca6c200b-4cb4-4c38-a1eb-db6ded61e2e6
+=== 1 signin succeeds (token variant): PARITY
+--- sdk
+Ok(
+    false,
+)
+--- direct
+(identical)
+=== 1 use succeeds: PARITY
+--- sdk
+true
+--- direct
+(identical)
+=== 1 session selection visible to queries: PARITY
+--- sdk
+Response {
+    num_statements: 1,
+    takes: [
+        (
+            0,
+            Value(
+                Ok(
+                    Array(
+                        Array(
+                            [
+                                String(
+                                    "probe",
+                                ),
+                                String(
+                                    "probe_1d3f6f6521354a62a9fb9fdc68a9cae9",
+                                ),
+                            ],
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            1,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            2,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 2a protected SELECT ONLY (canonical_results shape) take::<OptObject>: PARITY
+--- sdk
+Response {
+    num_statements: 11,
+    takes: [
+        (
+            0,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            1,
+            OptObject(
+                Ok(
+                    Some(
+                        Object(
+                            {
+                                "id": RecordId(
+                                    RecordId {
+                                        table: Table(
+                                            "canonical_guards",
+                                        ),
+                                        key: String(
+                                            "retention:P1",
+                                        ),
+                                    },
+                                ),
+                                "incarnation": String(
+                                    "inc1",
+                                ),
+                                "key": String(
+                                    "retention:P1",
+                                ),
+                                "protection_closed_through": Number(
+                                    Decimal(
+                                        0,
+                                    ),
+                                ),
+                            },
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            2,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got bool",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            3,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            4,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            5,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            6,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            7,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            8,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            9,
+            OptObject(
+                Ok(
+                    Some(
+                        Object(
+                            {
+                                "digest": Bytes(
+                                    Bytes(
+                                        b"abc",
+                                    ),
+                                ),
+                                "id": RecordId(
+                                    RecordId {
+                                        table: Table(
+                                            "canonical_result_sets",
+                                        ),
+                                        key: String(
+                                            "S1",
+                                        ),
+                                    },
+                                ),
+                                "key": String(
+                                    "S1",
+                                ),
+                                "rows": Number(
+                                    Decimal(
+                                        3,
+                                    ),
+                                ),
+                                "run": String(
+                                    "run-1",
+                                ),
+                            },
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            10,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            11,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            12,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 2a protected SELECT ONLY (canonical_results shape) take::<VecObject>: PARITY
+--- sdk
+Response {
+    num_statements: 11,
+    takes: [
+        (
+            0,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            1,
+            VecObject(
+                Ok(
+                    [
+                        Object(
+                            {
+                                "id": RecordId(
+                                    RecordId {
+                                        table: Table(
+                                            "canonical_guards",
+                                        ),
+                                        key: String(
+                                            "retention:P1",
+                                        ),
+                                    },
+                                ),
+                                "incarnation": String(
+                                    "inc1",
+                                ),
+                                "key": String(
+                                    "retention:P1",
+                                ),
+                                "protection_closed_through": Number(
+                                    Decimal(
+                                        0,
+                                    ),
+                                ),
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ),
+        (
+            2,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got bool",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            3,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            4,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            5,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            6,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            7,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            8,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            9,
+            VecObject(
+                Ok(
+                    [
+                        Object(
+                            {
+                                "digest": Bytes(
+                                    Bytes(
+                                        b"abc",
+                                    ),
+                                ),
+                                "id": RecordId(
+                                    RecordId {
+                                        table: Table(
+                                            "canonical_result_sets",
+                                        ),
+                                        key: String(
+                                            "S1",
+                                        ),
+                                    },
+                                ),
+                                "key": String(
+                                    "S1",
+                                ),
+                                "rows": Number(
+                                    Decimal(
+                                        3,
+                                    ),
+                                ),
+                                "run": String(
+                                    "run-1",
+                                ),
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ),
+        (
+            10,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            11,
+            VecObject(
+                Ok(
+                    [],
+                ),
+            ),
+        ),
+        (
+            12,
+            VecObject(
+                Ok(
+                    [],
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 2a protected SELECT ONLY (canonical_results shape) take::<Value>: PARITY
+--- sdk
+Response {
+    num_statements: 11,
+    takes: [
+        (
+            0,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            1,
+            Value(
+                Ok(
+                    Array(
+                        Array(
+                            [
+                                Object(
+                                    Object(
+                                        {
+                                            "id": RecordId(
+                                                RecordId {
+                                                    table: Table(
+                                                        "canonical_guards",
+                                                    ),
+                                                    key: String(
+                                                        "retention:P1",
+                                                    ),
+                                                },
+                                            ),
+                                            "incarnation": String(
+                                                "inc1",
+                                            ),
+                                            "key": String(
+                                                "retention:P1",
+                                            ),
+                                            "protection_closed_through": Number(
+                                                Decimal(
+                                                    0,
+                                                ),
+                                            ),
+                                        },
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            2,
+            Value(
+                Ok(
+                    Bool(
+                        true,
+                    ),
+                ),
+            ),
+        ),
+        (
+            3,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            4,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            5,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            6,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            7,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            8,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            9,
+            Value(
+                Ok(
+                    Object(
+                        Object(
+                            {
+                                "digest": Bytes(
+                                    Bytes(
+                                        b"abc",
+                                    ),
+                                ),
+                                "id": RecordId(
+                                    RecordId {
+                                        table: Table(
+                                            "canonical_result_sets",
+                                        ),
+                                        key: String(
+                                            "S1",
+                                        ),
+                                    },
+                                ),
+                                "key": String(
+                                    "S1",
+                                ),
+                                "rows": Number(
+                                    Decimal(
+                                        3,
+                                    ),
+                                ),
+                                "run": String(
+                                    "run-1",
+                                ),
+                            },
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            10,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            11,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            12,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 2a protected SELECT ONLY (canonical_results shape) checked: PARITY
+--- sdk
+Ok {
+    num_statements: 11,
+    error_indices: [],
+}
+--- direct
+(identical)
+=== 2b protected LET/RETURN rows (select_names shape) take::<OptObject>: PARITY
+--- sdk
+Response {
+    num_statements: 14,
+    takes: [
+        (
+            0,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            1,
+            OptObject(
+                Ok(
+                    Some(
+                        Object(
+                            {
+                                "id": RecordId(
+                                    RecordId {
+                                        table: Table(
+                                            "canonical_guards",
+                                        ),
+                                        key: String(
+                                            "retention:P1",
+                                        ),
+                                    },
+                                ),
+                                "incarnation": String(
+                                    "inc1",
+                                ),
+                                "key": String(
+                                    "retention:P1",
+                                ),
+                                "protection_closed_through": Number(
+                                    Decimal(
+                                        0,
+                                    ),
+                                ),
+                            },
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            2,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got bool",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            3,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            4,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            5,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            6,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            7,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            8,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            9,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            10,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got bool",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            11,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            12,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Tried to take only a single result from a query that contains multiple",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            13,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            14,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            15,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 2b protected LET/RETURN rows (select_names shape) take::<VecObject>: PARITY
+--- sdk
+Response {
+    num_statements: 14,
+    takes: [
+        (
+            0,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            1,
+            VecObject(
+                Ok(
+                    [
+                        Object(
+                            {
+                                "id": RecordId(
+                                    RecordId {
+                                        table: Table(
+                                            "canonical_guards",
+                                        ),
+                                        key: String(
+                                            "retention:P1",
+                                        ),
+                                    },
+                                ),
+                                "incarnation": String(
+                                    "inc1",
+                                ),
+                                "key": String(
+                                    "retention:P1",
+                                ),
+                                "protection_closed_through": Number(
+                                    Decimal(
+                                        0,
+                                    ),
+                                ),
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ),
+        (
+            2,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got bool",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            3,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            4,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            5,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            6,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            7,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            8,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            9,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            10,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got bool",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            11,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            12,
+            VecObject(
+                Ok(
+                    [
+                        Object(
+                            {
+                                "id": RecordId(
+                                    RecordId {
+                                        table: Table(
+                                            "canonical_memberships",
+                                        ),
+                                        key: String(
+                                            "m1",
+                                        ),
+                                    },
+                                ),
+                                "name": String(
+                                    "alpha",
+                                ),
+                                "problem": String(
+                                    "P1",
+                                ),
+                                "value": Number(
+                                    Float(
+                                        1.5,
+                                    ),
+                                ),
+                            },
+                        ),
+                        Object(
+                            {
+                                "id": RecordId(
+                                    RecordId {
+                                        table: Table(
+                                            "canonical_memberships",
+                                        ),
+                                        key: String(
+                                            "m2",
+                                        ),
+                                    },
+                                ),
+                                "name": String(
+                                    "beta",
+                                ),
+                                "problem": String(
+                                    "P1",
+                                ),
+                                "value": Number(
+                                    Float(
+                                        2.5,
+                                    ),
+                                ),
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ),
+        (
+            13,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            14,
+            VecObject(
+                Ok(
+                    [],
+                ),
+            ),
+        ),
+        (
+            15,
+            VecObject(
+                Ok(
+                    [],
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 2b protected LET/RETURN rows (select_names shape) take::<Value>: PARITY
+--- sdk
+Response {
+    num_statements: 14,
+    takes: [
+        (
+            0,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            1,
+            Value(
+                Ok(
+                    Array(
+                        Array(
+                            [
+                                Object(
+                                    Object(
+                                        {
+                                            "id": RecordId(
+                                                RecordId {
+                                                    table: Table(
+                                                        "canonical_guards",
+                                                    ),
+                                                    key: String(
+                                                        "retention:P1",
+                                                    ),
+                                                },
+                                            ),
+                                            "incarnation": String(
+                                                "inc1",
+                                            ),
+                                            "key": String(
+                                                "retention:P1",
+                                            ),
+                                            "protection_closed_through": Number(
+                                                Decimal(
+                                                    0,
+                                                ),
+                                            ),
+                                        },
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            2,
+            Value(
+                Ok(
+                    Bool(
+                        true,
+                    ),
+                ),
+            ),
+        ),
+        (
+            3,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            4,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            5,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            6,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            7,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            8,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            9,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            10,
+            Value(
+                Ok(
+                    Bool(
+                        true,
+                    ),
+                ),
+            ),
+        ),
+        (
+            11,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            12,
+            Value(
+                Ok(
+                    Array(
+                        Array(
+                            [
+                                Object(
+                                    Object(
+                                        {
+                                            "id": RecordId(
+                                                RecordId {
+                                                    table: Table(
+                                                        "canonical_memberships",
+                                                    ),
+                                                    key: String(
+                                                        "m1",
+                                                    ),
+                                                },
+                                            ),
+                                            "name": String(
+                                                "alpha",
+                                            ),
+                                            "problem": String(
+                                                "P1",
+                                            ),
+                                            "value": Number(
+                                                Float(
+                                                    1.5,
+                                                ),
+                                            ),
+                                        },
+                                    ),
+                                ),
+                                Object(
+                                    Object(
+                                        {
+                                            "id": RecordId(
+                                                RecordId {
+                                                    table: Table(
+                                                        "canonical_memberships",
+                                                    ),
+                                                    key: String(
+                                                        "m2",
+                                                    ),
+                                                },
+                                            ),
+                                            "name": String(
+                                                "beta",
+                                            ),
+                                            "problem": String(
+                                                "P1",
+                                            ),
+                                            "value": Number(
+                                                Float(
+                                                    2.5,
+                                                ),
+                                            ),
+                                        },
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            13,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            14,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            15,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 2b protected LET/RETURN rows (select_names shape) checked: PARITY
+--- sdk
+Ok {
+    num_statements: 14,
+    error_indices: [],
+}
+--- direct
+(identical)
+=== 2c unguarded RETURN object (testing::result_payload_counts shape) take::<OptObject>: PARITY
+--- sdk
+Response {
+    num_statements: 1,
+    takes: [
+        (
+            0,
+            OptObject(
+                Ok(
+                    Some(
+                        Object(
+                            {
+                                "inline": Number(
+                                    Decimal(
+                                        2,
+                                    ),
+                                ),
+                                "sealed": Number(
+                                    Decimal(
+                                        0,
+                                    ),
+                                ),
+                            },
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            1,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            2,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 2c unguarded RETURN object (testing::result_payload_counts shape) take::<VecObject>: PARITY
+--- sdk
+Response {
+    num_statements: 1,
+    takes: [
+        (
+            0,
+            VecObject(
+                Ok(
+                    [
+                        Object(
+                            {
+                                "inline": Number(
+                                    Decimal(
+                                        2,
+                                    ),
+                                ),
+                                "sealed": Number(
+                                    Decimal(
+                                        0,
+                                    ),
+                                ),
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ),
+        (
+            1,
+            VecObject(
+                Ok(
+                    [],
+                ),
+            ),
+        ),
+        (
+            2,
+            VecObject(
+                Ok(
+                    [],
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 2c unguarded RETURN object (testing::result_payload_counts shape) take::<Value>: PARITY
+--- sdk
+Response {
+    num_statements: 1,
+    takes: [
+        (
+            0,
+            Value(
+                Ok(
+                    Object(
+                        Object(
+                            {
+                                "inline": Number(
+                                    Decimal(
+                                        2,
+                                    ),
+                                ),
+                                "sealed": Number(
+                                    Decimal(
+                                        0,
+                                    ),
+                                ),
+                            },
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            1,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            2,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 2c unguarded RETURN object (testing::result_payload_counts shape) checked: PARITY
+--- sdk
+Ok {
+    num_statements: 1,
+    error_indices: [],
+}
+--- direct
+(identical)
+=== 2d unguarded multi-statement (rows, empty, scalar, NONE) take::<OptObject>: PARITY
+--- sdk
+Response {
+    num_statements: 4,
+    takes: [
+        (
+            0,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Tried to take only a single result from a query that contains multiple",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            1,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            2,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got number",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            3,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            4,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            5,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 2d unguarded multi-statement (rows, empty, scalar, NONE) take::<VecObject>: PARITY
+--- sdk
+Response {
+    num_statements: 4,
+    takes: [
+        (
+            0,
+            VecObject(
+                Ok(
+                    [
+                        Object(
+                            {
+                                "id": RecordId(
+                                    RecordId {
+                                        table: Table(
+                                            "canonical_memberships",
+                                        ),
+                                        key: String(
+                                            "m1",
+                                        ),
+                                    },
+                                ),
+                                "name": String(
+                                    "alpha",
+                                ),
+                                "problem": String(
+                                    "P1",
+                                ),
+                                "value": Number(
+                                    Float(
+                                        1.5,
+                                    ),
+                                ),
+                            },
+                        ),
+                        Object(
+                            {
+                                "id": RecordId(
+                                    RecordId {
+                                        table: Table(
+                                            "canonical_memberships",
+                                        ),
+                                        key: String(
+                                            "m2",
+                                        ),
+                                    },
+                                ),
+                                "name": String(
+                                    "beta",
+                                ),
+                                "problem": String(
+                                    "P1",
+                                ),
+                                "value": Number(
+                                    Float(
+                                        2.5,
+                                    ),
+                                ),
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ),
+        (
+            1,
+            VecObject(
+                Ok(
+                    [],
+                ),
+            ),
+        ),
+        (
+            2,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got number",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            3,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            4,
+            VecObject(
+                Ok(
+                    [],
+                ),
+            ),
+        ),
+        (
+            5,
+            VecObject(
+                Ok(
+                    [],
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 2d unguarded multi-statement (rows, empty, scalar, NONE) take::<Value>: PARITY
+--- sdk
+Response {
+    num_statements: 4,
+    takes: [
+        (
+            0,
+            Value(
+                Ok(
+                    Array(
+                        Array(
+                            [
+                                Object(
+                                    Object(
+                                        {
+                                            "id": RecordId(
+                                                RecordId {
+                                                    table: Table(
+                                                        "canonical_memberships",
+                                                    ),
+                                                    key: String(
+                                                        "m1",
+                                                    ),
+                                                },
+                                            ),
+                                            "name": String(
+                                                "alpha",
+                                            ),
+                                            "problem": String(
+                                                "P1",
+                                            ),
+                                            "value": Number(
+                                                Float(
+                                                    1.5,
+                                                ),
+                                            ),
+                                        },
+                                    ),
+                                ),
+                                Object(
+                                    Object(
+                                        {
+                                            "id": RecordId(
+                                                RecordId {
+                                                    table: Table(
+                                                        "canonical_memberships",
+                                                    ),
+                                                    key: String(
+                                                        "m2",
+                                                    ),
+                                                },
+                                            ),
+                                            "name": String(
+                                                "beta",
+                                            ),
+                                            "problem": String(
+                                                "P1",
+                                            ),
+                                            "value": Number(
+                                                Float(
+                                                    2.5,
+                                                ),
+                                            ),
+                                        },
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            1,
+            Value(
+                Ok(
+                    Array(
+                        Array(
+                            [],
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            2,
+            Value(
+                Ok(
+                    Number(
+                        Int(
+                            42,
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            3,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            4,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            5,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 2d unguarded multi-statement (rows, empty, scalar, NONE) checked: PARITY
+--- sdk
+Ok {
+    num_statements: 4,
+    error_indices: [],
+}
+--- direct
+(identical)
+=== 3a THROW expired protection take::<OptObject> per index: PARITY
+--- sdk
+Response {
+    num_statements: 11,
+    takes: [
+        (
+            0,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            1,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32003,
+                        message: "The query was not executed due to a failed transaction",
+                        details: Query(
+                            Some(
+                                NotExecuted,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            2,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32003,
+                        message: "The query was not executed due to a failed transaction",
+                        details: Query(
+                            Some(
+                                NotExecuted,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            3,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32003,
+                        message: "The query was not executed due to a failed transaction",
+                        details: Query(
+                            Some(
+                                NotExecuted,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            4,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32006,
+                        message: "An error occurred: PSE_REFUSAL:immutable_selection_protection_expired",
+                        details: Thrown,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            5,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32005,
+                        message: "The query was not executed due to a cancelled transaction",
+                        details: Query(
+                            Some(
+                                Cancelled,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            6,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32005,
+                        message: "The query was not executed due to a cancelled transaction",
+                        details: Query(
+                            Some(
+                                Cancelled,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            7,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32005,
+                        message: "The query was not executed due to a cancelled transaction",
+                        details: Query(
+                            Some(
+                                Cancelled,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            8,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32005,
+                        message: "The query was not executed due to a cancelled transaction",
+                        details: Query(
+                            Some(
+                                Cancelled,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            9,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32005,
+                        message: "The query was not executed due to a cancelled transaction",
+                        details: Query(
+                            Some(
+                                Cancelled,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            10,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32003,
+                        message: "Cannot COMMIT: the transaction was aborted due to a prior error",
+                        details: Query(
+                            Some(
+                                NotExecuted,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            11,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            12,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 3a THROW expired protection sdk checked error: NOTE
+kind=Thrown query_details=None not_allowed=None is_thrown=true message="An error occurred: PSE_REFUSAL:immutable_selection_protection_expired" cause=None
+=== 3a THROW expired protection checked: PARITY
+--- sdk
+Failed(
+    Error {
+        code: -32006,
+        message: "An error occurred: PSE_REFUSAL:immutable_selection_protection_expired",
+        details: Thrown,
+        cause: None,
+    },
+)
+--- direct
+(identical)
+=== 3b THROW from fn deadline take::<OptObject> per index: PARITY
+--- sdk
+Response {
+    num_statements: 11,
+    takes: [
+        (
+            0,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            1,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32003,
+                        message: "The query was not executed due to a failed transaction",
+                        details: Query(
+                            Some(
+                                NotExecuted,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            2,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32006,
+                        message: "An error occurred: PSE_REFUSAL:original_canonical_rpc_deadline_expired",
+                        details: Thrown,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            3,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32005,
+                        message: "The query was not executed due to a cancelled transaction",
+                        details: Query(
+                            Some(
+                                Cancelled,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            4,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32005,
+                        message: "The query was not executed due to a cancelled transaction",
+                        details: Query(
+                            Some(
+                                Cancelled,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            5,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32005,
+                        message: "The query was not executed due to a cancelled transaction",
+                        details: Query(
+                            Some(
+                                Cancelled,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            6,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32005,
+                        message: "The query was not executed due to a cancelled transaction",
+                        details: Query(
+                            Some(
+                                Cancelled,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            7,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32005,
+                        message: "The query was not executed due to a cancelled transaction",
+                        details: Query(
+                            Some(
+                                Cancelled,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            8,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32005,
+                        message: "The query was not executed due to a cancelled transaction",
+                        details: Query(
+                            Some(
+                                Cancelled,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            9,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32005,
+                        message: "The query was not executed due to a cancelled transaction",
+                        details: Query(
+                            Some(
+                                Cancelled,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            10,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32003,
+                        message: "Cannot COMMIT: the transaction was aborted due to a prior error",
+                        details: Query(
+                            Some(
+                                NotExecuted,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            11,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            12,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 3b THROW from fn deadline sdk checked error: NOTE
+kind=Thrown query_details=None not_allowed=None is_thrown=true message="An error occurred: PSE_REFUSAL:original_canonical_rpc_deadline_expired" cause=None
+=== 3b THROW from fn deadline checked: PARITY
+--- sdk
+Failed(
+    Error {
+        code: -32006,
+        message: "An error occurred: PSE_REFUSAL:original_canonical_rpc_deadline_expired",
+        details: Thrown,
+        cause: None,
+    },
+)
+--- direct
+(identical)
+=== 4a bounded SDK begin(): NOTE
+Err(Error { code: -32000, message: "Bounded gRPC requires an original RequestContext", details: Configuration(None), cause: None })
+=== 4a first commit succeeds: PARITY
+--- sdk
+Ok(
+    (),
+)
+--- direct
+(identical)
+=== 4a second commit error: PARITY
+--- sdk
+Err(
+    Error {
+        code: -32009,
+        message: "There was a problem with the key-value store: Transaction conflict: Write conflict, retry the transaction. This transaction can be retried",
+        details: Query(
+            Some(
+                TransactionConflict,
+            ),
+        ),
+        cause: Some(
+            Error {
+                code: -32000,
+                message: "Transaction conflict: Write conflict, retry the transaction. This transaction can be retried",
+                details: Internal,
+                cause: None,
+            },
+        ),
+    },
+)
+--- direct
+(identical)
+=== 4a sdk error: NOTE
+kind=Query query_details=Some(TransactionConflict) not_allowed=None is_thrown=false message="There was a problem with the key-value store: Transaction conflict: Write conflict, retry the transaction. This transaction can be retried" cause=Some(("Internal", "Transaction conflict: Write conflict, retry the transaction. This transaction can be retried"))
+=== 4a direct unary status/trailer: NOTE
+Some(StatusTrace { code: Aborted, has_error_bin: true, decoded_kind: Some("Query"), decoded_detail_kind: Some("TransactionConflict"), decoded_retryable: Some(true) })
+=== 4b script conflict per-statement errors: PARITY
+--- sdk
+Response {
+    num_statements: 5,
+    takes: [
+        (
+            1,
+            Value(
+                Err(
+                    Error {
+                        code: -32003,
+                        message: "The query was not executed due to a failed transaction",
+                        details: Query(
+                            Some(
+                                NotExecuted,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            2,
+            Value(
+                Err(
+                    Error {
+                        code: -32003,
+                        message: "The query was not executed due to a failed transaction",
+                        details: Query(
+                            Some(
+                                NotExecuted,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            3,
+            Value(
+                Err(
+                    Error {
+                        code: -32003,
+                        message: "The query was not executed due to a failed transaction",
+                        details: Query(
+                            Some(
+                                NotExecuted,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            4,
+            Value(
+                Err(
+                    Error {
+                        code: -32009,
+                        message: "Cannot COMMIT: Transaction conflict: Write conflict, retry the transaction. This transaction can be retried",
+                        details: Query(
+                            Some(
+                                TransactionConflict,
+                            ),
+                        ),
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 4b sdk checked error: NOTE
+kind=Query query_details=Some(TransactionConflict) not_allowed=None is_thrown=false message="Cannot COMMIT: Transaction conflict: Write conflict, retry the transaction. This transaction can be retried" cause=None
+=== 4b script conflict checked: PARITY
+--- sdk
+Failed(
+    Error {
+        code: -32009,
+        message: "Cannot COMMIT: Transaction conflict: Write conflict, retry the transaction. This transaction can be retried",
+        details: Query(
+            Some(
+                TransactionConflict,
+            ),
+        ),
+        cause: None,
+    },
+)
+--- direct
+(identical)
+=== 5 BEGIN/RETURN fn/COMMIT take::<OptObject>: PARITY
+--- sdk
+Response {
+    num_statements: 3,
+    takes: [
+        (
+            0,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            1,
+            OptObject(
+                Ok(
+                    Some(
+                        Object(
+                            {
+                                "echo": String(
+                                    "hello",
+                                ),
+                                "n": Number(
+                                    Decimal(
+                                        1,
+                                    ),
+                                ),
+                            },
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            2,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            3,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            4,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 5 BEGIN/RETURN fn/COMMIT take::<VecObject>: PARITY
+--- sdk
+Response {
+    num_statements: 3,
+    takes: [
+        (
+            0,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            1,
+            VecObject(
+                Ok(
+                    [
+                        Object(
+                            {
+                                "echo": String(
+                                    "hello",
+                                ),
+                                "n": Number(
+                                    Decimal(
+                                        1,
+                                    ),
+                                ),
+                            },
+                        ),
+                    ],
+                ),
+            ),
+        ),
+        (
+            2,
+            VecObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got none",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            3,
+            VecObject(
+                Ok(
+                    [],
+                ),
+            ),
+        ),
+        (
+            4,
+            VecObject(
+                Ok(
+                    [],
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 5 BEGIN/RETURN fn/COMMIT take::<Value>: PARITY
+--- sdk
+Response {
+    num_statements: 3,
+    takes: [
+        (
+            0,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            1,
+            Value(
+                Ok(
+                    Object(
+                        Object(
+                            {
+                                "echo": String(
+                                    "hello",
+                                ),
+                                "n": Number(
+                                    Decimal(
+                                        1,
+                                    ),
+                                ),
+                            },
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            2,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            3,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            4,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 5 checked: PARITY
+--- sdk
+Ok {
+    num_statements: 3,
+    error_indices: [],
+}
+--- direct
+(identical)
+=== 6 failing signin error: PARITY
+--- sdk
+Err(
+    Error {
+        code: -32002,
+        message: "There was a problem with authentication",
+        details: NotAllowed(
+            Some(
+                Auth(
+                    InvalidAuth,
+                ),
+            ),
+        ),
+        cause: None,
+    },
+)
+--- direct
+(identical)
+=== 6 sdk error: NOTE
+kind=NotAllowed query_details=None not_allowed=Some(Auth(InvalidAuth)) is_thrown=false message="There was a problem with authentication" cause=None
+=== 6 direct unary status/trailer: NOTE
+Some(StatusTrace { code: PermissionDenied, has_error_bin: true, decoded_kind: Some("NotAllowed"), decoded_detail_kind: Some("Auth"), decoded_retryable: Some(false) })
+=== 6 subsequent correct signin: PARITY
+--- sdk
+true
+--- direct
+(identical)
+=== 7 parse error: PARITY
+--- sdk
+Failed(
+    Error {
+        code: -32000,
+        message: "Parse error: Unexpected token `an identifier`, expected Eof\n --> [1:21]\n  |\n1 | BEGIN; SELEC * FROM nothing; COMMIT\n  |                     ^^^^^^^\n",
+        details: Validation(
+            None,
+        ),
+        cause: None,
+    },
+)
+--- direct
+(identical)
+=== 7 direct unary status/trailer (None = in-stream): NOTE
+Some(StatusTrace { code: InvalidArgument, has_error_bin: true, decoded_kind: Some("Validation"), decoded_detail_kind: None, decoded_retryable: Some(false) })
+=== 8 BEGIN/RETURN/RETURN/CREATE/COMMIT take::<Value>: PARITY
+--- sdk
+Response {
+    num_statements: 3,
+    takes: [
+        (
+            0,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            1,
+            Value(
+                Ok(
+                    Number(
+                        Int(
+                            1,
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            2,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            3,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            4,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 8 BEGIN/RETURN/RETURN/CREATE/COMMIT take::<OptObject>: PARITY
+--- sdk
+Response {
+    num_statements: 3,
+    takes: [
+        (
+            0,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            1,
+            OptObject(
+                Err(
+                    Error {
+                        code: -32000,
+                        message: "Expected object, got number",
+                        details: Internal,
+                        cause: None,
+                    },
+                ),
+            ),
+        ),
+        (
+            2,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            3,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            4,
+            OptObject(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)
+=== 8 skipped CREATE had no effect: PARITY
+--- sdk
+Response {
+    num_statements: 1,
+    takes: [
+        (
+            0,
+            Value(
+                Ok(
+                    Array(
+                        Array(
+                            [],
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        (
+            1,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+        (
+            2,
+            Value(
+                Ok(
+                    None,
+                ),
+            ),
+        ),
+    ],
+}
+--- direct
+(identical)

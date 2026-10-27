@@ -1,0 +1,17 @@
+{
+  "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/pse-probe-delegate-2.scope",
+  "memory.max": "268435456",
+  "memory.swap.max": "0",
+  "memory.oom.group": "0",
+  "events_before": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+  "child": {
+    "child": 3253144,
+    "pgid": 3252619,
+    "sid": 3252312
+  },
+  "child_rest_stdout": "",
+  "child_returncode": -9,
+  "events_after": "low 0\nhigh 0\nmax 37\noom 1\noom_kill 1\noom_group_kill 0\nsock_throttled 0",
+  "driver_alive": true,
+  "leaf_events": "populated 0\nfrozen 0"
+}

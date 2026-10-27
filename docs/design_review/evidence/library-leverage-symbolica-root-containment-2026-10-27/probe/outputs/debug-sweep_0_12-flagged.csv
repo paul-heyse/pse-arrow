@@ -1,0 +1,43 @@
+profile: debug-assertions ON
+alpha,beta,gamma,delta,r_double,r_simple,n_intervals,straddle0,containment,no_sign_change,endpoint_root,ladder,fallback,recovered_all,lost,duplicated,spurious,iso_route_ok,points,intervals
+2,3,3,8,3/2,8/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+2,3,3,10,3/2,10/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+2,3,3,11,3/2,11/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+4,3,3,4,3/4,4/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,2;m1) (1/2,1;m2)"
+4,3,3,5,3/4,5/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,2;m1) (1/2,1;m2)"
+4,3,3,8,3/4,8/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1/2,1;m2)"
+4,3,3,10,3/4,10/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1/2,1;m2)"
+4,3,3,11,3/4,11/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1/2,1;m2)"
+4,3,5,8,3/4,8/5,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,2;m1) (1/2,1;m2)"
+4,3,5,9,3/4,9/5,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,2;m1) (1/2,1;m2)"
+4,3,6,11,3/4,11/6,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,2;m1) (1/2,1;m2)"
+4,5,3,8,5/4,8/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+4,5,3,10,5/4,10/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+4,5,3,11,5/4,11/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+4,7,3,8,7/4,8/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+4,7,3,10,7/4,10/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+4,7,3,11,7/4,11/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+5,3,3,4,3/5,4/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,2;m1) (1/2,1;m2)"
+5,3,3,5,3/5,5/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,2;m1) (1/2,1;m2)"
+5,3,3,8,3/5,8/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1/2,1;m2)"
+5,3,3,10,3/5,10/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1/2,1;m2)"
+5,3,3,11,3/5,11/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1/2,1;m2)"
+5,3,5,8,3/5,8/5,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,2;m1) (1/2,1;m2)"
+5,3,5,9,3/5,9/5,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,2;m1) (1/2,1;m2)"
+5,3,6,11,3/5,11/6,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,2;m1) (1/2,1;m2)"
+5,6,3,8,6/5,8/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+5,6,3,10,6/5,10/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+5,6,3,11,6/5,11/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+5,7,3,8,7/5,8/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+5,7,3,10,7/5,10/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+5,7,3,11,7/5,11/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+6,7,3,8,7/6,8/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+6,7,3,10,7/6,10/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+6,7,3,11,7/6,11/3,2,false,true,true,false,"panic:assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg @ poly/univariate/roots.rs:2202",false,false,0,0,0,true,"","(0,4;m1) (1,2;m2)"
+# SUMMARY distinct (double, simple) root pairs: 2162
+# containment (>=2 roots strictly inside): 34
+# containment AND ladder panicked: 34
+# endpoint is a root: 661
+# ladder panicked: 34
+# ladder took fallback: 1586
+# no sign change of u across a non-degenerate interval: 34

@@ -1,0 +1,7 @@
+{
+  "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/pse-probe-delegate-3.scope",
+  "scope_xattrs": {},
+  "scope_owner_uid": 1000,
+  "mkdir": "ok",
+  "rmdir": "ok"
+}

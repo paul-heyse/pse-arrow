@@ -1,0 +1,31 @@
+[package]
+name = "surreal-direct-client-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Versions match the pse-arrow workspace declarations; Cargo.lock is the workspace lock pruned by cargo.
+# Built in scratch with the vendored SDK by absolute path and a separate --target-dir.
+[dependencies]
+surrealdb = { version = "=3.3.4", path = "../../../../../vendor/surrealdb", default-features = false, features = [
+  "protocol-grpc",
+  "rustls",
+] }
+surrealdb-protocol = { version = "=0.13.1", default-features = false, features = [
+  "rpc",
+  "flatbuffers",
+] }
+surrealdb-types = { version = "=3.3.4", features = ["proto"] }
+tonic = "=0.14.6"
+tokio = { version = "=1.53.2", default-features = false, features = [
+  "rt-multi-thread",
+  "sync",
+  "macros",
+  "time",
+] }
+uuid = { version = "=1.27.0", features = ["v4"] }
+
+[profile.dev]
+panic = "unwind"
+
+[workspace]

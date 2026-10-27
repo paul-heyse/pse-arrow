@@ -1,0 +1,173 @@
+{
+  "scope": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/pse-probe-delegate-1.scope",
+  "driver_pid": 3017289,
+  "scope_xattrs": {},
+  "scope_files": {
+    "cgroup.type": "domain",
+    "cgroup.controllers": "cpu memory pids",
+    "cgroup.subtree_control": "",
+    "memory.max": "1073741824",
+    "memory.swap.max": "0",
+    "pids.max": "64",
+    "cpu.max": "50000 100000",
+    "memory.oom.group": "0"
+  },
+  "scope_owner_uid": 1000,
+  "scope_procs_owner_uid": 1000,
+  "affinity_count": 32,
+  "enable_controllers_with_procs_in_root": {
+    "memory": "EBUSY",
+    "pids": "ok",
+    "pids_revert": "ok",
+    "cpu": "ok",
+    "cpu_revert": "ok"
+  },
+  "subtree_control_after": "",
+  "a_mkdir_leaf": "ok",
+  "a_leaf_files": [
+    "cgroup.controllers",
+    "cgroup.events",
+    "cgroup.freeze",
+    "cgroup.kill",
+    "cgroup.max.depth",
+    "cgroup.max.descendants",
+    "cgroup.pressure",
+    "cgroup.procs",
+    "cgroup.stat",
+    "cgroup.stat.local",
+    "cgroup.subtree_control",
+    "cgroup.threads",
+    "cgroup.type",
+    "cpu.pressure",
+    "cpu.stat",
+    "cpu.stat.local",
+    "io.pressure",
+    "memory.pressure"
+  ],
+  "a_leaf": {
+    "cgroup.type": "domain",
+    "cgroup.controllers": "",
+    "cgroup.subtree_control": ""
+  },
+  "a_leaf_inode": 648247,
+  "b_child_report": {
+    "child": 3017559,
+    "pgid": 3017288,
+    "sid": 3017286,
+    "setsid_grandchild": 3017770,
+    "daemon": 3017772,
+    "allocated_mib": 256
+  },
+  "b_member_cgroups": {
+    "child": "0::/user.slice/user-1000.slice/user@1000.service/app.slice/pse-probe-delegate-1.scope/leaf-a",
+    "setsid_grandchild": "0::/user.slice/user-1000.slice/user@1000.service/app.slice/pse-probe-delegate-1.scope/leaf-a",
+    "daemon": "0::/user.slice/user-1000.slice/user@1000.service/app.slice/pse-probe-delegate-1.scope/leaf-a"
+  },
+  "b_member_ppid": {
+    "child": "3017289",
+    "setsid_grandchild": "3017559",
+    "daemon": "2381"
+  },
+  "b_member_sid": {
+    "child": 3017286,
+    "setsid_grandchild": 3017770,
+    "daemon": 3017771
+  },
+  "b_leaf_procs": [
+    "3017559",
+    "3017770",
+    "3017772"
+  ],
+  "b_leaf_events": "populated 1\nfrozen 0",
+  "b_scope_before": {
+    "memory.current": "7315456",
+    "pids.current": "1",
+    "cgroup.procs": [
+      "3017289"
+    ]
+  },
+  "b_scope_after": {
+    "memory.current": "284811264",
+    "pids.current": "4",
+    "cgroup.procs": [
+      "3017289"
+    ]
+  },
+  "b_scope_memory_delta_mib": 264.6,
+  "b_child_rss": "276016 kB",
+  "b_leaf_has_memory_current": false,
+  "rmdir_while_populated": "EBUSY",
+  "c_d_kill": {
+    "cgroup.kill": "ok",
+    "populated0": true,
+    "poll_wakeups": 1,
+    "seconds_to_populated0": 0.0127,
+    "events": "populated 0\nfrozen 0",
+    "members_exited_per_pidfd": {
+      "child": true,
+      "setsid_grandchild": true,
+      "daemon": true
+    }
+  },
+  "c_child_state_before_reap": "Z (zombie)",
+  "c_scope_after_kill": {
+    "memory.current": "9179136",
+    "pids.current": "2",
+    "cgroup.procs": [
+      "3017289"
+    ]
+  },
+  "c_child_returncode": -9,
+  "d_rmdir": "ok",
+  "tasks": {
+    "scope_pids_before": "1",
+    "child_report": {
+      "child": 3019618,
+      "pgid": 3017288,
+      "sid": 3017286,
+      "forked": 62,
+      "fork_error": "EAGAIN"
+    },
+    "scope_pids.current": "64",
+    "scope_pids.max": "64",
+    "scope_pids.events": "max 1",
+    "leaf_has_pids_current": false,
+    "kill": {
+      "cgroup.kill": "ok",
+      "populated0": true,
+      "poll_wakeups": 1,
+      "seconds_to_populated0": 0.0827,
+      "events": "populated 0\nfrozen 0",
+      "members_exited_per_pidfd": {}
+    }
+  },
+  "cpu": {
+    "wall_s": 2.0,
+    "scope_usage_s": 1.038,
+    "scope_nr_throttled_delta": 20,
+    "leaf_cpu_stat": {
+      "usage_usec": 1036750,
+      "user_usec": 1031780,
+      "system_usec": 4970,
+      "nice_usec": 0,
+      "core_sched.force_idle_usec": 0
+    },
+    "child_affinity_count": 32,
+    "kill": {
+      "cgroup.kill": "ok",
+      "populated0": true,
+      "poll_wakeups": 1,
+      "seconds_to_populated0": 0.0009,
+      "events": "populated 0\nfrozen 0",
+      "members_exited_per_pidfd": {}
+    }
+  },
+  "scope_final": {
+    "memory.current": "7524352",
+    "pids.current": "1",
+    "cgroup.procs": [
+      "3017289"
+    ]
+  },
+  "scope_children_final": []
+}
