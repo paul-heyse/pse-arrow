@@ -6,6 +6,9 @@ use pse_model::document::Version;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// Maximum encoded deployment configuration, including immutable module source receipts.
+pub const CONFIGURATION_FILE_BYTES: u64 = 256 * 1024;
+
 /// Storage identity shared by connection and native execution consumers.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]

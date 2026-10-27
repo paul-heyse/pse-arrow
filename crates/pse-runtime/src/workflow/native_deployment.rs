@@ -499,7 +499,10 @@ fn private_owner(metadata: &std::fs::Metadata) -> Result<(), WorkflowError> {
 }
 fn private_file(path: &Path) -> Result<Vec<u8>, WorkflowError> {
     let metadata = std::fs::symlink_metadata(path).map_err(infrastructure)?;
-    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > 64 * 1024 {
+    if !metadata.is_file()
+        || metadata.file_type().is_symlink()
+        || metadata.len() > pse_operations::deployment::CONFIGURATION_FILE_BYTES
+    {
         return Err(super::contract(
             "native configuration must be a bounded real file",
         ));
@@ -640,6 +643,28 @@ mod native_selection_unit {
         assert!(selected.managed_primary().is_err());
         assert!(NativeExecutionSelection::from_state(root.path(), Some("unregistered")).is_err());
     }
+    #[test]
+    fn execution_accepts_module_receipts_within_shared_deployment_bound() {
+        let root = private_scope();
+        let path = root.path().join("config.json");
+        let mut configuration = deployment(policy(), Value::Null);
+        configuration["server"] = json!({"source_receipt": "x".repeat(80 * 1024)});
+        document(&path, &configuration);
+        let selected = NativeExecutionSelection::from_state(root.path(), None).unwrap();
+        selected.require_configuration_current().unwrap();
+        let mut at_limit = serde_json::to_vec(&configuration).unwrap();
+        at_limit.resize(256 * 1024, b' ');
+        write(&path, &at_limit);
+        let at_limit_selection =
+            NativeExecutionSelection::from_state(root.path(), None).unwrap();
+        at_limit_selection.require_configuration_current().unwrap();
+        assert!(selected.require_configuration_current().is_err());
+        at_limit.push(b' ');
+        write(&path, &at_limit);
+        assert!(NativeExecutionSelection::from_state(root.path(), None).is_err());
+        assert!(at_limit_selection.require_configuration_current().is_err());
+    }
+
     #[test]
     fn execution_checks_actual_receiver_bytes_and_refuses_replacement_after_selection() {
         let root = private_scope();

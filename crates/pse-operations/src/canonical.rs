@@ -631,8 +631,6 @@ impl std::fmt::Debug for CanonicalOptions {
             .finish_non_exhaustive()
     }
 }
-// Two immutable module source receipts accompany the selected deployment profile.
-const CONFIGURATION_FILE_BYTES: u64 = 256 * 1024;
 const CREDENTIALS_FILE_BYTES: u64 = 64 * 1024;
 
 impl CanonicalOptions {
@@ -708,7 +706,10 @@ impl CanonicalOptions {
             }
             std::fs::read(path).map_err(|error| CanonicalError::Configuration(error.to_string()))
         };
-        let configuration = read(&state.join("config.json"), CONFIGURATION_FILE_BYTES)?;
+        let configuration = read(
+            &state.join("config.json"),
+            crate::deployment::CONFIGURATION_FILE_BYTES,
+        )?;
         let deployment: crate::deployment::ServiceIdentity =
             crate::deployment::projection(&configuration)
                 .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
