@@ -270,11 +270,14 @@ still follows the decision route. The first C02 candidate uses maintained faer/t
 scalar arithmetic and generic matmul while preserving caller-selected parallelism; it is not
 accepted as complete until the consumed dispatch closure and scientific controls establish it.
 
-**Current checkpoint:** the execution started from clean `28e025c29`. Typed IPC admission,
-shared construction/decomposition, bounded cubic/nonfused arithmetic suppliers, and the minimum
-compiler/capture supervisor are integrated in discrete commits. Result file/selection work,
-SUNDIALS controls, shared native LU/terminal handling and the compiler FBBT soundness remedy
-are being completed in their companion owners. The tested FERAL bound and FBBT interval leaf are published at the selected immutable
-maintainer-fork revision, with remote availability verified. Selected focused tests have passed, while
-J's assembled qualification and scope-end static/manual checks have not run. No performance,
-cross-CPU or whole-Plan57 completion is claimed.
+**Current checkpoint:** execution started from clean `28e025c29`. All selected functional
+packages are integrated: typed IPC admission and cached-file custody, columnar selection and
+writer preparation, shared construction/decomposition, bounded cubic and exact FBBT preparation,
+nonfused arithmetic suppliers, SUNDIALS 7.9.0 integration and lifecycle repairs, shared native
+LU/terminal/gate handling, and the minimum compiler/capture supervisor. The tested FERAL bound
+and FBBT interval leaf are published at the selected immutable maintainer-fork revision, with
+remote availability verified. Focused controls and independent source review are complete;
+57j's joined qualification and scope-end failure repairs are in progress. Enduring contracts
+are published through blueprint revision 298. General alias-header accounting and unreplaced
+opaque bounds retain explicit limits; no performance, cross-CPU or whole-Plan57 completion is
+claimed.

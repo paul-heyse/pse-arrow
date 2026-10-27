@@ -1,12 +1,14 @@
 # Current work and plans
 
 [Plan57: Library leverage and correctness](57-library-leverage-and-correctness.md) is a
-new planning series covering the reassessed library-leverage review's 53 allocated CBO identities
+active series covering the reassessed library-leverage review's 53 allocated CBO identities
 and additional arithmetic finding. Ten companions develop the selected corrections, library
 mechanisms, foundation improvements, bounded investigations, retained alternatives and joined
 qualification. The coordinator owns finding dispositions and confirmed operator directions;
-companions own package progress. All production changes and qualification remain proposed and
-require separate execution authorization. Other plans retain their independent scope and status.
+companions own package progress. The maintainer authorized execution of 57a–57c and their
+minimum compiler/capture supervision prerequisite. Their functional changes are integrated;
+[57j](57j-qualification-and-publication.md#j01) owns selected joined qualification and publication.
+Other companions remain proposed, and other plans retain their independent scope and status.
 
 [Plan56: Design principle alignment](56-design-principle-alignment.md) is **complete** for its
 selected local Linux target, including all 37 packages, the completion audit's CA01–CA08 repairs
