@@ -80,6 +80,18 @@ impl ProcessReader {
             let observer=observer.to_str().and_then(|pid|pid.parse::<u32>().ok())
                 .ok_or_else(||io::Error::other("procfs observer PID unavailable"))?;
             if observer!=std::process::id() {return Err(io::Error::other("procfs PID view differs from observer namespace"));}
+            // Status NSpid is ordered from the procfs mount's PID namespace
+            // through nested inner namespaces (proc_pid_status(5), NStgid/NSpid;
+            // Linux fs/proc/base.c proc_single_show passes the mount PID namespace
+            // to array.c task_state).
+            // A multi-level list is unsupported even if outer/inner numbers
+            // coincide. Read self/status, not a guessed numeric process path.
+            let bytes=std::fs::read(self.root.join("self/status"))?;
+            let status=Status::from_read(bytes.as_slice()).map_err(io::Error::other)?;
+            if u32::try_from(status.pid).ok()!=Some(observer) || u32::try_from(status.tgid).ok()!=Some(observer) {
+                return Err(io::Error::other("procfs observer status identity changed"));
+            }
+            observer_pid_view(status.nspid.as_deref(),observer)?;
             std::fs::read_link(self.root.join("self/ns/pid"))?.into_os_string().into_string()
                 .map_err(|_|io::Error::other("observer PID namespace unavailable"))
         };
@@ -136,6 +148,13 @@ impl ProcessReader {
             Err(error) => read_error(error),
         }
     }
+}
+fn observer_pid_view(hierarchy:Option<&[i32]>,observer:u32)->io::Result<()> {
+    let observer=i32::try_from(observer).map_err(io::Error::other)?;
+    if hierarchy!=Some(std::slice::from_ref(&observer)) {
+        return Err(io::Error::other("procfs PID namespace hierarchy is missing, changed or unsupported"));
+    }
+    Ok(())
 }
 fn read_error<T>(error: io::Error) -> ProcessRead<T> {
     if error.kind()==io::ErrorKind::NotFound { ProcessRead::Absent }
@@ -220,6 +239,14 @@ mod tests {
         std::os::unix::fs::symlink("123",directory.join("self")).unwrap();
         assert!(matches!(reader.observer_namespace(),ProcessRead::Unavailable(_)));
         assert!(matches!(read_error::<ProcessStat>(io::Error::from(io::ErrorKind::PermissionDenied)),ProcessRead::Unavailable(_)));
+    }
+
+    #[test]
+    fn process_facts_observer_view_rejects_coincident_nested_ids_and_missing_hierarchy() {
+        assert!(observer_pid_view(Some(&[123]),123).is_ok());
+        for hierarchy in [None,Some(&[][..]),Some(&[122][..]),Some(&[123,123][..]),Some(&[42,123][..])] {
+            assert!(observer_pid_view(hierarchy,123).is_err());
+        }
     }
 
 }
