@@ -10,13 +10,92 @@ import mmap
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
+from scripts import host_admission, process_observation
 from scripts.tests.native_read_adverse import (
+    AuthenticatedReadWorker,
     ImageSelection,
     ReplacementRefusedError,
     image_stamp,
     replaced_image,
 )
+
+
+class ReadWorkerSettlementTests(unittest.TestCase):
+    def test_borrowed_parent_stays_charged_and_independent_owner_must_release(
+        self,
+    ) -> None:
+        worker = AuthenticatedReadWorker.__new__(AuthenticatedReadWorker)
+        worker.allocation = Path("/owned/allocations/original")
+        worker.unit = "original.scope"
+        worker.bound = {
+            "group": "/owned/original.scope",
+            "inode": 321,
+            "invocation": "original",
+        }
+        worker.borrowed_parent = True
+        parent = SimpleNamespace(
+            directory=worker.allocation.parent, nonce=worker.allocation.name
+        )
+        record = {"units": {worker.unit: worker.bound}}
+        with (
+            patch.object(worker, "exited", return_value=True) as exited,
+            patch.object(worker, "session_members", return_value=[]) as family,
+            patch.object(
+                host_admission,
+                "readonly_snapshot",
+                return_value={"owners": {worker.allocation.name: record}},
+            ) as snapshot,
+            patch.object(host_admission, "inherit", return_value=parent) as inherit,
+            patch.object(process_observation, "group_identity", return_value=321),
+        ):
+            self.assertTrue(worker.settlement_observed(123))
+            inherit.assert_called_once()
+            worker.borrowed_parent = False
+            self.assertFalse(worker.settlement_observed(123))
+            record["units"] = {}
+            self.assertTrue(worker.settlement_observed(123))
+            worker.borrowed_parent = True
+            with self.assertRaisesRegex(ValueError, "parent allocation disappeared"):
+                worker.settlement_observed(123)
+            snapshot.return_value = {"owners": {}}
+            with self.assertRaisesRegex(ValueError, "parent allocation disappeared"):
+                worker.settlement_observed(123)
+            exited.return_value = False
+            snapshot.reset_mock()
+            self.assertFalse(worker.settlement_observed(123))
+            snapshot.assert_not_called()
+            exited.return_value = True
+            family.return_value = [999]
+            self.assertFalse(worker.settlement_observed(123))
+            snapshot.assert_not_called()
+
+    def test_changed_parent_binding_refuses_settlement(self) -> None:
+        worker = AuthenticatedReadWorker.__new__(AuthenticatedReadWorker)
+        worker.allocation = Path("/owned/allocations/original")
+        worker.unit = "original.scope"
+        worker.bound = {"group": "/owned/original.scope", "inode": 321}
+        worker.borrowed_parent = True
+        with (
+            patch.object(worker, "exited", return_value=True),
+            patch.object(worker, "session_members", return_value=[]),
+            patch.object(
+                host_admission,
+                "readonly_snapshot",
+                return_value={
+                    "owners": {
+                        worker.allocation.name: {
+                            "units": {worker.unit: {"group": "/changed"}}
+                        }
+                    }
+                },
+            ),
+            patch.object(host_admission, "inherit", return_value=None),
+            self.assertRaisesRegex(ValueError, "parent allocation changed"),
+        ):
+            worker.settlement_observed(123)
 
 
 class OwnedImageReplacementTests(unittest.TestCase):

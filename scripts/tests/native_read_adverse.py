@@ -21,8 +21,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts import host_admission, operation_lifetime, process_observation
-from scripts import artifact_publication, python_extension
+from scripts import (
+    artifact_publication,
+    host_admission,
+    operation_lifetime,
+    process_observation,
+    python_extension,
+)
 from scripts.capabilities.native_read_protocol import SESSION_ENVIRONMENT
 
 if TYPE_CHECKING:
@@ -260,7 +265,11 @@ def _environment(pid: int) -> dict[str, str]:
     if len(raw) > 1 << 20:
         raise ValueError("worker environment exceeds test observation extent")
     # Only the two lifecycle markers survive this local observation, never credentials.
-    names = {SESSION_ENVIRONMENT.encode(), host_admission.MARKER.encode(), b"_PSE_NATIVE_PUBLICATION"}
+    names = {
+        SESSION_ENVIRONMENT.encode(),
+        host_admission.MARKER.encode(),
+        b"_PSE_NATIVE_PUBLICATION",
+    }
     result = {}
     for item in raw.split(b"\0"):
         name, separator, value = item.partition(b"=")
@@ -280,6 +289,7 @@ class AuthenticatedReadWorker:
         self._authenticate(admission, session.incarnation)
 
     def _authenticate(self, admission: Path, incarnation: str) -> None:
+        self.admission = admission
         document = json.loads(admission.read_bytes())
         if document.get("incarnation") != incarnation:
             raise ValueError("actual session admission incarnation differs")
@@ -334,6 +344,13 @@ class AuthenticatedReadWorker:
         self.unit, self.bound = max(
             unit_matches, key=lambda item: len(item[1]["group"])
         )
+        parent_group = process_observation.process_group(os.getpid())
+        self.borrowed_parent = os.environ.get(host_admission.MARKER) == str(
+            self.allocation
+        ) and (
+            parent_group == self.bound["group"]
+            or parent_group.startswith(self.bound["group"] + "/")
+        )
         manager = operation_lifetime.unit_observation(
             self.unit, deadline=time.monotonic() + 5
         )
@@ -359,7 +376,9 @@ class AuthenticatedReadWorker:
             raise
 
     @classmethod
-    def from_foreground(cls, publication: Path, foreground_pid: int) -> AuthenticatedReadWorker:
+    def from_foreground(
+        cls, publication: Path, foreground_pid: int
+    ) -> AuthenticatedReadWorker:
         """Authenticate the CLI descendant against its private publication and session."""
         matches = []
         for process in Path("/proc").iterdir():
@@ -376,7 +395,12 @@ class AuthenticatedReadWorker:
                 seen = set()
                 while current > 1 and current not in seen:
                     seen.add(current)
-                    stat_fields = Path(f"/proc/{current}/stat").read_text().rsplit(")", 1)[1].split()
+                    stat_fields = (
+                        Path(f"/proc/{current}/stat")
+                        .read_text()
+                        .rsplit(")", 1)[1]
+                        .split()
+                    )
                     current = int(stat_fields[1])
                     if current == foreground_pid:
                         admission = Path(marker)
@@ -387,29 +411,75 @@ class AuthenticatedReadWorker:
                 continue
         unique = set(matches)
         if len(unique) != 1:
-            raise ValueError("foreground CLI did not authenticate exactly one private native session")
+            raise ValueError(
+                "foreground CLI did not authenticate exactly one private native session"
+            )
         admission, incarnation = unique.pop()
         selected = cls.__new__(cls)
-        selected._authenticate(admission, incarnation)
+        cls._authenticate(selected, admission, incarnation)
         return selected
 
     def require_image(self, publication: artifact_publication.Publication) -> None:
         """Observe actual loaded path for acceptance, without consumer revalidation."""
         self.require_charged()
-        paths = {line.split(maxsplit=5)[5] for line in Path(f"/proc/{self.pid}/maps").read_text().splitlines() if len(line.split(maxsplit=5)) == 6}
+        paths = {
+            line.split(maxsplit=5)[5]
+            for line in Path(f"/proc/{self.pid}/maps").read_text().splitlines()
+            if len(line.split(maxsplit=5)) == 6
+        }
         if publication.artifact.binary not in paths:
             raise ValueError("actual native worker did not map its issued generation")
 
     async def require_settled(self) -> None:
-        """Require pidfd exit and disappearance of this exact unit's allocation."""
+        """Observe session-family exit; preserve an authenticated borrowed parent charge."""
+        deadline = time.monotonic() + 10
+
         async def settled() -> None:
-            while True:
-                snapshot = host_admission.readonly_snapshot(self.allocation.parent, deadline=time.monotonic() + 5)
-                record = snapshot["owners"].get(self.allocation.name)
-                if self.exited() and (record is None or self.unit not in record["units"]):
-                    return
+            while not self.settlement_observed(deadline):
                 await asyncio.sleep(0.01)
+
         await asyncio.wait_for(settled(), timeout=10)
+
+    def session_members(self) -> list[int]:
+        """Exact inherited session marker also finds reparented session descendants."""
+        members = []
+        for process in Path("/proc").iterdir():
+            if not process.name.isdigit():
+                continue
+            try:
+                if _environment(int(process.name)).get(SESSION_ENVIRONMENT) == str(
+                    self.admission
+                ):
+                    members.append(int(process.name))
+            except (FileNotFoundError, ProcessLookupError, PermissionError):
+                continue
+        return members
+
+    def settlement_observed(self, deadline: float) -> bool:
+        if not self.exited() or self.session_members():
+            return False
+        snapshot = host_admission.readonly_snapshot(
+            self.allocation.parent, deadline=deadline
+        )
+        record = snapshot["owners"].get(self.allocation.name)
+        if not self.borrowed_parent:
+            return record is None or self.unit not in record["units"]
+        if record is None or self.unit not in record["units"]:
+            raise ValueError(
+                "borrowed parent allocation disappeared before command drain"
+            )
+        parent = host_admission.inherit(os.environ, deadline=deadline)
+        if (
+            parent is None
+            or parent.directory / parent.nonce != self.allocation
+            or record["units"].get(self.unit) != self.bound
+            or process_observation.group_identity(self.bound["group"])
+            != self.bound["inode"]
+        ):
+            raise ValueError("borrowed parent allocation changed during session drain")
+        # The outer pse-env owner must separately prove scope drain and release
+        # when the whole test command finishes. This child cannot release it.
+        return True
 
     def _allocation_record(self) -> host_admission.AllocationRecord:
         record = host_admission.readonly_snapshot(
@@ -506,14 +576,22 @@ class PublishedReadGenerations:
 
     def __init__(self, root: Path, directory: Path) -> None:
         if root.resolve() != python_extension.ROOT.resolve():
-            raise ValueError("generation control must use the selected checkout's constructor")
+            raise ValueError(
+                "generation control must use the selected checkout's constructor"
+            )
         self.environment = python_extension.bind_interpreter(dict(os.environ))
         original = python_extension.read_publication("extension", self.environment)
         if original is None or original.mode != "native" or not original.validated:
-            raise ValueError("root must select an existing successful native correctness publication")
-        compatible = python_extension.currency_check(self.environment, mode="native", profile=original.profile, validated=True)
+            raise ValueError(
+                "root must select an existing successful native correctness publication"
+            )
+        compatible = python_extension.currency_check(
+            self.environment, mode="native", profile=original.profile, validated=True
+        )
         if compatible.state != "current":
-            raise ValueError("selected native publication is incompatible with the acceptance interpreter")
+            raise ValueError(
+                "selected native publication is incompatible with the acceptance interpreter"
+            )
         self.source = Path(original.artifact.binary)
         self.original = original
         self.receipt = directory / "native-read-publication.json"
@@ -521,10 +599,17 @@ class PublishedReadGenerations:
 
     def publish(self) -> artifact_publication.Publication:
         return artifact_publication.publish(
-            self.receipt, kind="extension", source=self.source, mode="native",
-            profile=self.original.profile, validated=True,
+            self.receipt,
+            kind="extension",
+            source=self.source,
+            mode="native",
+            profile=self.original.profile,
+            validated=True,
             interpreter=str(python_extension.interpreter(self.environment).absolute()),
             features=lambda candidate: python_extension._capture_candidate_features(  # noqa: SLF001 -- actual constructor feature observation
-                self.environment, candidate, validated=True, native=True,
+                self.environment,
+                candidate,
+                validated=True,
+                native=True,
             ),
         )
