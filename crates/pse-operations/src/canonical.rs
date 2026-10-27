@@ -468,8 +468,11 @@ impl pse_diagnostics::TypedDiagnostic for CanonicalError {
 /// Carry an enclosing operation's original deadline into all nested canonical
 /// requests. The caller retains ownership of in-flight effects through settlement;
 /// this scope does not spawn, detach or timeout-drop the enclosing future.
-pub async fn operation_scope<F: Future>(deadline: std::time::Instant, future: F) -> F::Output {
-    transport::operation_scope(deadline, future).await
+pub fn operation_scope<F: Future>(
+    deadline: std::time::Instant,
+    future: F,
+) -> impl Future<Output = F::Output> {
+    transport::operation_scope(deadline, future)
 }
 
 /// Retain an actual prepaid response allocation through native transport drain.

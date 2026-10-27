@@ -41,6 +41,7 @@ rustix.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
 pse-diagnostics.workspace = true
+pin-project-lite.workspace = true
 pse-ids.workspace = true
 # The registry owns canonical rows, enumerations and typed identities.
 pse-model.workspace = true

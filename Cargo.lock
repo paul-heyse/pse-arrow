@@ -6621,6 +6621,7 @@ dependencies = [
  "hyper-util",
  "libc",
  "miette",
+ "pin-project-lite",
  "pse-codegen",
  "pse-columnar",
  "pse-diagnostics",
