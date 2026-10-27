@@ -42,6 +42,7 @@ BOOTSTRAP = {
     "capabilities_describe",
     "capabilities_select",
     "capabilities_reset",
+    "capabilities_drain",
     "capabilities_invoke_read",
     "capabilities_invoke_action",
     "list_resources",

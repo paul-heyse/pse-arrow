@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from scripts import host_admission, operation_lifetime, process_observation
+from scripts import artifact_publication, python_extension
 from scripts.capabilities.native_read_protocol import SESSION_ENVIRONMENT
 
 if TYPE_CHECKING:
@@ -259,7 +260,7 @@ def _environment(pid: int) -> dict[str, str]:
     if len(raw) > 1 << 20:
         raise ValueError("worker environment exceeds test observation extent")
     # Only the two lifecycle markers survive this local observation, never credentials.
-    names = {SESSION_ENVIRONMENT.encode(), host_admission.MARKER.encode()}
+    names = {SESSION_ENVIRONMENT.encode(), host_admission.MARKER.encode(), b"_PSE_NATIVE_PUBLICATION"}
     result = {}
     for item in raw.split(b"\0"):
         name, separator, value = item.partition(b"=")
@@ -276,8 +277,11 @@ class AuthenticatedReadWorker:
         if temporary is None:
             raise ValueError("actual native read session did not publish admission")
         admission = Path(temporary.name) / "session.json"
+        self._authenticate(admission, session.incarnation)
+
+    def _authenticate(self, admission: Path, incarnation: str) -> None:
         document = json.loads(admission.read_bytes())
-        if document.get("incarnation") != session.incarnation:
+        if document.get("incarnation") != incarnation:
             raise ValueError("actual session admission incarnation differs")
         process_matches: list[tuple[int, dict[str, str]]] = []
         for path in Path("/proc").iterdir():
@@ -353,6 +357,59 @@ class AuthenticatedReadWorker:
         except BaseException:
             os.close(self.descriptor)
             raise
+
+    @classmethod
+    def from_foreground(cls, publication: Path, foreground_pid: int) -> AuthenticatedReadWorker:
+        """Authenticate the CLI descendant against its private publication and session."""
+        matches = []
+        for process in Path("/proc").iterdir():
+            if not process.name.isdigit():
+                continue
+            try:
+                environment = _environment(int(process.name))
+                if environment.get("_PSE_NATIVE_PUBLICATION") != str(publication):
+                    continue
+                marker = environment.get(SESSION_ENVIRONMENT)
+                if marker is None:
+                    continue
+                current = int(process.name)
+                seen = set()
+                while current > 1 and current not in seen:
+                    seen.add(current)
+                    stat_fields = Path(f"/proc/{current}/stat").read_text().rsplit(")", 1)[1].split()
+                    current = int(stat_fields[1])
+                    if current == foreground_pid:
+                        admission = Path(marker)
+                        document = json.loads(admission.read_bytes())
+                        matches.append((admission, document["incarnation"]))
+                        break
+            except (OSError, ValueError, KeyError):
+                continue
+        unique = set(matches)
+        if len(unique) != 1:
+            raise ValueError("foreground CLI did not authenticate exactly one private native session")
+        admission, incarnation = unique.pop()
+        selected = cls.__new__(cls)
+        selected._authenticate(admission, incarnation)
+        return selected
+
+    def require_image(self, publication: artifact_publication.Publication) -> None:
+        """Observe actual loaded path for acceptance, without consumer revalidation."""
+        self.require_charged()
+        paths = {line.split(maxsplit=5)[5] for line in Path(f"/proc/{self.pid}/maps").read_text().splitlines() if len(line.split(maxsplit=5)) == 6}
+        if publication.artifact.binary not in paths:
+            raise ValueError("actual native worker did not map its issued generation")
+
+    async def require_settled(self) -> None:
+        """Require pidfd exit and disappearance of this exact unit's allocation."""
+        async def settled() -> None:
+            while True:
+                snapshot = host_admission.readonly_snapshot(self.allocation.parent, deadline=time.monotonic() + 5)
+                record = snapshot["owners"].get(self.allocation.name)
+                if self.exited() and (record is None or self.unit not in record["units"]):
+                    return
+                await asyncio.sleep(0.01)
+        await asyncio.wait_for(settled(), timeout=10)
 
     def _allocation_record(self) -> host_admission.AllocationRecord:
         record = host_admission.readonly_snapshot(
@@ -442,3 +499,32 @@ class AuthenticatedReadWorker:
             self.resume()
         finally:
             os.close(self.descriptor)
+
+
+class PublishedReadGenerations:
+    """Actual constructor publication into one test-private receipt; no ordinary alias edits."""
+
+    def __init__(self, root: Path, directory: Path) -> None:
+        if root.resolve() != python_extension.ROOT.resolve():
+            raise ValueError("generation control must use the selected checkout's constructor")
+        self.environment = python_extension.bind_interpreter(dict(os.environ))
+        original = python_extension.read_publication("extension", self.environment)
+        if original is None or original.mode != "native" or not original.validated:
+            raise ValueError("root must select an existing successful native correctness publication")
+        compatible = python_extension.currency_check(self.environment, mode="native", profile=original.profile, validated=True)
+        if compatible.state != "current":
+            raise ValueError("selected native publication is incompatible with the acceptance interpreter")
+        self.source = Path(original.artifact.binary)
+        self.original = original
+        self.receipt = directory / "native-read-publication.json"
+        self.environment["_PSE_NATIVE_PUBLICATION"] = str(self.receipt)
+
+    def publish(self) -> artifact_publication.Publication:
+        return artifact_publication.publish(
+            self.receipt, kind="extension", source=self.source, mode="native",
+            profile=self.original.profile, validated=True,
+            interpreter=str(python_extension.interpreter(self.environment).absolute()),
+            features=lambda candidate: python_extension._capture_candidate_features(  # noqa: SLF001 -- actual constructor feature observation
+                self.environment, candidate, validated=True, native=True,
+            ),
+        )

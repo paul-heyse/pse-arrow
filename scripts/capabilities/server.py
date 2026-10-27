@@ -9,7 +9,7 @@ import json
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
@@ -49,6 +49,7 @@ from scripts.capabilities.diagnostics import refusal as safe_refusal
 from scripts.capabilities.guidance import Guidance, register_guides
 from scripts.capabilities.input_diagnostics import InputDiagnostics
 from scripts.capabilities.inventory import inventory
+from scripts.capabilities.model import Contract
 from scripts.telemetry_investigation import BackendClient, schema_description
 
 if TYPE_CHECKING:
@@ -116,6 +117,11 @@ class Runtime:
     interface: Interface
 
 
+class DrainResult(Contract):
+    state: Literal["drained"] = "drained"
+    native_admission: Literal["closed"] = "closed"
+
+
 def build(root: Path = ROOT) -> Runtime:
     root = root.resolve(strict=True)
     owner = specialists.Specialists(root)
@@ -139,9 +145,12 @@ def build(root: Path = ROOT) -> Runtime:
         loaded_source_revision=LOADED.revision,
     )
     guidance = Guidance(root, guides)
+    drain_task: asyncio.Task[None] | None = None
 
     @asynccontextmanager
     async def lifetime(_server: FastMCP) -> AsyncGenerator[dict[str, JsonValue]]:
+        nonlocal drain_task
+        drain_task = None
         native.open_bound(tools)
         try:
             yield {}
@@ -191,6 +200,16 @@ def build(root: Path = ROOT) -> Runtime:
         return telemetry_contracts.selection(selected).model_dump(mode="json")
 
     lock = asyncio.Lock()
+
+    @server.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True})
+    async def capabilities_drain() -> DrainResult:
+        """Close native admission and await this foreground endpoint's original native owners before disconnect. No reload, replay or forced termination is performed."""
+        nonlocal drain_task
+        if drain_task is None:
+            native.begin_close_bound(tools)
+            drain_task = asyncio.create_task(native.close_bound(tools))
+        await settle(asyncio.shield(drain_task))
+        return DrainResult()
 
     @server.tool(annotations={"readOnlyHint": True, "destructiveHint": False})
     def capabilities_domains(
@@ -423,6 +442,7 @@ def build(root: Path = ROOT) -> Runtime:
                 "capabilities_describe",
                 "capabilities_select",
                 "capabilities_reset",
+                "capabilities_drain",
                 "capabilities_invoke_read",
                 "capabilities_invoke_action",
                 "list_resources",

@@ -74,13 +74,12 @@ class Interface:
             self.operations[name] = sources.closure(paths)
 
     def status(self, capability: str | None = None) -> dict[str, JsonValue]:
-        paths = self.common | self.operations.get(capability, frozenset())
-        changed = list(self.sources.check(paths))
-        if (
-            capability in self.tools
-            and execution_basis.wire(self.tools[capability]) != self.wires[capability]
-        ):
-            changed.append("exposed-tool-contract:" + capability)
+        """Project the loaded contract for automatic consumers, without source I/O."""
+        changed = []
+        names = (capability,) if capability in self.tools else self.tools if capability is None else ()
+        for name in names:
+            if execution_basis.wire(self.tools[name]) != self.wires[name]:
+                changed.append("exposed-tool-contract:" + name)
         return {
             "revision": self.revision,
             "checkout": str(self.sources.root),
@@ -90,7 +89,7 @@ class Interface:
             else None,
             "restart_required": bool(changed),
             "changed_serving_sources": list(changed),
-            "scope": "known local serving sources; native/dependency readiness remains operation-owned",
+            "scope": "loaded operation wire contract; native/dependency readiness remains operation-owned",
         }
 
     def require(self, capability: str | None = None) -> None:

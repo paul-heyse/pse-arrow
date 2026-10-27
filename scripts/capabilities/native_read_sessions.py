@@ -291,6 +291,7 @@ class ReadSessions:
         self._lock = asyncio.Lock()
         self._closed = False
         self.foreground_selected = False
+        self._closing = False
         self._close_failure: BaseException | None = None
 
     def successor(self) -> ReadSessions:
@@ -306,11 +307,19 @@ class ReadSessions:
     def closed(self) -> bool:
         return self._closed
 
+    @property
+    def admission_closed(self) -> bool:
+        return self._closing or self._closed
+
+    def begin_close(self) -> None:
+        """Refuse new admission before the endpoint awaits independent drains."""
+        self._closing = True
+
     def observe(
         self, work: Coroutine[object, object, dict[str, JsonValue]]
     ) -> asyncio.Task[dict[str, JsonValue]]:
         """Cancellation detaches the observer, not native work or source protections."""
-        if self._closed:
+        if self.admission_closed:
             if isinstance(work, Coroutine):
                 work.close()
             raise SessionProtocolError("foreground native read endpoint is closed")
@@ -363,7 +372,7 @@ class ReadSessions:
         )
         session: ReadSession | None = None
         async with self._lock:
-            if self._closed:
+            if self.admission_closed:
                 return {
                     "outcome": "transport_failure",
                     "code": "pse.native.endpoint_closed_before_admission",

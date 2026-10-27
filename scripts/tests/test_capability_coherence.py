@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Dispatch uses loaded contracts; explicit status can inspect source provenance."""
+"""Dispatch and automatic status use loaded contracts; provenance is explicit."""
 # ruff: noqa: PT009 -- stdlib host controls
 
 from __future__ import annotations
@@ -95,7 +95,7 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result.is_error)
         self.assertEqual(result.structured_content, {"count": 7})
         self.assertEqual(self.calls, 1)
-        self.assertTrue(self.interface.status("first")["restart_required"])
+        self.assertFalse(self.interface.status("first")["restart_required"])
         self.assertFalse(self.interface.status("second")["restart_required"])
         self.assertEqual(
             (await self.client.call_tool("second", {})).structured_content,
@@ -109,15 +109,17 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
             self.sources, "check", side_effect=AssertionError("source scan")
         ):
             self.interface.require("first")
+            self.assertFalse(self.interface.status("first")["restart_required"])
+            self.assertFalse(self.interface.status()["restart_required"])
             result = await self.client.call_tool("first", {})
         self.assertEqual(result.structured_content, {"count": 3})
-        changed = self.interface.status("first")["changed_serving_sources"]
-        assert isinstance(changed, list)
+        changed = self.sources.check(self.interface.common | self.interface.operations["first"])
         self.assertIn("scripts/dependency.py", changed)
         self.assertIn("scripts/capabilities/server.py", changed)
 
     async def test_changed_loaded_wire_refuses_before_handler(self) -> None:
         self.catalogue.tools["first"].description = "Changed live interpretation"
+        self.assertTrue(self.interface.status("first")["restart_required"])
         result = await self.client.call_tool("first", {}, raise_on_error=False)
         self.assertTrue(result.is_error)
         self.assertIn("pse.capabilities.restart_required", str(result.content))
@@ -143,14 +145,16 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("scripts/dependency.py", observed)
         self.assertFalse(self.interface.status("second")["restart_required"])
 
-    async def test_reversion_does_not_clear_observed_restart_and_new_process_cut_does(
+    async def test_explicit_provenance_observation_does_not_revoke_loaded_contract(
         self,
     ) -> None:
         original = self.first.read_bytes()
         self.first.write_bytes(original + b"# revision two\n")
-        self.assertTrue(self.interface.status("first")["restart_required"])
+        self.assertIn("scripts/first.py", self.sources.check(self.sources.sources))
+        self.assertFalse(self.interface.status("first")["restart_required"])
         self.first.write_bytes(original)
-        self.assertTrue(self.interface.status("first")["restart_required"])
+        self.assertIn("scripts/first.py", self.sources.check(self.sources.sources))
+        self.assertFalse(self.interface.status("first")["restart_required"])
         fresh = Sources(self.root, self.sources.sources)
         self.assertFalse(fresh.check(fresh.sources))
 

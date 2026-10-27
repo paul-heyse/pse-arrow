@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import importlib.util
+import asyncio
 import json
 import os
 import shutil
@@ -63,6 +64,7 @@ class GeneratedClientTests(unittest.TestCase):
         assert client.call_count == 1
         assert transport.call_args is not None
         configuration = transport.call_args.kwargs
+        assert configuration["keep_alive"] is False
         assert configuration["cwd"] == "/selected/checkout"
         assert configuration["command"] == "/selected/checkout/.venv/bin/python"
         assert all(
@@ -226,6 +228,8 @@ class FixedClient:
                 },
                 meta=None,
             )
+        if name == "capabilities_drain":
+            return CallToolResult(content=[], structured_content={"state": "drained", "native_admission": "closed"}, meta=None)
         if name == "capabilities_select":
             return CallToolResult(
                 content=[], structured_content={"selected": True}, meta=None
@@ -238,6 +242,107 @@ class FixedClient:
 
 
 class ConnectionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_owned_client_settles_long_drain_before_transport_disconnect(self) -> None:
+        entered, release = asyncio.Event(), asyncio.Event()
+        lifecycle = []
+
+        class DrainingClient(FixedClient):
+            async def call_tool(self, name: str, arguments: object, **options: object) -> CallToolResult:
+                if name == "capabilities_drain":
+                    entered.set()
+                    await release.wait()
+                return await super().call_tool(name, arguments, **options)
+
+        client = DrainingClient()
+
+        @asynccontextmanager
+        async def connected(_root: Path) -> AsyncGenerator[Client]:
+            lifecycle.append("connected")
+            try:
+                yield cast("Client", client)
+            finally:
+                lifecycle.append("disconnected")
+
+        async def foreground() -> None:
+            async with runtime.owned_connection(Path("/selected")):
+                lifecycle.append("eof")
+
+        with patch.object(runtime, "connection", connected):
+            closing = asyncio.create_task(foreground())
+            await entered.wait()
+            await asyncio.sleep(2.1)
+            assert lifecycle == ["connected", "eof"]
+            assert not closing.done()
+            release.set()
+            await closing
+        assert lifecycle == ["connected", "eof", "disconnected"]
+        assert client.calls == ["capabilities_drain"]
+
+    async def test_cancellation_during_drain_waits_and_preserves_failure_before_disconnect(self) -> None:
+        entered, release = asyncio.Event(), asyncio.Event()
+        disconnected = []
+
+        class RefusingDrain(FixedClient):
+            async def call_tool(self, name: str, arguments: object, **options: object) -> CallToolResult:
+                entered.set()
+                await release.wait()
+                return CallToolResult(content=[], structured_content={"state": "failed"}, is_error=True, meta=None)
+
+        @asynccontextmanager
+        async def connected(_root: Path) -> AsyncGenerator[Client]:
+            try:
+                yield cast("Client", RefusingDrain())
+            finally:
+                disconnected.append(True)
+
+        async def foreground() -> None:
+            async with runtime.owned_connection(Path("/selected")):
+                raise ValueError("original input failure")
+
+        with patch.object(runtime, "connection", connected):
+            closing = asyncio.create_task(foreground())
+            await entered.wait()
+            closing.cancel()
+            await asyncio.sleep(0)
+            assert not disconnected
+            release.set()
+            with pytest.raises(BaseExceptionGroup) as captured:
+                await closing
+        assert disconnected == [True]
+        assert isinstance(captured.value.exceptions[0], ValueError)
+        cancelled = captured.value.exceptions[1]
+        assert isinstance(cancelled, asyncio.CancelledError)
+        assert isinstance(cancelled.__cause__, runtime.ClientRefusedError)
+
+    async def test_actual_automatic_status_and_successive_cli_calls_do_not_scan_sources(self) -> None:
+        from fastmcp import Client  # noqa: PLC0415
+
+        from scripts.capabilities.coherence import Sources  # noqa: PLC0415
+        from scripts.capabilities.server import build  # noqa: PLC0415
+
+        endpoint = build(Path(__file__).resolve().parents[2])
+        tool = endpoint.catalogue.tools["capability_readiness"]
+        expected = {"wire_revision": digest(wire(tool)), "lifetime": "single", "read_only": True}
+        with patch.object(Sources, "check", side_effect=AssertionError("automatic source scan")) as scan:
+            async with Client(endpoint.server) as client:
+                for name in ("capabilities_domains", "capabilities_workflows"):
+                    result = await client.call_tool(name, {})
+                    assert not result.is_error
+                    assert not runtime.answer(result)["interface"]["restart_required"]
+                for _ in range(2):
+                    result = await runtime.invoke_on(client, "capability_readiness", {"capability": "capability_readiness"}, expected)
+                    assert not result["is_error"]
+                reset = await client.call_tool("capabilities_reset", {})
+                assert not reset.is_error
+                for resource in await client.list_resources():
+                    if str(resource.uri).startswith("pse://"):
+                        await client.read_resource(resource.uri)
+                # A real in-memory metadata change must still refuse before the handler.
+                tool.description = "Changed live contract"
+                with pytest.raises(runtime.ClientRefusedError, match="contract changed"):
+                    await runtime.invoke_on(client, "capability_readiness", {"capability": "capability_readiness"}, expected)
+        scan.assert_not_called()
+
     async def test_describe_refusal_preserves_original_and_never_selects(self) -> None:
         class RefusingClient(FixedClient):
             async def call_tool(
@@ -382,6 +487,8 @@ class DiagnosticProbeTests(unittest.IsolatedAsyncioTestCase):
             async def call_tool(
                 self, name: str, _arguments: object, **_options: object
             ) -> CallToolResult:
+                if name == "capabilities_drain":
+                    return await super().call_tool(name, _arguments, **_options)
                 self.calls.append(name)
                 return CallToolResult(
                     content=[],
@@ -398,7 +505,7 @@ class DiagnosticProbeTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(runtime, "connection", connected):
             report = await runtime.probe()
         assert (report["classification"]) == ("stale_loaded_interface")
-        assert (client.calls) == (["capabilities_domains"])
+        assert (client.calls) == (["capabilities_domains", "capabilities_drain"])
         effect = report["effect"]
         assert isinstance(effect, str)
         assert "no setup" in effect

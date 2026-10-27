@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, patch
 
 from fastmcp import Client, FastMCP
 
-from scripts import python_extension
+from scripts import artifact_publication, python_extension
 from scripts.capabilities import preparation, preparation_worker
 
 
@@ -218,6 +218,36 @@ class PreparationTests(unittest.IsolatedAsyncioTestCase):
 
 
 class PreparationWorkerTests(unittest.TestCase):
+    def test_actual_stage_child_preserves_explicit_mode_profile_before_effects(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image = root / "_native.so"
+            image.write_bytes(b"successful-constructor-fixture")
+            receipt = root / "publication.json"
+            environment = {"UV_PROJECT_ENVIRONMENT": str(root / "venv"), "_PSE_NATIVE_PUBLICATION": str(receipt)}
+            published = artifact_publication.publish(
+                receipt, kind="extension", source=image, mode="native", profile="producer", validated=True,
+                interpreter=str(root / "venv/bin/python"), features=lambda _candidate: ["force-validate", "native-solvers"],
+            )
+            original = receipt.read_bytes()
+            with (
+                patch.dict(os.environ, environment),
+                patch.object(python_extension.subprocess, "check_call", return_value=0) as imported,
+                patch.object(python_extension.subprocess, "call") as generated,
+            ):
+                for stage in ("admit", "stubs", "stubs-check"):
+                    with self.subTest(stage=stage), self.assertRaisesRegex(ValueError, "incompatible-publication"):
+                        preparation_worker.invoke("stage", preparation.StageInvocation(stage=stage, mode="dev", profile="dev").model_dump_json())
+                imported.assert_not_called()
+                generated.assert_not_called()
+                actual = python_extension.PreparationResult.model_validate(preparation_worker.invoke(
+                    "stage", preparation.StageInvocation(stage="admit", mode="native", profile="producer").model_dump_json(),
+                ))
+            self.assertEqual((actual.mode, actual.profile, actual.validated), ("native", "producer", True))
+            self.assertEqual(actual.stages[0].artifact, published.artifact)
+            self.assertEqual(imported.call_count, 1)
+            self.assertEqual(receipt.read_bytes(), original)
+
     def test_import_checks_preserve_endpoint_provider_environment(self) -> None:
         for call in preparation.IMPORT_CALLS.values():
             self.assertEqual(call.declaration.environment, ())

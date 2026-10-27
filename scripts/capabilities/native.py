@@ -188,6 +188,12 @@ class NativeTool(Tool):
         self._reads = owner
 
     async def run(self, arguments: dict[str, object]) -> ToolResult:
+        if self._reads.admission_closed:
+            return ToolResult(structured_content=intact_result({
+                "outcome": "transport_failure",
+                "code": "pse.native.endpoint_closed_before_admission",
+                "native_receiver": "not_entered",
+            }, self.name).model_dump(mode="json"))
         value: dict[str, JsonValue]
         try:
             request = self._binding.request.model_validate(arguments, strict=True)
@@ -225,7 +231,9 @@ class NativeTool(Tool):
                 elif self._binding.prepare_import:
                     # Actions use the shared settled transport: cancellation
                     # signals only this admitted helper and joins native drain.
-                    value = await run_worker(self._root, self._binding.worker, data)
+                    value = await self._reads.observe(
+                        run_worker(self._root, self._binding.worker, data)
+                    )
                 else:
                     task = self._reads.observe(
                         asyncio.to_thread(
@@ -262,7 +270,16 @@ async def close_bound(tools: dict[str, Tool]) -> None:
     owners = {
         tool.read_lifetime() for tool in tools.values() if isinstance(tool, NativeTool)
     }
+    for owner in owners:
+        owner.begin_close()
     await settle(*(owner.close() for owner in owners))
+
+
+def begin_close_bound(tools: dict[str, Tool]) -> None:
+    """Synchronously close admission before the endpoint yields to any drain."""
+    for tool in tools.values():
+        if isinstance(tool, NativeTool):
+            tool.read_lifetime().begin_close()
 
 
 def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:

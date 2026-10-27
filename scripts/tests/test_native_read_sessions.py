@@ -155,6 +155,7 @@ class ProtocolTests(unittest.TestCase):
             page_basis(binding(), changed), page_basis(binding(), arguments("issued"))
         )
 
+
     def test_fresh_handoff_checks_request_without_rehashing_sources(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -191,6 +192,76 @@ class ProtocolTests(unittest.TestCase):
                             b"different request",
                             admitted,
                         )
+
+
+class EndpointDrainTests(unittest.IsolatedAsyncioTestCase):
+    async def test_drain_refuses_new_admission_and_settles_siblings_before_failure(self) -> None:
+        from scripts.capabilities import native  # noqa: PLC0415
+        from scripts.capabilities.server import build  # noqa: PLC0415
+
+        root = Path(__file__).resolve().parents[2]
+        endpoint = build(root)
+        first_tool = endpoint.catalogue.tools["native_model_declarations"]
+        second_tool = endpoint.catalogue.tools["native_result_inspect"]
+        assert isinstance(first_tool, native.NativeTool)
+        assert isinstance(second_tool, native.NativeTool)
+        first, second = ReadSessions(root), ReadSessions(root)
+        first_tool.select_read_lifetime(first)
+        second_tool.select_read_lifetime(second)
+        release = asyncio.Event()
+        completed = []
+
+        async def pending() -> dict[str, JsonValue]:
+            await release.wait()
+            completed.append("drained")
+            return {"outcome": "observed"}
+
+        async def failed() -> dict[str, JsonValue]:
+            raise ValueError("original native sibling failure")
+
+        original = first.observe(pending())
+        failure = second.observe(failed())
+        with self.assertRaisesRegex(ValueError, "original native"):
+            await failure
+        draining = asyncio.create_task(native.close_bound({"first": first_tool, "second": second_tool}))
+        await asyncio.sleep(0)
+        self.assertTrue(first.admission_closed)
+        self.assertTrue(second.admission_closed)
+        with self.assertRaisesRegex(SessionProtocolError, "closed"):
+            first.observe(pending())
+        self.assertFalse(draining.done())
+        release.set()
+        with self.assertRaises(BaseExceptionGroup) as captured:
+            await draining
+        self.assertIn("original native sibling failure", str(captured.exception.exceptions))
+        self.assertEqual(await original, {"outcome": "observed"})
+        self.assertEqual(completed, ["drained"])
+        self.assertTrue(first.closed)
+        self.assertTrue(second.closed)
+
+    async def test_requestless_endpoint_drain_is_idempotent_and_never_admits_a_worker(self) -> None:
+        from fastmcp import Client  # noqa: PLC0415
+
+        from scripts.capabilities import native  # noqa: PLC0415
+        from scripts.capabilities.server import build  # noqa: PLC0415
+
+        endpoint = build(Path(__file__).resolve().parents[2])
+        tool = endpoint.catalogue.tools["native_model_declarations"]
+        assert isinstance(tool, native.NativeTool)
+        owner = tool.read_lifetime()
+        with patch.object(ReadSession, "_start", side_effect=AssertionError("native admission")):
+            async with Client(endpoint.server) as client:
+                for _ in range(2):
+                    result = await client.call_tool("capabilities_drain", {})
+                    self.assertEqual(result.structured_content, {"state": "drained", "native_admission": "closed"})
+                await client.call_tool("capabilities_select", {"capabilities": ["native_model_declarations"]})
+                refusal = await client.call_tool("native_model_declarations", {})
+                self.assertIn("endpoint_closed_before_admission", str(refusal.structured_content))
+                self.assertTrue(owner.closed)
+            async with Client(endpoint.server):
+                self.assertIsNot(tool.read_lifetime(), owner)
+                self.assertFalse(tool.read_lifetime().admission_closed)
+
 
 
 class SessionStartupTests(unittest.IsolatedAsyncioTestCase):

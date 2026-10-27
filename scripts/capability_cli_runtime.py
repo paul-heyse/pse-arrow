@@ -9,6 +9,7 @@ import json
 import os
 import stat
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,7 +19,7 @@ JSON_VALUE = TypeAdapter(JsonValue)
 JSON_REQUEST = TypeAdapter(dict[str, JsonValue])
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import AsyncGenerator, Mapping
 
     from fastmcp import Client
     from fastmcp.client.client import CallToolResult
@@ -70,9 +71,53 @@ def connection(root: Path) -> Client:
             args=["-m", "scripts.capabilities"],
             cwd=str(root),
             env=os.environ.copy(),
+            keep_alive=False,
         ),
         timeout=1800,
     )
+
+
+async def drain_connection(client: Client) -> None:
+    """Settle the endpoint before the STDIO SDK begins its bounded disconnect."""
+    task = asyncio.create_task(client.call_tool("capabilities_drain", {}, raise_on_error=False))
+    cancellation: asyncio.CancelledError | None = None
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError as error:
+            cancellation = error
+        except BaseException:
+            # Inspect the original result below so prior observer cancellation
+            # and the actual drain failure both survive settlement.
+            break
+    try:
+        result = task.result()
+        if result.is_error or answer(result) != {"state": "drained", "native_admission": "closed"}:
+            raise ClientRefusedError("Endpoint native drain was not acknowledged; physical settlement is unestablished.")
+    except BaseException as error:
+        if cancellation is not None:
+            raise cancellation from error
+        raise
+    if cancellation is not None:
+        raise cancellation
+
+
+@asynccontextmanager
+async def owned_connection(root: Path) -> AsyncGenerator[Client]:
+    async with connection(root) as client:
+        original: BaseException | None = None
+        try:
+            yield client
+        except BaseException as error:
+            original = error
+        try:
+            await drain_connection(client)
+        except BaseException as error:
+            if original is not None:
+                raise BaseExceptionGroup("Foreground operation and native drain failed", [original, error]) from None
+            raise
+        if original is not None:
+            raise original
 
 
 async def invoke_on(
@@ -106,7 +151,7 @@ async def invoke_on(
         )
     if interface.get("restart_required"):
         raise ClientRefusedError(
-            "The selected endpoint is stale; reconnect before invoking this operation."
+            "The loaded operation contract changed; reconnect before invoking this operation."
         )
     selection = await client.call_tool(
         "capabilities_select", {"capabilities": [capability]}, raise_on_error=False
@@ -129,7 +174,7 @@ async def invoke_on(
 async def invoke(
     capability: str, arguments: dict[str, JsonValue], expected: Mapping[str, object]
 ) -> dict[str, object]:
-    async with connection(checkout_root()) as client:
+    async with owned_connection(checkout_root()) as client:
         return await invoke_on(client, capability, arguments, expected)
 
 
@@ -199,7 +244,7 @@ async def probe(capability: str | None = None) -> dict[str, object]:
     try:
         async with asyncio.timeout(15):
             report["stage"] = "endpoint_initialization"
-            async with connection(checkout_root()) as client:
+            async with owned_connection(checkout_root()) as client:
                 report["stage"] = "bootstrap"
                 result = await client.call_tool(
                     "capabilities_domains", {}, raise_on_error=False
@@ -293,7 +338,7 @@ async def session(operations: Mapping[str, Mapping[str, object]]) -> None:
             lambda: asyncio.StreamReaderProtocol(reader), sys.stdin
         )
     try:
-        async with connection(checkout_root()) as client:
+        async with owned_connection(checkout_root()) as client:
             emit(
                 {
                     "session": "connected",
