@@ -107,8 +107,9 @@ impl Shared<'_> {
                 },
             );
         }
-        if let Some(cause)=linear::take_terminal() { self.abort(Termination::Failed,cause); }
-
+        if let Some(cause) = linear::take_terminal() {
+            self.abort(Termination::Failed, cause);
+        }
     }
     fn evaluate(&self, f: Function, t: f64, x: &[f64], derivative: bool) -> Evaluation {
         self.evaluate_mode(self.mode.get(), f, t, x, derivative)
@@ -847,7 +848,9 @@ impl<'o> OdeEquations for Equation<'o> {
 /// Classify Diffsol's typed errors by cause. The matches are exhaustive over the
 /// pinned enums, so an upgrade that adds a variant fails to compile (F06, F10).
 fn native(error: diffsol::DiffsolError) -> ProblemError {
-    if let Some(cause)=linear::take_terminal() { return cause; }
+    if let Some(cause) = linear::take_terminal() {
+        return cause;
+    }
     use diffsol::{
         DiffsolError as D,
         error::{NonLinearSolverError as N, OdeSolverError as O},
@@ -907,7 +910,7 @@ pub(super) fn integrate_with_samples(
     output: &mut SampleOutput<'_>,
 ) -> Result<Report, ProblemError> {
     profile.validate_retention(oracle.contract(), parameters, output.retention, 0)?;
-    let _linear_attempt=linear::attempt_scope(None);
+    let _linear_attempt = linear::attempt_scope(None);
     let shared = Shared::new(oracle, profile, parameters, cancel, progress)?;
     let mut report = Report::new(profile, output.retention, shared.contract.parameters.len());
     let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {
@@ -1874,24 +1877,48 @@ mod forward_initialization_tests {
     }
     #[test]
     fn owned_stop_precedes_simultaneous_latched_linear_memory_failure() {
-        for cancelled in [true,false] {
-            let _attempt=linear::attempt_scope(None);
-            let mut oracle=Affine::new();
-            let profile=affine_profile(DiffsolLinear::FaerLu);
-            let cancel=Cancellation::default();
-            let mut shared=Shared::new(&mut oracle,&profile,&[1.0],cancel.clone(),Arc::new(crate::solve::Progress::new(16))).unwrap();
-            linear::inject_terminal(ProblemError::memory("deterministic linear allocation failure"));
-            if cancelled { cancel.cancel(); }
-            else { Rc::get_mut(&mut shared).unwrap().deadline=Instant::now(); }
-            let result=catch_unwind(AssertUnwindSafe(|| {shared.check(); Ok(())}));
-            let mut report=Report::new(&profile,SampleRetention::Full,1);
-            shared.contain(result,&mut report);
+        for cancelled in [true, false] {
+            let _attempt = linear::attempt_scope(None);
+            let mut oracle = Affine::new();
+            let profile = affine_profile(DiffsolLinear::FaerLu);
+            let cancel = Cancellation::default();
+            let mut shared = Shared::new(
+                &mut oracle,
+                &profile,
+                &[1.0],
+                cancel.clone(),
+                Arc::new(crate::solve::Progress::new(16)),
+            )
+            .unwrap();
+            linear::inject_terminal(ProblemError::memory(
+                "deterministic linear allocation failure",
+            ));
             if cancelled {
-                assert_eq!(report.termination,Termination::Cancelled);
-                assert!(matches!(report.error,Some(ProblemError::Math(pse_math::MathError::Cancelled))));
+                cancel.cancel();
             } else {
-                assert_eq!(report.termination,Termination::TimeLimit);
-                assert!(matches!(report.error,Some(ProblemError::Limit{kind:crate::LimitKind::Time,..})));
+                Rc::get_mut(&mut shared).unwrap().deadline = Instant::now();
+            }
+            let result = catch_unwind(AssertUnwindSafe(|| {
+                shared.check();
+                Ok(())
+            }));
+            let mut report = Report::new(&profile, SampleRetention::Full, 1);
+            shared.contain(result, &mut report);
+            if cancelled {
+                assert_eq!(report.termination, Termination::Cancelled);
+                assert!(matches!(
+                    report.error,
+                    Some(ProblemError::Math(pse_math::MathError::Cancelled))
+                ));
+            } else {
+                assert_eq!(report.termination, Termination::TimeLimit);
+                assert!(matches!(
+                    report.error,
+                    Some(ProblemError::Limit {
+                        kind: crate::LimitKind::Time,
+                        ..
+                    })
+                ));
             }
             assert!(report.samples.is_empty());
         }

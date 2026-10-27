@@ -9,14 +9,19 @@ use symbolica::domains::{
 };
 
 pub(crate) fn bits(value: &Rational) -> Result<usize, MathError> {
-    usize::try_from(value.numerator_ref().significant_bits().max(
-        value.denominator_ref().significant_bits(),
-    ))
+    usize::try_from(
+        value
+            .numerator_ref()
+            .significant_bits()
+            .max(value.denominator_ref().significant_bits()),
+    )
     .map_err(|_| MathError::Limit("rational binary64 extent"))
 }
 
 fn precision(value: &Rational) -> Result<u32, MathError> {
-    value.numerator_ref().significant_bits()
+    value
+        .numerator_ref()
+        .significant_bits()
         .checked_add(value.denominator_ref().significant_bits())
         .and_then(|bits| bits.checked_add(1078))
         .and_then(|bits| u32::try_from(bits).ok())
@@ -29,25 +34,33 @@ fn precision(value: &Rational) -> Result<u32, MathError> {
 /// their limb extent is bounded by the same N+D+1078 precision used below.
 /// Callers retain one high-water reservation across their constant population.
 pub(crate) fn conversion_bytes(value: &Rational) -> Result<usize, MathError> {
-    let bits = usize::try_from(precision(value)?).map_err(|_|MathError::Limit("rational conversion extent"))?;
-    bits.checked_add(7).and_then(|n|n.checked_div(8))
-        .and_then(|n|n.checked_mul(2)).and_then(|n|n.checked_add(size_of::<Rational>()))
-        .and_then(|n|n.checked_mul(128)).and_then(|n|n.checked_add(4096))
+    let bits = usize::try_from(precision(value)?)
+        .map_err(|_| MathError::Limit("rational conversion extent"))?;
+    bits.checked_add(7)
+        .and_then(|n| n.checked_div(8))
+        .and_then(|n| n.checked_mul(2))
+        .and_then(|n| n.checked_add(size_of::<Rational>()))
+        .and_then(|n| n.checked_mul(128))
+        .and_then(|n| n.checked_add(4096))
         .ok_or(MathError::Limit("rational conversion extent"))
 }
 
 /// The tight adjacent-binary64 enclosure of the exact rational. Conversion is
 /// certified first; comparison with its exact dyadic image then selects the
 /// outward neighbour. Overflow and subnormal/zero transitions stay explicit.
-pub(crate) fn enclosure(value: &Rational) -> Result<(f64,f64), MathError> {
+pub(crate) fn enclosure(value: &Rational) -> Result<(f64, f64), MathError> {
     let point = nearest(value)?;
-    if point==f64::INFINITY {return Ok((f64::MAX,f64::INFINITY));}
-    if point==f64::NEG_INFINITY {return Ok((f64::NEG_INFINITY,-f64::MAX));}
-    let image = Rational::try_from(point).map_err(|error|MathError::Library(error.to_string()))?;
+    if point == f64::INFINITY {
+        return Ok((f64::MAX, f64::INFINITY));
+    }
+    if point == f64::NEG_INFINITY {
+        return Ok((f64::NEG_INFINITY, -f64::MAX));
+    }
+    let image = Rational::try_from(point).map_err(|error| MathError::Library(error.to_string()))?;
     Ok(match image.cmp(value) {
-        std::cmp::Ordering::Less => (point,point.next_up()),
-        std::cmp::Ordering::Equal => (point,point),
-        std::cmp::Ordering::Greater => (point.next_down(),point),
+        std::cmp::Ordering::Less => (point, point.next_up()),
+        std::cmp::Ordering::Equal => (point, point),
+        std::cmp::Ordering::Greater => (point.next_down(), point),
     })
 }
 
@@ -64,11 +77,15 @@ pub(crate) fn enclosure(value: &Rational) -> Result<(f64,f64), MathError> {
 pub(crate) fn nearest(value: &Rational) -> Result<f64, MathError> {
     let precision = precision(value)?;
     let lower = Float::from_rational_round(value, precision, RoundingDirection::Down)
-        .as_raw().to_f64();
+        .as_raw()
+        .to_f64();
     let upper = Float::from_rational_round(value, precision, RoundingDirection::Up)
-        .as_raw().to_f64();
+        .as_raw()
+        .to_f64();
     if lower.to_bits() != upper.to_bits() {
-        return Err(MathError::Contract("directed rational conversion did not certify binary64".into()));
+        return Err(MathError::Contract(
+            "directed rational conversion did not certify binary64".into(),
+        ));
     }
     Ok(lower)
 }
@@ -84,12 +101,22 @@ mod tests {
 
     #[test]
     fn rational_binary64_outward_enclosures_include_subnormal_and_overflow_values() {
-        for value in [Rational::from((1,3)),dyadic(1,1075),dyadic(-1,1075),Rational::from(Integer::from(2).pow(1024)),Rational::from(-Integer::from(2).pow(1024))] {
-            let (lower,upper)=enclosure(&value).unwrap();
-            if lower.is_finite() {assert!(Rational::try_from(lower).unwrap()<=value);}
-            if upper.is_finite() {assert!(value<=Rational::try_from(upper).unwrap());}
-            assert!(lower==upper || lower.next_up()==upper);
-            assert!(conversion_bytes(&value).unwrap()>0);
+        for value in [
+            Rational::from((1, 3)),
+            dyadic(1, 1075),
+            dyadic(-1, 1075),
+            Rational::from(Integer::from(2).pow(1024)),
+            Rational::from(-Integer::from(2).pow(1024)),
+        ] {
+            let (lower, upper) = enclosure(&value).unwrap();
+            if lower.is_finite() {
+                assert!(Rational::try_from(lower).unwrap() <= value);
+            }
+            if upper.is_finite() {
+                assert!(value <= Rational::try_from(upper).unwrap());
+            }
+            assert!(lower == upper || lower.next_up() == upper);
+            assert!(conversion_bytes(&value).unwrap() > 0);
         }
     }
     #[test]
@@ -110,7 +137,11 @@ mod tests {
         }
         for exponent in [-1074_i32, -1022, -1021, -1, 0, 1, 1023] {
             let power: Rational = if exponent < 0 {
-                (Integer::one(), Integer::from(2).pow(u64::from(exponent.unsigned_abs()))).into()
+                (
+                    Integer::one(),
+                    Integer::from(2).pow(u64::from(exponent.unsigned_abs())),
+                )
+                    .into()
             } else {
                 Integer::from(2).pow(exponent as u64).into()
             };
@@ -120,15 +151,34 @@ mod tests {
                 ((exponent + 1023) as u64) << 52
             };
             assert_eq!(nearest(&power).unwrap().to_bits(), expected);
-            assert_eq!(nearest(&(-power)).unwrap().to_bits(), expected | (1_u64 << 63));
+            assert_eq!(
+                nearest(&(-power)).unwrap().to_bits(),
+                expected | (1_u64 << 63)
+            );
         }
-        assert_eq!(nearest(&(dyadic(1,1075)-dyadic(1,1200))).unwrap().to_bits(),0);
-        assert_eq!(nearest(&(dyadic(1,1075)+dyadic(1,1200))).unwrap().to_bits(),1);
+        assert_eq!(
+            nearest(&(dyadic(1, 1075) - dyadic(1, 1200)))
+                .unwrap()
+                .to_bits(),
+            0
+        );
+        assert_eq!(
+            nearest(&(dyadic(1, 1075) + dyadic(1, 1200)))
+                .unwrap()
+                .to_bits(),
+            1
+        );
         let min_normal = Rational::try_from(f64::MIN_POSITIVE).unwrap();
-        assert_eq!(nearest(&(min_normal - dyadic(1, 1075))).unwrap(), f64::MIN_POSITIVE);
+        assert_eq!(
+            nearest(&(min_normal - dyadic(1, 1075))).unwrap(),
+            f64::MIN_POSITIVE
+        );
         let overflow: Rational = (Integer::from(2).pow(1024) - Integer::from(2).pow(970)).into();
         assert_eq!(nearest(&overflow).unwrap(), f64::INFINITY);
         assert_eq!(nearest(&(overflow - Rational::one())).unwrap(), f64::MAX);
-        assert_eq!(nearest(&Rational::from((1, 3))).unwrap().to_bits(), 0x3fd5_5555_5555_5555);
+        assert_eq!(
+            nearest(&Rational::from((1, 3))).unwrap().to_bits(),
+            0x3fd5_5555_5555_5555
+        );
     }
 }

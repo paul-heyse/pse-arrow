@@ -14,7 +14,6 @@ pub mod preimage;
 pub mod roles;
 pub mod scientific_replay;
 pub mod sink;
-pub use sink::{BoundedSink, SinkFailure, error_payload, sink_failure};
 pub use derive::{Frame, FramedHasher, derive_hash, derive_id, named_id};
 pub use encoding::{EncodingHasher, encoding_checksum};
 pub use error::IdError;
@@ -23,6 +22,7 @@ pub use float::{
 };
 pub use frame::FrameSink;
 pub use id::{ContentHash, EncodingChecksum, SchemaVersion, SemanticId};
+pub use sink::{BoundedSink, SinkFailure, error_payload, sink_failure};
 
 /// The serde paths [`semantic_id_newtype!`] expands to; not a public interface.
 #[doc(hidden)]

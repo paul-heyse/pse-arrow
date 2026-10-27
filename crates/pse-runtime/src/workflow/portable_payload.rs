@@ -132,12 +132,21 @@ pub(crate) fn finalized_ipc_schema(
         message_bytes: maximum_document_bytes.max(pse_operations::canonical_files::FILE_BYTES),
         metadata_bytes: maximum_document_bytes,
     };
-    let pool = pse_columnar::ipc_stream::offline_pool(limits).map_err(|e| invalid(e.to_string()))?;
+    let pool =
+        pse_columnar::ipc_stream::offline_pool(limits).map_err(|e| invalid(e.to_string()))?;
     file.seek(SeekFrom::Start(0))?;
     let stream = pse_columnar::ipc_stream::validate(
-        file, readable_bytes, limits, pool, pse_columnar::CancellationToken::new(),
-    ).map_err(|e| invalid(e.to_string()))?;
-    Ok(pse_columnar::Leased::new(stream.schema(), stream.schema_owner()))
+        file,
+        readable_bytes,
+        limits,
+        pool,
+        pse_columnar::CancellationToken::new(),
+    )
+    .map_err(|e| invalid(e.to_string()))?;
+    Ok(pse_columnar::Leased::new(
+        stream.schema(),
+        stream.schema_owner(),
+    ))
 }
 
 pub(crate) fn validate_scientific_lineage(
@@ -153,9 +162,13 @@ pub(crate) fn validate_scientific_lineage(
         return Err(invalid("invalid selected scientific coordinates"));
     }
     if let Some(predicate) = &result.predicate {
-        super::result_selection::ValuePredicate::new(false,
-            predicate.minimum_bits.map(f64::from_bits), predicate.maximum_bits.map(f64::from_bits), predicate.missing)
-            .map_err(|error| invalid(error.to_string()))?;
+        super::result_selection::ValuePredicate::new(
+            false,
+            predicate.minimum_bits.map(f64::from_bits),
+            predicate.maximum_bits.map(f64::from_bits),
+            predicate.missing,
+        )
+        .map_err(|error| invalid(error.to_string()))?;
     }
     for (key, expected) in super::result_selection::ScientificMetadata::from(result).entries() {
         if schema.metadata().get(key) != expected.as_ref() {

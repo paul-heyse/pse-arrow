@@ -124,10 +124,18 @@ impl FlowGraph {
             bytes = add(bytes, vector(count, width)?)?;
         }
         for bound in [
-            pse_model::allocation::btree_allocation_bound::<SemanticId, petgraph::graph::NodeIndex>(nodes),
-            pse_model::allocation::btree_allocation_bound::<SemanticId, (SemanticId, &pse_kernels::Port)>(ports),
+            pse_model::allocation::btree_allocation_bound::<SemanticId, petgraph::graph::NodeIndex>(
+                nodes,
+            ),
+            pse_model::allocation::btree_allocation_bound::<
+                SemanticId,
+                (SemanticId, &pse_kernels::Port),
+            >(ports),
             pse_model::allocation::btree_allocation_bound::<SemanticId, Vec<Binding>>(connections),
-            pse_model::allocation::btree_allocation_bound::<SemanticId, (Decision, SemanticId, SemanticId)>(decisions),
+            pse_model::allocation::btree_allocation_bound::<
+                SemanticId,
+                (Decision, SemanticId, SemanticId),
+            >(decisions),
             pse_model::allocation::btree_allocation_bound::<SemanticId, ()>(bindings),
         ] {
             bytes = add(bytes, bound.ok_or(ProjectionError::Limit)?)?;
@@ -197,7 +205,13 @@ impl FlowGraph {
                 )?,
             )?;
         }
-        bytes = add(bytes, pse_model::allocation::btree_allocation_bound::<SemanticId, Vec<Binding>>(self.bindings.len()).ok_or(ProjectionError::Limit)?)?;
+        bytes = add(
+            bytes,
+            pse_model::allocation::btree_allocation_bound::<SemanticId, Vec<Binding>>(
+                self.bindings.len(),
+            )
+            .ok_or(ProjectionError::Limit)?,
+        )?;
         for bindings in self.bindings.values() {
             bytes = add(bytes, mul(bindings.capacity(), size_of::<Binding>())?)?;
             for binding in bindings {

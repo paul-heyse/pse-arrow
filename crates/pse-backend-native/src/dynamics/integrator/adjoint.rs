@@ -79,7 +79,7 @@ pub(in crate::dynamics) fn gradient(
     layout: Arc<PreparedLayout>,
     current: Option<crate::solve::Execution>,
 ) -> Result<Gradient, ProblemError> {
-    let _linear_attempt=linear::attempt_scope(None);
+    let _linear_attempt = linear::attempt_scope(None);
     let shared = Shared::new_current(oracle, profile, parameters, cancel, progress, current)?;
     let mut report = Report::new(
         profile,

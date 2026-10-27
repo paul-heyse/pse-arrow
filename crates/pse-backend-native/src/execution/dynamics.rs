@@ -73,7 +73,9 @@ impl BackendExecution for Diffsol {
             )
         }
         #[cfg(not(feature = "diffsol"))]
-        { None }
+        {
+            None
+        }
     }
     fn backend(&self) -> Backend {
         Backend::Diffsol
@@ -97,12 +99,18 @@ impl BackendExecution for Diffsol {
 
 #[cfg(any(feature = "diffsol", test))]
 fn diffsol_profile(source: &str, provider: &[u8]) -> Option<pse_ids::ContentHash> {
-    if source.trim().is_empty() { return None; }
+    if source.trim().is_empty() {
+        return None;
+    }
     // Native admission owns current provider/file qualification. An absent
     // embedded receipt keeps direct calls available but refuses portable identity.
     let document: serde_json::Value = serde_json::from_slice(provider).ok()?;
     for field in ["identity", "files"] {
-        if document.get(field)?.as_object().is_none_or(|values| values.is_empty()) {
+        if document
+            .get(field)?
+            .as_object()
+            .is_none_or(|values| values.is_empty())
+        {
             return None;
         }
     }
@@ -118,10 +126,27 @@ mod build_tests {
     #[test]
     fn diffsol_profile_binds_same_version_source_and_selected_klu_receipt() {
         let original = diffsol_profile("checked diffsol source", PROVIDER).unwrap();
-        assert_eq!(diffsol_profile("checked diffsol source", PROVIDER), Some(original));
-        assert_ne!(diffsol_profile("same version changed numerical delta", PROVIDER), Some(original));
-        assert_ne!(diffsol_profile("checked diffsol source", br#"{"identity":{"provider":"KLU"},"files":{"lib/libklu.a":"changed digest"}}"#), Some(original));
-        for missing in [b"".as_slice(), b"{}", b"not json", br#"{"identity":{},"files":{"lib":1}}"#] {
+        assert_eq!(
+            diffsol_profile("checked diffsol source", PROVIDER),
+            Some(original)
+        );
+        assert_ne!(
+            diffsol_profile("same version changed numerical delta", PROVIDER),
+            Some(original)
+        );
+        assert_ne!(
+            diffsol_profile(
+                "checked diffsol source",
+                br#"{"identity":{"provider":"KLU"},"files":{"lib/libklu.a":"changed digest"}}"#
+            ),
+            Some(original)
+        );
+        for missing in [
+            b"".as_slice(),
+            b"{}",
+            b"not json",
+            br#"{"identity":{},"files":{"lib":1}}"#,
+        ] {
             assert!(diffsol_profile("checked diffsol source", missing).is_none());
         }
         assert!(diffsol_profile("", PROVIDER).is_none());
@@ -132,16 +157,24 @@ mod build_tests {
         let actual = diffsol_profile(
             include_str!(concat!(env!("OUT_DIR"), "/diffsol-source.txt")),
             include_bytes!(concat!(env!("OUT_DIR"), "/kinsol-klu-provider.json")),
-        ).expect("selected native test requires qualified KLU provider evidence");
-        assert_eq!(crate::execution::adapter(Backend::Diffsol).build(), Some(actual));
+        )
+        .expect("selected native test requires qualified KLU provider evidence");
+        assert_eq!(
+            crate::execution::adapter(Backend::Diffsol).build(),
+            Some(actual)
+        );
     }
 }
 impl BackendExecution for Idas {
     fn build(&self) -> Option<pse_ids::ContentHash> {
         #[cfg(feature = "idas")]
-        { crate::sundials_profile::build() }
+        {
+            crate::sundials_profile::build()
+        }
         #[cfg(not(feature = "idas"))]
-        { None }
+        {
+            None
+        }
     }
     fn backend(&self) -> Backend {
         Backend::Idas

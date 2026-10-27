@@ -461,9 +461,11 @@ impl CasePlan {
                 .checked_mul(
                     size_of::<ContributionDependencies>()
                         .checked_add(
-                            pse_model::allocation::btree_allocation_bound::<SemanticId, ()>(binding.slots.len())
-                                .and_then(|bytes| bytes.checked_mul(2))
-                                .ok_or_else(overflow)?,
+                            pse_model::allocation::btree_allocation_bound::<SemanticId, ()>(
+                                binding.slots.len(),
+                            )
+                            .and_then(|bytes| bytes.checked_mul(2))
+                            .ok_or_else(overflow)?,
                         )
                         .ok_or_else(overflow)?,
                 )
@@ -1783,8 +1785,13 @@ impl CasePlan {
             )?,
         )?;
         let maps = add(
-            pse_model::allocation::btree_allocation_bound::<(ContentHash, Vec<usize>, Vec<usize>, usize), Arc<PreparedSupport>>(count).ok_or_else(overflow)?,
-            pse_model::allocation::btree_allocation_bound::<usize, Arc<PreparedSupport>>(count).ok_or_else(overflow)?,
+            pse_model::allocation::btree_allocation_bound::<
+                (ContentHash, Vec<usize>, Vec<usize>, usize),
+                Arc<PreparedSupport>,
+            >(count)
+            .ok_or_else(overflow)?,
+            pse_model::allocation::btree_allocation_bound::<usize, Arc<PreparedSupport>>(count)
+                .ok_or_else(overflow)?,
         )?;
         // case_patterns checks the combined contribution ceiling BEFORE either
         // push. Include Vec growth plus faer's indices/argsort/CSC/refill and zero
@@ -1805,7 +1812,11 @@ impl CasePlan {
                 mul(add(self.columns.len(), 1)?, 2 * size_of::<usize>())?,
             )?,
         )?;
-        let bodies = pse_model::allocation::btree_allocation_bound::<ContentHash, Arc<PreparedBody>>(self.bodies.len()).ok_or_else(overflow)?;
+        let bodies =
+            pse_model::allocation::btree_allocation_bound::<ContentHash, Arc<PreparedBody>>(
+                self.bodies.len(),
+            )
+            .ok_or_else(overflow)?;
         Ok(Some(add(
             add(add(add(support_bytes, descriptors)?, maps)?, sparse)?,
             add(bodies, size_of::<Self>())?,

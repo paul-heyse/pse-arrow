@@ -130,7 +130,8 @@ impl OwnedRecordBatch {
         // wrapper retains the control owner instead.
         if self.batch.columns().iter().any(|array| {
             fn has_buffer(data: &ArrayData) -> bool {
-                !data.buffers().is_empty() || data.nulls().is_some()
+                !data.buffers().is_empty()
+                    || data.nulls().is_some()
                     || data.child_data().iter().any(has_buffer)
             }
             has_buffer(&array.to_data())
@@ -916,15 +917,28 @@ fn transform_data(
     transform: &mut impl FnMut(Buffer) -> Result<Buffer, CanonError>,
 ) -> Result<ArrayData, CanonError> {
     let (data_type, length, nulls, offset, buffers, children) = data.into_parts();
-    let buffers = buffers.into_iter().map(&mut *transform).collect::<Result<Vec<_>, _>>()?;
-    let children = children.into_iter().map(|child| transform_data(child, transform)).collect::<Result<Vec<_>, _>>()?;
-    let nulls = nulls.map(|nulls| {
-        transform(nulls.buffer().clone()).map(|buffer| {
-            NullBuffer::new(BooleanBuffer::new(buffer, nulls.offset(), nulls.len()))
+    let buffers = buffers
+        .into_iter()
+        .map(&mut *transform)
+        .collect::<Result<Vec<_>, _>>()?;
+    let children = children
+        .into_iter()
+        .map(|child| transform_data(child, transform))
+        .collect::<Result<Vec<_>, _>>()?;
+    let nulls = nulls
+        .map(|nulls| {
+            transform(nulls.buffer().clone()).map(|buffer| {
+                NullBuffer::new(BooleanBuffer::new(buffer, nulls.offset(), nulls.len()))
+            })
         })
-    }).transpose()?;
-    Ok(ArrayData::builder(data_type).len(length).offset(offset)
-        .buffers(buffers).child_data(children).nulls(nulls).build()?)
+        .transpose()?;
+    Ok(ArrayData::builder(data_type)
+        .len(length)
+        .offset(offset)
+        .buffers(buffers)
+        .child_data(children)
+        .nulls(nulls)
+        .build()?)
 }
 
 fn retained_allocations(

@@ -15,9 +15,7 @@ use datafusion::{
         streaming::PartitionStream,
     },
 };
-use pse_columnar::{
-    CancellationToken, MemoryConsumer, MemoryReservation,
-};
+use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
 use pse_model::generated::runtime::{
     canonical_result_batches::Row as FileBatch, canonical_result_blocks::Row as Block,
 };
@@ -397,12 +395,18 @@ impl ResultBlockDecode {
         // Waiters own no file-shaped grant. Reserve only once this decoder can
         // actually execute, preserving headroom for its current reader/aliases.
         let mut cache = decoder_turn(&self.cache, cancel).await?;
-        if cache.as_ref().is_none_or(|cached| cached.instance != locator.payload_identity()) {
+        if cache
+            .as_ref()
+            .is_none_or(|cached| cached.instance != locator.payload_identity())
+        {
             // The framing hash uses a fixed 64 KiB stack reader; source/control
             // allocations coexist with their separately prepaid RPC response.
             let metadata = MemoryConsumer::new("canonical:result-file-cache-control")
                 .register(&self.services.preparation().pool());
-            metadata.try_grow(64 * 1024 + size_of::<CachedFile>() + locator.payload_identity().len() * 2)
+            metadata
+                .try_grow(
+                    64 * 1024 + size_of::<CachedFile>() + locator.payload_identity().len() * 2,
+                )
                 .map_err(pse_engine::EngineError::from)?;
             // Both sequential catalog RPCs inside open_result_file must retain
             // the exact read ticket and a separately prepaid metadata response.
@@ -449,7 +453,11 @@ impl ResultBlockDecode {
                     let count = usize::try_from(file.descriptor().batch_count)
                         .map_err(|_| contract("file batch count extent"))?;
                     let retained = file.retained_bytes()?;
-                    (result_files::ResultFileSource::Sealed(Box::new(file)), count, retained)
+                    (
+                        result_files::ResultFileSource::Sealed(Box::new(file)),
+                        count,
+                        retained,
+                    )
                 }
                 pse_operations::canonical_execution::PayloadLocator::Inline { .. } => {
                     let body = pse_operations::canonical::response_ownership_scope(
@@ -480,30 +488,53 @@ impl ResultBlockDecode {
                         .map_err(|_| contract("inline batch count extent"))?;
                     let bytes = body.body.into_vec();
                     let retained = bytes.capacity();
-                    (result_files::ResultFileSource::Inline(std::io::Cursor::new(bytes)), count, retained)
+                    (
+                        result_files::ResultFileSource::Inline(std::io::Cursor::new(bytes)),
+                        count,
+                        retained,
+                    )
                 }
             };
-            if retained_source > response.size() { return Err(contract("file source metadata exceeds prepaid response")); }
+            if retained_source > response.size() {
+                return Err(contract("file source metadata exceeds prepaid response"));
+            }
             let source_owner = pse_columnar::AllocationLease::new(response.split(retained_source));
-            let reader = result_files::open_file_reader(source, &self.schema, Some(count),
-                self.services.preparation().pool(), cancel)?;
+            let reader = result_files::open_file_reader(
+                source,
+                &self.schema,
+                Some(count),
+                self.services.preparation().pool(),
+                cancel,
+            )?;
             let instance = locator.payload_identity().to_owned();
             let retained = size_of::<CachedFile>() + instance.capacity();
             metadata.shrink(metadata.size() - retained);
-            *cache = Some(CachedFile { instance, reader, _source: source_owner, _owner: metadata });
+            *cache = Some(CachedFile {
+                instance,
+                reader,
+                _source: source_owner,
+                _owner: metadata,
+            });
         }
         let cached = cache
             .as_mut()
             .ok_or_else(|| contract("file cache absent"))?;
-        let index = usize::try_from(descriptor.payload_index).map_err(|_| contract("file batch index extent"))?;
-        cached.reader.check_index(index).map_err(pse_engine::EngineError::from)?;
+        let index = usize::try_from(descriptor.payload_index)
+            .map_err(|_| contract("file batch index extent"))?;
+        cached
+            .reader
+            .check_index(index)
+            .map_err(pse_engine::EngineError::from)?;
         if !decode {
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count("canonical.result.pruned_batches", "count", 1);
             }
             return Ok(None);
         }
-        let decoded = cached.reader.read_batch(index, cancel).map_err(pse_engine::EngineError::from)?;
+        let decoded = cached
+            .reader
+            .read_batch(index, cancel)
+            .map_err(pse_engine::EngineError::from)?;
         let batch = decoded.batch;
         drop(cache);
         if let Some(context) = pse_diagnostics::observation::current() {
@@ -574,24 +605,50 @@ pub(super) enum SelectedRows {
     },
 }
 impl SelectedRows {
-    pub(super) fn from_mask(mask: datafusion::arrow::buffer::BooleanBuffer, base: usize, owner: MemoryReservation) -> Result<Option<Self>, WorkflowError> {
+    pub(super) fn from_mask(
+        mask: datafusion::arrow::buffer::BooleanBuffer,
+        base: usize,
+        owner: MemoryReservation,
+    ) -> Result<Option<Self>, WorkflowError> {
         // Drop the bitmap before its scratch grant on every success/error path.
-        struct Scratch { mask: datafusion::arrow::buffer::BooleanBuffer, owner: MemoryReservation }
+        struct Scratch {
+            mask: datafusion::arrow::buffer::BooleanBuffer,
+            owner: MemoryReservation,
+        }
         let scratch = Scratch { mask, owner };
-        if scratch.mask.inner().capacity() > scratch.owner.size() { return Err(contract("selected bitmap is not prepaid")); }
-        let spans = { let mut spans = scratch.mask.set_slices(); (spans.next(), spans.next()) };
-        let Some((start, end)) = spans.0 else { return Ok(None); };
+        if scratch.mask.inner().capacity() > scratch.owner.size() {
+            return Err(contract("selected bitmap is not prepaid"));
+        }
+        let spans = {
+            let mut spans = scratch.mask.set_slices();
+            (spans.next(), spans.next())
+        };
+        let Some((start, end)) = spans.0 else {
+            return Ok(None);
+        };
         if spans.1.is_none() {
-            let offset = base.checked_add(start).ok_or_else(|| contract("selected row extent"))?;
-            let last = base.checked_add(end - 1).ok_or_else(|| contract("selected row extent"))?;
+            let offset = base
+                .checked_add(start)
+                .ok_or_else(|| contract("selected row extent"))?;
+            let last = base
+                .checked_add(end - 1)
+                .ok_or_else(|| contract("selected row extent"))?;
             u32::try_from(last).map_err(|_| contract("selected row exceeds Arrow take extent"))?;
             drop(scratch);
-            return Ok(Some(Self::Range { offset, length: end - start }));
+            return Ok(Some(Self::Range {
+                offset,
+                length: end - start,
+            }));
         }
         let mut offsets = Vec::with_capacity(scratch.mask.count_set_bits());
         for index in scratch.mask.set_indices() {
-            offsets.push(u32::try_from(base.checked_add(index).ok_or_else(|| contract("selected row extent"))?)
-                .map_err(|_| contract("selected row exceeds Arrow take extent"))?);
+            offsets.push(
+                u32::try_from(
+                    base.checked_add(index)
+                        .ok_or_else(|| contract("selected row extent"))?,
+                )
+                .map_err(|_| contract("selected row exceeds Arrow take extent"))?,
+            );
         }
         drop(scratch.mask);
         Ok(Some(Self::from_offsets(offsets, scratch.owner)?))
@@ -910,8 +967,14 @@ impl NativeResultSelection {
             .register(&services.preparation().pool());
         // The registry predicate has bounded shape; retain the native expression,
         // pruning rewrite and schema handles for the full selection lifetime.
-        owner.try_grow(pse_columnar::schema_working_extent(schema.as_ref()).map_err(pse_columnar::external)?
-            .checked_add(64 * 1024).ok_or_else(|| DataFusionError::ResourcesExhausted("selection plan extent".into()))?)?;
+        owner.try_grow(
+            pse_columnar::schema_working_extent(schema.as_ref())
+                .map_err(pse_columnar::external)?
+                .checked_add(64 * 1024)
+                .ok_or_else(|| {
+                    DataFusionError::ResourcesExhausted("selection plan extent".into())
+                })?,
+        )?;
         let native = DFSchema::try_from(schema.as_ref().clone())?;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("canonical.result.physical_predicate_plans", "count", 1);
@@ -967,12 +1030,17 @@ impl NativeResultSelection {
             return Ok(None);
         }
         let extent = super::result_selection::pruning_working_extent(
-            self.schema.fields().len(), count,
-            (0..count).map(|index| member(index).and_then(|(block, _)| block.statistics.as_ref()).map_or(0, |bytes| bytes.len())),
+            self.schema.fields().len(),
+            count,
+            (0..count).map(|index| {
+                member(index)
+                    .and_then(|(block, _)| block.statistics.as_ref())
+                    .map_or(0, |bytes| bytes.len())
+            }),
         )
-            .ok_or_else(|| {
-                DataFusionError::ResourcesExhausted("result pruning metadata extent".into())
-            })?;
+        .ok_or_else(|| {
+            DataFusionError::ResourcesExhausted("result pruning metadata extent".into())
+        })?;
         let owner = MemoryConsumer::new("canonical:result-pruning-page")
             .register(&services.preparation().pool());
         owner.try_grow(extent)?;
@@ -1171,11 +1239,24 @@ mod selected_snapshot_unit {
             SelectedRows::from_mask(BooleanBuffer::from(values), base, owner)
         };
         assert!(make(vec![false; 4], usize::MAX).unwrap().is_none());
-        assert!(matches!(make(vec![true; 4], 6).unwrap(), Some(SelectedRows::Range { offset: 6, length: 4 })));
-        assert!(matches!(make(vec![false, true, true, false], 10).unwrap(), Some(SelectedRows::Range { offset: 11, length: 2 })));
+        assert!(matches!(
+            make(vec![true; 4], 6).unwrap(),
+            Some(SelectedRows::Range {
+                offset: 6,
+                length: 4
+            })
+        ));
+        assert!(matches!(
+            make(vec![false, true, true, false], 10).unwrap(),
+            Some(SelectedRows::Range {
+                offset: 11,
+                length: 2
+            })
+        ));
         let sparse = make(vec![true, false, true], 7).unwrap().unwrap();
         assert!(matches!(&sparse, SelectedRows::Sparse { offsets, .. } if offsets == &[7, 9]));
-        drop(sparse); assert_eq!(pool.reserved(), 0);
+        drop(sparse);
+        assert_eq!(pool.reserved(), 0);
         assert!(make(vec![true, true], u32::MAX as usize).is_err());
         assert_eq!(pool.reserved(), 0);
     }
@@ -1258,19 +1339,38 @@ mod decoder_lane_inquiry {
 
     #[test]
     fn admitted_inventory_reuses_one_footer_for_random_access_and_keeps_escaped_storage() {
-        let schema = Arc::new(Schema::new(vec![Field::new("value", DataType::Float64, false)]));
-        let batch = RecordBatch::try_new(schema.clone(), vec![Arc::new(Float64Array::from(vec![1., 2., 3.]))]).unwrap();
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "value",
+            DataType::Float64,
+            false,
+        )]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(Float64Array::from(vec![1., 2., 3.]))],
+        )
+        .unwrap();
         let bytes = result_files::encode_file_batches(&[batch.clone(), batch]).unwrap();
         let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(128 << 10));
         let cancel = CancellationToken::new();
-        let mut reader = result_files::open_file_reader(std::io::Cursor::new(&bytes), &schema, Some(2), pool.clone(), &cancel).unwrap();
+        let mut reader = result_files::open_file_reader(
+            std::io::Cursor::new(&bytes),
+            &schema,
+            Some(2),
+            pool.clone(),
+            &cancel,
+        )
+        .unwrap();
         let second = reader.read_batch(1, &cancel).unwrap();
         let first = reader.read_batch(0, &cancel).unwrap();
         assert_eq!(first.batch.batch(), second.batch.batch());
         let escaped = first.column(0).slice(1, 1);
-        drop(first); drop(second); drop(reader); drop(bytes);
+        drop(first);
+        drop(second);
+        drop(reader);
+        drop(bytes);
         assert!(pool.reserved() > 0);
-        drop(escaped); assert_eq!(pool.reserved(), 0);
+        drop(escaped);
+        assert_eq!(pool.reserved(), 0);
     }
 }
 

@@ -1298,7 +1298,9 @@ impl Session {
                         .map_err(|_| ProblemError::Contract("KINSOL Krylov dimension".into()))?;
                     let side = match method.preconditioner {
                         Preconditioner::None => ffi::SUNPrecType_SUN_PREC_NONE,
-                        Preconditioner::Jacobi | Preconditioner::BlockFactor => ffi::SUNPrecType_SUN_PREC_RIGHT,
+                        Preconditioner::Jacobi | Preconditioner::BlockFactor => {
+                            ffi::SUNPrecType_SUN_PREC_RIGHT
+                        }
                     } as i32;
                     let krylov: unsafe extern "C" fn(
                         ffi::N_Vector,
@@ -1554,7 +1556,10 @@ impl Session {
         let effective_anderson = c_long::try_from(method.anderson)
             .map_err(|_| ProblemError::Contract("KINSOL Anderson history extent".into()))?
             .min(c_long::from(controls.iterations).saturating_sub(1).max(0));
-        native!(ffi::KINSetMAA(self.mem, effective_anderson), "effective Anderson history")?;
+        native!(
+            ffi::KINSetMAA(self.mem, effective_anderson),
+            "effective Anderson history"
+        )?;
         native!(
             ffi::KINSetFuncNormTol(self.mem, accuracy.feasibility),
             "residual tolerance",
@@ -3108,40 +3113,88 @@ mod tests {
     #[test]
     fn sundials_790_anderson_callback_failures_reach_the_native_stop() {
         unsafe extern "C" fn damping(
-            _: c_long, _: ffi::N_Vector, _: ffi::N_Vector, _: *mut f64,
-            _: c_long, _: *mut c_void, _: *mut f64,
-        ) -> i32 { 1 }
+            _: c_long,
+            _: ffi::N_Vector,
+            _: ffi::N_Vector,
+            _: *mut f64,
+            _: c_long,
+            _: *mut c_void,
+            _: *mut f64,
+        ) -> i32 {
+            1
+        }
         unsafe extern "C" fn depth(
-            _: c_long, _: ffi::N_Vector, _: ffi::N_Vector, _: ffi::N_Vector,
-            _: *mut ffi::N_Vector, _: *mut f64, _: c_long, _: *mut c_void,
-            _: *mut c_long, _: *mut i32,
-        ) -> i32 { 1 }
+            _: c_long,
+            _: ffi::N_Vector,
+            _: ffi::N_Vector,
+            _: ffi::N_Vector,
+            _: *mut ffi::N_Vector,
+            _: *mut f64,
+            _: c_long,
+            _: *mut c_void,
+            _: *mut c_long,
+            _: *mut i32,
+        ) -> i32 {
+            1
+        }
         for depth_failure in [false, true] {
             let execution = execution();
             let method = Method {
-                strategy: Strategy::FixedPoint, anderson: 1, anderson_delay: 0,
+                strategy: Strategy::FixedPoint,
+                anderson: 1,
+                anderson_delay: 0,
                 ..Method::default()
             };
             let oracle = ObservedMap {
-                inner: crate::solver_tests::Polynomial::new(), shape: RevealingMap::Affine(0.5),
-                calls: 0, cancel_at: None, cancel: execution.cancel.clone(), original_nonfinite: None,
+                inner: crate::solver_tests::Polynomial::new(),
+                shape: RevealingMap::Affine(0.5),
+                calls: 0,
+                cancel_at: None,
+                cancel: execution.cancel.clone(),
+                original_nonfinite: None,
             };
             let mut session = Session::new(
-                Function::FixedPoint(Box::new(oracle)), Settings { method, ..settings() },
-                execution.clone(), crate::solver_tests::stamp(Backend::Kinsol),
-            ).unwrap();
+                Function::FixedPoint(Box::new(oracle)),
+                Settings {
+                    method,
+                    ..settings()
+                },
+                execution.clone(),
+                crate::solver_tests::stamp(Backend::Kinsol),
+            )
+            .unwrap();
             // SAFETY: session owns idle live KINSOL memory; callbacks access no
             // userdata and remain static until the session is dropped.
             let code = unsafe {
-                if depth_failure { ffi::KINSetDepthFn(session.mem, Some(depth)) }
-                else { ffi::KINSetDampingFn(session.mem, Some(damping)) }
+                if depth_failure {
+                    ffi::KINSetDepthFn(session.mem, Some(depth))
+                } else {
+                    ffi::KINSetDampingFn(session.mem, Some(damping))
+                }
             };
             assert_eq!(code, 0);
-            let report = session.solve(
-                &[0.0], &Controls::default(), &ResolvedAccuracy::verification(), execution,
-                &Tolerances { variables: vec![0.01], rows: vec![0.01], integrality: 0.01 }, None,
-            ).unwrap();
-            assert_eq!(report.termination.name, if depth_failure { "KIN_DEPTH_FN_ERR" } else { "KIN_DAMPING_FN_ERR" });
+            let report = session
+                .solve(
+                    &[0.0],
+                    &Controls::default(),
+                    &ResolvedAccuracy::verification(),
+                    execution,
+                    &Tolerances {
+                        variables: vec![0.01],
+                        rows: vec![0.01],
+                        integrality: 0.01,
+                    },
+                    None,
+                )
+                .unwrap();
+            assert_eq!(
+                report.termination.name,
+                if depth_failure {
+                    "KIN_DEPTH_FN_ERR"
+                } else {
+                    "KIN_DAMPING_FN_ERR"
+                }
+            );
             assert_eq!(report.termination.category, Termination::Evaluation);
         }
     }
@@ -3149,40 +3202,108 @@ mod tests {
     fn sundials_790_one_iteration_slice_restores_later_retained_anderson_depth() {
         let run = |anderson| {
             let execution = execution();
-            let method = Method { strategy: Strategy::FixedPoint, anderson, ..Method::default() };
+            let method = Method {
+                strategy: Strategy::FixedPoint,
+                anderson,
+                ..Method::default()
+            };
             let oracle = ObservedMap {
-                inner: crate::solver_tests::Polynomial::new(), shape: RevealingMap::Affine(0.5),
-                calls: 0, cancel_at: None, cancel: execution.cancel.clone(), original_nonfinite: None,
+                inner: crate::solver_tests::Polynomial::new(),
+                shape: RevealingMap::Affine(0.5),
+                calls: 0,
+                cancel_at: None,
+                cancel: execution.cancel.clone(),
+                original_nonfinite: None,
             };
             let mut session = Session::new(
-                Function::FixedPoint(Box::new(oracle)), Settings { method, ..settings() },
-                execution.clone(), crate::solver_tests::stamp(Backend::Kinsol),
-            ).unwrap();
+                Function::FixedPoint(Box::new(oracle)),
+                Settings {
+                    method,
+                    ..settings()
+                },
+                execution.clone(),
+                crate::solver_tests::stamp(Backend::Kinsol),
+            )
+            .unwrap();
             let workspace = |session: &Session| {
                 let (mut reals, mut integers) = (0, 0);
                 // SAFETY: read-only query of this test's live exclusively owned session.
-                assert_eq!(unsafe { ffi::KINGetWorkSpace(session.mem, &mut reals, &mut integers) }, 0);
+                assert_eq!(
+                    unsafe { ffi::KINGetWorkSpace(session.mem, &mut reals, &mut integers) },
+                    0
+                );
                 (reals, integers)
             };
             let initial_words = workspace(&session);
-            let tolerance = Tolerances { variables: vec![0.01], rows: vec![0.01], integrality: 0.01 };
-            let first = session.solve(&[0.0], &Controls { iterations: 1, ..Default::default() },
-                &ResolvedAccuracy::verification(), execution.clone(), &tolerance, None).unwrap();
+            let tolerance = Tolerances {
+                variables: vec![0.01],
+                rows: vec![0.01],
+                integrality: 0.01,
+            };
+            let first = session
+                .solve(
+                    &[0.0],
+                    &Controls {
+                        iterations: 1,
+                        ..Default::default()
+                    },
+                    &ResolvedAccuracy::verification(),
+                    execution.clone(),
+                    &tolerance,
+                    None,
+                )
+                .unwrap();
             assert_eq!(first.termination.category, Termination::IterationLimit);
             assert_eq!(first.evidence.work.iterations, Some(1));
-            let next = session.solve(&[0.0], &Controls { iterations: 80, ..Default::default() },
-                &ResolvedAccuracy::verification(), execution, &tolerance, None).unwrap();
+            let next = session
+                .solve(
+                    &[0.0],
+                    &Controls {
+                        iterations: 80,
+                        ..Default::default()
+                    },
+                    &ResolvedAccuracy::verification(),
+                    execution,
+                    &tolerance,
+                    None,
+                )
+                .unwrap();
             assert_eq!(next.termination.category, Termination::Success);
             assert!((next.candidate.unwrap().primal[0] - 2.0).abs() < 1e-7);
-            assert_eq!(workspace(&session), initial_words, "7.9's reporter omits the lazy AA allocations");
-            (next.evidence.work.iterations.unwrap(), session.retained_bytes())
+            assert_eq!(
+                workspace(&session),
+                initial_words,
+                "7.9's reporter omits the lazy AA allocations"
+            );
+            (
+                next.evidence.work.iterations.unwrap(),
+                session.retained_bytes(),
+            )
         };
         let restored = run(1);
         let disabled = run(0);
-        assert!(restored.0 <= 3, "the retained session must restore the configured AA depth");
-        assert!(disabled.0 > restored.0, "the independent no-AA route must retain its own convergence behavior");
-        assert!(restored.1 >= disabled.1 + anderson_storage(1, Method { anderson: 1, ..Method::default() }).unwrap().1,
-            "retained accounting must include the source-owned AA payload absent from the reporter");
+        assert!(
+            restored.0 <= 3,
+            "the retained session must restore the configured AA depth"
+        );
+        assert!(
+            disabled.0 > restored.0,
+            "the independent no-AA route must retain its own convergence behavior"
+        );
+        assert!(
+            restored.1
+                >= disabled.1
+                    + anderson_storage(
+                        1,
+                        Method {
+                            anderson: 1,
+                            ..Method::default()
+                        }
+                    )
+                    .unwrap()
+                    .1,
+            "retained accounting must include the source-owned AA payload absent from the reporter"
+        );
     }
     fn observed_map_report(
         shape: RevealingMap,

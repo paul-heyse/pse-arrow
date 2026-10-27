@@ -1105,8 +1105,10 @@ impl PackSession {
                 .open(&staging)?;
             {
                 let mut bounded = pse_ids::BoundedSink::new(
-                    &mut file, usize::try_from(maximum).map_err(|_| invalid("pack output extent overflow"))?,
-                ).with_checkpoint(|| self.cancel.checkpoint().map_err(std::io::Error::other));
+                    &mut file,
+                    usize::try_from(maximum).map_err(|_| invalid("pack output extent overflow"))?,
+                )
+                .with_checkpoint(|| self.cancel.checkpoint().map_err(std::io::Error::other));
                 let mut writer = datafusion::arrow::ipc::writer::StreamWriter::try_new(
                     &mut bounded,
                     batch.schema().as_ref(),
@@ -1702,4 +1704,3 @@ fn validate_encoding(
     }
     Ok(())
 }
-

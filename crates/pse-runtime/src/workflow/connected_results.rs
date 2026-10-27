@@ -642,24 +642,43 @@ impl ResultReader {
             .relation_by_id(self.relation)
             .ok_or_else(|| contract("selected relation absent"))?;
         let relation_name = relation.key.qualified_name();
-        let terminal = self.read.attempt().outcome.map(|value| value.as_str())
+        let terminal = self
+            .read
+            .attempt()
+            .outcome
+            .map(|value| value.as_str())
             .ok_or_else(|| contract("terminal result class absent"))?;
         let lineage = super::result_selection::ScientificMetadata {
-            run: &self.read.run().key, attempt: &self.read.attempt().key,
-            relation: &relation_name, schema_version: relation.key.version,
-            row_start: self.start, row_end: self.end,
-            field: self.output.as_ref().map(|filter| filter.field.as_str()), terminal_class: terminal,
-            predicate: self.output.as_ref().map(|filter| super::result_selection::PredicateMetadata {
-                output: &filter.output, partition: &filter.partition,
-                minimum_bits: filter.predicate.minimum().map(f64::to_bits),
-                maximum_bits: filter.predicate.maximum().map(f64::to_bits), missing: filter.predicate.missing(),
+            run: &self.read.run().key,
+            attempt: &self.read.attempt().key,
+            relation: &relation_name,
+            schema_version: relation.key.version,
+            row_start: self.start,
+            row_end: self.end,
+            field: self.output.as_ref().map(|filter| filter.field.as_str()),
+            terminal_class: terminal,
+            predicate: self.output.as_ref().map(|filter| {
+                super::result_selection::PredicateMetadata {
+                    output: &filter.output,
+                    partition: &filter.partition,
+                    minimum_bits: filter.predicate.minimum().map(f64::to_bits),
+                    maximum_bits: filter.predicate.maximum().map(f64::to_bits),
+                    missing: filter.predicate.missing(),
+                }
             }),
             extra: Some(super::result_selection::ScientificMetadataExtra {
-                problem: &self.read.run().problem, revision: &self.read.run().revision,
-                manifest: &self.read.manifest().digest, interpretation: &self.read.run().interpretation,
+                problem: &self.read.run().problem,
+                revision: &self.read.run().revision,
+                manifest: &self.read.manifest().digest,
+                interpretation: &self.read.run().interpretation,
             }),
         };
-        metadata.extend(lineage.entries().into_iter().filter_map(|(key, value)| value.map(|value| (key.into(), value))));
+        metadata.extend(
+            lineage
+                .entries()
+                .into_iter()
+                .filter_map(|(key, value)| value.map(|value| (key.into(), value))),
+        );
         let schema = Arc::new(self.schema.as_ref().clone().with_metadata(metadata));
         let mut writer = datafusion::arrow::ipc::writer::StreamWriter::try_new(
             BufWriter::new(BoundedExportFile {
@@ -884,7 +903,11 @@ impl ResultReader {
                 let owner = pooled_response_owner(
                     &self.services.preparation().pool(),
                     "canonical:result-metadata",
-                    if self.output.as_ref().is_some_and(|filter| filter.predicate.dense()) {
+                    if self
+                        .output
+                        .as_ref()
+                        .is_some_and(|filter| filter.predicate.dense())
+                    {
                         MetadataResponse::OutputPage
                     } else {
                         MetadataResponse::JoinedBlockPage
@@ -1200,8 +1223,12 @@ impl SourceServices {
                 super::result_projection::check_output_field(spec.id, &output.field)?;
                 let dense =
                     spec.id == pse_relations::generated::runtime::simulation_samples::RELATION_ID;
-                super::result_selection::ValuePredicate::new(dense,
-                    output.minimum_bits.map(f64::from_bits), output.maximum_bits.map(f64::from_bits), output.missing)?;
+                super::result_selection::ValuePredicate::new(
+                    dense,
+                    output.minimum_bits.map(f64::from_bits),
+                    output.maximum_bits.map(f64::from_bits),
+                    output.missing,
+                )?;
                 let mut identity = String::with_capacity(66 + output.field.len());
                 write_output_identity(&mut identity, &spec.id, output.owner, &output.field, dense)?;
                 (
@@ -1769,49 +1796,89 @@ pub(super) fn select_original_rows(
     if lower >= upper {
         return Ok(None);
     }
-    if relation != checked.relation_id() { return Err(contract("original result relation differs from selected predicate")); }
-    let base = usize::try_from(lower - metadata.start).map_err(|_| contract("selected coordinate extent"))?;
-    let count = usize::try_from(upper - lower).map_err(|_| contract("selected coordinate extent"))?;
-    if base.checked_add(count).is_none_or(|end| end > checked.batch().num_rows()) {
-        return Err(contract("selected coordinate window outside original batch"));
+    if relation != checked.relation_id() {
+        return Err(contract(
+            "original result relation differs from selected predicate",
+        ));
+    }
+    let base = usize::try_from(lower - metadata.start)
+        .map_err(|_| contract("selected coordinate extent"))?;
+    let count =
+        usize::try_from(upper - lower).map_err(|_| contract("selected coordinate extent"))?;
+    if base
+        .checked_add(count)
+        .is_none_or(|end| end > checked.batch().num_rows())
+    {
+        return Err(contract(
+            "selected coordinate window outside original batch",
+        ));
     }
     let offsets_owner = MemoryConsumer::new("canonical:selected-source-offsets")
         .register(&services.preparation().pool());
-    let extent = super::result_selection::selection_window_extent(count, checked.batch().num_columns(), matches!(&indexes, OutputRows::Scalar))
-        .ok_or_else(|| contract("selected offset allocation extent"))?;
-    offsets_owner.try_grow(extent).map_err(pse_engine::EngineError::from)?;
+    let extent = super::result_selection::selection_window_extent(
+        count,
+        checked.batch().num_columns(),
+        matches!(&indexes, OutputRows::Scalar),
+    )
+    .ok_or_else(|| contract("selected offset allocation extent"))?;
+    offsets_owner
+        .try_grow(extent)
+        .map_err(pse_engine::EngineError::from)?;
     let mask = match indexes {
         OutputRows::Scalar => {
-            let selection = native_selection.ok_or_else(|| contract("original scalar selection plan absent"))?;
+            let selection = native_selection
+                .ok_or_else(|| contract("original scalar selection plan absent"))?;
             // Coordinate slicing precedes expression evaluation: every row-shaped
             // native temporary is now proportional to the requested window.
             let window = checked.slice(base, count).map_err(super::relation)?;
-            let mask = selection.mask(window.batch()).map_err(pse_engine::EngineError::from)?;
+            let mask = selection
+                .mask(window.batch())
+                .map_err(pse_engine::EngineError::from)?;
             use datafusion::arrow::array::Array;
-            datafusion::arrow::buffer::BooleanBuffer::collect_bool(count, |offset| mask.is_valid(offset) && mask.value(offset))
+            datafusion::arrow::buffer::BooleanBuffer::collect_bool(count, |offset| {
+                mask.is_valid(offset) && mask.value(offset)
+            })
         }
         OutputRows::Dense(output) => {
-            let view = pse_relations::generated::runtime::simulation_samples::View::from_checked(&checked).map_err(super::relation)?;
-            let first = output.start.checked_sub(metadata.start).and_then(|value| usize::try_from(value).ok())
+            let view =
+                pse_relations::generated::runtime::simulation_samples::View::from_checked(&checked)
+                    .map_err(super::relation)?;
+            let first = output
+                .start
+                .checked_sub(metadata.start)
+                .and_then(|value| usize::try_from(value).ok())
                 .ok_or_else(|| contract("dense output starts outside original block"))?;
-            let last = output.end.checked_sub(metadata.start).and_then(|value| usize::try_from(value).ok())
+            let last = output
+                .end
+                .checked_sub(metadata.start)
+                .and_then(|value| usize::try_from(value).ok())
                 .filter(|last| first < *last && *last <= view.len())
                 .ok_or_else(|| contract("dense output ends outside original block"))?;
             let symbols = view.symbol_id_column();
             let times = view.time_column();
-            for neighbor in [first.checked_sub(1), (last < view.len()).then_some(last)].into_iter().flatten() {
+            for neighbor in [first.checked_sub(1), (last < view.len()).then_some(last)]
+                .into_iter()
+                .flatten()
+            {
                 if symbols.value(neighbor) == filter.owner.as_bytes() {
                     return Err(contract("dense output omitted original adjacent rows"));
                 }
             }
             let (mut min, mut max) = (f64::INFINITY, f64::NEG_INFINITY);
             for row in first..last {
-                if symbols.value(row) != filter.owner.as_bytes() { return Err(contract("dense output range differs from original scientific rows")); }
+                if symbols.value(row) != filter.owner.as_bytes() {
+                    return Err(contract(
+                        "dense output range differs from original scientific rows",
+                    ));
+                }
                 let time = times.value(row);
-                min = min.min(time); max = max.max(time);
+                min = min.min(time);
+                max = max.max(time);
             }
             if output.coordinate_min != Some(min) || output.coordinate_max != Some(max) {
-                return Err(contract("dense coordinate projection differs from exact recorded time"));
+                return Err(contract(
+                    "dense coordinate projection differs from exact recorded time",
+                ));
             }
             datafusion::arrow::buffer::BooleanBuffer::collect_bool(count, |offset| {
                 let row = base + offset;
@@ -1819,7 +1886,10 @@ pub(super) fn select_original_rows(
             })
         }
     };
-    let Some(rows) = super::result_snapshot::SelectedRows::from_mask(mask, base, offsets_owner)? else { return Ok(None); };
+    let Some(rows) = super::result_snapshot::SelectedRows::from_mask(mask, base, offsets_owner)?
+    else {
+        return Ok(None);
+    };
     let selected = rows.apply(&checked, &services.preparation().pool(), cancel)?;
     Ok(Some((selected, rows)))
 }
@@ -2280,7 +2350,14 @@ mod result_admission_unit {
         )
         .unwrap();
         let bytes = result_files::encode_result_file(&raw).unwrap();
-        let decoded = result_files::decode_result_file(&bytes, schema, 1, runtime.shared.pool(), &CancellationToken::new()).unwrap();
+        let decoded = result_files::decode_result_file(
+            &bytes,
+            schema,
+            1,
+            runtime.shared.pool(),
+            &CancellationToken::new(),
+        )
+        .unwrap();
         let cancel = CancellationToken::new();
         assert!(
             !stale_contract
@@ -4297,9 +4374,24 @@ mod canonical_connected_results_server_unit {
 mod result_selection_unit {
     use super::*;
     fn metadata(rows: usize, columns: usize) -> BlockMetadata {
-        BlockMetadata { key: "block".into(), batch: "block".into(), result_set: "set".into(), output: "output".into(), partition: "0".into(), ordinal: 0,
-            start: 100, end: 100 + rows as u64, rows: rows as u64, columns: columns as u64, coordinate_min: None, coordinate_max: None,
-            payload_bytes: 0, payload_digest: String::new(), statistics: None, interpretation: pse_operations::generated::surreal::INTERPRETATION.into() }
+        BlockMetadata {
+            key: "block".into(),
+            batch: "block".into(),
+            result_set: "set".into(),
+            output: "output".into(),
+            partition: "0".into(),
+            ordinal: 0,
+            start: 100,
+            end: 100 + rows as u64,
+            rows: rows as u64,
+            columns: columns as u64,
+            coordinate_min: None,
+            coordinate_max: None,
+            payload_bytes: 0,
+            payload_digest: String::new(),
+            statistics: None,
+            interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
+        }
     }
     #[test]
     fn scalar_coordinate_window_is_sliced_before_native_mask_allocation() {
@@ -4307,26 +4399,98 @@ mod result_selection_unit {
         let runtime = super::super::tests::runtime();
         let services = runtime.source_services();
         let cancel = CancellationToken::new();
-        let mut builder = fit_parameters::Builder::with_registry(runtime.registry(), 8192, &runtime.validation_context()).unwrap();
-        let id = |index: u64| { let mut bytes = [0; 16]; bytes[..8].copy_from_slice(&index.to_le_bytes()); pse_ids::SemanticId::from_bytes(bytes) };
+        let mut builder = fit_parameters::Builder::with_registry(
+            runtime.registry(),
+            8192,
+            &runtime.validation_context(),
+        )
+        .unwrap();
+        let id = |index: u64| {
+            let mut bytes = [0; 16];
+            bytes[..8].copy_from_slice(&index.to_le_bytes());
+            pse_ids::SemanticId::from_bytes(bytes)
+        };
         let run_id = pse_operations::mint_id();
         for index in 0..8192 {
-            builder.push(fit_parameters::Row { run_id, parameter_id: id(index), fixed: false, value: Some(-0.), unit_id: pse_ids::SemanticId::NIL, scale: 1., at_bound: None }).unwrap();
+            builder
+                .push(fit_parameters::Row {
+                    run_id,
+                    parameter_id: id(index),
+                    fixed: false,
+                    value: Some(-0.),
+                    unit_id: pse_ids::SemanticId::NIL,
+                    scale: 1.,
+                    at_bound: None,
+                })
+                .unwrap();
         }
         let pool = runtime.shared.pool();
         let checked = builder.finish().unwrap().retained(&pool, &cancel).unwrap();
-        let filter = output_filter(&services, "runtime.fit_parameters", id(4096), "value", "0", Some(-0.), Some(0.), None).unwrap();
-        let expression = super::super::result_projection::scalar_selection_expression(fit_parameters::RELATION_ID, id(4096), "0", "value", filter.predicate).unwrap();
-        let native = super::super::result_snapshot::NativeResultSelection::new(&services, fit_parameters::RELATION_ID, checked.batch().schema(),
-            &services.preparation().bound_model().native_state(), expression).unwrap();
-        let limit = match pool.memory_limit() { datafusion::execution::memory_pool::MemoryLimit::Finite(limit) => limit, _ => unreachable!("fixture has a finite admission pool") };
+        let filter = output_filter(
+            &services,
+            "runtime.fit_parameters",
+            id(4096),
+            "value",
+            "0",
+            Some(-0.),
+            Some(0.),
+            None,
+        )
+        .unwrap();
+        let expression = super::super::result_projection::scalar_selection_expression(
+            fit_parameters::RELATION_ID,
+            id(4096),
+            "0",
+            "value",
+            filter.predicate,
+        )
+        .unwrap();
+        let native = super::super::result_snapshot::NativeResultSelection::new(
+            &services,
+            fit_parameters::RELATION_ID,
+            checked.batch().schema(),
+            &services.preparation().bound_model().native_state(),
+            expression,
+        )
+        .unwrap();
+        let limit = match pool.memory_limit() {
+            datafusion::execution::memory_pool::MemoryLimit::Finite(limit) => limit,
+            _ => unreachable!("fixture has a finite admission pool"),
+        };
         let pressure = MemoryConsumer::new("fixture:window-only-headroom").register(&pool);
-        pressure.try_grow(limit - pool.reserved() - (96 << 10)).unwrap();
+        pressure
+            .try_grow(limit - pool.reserved() - (96 << 10))
+            .unwrap();
         let block = metadata(8192, checked.batch().num_columns());
-        let (selected, rows) = select_original_rows(&services, OriginalRowSelection { relation: fit_parameters::RELATION_ID, filter: &filter, native: Some(&native) },
-            &block, OutputRows::Scalar, checked, 4196..4197, &cancel).unwrap().unwrap();
-        assert!(matches!(rows, super::super::result_snapshot::SelectedRows::Range { offset: 4096, length: 1 }));
-        let values = selected.batch().column_by_name("value").unwrap().as_any().downcast_ref::<datafusion::arrow::array::Float64Array>().unwrap();
+        let (selected, rows) = select_original_rows(
+            &services,
+            OriginalRowSelection {
+                relation: fit_parameters::RELATION_ID,
+                filter: &filter,
+                native: Some(&native),
+            },
+            &block,
+            OutputRows::Scalar,
+            checked,
+            4196..4197,
+            &cancel,
+        )
+        .unwrap()
+        .unwrap();
+        assert!(matches!(
+            rows,
+            super::super::result_snapshot::SelectedRows::Range {
+                offset: 4096,
+                length: 1
+            }
+        ));
+        let values = selected
+            .batch()
+            .column_by_name("value")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<datafusion::arrow::array::Float64Array>()
+            .unwrap();
         assert_eq!(values.value(0).to_bits(), (-0f64).to_bits());
     }
     #[test]
@@ -4338,24 +4502,95 @@ mod result_selection_unit {
         let run_id = pse_operations::mint_id();
         let first = pse_ids::SemanticId::from_bytes([1; 16]);
         let second = pse_ids::SemanticId::from_bytes([2; 16]);
-        let mut builder = simulation_samples::Builder::with_registry(runtime.registry(), 6, &runtime.validation_context()).unwrap();
+        let mut builder = simulation_samples::Builder::with_registry(
+            runtime.registry(),
+            6,
+            &runtime.validation_context(),
+        )
+        .unwrap();
         for (index, time) in [-0., 0., 1., 2., 3., 4.].into_iter().enumerate() {
-            builder.push(simulation_samples::Row { run_id, sample: index as i64, time, symbol_id: if index < 3 { first } else { second },
-                quantity_id: pse_ids::SemanticId::NIL, unit_id: pse_ids::SemanticId::NIL, value: -0. }).unwrap();
+            builder
+                .push(simulation_samples::Row {
+                    run_id,
+                    sample: index as i64,
+                    time,
+                    symbol_id: if index < 3 { first } else { second },
+                    quantity_id: pse_ids::SemanticId::NIL,
+                    unit_id: pse_ids::SemanticId::NIL,
+                    value: -0.,
+                })
+                .unwrap();
         }
-        let checked = builder.finish().unwrap().retained(&runtime.shared.pool(), &cancel).unwrap();
-        let filter = output_filter(&services, "runtime.simulation_samples", first, "value", "0", Some(-0.), Some(0.), None).unwrap();
+        let checked = builder
+            .finish()
+            .unwrap()
+            .retained(&runtime.shared.pool(), &cancel)
+            .unwrap();
+        let filter = output_filter(
+            &services,
+            "runtime.simulation_samples",
+            first,
+            "value",
+            "0",
+            Some(-0.),
+            Some(0.),
+            None,
+        )
+        .unwrap();
         let block = metadata(6, checked.batch().num_columns());
-        let output = pse_model::generated::runtime::canonical_result_block_outputs::Row { key: "index".into(), batch: "block".into(), result_set: "set".into(),
-            output: filter.output.clone(), partition: "0".into(), start: 100, end: 103, coordinate_min: Some(0.), coordinate_max: Some(1.),
-            interpretation: pse_operations::generated::surreal::INTERPRETATION.into() };
-        let select = |output, checked| select_original_rows(&services, OriginalRowSelection { relation: simulation_samples::RELATION_ID, filter: &filter, native: None },
-            &block, OutputRows::Dense(output), checked, 100..106, &cancel);
+        let output = pse_model::generated::runtime::canonical_result_block_outputs::Row {
+            key: "index".into(),
+            batch: "block".into(),
+            result_set: "set".into(),
+            output: filter.output.clone(),
+            partition: "0".into(),
+            start: 100,
+            end: 103,
+            coordinate_min: Some(0.),
+            coordinate_max: Some(1.),
+            interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
+        };
+        let select = |output, checked| {
+            select_original_rows(
+                &services,
+                OriginalRowSelection {
+                    relation: simulation_samples::RELATION_ID,
+                    filter: &filter,
+                    native: None,
+                },
+                &block,
+                OutputRows::Dense(output),
+                checked,
+                100..106,
+                &cancel,
+            )
+        };
         let (selected, rows) = select(output.clone(), checked.clone()).unwrap().unwrap();
-        assert!(matches!(rows, super::super::result_snapshot::SelectedRows::Range { offset: 0, length: 2 }));
-        let time = selected.batch().column_by_name("time").unwrap().as_any().downcast_ref::<datafusion::arrow::array::Float64Array>().unwrap();
-        assert_eq!([time.value(0).to_bits(), time.value(1).to_bits()], [(-0f64).to_bits(), 0]);
-        for end in [102, 104] { let mut wrong = output.clone(); wrong.end = end; assert!(select(wrong, checked.clone()).is_err()); }
-        let mut wrong = output; wrong.coordinate_max = Some(9.); assert!(select(wrong, checked).is_err());
+        assert!(matches!(
+            rows,
+            super::super::result_snapshot::SelectedRows::Range {
+                offset: 0,
+                length: 2
+            }
+        ));
+        let time = selected
+            .batch()
+            .column_by_name("time")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<datafusion::arrow::array::Float64Array>()
+            .unwrap();
+        assert_eq!(
+            [time.value(0).to_bits(), time.value(1).to_bits()],
+            [(-0f64).to_bits(), 0]
+        );
+        for end in [102, 104] {
+            let mut wrong = output.clone();
+            wrong.end = end;
+            assert!(select(wrong, checked.clone()).is_err());
+        }
+        let mut wrong = output;
+        wrong.coordinate_max = Some(9.);
+        assert!(select(wrong, checked).is_err());
     }
 }

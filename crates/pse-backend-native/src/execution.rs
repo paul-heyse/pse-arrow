@@ -22,7 +22,14 @@ use pse_math::{
     normalization::Normalization, presolve::GuardSign,
 };
 use pse_model::generated::enums::{ModelingStructuralRequirement, NativeConstraintForm};
-#[cfg(any(test, feature = "root-isolation", feature = "scip", feature = "petsc", feature = "highs", feature = "uno"))]
+#[cfg(any(
+    test,
+    feature = "root-isolation",
+    feature = "scip",
+    feature = "petsc",
+    feature = "highs",
+    feature = "uno"
+))]
 use std::sync::Arc;
 use std::{any::Any, collections::BTreeMap};
 
@@ -176,7 +183,14 @@ pub fn scheduler_waiting() -> bool {
 /// One registered native-exclusion wait. Registration always precedes inspection.
 /// The owner-local latch survives any other blocking code consuming the thread's
 /// unpark token between registration, predicate inspection and this wait.
-#[cfg(any(test, feature = "root-isolation", feature = "scip", feature = "petsc", feature = "highs", feature = "uno"))]
+#[cfg(any(
+    test,
+    feature = "root-isolation",
+    feature = "scip",
+    feature = "petsc",
+    feature = "highs",
+    feature = "uno"
+))]
 pub(crate) struct NativeWait {
     signal: Arc<NativeWaitSignal>,
     _release: pse_diagnostics::WakeWatch,
@@ -184,12 +198,26 @@ pub(crate) struct NativeWait {
     _abandonment: Option<pse_diagnostics::WakeWatch>,
     _owning_thread: std::marker::PhantomData<std::rc::Rc<()>>,
 }
-#[cfg(any(test, feature = "root-isolation", feature = "scip", feature = "petsc", feature = "highs", feature = "uno"))]
+#[cfg(any(
+    test,
+    feature = "root-isolation",
+    feature = "scip",
+    feature = "petsc",
+    feature = "highs",
+    feature = "uno"
+))]
 struct NativeWaitSignal {
     thread: std::thread::Thread,
     notified: std::sync::atomic::AtomicBool,
 }
-#[cfg(any(test, feature = "root-isolation", feature = "scip", feature = "petsc", feature = "highs", feature = "uno"))]
+#[cfg(any(
+    test,
+    feature = "root-isolation",
+    feature = "scip",
+    feature = "petsc",
+    feature = "highs",
+    feature = "uno"
+))]
 impl std::task::Wake for NativeWaitSignal {
     fn wake(self: Arc<Self>) {
         self.wake_by_ref();
@@ -200,7 +228,14 @@ impl std::task::Wake for NativeWaitSignal {
         self.thread.unpark();
     }
 }
-#[cfg(any(test, feature = "root-isolation", feature = "scip", feature = "petsc", feature = "highs", feature = "uno"))]
+#[cfg(any(
+    test,
+    feature = "root-isolation",
+    feature = "scip",
+    feature = "petsc",
+    feature = "highs",
+    feature = "uno"
+))]
 impl NativeWait {
     pub(crate) fn new(
         released: &pse_diagnostics::WakeSignal,
@@ -242,7 +277,13 @@ impl NativeWait {
 
 /// Pair native exclusion with the original compute permit without blocking for
 /// capacity while holding the gate. Adapter closures retain health/poison policy.
-#[cfg(any(test, feature = "petsc", feature = "scip", feature = "highs", feature = "uno"))]
+#[cfg(any(
+    test,
+    feature = "petsc",
+    feature = "scip",
+    feature = "highs",
+    feature = "uno"
+))]
 pub(crate) fn acquire_quiescent<G>(
     released: &pse_diagnostics::WakeSignal,
     execution: &Execution,
@@ -283,35 +324,63 @@ mod native_wait_tests {
 
     #[test]
     fn quiescent_gate_releases_exclusion_before_waiting_for_compute() {
-        use std::sync::{Mutex, atomic::{AtomicUsize, Ordering}};
+        use std::sync::{
+            Mutex,
+            atomic::{AtomicUsize, Ordering},
+        };
         #[derive(Debug)]
-        struct Capacity { gate: Arc<Mutex<()>>, tries: Arc<AtomicUsize>, waits: Arc<AtomicUsize> }
+        struct Capacity {
+            gate: Arc<Mutex<()>>,
+            tries: Arc<AtomicUsize>,
+            waits: Arc<AtomicUsize>,
+        }
         impl ComputeAdmission for Capacity {
             fn pause(&mut self) {}
             fn try_resume(&mut self, _: &Execution) -> Result<ComputeAvailability, ProblemError> {
-                Ok(if self.tries.fetch_add(1,Ordering::SeqCst)==0 { ComputeAvailability::Unavailable } else { ComputeAvailability::Acquired })
+                Ok(if self.tries.fetch_add(1, Ordering::SeqCst) == 0 {
+                    ComputeAvailability::Unavailable
+                } else {
+                    ComputeAvailability::Acquired
+                })
             }
-            fn resume(&mut self, _: &Execution) -> Result<(),ProblemError> {
-                assert!(self.gate.try_lock().is_ok(),"native gate must drop before a compute wait");
-                self.waits.fetch_add(1,Ordering::SeqCst);
+            fn resume(&mut self, _: &Execution) -> Result<(), ProblemError> {
+                assert!(
+                    self.gate.try_lock().is_ok(),
+                    "native gate must drop before a compute wait"
+                );
+                self.waits.fetch_add(1, Ordering::SeqCst);
                 Ok(())
             }
         }
-        let gate=Arc::new(Mutex::new(()));
-        let tries=Arc::new(AtomicUsize::new(0));
-        let waits=Arc::new(AtomicUsize::new(0));
-        let execution=Execution::new(Default::default(),&Controls::default());
-        compute_scoped(Box::new(Capacity { gate:gate.clone(), tries:tries.clone(), waits:waits.clone() }),|| {
-            let changed=pse_diagnostics::WakeSignal::new();
-            let held=acquire_quiescent(&changed,&execution,|| Ok(Some(gate.try_lock().unwrap()))).unwrap();
-            assert_eq!(tries.load(Ordering::SeqCst),2);
-            assert_eq!(waits.load(Ordering::SeqCst),1);
-            assert!(gate.try_lock().is_err());
-            drop(held);
-        });
-        let stopped=Execution::new(Default::default(),&Controls::default());
+        let gate = Arc::new(Mutex::new(()));
+        let tries = Arc::new(AtomicUsize::new(0));
+        let waits = Arc::new(AtomicUsize::new(0));
+        let execution = Execution::new(Default::default(), &Controls::default());
+        compute_scoped(
+            Box::new(Capacity {
+                gate: gate.clone(),
+                tries: tries.clone(),
+                waits: waits.clone(),
+            }),
+            || {
+                let changed = pse_diagnostics::WakeSignal::new();
+                let held =
+                    acquire_quiescent(&changed, &execution, || Ok(Some(gate.try_lock().unwrap())))
+                        .unwrap();
+                assert_eq!(tries.load(Ordering::SeqCst), 2);
+                assert_eq!(waits.load(Ordering::SeqCst), 1);
+                assert!(gate.try_lock().is_err());
+                drop(held);
+            },
+        );
+        let stopped = Execution::new(Default::default(), &Controls::default());
         stopped.cancellation_control().cancel();
-        assert!(matches!(acquire_quiescent::<()>(&pse_diagnostics::WakeSignal::new(),&stopped,|| panic!("stopped work cannot inspect a gate")),Err(ProblemError::Cancelled)));
+        assert!(matches!(
+            acquire_quiescent::<()>(&pse_diagnostics::WakeSignal::new(), &stopped, || panic!(
+                "stopped work cannot inspect a gate"
+            )),
+            Err(ProblemError::Cancelled)
+        ));
     }
 
     #[test]
@@ -1049,7 +1118,10 @@ impl Table {
     pub fn build_identity(&self) -> ContentHash {
         let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NativeBuildV1);
         h.str(include_str!(concat!(env!("OUT_DIR"), "/pounce-source.txt")));
-        h.str(include_str!(concat!(env!("OUT_DIR"), "/arithmetic-source.txt")));
+        h.str(include_str!(concat!(
+            env!("OUT_DIR"),
+            "/arithmetic-source.txt"
+        )));
         for adapter in self.adapters().filter(|a| a.linked()) {
             h.str(adapter.backend().as_str());
             match adapter.build() {

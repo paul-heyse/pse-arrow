@@ -26,7 +26,9 @@ pub(crate) fn watch(waker: &std::task::Waker) -> pse_diagnostics::WakeWatch {
 }
 thread_local! {static ACTIVE:std::cell::Cell<bool>=const {std::cell::Cell::new(false)};}
 
-fn notify() { RELEASED.notify(); }
+fn notify() {
+    RELEASED.notify();
+}
 #[cfg(feature = "uno")]
 pub(crate) fn waiting() -> bool {
     WAITERS.load(Ordering::Acquire) != 0
@@ -67,7 +69,9 @@ fn read_at_transition(
     }
     let gate = crate::execution::acquire_quiescent(&RELEASED, execution, || {
         let gate = try_reader();
-        if gate.is_some() { acquired(); }
+        if gate.is_some() {
+            acquired();
+        }
         Ok(gate)
     })?;
     ACTIVE.with(|active| active.set(true));
@@ -76,7 +80,9 @@ fn read_at_transition(
 #[cfg(feature = "highs")]
 fn try_reader() -> Option<RwLockReadGuard<'static, ()>> {
     #[cfg(feature = "uno")]
-    if waiting() { return None; }
+    if waiting() {
+        return None;
+    }
     match LIFECYCLE.try_read() {
         Ok(gate) => Some(gate),
         Err(TryLockError::Poisoned(error)) => Some(error.into_inner()),
@@ -182,39 +188,75 @@ mod tests {
     #[test]
     fn writer_releases_gate_for_compute_without_admitting_overtaking_readers() {
         #[derive(Debug)]
-        struct Capacity { entered: mpsc::Sender<()>, proceed: mpsc::Receiver<()>, first: bool }
+        struct Capacity {
+            entered: mpsc::Sender<()>,
+            proceed: mpsc::Receiver<()>,
+            first: bool,
+        }
         impl ComputeAdmission for Capacity {
             fn pause(&mut self) {}
-            fn try_resume(&mut self, e: &Execution) -> Result<crate::execution::ComputeAvailability,ProblemError> {
+            fn try_resume(
+                &mut self,
+                e: &Execution,
+            ) -> Result<crate::execution::ComputeAvailability, ProblemError> {
                 e.check()?;
-                if self.first { self.first=false; Ok(crate::execution::ComputeAvailability::Unavailable) }
-                else { Ok(crate::execution::ComputeAvailability::Acquired) }
+                if self.first {
+                    self.first = false;
+                    Ok(crate::execution::ComputeAvailability::Unavailable)
+                } else {
+                    Ok(crate::execution::ComputeAvailability::Acquired)
+                }
             }
-            fn resume(&mut self,e:&Execution)->Result<(),ProblemError> {
+            fn resume(&mut self, e: &Execution) -> Result<(), ProblemError> {
                 e.check()?;
                 self.entered.send(()).unwrap();
-                self.proceed.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+                self.proceed
+                    .recv_timeout(std::time::Duration::from_secs(2))
+                    .unwrap();
                 e.check()
             }
         }
-        let (entered,waiting_compute)=mpsc::channel();
-        let (proceed,resume)=mpsc::channel();
-        let (acquired,observed)=mpsc::channel();
-        let (finish,finished)=mpsc::channel();
-        let worker=std::thread::spawn(move || compute_scoped(Box::new(Capacity{entered,proceed:resume,first:true}), || {
-            let owner=exclusive(&Execution::new(Default::default(),&Controls::default())).unwrap();
-            acquired.send(()).unwrap();
-            finished.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
-            drop(owner);
-        }));
-        waiting_compute.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        let (entered, waiting_compute) = mpsc::channel();
+        let (proceed, resume) = mpsc::channel();
+        let (acquired, observed) = mpsc::channel();
+        let (finish, finished) = mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            compute_scoped(
+                Box::new(Capacity {
+                    entered,
+                    proceed: resume,
+                    first: true,
+                }),
+                || {
+                    let owner =
+                        exclusive(&Execution::new(Default::default(), &Controls::default()))
+                            .unwrap();
+                    acquired.send(()).unwrap();
+                    finished
+                        .recv_timeout(std::time::Duration::from_secs(2))
+                        .unwrap();
+                    drop(owner);
+                },
+            )
+        });
+        waiting_compute
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
         assert!(waiting());
-        let gate=LIFECYCLE.try_write().unwrap();
+        let gate = LIFECYCLE.try_write().unwrap();
         drop(gate); // No native gate is retained during the blocking compute wait.
-        assert!(try_reader().is_none(), "pending writer must retain preference across capacity wait");
+        assert!(
+            try_reader().is_none(),
+            "pending writer must retain preference across capacity wait"
+        );
         proceed.send(()).unwrap();
-        observed.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
-        assert!(matches!(LIFECYCLE.try_read(),Err(TryLockError::WouldBlock)));
+        observed
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        assert!(matches!(
+            LIFECYCLE.try_read(),
+            Err(TryLockError::WouldBlock)
+        ));
         finish.send(()).unwrap();
         worker.join().unwrap();
         assert!(!waiting());

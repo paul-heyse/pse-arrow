@@ -79,47 +79,69 @@ impl Constant {
     /// Outward enclosure of both the exact source and the current numerical
     /// projection. This does not change the numerical consumer's conversion.
     /// The caller prepays the enclosure_bytes peak before this conversion.
-    pub(crate) fn enclosure(&self) -> Result<(f64,f64),MathError> {
+    pub(crate) fn enclosure(&self) -> Result<(f64, f64), MathError> {
         let numerical = self.value();
-        if numerical.is_nan() {return Err(MathError::Contract("NaN constant numerical projection".into()));}
+        if numerical.is_nan() {
+            return Err(MathError::Contract(
+                "NaN constant numerical projection".into(),
+            ));
+        }
         match self {
             Self::Rational(value) => {
-                let (lower,upper)=crate::rational_binary64::enclosure(value)?;
-                Ok((lower.min(numerical),upper.max(numerical)))
+                let (lower, upper) = crate::rational_binary64::enclosure(value)?;
+                Ok((lower.min(numerical), upper.max(numerical)))
             }
-            Self::Float(value) => Ok((*value,*value)),
+            Self::Float(value) => Ok((*value, *value)),
         }
     }
     /// Construction scratch for exact conversion, separate from retained tape slots.
-    pub(crate) fn enclosure_bytes(&self)->Result<usize,MathError> {
-        match self {Self::Rational(value)=>crate::rational_binary64::conversion_bytes(value),Self::Float(_)=>Ok(0)}
+    pub(crate) fn enclosure_bytes(&self) -> Result<usize, MathError> {
+        match self {
+            Self::Rational(value) => crate::rational_binary64::conversion_bytes(value),
+            Self::Float(_) => Ok(0),
+        }
     }
     /// A hard sign only when exact source and the consumed numerical image
     /// share a finite nonzero sign. Underflow/overflow remain unestablished.
-    pub(crate) fn shared_sign(&self)->Option<bool> {
-        let numerical=self.value();
-        if !numerical.is_finite() || numerical==0.0 {return None;}
-        let positive=match self {
-            Self::Rational(value) if !value.is_zero()=>!value.is_negative(),
-            Self::Float(value) if *value!=0.0=>*value>0.0,
-            _=>return None,
+    pub(crate) fn shared_sign(&self) -> Option<bool> {
+        let numerical = self.value();
+        if !numerical.is_finite() || numerical == 0.0 {
+            return None;
+        }
+        let positive = match self {
+            Self::Rational(value) if !value.is_zero() => !value.is_negative(),
+            Self::Float(value) if *value != 0.0 => *value > 0.0,
+            _ => return None,
         };
-        (positive==(numerical>0.0)).then_some(positive)
+        (positive == (numerical > 0.0)).then_some(positive)
     }
     /// Exact exponent classification; binary64 values are themselves exact dyadics.
-    pub(crate) fn is_exact_half(&self)->bool {
-        match self {Self::Rational(value)=>value==&Rational::new(1,2),Self::Float(value)=>*value==0.5}
+    pub(crate) fn is_exact_half(&self) -> bool {
+        match self {
+            Self::Rational(value) => value == &Rational::new(1, 2),
+            Self::Float(value) => *value == 0.5,
+        }
     }
     /// A proved integer with magnitude at most64; no rounding-based dispatch.
-    pub(crate) fn small_integer(&self)->Option<i32> {
+    pub(crate) fn small_integer(&self) -> Option<i32> {
         match self {
-            Self::Rational(value) if value.is_integer() && value.numerator_ref().significant_bits()<=7 =>
-                i32::try_from(value.numerator()).ok().filter(|value|value.abs()<=64),
-            Self::Float(value) if value.is_finite() && value.fract()==0.0 && value.abs()<=64.0 => {
-                #[expect(clippy::cast_possible_truncation,reason="finite exact integer with magnitude at most64")]
+            Self::Rational(value)
+                if value.is_integer() && value.numerator_ref().significant_bits() <= 7 =>
+            {
+                i32::try_from(value.numerator())
+                    .ok()
+                    .filter(|value| value.abs() <= 64)
+            }
+            Self::Float(value)
+                if value.is_finite() && value.fract() == 0.0 && value.abs() <= 64.0 =>
+            {
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    reason = "finite exact integer with magnitude at most64"
+                )]
                 Some(*value as i32)
             }
-            _=>None,
+            _ => None,
         }
     }
     fn integer(value: i64) -> Self {

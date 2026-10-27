@@ -29,26 +29,21 @@
 mod provider_link {
     include!(concat!(env!("OUT_DIR"), "/provider-link.rs"));
 }
-#[cfg(any(feature = "kinsol", feature = "idas"))]
-mod sundials_profile;
-#[cfg(all(test, any(feature = "kinsol", feature = "idas")))]
-mod sundials_release_tests;
-#[cfg(test)]
-#[path = "../build-source.rs"]
-mod build_source;
-pub mod assembled;
 #[cfg(test)]
 mod arithmetic_tests;
+pub mod assembled;
 #[cfg(test)]
 #[path = "../build-link.rs"]
 mod build_link;
 #[cfg(test)]
 #[path = "../build_receipt.rs"]
 mod build_receipt;
+#[cfg(test)]
+#[path = "../build-source.rs"]
+mod build_source;
 pub mod callback;
 mod certificate;
 pub mod conditioning;
-mod sparse_lu;
 pub mod conic;
 mod convexity;
 pub mod derivative_diagnostics;
@@ -99,12 +94,17 @@ pub mod routing;
 pub mod scip;
 pub mod settings;
 pub mod solve;
+mod sparse_lu;
 /// Qualified regular-square parameter response.
 pub mod square_response;
 /// Original-equation structural admission.
 pub mod structural;
 #[cfg(any(feature = "kinsol", feature = "idas"))]
 mod sundials_errors;
+#[cfg(any(feature = "kinsol", feature = "idas"))]
+mod sundials_profile;
+#[cfg(all(test, any(feature = "kinsol", feature = "idas")))]
+mod sundials_release_tests;
 pub mod tears;
 mod tnlp;
 pub mod transform;

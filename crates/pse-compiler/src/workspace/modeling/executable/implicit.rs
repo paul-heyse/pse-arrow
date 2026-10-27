@@ -336,7 +336,10 @@ impl ImplicitProgramRequest {
             + self.key.2.capacity() * size_of::<usize>()
             + self.artifact.descriptor_bytes()
             + self.artifact.support.retained_bytes()
-            + pse_model::allocation::btree_node_bytes::<(ContentHash, u8, Vec<usize>, bool), Arc<CompiledBody>>()
+            + pse_model::allocation::btree_node_bytes::<
+                (ContentHash, u8, Vec<usize>, bool),
+                Arc<CompiledBody>,
+            >()
             + pse_model::allocation::btree_node_bytes::<usize, ()>()
     }
 }
@@ -364,8 +367,10 @@ impl ImplicitPrograms {
                 .solvers
                 .values()
                 .map(|solver| {
-                    pse_model::allocation::btree_node_bytes::<SemanticId, Arc<dyn pse_math::implicit::InnerSolver>>()
-                        + solver.retained_bytes()
+                    pse_model::allocation::btree_node_bytes::<
+                        SemanticId,
+                        Arc<dyn pse_math::implicit::InnerSolver>,
+                    >() + solver.retained_bytes()
                 })
                 .sum::<usize>()
     }

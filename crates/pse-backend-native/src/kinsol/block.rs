@@ -29,12 +29,19 @@ pub(super) struct Blocks {
 fn checked_extent(n: usize) -> Result<usize, ProblemError> {
     // Supplier-owned fill/history/growth bound. Caller source projections and
     // borrowed CSC input remain local; the supplier excludes them explicitly.
-    let factor=feral::SparseLu::conservative_markowitz_storage_bytes(n);
-    let projection=n.checked_mul(n)
-        .and_then(|entries| entries.checked_mul(4*(2*size_of::<usize>()+size_of::<f64>())))
-        .and_then(|bytes| n.max(4).checked_mul(2*(4*size_of::<usize>()+size_of::<f64>())).and_then(|vectors|bytes.checked_add(vectors)))
-        .and_then(|bytes|bytes.checked_add(size_of::<Block>()));
-    factor.zip(projection).and_then(|(factor,projection)|factor.checked_add(projection))
+    let factor = feral::SparseLu::conservative_markowitz_storage_bytes(n);
+    let projection = n
+        .checked_mul(n)
+        .and_then(|entries| entries.checked_mul(4 * (2 * size_of::<usize>() + size_of::<f64>())))
+        .and_then(|bytes| {
+            n.max(4)
+                .checked_mul(2 * (4 * size_of::<usize>() + size_of::<f64>()))
+                .and_then(|vectors| bytes.checked_add(vectors))
+        })
+        .and_then(|bytes| bytes.checked_add(size_of::<Block>()));
+    factor
+        .zip(projection)
+        .and_then(|(factor, projection)| factor.checked_add(projection))
         .ok_or_else(|| ProblemError::memory("block LU storage extent"))
 }
 

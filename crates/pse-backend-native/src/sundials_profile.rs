@@ -182,10 +182,18 @@ mod build_tests {
     #[test]
     fn selected_sundials_build_reaches_idas_without_kinsol() {
         #[cfg(feature = "idas")]
-        assert_eq!(crate::execution::adapter(crate::solve::Backend::Idas).build(), build());
+        assert_eq!(
+            crate::execution::adapter(crate::solve::Backend::Idas).build(),
+            build()
+        );
         #[cfg(feature = "kinsol")]
-        assert_eq!(crate::execution::adapter(crate::solve::Backend::Kinsol).build(), build());
-        assert!(build().is_some(), "managed selected-provider controls require a build identity");
+        assert_eq!(
+            crate::execution::adapter(crate::solve::Backend::Kinsol).build(),
+            build()
+        );
+        assert!(
+            build().is_some(),
+            "managed selected-provider controls require a build identity"
+        );
     }
 }
-

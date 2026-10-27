@@ -41,7 +41,8 @@ fn scalar_expression(
     missing: Option<bool>,
 ) -> Result<datafusion::logical_expr::Expr, WorkflowError> {
     check_output_field(relation, field)?;
-    super::result_selection::ValuePredicate::new(false, minimum, maximum, missing)?.scalar_expression(field)
+    super::result_selection::ValuePredicate::new(false, minimum, maximum, missing)?
+        .scalar_expression(field)
 }
 
 #[cfg(test)]
@@ -1022,50 +1023,105 @@ async fn store_result_chunk(
 
 // Partition one already admitted window. Offsets remain original batch offsets;
 // the caller prepays partition, range, tree and descriptor storage together.
-fn trajectory_ranges(view: &simulation_samples::View<'_>, base: usize, rows: usize) -> Result<Vec<std::ops::Range<usize>>, WorkflowError> {
-    let end = base.checked_add(rows).filter(|end| *end <= view.len())
+fn trajectory_ranges(
+    view: &simulation_samples::View<'_>,
+    base: usize,
+    rows: usize,
+) -> Result<Vec<std::ops::Range<usize>>, WorkflowError> {
+    let end = base
+        .checked_add(rows)
+        .filter(|end| *end <= view.len())
         .ok_or_else(|| contract("trajectory output range outside original rows"))?;
-    let symbols: datafusion::arrow::array::ArrayRef = Arc::new(view.symbol_id_column().slice(base, rows));
-    let mut ranges = datafusion::arrow::compute::partition(&[symbols]).map_err(pse_columnar::CanonError::from).map_err(pse_engine::EngineError::from)?.ranges();
+    let symbols: datafusion::arrow::array::ArrayRef =
+        Arc::new(view.symbol_id_column().slice(base, rows));
+    let mut ranges = datafusion::arrow::compute::partition(&[symbols])
+        .map_err(pse_columnar::CanonError::from)
+        .map_err(pse_engine::EngineError::from)?
+        .ranges();
     let mut seen = std::collections::BTreeSet::new();
     for range in &mut ranges {
-        range.start += base; range.end += base;
-        let bytes: [u8; 16] = view.symbol_id_column().value(range.start).try_into()
+        range.start += base;
+        range.end += base;
+        let bytes: [u8; 16] = view
+            .symbol_id_column()
+            .value(range.start)
+            .try_into()
             .map_err(|_| contract("trajectory symbol identity width"))?;
-        if !seen.insert(SemanticId::from_bytes(bytes)) { return Err(contract("canonical trajectory symbol is not contiguous")); }
+        if !seen.insert(SemanticId::from_bytes(bytes)) {
+            return Err(contract("canonical trajectory symbol is not contiguous"));
+        }
     }
-    if ranges.last().is_some_and(|range| range.end != end) { return Err(contract("trajectory partition extent")); }
+    if ranges.last().is_some_and(|range| range.end != end) {
+        return Err(contract("trajectory partition extent"));
+    }
     Ok(ranges)
 }
-fn outputs_from_ranges(table: &FieldCheckedBatch, view: &simulation_samples::View<'_>, ranges: &[std::ops::Range<usize>], key: &str, set: &str, origin: u64, accepted_end: usize) -> Result<Vec<Output>, WorkflowError> {
+fn outputs_from_ranges(
+    table: &FieldCheckedBatch,
+    view: &simulation_samples::View<'_>,
+    ranges: &[std::ops::Range<usize>],
+    key: &str,
+    set: &str,
+    origin: u64,
+    accepted_end: usize,
+) -> Result<Vec<Output>, WorkflowError> {
     let mut outputs = Vec::with_capacity(ranges.len());
     for range in ranges.iter().take_while(|range| range.start < accepted_end) {
         let end = range.end.min(accepted_end);
-        let symbol = SemanticId::from_bytes(view.symbol_id_column().value(range.start).try_into()
-            .map_err(|_| contract("trajectory symbol identity width"))?);
+        let symbol = SemanticId::from_bytes(
+            view.symbol_id_column()
+                .value(range.start)
+                .try_into()
+                .map_err(|_| contract("trajectory symbol identity width"))?,
+        );
         // Preserve Rust f64 folding, including both zero signs and NaN handling.
-        let (min, max) = view.time_column().values()[range.start..end].iter()
-            .fold((f64::INFINITY, f64::NEG_INFINITY), |(min, max), time| (min.min(*time), max.max(*time)));
+        let (min, max) = view.time_column().values()[range.start..end]
+            .iter()
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(min, max), time| {
+                (min.min(*time), max.max(*time))
+            });
         outputs.push(Output {
-            key: format!("{key}:value:{:04}", outputs.len()), batch: key.into(), result_set: set.into(),
-            output: format!("{}:{symbol}:value", table.relation_id()), partition: "0".into(),
-            start: origin.checked_add(range.start as u64).ok_or_else(|| contract("trajectory row extent"))?,
-            end: origin.checked_add(end as u64).ok_or_else(|| contract("trajectory row extent"))?,
-            coordinate_min: Some(min), coordinate_max: Some(max), interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
+            key: format!("{key}:value:{:04}", outputs.len()),
+            batch: key.into(),
+            result_set: set.into(),
+            output: format!("{}:{symbol}:value", table.relation_id()),
+            partition: "0".into(),
+            start: origin
+                .checked_add(range.start as u64)
+                .ok_or_else(|| contract("trajectory row extent"))?,
+            end: origin
+                .checked_add(end as u64)
+                .ok_or_else(|| contract("trajectory row extent"))?,
+            coordinate_min: Some(min),
+            coordinate_max: Some(max),
+            interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
         });
     }
     Ok(outputs)
 }
 #[cfg(test)]
-fn trajectory_outputs(table: &FieldCheckedBatch, key: &str, set: &str, origin: u64, base: usize, rows: usize) -> Result<pse_columnar::Leased<Vec<Output>>, WorkflowError> {
-    let bytes = super::result_selection::trajectory_index_extent(rows).ok_or_else(|| contract("trajectory index extent"))?;
+fn trajectory_outputs(
+    table: &FieldCheckedBatch,
+    key: &str,
+    set: &str,
+    origin: u64,
+    base: usize,
+    rows: usize,
+) -> Result<pse_columnar::Leased<Vec<Output>>, WorkflowError> {
+    let bytes = super::result_selection::trajectory_index_extent(rows)
+        .ok_or_else(|| contract("trajectory index extent"))?;
     let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(bytes));
     let owner = MemoryConsumer::new("fixture:trajectory-index").register(&pool);
-    owner.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
+    owner
+        .try_grow(bytes)
+        .map_err(pse_engine::EngineError::from)?;
     let view = simulation_samples::View::from_checked(table).map_err(relation)?;
     let ranges = trajectory_ranges(&view, base, rows)?;
     let output = outputs_from_ranges(table, &view, &ranges, key, set, origin, base + rows)?;
-    Ok(pse_columnar::Leased::new(Arc::new(output), pse_columnar::AllocationLease::new(owner)))
+    Ok(pse_columnar::Leased::new(
+        Arc::new(output),
+        pse_columnar::AllocationLease::new(owner),
+    ))
 }
 
 async fn store_trajectory(
@@ -1082,7 +1138,8 @@ async fn store_trajectory(
     let owner = MemoryConsumer::new("canonical:trajectory-output-index").register(pool);
     // Bounded output descriptors and their encoded metadata coexist with the
     // original checked chunk, writer scratch and one self-contained IPC payload.
-    let scratch = super::result_selection::trajectory_index_extent(1024).ok_or_else(|| contract("trajectory index extent"))?;
+    let scratch = super::result_selection::trajectory_index_extent(1024)
+        .ok_or_else(|| contract("trajectory index extent"))?;
     if owner.try_grow(scratch).is_err() {
         queue.yield_optional().await?;
         owner
@@ -1096,7 +1153,8 @@ async fn store_trajectory(
         let key = result_batch_key(fence.attempt(), &set, *ordinal);
         let count = (table.batch().num_rows() - base).min(1024);
         let ranges = trajectory_ranges(&view, base, count)?;
-        let candidates = outputs_from_ranges(table, &view, &ranges, &key, &set, origin, base + count)?;
+        let candidates =
+            outputs_from_ranges(table, &view, &ranges, &key, &set, origin, base + count)?;
         let mut metadata = 4096_usize;
         let mut count = 0;
         for output in &candidates {
@@ -2292,26 +2350,54 @@ mod result_projection_unit {
         let registry = pse_schema::registry().unwrap();
         let validation = validation();
         let run_id = pse_operations::mint_id();
-        let mut builder = simulation_samples::Builder::with_registry(registry, 1027, &validation).unwrap();
+        let mut builder =
+            simulation_samples::Builder::with_registry(registry, 1027, &validation).unwrap();
         for index in 0..1027 {
-            builder.push(simulation_samples::Row { run_id, sample: index as i64, time: index as f64,
-                symbol_id: SemanticId::from_bytes([if index < 1023 { 1 } else { 2 }; 16]), quantity_id: SemanticId::NIL,
-                unit_id: SemanticId::NIL, value: -0. }).unwrap();
+            builder
+                .push(simulation_samples::Row {
+                    run_id,
+                    sample: index as i64,
+                    time: index as f64,
+                    symbol_id: SemanticId::from_bytes([if index < 1023 { 1 } else { 2 }; 16]),
+                    quantity_id: SemanticId::NIL,
+                    unit_id: SemanticId::NIL,
+                    value: -0.,
+                })
+                .unwrap();
         }
         let table = builder.finish().unwrap();
         let full = trajectory_outputs(&table, "block", "set", 50, 0, 1024).unwrap();
-        assert_eq!((full[0].start, full[0].end, full[1].start, full[1].end), (50, 1073, 1073, 1074));
+        assert_eq!(
+            (full[0].start, full[0].end, full[1].start, full[1].end),
+            (50, 1073, 1073, 1074)
+        );
         let next = trajectory_outputs(&table, "next", "set", 50, 1024, 3).unwrap();
         assert_eq!((next[0].start, next[0].end), (1074, 1077));
         let view = simulation_samples::View::from_checked(&table).unwrap();
         let ranges = trajectory_ranges(&view, 0, 1024).unwrap();
         let prefix = outputs_from_ranges(&table, &view, &ranges, "block", "set", 50, 1000).unwrap();
-        assert_eq!((prefix.len(), prefix[0].start, prefix[0].end), (1, 50, 1050));
-        assert_eq!((prefix[0].coordinate_min, prefix[0].coordinate_max), (Some(0.), Some(999.)));
-        let mut builder = simulation_samples::Builder::with_registry(registry, 3, &validation).unwrap();
+        assert_eq!(
+            (prefix.len(), prefix[0].start, prefix[0].end),
+            (1, 50, 1050)
+        );
+        assert_eq!(
+            (prefix[0].coordinate_min, prefix[0].coordinate_max),
+            (Some(0.), Some(999.))
+        );
+        let mut builder =
+            simulation_samples::Builder::with_registry(registry, 3, &validation).unwrap();
         for (index, symbol) in [1, 2, 1].into_iter().enumerate() {
-            builder.push(simulation_samples::Row { run_id, sample: index as i64, time: index as f64,
-                symbol_id: SemanticId::from_bytes([symbol; 16]), quantity_id: SemanticId::NIL, unit_id: SemanticId::NIL, value: 0. }).unwrap();
+            builder
+                .push(simulation_samples::Row {
+                    run_id,
+                    sample: index as i64,
+                    time: index as f64,
+                    symbol_id: SemanticId::from_bytes([symbol; 16]),
+                    quantity_id: SemanticId::NIL,
+                    unit_id: SemanticId::NIL,
+                    value: 0.,
+                })
+                .unwrap();
         }
         assert!(trajectory_outputs(&builder.finish().unwrap(), "bad", "set", 0, 0, 3).is_err());
     }

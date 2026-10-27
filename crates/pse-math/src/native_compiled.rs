@@ -192,8 +192,12 @@ fn run_compiler(
     let mut compiler = pse_diagnostics::SupervisedChild::spawn(
         &mut command,
         pse_diagnostics::DrainFailurePolicy::Park,
-        Some(pse_diagnostics::StderrCapture { bytes: CAPTURE, stack_bytes: READER_STACK }),
-    ).map_err(|error| MathError::Library(error.to_string()))?;
+        Some(pse_diagnostics::StderrCapture {
+            bytes: CAPTURE,
+            stack_bytes: READER_STACK,
+        }),
+    )
+    .map_err(|error| MathError::Library(error.to_string()))?;
     let observed = compiler.wait_ready(Some(scope.cancellation_control()), scope.deadline());
     // Always drain and join stderr before releasing temporary outputs, even
     // when the driver failed or left a live group member behind.

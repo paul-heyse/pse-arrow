@@ -172,12 +172,25 @@ pub(super) fn prepare_scientific_member(
     let name = relation.name;
     let owner = MemoryConsumer::new("canonical:prepared-scientific-member")
         .register(&runtime.shared.pool());
-    owner.try_grow(pse_columnar::ipc_file::writer_preparation_extent(batch.batch().schema().as_ref(), 1)
-        .map_err(pse_columnar::CanonError::from).map_err(pse_engine::EngineError::from)?)
+    owner
+        .try_grow(
+            pse_columnar::ipc_file::writer_preparation_extent(batch.batch().schema().as_ref(), 1)
+                .map_err(pse_columnar::CanonError::from)
+                .map_err(pse_engine::EngineError::from)?,
+        )
         .map_err(pse_engine::EngineError::from)?;
-    let extent = pse_columnar::ipc_file::writer_extent(std::slice::from_ref(batch.batch()), super::result_files::MAX_FILE_BYTES)
-        .map_err(pse_columnar::CanonError::from).map_err(pse_engine::EngineError::from)?;
-    owner.try_grow(extent.checked_sub(owner.size()).ok_or_else(|| contract("scientific writer extent"))?)
+    let extent = pse_columnar::ipc_file::writer_extent(
+        std::slice::from_ref(batch.batch()),
+        super::result_files::MAX_FILE_BYTES,
+    )
+    .map_err(pse_columnar::CanonError::from)
+    .map_err(pse_engine::EngineError::from)?;
+    owner
+        .try_grow(
+            extent
+                .checked_sub(owner.size())
+                .ok_or_else(|| contract("scientific writer extent"))?,
+        )
         .map_err(pse_engine::EngineError::from)?;
     if let Some(context) = pse_diagnostics::observation::current() {
         context.count("canonical.artifact.scientific_encodes", "count", 1);
@@ -388,7 +401,8 @@ impl ScientificArtifact {
             block.payload.as_slice(),
             schema,
             usize::try_from(block.rows).map_err(|_| contract("artifact row extent"))?,
-            self.runtime.shared.pool(), &cancel,
+            self.runtime.shared.pool(),
+            &cancel,
         )?;
         let decoded_owner = batch.working_owner;
         let batch = pse_relations::columnar::FieldCheckedBatch::admit_owned(

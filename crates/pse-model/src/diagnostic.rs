@@ -178,8 +178,17 @@ pub struct SourceLocation {
 impl SourceLocation {
     /// Owned string payload, excluding this inline location value.
     pub fn heap_bytes(&self) -> usize {
-        let Self { source: _, revision: _, document: _, occurrence_role,
-            occurrence_position: _, path, name, start: _, end: _ } = self;
+        let Self {
+            source: _,
+            revision: _,
+            document: _,
+            occurrence_role,
+            occurrence_position: _,
+            path,
+            name,
+            start: _,
+            end: _,
+        } = self;
         path.capacity()
             .saturating_add(name.as_ref().map_or(0, String::capacity))
             .saturating_add(occurrence_role.as_ref().map_or(0, String::capacity))
@@ -243,8 +252,17 @@ pub struct ValidityLineage {
 impl ValidityLineage {
     /// Owned heap extent.
     pub fn heap_bytes(&self) -> usize {
-        let Self { layer: _, source: _, form: _, sets, variables, members } = self;
-        sets.capacity().saturating_add(members.capacity()).saturating_mul(size_of::<SemanticId>())
+        let Self {
+            layer: _,
+            source: _,
+            form: _,
+            sets,
+            variables,
+            members,
+        } = self;
+        sets.capacity()
+            .saturating_add(members.capacity())
+            .saturating_mul(size_of::<SemanticId>())
             .saturating_add(variables.capacity().saturating_mul(size_of::<u32>()))
     }
 }
@@ -345,32 +363,63 @@ impl BoundaryDiagnostic {
 }
 impl crate::HeapUsage for BoundaryDiagnostic {
     fn heap_bytes(&self) -> usize {
-        let Self { code: _, causes, class: _, severity: _, stage: _, sources,
-            rule: _, observations, locations, validity, applicability } = self;
-        applicability.iter().fold(
-            applicability.capacity().saturating_mul(size_of::<crate::applicability::Observation>()),
-            |bytes, value| bytes.saturating_add(value.retained_bytes()),
-        ).saturating_add(causes.heap_bytes())
+        let Self {
+            code: _,
+            causes,
+            class: _,
+            severity: _,
+            stage: _,
+            sources,
+            rule: _,
+            observations,
+            locations,
+            validity,
+            applicability,
+        } = self;
+        applicability
+            .iter()
+            .fold(
+                applicability
+                    .capacity()
+                    .saturating_mul(size_of::<crate::applicability::Observation>()),
+                |bytes, value| bytes.saturating_add(value.retained_bytes()),
+            )
+            .saturating_add(causes.heap_bytes())
             .saturating_add(sources.heap_bytes())
             .saturating_add(observations.heap_bytes())
-            .saturating_add(locations.iter().fold(
-                locations.capacity().saturating_mul(size_of::<SourceLocation>()),
-                |bytes, value| bytes.saturating_add(value.heap_bytes()),
-            ))
+            .saturating_add(
+                locations.iter().fold(
+                    locations
+                        .capacity()
+                        .saturating_mul(size_of::<SourceLocation>()),
+                    |bytes, value| bytes.saturating_add(value.heap_bytes()),
+                ),
+            )
             .saturating_add(validity.as_ref().map_or(0, ValidityLineage::heap_bytes))
     }
 }
 impl crate::HeapUsage for Observation {
     fn heap_bytes(&self) -> usize {
         match self {
-            Self::Missing | Self::Real(_) | Self::Nonfinite(_) | Self::Physical(_)
-                | Self::Integer(_) | Self::Boolean(_) => 0,
+            Self::Missing
+            | Self::Real(_)
+            | Self::Nonfinite(_)
+            | Self::Physical(_)
+            | Self::Integer(_)
+            | Self::Boolean(_) => 0,
             Self::Text(value) => value.capacity(),
             Self::Contracts(contracts) => contracts.iter().fold(
-                contracts.capacity().saturating_mul(size_of::<OperandContract>()),
-                |bytes, value| bytes.saturating_add(
-                    value.indices.capacity().saturating_mul(size_of::<[[u8; 16]; 3]>()),
-                ),
+                contracts
+                    .capacity()
+                    .saturating_mul(size_of::<OperandContract>()),
+                |bytes, value| {
+                    bytes.saturating_add(
+                        value
+                            .indices
+                            .capacity()
+                            .saturating_mul(size_of::<[[u8; 16]; 3]>()),
+                    )
+                },
             ),
         }
     }

@@ -213,10 +213,14 @@ impl CasePlan {
         // Literal population is already node-budgeted. Prepay one peak scratch
         // extent before any finite, non-iterative exact conversion, rather than
         // growing the constructor once for every row's repeated literal.
-        let mut constant_scratch=0;
+        let mut constant_scratch = 0;
         for node in &program.nodes {
-            if cancel.load(Ordering::Relaxed) {return Err(MathError::Cancelled);}
-            if let Node::Const(value)=node {constant_scratch=constant_scratch.max(value.enclosure_bytes()?);}
+            if cancel.load(Ordering::Relaxed) {
+                return Err(MathError::Cancelled);
+            }
+            if let Node::Const(value) = node {
+                constant_scratch = constant_scratch.max(value.enclosure_bytes()?);
+            }
         }
         crate::construction::additional(constant_scratch)?;
         let lower: Vec<_> = program.variables.iter().map(|v| v.lower).collect();
@@ -466,7 +470,7 @@ fn single_column_sign(program: &FactorableProgram, node: NodeId) -> Option<(usiz
                 program.nodes.get(children[1])?,
             ) {
                 (Node::Const(k), Node::Var(c)) | (Node::Var(c), Node::Const(k)) => {
-                    k.shared_sign().map(|positive|(*c,positive))
+                    k.shared_sign().map(|positive| (*c, positive))
                 }
                 _ => None,
             }
@@ -487,7 +491,9 @@ fn tape(
     let mut reachable = BTreeSet::new();
     let mut stack = vec![root];
     while let Some(n) = stack.pop() {
-        if cancel.load(Ordering::Relaxed) {return Err(MathError::Cancelled);}
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
         if !reachable.insert(n) {
             continue;
         }
@@ -527,13 +533,15 @@ fn tape(
     // Node identities are topological: children precede their parents, and the root is
     // the largest reachable identity, so it is the tape result.
     for n in reachable {
-        if cancel.load(Ordering::Relaxed) {return Err(MathError::Cancelled);}
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
         let emitted = match &program.nodes[n] {
             Node::Var(c) => push(&mut ops, Op::Var(*c))?,
             Node::Aux(_) => push(&mut ops, Op::Opaque)?,
             Node::Const(c) => {
-                let (lo,hi)=c.enclosure()?;
-                push(&mut ops,Op::ConstInterval {lo,hi})?
+                let (lo, hi) = c.enclosure()?;
+                push(&mut ops, Op::ConstInterval { lo, hi })?
             }
             Node::Sum(children) | Node::Product(children) => {
                 let sum = matches!(program.nodes[n], Node::Sum(_));
@@ -542,7 +550,9 @@ fn tape(
                     .ok_or_else(|| MathError::Contract("empty projected operation".into()))?;
                 let mut acc = slot(&slots, first)?;
                 for child in rest {
-                    if cancel.load(Ordering::Relaxed) {return Err(MathError::Cancelled);}
+                    if cancel.load(Ordering::Relaxed) {
+                        return Err(MathError::Cancelled);
+                    }
                     let next = slot(&slots, child)?;
                     acc = push(
                         &mut ops,
@@ -559,14 +569,16 @@ fn tape(
                 let b = slot(&slots, base)?;
                 if exponent.is_exact_half() {
                     push(&mut ops, Op::Sqrt(b))?
-                } else if let Some(e)=exponent.small_integer() {
-                    let p = push(&mut ops, Op::PowInt(b,e.unsigned_abs()))?;
-                    if e<0 {
-                        let one=push(&mut ops,Op::Const(1.0))?;
-                        push(&mut ops,Op::Div(one,p))?
-                    } else {p}
+                } else if let Some(e) = exponent.small_integer() {
+                    let p = push(&mut ops, Op::PowInt(b, e.unsigned_abs()))?;
+                    if e < 0 {
+                        let one = push(&mut ops, Op::Const(1.0))?;
+                        push(&mut ops, Op::Div(one, p))?
+                    } else {
+                        p
+                    }
                 } else {
-                    push(&mut ops,Op::Opaque)?
+                    push(&mut ops, Op::Opaque)?
                 }
             }
             Node::Exp(i) => push(&mut ops, Op::Exp(slot(&slots, i)?))?,
@@ -629,7 +641,13 @@ mod tape_construction_tests {
         assert!(complete.first_invalid_slot().is_none());
         let mut insufficient = 255;
         assert!(matches!(
-            tape(&program, 1, &mut insufficient, false, &AtomicBool::new(false)),
+            tape(
+                &program,
+                1,
+                &mut insufficient,
+                false,
+                &AtomicBool::new(false)
+            ),
             Err(MathError::Limit("presolve tape extent"))
         ));
         assert_eq!(insufficient, 0);
@@ -639,63 +657,112 @@ mod tape_construction_tests {
 #[cfg(test)]
 mod rational_interval_tests {
     use super::*;
-    use crate::factorable::{Constant,Rational,tape_construction_fixture};
-    fn emit(nodes:Vec<Node>,root:usize)->FbbtTape {
-        let program=tape_construction_fixture(nodes);
-        tape(&program,root,&mut 4096,false,&AtomicBool::new(false)).unwrap()
+    use crate::factorable::{Constant, Rational, tape_construction_fixture};
+    fn emit(nodes: Vec<Node>, root: usize) -> FbbtTape {
+        let program = tape_construction_fixture(nodes);
+        tape(&program, root, &mut 4096, false, &AtomicBool::new(false)).unwrap()
     }
     #[test]
     fn exact_rational_leaf_prevents_amplified_cancellation_from_shrinking_enclosure() {
         // d=6004799503160661/2^54 is the nearest binary64 BELOW 1/3.
         // Therefore (1/3-d)*2^100 = 2^46/3, independently of this tape.
-        let d=6004799503160661.0/18014398509481984.0;
-        let tape=emit(vec![Node::Var(0),Node::Const(Constant::Rational(Rational::new(1,3))),Node::Sum(vec![0,1]),Node::Const(Constant::Float(2.0_f64.powi(100))),Node::Product(vec![2,3])],4);
-        let values=pounce_presolve::fbbt::forward_pass(&tape,&[-d],&[-d]).unwrap();
-        let range=pounce_presolve::fbbt::forward_result(&values);
-        let exact=Rational::from(1_i64<<46)/Rational::from(3);
-        assert!(Rational::try_from(range.lo).unwrap()<=exact);
-        assert!(Rational::try_from(range.hi).unwrap()>=exact);
-        assert!(range.hi>1.0e13);
+        let d = 6004799503160661.0 / 18014398509481984.0;
+        let tape = emit(
+            vec![
+                Node::Var(0),
+                Node::Const(Constant::Rational(Rational::new(1, 3))),
+                Node::Sum(vec![0, 1]),
+                Node::Const(Constant::Float(2.0_f64.powi(100))),
+                Node::Product(vec![2, 3]),
+            ],
+            4,
+        );
+        let values = pounce_presolve::fbbt::forward_pass(&tape, &[-d], &[-d]).unwrap();
+        let range = pounce_presolve::fbbt::forward_result(&values);
+        let exact = Rational::from(1_i64 << 46) / Rational::from(3);
+        assert!(Rational::try_from(range.lo).unwrap() <= exact);
+        assert!(Rational::try_from(range.hi).unwrap() >= exact);
+        assert!(range.hi > 1.0e13);
     }
     #[test]
     fn constant_interval_contains_exact_source_and_existing_double_rounded_projection() {
         // Numerator rounds up to2^53+4, denominator down to2^53, so
         // the existing two-conversion quotient is1+2ulp. The exact ratio is
         // strictly between1 and1+1ulp, with nearest image1+1ulp.
-        let exact=Rational::from((9007199254740995_i64,9007199254740993_i64));
-        let constant=Constant::Rational(exact.clone());
-        assert_eq!(constant.value().to_bits(),1.0_f64.to_bits()+2);
+        let exact = Rational::from((9007199254740995_i64, 9007199254740993_i64));
+        let constant = Constant::Rational(exact.clone());
+        assert_eq!(constant.value().to_bits(), 1.0_f64.to_bits() + 2);
         // This is the same source-owned map_coeff conversion consumed by
         // scalar, defined-scalar and Taylor floating evaluator construction.
-        use symbolica::atom::{Atom,AtomCore};
+        use symbolica::atom::{Atom, AtomCore};
         crate::initialize().unwrap();
-        let expression=Atom::num(exact.clone());
-        let mut numerical=expression.evaluator::<Atom>(&[]).build().unwrap().map_coeff(&|value|value.re.to_f64());
-        assert_eq!(numerical.evaluate_single(&[]).to_bits(),constant.value().to_bits());
-        assert_eq!(crate::rational_binary64::nearest(&exact).unwrap().to_bits(),1.0_f64.to_bits()+1);
-        let (lo,hi)=constant.enclosure().unwrap();
-        assert!(Rational::try_from(lo).unwrap()<=exact && exact<=Rational::try_from(hi).unwrap());
-        assert!(lo<=constant.value() && constant.value()<=hi);
+        let expression = Atom::num(exact.clone());
+        let mut numerical = expression
+            .evaluator::<Atom>(&[])
+            .build()
+            .unwrap()
+            .map_coeff(&|value| value.re.to_f64());
+        assert_eq!(
+            numerical.evaluate_single(&[]).to_bits(),
+            constant.value().to_bits()
+        );
+        assert_eq!(
+            crate::rational_binary64::nearest(&exact).unwrap().to_bits(),
+            1.0_f64.to_bits() + 1
+        );
+        let (lo, hi) = constant.enclosure().unwrap();
+        assert!(
+            Rational::try_from(lo).unwrap() <= exact && exact <= Rational::try_from(hi).unwrap()
+        );
+        assert!(lo <= constant.value() && constant.value() <= hi);
     }
     #[test]
     fn exact_exponent_dispatch_never_rounds_near_integer_or_half_into_supported_power() {
-        let epsilon=Rational::from((1_i64,1_i64<<54));
-        for exponent in [Rational::one()+&epsilon,Rational::new(1,2)+Rational::from((1_i64,1_i64<<56))] {
-            let tape=emit(vec![Node::Var(0),Node::Pow {base:0,exponent:Constant::Rational(exponent)}],1);
-            assert_eq!(tape.ops.last(),Some(&Op::Opaque));
+        let epsilon = Rational::from((1_i64, 1_i64 << 54));
+        for exponent in [
+            Rational::one() + &epsilon,
+            Rational::new(1, 2) + Rational::from((1_i64, 1_i64 << 56)),
+        ] {
+            let tape = emit(
+                vec![
+                    Node::Var(0),
+                    Node::Pow {
+                        base: 0,
+                        exponent: Constant::Rational(exponent),
+                    },
+                ],
+                1,
+            );
+            assert_eq!(tape.ops.last(), Some(&Op::Opaque));
         }
-        for (exponent,expected) in [(Rational::from(2),Op::PowInt(0,2)),(Rational::new(1,2),Op::Sqrt(0))] {
-            let tape=emit(vec![Node::Var(0),Node::Pow {base:0,exponent:Constant::Rational(exponent)}],1);
-            assert_eq!(tape.ops.last(),Some(&expected));
+        for (exponent, expected) in [
+            (Rational::from(2), Op::PowInt(0, 2)),
+            (Rational::new(1, 2), Op::Sqrt(0)),
+        ] {
+            let tape = emit(
+                vec![
+                    Node::Var(0),
+                    Node::Pow {
+                        base: 0,
+                        exponent: Constant::Rational(exponent),
+                    },
+                ],
+                1,
+            );
+            assert_eq!(tape.ops.last(), Some(&expected));
         }
     }
     #[test]
     fn underflowed_coefficient_cannot_fabricate_a_negative_hard_sign() {
         use symbolica::domains::integer::Integer;
-        let tiny=Rational::from((Integer::one(),Integer::from(2).pow(1200)));
-        let constant=Constant::Rational(tiny);
-        assert_eq!(constant.value(),0.0);
-        let program=tape_construction_fixture(vec![Node::Var(0),Node::Const(constant),Node::Product(vec![0,1])]);
-        assert_eq!(single_column_sign(&program,2),None);
+        let tiny = Rational::from((Integer::one(), Integer::from(2).pow(1200)));
+        let constant = Constant::Rational(tiny);
+        assert_eq!(constant.value(), 0.0);
+        let program = tape_construction_fixture(vec![
+            Node::Var(0),
+            Node::Const(constant),
+            Node::Product(vec![0, 1]),
+        ]);
+        assert_eq!(single_column_sign(&program, 2), None);
     }
 }

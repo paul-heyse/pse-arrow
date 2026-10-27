@@ -326,7 +326,11 @@ impl CaseIncidence {
                     .and_then(|edges| bytes.checked_add(edges))
             })
             .and_then(|bytes| bytes.checked_mul(2))
-            .and_then(|bytes| crate::dense::allocation_bound(rows, columns, contributions).ok().and_then(|dense| bytes.checked_add(dense)))
+            .and_then(|bytes| {
+                crate::dense::allocation_bound(rows, columns, contributions)
+                    .ok()
+                    .and_then(|dense| bytes.checked_add(dense))
+            })
             .and_then(|bytes| {
                 bytes.checked_add(
                     MATCHING_STACK
@@ -546,7 +550,12 @@ impl CaseIncidence {
             return Err(ProjectionError::Invalid("library equality coverage".into()));
         }
         let decomposition = crate::dense::decompose(&inc, cancel)?;
-        let crate::dense::DenseDecomposition { matching: m, partition: dm, blocks, dependencies } = decomposition;
+        let crate::dense::DenseDecomposition {
+            matching: m,
+            partition: dm,
+            blocks,
+            dependencies,
+        } = decomposition;
         let invalid = || ProjectionError::Invalid("library structural result invariant".into());
         // Library topological ordering with semantic tie breaks across components/blocks.
         let mut graph = petgraph::graph::DiGraph::<usize, ()>::new();

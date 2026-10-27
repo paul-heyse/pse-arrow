@@ -9,6 +9,8 @@ pub mod generated;
 /// Exact binary content (ADR-0125).
 mod bytes;
 pub use bytes::Bytes;
+/// Shared source-derived conservative container bounds.
+pub mod allocation;
 /// Source-attributed public failure structure.
 pub mod diagnostic;
 /// Versioned boundary documents (ADR-0116 Outcome 6).
@@ -27,8 +29,6 @@ pub mod numerics;
 pub mod scalars;
 /// Declared bounded numerical composition and consumed product contracts.
 pub mod strategy;
-/// Shared source-derived conservative container bounds.
-pub mod allocation;
 /// Pure occurrence, dependency and outcome facts shared by study executors.
 pub mod study;
 /// Effect-free study admission, candidate decisions and transition policy.
@@ -184,7 +184,11 @@ impl<K: Ord + HeapUsage, V: HeapUsage> HeapUsage for std::collections::BTreeMap<
     fn heap_bytes(&self) -> usize {
         self.iter().fold(
             allocation::btree_allocation_bound::<K, V>(self.len()).unwrap_or(usize::MAX),
-            |bytes, (key, value)| bytes.saturating_add(key.heap_bytes()).saturating_add(value.heap_bytes()),
+            |bytes, (key, value)| {
+                bytes
+                    .saturating_add(key.heap_bytes())
+                    .saturating_add(value.heap_bytes())
+            },
         )
     }
 }

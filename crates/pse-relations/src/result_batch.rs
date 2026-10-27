@@ -176,7 +176,11 @@ impl AdmittedResultFile {
             return Err(mismatch("bounded file batch inventory"));
         }
         let encoder = MemoryConsumer::new("relations:admitted-result-file").register(pool);
-        encoder.try_grow(pse_columnar::ipc_file::writer_preparation_extent(first.batch().schema().as_ref(), batches.len())?)
+        encoder
+            .try_grow(pse_columnar::ipc_file::writer_preparation_extent(
+                first.batch().schema().as_ref(),
+                batches.len(),
+            )?)
             .map_err(pse_columnar::CanonError::from)?;
         let native = batches
             .iter()
@@ -205,7 +209,12 @@ impl AdmittedResultFile {
             .map_err(pse_columnar::CanonError::from)?;
         let owner = AllocationLease::new(owner);
         let extent = pse_columnar::ipc_file::writer_extent(&native, byte_limit)?;
-        encoder.try_grow(extent.checked_sub(encoder.size()).ok_or_else(|| mismatch("complete writer preparation extent"))?)
+        encoder
+            .try_grow(
+                extent
+                    .checked_sub(encoder.size())
+                    .ok_or_else(|| mismatch("complete writer preparation extent"))?,
+            )
             .map_err(pse_columnar::CanonError::from)?;
         let mut facts = Vec::with_capacity(batches.len());
         for batch in batches {
@@ -644,7 +653,13 @@ mod tests {
         assert_eq!(encoded._encoded.size(), capacity);
         assert_eq!(pool.reserved(), source_extent + capacity + facts_extent);
         let reuse = MemoryConsumer::new("test:released-encoder-scratch").register(&pool);
-        reuse.try_grow(pse_columnar::ipc_file::writer_extent(&[source.batch().clone()], byte_limit).unwrap() - capacity).unwrap();
+        reuse
+            .try_grow(
+                pse_columnar::ipc_file::writer_extent(&[source.batch().clone()], byte_limit)
+                    .unwrap()
+                    - capacity,
+            )
+            .unwrap();
         drop(reuse);
 
         let reader_owner = encoded.clone();

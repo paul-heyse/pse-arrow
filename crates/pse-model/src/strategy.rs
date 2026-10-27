@@ -616,21 +616,48 @@ fn unique<T: Ord>(values: &[T], reason: &str) -> Result<(), ModelError> {
 }
 impl HeapUsage for NumericalStrategy {
     fn heap_bytes(&self) -> usize {
-        let Self { start, branch: _, mechanisms, limits: _ } = self;
-        let StartRules { policy: _, recovery } = start;
+        let Self {
+            start,
+            branch: _,
+            mechanisms,
+            limits: _,
+        } = self;
+        let StartRules {
+            policy: _,
+            recovery,
+        } = start;
         mechanisms.iter().fold(
-            recovery.capacity().saturating_mul(size_of::<StartOrigin>())
+            recovery
+                .capacity()
+                .saturating_mul(size_of::<StartOrigin>())
                 .saturating_add(mechanisms.capacity().saturating_mul(size_of::<Mechanism>())),
             |bytes, mechanism| {
-                let Mechanism { kind: _, position: _, required: _, profile: _, support,
-                    operation, limits: _, starts, transitions } = mechanism;
+                let Mechanism {
+                    kind: _,
+                    position: _,
+                    required: _,
+                    profile: _,
+                    support,
+                    operation,
+                    limits: _,
+                    starts,
+                    transitions,
+                } = mechanism;
                 let OperationContract { inputs, outputs } = operation;
                 bytes
                     .saturating_add(inputs.capacity().saturating_mul(size_of::<ProductDemand>()))
-                    .saturating_add(outputs.capacity().saturating_mul(size_of::<ProductionDemand>()))
+                    .saturating_add(
+                        outputs
+                            .capacity()
+                            .saturating_mul(size_of::<ProductionDemand>()),
+                    )
                     .saturating_add(support.capacity().saturating_mul(size_of::<ContentHash>()))
                     .saturating_add(starts.capacity().saturating_mul(size_of::<StartOrigin>()))
-                    .saturating_add(transitions.capacity().saturating_mul(size_of::<Transition>()))
+                    .saturating_add(
+                        transitions
+                            .capacity()
+                            .saturating_mul(size_of::<Transition>()),
+                    )
             },
         )
     }

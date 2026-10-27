@@ -85,11 +85,16 @@ impl<'a> ConcurrentAdmission<'a> {
             match lock.try_lock() {
                 Ok(gate) => Ok(Some(gate)),
                 Err(TryLockError::WouldBlock) => Ok(None),
-                Err(TryLockError::Poisoned(_)) => Err(ProblemError::internal("SCIP concurrent process owner poisoned")),
+                Err(TryLockError::Poisoned(_)) => Err(ProblemError::internal(
+                    "SCIP concurrent process owner poisoned",
+                )),
             }
         })?;
         CONCURRENT_ACTIVE.set(true);
-        Ok(Self { _gate: Some(gate), failed })
+        Ok(Self {
+            _gate: Some(gate),
+            failed,
+        })
     }
 }
 fn check_concurrent_health(failed: &AtomicBool) -> Result<(), ProblemError> {

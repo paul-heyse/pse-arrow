@@ -36,7 +36,9 @@ impl<T: ?Sized> std::ops::Deref for Leased<T> {
     }
 }
 impl<T: ?Sized> AsRef<T> for Leased<T> {
-    fn as_ref(&self) -> &T { &self.value }
+    fn as_ref(&self) -> &T {
+        &self.value
+    }
 }
 
 /// Immutable ownership of pre-admitted native capacity. Shared buffers retain this

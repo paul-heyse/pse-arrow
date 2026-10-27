@@ -3,12 +3,18 @@
 
 //! Shared representation guards used before Arrow's infallible schema conversion
 //! and array constructors. Registry meaning and scientific lineage are caller owned.
-use arrow::{datatypes::{DataType, Schema}, error::ArrowError, ipc};
+use arrow::{
+    datatypes::{DataType, Schema},
+    error::ArrowError,
+    ipc,
+};
 const MAX_REPRESENTATION_BYTES: usize = 32 * 1024 * 1024;
 const MAX_VALUES: usize = MAX_REPRESENTATION_BYTES;
 const MAX_DEPTH: usize = 64;
 const MAX_FIELDS: usize = 16 * 1024;
-fn invalid(message: &'static str) -> ArrowError { ArrowError::InvalidArgumentError(message.into()) }
+fn invalid(message: &'static str) -> ArrowError {
+    ArrowError::InvalidArgumentError(message.into())
+}
 /// Check native type support and bounded traversal before writing or decoding.
 /// # Errors
 /// Unsupported types or excessive depth/field count.
@@ -38,12 +44,10 @@ pub fn trusted_shape(ty: &DataType, depth: usize, count: &mut usize) -> Result<(
         | DataType::Date32
         | DataType::Date64
         | DataType::Time32(
-            arrow::datatypes::TimeUnit::Second
-            | arrow::datatypes::TimeUnit::Millisecond,
+            arrow::datatypes::TimeUnit::Second | arrow::datatypes::TimeUnit::Millisecond,
         )
         | DataType::Time64(
-            arrow::datatypes::TimeUnit::Microsecond
-            | arrow::datatypes::TimeUnit::Nanosecond,
+            arrow::datatypes::TimeUnit::Microsecond | arrow::datatypes::TimeUnit::Nanosecond,
         )
         | DataType::Timestamp(_, _)
         | DataType::Duration(_)
@@ -83,9 +87,7 @@ pub fn schema_field(
         || field.dictionary().is_some()
         || field.type_().is_none()
     {
-        return Err(invalid(
-            "schema complexity/dictionary/type",
-        ));
+        return Err(invalid("schema complexity/dictionary/type"));
     }
     let children = field.children();
     let child_count = children.map_or(0, |c| c.len());
@@ -159,9 +161,7 @@ pub fn schema_field(
         _ => false,
     };
     if !valid {
-        return Err(invalid(
-            "invalid or unsupported schema type",
-        ));
+        return Err(invalid("invalid or unsupported schema type"));
     }
     if let Some(children) = children {
         for child in children {
@@ -193,12 +193,9 @@ pub fn layout(
     buffer: &mut usize,
     expected: Option<usize>,
 ) -> Result<(), ArrowError> {
-    let field = nodes
-        .get(*node)
-        .ok_or(invalid("missing layout node"))?;
+    let field = nodes.get(*node).ok_or(invalid("missing layout node"))?;
     *node += 1;
-    let n = usize::try_from(field.length())
-        .map_err(|_| invalid("negative layout length"))?;
+    let n = usize::try_from(field.length()).map_err(|_| invalid("negative layout length"))?;
     if expected.is_some_and(|v| n != v) {
         return Err(invalid("nested field length"));
     }

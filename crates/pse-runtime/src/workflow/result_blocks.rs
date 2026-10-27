@@ -51,7 +51,11 @@ impl pse_diagnostics::TypedDiagnostic for ResultBlockError {
     }
 }
 
-fn encode_block(batch: &RecordBatch, purpose: Purpose, working: &pse_columnar::MemoryReservation) -> Result<Vec<u8>, ResultBlockError> {
+fn encode_block(
+    batch: &RecordBatch,
+    purpose: Purpose,
+    working: &pse_columnar::MemoryReservation,
+) -> Result<Vec<u8>, ResultBlockError> {
     if batch.num_rows() > MAX_ROWS || batch.num_columns() > MAX_FIELDS {
         return Err(ResultBlockError::Invalid("batch shape exceeds bound"));
     }
@@ -90,8 +94,11 @@ fn encode_block(batch: &RecordBatch, purpose: Purpose, working: &pse_columnar::M
     // The file envelope also covers the stream writer (with a conservative
     // unused footer allowance). Arrow 59.3 borrows body buffers; generated and
     // shifted bitmaps, rebased offsets and output reallocation remain prepaid.
-    let extent = pse_columnar::ipc_file::writer_extent(std::slice::from_ref(batch), purpose.bytes())?;
-    working.try_grow(extent.saturating_sub(working.size())).map_err(pse_columnar::CanonError::from)?;
+    let extent =
+        pse_columnar::ipc_file::writer_extent(std::slice::from_ref(batch), purpose.bytes())?;
+    working
+        .try_grow(extent.saturating_sub(working.size()))
+        .map_err(pse_columnar::CanonError::from)?;
     let mut writer = pse_ids::BoundedSink::new(Vec::new(), purpose.bytes());
     {
         let mut stream = StreamWriter::try_new(&mut writer, batch.schema().as_ref())?;
@@ -103,7 +110,10 @@ fn encode_block(batch: &RecordBatch, purpose: Purpose, working: &pse_columnar::M
 
 fn can_split(error: &ResultBlockError) -> bool {
     matches!(error, ResultBlockError::LimitReached(_))
-        || matches!(pse_ids::sink_failure(error), Some(pse_ids::SinkFailure::LimitReached { .. }))
+        || matches!(
+            pse_ids::sink_failure(error),
+            Some(pse_ids::SinkFailure::LimitReached { .. })
+        )
         || pse_ids::error_payload::<pse_columnar::ipc_file::ValueLimit>(error).is_some()
 }
 
@@ -120,8 +130,15 @@ where
     Fut: Future<Output = Result<(), E>>,
     E: From<ResultBlockError>,
 {
-    let working = pse_columnar::MemoryConsumer::new("canonical:source-stream-writer").register(pool);
-    working.try_grow(pse_columnar::ipc_file::writer_preparation_extent(batch.schema().as_ref(), 1).map_err(ResultBlockError::from)?).map_err(pse_columnar::CanonError::from).map_err(ResultBlockError::from)?;
+    let working =
+        pse_columnar::MemoryConsumer::new("canonical:source-stream-writer").register(pool);
+    working
+        .try_grow(
+            pse_columnar::ipc_file::writer_preparation_extent(batch.schema().as_ref(), 1)
+                .map_err(ResultBlockError::from)?,
+        )
+        .map_err(pse_columnar::CanonError::from)
+        .map_err(ResultBlockError::from)?;
     visit_blocks_async(batch, &mut visitor, Purpose::CanonicalSource, &working).await
 }
 
@@ -159,7 +176,9 @@ pub(super) fn visible_size(
     data: &ArrayData,
     values: &mut usize,
 ) -> Result<usize, ResultBlockError> {
-    Ok(pse_columnar::ipc_file::visible_size(data, values, MAX_VALUES)?)
+    Ok(pse_columnar::ipc_file::visible_size(
+        data, values, MAX_VALUES,
+    )?)
 }
 
 // Include conservative FlatBuffer table/offset/alignment storage before Arrow
@@ -231,33 +250,51 @@ mod source_stream_unit {
     fn arrow_wrapped_limits_are_splittable_but_cancellation_and_io_are_not() {
         use std::io::Write;
         let mut bounded = pse_ids::BoundedSink::new(Vec::new(), 0);
-        let error = StreamWriter::try_new(&mut bounded, &Schema::empty()).err().expect("zero bound refuses schema");
+        let error = StreamWriter::try_new(&mut bounded, &Schema::empty())
+            .err()
+            .expect("zero bound refuses schema");
         assert!(can_split(&ResultBlockError::Arrow(error)));
-        let mut cancelled = pse_ids::BoundedSink::new(Vec::new(), 0).with_checkpoint(|| {
-            Err(std::io::Error::other(pse_diagnostics::WorkError::Cancelled))
-        });
-        let error = StreamWriter::try_new(&mut cancelled, &Schema::empty()).err().expect("checkpoint refuses schema");
-        assert!(matches!(pse_ids::error_payload::<pse_diagnostics::WorkError>(&error), Some(pse_diagnostics::WorkError::Cancelled)));
+        let mut cancelled = pse_ids::BoundedSink::new(Vec::new(), 0)
+            .with_checkpoint(|| Err(std::io::Error::other(pse_diagnostics::WorkError::Cancelled)));
+        let error = StreamWriter::try_new(&mut cancelled, &Schema::empty())
+            .err()
+            .expect("checkpoint refuses schema");
+        assert!(matches!(
+            pse_ids::error_payload::<pse_diagnostics::WorkError>(&error),
+            Some(pse_diagnostics::WorkError::Cancelled)
+        ));
         assert!(!can_split(&ResultBlockError::Arrow(error)));
         #[derive(Debug)]
         struct Broken;
         impl Write for Broken {
-            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> { Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)) }
-            fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
         }
         let mut broken = pse_ids::BoundedSink::new(Broken, 4096);
-        let error = StreamWriter::try_new(&mut broken, &Schema::empty()).err().expect("inner I/O fails");
+        let error = StreamWriter::try_new(&mut broken, &Schema::empty())
+            .err()
+            .expect("inner I/O fails");
         assert!(!can_split(&ResultBlockError::Arrow(error)));
     }
     #[tokio::test]
     async fn canonical_source_writer_refuses_before_visiting_without_prepaid_working_storage() {
-        let batch = RecordBatch::new_empty(Arc::new(Schema::new(vec![Field::new("value", DataType::Float64, false)])));
-        let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(0));
+        let batch = RecordBatch::new_empty(Arc::new(Schema::new(vec![Field::new(
+            "value",
+            DataType::Float64,
+            false,
+        )])));
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(0));
         let mut visited = false;
         let result = visit_source_blocks_async(&batch, &pool, |_, _, _| {
             visited = true;
             std::future::ready(Ok::<_, ResultBlockError>(()))
-        }).await;
+        })
+        .await;
         assert!(matches!(result, Err(ResultBlockError::Columnar(_))));
         assert!(!visited);
         assert_eq!(pool.reserved(), 0);
@@ -277,7 +314,8 @@ mod source_stream_unit {
         )
         .unwrap();
         let mut covered = 0;
-        let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(32 * 1024 * 1024));
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(32 * 1024 * 1024));
         visit_source_blocks_async(&source, &pool, |start, rows, bytes| {
             std::future::ready((|| {
                 assert_eq!(start, covered);

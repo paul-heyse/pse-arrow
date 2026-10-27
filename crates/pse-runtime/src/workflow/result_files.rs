@@ -5,10 +5,7 @@
 //! separate owners; this codec checks representation before Arrow allocates.
 
 use super::result_blocks::{self, ResultBlockError};
-use datafusion::arrow::{
-    datatypes::SchemaRef,
-    record_batch::RecordBatch,
-};
+use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
 /// Native IPC reads retain either the protected physical owner or the charged inline bytes.
@@ -127,7 +124,10 @@ pub(super) fn batch_extent(batch: &RecordBatch) -> Result<usize, ResultBlockErro
 
 fn splittable(error: &ResultBlockError) -> bool {
     matches!(error, ResultBlockError::LimitReached(_))
-        || matches!(pse_ids::sink_failure(error), Some(pse_ids::SinkFailure::LimitReached { .. }))
+        || matches!(
+            pse_ids::sink_failure(error),
+            Some(pse_ids::SinkFailure::LimitReached { .. })
+        )
         || pse_ids::error_payload::<pse_columnar::ipc_file::ValueLimit>(error).is_some()
 }
 
@@ -137,13 +137,24 @@ fn invalid(message: &'static str) -> ResultBlockError {
 /// One columnar-owned admitted footer/schema/block inventory, with no stock
 /// FileReader or second footer read. Registry equality is selected by this caller.
 pub(super) fn open_file_reader<R: Read + Seek>(
-    reader: R, expected: &SchemaRef, count: Option<usize>,
-    pool: std::sync::Arc<dyn pse_columnar::MemoryPool>, cancel: &pse_columnar::CancellationToken,
+    reader: R,
+    expected: &SchemaRef,
+    count: Option<usize>,
+    pool: std::sync::Arc<dyn pse_columnar::MemoryPool>,
+    cancel: &pse_columnar::CancellationToken,
 ) -> Result<pse_columnar::ipc_file::AdmittedFile<R>, ResultBlockError> {
     #[cfg(test)]
     PREFLIGHT_CALLS.with(|count| count.set(count.get() + 1));
-    let file = pse_columnar::ipc_file::AdmittedFile::open(reader, expected.clone(), MAX_FILE_BYTES, pool, cancel)?;
-    if count.is_some_and(|count| count != file.len()) { return Err(invalid("sealed file batch count differs")); }
+    let file = pse_columnar::ipc_file::AdmittedFile::open(
+        reader,
+        expected.clone(),
+        MAX_FILE_BYTES,
+        pool,
+        cancel,
+    )?;
+    if count.is_some_and(|count| count != file.len()) {
+        return Err(invalid("sealed file batch count differs"));
+    }
     Ok(file)
 }
 
@@ -177,11 +188,31 @@ mod result_files_unit {
     fn fixture_pool() -> Arc<dyn pse_columnar::MemoryPool> {
         Arc::new(pse_columnar::GreedyMemoryPool::new(512 << 20))
     }
-    fn open_file_reader<R: Read + Seek>(reader: R, schema: &SchemaRef, count: Option<usize>) -> Result<pse_columnar::ipc_file::AdmittedFile<R>, ResultBlockError> {
-        super::open_file_reader(reader, schema, count, fixture_pool(), &pse_columnar::CancellationToken::new())
+    fn open_file_reader<R: Read + Seek>(
+        reader: R,
+        schema: &SchemaRef,
+        count: Option<usize>,
+    ) -> Result<pse_columnar::ipc_file::AdmittedFile<R>, ResultBlockError> {
+        super::open_file_reader(
+            reader,
+            schema,
+            count,
+            fixture_pool(),
+            &pse_columnar::CancellationToken::new(),
+        )
     }
-    fn decode_result_file(bytes: &[u8], schema: SchemaRef, rows: usize) -> Result<pse_columnar::ipc_file::DecodedFileBatch, ResultBlockError> {
-        super::decode_result_file(bytes, schema, rows, fixture_pool(), &pse_columnar::CancellationToken::new())
+    fn decode_result_file(
+        bytes: &[u8],
+        schema: SchemaRef,
+        rows: usize,
+    ) -> Result<pse_columnar::ipc_file::DecodedFileBatch, ResultBlockError> {
+        super::decode_result_file(
+            bytes,
+            schema,
+            rows,
+            fixture_pool(),
+            &pse_columnar::CancellationToken::new(),
+        )
     }
     fn batch(bits: &[u64]) -> RecordBatch {
         let schema = Arc::new(Schema::new_with_metadata(
@@ -210,7 +241,9 @@ mod result_files_unit {
         for (index, expected) in [first, second].iter().enumerate() {
             let mut reader =
                 open_file_reader(Cursor::new(&bytes), &expected.schema(), Some(2)).unwrap();
-            let actual = reader.read_batch(index, &pse_columnar::CancellationToken::new()).unwrap();
+            let actual = reader
+                .read_batch(index, &pse_columnar::CancellationToken::new())
+                .unwrap();
             assert_eq!(actual.num_rows(), expected.num_rows());
             assert_eq!(actual.schema(), expected.schema());
             let actual = actual
@@ -236,8 +269,7 @@ mod result_files_unit {
                     .collect::<Vec<_>>()
             );
         }
-        let reader =
-            open_file_reader(Cursor::new(&bytes), &batch(&[]).schema(), Some(2)).unwrap();
+        let reader = open_file_reader(Cursor::new(&bytes), &batch(&[]).schema(), Some(2)).unwrap();
         assert!(reader.check_index(2).is_err());
     }
 
@@ -315,7 +347,9 @@ mod result_files_unit {
         let length = bytes.len();
         bytes[length - 10..length - 6].copy_from_slice(&i32::MAX.to_le_bytes());
         let mut reader = Observed(Cursor::new(bytes), 0);
-        let error = open_file_reader(&mut reader, &source.schema(), None).err().expect("corrupt footer refused");
+        let error = open_file_reader(&mut reader, &source.schema(), None)
+            .err()
+            .expect("corrupt footer refused");
         assert!(error.to_string().contains("footer outside actual file"));
         assert_eq!(reader.1, 10);
     }
@@ -344,7 +378,14 @@ mod result_files_unit {
         let source = batch(&[0, 1 << 63, 0x7ff8_0000_0000_0042]);
         let bytes = encode_result_file(&source).unwrap();
         let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
-        let batch = super::decode_result_file(&bytes, source.schema(), 3, pool.clone(), &pse_columnar::CancellationToken::new()).unwrap();
+        let batch = super::decode_result_file(
+            &bytes,
+            source.schema(),
+            3,
+            pool.clone(),
+            &pse_columnar::CancellationToken::new(),
+        )
+        .unwrap();
         let escaped = batch.column(0).slice(1, 2);
         drop(batch);
         drop(bytes);
@@ -358,5 +399,4 @@ mod result_files_unit {
         drop(escaped);
         assert_eq!(pool.reserved(), 0);
     }
-
 }

@@ -315,23 +315,41 @@ fn sundials_790_reinit_clears_attached_linear_counts_before_new_steps() {
     let mut workspace = IdasWorkspace::default();
     let selected = profile(DynamicSensitivity::None);
     let report = integrate_with_workspace_observed(
-        &mut source, &selected, &[1.], &execution, &snapshot, &mut workspace,
-    ).unwrap();
+        &mut source,
+        &selected,
+        &[1.],
+        &execution,
+        &snapshot,
+        &mut workspace,
+    )
+    .unwrap();
     assert_eq!(report.termination, Termination::Completed);
     let held = &mut workspace.held.as_mut().unwrap().1;
     let mut prior = 0;
     // SAFETY: idle session retains initialized IDAS and its attached KLU interface.
     assert_eq!(unsafe { ffi::IDAGetNumJacEvals(held.mem, &mut prior) }, 0);
-    assert!(prior > 0, "the completed solve must establish nonzero old linear work");
+    assert!(
+        prior > 0,
+        "the completed solve must establish nonzero old linear work"
+    );
     // SAFETY: live exclusively owned vectors of the original state extent; ReInit
     // copies them and resets counters without invoking the detached callback.
-    assert_eq!(unsafe { ffi::IDAReInit(held.mem, selected.start, held.y, held.dy) }, 0);
+    assert_eq!(
+        unsafe { ffi::IDAReInit(held.mem, selected.start, held.y, held.dy) },
+        0
+    );
     let mut current = -1;
     // SAFETY: the same idle memory and scalar out pointer remain live.
     assert_eq!(unsafe { ffi::IDAGetNumJacEvals(held.mem, &mut current) }, 0);
-    assert_eq!(current, 0, "7.9 resets the attached linear counter at ReInit");
+    assert_eq!(
+        current, 0,
+        "7.9 resets the attached linear counter at ReInit"
+    );
     // SAFETY: read-only query of this reinitialized memory into the scalar local.
-    assert_eq!(unsafe { ffi::IDAGetNumConstraintFails(held.mem, &mut current) }, 0);
+    assert_eq!(
+        unsafe { ffi::IDAGetNumConstraintFails(held.mem, &mut current) },
+        0
+    );
     assert_eq!(current, 0);
 }
 #[test]

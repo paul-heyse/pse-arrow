@@ -257,7 +257,8 @@ impl TangentWorkspace {
         if !compatible {
             self.storage = None;
             let symbolic = crate::sparse_lu::symbolic(pattern, "arclength.faer.symbolic")?;
-            let (memory, scratch_bytes) = crate::sparse_lu::scratch(&symbolic, 1, Par::Seq, bytes / 2, true)?;
+            let (memory, scratch_bytes) =
+                crate::sparse_lu::scratch(&symbolic, 1, Par::Seq, bytes / 2, true)?;
             self.storage = Some(TangentStorage {
                 family,
                 pattern: pattern.to_owned().map_err(sparse_error)?,
@@ -307,8 +308,15 @@ pub fn tangent<O: ParameterizedOracle<Error = ProblemError>>(
         execution.check()?;
         work.factorizations += 1;
         crate::observation::boolean("arclength.faer.factor.valid", false);
-        let factored = crate::sparse_lu::factor(symbolic, numeric, matrix.as_ref(), Par::Seq, memory,
-            crate::sparse_lu::Qualification::Unqualified, "arclength.faer.factor");
+        let factored = crate::sparse_lu::factor(
+            symbolic,
+            numeric,
+            matrix.as_ref(),
+            Par::Seq,
+            memory,
+            crate::sparse_lu::Qualification::Unqualified,
+            "arclength.faer.factor",
+        );
         crate::observation::boolean("arclength.faer.factor.valid", factored.is_ok());
         crate::observation::count(
             if factored.is_ok() {
@@ -323,7 +331,15 @@ pub fn tangent<O: ParameterizedOracle<Error = ProblemError>>(
         let mut x = Mat::zeros(d, 1);
         x[(d - 1, 0)] = 1.;
         work.backsolves += 1;
-        crate::sparse_lu::solve(symbolic, numeric, Conj::No, x.as_mut(), Par::Seq, memory, "arclength.faer.solve")?;
+        crate::sparse_lu::solve(
+            symbolic,
+            numeric,
+            Conj::No,
+            x.as_mut(),
+            Par::Seq,
+            memory,
+            "arclength.faer.solve",
+        )?;
         execution.check()?;
         if x.col(0).iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::numerical(

@@ -2798,12 +2798,22 @@ impl Streamer {
                                 .checked_add(1)
                                 .ok_or(super::ProgressWriteStage::Acknowledgment {})?;
                         }
-                        Err(ref error) if matches!(pse_ids::sink_failure(error), Some(pse_ids::SinkFailure::LimitReached { .. })) && end - start > 1 => {
+                        Err(ref error)
+                            if matches!(
+                                pse_ids::sink_failure(error),
+                                Some(pse_ids::SinkFailure::LimitReached { .. })
+                            ) && end - start > 1 =>
+                        {
                             let middle = start + (end - start) / 2;
                             ranges.push_front((middle, end));
                             ranges.push_front((start, middle));
                         }
-                        Err(ref error) if matches!(pse_ids::sink_failure(error), Some(pse_ids::SinkFailure::LimitReached { .. })) => {
+                        Err(ref error)
+                            if matches!(
+                                pse_ids::sink_failure(error),
+                                Some(pse_ids::SinkFailure::LimitReached { .. })
+                            ) =>
+                        {
                             return Err(super::ProgressWriteStage::Encoding {});
                         }
                         Err(_) => return Err(super::ProgressWriteStage::Encoding {}),

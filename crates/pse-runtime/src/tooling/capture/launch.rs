@@ -57,52 +57,82 @@ pub struct LaunchedCommand {
     locator: ProcessLocator,
 }
 impl LaunchedCommand {
-    pub(crate) fn take_stdout(&mut self) -> Option<std::process::ChildStdout> { self.child.take_stdout() }
-    pub(crate) fn take_stderr(&mut self) -> Option<std::process::ChildStderr> { self.child.take_stderr() }
-    pub(crate) fn retained_status(&self) -> Option<ExitStatus> { self.child.retained_status() }
+    pub(crate) fn take_stdout(&mut self) -> Option<std::process::ChildStdout> {
+        self.child.take_stdout()
+    }
+    pub(crate) fn take_stderr(&mut self) -> Option<std::process::ChildStderr> {
+        self.child.take_stderr()
+    }
+    pub(crate) fn retained_status(&self) -> Option<ExitStatus> {
+        self.child.retained_status()
+    }
     /// Exact launched process identity, retained independently of optional diagnostics.
-    pub fn locator(&self) -> &ProcessLocator { &self.locator }
+    pub fn locator(&self) -> &ProcessLocator {
+        &self.locator
+    }
     /// Reap an already completed command after independently proving owned group drain.
     pub fn try_wait(&mut self) -> Result<Option<i32>, CaptureError> {
-        self.child.try_wait().map(|status|status.map(code)).map_err(supervision_error)
+        self.child
+            .try_wait()
+            .map(|status| status.map(code))
+            .map_err(supervision_error)
     }
     /// Wait on the verified leader descriptor using one original interval deadline.
-    pub fn wait_ready(&mut self, interval:Duration) -> Result<Option<i32>,CaptureError> {
-        if let Some(status)=self.try_wait()? {return Ok(Some(status));}
-        let deadline=Instant::now().checked_add(interval).ok_or_else(||CaptureError::Invalid("launch wait deadline extent".into()))?;
-        match self.child.wait_ready(None,Some(deadline)) {
-            Ok(())=>self.try_wait(),
-            Err(pse_diagnostics::SupervisionError::Deadline)=>Ok(None),
-            Err(error)=>Err(supervision_error(error)),
+    pub fn wait_ready(&mut self, interval: Duration) -> Result<Option<i32>, CaptureError> {
+        if let Some(status) = self.try_wait()? {
+            return Ok(Some(status));
+        }
+        let deadline = Instant::now()
+            .checked_add(interval)
+            .ok_or_else(|| CaptureError::Invalid("launch wait deadline extent".into()))?;
+        match self.child.wait_ready(None, Some(deadline)) {
+            Ok(()) => self.try_wait(),
+            Err(pse_diagnostics::SupervisionError::Deadline) => Ok(None),
+            Err(error) => Err(supervision_error(error)),
         }
     }
     /// Wait for leader completion and exact process-group drain.
-    pub fn wait(&mut self)->Result<i32,CaptureError> {self.child.wait().map(code).map_err(supervision_error)}
+    pub fn wait(&mut self) -> Result<i32, CaptureError> {
+        self.child.wait().map(code).map_err(supervision_error)
+    }
     /// Stop this owned command independently of CPU capture.
-    pub fn cancel(&mut self)->Result<i32,CaptureError> {self.child.cancel().map(code).map_err(supervision_error)}
+    pub fn cancel(&mut self) -> Result<i32, CaptureError> {
+        self.child.cancel().map(code).map_err(supervision_error)
+    }
     /// End command ownership; a live command is cancelled and reaped.
-    pub fn close(&mut self)->Result<i32,CaptureError> {self.cancel()}
-}
-fn supervision_error(error:pse_diagnostics::SupervisionError)->CaptureError {
-    match error {
-        pse_diagnostics::SupervisionError::Io(error)=>CaptureError::Io(error),
-        error=>CaptureError::Invalid(error.to_string()),
+    pub fn close(&mut self) -> Result<i32, CaptureError> {
+        self.cancel()
     }
 }
-fn code(status:ExitStatus)->i32 {
+fn supervision_error(error: pse_diagnostics::SupervisionError) -> CaptureError {
+    match error {
+        pse_diagnostics::SupervisionError::Io(error) => CaptureError::Io(error),
+        error => CaptureError::Invalid(error.to_string()),
+    }
+}
+fn code(status: ExitStatus) -> i32 {
     use std::os::unix::process::ExitStatusExt;
-    status.code().unwrap_or_else(||128+status.signal().unwrap_or(0))
+    status
+        .code()
+        .unwrap_or_else(|| 128 + status.signal().unwrap_or(0))
 }
 /// Establish shared verified group ownership with the existing diagnostic drain bound.
-pub(crate) fn spawn_owned_command(command:&mut Command)->Result<LaunchedCommand,CaptureError> {
-    let child=pse_diagnostics::SupervisedChild::spawn(command,pse_diagnostics::DrainFailurePolicy::Refuse(Duration::from_secs(3)),None).map_err(supervision_error)?;
-    let identity=child.identity().ok_or_else(||CaptureError::Invalid("verified launch identity absent".into()))?;
-    let locator=ProcessLocator {
-        pid:identity.pid,
-        start_ticks:Some(identity.start_ticks),
-        executable:std::fs::read_link(format!("/proc/{}/exe",identity.pid)).ok(),
+pub(crate) fn spawn_owned_command(command: &mut Command) -> Result<LaunchedCommand, CaptureError> {
+    let child = pse_diagnostics::SupervisedChild::spawn(
+        command,
+        pse_diagnostics::DrainFailurePolicy::Refuse(Duration::from_secs(3)),
+        None,
+    )
+    .map_err(supervision_error)?;
+    let identity = child
+        .identity()
+        .ok_or_else(|| CaptureError::Invalid("verified launch identity absent".into()))?;
+    let locator = ProcessLocator {
+        pid: identity.pid,
+        start_ticks: Some(identity.start_ticks),
+        executable: std::fs::read_link(format!("/proc/{}/exe", identity.pid)).ok(),
     };
-    Ok(LaunchedCommand {child,locator})
+    Ok(LaunchedCommand { child, locator })
 }
 
 /// Launch CPU capture before exec. A refused/failed optional sampler still releases the command.

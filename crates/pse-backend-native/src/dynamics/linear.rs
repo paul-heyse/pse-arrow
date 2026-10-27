@@ -40,13 +40,17 @@ fn pattern<C: LinearOp<T = f64, V = V, M = M, C = FaerContext>>(
     op: &C,
 ) -> Result<M, crate::ProblemError> {
     if op.nrows() != op.ncols() {
-        return Err(crate::ProblemError::Contract("Newton matrix is not square".into()));
+        return Err(crate::ProblemError::Contract(
+            "Newton matrix is not square".into(),
+        ));
     }
-    let sparsity = op
-        .sparsity()
-        .ok_or_else(|| crate::ProblemError::Contract("sparse Newton matrix without a pattern".into()))?;
+    let sparsity = op.sparsity().ok_or_else(|| {
+        crate::ProblemError::Contract("sparse Newton matrix without a pattern".into())
+    })?;
     if sparsity.nrows() != op.nrows() || sparsity.ncols() != op.ncols() {
-        return Err(crate::ProblemError::Contract("Newton matrix pattern extent differs".into()));
+        return Err(crate::ProblemError::Contract(
+            "Newton matrix pattern extent differs".into(),
+        ));
     }
     Ok(M::new_from_sparsity(
         op.nrows(),
@@ -99,17 +103,37 @@ impl LinearSolver<M> for FaerLu {
         self.symbolic = match pattern(op) {
             Ok(matrix) => {
                 let result = (|| {
-                    let symbolic = crate::sparse_lu::symbolic(matrix.inner().symbolic(), "diffsol.faer.symbolic")?;
+                    let symbolic = crate::sparse_lu::symbolic(
+                        matrix.inner().symbolic(),
+                        "diffsol.faer.symbolic",
+                    )?;
                     // This is the existing session's complete direct-factor allowance,
                     // not arclength's half-budget or a new reduced global limit.
-                    let mut allowance = super::PreparedLayout::direct_bytes(matrix.nrows(),matrix.inner().val().len())
-                        .ok_or_else(|| crate::ProblemError::Contract("Diffsol factor extent overflow".into()))?;
-                    if let Some(limit)=self.attempt.allowance.or_else(crate::execution::foreign_allowance) { allowance=allowance.min(limit); }
-                    let (scratch,bytes) = crate::sparse_lu::scratch(&symbolic,1,self.parallel,allowance,true)?;
-                    crate::conditioning::publish_faer_storage("diffsol.faer.storage",matrix.inner().val().len(),bytes);
-                    self.scratch=Some(RefCell::new(scratch));
+                    let mut allowance = super::PreparedLayout::direct_bytes(
+                        matrix.nrows(),
+                        matrix.inner().val().len(),
+                    )
+                    .ok_or_else(|| {
+                        crate::ProblemError::Contract("Diffsol factor extent overflow".into())
+                    })?;
+                    if let Some(limit) = self
+                        .attempt
+                        .allowance
+                        .or_else(crate::execution::foreign_allowance)
+                    {
+                        allowance = allowance.min(limit);
+                    }
+                    let (scratch, bytes) =
+                        crate::sparse_lu::scratch(&symbolic, 1, self.parallel, allowance, true)?;
+                    crate::conditioning::publish_faer_storage(
+                        "diffsol.faer.storage",
+                        matrix.inner().val().len(),
+                        bytes,
+                    );
+                    self.scratch = Some(RefCell::new(scratch));
                     Ok(symbolic)
-                })().map_err(|e| self.attempt.defer(e));
+                })()
+                .map_err(|e| self.attempt.defer(e));
                 self.matrix = Some(matrix);
                 result
             }
@@ -131,15 +155,24 @@ impl LinearSolver<M> for FaerLu {
                         && pattern.row_idx() == current.row_idx()
                 });
                 if !same_pattern {
-                    return self.ready = Err(self.attempt.defer(crate::ProblemError::Contract("Newton matrix pattern changed".into())));
+                    return self.ready = Err(self.attempt.defer(crate::ProblemError::Contract(
+                        "Newton matrix pattern changed".into(),
+                    )));
                 }
                 op.matrix_inplace(matrix);
                 if matrix.inner().val().iter().any(|value| !value.is_finite()) {
                     Err(LinearSolverError::LuSolveFailed)
                 } else {
-                    let result = crate::sparse_lu::factor(symbolic,&mut self.numeric,matrix.inner().as_ref(),self.parallel,
-                        scratch.get_mut(),crate::sparse_lu::Qualification::Unqualified,"diffsol.faer.factor")
-                        .map_err(|e| self.attempt.defer(e));
+                    let result = crate::sparse_lu::factor(
+                        symbolic,
+                        &mut self.numeric,
+                        matrix.inner().as_ref(),
+                        self.parallel,
+                        scratch.get_mut(),
+                        crate::sparse_lu::Qualification::Unqualified,
+                        "diffsol.faer.factor",
+                    )
+                    .map_err(|e| self.attempt.defer(e));
                     crate::observation::count(
                         if result.is_ok() {
                             "diffsol.faer.factor.succeeded"
@@ -168,9 +201,16 @@ impl LinearSolver<M> for FaerLu {
             .ok_or(LinearSolverError::LinearSolverNotSetup)?;
         let mut scratch = scratch.borrow_mut();
         let n = x.len();
-        let result = crate::sparse_lu::solve(symbolic,&self.numeric,Conj::No,
-            faer::MatMut::from_column_major_slice_mut(x.as_mut_slice(),n,1),self.parallel,&mut scratch,"diffsol.faer.solve")
-            .map_err(|e| LaError::from(self.attempt.defer(e)));
+        let result = crate::sparse_lu::solve(
+            symbolic,
+            &self.numeric,
+            Conj::No,
+            faer::MatMut::from_column_major_slice_mut(x.as_mut_slice(), n, 1),
+            self.parallel,
+            &mut scratch,
+            "diffsol.faer.solve",
+        )
+        .map_err(|e| LaError::from(self.attempt.defer(e)));
         crate::observation::count(
             if result.is_ok() {
                 "diffsol.faer.solve.succeeded"
@@ -183,10 +223,12 @@ impl LinearSolver<M> for FaerLu {
     }
 }
 
-fn klu_failure(status:i32, phase:&str) -> crate::ProblemError {
+fn klu_failure(status: i32, phase: &str) -> crate::ProblemError {
     match status {
         -2 => crate::ProblemError::memory(format!("KLU {phase} allocation failed")),
-        -3 | -4 => crate::ProblemError::Contract(format!("KLU {phase} invalid input or index overflow ({status})")),
+        -3 | -4 => crate::ProblemError::Contract(format!(
+            "KLU {phase} invalid input or index overflow ({status})"
+        )),
         1 => crate::ProblemError::numerical(format!("KLU {phase} singular pivot")),
         other => crate::ProblemError::internal(format!("KLU {phase} failed with status {other}")),
     }
@@ -321,7 +363,7 @@ impl Klu {
         });
         if refactored != 1 {
             self.publish_return("refactor");
-            self.failure=self.attempt.defer(klu_failure(self.status(),"refactor"));
+            self.failure = self.attempt.defer(klu_failure(self.status(), "refactor"));
             crate::observation::count("diffsol.klu.refactor.failed", 1);
             return false;
         }
@@ -329,7 +371,9 @@ impl Klu {
         // SAFETY: the successful refactor retained the live symbolic and numeric objects;
         // the boxed common object remains exclusively accessed by this solver.
         if unsafe { klu::klu_l_rcond(self.symbolic, self.numeric, self.common.get()) } != 1 {
-            self.failure=self.attempt.defer(klu_failure(self.status(),"condition diagnostic"));
+            self.failure = self
+                .attempt
+                .defer(klu_failure(self.status(), "condition diagnostic"));
             crate::observation::count("diffsol.klu.refactor.condition_diagnostic_failed", 1);
             return false;
         }
@@ -386,7 +430,8 @@ impl Klu {
     }
     fn analyze(&mut self, matrix: &M) -> Result<(), crate::ProblemError> {
         let index = |v: &usize| {
-            i64::try_from(*v).map_err(|_| crate::ProblemError::Contract("KLU index overflow".into()))
+            i64::try_from(*v)
+                .map_err(|_| crate::ProblemError::Contract("KLU index overflow".into()))
         };
         let pattern = matrix.inner().symbolic();
         self.columns = pattern
@@ -412,7 +457,7 @@ impl Klu {
         });
         self.publish_return("symbolic");
         if self.symbolic.is_null() {
-            return Err(klu_failure(self.status(),"symbolic"));
+            return Err(klu_failure(self.status(), "symbolic"));
         }
         Ok(())
     }
@@ -472,7 +517,9 @@ impl LinearSolver<M> for Klu {
         });
         if !same_pattern {
             self.free_numeric();
-            self.failure = self.attempt.defer(crate::ProblemError::Contract("Newton matrix pattern changed".into()));
+            self.failure = self.attempt.defer(crate::ProblemError::Contract(
+                "Newton matrix pattern changed".into(),
+            ));
         } else {
             op.matrix_inplace(&mut matrix);
             if matrix.inner().val().iter().any(|value| !value.is_finite()) {
@@ -489,7 +536,7 @@ impl LinearSolver<M> for Klu {
             }
             if self.attempt.failed() {
                 self.free_numeric();
-                self.matrix=Some(matrix);
+                self.matrix = Some(matrix);
                 return;
             }
             if had_numeric {
@@ -522,7 +569,7 @@ impl LinearSolver<M> for Klu {
             self.publish_return("factor");
             crate::observation::boolean("diffsol.klu.factor.valid", !self.numeric.is_null());
             if self.numeric.is_null() {
-                self.failure = self.attempt.defer(klu_failure(self.status(),"factor"));
+                self.failure = self.attempt.defer(klu_failure(self.status(), "factor"));
             }
         }
         self.matrix = Some(matrix);
@@ -531,9 +578,18 @@ impl LinearSolver<M> for Klu {
         if self.numeric.is_null() {
             return Err(self.failure.clone().into());
         }
-        let n = i64::try_from(x.len()).map_err(|_| self.attempt.defer(crate::ProblemError::Contract("KLU RHS index overflow".into())))?;
+        let n = i64::try_from(x.len()).map_err(|_| {
+            self.attempt.defer(crate::ProblemError::Contract(
+                "KLU RHS index overflow".into(),
+            ))
+        })?;
         if Some(x.len()) != self.matrix.as_ref().map(M::nrows) {
-            return Err(self.attempt.defer(crate::ProblemError::Contract("KLU RHS extent differs".into())).into());
+            return Err(self
+                .attempt
+                .defer(crate::ProblemError::Contract(
+                    "KLU RHS extent differs".into(),
+                ))
+                .into());
         }
         // SAFETY: `x` holds n contiguous values; the factors and the boxed common object are
         // live, and no other KLU call on them is in progress.
@@ -549,7 +605,10 @@ impl LinearSolver<M> for Klu {
         });
         self.publish_return("solve");
         if solved != 1 {
-            return Err(self.attempt.defer(klu_failure(self.status(),"solve")).into());
+            return Err(self
+                .attempt
+                .defer(klu_failure(self.status(), "solve"))
+                .into());
         }
         finite(x)
     }
@@ -583,21 +642,55 @@ mod tests {
     }
     #[test]
     fn klu_status_and_changed_pattern_keep_typed_terminal_class() {
-        assert!(matches!(klu_failure(-2,"test"),crate::ProblemError::Limit{kind:crate::LimitKind::Memory,..}));
-        for status in [-3,-4] { assert!(matches!(klu_failure(status,"test"),crate::ProblemError::Contract(_))); }
-        assert!(matches!(klu_failure(1,"test"),crate::ProblemError::Numerical{..}));
-        let _scope=attempt_scope(None);
-        let context=FaerContext{par:Par::Seq};
-        let mut op=Fixed(faer::sparse::SparseColMat::try_new_from_triplets(2,2,&[
-            faer::sparse::Triplet::new(0,0,2.0),faer::sparse::Triplet::new(1,1,4.0)]).unwrap(),context);
-        let mut solver=FaerLu::default();
+        assert!(matches!(
+            klu_failure(-2, "test"),
+            crate::ProblemError::Limit {
+                kind: crate::LimitKind::Memory,
+                ..
+            }
+        ));
+        for status in [-3, -4] {
+            assert!(matches!(
+                klu_failure(status, "test"),
+                crate::ProblemError::Contract(_)
+            ));
+        }
+        assert!(matches!(
+            klu_failure(1, "test"),
+            crate::ProblemError::Numerical { .. }
+        ));
+        let _scope = attempt_scope(None);
+        let context = FaerContext { par: Par::Seq };
+        let mut op = Fixed(
+            faer::sparse::SparseColMat::try_new_from_triplets(
+                2,
+                2,
+                &[
+                    faer::sparse::Triplet::new(0, 0, 2.0),
+                    faer::sparse::Triplet::new(1, 1, 4.0),
+                ],
+            )
+            .unwrap(),
+            context,
+        );
+        let mut solver = FaerLu::default();
         solver.set_sparsity(&op);
-        op.0=faer::sparse::SparseColMat::try_new_from_triplets(2,2,&[
-            faer::sparse::Triplet::new(1,0,2.0),faer::sparse::Triplet::new(0,1,4.0)]).unwrap();
+        op.0 = faer::sparse::SparseColMat::try_new_from_triplets(
+            2,
+            2,
+            &[
+                faer::sparse::Triplet::new(1, 0, 2.0),
+                faer::sparse::Triplet::new(0, 1, 4.0),
+            ],
+        )
+        .unwrap();
         solver.set_linearisation(&op);
-        let mut rhs=V::from_vec(vec![2.0,4.0],context);
+        let mut rhs = V::from_vec(vec![2.0, 4.0], context);
         assert!(solver.solve_in_place(&mut rhs).is_err());
-        assert!(matches!(take_terminal(),Some(crate::ProblemError::Contract(_))));
+        assert!(matches!(
+            take_terminal(),
+            Some(crate::ProblemError::Contract(_))
+        ));
     }
 
     /// The native factor uses the operator's admitted context, not ambient globals.

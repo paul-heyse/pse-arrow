@@ -1479,17 +1479,28 @@ impl<E> SelectedImplicitReconstruction<E> {
             };
             let projection_error = |error| match error {
                 pse_structural::projection::ProjectionError::Cancelled => MathError::Cancelled,
-                pse_structural::projection::ProjectionError::Limit => MathError::Limit("reconstruction dense decomposition extent"),
+                pse_structural::projection::ProjectionError::Limit => {
+                    MathError::Limit("reconstruction dense decomposition extent")
+                }
                 other => MathError::Contract(other.to_string()),
             };
-            let bytes = pse_structural::dense::allocation_bound(n, n, input.vars.len()).map_err(projection_error)?;
+            let bytes = pse_structural::dense::allocation_bound(n, n, input.vars.len())
+                .map_err(projection_error)?;
             crate::construction::additional(bytes.saturating_sub(decomposition_peak))?;
             decomposition_peak = decomposition_peak.max(bytes);
-            let decomposition = pse_structural::dense::decompose(&input, cancel).map_err(projection_error)?;
+            let decomposition =
+                pse_structural::dense::decompose(&input, cancel).map_err(projection_error)?;
             if decomposition.matching.size != n {
-                return Err(MathError::Contract("reconstruction has no complete structural unknown matching".into()));
+                return Err(MathError::Contract(
+                    "reconstruction has no complete structural unknown matching".into(),
+                ));
             }
-            let dependencies = reconstruction_parameter_support(&unknown_support, &parameter_support, &decomposition.blocks, cancel)?;
+            let dependencies = reconstruction_parameter_support(
+                &unknown_support,
+                &parameter_support,
+                &decomposition.blocks,
+                cancel,
+            )?;
             for (unknown, columns) in dependencies.iter().enumerate() {
                 for &column in columns {
                     incidence.push(Entry::new(unknown_columns[unknown], GlobalCol::new(column)));
@@ -2008,11 +2019,17 @@ fn reconstruction_parameter_support(
     cancel: &AtomicBool,
 ) -> Result<Vec<BTreeSet<usize>>, MathError> {
     let n = unknown_support.len();
-    if parameter_support.len() != n { return Err(MathError::Contract("reconstruction parameter support row coverage".into())); }
+    if parameter_support.len() != n {
+        return Err(MathError::Contract(
+            "reconstruction parameter support row coverage".into(),
+        ));
+    }
     let mut dependencies = vec![BTreeSet::<usize>::new(); n];
     let mut covered = BTreeSet::new();
     for block in blocks {
-        if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
+        if cancel.load(Ordering::Acquire) {
+            return Err(MathError::Cancelled);
+        }
         let mut inputs = BTreeSet::new();
         for &row in &block.eq_rows {
             inputs.extend(parameter_support[row].iter().copied());
@@ -2027,7 +2044,11 @@ fn reconstruction_parameter_support(
             dependencies[column] = inputs.clone();
         }
     }
-    if covered.len() != n { return Err(MathError::Contract("reconstruction BTF did not cover every unknown".into())); }
+    if covered.len() != n {
+        return Err(MathError::Contract(
+            "reconstruction BTF did not cover every unknown".into(),
+        ));
+    }
     Ok(dependencies)
 }
 
@@ -2494,17 +2515,43 @@ mod tests {
     }
     #[test]
     fn reconstruction_propagates_retained_parameters_through_checked_blocks() {
-        let input = pounce_presolve::EqualityIncidence { n_vars: 3, eq_row_inner_idx: vec![0,1,2], adj_ptr: vec![0,1,3,5], vars: vec![0,0,1,1,2] };
+        let input = pounce_presolve::EqualityIncidence {
+            n_vars: 3,
+            eq_row_inner_idx: vec![0, 1, 2],
+            adj_ptr: vec![0, 1, 3, 5],
+            vars: vec![0, 0, 1, 1, 2],
+        };
         let cancel = AtomicBool::new(false);
         let decomposition = pse_structural::dense::decompose(&input, &cancel).unwrap();
-        let unknown = vec![vec![0],vec![0,1],vec![1,2]];
-        let parameters = vec![BTreeSet::from([0]),BTreeSet::new(),BTreeSet::from([1])];
-        let support = reconstruction_parameter_support(&unknown,&parameters,&decomposition.blocks,&cancel).unwrap();
-        assert_eq!(support, vec![BTreeSet::from([0]),BTreeSet::from([0]),BTreeSet::from([0,1])]);
-        let other = reconstruction_parameter_support(&unknown,&[BTreeSet::new(),BTreeSet::from([1]),BTreeSet::new()],&decomposition.blocks,&cancel).unwrap();
-        assert_eq!(other,vec![BTreeSet::new(),BTreeSet::from([1]),BTreeSet::from([1])]);
-        cancel.store(true,Ordering::Release);
-        assert!(matches!(reconstruction_parameter_support(&unknown,&parameters,&decomposition.blocks,&cancel),Err(MathError::Cancelled)));
+        let unknown = vec![vec![0], vec![0, 1], vec![1, 2]];
+        let parameters = vec![BTreeSet::from([0]), BTreeSet::new(), BTreeSet::from([1])];
+        let support =
+            reconstruction_parameter_support(&unknown, &parameters, &decomposition.blocks, &cancel)
+                .unwrap();
+        assert_eq!(
+            support,
+            vec![
+                BTreeSet::from([0]),
+                BTreeSet::from([0]),
+                BTreeSet::from([0, 1])
+            ]
+        );
+        let other = reconstruction_parameter_support(
+            &unknown,
+            &[BTreeSet::new(), BTreeSet::from([1]), BTreeSet::new()],
+            &decomposition.blocks,
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(
+            other,
+            vec![BTreeSet::new(), BTreeSet::from([1]), BTreeSet::from([1])]
+        );
+        cancel.store(true, Ordering::Release);
+        assert!(matches!(
+            reconstruction_parameter_support(&unknown, &parameters, &decomposition.blocks, &cancel),
+            Err(MathError::Cancelled)
+        ));
     }
     #[test]
     fn genuine_root_reconstruction_applies_nonzero_authored_offset_before_actual_native_ift() {

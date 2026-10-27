@@ -162,26 +162,39 @@ impl Runtime {
                     }
                     let spec = retained_physical_relation(self.registry(), &member.scope)?;
                     let mut stream = pse_columnar::ipc_stream::StreamReader::try_new(
-                        std::io::Cursor::new(object.payload.as_slice()), object.payload.len() as u64,
+                        std::io::Cursor::new(object.payload.as_slice()),
+                        object.payload.len() as u64,
                         pse_columnar::ipc_stream::Limits {
                             message_bytes: pse_operations::canonical::PAYLOAD_BYTES,
                             metadata_bytes: pse_operations::canonical::PAYLOAD_BYTES,
-                        }, pool.clone(), cancel.clone(),
-                    ).map_err(|e| integrity(e.to_string()))?;
+                        },
+                        pool.clone(),
+                        cancel.clone(),
+                    )
+                    .map_err(|e| integrity(e.to_string()))?;
                     let mut count = 0;
-                    while let Some(decoded) = stream.next_batch().map_err(|e| integrity(e.to_string()))? {
+                    while let Some(decoded) =
+                        stream.next_batch().map_err(|e| integrity(e.to_string()))?
+                    {
                         count += 1;
                         if count > 1 {
                             return Err(integrity("original physical block has multiple batches"));
                         }
                         let checked = FieldCheckedBatch::admit(
-                            self.registry(), spec, decoded.batch.into_batch(),
-                            &self.validation_context(), cancel,
+                            self.registry(),
+                            spec,
+                            decoded.batch.into_batch(),
+                            &self.validation_context(),
+                            cancel,
                         )
                         .map_err(super::relation)?
                         .with_export_owner(decoded.working_owner);
-                        if batches.entry(spec.key).or_default()
-                            .insert(member.logical.clone(), checked).is_some() {
+                        if batches
+                            .entry(spec.key)
+                            .or_default()
+                            .insert(member.logical.clone(), checked)
+                            .is_some()
+                        {
                             return Err(integrity("duplicate original physical row coordinate"));
                         }
                     }

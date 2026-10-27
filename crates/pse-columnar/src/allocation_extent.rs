@@ -142,7 +142,6 @@ pub fn columnar_validation_extent(batch: &RecordBatch) -> Result<usize, CanonErr
     Ok(bytes)
 }
 
-
 /// Arrow IPC 59.3 array/Arc/vector and ownership-adapter headers. The adapter
 /// moves child ArrayData instead of cloning every remaining subtree, keeping
 /// the simultaneous header population linear in the admitted node inventory.
@@ -150,5 +149,8 @@ pub fn columnar_validation_extent(batch: &RecordBatch) -> Result<usize, CanonErr
 /// # Errors
 /// Checked extent overflow.
 pub fn ipc_array_working_extent(fields: usize) -> Result<usize, CanonError> {
-    fields.checked_mul(4096).and_then(|bytes| bytes.checked_add(4096)).ok_or_else(overflow)
+    fields
+        .checked_mul(4096)
+        .and_then(|bytes| bytes.checked_add(4096))
+        .ok_or_else(overflow)
 }

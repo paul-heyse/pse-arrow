@@ -1659,22 +1659,43 @@ fn checkpointed_dense_output_uses_returned_time_for_sensitivities_and_quadrature
     assert!(result.hessian.as_ref().unwrap()[(0, 0)].abs() < 1e-5);
 }
 
-#[cfg(feature="diffsol")]
+#[cfg(feature = "diffsol")]
 #[test]
 fn diffsol_terminal_scratch_refusal_survives_forward_recovery_and_clean_reuse() {
-    let mut p=profile(true);
-    p.method=Method::Diffsol;
-    p.sensitivity=DynamicSensitivity::Forward;
-    p.diffsol.linear=DiffsolLinear::FaerLu;
+    let mut p = profile(true);
+    p.method = Method::Diffsol;
+    p.sensitivity = DynamicSensitivity::Forward;
+    p.diffsol.linear = DiffsolLinear::FaerLu;
     {
-        let _allowance=linear::attempt_scope(Some(0));
-        let report=run(&mut Toy::new(true,false),&p);
-        assert_eq!(report.termination,Termination::Failed);
-        assert!(matches!(report.error,Some(ProblemError::Limit{kind:crate::LimitKind::Memory,..})),"{:?}",report.error);
-        assert!(report.samples.len()<p.samples.len());
-        let cancelled=integrate(&mut Toy::new(true,false),&p,&[2.0],Cancellation::new(true)).unwrap();
-        assert_eq!(cancelled.termination,Termination::Cancelled);
+        let _allowance = linear::attempt_scope(Some(0));
+        let report = run(&mut Toy::new(true, false), &p);
+        assert_eq!(report.termination, Termination::Failed);
+        assert!(
+            matches!(
+                report.error,
+                Some(ProblemError::Limit {
+                    kind: crate::LimitKind::Memory,
+                    ..
+                })
+            ),
+            "{:?}",
+            report.error
+        );
+        assert!(report.samples.len() < p.samples.len());
+        let cancelled = integrate(
+            &mut Toy::new(true, false),
+            &p,
+            &[2.0],
+            Cancellation::new(true),
+        )
+        .unwrap();
+        assert_eq!(cancelled.termination, Termination::Cancelled);
     }
-    let recovered=run(&mut Toy::new(true,false),&p);
-    assert_eq!(recovered.termination,Termination::Completed,"{:?}",recovered.error);
+    let recovered = run(&mut Toy::new(true, false), &p);
+    assert_eq!(
+        recovered.termination,
+        Termination::Completed,
+        "{:?}",
+        recovered.error
+    );
 }

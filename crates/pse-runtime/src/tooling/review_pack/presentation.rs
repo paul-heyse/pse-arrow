@@ -211,10 +211,16 @@ pub(super) fn orientation(
                 message_bytes: index.selection.maximum_document_bytes,
                 metadata_bytes: index.selection.maximum_document_bytes,
             };
-            let pool = pse_columnar::ipc_stream::offline_pool(limits).map_err(|e| invalid(e.to_string()))?;
+            let pool = pse_columnar::ipc_stream::offline_pool(limits)
+                .map_err(|e| invalid(e.to_string()))?;
             let mut stream = pse_columnar::ipc_stream::StreamReader::try_new(
-                file, member.readable_bytes, limits, pool, CancellationToken::new(),
-            ).map_err(|e| invalid(e.to_string()))?;
+                file,
+                member.readable_bytes,
+                limits,
+                pool,
+                CancellationToken::new(),
+            )
+            .map_err(|e| invalid(e.to_string()))?;
             section.columns = stream
                 .schema()
                 .fields()

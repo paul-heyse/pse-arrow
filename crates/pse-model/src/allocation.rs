@@ -12,7 +12,9 @@
 /// a source-derived admission bound, not a claim about actual allocator usage.
 /// The toolchain owner must re-derive it if that node representation changes.
 pub fn btree_node_bytes<K, V>() -> usize {
-    let alignment = align_of::<K>().max(align_of::<V>()).max(align_of::<usize>());
+    let alignment = align_of::<K>()
+        .max(align_of::<V>())
+        .max(align_of::<usize>());
     size_of::<K>()
         .saturating_add(size_of::<V>())
         .saturating_mul(16)
@@ -27,7 +29,9 @@ pub fn btree_node_bytes<K, V>() -> usize {
 /// so its conservative extent is one node. A never-created temporary may be omitted
 /// by its construction owner. Arithmetic overflow refuses before allocation.
 pub fn btree_allocation_bound<K, V>(entries: usize) -> Option<usize> {
-    entries.checked_add(1)?.checked_mul(btree_node_bytes::<K, V>())
+    entries
+        .checked_add(1)?
+        .checked_mul(btree_node_bytes::<K, V>())
 }
 
 #[cfg(test)]
@@ -55,10 +59,16 @@ mod tests {
         let mut payload = Vec::<u8>::with_capacity(101);
         payload.extend([1, 2, 3]);
         let mut tree = BTreeMap::from([(String::from("key"), payload)]);
-        assert_eq!(tree.heap_bytes(), btree_allocation_bound::<String, Vec<u8>>(1).unwrap() + 3 + 101);
+        assert_eq!(
+            tree.heap_bytes(),
+            btree_allocation_bound::<String, Vec<u8>>(1).unwrap() + 3 + 101
+        );
         tree.clear();
         assert_eq!(tree.heap_bytes(), btree_node_bytes::<String, Vec<u8>>());
         let set = BTreeSet::from([String::from("payload")]);
-        assert_eq!(set.heap_bytes(), btree_allocation_bound::<String, ()>(1).unwrap() + 7);
+        assert_eq!(
+            set.heap_bytes(),
+            btree_allocation_bound::<String, ()>(1).unwrap() + 7
+        );
     }
 }

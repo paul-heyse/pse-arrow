@@ -279,12 +279,25 @@ fn write_analysis_ipc(
         return Ok(false);
     }
     let owner = MemoryConsumer::new("study:analysis-export").register(pool);
-    owner.try_grow(pse_columnar::ipc_file::writer_preparation_extent(batches[0].schema().as_ref(), batches.len())
-        .map_err(pse_columnar::CanonError::from).map_err(pse_engine::EngineError::from)?)
+    owner
+        .try_grow(
+            pse_columnar::ipc_file::writer_preparation_extent(
+                batches[0].schema().as_ref(),
+                batches.len(),
+            )
+            .map_err(pse_columnar::CanonError::from)
+            .map_err(pse_engine::EngineError::from)?,
+        )
         .map_err(pse_engine::EngineError::from)?;
     let extent = pse_columnar::ipc_file::writer_extent(batches, 4 * 1024 * 1024)
-        .map_err(pse_columnar::CanonError::from).map_err(pse_engine::EngineError::from)?;
-    owner.try_grow(extent.checked_sub(owner.size()).ok_or_else(|| contract("analysis writer extent"))?)
+        .map_err(pse_columnar::CanonError::from)
+        .map_err(pse_engine::EngineError::from)?;
+    owner
+        .try_grow(
+            extent
+                .checked_sub(owner.size())
+                .ok_or_else(|| contract("analysis writer extent"))?,
+        )
         .map_err(pse_engine::EngineError::from)?;
     let content = pse_columnar::ipc_file::encode(batches, 4 * 1024 * 1024)
         .map_err(datafusion::error::DataFusionError::from)
@@ -873,7 +886,10 @@ mod tests {
         let refused: Arc<dyn pse_columnar::MemoryPool> =
             Arc::new(pse_columnar::GreedyMemoryPool::new(0));
         assert!(write_analysis_ipc(&refused, std::slice::from_ref(&batch), &destination).is_err());
-        assert!(!destination.exists(), "working refusal precedes output creation");
+        assert!(
+            !destination.exists(),
+            "working refusal precedes output creation"
+        );
         assert_eq!(refused.reserved(), 0);
         assert!(write_analysis_ipc(&pool, &[batch], &destination).unwrap());
         let original = std::fs::read(&destination).unwrap();

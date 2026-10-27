@@ -33,7 +33,10 @@ fn reader(
     }
     spool.finish().unwrap()
 }
-async fn encoded(table: &pse_relations::columnar::FieldCheckedBatch, pool: &Arc<dyn MemoryPool>) -> Vec<Vec<u8>> {
+async fn encoded(
+    table: &pse_relations::columnar::FieldCheckedBatch,
+    pool: &Arc<dyn MemoryPool>,
+) -> Vec<Vec<u8>> {
     let mut payloads = Vec::new();
     super::super::result_blocks::visit_source_blocks_async(table.batch(), pool, |_, _, payload| {
         payloads.push(payload);

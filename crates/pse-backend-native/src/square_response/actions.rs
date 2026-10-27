@@ -145,7 +145,10 @@ impl SparseFactor {
                     crate::observation::count("square_response.faer.symbolic.reused", 1);
                     plan.clone()
                 } else {
-                    let inner = crate::sparse_lu::symbolic(matrix.symbolic(), "square_response.faer.symbolic")?;
+                    let inner = crate::sparse_lu::symbolic(
+                        matrix.symbolic(),
+                        "square_response.faer.symbolic",
+                    )?;
                     let plan = SymbolicPlan {
                         inner: Arc::new(inner),
                         normalization: request.normalization.key(),
@@ -155,10 +158,18 @@ impl SparseFactor {
                     plan
                 };
                 drop(cached);
-                let (mut memory, _) = crate::sparse_lu::scratch(&symbolic.inner, 1, Par::Seq, request.bytes, true)?;
+                let (mut memory, _) =
+                    crate::sparse_lu::scratch(&symbolic.inner, 1, Par::Seq, request.bytes, true)?;
                 let mut numeric = NumericLu::new();
-                crate::sparse_lu::factor(&symbolic.inner, &mut numeric, matrix.as_ref(), Par::Seq, &mut memory,
-                    crate::sparse_lu::Qualification::CompleteMatching, "square_response.faer.factor")?;
+                crate::sparse_lu::factor(
+                    &symbolic.inner,
+                    &mut numeric,
+                    matrix.as_ref(),
+                    Par::Seq,
+                    &mut memory,
+                    crate::sparse_lu::Qualification::CompleteMatching,
+                    "square_response.faer.factor",
+                )?;
                 execution.check()?;
                 Ok(Self {
                     held: Arc::new(Owned {
@@ -617,7 +628,13 @@ impl SparseActionExecutor {
         if required > bytes {
             return Err(ProblemError::memory("sparse action executor scratch"));
         }
-        let (memory,_) = crate::sparse_lu::scratch(&factor.held.symbolic.inner,columns,Par::Seq,bytes,false)?;
+        let (memory, _) = crate::sparse_lu::scratch(
+            &factor.held.symbolic.inner,
+            columns,
+            Par::Seq,
+            bytes,
+            false,
+        )?;
         Ok(Self {
             factor,
             columns,
@@ -674,10 +691,18 @@ impl SparseActionExecutor {
         z.as_mut().copy_from(b.as_ref());
         let residual = &mut self.residual;
         let memory = &mut self.memory;
-        let symbolic=&self.factor.held.symbolic.inner;
-        let numeric=&self.factor.held.numeric;
+        let symbolic = &self.factor.held.symbolic.inner;
+        let numeric = &self.factor.held.numeric;
         execution.counted(work_unit(0, 0), || {
-            crate::sparse_lu::solve_transpose(symbolic,numeric,Conj::No,z.as_mut(),Par::Seq,memory,"square_response.faer.transpose_solve")?;
+            crate::sparse_lu::solve_transpose(
+                symbolic,
+                numeric,
+                Conj::No,
+                z.as_mut(),
+                Par::Seq,
+                memory,
+                "square_response.faer.transpose_solve",
+            )?;
             Ok(())
         })?;
         let limit = 64. * n.max(1) as f64 * f64::EPSILON;
@@ -726,7 +751,15 @@ impl SparseActionExecutor {
                 ));
             }
             execution.counted(work_unit(1, 0), || {
-                crate::sparse_lu::solve_transpose(symbolic,numeric,Conj::No,residual.as_mut(),Par::Seq,memory,"square_response.faer.transpose_refinement_solve")?;
+                crate::sparse_lu::solve_transpose(
+                    symbolic,
+                    numeric,
+                    Conj::No,
+                    residual.as_mut(),
+                    Par::Seq,
+                    memory,
+                    "square_response.faer.transpose_refinement_solve",
+                )?;
                 for i in 0..n {
                     z[(i, 0)] += residual[(i, 0)];
                 }
@@ -779,15 +812,23 @@ impl SparseActionExecutor {
         let memory = &mut self.memory;
         let residual = &mut self.residual;
         // Numeric/symbolic fields are private, installed together by the constructor.
-        let symbolic=&self.factor.held.symbolic.inner;
-        let numeric=&self.factor.held.numeric;
+        let symbolic = &self.factor.held.symbolic.inner;
+        let numeric = &self.factor.held.numeric;
         execution.counted(work_unit(0, 0), || {
             crate::observation::integer(
                 "square_response.faer.solve.rhs",
                 "count",
                 i64::try_from(rhs.ncols()).unwrap_or(i64::MAX),
             );
-            crate::sparse_lu::solve(symbolic,numeric,Conj::No,x.as_mut(),Par::Seq,memory,"square_response.faer.solve")?;
+            crate::sparse_lu::solve(
+                symbolic,
+                numeric,
+                Conj::No,
+                x.as_mut(),
+                Par::Seq,
+                memory,
+                "square_response.faer.solve",
+            )?;
             Ok(())
         })?;
         let limit = 64. * n.max(1) as f64 * f64::EPSILON;
@@ -843,7 +884,15 @@ impl SparseActionExecutor {
             // Refinement is an actual solver iteration. A reused-factor action is
             // neither another factor construction nor a proof operation.
             execution.counted(work_unit(1, 0), || {
-                crate::sparse_lu::solve(symbolic,numeric,Conj::No,residual.as_mut(),Par::Seq,memory,"square_response.faer.refinement_solve")?;
+                crate::sparse_lu::solve(
+                    symbolic,
+                    numeric,
+                    Conj::No,
+                    residual.as_mut(),
+                    Par::Seq,
+                    memory,
+                    "square_response.faer.refinement_solve",
+                )?;
                 for column in 0..rhs.ncols() {
                     for row in 0..n {
                         x[(row, column)] += residual[(row, column)];

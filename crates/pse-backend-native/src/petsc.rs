@@ -84,7 +84,9 @@ impl Admission {
             match PROCESS.try_lock() {
                 Ok(guard) => Ok(Some(guard)),
                 Err(TryLockError::WouldBlock) => Ok(None),
-                Err(TryLockError::Poisoned(_)) => Err(ProblemError::internal("PETSc process owner poisoned")),
+                Err(TryLockError::Poisoned(_)) => {
+                    Err(ProblemError::internal("PETSc process owner poisoned"))
+                }
             }
         })?;
         let owner = Self {

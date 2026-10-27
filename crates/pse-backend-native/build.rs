@@ -102,7 +102,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         &out.join("pounce-source.txt"),
         format!("{git}@{revision}").as_bytes(),
     )?;
-    let root = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").ok_or("CARGO_MANIFEST_DIR unset")?).join("../..");
+    let root = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").ok_or("CARGO_MANIFEST_DIR unset")?)
+        .join("../..");
     supplier_sources(&out, &root, &workspace_manifest)?;
     kinsol_profile(&out)?;
     Ok(())
@@ -110,33 +111,56 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 /// Embed only consumed suppliers. The dependency itself reports the final SUNDIALS
 /// source selection, including an external-header failure's bundled fallback.
-fn supplier_sources(out: &Path, root: &Path, workspace: &toml::Value) -> Result<(), Box<dyn Error>> {
+fn supplier_sources(
+    out: &Path,
+    root: &Path,
+    workspace: &toml::Value,
+) -> Result<(), Box<dyn Error>> {
     let mut arithmetic = String::from("faer-f64-nonfused-scalar-generic.v1\n");
     for name in ["faer", "faer-traits"] {
-        let declared = workspace["patch"]["crates-io"][name]["path"].as_str().ok_or("missing selected arithmetic source path")?;
+        let declared = workspace["patch"]["crates-io"][name]["path"]
+            .as_str()
+            .ok_or("missing selected arithmetic source path")?;
         if root.join(declared).canonicalize()? != root.join("vendor").join(name).canonicalize()? {
-            return Err("selected arithmetic source has no checked maintained-source receipt".into());
+            return Err(
+                "selected arithmetic source has no checked maintained-source receipt".into(),
+            );
         }
         arithmetic.push_str(&build_source::authenticated(root, name)?);
         arithmetic.push('\n');
     }
     build_receipt::write_if_changed(&out.join("arithmetic-source.txt"), arithmetic.as_bytes())?;
-    let selected = env::var_os("CARGO_FEATURE_KINSOL").is_some() || env::var_os("CARGO_FEATURE_IDAS").is_some();
+    let selected = env::var_os("CARGO_FEATURE_KINSOL").is_some()
+        || env::var_os("CARGO_FEATURE_IDAS").is_some();
     let source = if selected {
-        let actual = PathBuf::from(env::var_os("DEP_SUNDIALS_SOURCE_ROOT").ok_or("missing selected SUNDIALS wrapper source")?).canonicalize()?;
+        let actual = PathBuf::from(
+            env::var_os("DEP_SUNDIALS_SOURCE_ROOT")
+                .ok_or("missing selected SUNDIALS wrapper source")?,
+        )
+        .canonicalize()?;
         if actual != root.join("vendor/sundials-sys").canonicalize()? {
-            return Err("selected SUNDIALS wrapper has no checked maintained-source receipt".into());
+            return Err(
+                "selected SUNDIALS wrapper has no checked maintained-source receipt".into(),
+            );
         }
         println!("cargo:rerun-if-env-changed=PSE_SUNDIALS_PROVIDER_RECEIPT");
         let receipt = env::var_os("PSE_SUNDIALS_PROVIDER_RECEIPT").map(PathBuf::from);
-        build_source::selected_sundials(root, &env::var("DEP_SUNDIALS_SOURCE_KIND")?, receipt.as_deref())?
-    } else { String::new() };
+        build_source::selected_sundials(
+            root,
+            &env::var("DEP_SUNDIALS_SOURCE_KIND")?,
+            receipt.as_deref(),
+        )?
+    } else {
+        String::new()
+    };
     build_receipt::write_if_changed(&out.join("sundials-source.txt"), source.as_bytes())?;
     // Diffsol is consumed by the pure callback/linearization contracts as well as
     // the linked dynamics adapter. Its maintained changes must never be invisible.
     let mut diffsol = String::new();
     for name in ["diffsol", "diffsol-la"] {
-        let declared = workspace["workspace"]["dependencies"][name]["path"].as_str().ok_or("selected Diffsol source has no maintained path")?;
+        let declared = workspace["workspace"]["dependencies"][name]["path"]
+            .as_str()
+            .ok_or("selected Diffsol source has no maintained path")?;
         if root.join(declared).canonicalize()? != root.join("vendor").join(name).canonicalize()? {
             return Err("selected Diffsol source has no checked maintained-source receipt".into());
         }

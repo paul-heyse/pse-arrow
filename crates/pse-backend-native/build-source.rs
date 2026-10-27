@@ -7,20 +7,33 @@ use sha2::{Digest, Sha256};
 use std::{collections::BTreeSet, error::Error, fs, path::Path};
 
 fn sha256(bytes: &[u8]) -> String {
-    Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect()
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
-pub(crate) fn selected_sundials(root: &Path, kind: &str, receipt: Option<&Path>) -> Result<String, Box<dyn Error>> {
+pub(crate) fn selected_sundials(
+    root: &Path,
+    kind: &str,
+    receipt: Option<&Path>,
+) -> Result<String, Box<dyn Error>> {
     match kind {
         "bundled" => authenticated(root, "sundials-sys"),
         "external" => {
-            let receipt = receipt.ok_or("selected external SUNDIALS requires PSE_SUNDIALS_PROVIDER_RECEIPT")?;
+            let receipt = receipt
+                .ok_or("selected external SUNDIALS requires PSE_SUNDIALS_PROVIDER_RECEIPT")?;
             println!("cargo:rerun-if-changed={}", receipt.display());
             let bytes = fs::read(receipt)?;
             let document: serde_json::Value = serde_json::from_slice(&bytes)?;
             for field in ["identity", "files"] {
-                if document[field].as_object().is_none_or(|values| values.is_empty()) {
-                    return Err("selected external SUNDIALS receipt requires identity and files".into());
+                if document[field]
+                    .as_object()
+                    .is_none_or(|values| values.is_empty())
+                {
+                    return Err(
+                        "selected external SUNDIALS receipt requires identity and files".into(),
+                    );
                 }
             }
             Ok(format!("external-sundials:{}", String::from_utf8(bytes)?))
@@ -41,12 +54,19 @@ pub(crate) fn authenticated(root: &Path, name: &str) -> Result<String, Box<dyn E
     }
     let bytes = fs::read(&receipt)?;
     let document: serde_json::Value = serde_json::from_slice(&bytes)?;
-    if document["archive_sha256"].as_str().is_none_or(|hash| hash.len() != 64)
+    if document["archive_sha256"]
+        .as_str()
+        .is_none_or(|hash| hash.len() != 64)
         || document["delta_sha256"].as_str() != Some(sha256(&fs::read(delta)?).as_str())
     {
-        return Err(format!("{name}: stale supplier source receipt; refresh scripts/supplier_source.py").into());
+        return Err(format!(
+            "{name}: stale supplier source receipt; refresh scripts/supplier_source.py"
+        )
+        .into());
     }
-    let files = document["files"].as_object().ok_or("missing supplier source paths")?;
+    let files = document["files"]
+        .as_object()
+        .ok_or("missing supplier source paths")?;
     if files.is_empty() {
         return Err("empty supplier source receipt".into());
     }
@@ -54,12 +74,18 @@ pub(crate) fn authenticated(root: &Path, name: &str) -> Result<String, Box<dyn E
     paths(&tree, &tree, &mut actual)?;
     let expected: BTreeSet<_> = files.keys().cloned().collect();
     if actual != expected {
-        return Err(format!("{name}: supplier source path set changed; refresh complete delta and receipt").into());
+        return Err(format!(
+            "{name}: supplier source path set changed; refresh complete delta and receipt"
+        )
+        .into());
     }
     for (relative, facts) in files {
         let path = tree.join(relative);
         if facts["sha256"].as_str() != Some(sha256(&fs::read(&path)?).as_str()) {
-            return Err(format!("{name}: changed source {relative}; refresh complete delta and receipt").into());
+            return Err(format!(
+                "{name}: changed source {relative}; refresh complete delta and receipt"
+            )
+            .into());
         }
         #[cfg(unix)]
         {
@@ -72,15 +98,24 @@ pub(crate) fn authenticated(root: &Path, name: &str) -> Result<String, Box<dyn E
     }
     // The checked receipt includes the authenticated baseline, complete delta and
     // exact source path set. Its digest is an input, not a new semantic hash frame.
-    Ok(format!("{name}:checked-archive-delta-sha256:{}", sha256(&bytes)))
+    Ok(format!(
+        "{name}:checked-archive-delta-sha256:{}",
+        sha256(&bytes)
+    ))
 }
 
-fn paths(root: &Path, directory: &Path, output: &mut BTreeSet<String>) -> Result<(), Box<dyn Error>> {
+fn paths(
+    root: &Path,
+    directory: &Path,
+    output: &mut BTreeSet<String>,
+) -> Result<(), Box<dyn Error>> {
     for entry in fs::read_dir(directory)? {
         let entry = entry?;
         let path = entry.path();
         let relative = path.strip_prefix(root)?;
-        if ["target", ".git"].iter().any(|name| relative.components().any(|part| part.as_os_str() == *name))
+        if ["target", ".git"]
+            .iter()
+            .any(|name| relative.components().any(|part| part.as_os_str() == *name))
             || relative == Path::new("PATCH.md")
         {
             continue;
@@ -88,7 +123,12 @@ fn paths(root: &Path, directory: &Path, output: &mut BTreeSet<String>) -> Result
         if entry.file_type()?.is_dir() {
             paths(root, &path, output)?;
         } else if entry.file_type()?.is_file() {
-            output.insert(relative.to_str().ok_or("non-UTF8 supplier source path")?.replace('\\', "/"));
+            output.insert(
+                relative
+                    .to_str()
+                    .ok_or("non-UTF8 supplier source path")?
+                    .replace('\\', "/"),
+            );
         } else {
             return Err("supplier source symlinks are not authenticated".into());
         }
@@ -109,11 +149,17 @@ mod tests {
         assert!(selected_sundials(&root, "external", Some(&receipt)).is_err());
         fs::write(&receipt, br#"{"identity":{"provider":"selected-v1"},"files":{"lib/libsundials_idas.a":"digest"}}"#).unwrap();
         let first = selected_sundials(&root, "external", Some(&receipt)).unwrap();
-        assert_eq!(selected_sundials(&root, "external", Some(&receipt)).unwrap(), first);
+        assert_eq!(
+            selected_sundials(&root, "external", Some(&receipt)).unwrap(),
+            first
+        );
         // No bundled source directory exists: only the selected provider is consumed.
         assert!(selected_sundials(&root, "bundled", Some(&receipt)).is_err());
         fs::write(&receipt, br#"{"identity":{"provider":"selected-v2"},"files":{"lib/libsundials_idas.a":"digest"}}"#).unwrap();
-        assert_ne!(selected_sundials(&root, "external", Some(&receipt)).unwrap(), first);
+        assert_ne!(
+            selected_sundials(&root, "external", Some(&receipt)).unwrap(),
+            first
+        );
         fs::remove_dir_all(root).unwrap();
     }
     #[test]
@@ -128,7 +174,11 @@ mod tests {
         let receipt = serde_json::json!({"archive_sha256": "a".repeat(64),
             "delta_sha256": sha256(b"complete delta"),
             "files": {"src/lib.rs": {"sha256": sha256(b"original source"), "mode": "100644"}}});
-        fs::write(root.join("vendor/deltas/supplier.source.json"), receipt.to_string()).unwrap();
+        fs::write(
+            root.join("vendor/deltas/supplier.source.json"),
+            receipt.to_string(),
+        )
+        .unwrap();
         let identity = authenticated(&root, "supplier").unwrap();
         assert_eq!(authenticated(&root, "supplier").unwrap(), identity);
         fs::write(&source, b"changed same-version source").unwrap();
@@ -142,9 +192,17 @@ mod tests {
         let mut changed = receipt.clone();
         changed["delta_sha256"] = sha256(b"changed delta").into();
         changed["files"]["src/lib.rs"]["sha256"] = sha256(b"changed same-version source").into();
-        fs::write(root.join("vendor/deltas/supplier.source.json"), changed.to_string()).unwrap();
+        fs::write(
+            root.join("vendor/deltas/supplier.source.json"),
+            changed.to_string(),
+        )
+        .unwrap();
         assert_ne!(authenticated(&root, "supplier").unwrap(), identity);
-        fs::write(root.join("vendor/deltas/supplier.source.json"), receipt.to_string()).unwrap();
+        fs::write(
+            root.join("vendor/deltas/supplier.source.json"),
+            receipt.to_string(),
+        )
+        .unwrap();
         fs::write(&source, b"original source").unwrap();
         fs::write(&delta, b"complete delta").unwrap();
         fs::write(root.join("vendor/supplier/src/new.rs"), b"new source").unwrap();
