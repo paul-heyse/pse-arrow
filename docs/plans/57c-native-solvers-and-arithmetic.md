@@ -450,8 +450,43 @@ configuration. Context7 also confirmed the 7.8 IDAS quadrature fix and 7.3 works
 The G6 review/source accounts supply release facts and precise pinned-source
 references; implementation must inspect the selected release/patch itself before adopting it.
 
-**Proposed:** every package and remedy. **Not run:** native compilation, provider/build/image
-workloads, probes, solver tests, cross-CPU tests and performance measurements during plan authoring.
-57j owns the selected assembled solver/dynamics/fitting/uncertainty journeys and scope-end hygiene
-and manual checks. Supplier identity, truthful error mapping, arithmetic compliance, scientific
-acceptance and performance are separate claims; no one local pass establishes all five.
+The preceding foundation assessment records plan authoring, during which native workloads
+were not run. Current implementation and functional evidence follow below; 57j owns joined
+qualification and scope-end checks. Supplier identity, truthful errors, arithmetic compliance,
+scientific acceptance and performance remain separate claims.
+
+## Outcome — implementation and functional acceptance, 2026-10-27
+
+**Implemented:** C01–C06 authenticate consumed native source/provider/arithmetic facts, realize
+the maintained nonfused faer/traits route, move bundled SUNDIALS to 7.9.0 through the existing
+wrapper, share narrow LU and quiescent acquisition mechanics, preserve typed Diffsol terminal
+causes and consume the supplier-owned FERAL block bound. C07 settles the selected retained
+choices and conditional triggers. No solver fallback or newly accepted problem class is added.
+
+**Tested:** current `just unit-native-capability-package pse-backend-native native-solvers
+solver,klu,isolation,uno,petsc` with J's recorded selection passed **95/95**; the distinct
+`idas`/`klu` selection with `--no-default-features` passed **16/16**. These cover all three
+corrected-history controls, current/restarted ownership, fixed-pattern KLU, sparse actions,
+Diffsol forward/adjoint resource causes, stop precedence, provider/gate controls and build-fact
+followthrough. The IDAS selection excludes the backend KINSOL adapter; sys-level SUNDIALS still
+enables its KINSOL component. It is not an entirely KINSOL-free supplier build.
+[57j's Outcome](57j-qualification-and-publication.md#selected-a-c-outcome--2026-10-27) owns exact
+invocations and composed outer lifetime evidence. Source/optimized-IR nonfused closure and the
+focused 42-control SUNDIALS acceptance retain their original conditions; they establish no
+cross-CPU or performance measurement.
+
+The SUNDIALS move exposed and corrected opaque bindgen layouts, stale CMake configuration,
+new status/enum consumers and a real one-iteration Anderson restart crash. The adapter uses
+per-attempt effective depth; supplier cleanup uses allocated depth and destroys all successful
+partial clones. Admission includes AA payload omitted by the upstream workspace reporter.
+Initial failing/segfaulting attempts remain distinct from the corrected focused and joined passes.
+
+Deliberate choices retain caller parallelism and factor/lease lifetimes, the IBEX-specific loop,
+whole-Jacobian opaque allowances and the Uno/Diffsol/cone/cache/adapter-chain triggers. Tighter
+complete replacements and real-Jacobian comparisons remain unestablished under CBO-001; the
+block LU remedy is not applied as a blanket cubic diagnostic charge. General coefficient
+rounding retains B's explicit disposition. Benefits remain unmeasured. The tested maintainer-fork
+branch was pushed only after explicit approval and is pinned at
+`141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe`; no upstream contact is authorized by that push.
+Enduring native contracts are published through revision 298. Final selected closure awaits
+57j's remaining feature/manual and publication work.

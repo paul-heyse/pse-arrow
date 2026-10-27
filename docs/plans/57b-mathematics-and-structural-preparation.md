@@ -325,7 +325,41 @@ not the exact refinement/conversion contracts, so pinned installed source and th
 source references govern these choices. The inherited containment, refinement and rounding-cell
 probe records remain *Tested* only under their recorded conditions.
 
-**Proposed:** all packages and replacement mechanisms. **Not run:** product builds, probes,
-solver/provider workloads, targeted tests and broad qualification during this documentation task.
-57j owns selected assembled scientific/Python journeys and scope-end checks after implementation.
-No performance or whole-subsystem correctness claim follows from this foundation assessment.
+The preceding foundation assessment records plan authoring, during which product workloads
+were not run. Current implementation and functional evidence follow below; 57j retains the
+scope-end qualification and publication owner. Authoring evidence establishes no performance
+or whole-subsystem correctness claim.
+
+## Outcome — implementation and functional acceptance, 2026-10-27
+
+**Implemented:** B01–B03 deliver bounded distinct-root isolation and candidate conversion,
+shared checked non-spawning decomposition, and exact/current-numerical FBBT constant enclosures
+through the compiler big-M consumer. The old cubic refinement/cache route and duplicated
+structural sequence are removed from their selected consumers. Deterministic work/storage,
+original residual/branch acceptance, caller-qualified stack and complete-original derivatives
+remain with their existing owners.
+
+**Tested:** twelve cubic/conversion/collocation controls and thirteen math plus three compiler
+FBBT controls passed in debug and release at their recorded source cuts. Current composed
+acceptance includes all three authored runtime root/reconstruction cases within J's **33/33**
+canonical/native selection and **9/9** compiler-child controls using `just unit-package pse-math
+'test(native_compiled::tests::)' --features compiled-evaluator`.
+[57j's Outcome](57j-qualification-and-publication.md#selected-a-c-outcome--2026-10-27) owns the
+current invocations, exact modes, original failures and original-owner settlement.
+
+The important correction was distinguishing rounded numerical constants from exact authored
+proof constants. Disabling backend tightening did not repair the compiler big-M consumer;
+the independent amplified-cancellation case now reaches that consumer. The supplier interval
+leaf and exact exponent predicates repair the enclosure without adding a parallel expression IR.
+Rational candidate conversion uses directed MPFR certification rather than independently rounded
+numerator/denominator division or equal-rounded-endpoint heuristics.
+
+Deliberate boundaries remain: finite verified representatives do not promise correctly rounded
+algebraic roots; equal float images do not merge exact-root associations. General `map_coeff`
+remains non-RNE under its explicit canonical hold, with proof consumers enclosing both exact and
+current numerical values. Collocation's separate unbounded route/identity, exact LDLᵀ,
+generation-local caches, private source-coupled mirrors and the 100,000-row structural limit
+remain. The minimum compiler/capture supervision prerequisite is qualified; other G03 migrations
+remain open. Enduring mathematics/native contracts are published through revision 298. Final
+selected closure awaits 57j's remaining feature/manual and publication work; benefits remain
+unmeasured.

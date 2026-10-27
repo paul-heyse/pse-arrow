@@ -296,6 +296,11 @@ this useful prerequisite does not close G03. The shared owner preserves original
 checks, independent procfs observer-view and post-open pidfd identity checks, WNOWAIT leader
 reservation, re-inventory after group signalling, bounded stderr and Park/Refuse custody.
 Process-group drain still does not establish containment of descendants that escape the group.
+The selected prerequisite's functional acceptance includes eighteen diagnostics controls in debug
+and release, twelve actual capture launcher controls and nine compiler-child controls. The
+[57j Outcome](57j-qualification-and-publication.md#selected-a-c-outcome--2026-10-27) owns current
+composed evidence and original-owner settlement. This does not qualify the remaining G03 readers
+or the G04–G06 host/maintenance scope.
 
 Conditional containment has no selected implementation package until its placement decision;
 it cannot hold this useful consolidation hostage or silently replace the retained fallback.

@@ -309,3 +309,34 @@ assembled journeys, static/manual checks and final publication. No product check
 authoring; the evidence above retains its original scope. Enduring result/storage wording,
 including the stale blueprint §19.2 description, moves through the architecture route at J's
 publication boundary, not by an incidental edit here.
+
+## Outcome — implementation and functional acceptance, 2026-10-27
+
+**Implemented:** A01–A06 deliver the selected footprint. Typed sinks replace duplicated
+count/limit decisions; stream framing precedes Arrow materialization; admitted file inventories
+and indexed block decoding replace duplicate footer reads and whole-file decode grants.
+Selection shares predicate/metadata meaning and reads original columns. Current writer
+preparation, retained capacity and shared B-tree geometry have allocating owners. The five
+handwritten retained-size owners are exhaustive; no derive crate is needed.
+
+**Tested:** the selected canonical/native command `just unit-native-package pse-runtime
+'canonical-tests,native-solvers'` with J01's recorded selection passed **33/33**, including all
+eleven result-data journeys, on the current force-validated closure. The five selected Python
+journeys have composed passing evidence against the rebuilt native correctness extension.
+[57j's Outcome](57j-qualification-and-publication.md#selected-a-c-outcome--2026-10-27) owns exact
+invocations, original failures, conditions, drain evidence and pending scope-end checks. Earlier
+49-control writer/header acceptance retains its recorded targeted scope.
+
+A mistake corrected during joined preparation was the canonical pruning control's stale
+`FileReader.next` call. The migrated test now uses admitted indexed decoding, preserves original
+schema/content checks and proves the skipped-decode behavior with existing counters: two observed
+pruned blocks and zero native decodes before independent readback. Its original compile failure
+ran no acceptance tests.
+
+Deliberately retained: estimate-first splitting, heterogeneous progress JSON, field-local checks,
+named conservative execution allowances and the separate durable publication/transport composite.
+Generic arbitrary `FieldCheckedBatch` alias-header accounting remains an investigation under
+CBO-001. The selected writer/snapshot/source improvements do not establish globally complete
+accounting. Benefits beyond deleted duplicate work remain unmeasured. Enduring result contracts
+are published through blueprint revision 298; final selected closure awaits 57j's remaining
+feature/manual and publication work.

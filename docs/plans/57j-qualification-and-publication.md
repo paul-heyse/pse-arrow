@@ -56,11 +56,11 @@ pass is useful evidence, not closure of an untested obligation.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| J01 | selected A–C preparation in progress | Coordinator and acceptance owners | Selected scope, delivered prerequisites, conditional decisions and test routes reconciled before joined execution |
-| J02 | planned | Scientific, canonical, Python and host journey owners | Actual affected public/composed routes pass original and added assertions with owned drain |
-| J03 | planned | Root integrator | Scope-end hygiene/manual/feature checks pass at the zero baseline, or exact unresolved obligations remain open |
-| J04 | planned | Coordinator and measurement owners | Benefits are either appropriately measured or explicitly left unmeasured for a stated decision reason |
-| J05 | planned | Coordinator and independent reviewer | Coverage/completion reconciled, enduring publication and lifecycle/retirement handoff complete |
+| J01 | partial — selected A–C preparation complete | Coordinator and acceptance owners | Selected scope, delivered prerequisites, conditional decisions and test routes reconciled before joined execution |
+| J02 | partial — selected A–C functional acceptance complete | Scientific, canonical, Python and host journey owners | Actual affected public/composed routes pass original and added assertions with owned drain |
+| J03 | in-progress — final feature campaign running | Root integrator | Scope-end hygiene/manual/feature checks pass at the zero baseline, or exact unresolved obligations remain open |
+| J04 | partial — selected A–C benefits left unmeasured | Coordinator and measurement owners | Benefits are either appropriately measured or explicitly left unmeasured for a stated decision reason |
+| J05 | partial — selected source/evidence reconciliation complete | Coordinator and independent reviewer | Coverage/completion reconciled, enduring publication and lifecycle/retirement handoff complete |
 
 <a id="j01"></a>
 
@@ -253,3 +253,116 @@ J01 can prepare acceptance while implementation proceeds, but J02/J03 joined exe
 for the working selected scope and required decisions. J04 only runs campaigns selected for a
 decision. J05 consumes actual results, resolves contradictions and publishes enduring meaning.
 Package completion is not permission to push, change ADR status or broaden the supported target.
+
+<a id="selected-a-c-outcome--2026-10-27"></a>
+
+## Selected A–C Outcome — 2026-10-27
+
+**Implemented/Tested:** the selected functional footprint is integrated at product source
+`2bd80093b1fb0dce4937df1f83c7c698f7feef52`. Independent source review at `fda1e07bc` and final
+J05 reconciliation at `2bd80093b` found no outstanding material selected-scope blocker. The
+latter independently confirmed all four canonical Rust source snapshots equal the current
+11,442-input product snapshot, original report digests match and Python captures use the same
+admitted validated native extension. J03's full feature campaign and final documentation/status
+publication are still in progress; this is not whole-Plan57 closure.
+
+All counts below use baseline **zero**, pinned routes and the ordinary unbounded host selection.
+Selection filters are retained by each original native metadata/invocation owner, rather than
+being reconstructed from a historical test count.
+
+| Command and actual scope | Result | Original evidence |
+|---|---|---|
+| `just unit-native-package pse-runtime 'canonical-tests,native-solvers'` with J01's result/root/capture/covariance/uncertainty filters | **33 passed, 0 failed, 0 not_run**; actual Arrow leaf closure carries force-validation | `build/native-tests/1793130279339533528/native.json`; invocation `66e713b9196047a591d345c374d25936` |
+| `just unit-native-capability-package pse-backend-native native-solvers solver,klu,isolation,uno,petsc` with the recorded native selection | **95 passed, 0 failed, 0 not_run**; no Arrow array/data units in the actual closure | `build/native-tests/1793130425815062930/native.json`; invocation `e131e7b510d14ae68d8771d9c4e0dc7d` |
+| Same capability recipe with `idas`, `klu`, recorded IDAS filters and `--no-default-features` | **16 passed, 0 failed, 0 not_run**; backend KINSOL adapter absent, sys component still enabled | `build/native-tests/1793130469763775396/native.json`; invocation `ad8bbd747a9a4828baea7eb7e0a16ac3` |
+| `just unit-package pse-math 'test(native_compiled::tests::)' --features compiled-evaluator` | **9 passed, 0 failed, 0 not_run** | `build/native-tests/1793130931885660234/native.json`; invocation `94d8a1d65dc54947ad89279a6044e0c6` |
+| `just native-python` with the five explicit selected node IDs and a fresh private `--basetemp`; only the failed actual-CLI case rerun after `just project-build` | **5 selected cases have composed passes**: four original passes plus one corrected-preparation retry pass | `build/57j-python-qualified-e139/native-python.terminal.json` and `build/57j-python-cli-final-9d50/native-python.terminal.json` |
+
+The Python selection is the two selected project-portability cases, registry-typed query-stream
+CLI, multi-selection CLI handoff and explicit reproducer runner described by J01. It uses the
+ordinary partition; `--managed-primary-route` would deselect these cases. `just
+py-sync-native-correctness` completed preparation, compiled stubs and admission with
+`force-validate,native-solvers,solver-highs`; both Python captures identify immutable extension
+generation `7c054eab0c0a4e1ebf1e55f5341442bd`. Current `just project-build` supplies the actual
+offline project operator; it is not replaced by a Python-only approximation.
+
+### Original failures and corrections
+
+The first joined canonical preparation failed with one stale `AdmittedFile.next` caller and
+ran zero acceptance tests. The repaired control retains schema/content assertions and observes
+two pruned blocks with zero native decodes before independent indexed readback. The next attempt
+ran **26 passes and 7 infrastructure failures** because the selected preserved store was v8
+while current code requires v10. No interpretation was relabeled and that store was not reset.
+A new owned v10 fixture used the current source-built module, explicit initializer and immutable
+admitted worker; the missing payload helper was built through its existing route before setup
+continued. The resulting 33-case campaign passed.
+
+The first Python attempt exited **3 before collection** because `/tmp/pytest-of-paul` was owned
+by root. The unrelated directory was preserved; fresh private per-run base directories retained
+the normal sixteen workers. The next run had **4 passes and 1 failure** at the actual offline
+CLI step because `pse-project` was absent. Current `just project-build` followed by only that
+case's retry passed. Both executed Python runs preserve their original complete drain records;
+the earlier failure is not rewritten as a five-case clean run.
+
+Original cubic/FBBT conversion, binding/layout, restart/partial-clone and targeted fixture
+failures remain in the companion checkpoints and original evidence. Two overlapping scope-end
+Cargo lint invocations were interrupted with exit **130** after an actual cyclic artifact-lock
+wait; subsequent overlapping dirty graphs used one Cargo driver, preserving the configured
+compiler jobs and test widths. The first native lint also returned **125** on its normal cleanup
+clock after source errors. Its exact original scope later independently settled; that later
+observation does not retroactively make its original-clock result pass.
+
+### Scope-end checks, current state
+
+The original `just hygiene` aggregate recorded **7 unsuccessful leaves** against zero at
+`build/assessment/20261027T184933.818759Z-hygiene-2644249-92402b/summary.md`. License attribution,
+retained malformed-SQL typo handling, Python script lint, dependency-use accounting and Rust
+lint/documentation failures were repaired. Separate `just lint-license`, `just lint-typos`,
+`just lint-py`, `just audit-shear`, `just clippy-default`, `just clippy-no-default`, `just
+docs-rust` and `just lint-solver-contracts` pass. Unused runtime `flatbuffers` was removed;
+`sha2` retains its real shared build/test use with a documented discovery exception. Supplier
+reconstruction passed for all four maintained source realizations. Other original hygiene
+leaves passed, including type/import/boundary, generation, contract/stub, family and agent checks.
+This is composed repaired evidence, not a claim that the original aggregate passed.
+
+**Tested:** `just ready` passes; `just governance` passes all **7/7 leaves**, including actual
+generator comparison and family checks, at
+`build/assessment/20261027T195737.328313Z-governance-3088076-c8069e/summary.md`. The documentation
+build published **865 chapters** at its recorded cut. The complete declared feature-powerset
+campaign is running against the unchanged source; no final feature result or full selected
+closure is inferred until it settles.
+
+### Lifetimes, retained choices and publication
+
+A's original inner process drain is complete. B/C/compiler inner terminal fields remain
+`unobserved` because they borrowed ordinary enclosing command placement. Their frozen canonical
+invocation snapshots identify exact producer/composer scopes; independent observation through
+`operation_lifetime.drained` returned complete, “unit absent and owned group empty,” for
+`pse-cmd-8140b0ea9fdc4a55ba9bfbc32cad7f4b.scope`,
+`pse-cmd-d5d482403f134398a95dd94433ddcd0f.scope` and
+`pse-cmd-b8e8823af26f4613b1dc46c629cee865.scope`. The exact cgroups/charges are absent, and all six
+relevant lifetime-protocol source stamps match the original captures. No native scope is
+invented and no inner receipt is promoted. Both executed Python runs retain complete original
+process drain with no report errors.
+
+Only the owned fresh fixture at `build/qualification/57j-canonical-state-4901e6eb9cdf` was
+quiesced and stopped with `--drained`. All contexts drained; the original server PID is absent,
+the exact service is inactive with an empty control group, observer registrations are absent
+and its allocation retired. State, failed data, immutable receiver and original evidence are
+retained. The old v8 selected state and unrelated services remain with their owners.
+
+**Implemented:** enduring selected contracts are published through blueprint revision 298.
+The maintainer-fork push was explicitly authorized, remotely verified and pinned at
+`141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe`. Accepted ADR statuses remain unchanged. Broader CBO-001
+alias-header and tighter whole-Jacobian/opaque-bound inquiries remain open; selected prepayment
+is not a result-wide proof. Named conservative allowances and the durable transport composite
+retain their separate owners. General coefficient conversion remains non-RNE under its hold;
+proof enclosures include authored and current numerical images. Cubic representatives retain
+original residual/branch meaning, and IBEX retains its distinct acquisition policy.
+
+**Unmeasured:** elapsed speed, peak memory, capacity, compile/startup gains and cross-CPU benefit.
+No optional measurement is needed to select these correctness corrections. Retained upstream,
+solver-image and tighter-bound leads reopen only on their recorded decision triggers. No
+whole-Plan57, full solver-fleet/parity, other-platform, distribution or performance qualification
+follows. Other G03 consumers and D–I work remain with their existing owners. Final lifecycle and
+current-work publication follows completion of the remaining selected checks.
