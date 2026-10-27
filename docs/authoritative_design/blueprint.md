@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 295 | 2026-10-27 | Correct Plan56 implementation and qualification descriptions in §24.1/§24.2 after the completion audit; preserve construction-once validity, historical passes and bounded benefits. | Authorized completion-audit publication; PSE_DESIGN_EDIT=1. Owning plans retain open obligations; no contract or ADR status change. |
 | 294 | 2026-10-27 | Publish implemented immutable artifact ownership and selected remaining E/F/G local qualification in §24.1/§24.2, preserving failed attempts and unmeasured/wider-scope limits. | Maintainer-authorized Plan56 closeout under proposed ADR-0231; PSE_DESIGN_EDIT=1. Final governance/documentation status remains with the owning Outcome. |
 | 293 | 2026-10-27 | Amend §24.1 artifact validity to controlled construction and atomic immutable publication; remove read-time source/build-record inference and redundant artifact validation. | Explicit maintainer direction under proposed ADR-0231; PSE_DESIGN_EDIT=1. Revised implementation and qualification remain in Plan56 F/G. |
 | 292 | 2026-10-26 | Publish implemented finite operation/constraint projections (§21.1), producing artifact currency, foreground retained read/drain and precise owner metric/SDK loss contracts (§24.1); selected final qualification remains in §24.2 and Plan56 Outcomes. | Authorized remaining Plan56e/f/g under proposed ADR-0231; PSE_DESIGN_EDIT=1. No formal ADR status or unsupported-platform/performance claim. |

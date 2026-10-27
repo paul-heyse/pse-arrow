@@ -400,20 +400,26 @@ declared meanings; there is no compatibility argument bag or similarity fallback
 The endpoint captures one catalogue/schema/handler revision from known local serving sources,
 including explicitly declared fixed child-worker implementations and non-Python execution inputs
 such as Just recipes. Lightweight contracts and operation handlers have separate source ownership;
-pure schema inspection does not inherit an execution worker just from its name. Relevant source changes refuse dispatch before
-handler effects and report `pse.capabilities.restart_required`; bootstrap still describes the loaded
-snapshot and changed sources. Restart after changing serving code or exposure declarations.
-An unrelated model/document edit does not invalidate every operation. This bounded source cut does
-not establish arbitrary third-party dependency or deployment freshness.
+pure schema inspection does not inherit an execution worker just from its name. Serving-code and
+exposure changes require explicit drain/reload before edited code serves operations, including lazy
+imports. Direct MCP dispatch checks its loaded wire contract without scanning source files.
 
-Capture precedes composition and is verified afterward. Local imports remain conservatively traced,
-including package initializers and absent candidate paths whose later appearance changes resolution.
+**Current implementation gap:** the foreground CLI still calls source-scanning description before
+each operation and refuses `restart_required`. Explicit `admit` stages also fail to propagate the
+requested mode/profile faithfully. [Plan56f's completion audit](../plans/56f-host-agent-and-observability-contracts.md#completion-audit--2026-10-27)
+owns these remaining consumer migrations and the missing actual new-generation/reload acceptance.
+They do not invalidate an issued immutable artifact or justify reader source/image revalidation.
+Explicit description can still report provenance separately from operation admission.
+
+Captured source provenance describes the loaded definition. Local imports are recorded at that
+construction boundary, including package initializers and absent candidate paths.
 Restart obtains a coherent endpoint; it never replays a prior action or hot-reloads a running handler.
 
 The operation revision includes its complete exposed MCP contract: schemas, annotations, metadata
 and descriptions. Fixed helpers receive a private request-local handoff binding the selected
-checkout, operation, worker route, source bytes and exact request. They verify those selected bytes
-before entering the owner. This verification does not compose or parse unrelated operations.
+checkout, operation, worker route and exact request. They verify that association before entering
+the owner; they do not rescan source bytes. This request verification does not compose or parse
+unrelated operations.
 Attachment reveal remains separate from operation identity. `environment_explain` shows the
 checkout/interpreter and distinguishes refreshed derived compiler widths from explicit overrides;
 its unevaluated-local-configuration result remains provisional.

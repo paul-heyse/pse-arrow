@@ -661,8 +661,8 @@ evidence-executable construction publish a completed immutable artifact generati
 existing preparation receipt. The build/install owner establishes validity once and publishes the
 typed descriptor only after completion. Failure before publication commits preserves the previous selection. If descriptor replacement
 has an uncertain outcome, the constructor retains both possible issued generations rather than
-deleting an image the descriptor may now select. Consumers attach the issued generation and check only distinct requested compatibility;
-they do not rescan source, compiler environments, Cargo records or artifact digests. Linting and
+deleting an image the descriptor may now select. Native image attachment consumers use the issued generation and check distinct requested compatibility;
+that image path does not rescan source, compiler environments, Cargo records or artifact digests. Linting and
 source edits affect later construction, not the validity of the existing generation. An attached
 generation survives mutable installation-alias changes and newer publications until explicit
 replacement drains its owner. Original cursors never attach silently to a replacement.
@@ -671,7 +671,11 @@ Each attachment names its checkout and interpreter. Environment/provider lifetim
 its original owner. Serving-code edits require explicit endpoint drain/reload before edited code
 serves requests, including lazy imports; live source scanning does not establish this contract.
 No new ledger or general validation mechanism follows. Source-only discovery never prepares native
-prerequisites. The [Plan56f final Outcome](../../plans/56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27) records implementation and selected actual qualification.
+prerequisites. The [Plan56f completion audit](../../plans/56f-host-agent-and-observability-contracts.md#completion-audit--2026-10-27)
+records unfinished explicit-stage mode/profile adoption and automatic foreground CLI serving-source
+scans, plus outstanding actual second-generation selection/reload acceptance. Core immutable
+publication and retained native lifetime remain supported; these gaps do not alter the selected
+construction-once contract.
 Native observation activates only after the helper admits its image and retains the same process
 shutdown owner. Independent endpoint resource owners settle despite sibling teardown failures;
 retained failures and cancellation remain visible after settlement.
@@ -1392,7 +1396,10 @@ Selected Plan56b scientific-operation acceptance of 2026-10-25 belongs to its
 [Verification and Outcome](../../plans/56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25).
 **Implemented/Tested:** original/product permission, complete profile endpoints, exhaustive kind
 facts/tagged replay, explicit service/binding/issuer boundaries, configured native capability and
-typed failure/effect remedies are adopted through local, durable and public consumers. Local Linux
+typed failure/effect remedies are substantially adopted through local, durable and public consumers.
+The [56b completion audit](../../plans/56b-scientific-operations-and-permission.md#completion-audit--2026-10-27)
+reopens B06 for real operational producer constructors still classified as invalid model; the
+recorded consumer controls do not exercise those poisoned owners. Local Linux
 pure controls, actual native fit/profile/KINSOL, protected canonical hydration/replay and installed
 correctness Python passed at the recorded scopes. Actual STDIO MCP and derived CLI agree with
 Python on original failed permission while diagnostic check bytes remain readable. Initial Rust
@@ -1404,14 +1411,17 @@ and repaired hygiene leaves passed against zero. The full feature powerset was a
 started, interrupted and authenticated-drained; its incomplete receipt remains, with no matrix
 qualification claim. Four new functional/no-resident deployments were initialized and qualified,
 then quiesced, authenticated-drained and stopped with databases/receipts retained. The preexisting
-selected store was preserved. This acceptance covers B01–B06 and necessary C/F adoption, not the
+selected store was preserved. This acceptance covers the named B and necessary C/F slices, with the audited B06 gap still open, not the
 remaining Plan56 scenarios, full parity/fleet, desktop-host attachment, distribution, other
 platforms or measured performance. ADR-0227 remains proposed; RC01–RC06 are not adopted.
 
 Selected Plan56c canonical/operational acceptance of 2026-10-26 belongs to its
 [Verification and Outcome](../../plans/56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26).
 **Implemented/Tested:** declarations, exact attributed settlement, v9 inline/sealed placement,
-product native file authority and controlled fresh activation are integrated. Canonical 49/49,
+product native file authority and controlled fresh activation are integrated. The
+[56c completion audit](../../plans/56c-canonical-contracts-and-effects.md#completion-audit--2026-10-27)
+identifies a remaining lazy study association-prefix consumer (C01) and lost failed-readback cause
+in source-stage acquisition (C02); their earlier blanket completion is withdrawn. Canonical 49/49,
 final native runtime 83/83, affected installed Python/physical readers and actual STDIO MCP/CLI
 passed at the recorded scopes. A private backup contained ten inline bodies and five sealed
 instances; all 345 copied members were independently verified. Corruption refused before target
@@ -1449,16 +1459,21 @@ drain and cleanup passed with sixteen scientific lanes and the existing logical-
 allocations. This establishes deployment/resource behavior, not sixteen numerical solve outcomes.
 See [56e's final activation](../../plans/56e-product-deployment-and-resource-ownership.md#final-activation-outcome--2026-10-26).
 
-**Implemented/Tested:** F01–F06 deliver finite operation/default/effect/prerequisite projections,
-owned bound/key/metric semantics, typed remedies and instrument-correct questions, explicit stage
-export and precise SDK loss observations. Controlled constructors publish immutable artifact
+**Implemented/Tested:** selected F slices deliver finite operation/default/effect/prerequisite
+projections, keyed metric semantics, typed remedy consumers and instrument-correct questions,
+explicit export stage and precise SDK loss observations. The
+[completion audit](../../plans/56-design-principle-alignment.md#completion-audit--2026-10-27)
+withdraws all-series closure: actual telemetry sampler/bound and evidence comparison vocabulary/key
+adoption remains in F01, explicit stage compatibility in F05, and automatic CLI source-scan removal
+and actual second-generation/reload acceptance in F06. Passing controls below retain their original
+scope and do not close these obligations. Controlled constructors publish immutable artifact
 generations once. Supplied-only executable/MCP/CLI evidence needs no product extension or canonical
 store. Ten actual native attachment/context/CLI/cancellation/EOF/health/capture controls pass;
 mutable installation-alias replacement preserves both an attached generation and fresh attachment.
 Three actual canonical project/knowledge/protected-result cases, two original-cursor/protection
 adverse cases and three installed project/Python CLI journeys pass. The disposable canonical
 fixture's original lifecycle reports all contexts and kernel scopes drained and its owned state
-retired. No image/source/build-record revalidation is performed per read.
+retired. Native image attachment avoids image/source/build-record revalidation; automatic CLI serving-source scans remain as described above.
 
 [56f's final Outcome](../../plans/56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27)
 and [56g's closeout](../../plans/56g-qualification-and-publication.md#final-selected-qualification-outcome--2026-10-27)

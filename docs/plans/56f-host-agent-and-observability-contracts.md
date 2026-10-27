@@ -1,6 +1,6 @@
 ---
 title: "Plan 56f: Host, agent and observability contracts"
-status: complete
+status: in-progress
 date: 2026-10-25
 adrs: [ADR-0227, ADR-0231]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md, docs/design_review/reviews/design_review_retained-native-read-currency_2026-10-26.md]
@@ -11,6 +11,97 @@ doc_topics: [design, diagnostics, environment, preparation]
 ---
 
 # Plan 56f: Host, agent and observability contracts
+
+## Completion audit — 2026-10-27
+
+**Interface-checked:** all F01–F06 accepted scope and ordinary consumers inspected at
+`57cce1756318357a5797f99e83f1ad9115661368`, with revised ADR-0231/review acceptance.
+F02–F04 retain bounded completion. F01, F05 and F06 remain incomplete for the specific obligations
+below. The coordinator owns DA-040/043 disposition and [CA04–CA08](56-design-principle-alignment.md#completion-audit--2026-10-27).
+Earlier passing receipts retain their original conditions; the prior blanket F01–F06 closure is withdrawn.
+
+### F01: finish actual owner and consumer adoption (CA04/CA05)
+
+`pse-runtime/src/tooling/telemetry.rs` still declares the sampler as `String` and validates six
+names and scalar maxima manually. `scripts/telemetry_config.py` repeats the sampler/bound sets;
+`telemetry_process.py` selects sampler behavior with substring tests. The generated settings keep
+`sampler: str` and merely nonnegative constraints where the owner requires positive values and
+maxima. Accepted F01 explicitly required removing these parallel definitions. Finish the owner-local
+closed sampler and scalar constraint/constants, derive schema/Python and migrate actual host
+selection/enforcement. Preserve independently necessary receiving enforcement against that declaration.
+No generic validation framework or duplicate artifact validation is requested.
+
+`xtask/src/development/evidence_query/comparison.rs` retains finite comparison `classification`,
+`correspondence` and `side` as strings. Its Rust request owns a map keyed by
+`EvidenceComparisonSection`, but published request schema has no closed property-name domain and
+generated Python uses `dict[str, ...]`. Output schemas/Python also erase finite classification/side
+meaning. Migrate these actual owners and generated consumers to their closed vocabulary/key domains;
+preserve original owner statuses that are legitimately open. The generator capability alone does
+not complete this adoption. Targeted controls should decode real production declarations at each
+boundary, cover unknown keys/variants and scalar endpoints, and verify unchanged valid semantics.
+
+**Tested, narrow discrepancy:** on this local Linux checkout, the actual generated JSON Schema and
+msgspec request decoder admitted `sections: {"not_a_section": {"limit": 1}}` (zero schema errors).
+The already published pure evidence executable, opened through its held descriptor, refused the
+same request at native document decoding (exit 1) with a valid retained supplied snapshot. No store,
+product extension or scientific execution was used. The first executable probe omitted required
+`--input` and exited 2 before decoding; the corrected probe supplied the snapshot and settled the
+question. This is contract-discrepancy evidence, not an executable malfunction or full evidence journey.
+
+### F05: honor explicit requested compatibility (CA06)
+
+`python_extension.run_stages("admit", mode, profile, ...)` invokes `admit_import` without the
+requested profile. For dev, `capture(native=False)` intentionally consumes the installed publication's
+mode, and `currency_check_installed` consumes its profile. `PreparationResult` nevertheless reports
+the caller's requested mode/profile. The explicit public StageRequest thus can report dev/dev while
+selecting a native/producer image. Finish explicit-stage mode/profile propagation and truthful
+result reporting, with compatible and incompatible requested-stage controls. Keep generic installed
+capture semantics: an issued artifact is valid even when incompatible with this specific request.
+
+**Tested, selection only:** `scripts/pse-env -- .venv/bin/python /tmp/pse-56-audit-probes.py` used a
+private temporary typed native/producer publication and called the real `run_stages` for dev/dev.
+It returned exit 0, reported dev/dev and passed the native image to its one import call. Only
+`subprocess.check_call` was stubbed: this demonstrates selection/reporting, not an actual binary import.
+The fixture was removed. Successful constructor publication/failure preservation remains supported.
+
+### F06: finish foreground CLI adoption and required journey evidence (CA07/CA08)
+
+`capability_cli_runtime.invoke_on` calls `capabilities_describe` on every operation/page and refuses
+`interface.restart_required`. Description calls `Interface.status`, which reads/hashes serving
+sources through `Sources.check`. Direct MCP dispatch's scan-free `require` does not remove this
+normal CLI preflight. Its selection receipt also calls `Interface.status`; deleting only the
+description refusal would leave those repeated scans. Remove source freshness from automatic operation admission while retaining
+the distinct loaded-wire compatibility check and explicit owner-controlled drain/reload. Optional
+explicit provenance diagnosis can retain its separate purpose. Cover the actual CLI invocation/session
+route, including successive operations and a changed-source observation that cannot revoke the loaded
+contract. Do not infer safe arbitrary Python editing from the absence of a watcher.
+
+**Tested, in-process public route:** the same probe used actual FastMCP server/client and `invoke_on`:
+two successful `capability_readiness` calls caused four `Sources.check` calls through automatic
+description and selection. Supplying a changed-path
+observation at that seam caused stale-endpoint refusal. A direct MCP call succeeded with zero
+additional source checks. No source files were edited. An earlier harness incorrectly expected two
+checks and aborted after the CLI observation; the corrected observation counts all actual calls.
+Logs are `/tmp/pse-56-completion-audit-probes.log` and
+`/tmp/pse-56-completion-audit-probes-final.log`; the settled native decoder probe is
+`/tmp/pse-56-completion-audit-evidence-probe.json`. Expected product discrepancies were reproduced;
+this is not host attachment, a native functional run or broad qualification.
+
+**Qualification outstanding (CA08):** revised review S04 and its acceptance require actual explicit
+new-generation selection/reload with native drain and original cursor/incarnation boundaries.
+Located unit controls establish identity separation/retention, actual controls replace a mutable
+installation alias, and actual EOF/fresh attachment establishes settlement. They do not exercise
+publishing/selecting a second issued generation while an old cursor is retained. Complete that
+specific actual journey through the intended foreground/native route, preserving original deadlines,
+physical custody and reference lifetime. No implementation defect in the core retention mechanism is
+asserted from this evidence gap. [56g](56g-qualification-and-publication.md#completion-audit--2026-10-27)
+owns the joined acceptance; no broad campaign is required by this audit.
+
+**Supported scope and benefits:** finite projections, typed remedy consumers, instrument-correct
+questions, precise SDK observations, immutable construction/publication, actual retained native
+context/protection/cancellation/EOF and supplied-only separation retain their recorded evidence.
+The B06 producer classification defect belongs to B06, not a separate F03 reopening. Source-scanning
+removal cannot yet be claimed universally. No speed, memory or capacity improvement was measured.
 
 ## Target and foundations
 
@@ -29,7 +120,7 @@ controlled construction establishes artifact validity once and atomically publis
 contract. Consumers attach the issued immutable generation; reads and internal handoffs do not
 reconstruct source/build currency or revalidate its image. Distinct requested-interface/mode
 compatibility, external request decoding and scientific/context/lifetime boundaries retain their
-own duties. This target is Proposed; revised F05/F06 implementation and acceptance remain in progress.
+own duties. F05/F06 are substantially delivered; the completion audit identifies their remaining adoption and acceptance.
 
 ## Maintainer-directed artifact amendment — 2026-10-27
 
@@ -230,12 +321,12 @@ F06 remains in progress until those controls and the final canonical protected-c
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| F01 | complete at scoped boundary and keyed-metric acceptance | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive generated boundaries; selected evidence below |
+| F01 | in progress — CA04/CA05 | 56f | Scoped generation and keyed metrics delivered; actual telemetry/evidence owner migrations remain |
 | F02 | complete at installed/native, supplied-only executable/MCP/CLI and public project journeys | 56f | Finite declarations project contracts/defaults/effects and actual prerequisites without parallel operation lists |
 | F03 | complete at typed remedy and instrument-query acceptance | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
 | F04 | complete at SDK/filter, installed disabled bridge and selected capture acceptance | 56f | Ordinary export follows stage policy; queue-loss observations retain actual lifetime/shutdown-attempt precision |
-| F05 | complete at owner publication, strict selection and actual dev/native/evidence attachment acceptance | 56f | Successful construction issues a complete immutable generation atomically; failed candidates preserve the prior publication; consumers do not reconstruct producer/source/image validity |
-| F06 | complete at original cursor/context/protection/cancel/EOF and immutable-generation lifetime acceptance | 56f | An attached generation and admitted physical/provider context retain original cursor/request ownership through actual drain; source or mutable-alias edits do not revoke the generation |
+| F05 | in progress — CA06 | 56f | Constructor publication and strict deployment delivered; explicit stage requested mode/profile adoption remains |
+| F06 | in progress — CA07/CA08 | 56f | Core retained context/cursor/drain delivered; automatic CLI source-scan removal and actual new-generation/reload journey remain |
 
 F01/E01 share the declaration/codegen owner. F02 consumes actual A03/B01/B05 and E02 contracts,
 but its finite operation declaration can be designed early. F03 consumes B06/C02/F01. F04 proceeds
@@ -339,8 +430,8 @@ Those recorded passes/failures remain unchanged and do not qualify immutable pub
 explicit reload/replacement lifecycle. Current package state and planned acceptance above govern
 the remaining work; both F05 and F06 remain in progress.
 
-**Implemented:** F01–F06 functional scope is integrated at the coordinator's `1e5a6e79a` source
-baseline. RC02/RC03 and selected RC06 supply responsibility-owned contracts and foreground read
+**Historical implementation account:** the selected F01–F06 slices were integrated at the coordinator's `1e5a6e79a` source
+baseline. The completion audit identifies remaining F01/F05/F06 obligations. RC02/RC03 and selected RC06 supply responsibility-owned contracts and foreground read
 retention under proposed ADR-0231. Earlier dated prerequisite sections describe their original cuts;
 their pending statements do not override this package table and outcome. Plan56 owns finding/rule
 dispositions; [56g](56g-qualification-and-publication.md) owns assembled qualification and comprehensive
@@ -518,7 +609,7 @@ unmanaged-provider cases keep their documented conservative routes.
 
 ## Final publication and acceptance Outcome — 2026-10-27
 
-This Outcome supersedes the earlier pending execution checkpoints. Earlier receipts keep their
+This historical Outcome supersedes the earlier pending execution checkpoints; its broad completion claims are corrected by the completion audit above. Earlier receipts keep their
 original source, mode, date and pass/fail boundaries; the maintainer-directed construction contract
 supersedes their source-change and mutable-alias-change refusal criteria.
 
@@ -530,10 +621,10 @@ issued images remain retained. Strict producer deployment publishes/selects its 
 image instead of borrowing an ordinary installation. Explicit live import checks remain requested
 observations; ordinary sync consumes its constructor's successful import without repeating it.
 
-**Implemented:** consumers attach that issued image once. Native reads perform no source,
+**Implemented:** native attachment consumers use that issued image once. Their image path performs no source,
 compiler-environment, Cargo stdout/dep-info, binary digest or repeated image-stat validation.
-The ordinary input scanner, observer branch, xtask commands/module and their obsolete tests were
-deleted. Serving-code edits require explicit drain/reload before edited code serves operations,
+The ordinary native input scanner, observer branch, xtask commands/module and their obsolete tests were
+deleted; automatic CLI serving-source scans remain CA07. Serving-code edits require explicit drain/reload before edited code serves operations,
 including lazy imports. Live request/wire/cursor/physical/scientific/Arrow and resource-drain checks
 retain their distinct meanings. New publication never silently replaces a loaded generation.
 

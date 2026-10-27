@@ -1,6 +1,6 @@
 ---
 title: "Plan 56b: Scientific operations and permission"
-status: complete
+status: in-progress
 date: 2026-10-25
 adrs: [ADR-0227]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -11,6 +11,38 @@ doc_topics: [design, numerical-execution, validation]
 ---
 
 # Plan 56b: Scientific operations and permission
+
+## Completion audit — 2026-10-27
+
+**Interface-checked:** source `57cce1756318357a5797f99e83f1ad9115661368` and accepted
+B01–B06 scope, including ordinary nested/provider/trajectory consumers. B01–B05 remain complete
+at their recorded bounded conditions. B06 is incomplete for [CA01](56-design-principle-alignment.md#ca01),
+which reopens DA-039 in the coordinator. The earlier B01–B06 blanket closeout is corrected here;
+its historical tests and original failures remain unchanged.
+
+`pse-math/src/implicit_products.rs` creates `MathError::Contract` for poisoned preparation,
+provider and product mutexes. The equivalent residual-provider path in `implicit.rs` creates
+`MathError::Library`. Actual `ImplicitProvider::prepare_demand` and `demanded_derivatives` callers
+reach these constructors. Nested provider errors preserve the original diagnostic: Contract maps
+through `MathContract` to `InvalidModel`, while Library maps to infrastructure. Runtime strategy
+therefore reports contract failure for one real infrastructure failure and operational failure
+for its equivalent peer. Typed host remedies consume that incorrect producer fact. The existing
+runtime synthetic `MathRuntimeError::Internal` control does not exercise the poisoned owners.
+Related migration residue maps trajectory allocation errors and a pure compiler task join failure
+to `WorkflowError::Input`; include those real operational constructors in B06's finishing scope.
+
+**Remaining implementation and acceptance:** preserve typed operational causes and source attribution
+through the real constructors/nesting/runtime projection. Poison actual provider/product preparation
+owners and exercise residual/product/preparation paths, asserting equivalent classification and
+redacted remedies. Cover the allocation/join constructors at their owning boundaries. Do not add
+message matching or another validation layer. No permanent lazy refusal cache was established:
+these generic errors are outside the deterministic cache whitelist and are returned, not persisted
+as `ScientificRefusal` by the inspected study path.
+
+**Evidence limits:** source inspection establishes the missing migration; no new scientific tests,
+compilation or provider runs were needed. The recorded Rust/Python results remain composite original
+passes plus affected reruns, not a new clean full invocation. Permission, replay, native capability,
+service custody and physical-context results remain supported. No measured benefit is added.
 
 ## Purpose and assessed foundations
 
@@ -155,7 +187,7 @@ ordinary observation events do not masquerade as registered diagnostic codes.
 | B03 | complete | 56b | Exhaustive kind-owned request/completed facts and one tagged replay constructor replace parallel projections |
 | B04 | complete | 56b | Explicit services replace whole-runtime retention in selected scientific values; binding/issuer and lifetime controls pass |
 | B05 | complete | 56b | Adapter-owned default/configured capabilities, recovery starts and concrete dynamics attribution; generated direct settings migrated |
-| B06 | complete | 56b | Typed causes/effects govern lazy refusal, recovery, inspection and redacted remedies; transient/internal causes stay distinct |
+| B06 | in progress — CA01 | 56b | Typed consumers are delivered; actual operational producer constructors and equivalent poisoned-owner acceptance remain |
 
 B01's pure decision can precede the canonical cutover; persisted completion requires C03/C05.
 B03 provides early constructor/fact declarations to C before all lifecycle migrations finish.
@@ -197,7 +229,7 @@ capacity or memory benefit is claimed.
 
 ### What was built
 
-**Implemented:** B01–B06 and their required C/F adoption are complete. Completion v2 owns original
+**Implemented:** B01–B05 and their required C/F adoption are delivered; B06 remains incomplete as detailed in the completion audit. Completion v2 owns original
 coverage/report/assessment permission and separate product permission with required qualifiers.
 Covariance, own propagation, invocation, studies, Python and protected stored readers consume it.
 A failed original fit retains diagnostic covariance, Wald and profile bytes without granting
@@ -323,5 +355,5 @@ full solver fleet/parity, 505-case powerset, benchmark/speed/capacity/memory ben
 attachment, distribution or other-platform qualification is claimed. Public evidence covers an
 actual local STDIO MCP session and CLI. ADR-0227 remains proposed; implementation evidence does not
 change its formal status. Enduring meaning belongs to blueprint §19.2/§19.4/§19.8/§21.1 and the
-selected qualification basis in §24.2. This completed companion is retained while the active
+selected qualification basis in §24.2. This companion remains in progress and is retained while the active
 coordinator and C/F/G packages consume its evidence; it authorizes no further production work.

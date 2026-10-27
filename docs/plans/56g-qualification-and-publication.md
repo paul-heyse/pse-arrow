@@ -1,6 +1,6 @@
 ---
 title: "Plan 56g: Qualification and publication"
-status: complete
+status: in-progress
 date: 2026-10-25
 adrs: []
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -11,6 +11,49 @@ doc_topics: [validation, design, documentation, numerical-execution, storage]
 ---
 
 # Plan 56g: Qualification and publication
+
+## Completion audit — 2026-10-27
+
+**Interface-checked:** joined completion reassessed at
+`57cce1756318357a5797f99e83f1ad9115661368` against all 37 packages, narrative acceptance,
+authorized amendments and retained source/qualification records. The
+[coordinator audit](56-design-principle-alignment.md#completion-audit--2026-10-27) owns the combined
+conclusion and DA dispositions; local B/C/F audits own actionable implementation detail.
+
+**Implementation:** six delivery packages remain incomplete (B06, C01/C02, F01/F05/F06).
+G01 must reconcile CA01/CA02 through the affected scientific/lazy producer/public classification
+routes; G02 must reconcile CA03–CA07 at their actual durable/host/settings/evidence consumers.
+Existing scientific, mixed canonical recovery, frozen-reference, capture/copy, installed project,
+supplied-only and protected native reader receipts remain bounded passing evidence. They do not
+exercise these omitted obligations. G04's prior independent review remains evidence for its inspected
+scope, but the all-findings-resolved conclusion and overall series closure are withdrawn.
+
+**Required qualification:** CA08 remains outstanding separately from implementation. Revised
+retained-read review S04 and its acceptance require actual explicit second-generation selection/
+reload, native drain and old cursor/incarnation boundaries. Located unit identity/retention controls,
+actual mutable-alias replacement and actual EOF/fresh attachment do not establish that complete
+transition. Run the named actual foreground/native journey with two issued generations, a retained
+old cursor/context, explicit selection/reload and original-owner settlement. Retain each original
+deadline and referenced generation through drain; no watcher, source or image revalidation is needed.
+This audit did not launch that actual journey, a new build, native services or a broad campaign.
+
+**G03 evidence:** retained full hygiene attempted 24/24 leaves with six failures; corrected affected
+leaves/manual checks passed separately as already recorded. Final governance was 7/7 against zero;
+the affected ten-module script selection passed 118/118, the final constructor-fixture unit
+selection 29/29 and installed project journeys 3/3. Script unit controls include mocked boundaries;
+these are historical selected results, not a fresh clean aggregate, and populations overlap. G03 remains complete
+at those conditions; finishing production repairs will require their relevant targeted/integrated
+and scope-end checks under the existing rhythm. No new whole-matrix obligation is invented.
+
+**Current handoff:** after separately authorized B/C/F repairs, exercise the missing consumer/failure
+controls, settle CA08, reconcile affected G01/G02 evidence and obtain independent G04 closure before
+claiming Plan56 complete again. Documentation now states the gaps at its actual owners. No production
+repair, acceptance weakening or revival of stopped campaigns occurred during this audit.
+
+**Benefits:** structural improvements are supported only where actually adopted; automatic CLI
+source scans still occur. No timing, memory or capacity gain is measured. Optional measurements and
+excluded 505-case/fleet/parity, powerset, release/distribution, remote CI, other-platform, desktop-host
+and 100,000-point qualification do not become new repair obligations.
 
 ## Completion boundary
 
@@ -133,10 +176,10 @@ references and owning scope are satisfied; other plan series retain their obliga
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| G01 | complete at selected scientific, installed project/Python CLI and actual public canonical acceptance | 56g | Named scientific/installed/public journeys exercise the composed target and adverse semantics |
-| G02 | complete at actual frozen reference, canonical/protection/cursor and original lifecycle acceptance | 56g | Exact durable/workload/operator journeys pass with original custody/drain and supported scope |
-| G03 | complete; required selected zero-target leaf/manual checks and documentation build passed | 56g | Relevant zero-target scope-end/manual checks complete; structural and measured claims separated |
-| G04 | complete; independent findings repaired, dispositions reconciled and enduring contracts published | 56g | Independent assessment, all finding obligations/evidence reconciled and enduring meaning published |
+| G01 | in progress — affected CA01/CA02 acceptance | 56g | Existing scientific/installed/public results retained; unfinished producer seams require affected acceptance |
+| G02 | in progress — CA03–CA08 | 56g | Existing durable/workload/lifecycle results retained; missing consumers and actual new-generation/reload journey remain |
+| G03 | complete at recorded source cuts; future repair checks not run | 56g | Selected zero-target checks and benefit limits retained; no fresh clean aggregate claimed |
+| G04 | in progress — audit gaps require repair and reconciliation | 56g | Independent prior reviews retained; current audit corrects closure and records remaining obligations |
 
 G01/G02 consume completed relevant functional scope and C05 activation; neither substitutes for
 another's subjects. G03 runs after all functional work; G04 closes the integrated evidence/authority
@@ -335,14 +378,14 @@ none is recast as a clean first-pass qualification.
 
 ## Final selected qualification Outcome — 2026-10-27
 
-This is the joined closeout for the authorized remaining E/F/G scope. Earlier checkpoint failures
+This is the historical joined qualification account for the authorized remaining E/F/G scope; the completion audit above corrects its blanket closure. Earlier checkpoint failures
 remain their original cuts. The [E final activation](56e-product-deployment-and-resource-ownership.md#final-activation-outcome--2026-10-26)
 and [F final Outcome](56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27)
 own detailed mechanisms, commands and original failures; this section reconciles their scope.
 
 ### Functional and lifecycle acceptance
 
-**Implemented/Tested:** E01–E05 and F01–F06 are delivered. Actual normal frozen reference
+**Implemented/Tested:** E01–E05 and the named F slices below have bounded acceptance; F01/F05/F06 remain incomplete under the completion audit. Actual normal frozen reference
 initialization, helper/worker launch, workload, quiesce, drain and cleanup passed under invocation
 `f925550666bf488f8c1d71018ac97385`, generation
 `3a6e27620b8b08824e235b1fdf7536df62a6b1d4754b1d275f25562bf4bd49ea`, state
@@ -424,7 +467,7 @@ endpoint read/reuse/EOF test after Clippy also passed **1/1** at
 `/tmp/pse-56efg-publication-after-lint-native-endpoint.log`, using the same issued native generation.
 **Tested:** `just docs` passed, publishing **691 chapters** with scoped search at
 `/tmp/pse-56efg-publication-docs.log`. The chapter count describes this checkout, including
-concurrent library notes preserved outside this change. G03/G04 are complete for this selected scope. Final
+concurrent library notes preserved outside this change. G03 retains this selected check evidence; G04 is reopened by the completion audit. Final
 status-only Markdown updates do not repeat product/static qualification.
 
 ### Independent assessment and enduring meaning
@@ -456,9 +499,10 @@ and unconditional pipe settlement were repaired, and its affected composer selec
 
 ### Deliberate limits and benefit evidence
 
-**Implemented, unmeasured:** ordinary reads no longer reconstruct source/compiler inputs, parse
-producer logs, hash image bytes, start a second interpreter or reconstruct native receivers per
-page. Controlled constructors and foreground lifetime owners discharge those duties once. These
+**Implemented, unmeasured:** native image attachment no longer reconstructs source/compiler inputs or parses
+producer logs, hashes image bytes, starts a second interpreter or reconstructs native receivers per
+page. Controlled constructors and foreground lifetime owners discharge those duties once. Automatic
+CLI serving-source scans remain CA07, so scan removal is not universal. These
 are structural changes, not measured speed, memory or capacity improvements. No benchmark was
 run without a concrete acceptance decision requiring it.
 

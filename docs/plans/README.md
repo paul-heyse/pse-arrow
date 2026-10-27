@@ -1,24 +1,24 @@
 # Current work and plans
 
-[Plan56: Design principle alignment](56-design-principle-alignment.md) is complete for its selected
-local model/scientific, canonical, publication/workload, product/resource and host/observability
-alignment scope. Its [finding dispositions](56-design-principle-alignment.md#finding-dispositions)
-remain the single owner for all 45 DA identities and the 24 adopted audit findings. A–G acceptance
-is complete at the named source/mode conditions; [56g's closeout](56g-qualification-and-publication.md#final-selected-qualification-outcome--2026-10-27)
-records exact commands, source cuts, zero-target repairs and supported limits.
+[Plan56: Design principle alignment](56-design-principle-alignment.md) remains **in progress**
+after its [completion audit](56-design-principle-alignment.md#completion-audit--2026-10-27) of all
+37 packages. Six delivery packages reopen for missed producer/consumer obligations (B06, C01/C02,
+F01/F05/F06), with affected G01/G02 acceptance and G04 reconciliation still outstanding.
+The coordinator retains the single disposition owner for all 45 DA identities and 24 adopted findings.
+The audit corrects completion claims; it does not authorize production repairs.
 
-The [56e final activation](56e-product-deployment-and-resource-ownership.md#final-activation-outcome--2026-10-26)
-records successful actual normal frozen reference execution and original-owner drain.
-[56f's final Outcome](56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27)
-records generated host contracts, precise telemetry, constructor-issued immutable artifacts and
-actual retained-read/cursor/protection/cancellation/EOF acceptance. Controlled construction and
-editing establish artifact validity once; readers do not repeat source, compiler-record or image
-validation. Original failures, corrected runs and unmeasured benefits remain explicit.
+The other packages retain their selected bounded completion. Original source/mode/condition-specific
+passes, failures and exclusions remain in [56g](56g-qualification-and-publication.md).
+[56e's final activation](56e-product-deployment-and-resource-ownership.md#final-activation-outcome--2026-10-26)
+retains actual frozen-reference execution and original-owner drain. Constructor-issued immutable
+generations and core retained native context/protection/cancellation/EOF are supported; automatic
+CLI serving-source scans and explicit stage compatibility remain unfinished adoption. Actual
+second-generation selection/reload acceptance also remains outstanding. Controlled construction
+and editing still establish artifact validity once; the audit requests no reader revalidation.
 
-The highest-numbered series and its companions remain retained for current qualification and
-proposed-ADR readers, without authorizing further work. Full scientific/fleet/parity, feature
-powerset, release/distribution, remote-CI, other-platform and actual desktop-host qualification
-are not claimed; the 100,000-point ceiling remains unqualified. Other plans retain their independent
+No broad campaign is running or restarted. Full scientific/fleet/parity, powerset,
+release/distribution, remote CI, other-platform, actual desktop-host and 100,000-point qualification
+remain unclaimed; speed/memory/capacity benefits remain unmeasured. Other plans retain their independent
 scope and status.
 
 [Plan55: MCP development effectiveness](55-mcp-development-effectiveness.md) is complete for

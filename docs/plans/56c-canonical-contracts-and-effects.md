@@ -1,6 +1,6 @@
 ---
 title: "Plan 56c: Canonical contracts and effects"
-status: done
+status: in-progress
 date: 2026-10-25
 adrs: [ADR-0227, ADR-0228]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -11,6 +11,37 @@ doc_topics: [design, storage, numerical-execution]
 ---
 
 # Plan 56c: Canonical contracts and effects
+
+## Completion audit — 2026-10-27
+
+**Interface-checked:** source `57cce1756318357a5797f99e83f1ad9115661368`, all C01–C05
+narrative/transition obligations and their ordinary consumers. C03–C05 retain completion at the
+recorded selected scope. C01/C02 reopen narrowly for [CA02](56-design-principle-alignment.md#ca02)
+and [CA03](56-design-principle-alignment.md#ca03); DA-007/033 dispositions remain with the coordinator.
+
+**C01 remaining consumer:** runtime `workflow/modeling/canonical.rs::record_study_variant` still
+constructs `study-variant:{point}` and `study-variant-source:{point}`. Canonical installation already
+retains these associations; `StudyAdmissionAuthority::variant_problem` and `variant_operation`
+expose them, and edit admission compares the supplied values with those retained fields. Current
+spellings agree, so no wrong destination is demonstrated. Nevertheless the accepted deletion of
+prefix reconstruction is incomplete on the ordinary lazy variant producer. Consume the authoritative
+association getters, preserve owned attribution where required, delete the duplicate constructors
+and test this producer seam against retained associations rather than repeating the same prefix.
+
+**C02 remaining failure path:** `canonical_staging.rs::acquire_source_stage` reads the source-edit
+receipt after `begin_stage_inner` fails. Matching acknowledgement and changed operation are handled;
+a failed readback falls through to the original error alone. An acquisition timeout/transaction
+failure followed by a receipt connection failure loses the second cause and unresolved effect
+knowledge. No unsafe automatic retry was established. Use shared unresolved settlement with both
+attributed causes, original intent/operation/request and clocks, preserving source-stage semantics.
+A dual-fault control must assert both nested causes and unknown effect without renewing authority.
+
+**Evidence and limits:** source inspection establishes both omissions without new database or
+native tests. Existing exact activation settlement, payload custody, mixed recovery and closed-state
+cutover passes remain their original evidence. Finite artifact/analysis creation windows deliberately
+return exact unsettled intents and expose explicit recovery; they do not issue and discard the
+failed readback at issue here. Their conservative unknown outcome is not an additional defect.
+No new performance, fleet, platform or distribution claim follows.
 
 ## Purpose and foundation assessment
 
@@ -132,8 +163,8 @@ compatibility reader or second production path is introduced.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| C01 | complete | 56c | Generated canonical meaning and all current typed consumers replace independent spellings/branches |
-| C02 | complete | 56c | Exact replay and effect knowledge consistent across shared-contract owners with distinct lifetimes preserved |
+| C01 | in progress — CA02 | 56c | Generated meaning is delivered; lazy study-variant association construction still needs migration |
+| C02 | in progress — CA03 | 56c | Most exact settlement consumers are delivered; failed source-stage receipt readback still loses a cause |
 | C03 | complete | 56c | Selected locator plus exact completion/replay/context facts consumed by every durable read/write/lifecycle path |
 | C04 | complete | 56c | Online/offline file observations share Rust authority; Python duplicate policy retired |
 | C05 | complete | 56c | Working producers/readers installed together; fresh owned store activation and failure recovery verified |
@@ -187,23 +218,23 @@ table and Outcome own current completion; formal ADR acceptance remains separate
 
 ### What was built
 
-**Implemented/Tested:** C01–C05 are complete at the selected local Linux scopes below. Working
+**Implemented/Tested:** C03–C05 retain the selected local Linux acceptance below; C01/C02 remain incomplete as detailed in the completion audit. Working
 declarations, current consumers, native file authority and controlled activation are integrated;
-public and private mixed recovery acceptance passed. This completes 56c, not the remaining Plan56
-companions or formal ADR acceptance.
+public and private mixed recovery acceptance passed. These receipts do not close the two missing consumers or establish formal ADR acceptance.
 
 Canonical declarations now own opaque key kinds, closed vocabulary/transition/projection meaning,
 explicit run purpose and study/admission/variant associations, producer class and backup/retention
 classification. Generated Rust/SurrealQL/Python consumers replace independent generator name
-branches, prefix inference and the handwritten backup inventory. Canonical lookup keys remain
+branches and the handwritten backup inventory; runtime lazy-variant prefix construction remains CA02. Canonical lookup keys remain
 distinct from scientific semantic identities. Actual study owner proof and immutable claim purpose
 prevent generic execution from borrowing an admission receipt.
 
 **Implemented:** shared exact settlement distinguishes matching acknowledgement, changed immutable
 request, owner-proven refusal/absence and unresolved effect retaining both original and readback
-causes. Project, research, execution, context, artifact/analysis, import and maintenance/file owners
-consume the common knowledge operation while retaining their different fences, atomicity, creation
-windows and original clocks. Public diagnostics preserve attributed causes without exposing raw
+causes. Project, research, execution, context, import and maintenance/file paths adopt shared settlement
+where applicable; source-stage failed readback remains CA03. Artifact/analysis finite creation
+windows retain exact unsettled intents and explicit recovery, rather than all calling one helper.
+Distinct fences, atomicity and original clocks remain necessary. Public diagnostics preserve attributed causes without exposing raw
 requests or converting uncertainty into permission to retry effects.
 
 **Implemented:** v9 has one admitted encoded-body owner with exclusive inline/sealed locators.
