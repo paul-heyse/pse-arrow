@@ -46,6 +46,7 @@ mod build_receipt;
 pub mod callback;
 mod certificate;
 pub mod conditioning;
+mod sparse_lu;
 pub mod conic;
 mod convexity;
 pub mod derivative_diagnostics;

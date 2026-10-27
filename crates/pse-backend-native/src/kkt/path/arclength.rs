@@ -8,7 +8,7 @@ use faer::{
     dyn_stack::{MemBuffer, MemStack},
     sparse::{
         SparseColMat, SymbolicSparseColMat,
-        linalg::lu::{self, LuRef, NumericLu, SymbolicLu},
+        linalg::lu::{NumericLu, SymbolicLu},
     },
 };
 use pse_ids::ContentHash;
@@ -130,25 +130,7 @@ fn validate<O: ParameterizedOracle<Error = ProblemError>>(
     }
     Ok(d)
 }
-fn sparse_error(error: faer::sparse::FaerError) -> ProblemError {
-    match error {
-        faer::sparse::FaerError::OutOfMemory => {
-            ProblemError::memory("arclength sparse library allocation failed")
-        }
-        faer::sparse::FaerError::IndexOverflow => {
-            ProblemError::Contract("arclength sparse library index overflow".into())
-        }
-        other => ProblemError::internal(format!("arclength sparse library failure: {other:?}")),
-    }
-}
-fn lu_error(error: faer::sparse::linalg::LuError) -> ProblemError {
-    match error {
-        faer::sparse::linalg::LuError::SymbolicSingular { index } => {
-            ProblemError::numerical(format!("arclength symbolic rank loss at pivot {index}"))
-        }
-        faer::sparse::linalg::LuError::Generic(error) => sparse_error(error),
-    }
-}
+use crate::sparse_lu::sparse_error;
 fn assemble<O: ParameterizedOracle<Error = ProblemError>>(
     request: &Request<'_>,
     oracle: &mut O,
@@ -158,11 +140,7 @@ fn assemble<O: ParameterizedOracle<Error = ProblemError>>(
     execution.check()?;
     let d = validate(request, oracle)?;
     let n = d - 1;
-    let reservation = d
-        .checked_mul(d)
-        .and_then(|v| v.checked_mul(64))
-        .and_then(|v| d.checked_mul(512).and_then(|a| v.checked_add(a)))
-        .and_then(|v| v.checked_add(4096))
+    let reservation = crate::sparse_lu::opaque_allowance(d)
         .ok_or_else(|| ProblemError::memory("arclength factor allowance overflow"))?;
     if reservation > request.limits.bytes {
         return Err(ProblemError::memory(
@@ -278,24 +256,15 @@ impl TangentWorkspace {
         crate::observation::boolean("arclength.faer.symbolic_reused", compatible);
         if !compatible {
             self.storage = None;
-            let symbolic = crate::observation::scoped("arclength.faer.symbolic", || {
-                lu::factorize_symbolic_lu(pattern, Default::default())
-            })
-            .map_err(sparse_error)?;
-            let request = symbolic
-                .factorize_numeric_lu_scratch::<f64>(Par::Seq, Default::default())
-                .or(symbolic.solve_in_place_scratch::<f64>(1, Par::Seq));
-            if request.size_bytes() > bytes / 2 {
-                return Err(ProblemError::memory("arclength LU scratch allowance"));
-            }
+            let symbolic = crate::sparse_lu::symbolic(pattern, "arclength.faer.symbolic")?;
+            let (memory, scratch_bytes) = crate::sparse_lu::scratch(&symbolic, 1, Par::Seq, bytes / 2, true)?;
             self.storage = Some(TangentStorage {
                 family,
                 pattern: pattern.to_owned().map_err(sparse_error)?,
                 symbolic,
                 numeric: NumericLu::new(),
-                memory: MemBuffer::try_new(request)
-                    .map_err(|e| ProblemError::memory(e.to_string()))?,
-                scratch_bytes: request.size_bytes(),
+                memory,
+                scratch_bytes,
             });
         }
         let held = self
@@ -338,15 +307,8 @@ pub fn tangent<O: ParameterizedOracle<Error = ProblemError>>(
         execution.check()?;
         work.factorizations += 1;
         crate::observation::boolean("arclength.faer.factor.valid", false);
-        let factored = crate::observation::scoped("arclength.faer.factor", || {
-            symbolic.factorize_numeric_lu(
-                numeric,
-                matrix.as_ref(),
-                Par::Seq,
-                MemStack::new(memory),
-                Default::default(),
-            )
-        });
+        let factored = crate::sparse_lu::factor(symbolic, numeric, matrix.as_ref(), Par::Seq, memory,
+            crate::sparse_lu::Qualification::Unqualified, "arclength.faer.factor");
         crate::observation::boolean("arclength.faer.factor.valid", factored.is_ok());
         crate::observation::count(
             if factored.is_ok() {
@@ -356,19 +318,12 @@ pub fn tangent<O: ParameterizedOracle<Error = ProblemError>>(
             },
             1,
         );
-        factored.map_err(lu_error)?;
+        factored?;
         execution.check()?;
         let mut x = Mat::zeros(d, 1);
         x[(d - 1, 0)] = 1.;
         work.backsolves += 1;
-        crate::observation::scoped("arclength.faer.solve", || {
-            LuRef::new_unchecked(symbolic, numeric).solve_in_place_with_conj(
-                Conj::No,
-                x.as_mut(),
-                Par::Seq,
-                MemStack::new(memory),
-            )
-        });
+        crate::sparse_lu::solve(symbolic, numeric, Conj::No, x.as_mut(), Par::Seq, memory, "arclength.faer.solve")?;
         execution.check()?;
         if x.col(0).iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::numerical(

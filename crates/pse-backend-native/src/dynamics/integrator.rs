@@ -107,6 +107,8 @@ impl Shared<'_> {
                 },
             );
         }
+        if let Some(cause)=linear::take_terminal() { self.abort(Termination::Failed,cause); }
+
     }
     fn evaluate(&self, f: Function, t: f64, x: &[f64], derivative: bool) -> Evaluation {
         self.evaluate_mode(self.mode.get(), f, t, x, derivative)
@@ -845,6 +847,7 @@ impl<'o> OdeEquations for Equation<'o> {
 /// Classify Diffsol's typed errors by cause. The matches are exhaustive over the
 /// pinned enums, so an upgrade that adds a variant fails to compile (F06, F10).
 fn native(error: diffsol::DiffsolError) -> ProblemError {
+    if let Some(cause)=linear::take_terminal() { return cause; }
     use diffsol::{
         DiffsolError as D,
         error::{NonLinearSolverError as N, OdeSolverError as O},
@@ -904,6 +907,7 @@ pub(super) fn integrate_with_samples(
     output: &mut SampleOutput<'_>,
 ) -> Result<Report, ProblemError> {
     profile.validate_retention(oracle.contract(), parameters, output.retention, 0)?;
+    let _linear_attempt=linear::attempt_scope(None);
     let shared = Shared::new(oracle, profile, parameters, cancel, progress)?;
     let mut report = Report::new(profile, output.retention, shared.contract.parameters.len());
     let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {

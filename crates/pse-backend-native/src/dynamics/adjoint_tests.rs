@@ -1503,3 +1503,19 @@ fn short_forward_adjoint_checkpoint_inquiry_preserves_the_same_sampled_functiona
         }
     }
 }
+
+#[cfg(feature="diffsol")]
+#[test]
+fn diffsol_terminal_scratch_refusal_survives_adjoint_setup_without_contaminating_reuse() {
+    let mut p=reactor_profile(Method::Diffsol,DiffsolMethod::Bdf,true,false);
+    p.diffsol.linear=DiffsolLinear::FaerLu;
+    let parameters=reactor_parameters(false);
+    {
+        let _allowance=linear::attempt_scope(Some(0));
+        let refused=adjoint(&mut Reactor::new(true),&p,&parameters);
+        assert_eq!(refused.report.termination,Termination::Failed);
+        assert!(matches!(refused.report.error,Some(ProblemError::Limit{kind:crate::LimitKind::Memory,..})),"{:?}",refused.report.error);
+    }
+    let recovered=adjoint(&mut Reactor::new(true),&p,&parameters);
+    assert_eq!(recovered.report.termination,Termination::Completed,"{:?}",recovered.report.error);
+}

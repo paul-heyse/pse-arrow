@@ -4,8 +4,9 @@
 //!
 //! Every scheduled segment is its own Diffsol problem, whose operators map the contract
 //! parameters to the segment's integration columns (I6). The driven forward loop records
-//! the checkpoints itself — the reset metadata between Diffsol's own checkpoint segments is
-//! crate-private — with at least the two end states of each segment, because
+//! the checkpoints itself to preserve bounded population, cancellation, original-clock
+//! replay/accepted-step budgets and sample jumps. It retains at least the two end states
+//! of each segment, because
 //! `Checkpointing::new` needs two, and it stores the Hermite points of each segment's last
 //! interval with the derivative of the scheme's own interpolant.
 //!
@@ -78,6 +79,7 @@ pub(in crate::dynamics) fn gradient(
     layout: Arc<PreparedLayout>,
     current: Option<crate::solve::Execution>,
 ) -> Result<Gradient, ProblemError> {
+    let _linear_attempt=linear::attempt_scope(None);
     let shared = Shared::new_current(oracle, profile, parameters, cancel, progress, current)?;
     let mut report = Report::new(
         profile,
