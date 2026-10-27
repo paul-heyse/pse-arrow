@@ -6,6 +6,11 @@ architecture, assume installed versions or carry current priorities. Follow prom
 into Context7, primary documentation, upstream source/tests or the installed implementation.
 Context7 is the first documentation lookup; an overview is not a prerequisite.
 
+For a deliberate leverage inquiry, use the [codebase-first workflow](../library_leverage/README.md).
+Its three collections distinguish concrete opportunities, focused capability applicability with
+accumulating reusable types, and substantive comparative judgments. These broad overviews remain
+orientation rather than a catalogue of contextual matches or accepted adoption choices.
+
 ## Authoring and existing reference material
 
 Use the [overview-authoring guide](authoring-guide.md) for new concise, comprehensive capability

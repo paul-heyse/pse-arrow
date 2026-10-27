@@ -25,6 +25,12 @@ principal revision; completion audits update the same owning plan. Installing th
 not reinterpret historical reviews or initiate audits. See the [local skills](../../.codex/skills/README.md)
 and [library research orientation](../libraries/README.md).
 
+The [library-leverage workflow](../library_leverage/README.md) separately identifies concrete
+opportunities, researches focused applicability and compares complete options. Its comparative
+account can inform a formal review or planning; it neither replaces the applicable diagnostic
+audit and review cadence nor initiates those engagements automatically. Consume its baselines,
+original opportunity IDs and precise capability evidence as challengeable inputs.
+
 For test code and its evidence, load the [test-assessment companion](design_principles/core/test-assessment.md)
 selected by `[core].test_assessment`. It interprets the existing principles for production reuse,
 independent oracles, shared helpers, assertions, boundary fidelity, isolation and execution cost.

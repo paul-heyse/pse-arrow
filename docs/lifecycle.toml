@@ -81,6 +81,12 @@ doc_topics = ["documentation"]
 doc_retention = "owner-managed"
 doc_retirement_trigger = "producer-policy"
 
+[collections.library_leverage]
+doc_role = "review"
+doc_owner = "docs/library_leverage/README.md"
+doc_topics = ["libraries", "design"]
+doc_retention = "owner-managed"
+
 [[bundles]]
 root = "docs/design_review/design_principles"
 [bundles.defaults]

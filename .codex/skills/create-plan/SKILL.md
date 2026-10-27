@@ -1,6 +1,6 @@
 ---
 name: create-plan
-description: Create or revise an implementation plan from a design or functional-extension review, or an existing plan, grounded in current code and the applicable design standard.
+description: Create or revise an implementation plan from a design, functional-extension or library-leverage review, or an existing plan, grounded in current code and the applicable design standard.
 ---
 
 # Create a plan
@@ -41,6 +41,14 @@ still applies. The plan makes proposed functional-target and rule changes explic
 authorization routes rather than treating the source review as approval.
 
 ## Assess the foundations the plan will use
+
+A [library-leverage comparative review](../../../docs/library_leverage/reviews/README.md) is
+also a planning input. Carry selected `CBO` opportunity identities, concrete mechanisms and
+composition, conditions, retained domain responsibilities and unresolved choices into the target
+and relevant packages. Its applicability records and reusable types supply supporting analysis;
+a matching capability or favorable recommendation alone is not accepted scope. Link the source
+accounts without copying execution status; the owning plan holds scheduled disposition. No broad
+diagnostic audit follows solely from this input. Existing ADR and formal review routes still apply.
 
 As part of developing the plan, assess the existing components and contracts on which the
 proposed work will depend. Consider whether the intended capabilities reveal opportunities to

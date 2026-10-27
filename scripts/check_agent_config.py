@@ -105,6 +105,9 @@ ROLE_NAMES = (
     "test-agent",
 )
 PROCESS_SKILLS = (
+    "leverage-codebase-audit",
+    "leverage-library-assessment",
+    "leverage-opportunity-review",
     "adr",
     "design-review",
     "design-principle-audit",

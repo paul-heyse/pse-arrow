@@ -320,6 +320,12 @@ SurrealDB MCP is opt-in per fresh Codex session.
 
 ## Workflow entrypoints
 
+Selected [library-leverage recommendations](../library_leverage/reviews/README.md) can feed
+`plan-creation` / `create-plan` alongside design and functional reviews. Preserve the original
+`CBO` identities, concrete mechanisms and applicability limits. Selection, decisions and scope
+authorization remain explicit; the owning plan holds scheduled disposition and closure evidence.
+Installing the workflow or publishing a favorable comparison changes no production plan status.
+
 Use the [local process skills](https://github.com/paul-heyse/pse-arrow/blob/main/.codex/skills/README.md) to prepare or conduct reviews,
 create implementation plans, and plan or execute authorized work. This index routes to the
 owning plan or active packet checkpoint for current state, decisions and next steps; it does

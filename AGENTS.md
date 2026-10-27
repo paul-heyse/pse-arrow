@@ -396,7 +396,16 @@ unchanged.
 ### Library research
 
 Optional [library overviews](docs/libraries/README.md) give repository-agnostic capability
-awareness. Context7 is the first documentation lookup, followed by primary sources, upstream
+awareness. Deliberate leverage inquiries use the [library-leverage framework](docs/library_leverage/README.md):
+`leverage-codebase-audit` identifies concrete opportunities, `leverage-library-assessment`
+researches focused capability applicability and accumulates reusable types, and
+`leverage-opportunity-review` compares complete options and develops bounded recommendations.
+Use relevant base patterns and patterns collected in assessment outputs on the same footing;
+all three stages can discover or refine useful additional framings. Retain useful types and
+output patterns after their current matches retire; promotion into base guidance is manual.
+Ordinary implementation and API questions do not initiate this workflow, and its reviews do not
+replace the existing formal review cadence or authorize implementation.
+Context7 is the first documentation lookup, followed by primary sources, upstream
 tests or installed sources for consequential details. Native solver
 work continues to load native-solver-libraries, the only selected active library skill.
 Other central skills are [inactive references](.codex/skills/README.md#inactive-central-library-skill-references);

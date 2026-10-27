@@ -99,6 +99,11 @@ root = "libraries"
 scope = "Reference"
 
 [[collections]]
+title = "Library leverage"
+root = "library_leverage"
+scope = "Reference"
+
+[[collections]]
 title = "Generated reference"
 root = "generated"
 scope = "Reference"

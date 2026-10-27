@@ -40,6 +40,13 @@ continues this same engagement and integrates its revised judgment without a sec
 
 ## Find the standard
 
+When supplied, the [library-leverage account](../../../docs/library_leverage/README.md)
+offers codebase opportunities, focused capability applicability and comparative recommendations
+to challenge. Preserve source `CBO` identities, consumed revisions, concrete mechanisms and
+evidence limits. A leverage inquiry does not itself initiate this formal review or satisfy its
+diagnostic-audit prerequisite; follow the binding's cadence and use one coherent engagement
+where the applicable assessments can be satisfied together.
+
 Locate the repository's `standard.toml` through its agent instructions. Read the selected
 core principles, the `[core].heuristics` companion and template, the binding, and each applicable
 profile and companion skill. Use the [design principles](../../../docs/design_review/design_principles/core/design-principles.md)

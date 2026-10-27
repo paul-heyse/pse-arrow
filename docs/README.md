@@ -17,7 +17,7 @@ and storage capabilities. See the [relationship to IDAES](relationship-to-idaes.
 | Improve remaining plan scope | `plan-improvement-review` (source: `.codex/skills/plan-improvement-review/SKILL.md`) → [published assessment](plan_improvement_reviews/README.md) of the remaining change footprint; plan revision is separately instructed |
 | Audit claimed plan completion | plan-completion-audit; update the same owning plan/packet checkpoint |
 | Orient library capability research | [Library overviews and authoring guide](libraries/README.md), then Context7 and primary sources |
-
+| Investigate library leverage | [Codebase-first framework](library_leverage/README.md): opportunities → focused applicability and reusable types → comparative option review |
 | Research a library capability | Optional [overviews](libraries/README.md) → Context7, then primary sources; [capability maps](capability-maps/README.md) supply additional leads |
 | Understand a decision | [Decision records](adr/README.md) |
 | Work on documentation | [Publishing documentation](dev/documentation.md) |
@@ -52,6 +52,7 @@ their original conditions; only named tests and measurements support Tested and 
 | `docs/adr/` | Retained decision records, immutable once accepted; obsolete ones retired to Git (ADR-0096) | `just adr-new`; index via `just adr-index` |
 | `docs/plans/` | Active plans, living until done; completed plans retire to Git | `just plan <slug>` |
 | docs/libraries/ | Optional repository-agnostic capability overviews and authoring guide | Orientation before current documentation; native solver skill stays active |
+| `docs/library_leverage/` | Base patterns and living codebase, library and comparative review collections | Explicit leverage inquiries; useful types and output patterns survive retirement of current matches |
 | docs/design_review/audit/ | One living diagnostic account | Explicit audit/new-review context, not routine implementation |
 | docs/design_review/test-audit/ | Separate living account of test architecture and evidence | Test-scope audit/review context; its own baseline and linked finding ownership |
 | docs/design_review/reviews/audits/ | Recommendation net-change companions | Revised principal review remains planning input; plans own scheduled progress |

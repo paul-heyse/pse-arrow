@@ -41,6 +41,12 @@ expanding the solution review.
 
 ## Frame questions that could change the design
 
+Relevant [library-leverage accounts](../../../docs/library_leverage/README.md) can supply
+opportunities, applicability and comparative choices as challengeable inputs. Preserve their
+source identities, baselines and concrete mechanisms. An earlier leverage comparison does not
+satisfy this engagement's diagnostic-audit prerequisite or replace the binding's review cadence;
+loading the accounts alone initiates no new formal review.
+
 Consider which audit findings might share a cause or admit a composed correction, and which have
 separate obligations. Prior diagnoses remain open to challenge; an adequate existing boundary,
 a different explanation or an unsuitable suggested remedy are all possible conclusions.

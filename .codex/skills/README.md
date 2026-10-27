@@ -15,6 +15,9 @@ It never generates or overwrites native agent adapters.
 
 | Process skill | Use |
 |---|---|
+| [leverage-codebase-audit](leverage-codebase-audit/SKILL.md) | Identify concrete codebase opportunities for library leverage and refresh their living account |
+| [leverage-library-assessment](leverage-library-assessment/SKILL.md) | Research focused capability applicability and accumulate reusable library opportunity types |
+| [leverage-opportunity-review](leverage-opportunity-review/SKILL.md) | Compare complete options and develop bounded target recommendations |
 | [design-principle-audit](design-principle-audit/SKILL.md) | Refresh the broad persisted diagnostic account before a diagnostic review of production or broad system scope |
 | [design-principle-audit-tests](design-principle-audit-tests/SKILL.md) | Audit test code and evidence in its separate living account; prerequisite for a test-focused diagnostic review |
 | [design-review-audit](design-review-audit/SKILL.md) | Reassess recommendations and omissions; publish a companion and integrated review |
@@ -71,6 +74,15 @@ through existing planning and decision routes. No broad audit prerequisite, sepa
 or automatic adoption follows; formal review cadence remains unchanged.
 
 ## Library orientation and active exception
+
+The [library-leverage framework](../../docs/library_leverage/README.md) connects the three
+local leverage skills and their distinct evergreen collections. Start from concrete codebase
+opportunities, investigate focused library capabilities and reusable types, then compare complete
+options. Base patterns and relevant patterns collected in assessment outputs have equal use;
+all stages can discover or refine additional framings. Retain useful types and output patterns
+after their matches retire; manual promotion into base guidance is separate maintenance.
+Ordinary library use initiates none of these assessments. A comparative recommendation can feed
+planning while the binding continues to own any required formal review and decision route.
 
 Use [library overviews](../../docs/libraries/README.md) for optional first-pass awareness,
 then Context7 and primary documentation, upstream source/tests or installed sources for

@@ -3,3 +3,6 @@ docs/generated
 
 # The generated Cornucopia query crate appears with Plan 22 B2 (ADR-0114 Outcome 24).
 crates/pse-operations-queries
+
+# Shared assessment output is created only with its first useful additional pattern.
+docs/library_leverage/assessment-patterns.md

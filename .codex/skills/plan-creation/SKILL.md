@@ -1,6 +1,6 @@
 ---
 name: plan-creation
-description: Plan how to create an implementation-plan document from a design or functional-extension review, or an existing plan, including the investigations and design questions that matter.
+description: Plan how to create an implementation-plan document from a design, functional-extension or library-leverage review, or an existing plan, including the investigations and design questions that matter.
 ---
 
 # Plan the creation of a plan
@@ -35,6 +35,13 @@ references and enabling mechanisms. No diagnostic audit is needed for this input
 still identifies consequential foundation and integration questions under create-plan.
 
 ## Separate obligations from open design choices
+
+A [library-leverage comparative review](../../../docs/library_leverage/reviews/README.md)
+supplies reasoned complete options and bounded targets. Identify selected `CBO` opportunities,
+consumed assessment revisions, concrete enabling mechanisms and unresolved conditions. Preserve
+their identities and separate comparative preference from accepted scope. This input requires
+no broad diagnostic audit by itself; create-plan's focused foundation assessment and the host's
+existing decision and formal review routes remain applicable.
 
 Establish what the source material supplies: the problem to solve, guarantees to preserve,
 current rules, proposed remedies, rule impacts and unresolved questions. A review's rule impacts
