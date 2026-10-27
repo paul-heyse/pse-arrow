@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One selected publication composition over supplied facts and protected result owners.
-use super::{WorkflowError, contract};
+use super::WorkflowError;
 use pse_ids::SemanticId;
 use serde::{Deserialize, Serialize};
 
@@ -61,13 +61,7 @@ impl ReviewOutputSelection {
     pub(crate) fn bounds(&self) -> Result<(Option<f64>, Option<f64>), WorkflowError> {
         let min = self.minimum_bits.map(f64::from_bits);
         let max = self.maximum_bits.map(f64::from_bits);
-        if min.is_some_and(|v| !v.is_finite())
-            || max.is_some_and(|v| !v.is_finite())
-            || min.zip(max).is_some_and(|(a, b)| a > b)
-            || self.missing == Some(true) && (min.is_some() || max.is_some())
-        {
-            return Err(contract("invalid selected review output predicate"));
-        }
+        super::result_selection::ValuePredicate::new(false, min, max, self.missing)?;
         Ok((min, max))
     }
 }

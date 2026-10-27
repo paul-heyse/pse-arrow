@@ -152,54 +152,15 @@ pub(crate) fn validate_scientific_lineage(
     {
         return Err(invalid("invalid selected scientific coordinates"));
     }
-    let metadata = schema.metadata();
-    for (key, expected) in [
-        ("pse.canonical.run", result.run.clone()),
-        ("pse.canonical.attempt", result.attempt.clone()),
-        ("pse.canonical.relation", result.relation.clone()),
-        (
-            "pse.canonical.relation-version",
-            result.schema_version.to_string(),
-        ),
-        ("pse.canonical.row-start", result.row_start.to_string()),
-        ("pse.canonical.row-end", result.row_end.to_string()),
-        (
-            "pse.canonical.terminal-class",
-            result.terminal_class.clone(),
-        ),
-    ] {
-        if metadata.get(key) != Some(&expected) {
+    if let Some(predicate) = &result.predicate {
+        super::result_selection::ValuePredicate::new(false,
+            predicate.minimum_bits.map(f64::from_bits), predicate.maximum_bits.map(f64::from_bits), predicate.missing)
+            .map_err(|error| invalid(error.to_string()))?;
+    }
+    for (key, expected) in super::result_selection::ScientificMetadata::from(result).entries() {
+        if schema.metadata().get(key) != expected.as_ref() {
             return Err(invalid(format!("IPC lineage differs from selected {key}")));
         }
-    }
-    if metadata.get("pse.canonical.field") != result.field.as_ref() {
-        return Err(invalid("IPC field differs from selected field"));
-    }
-    if let Some(predicate) = &result.predicate {
-        for (key, expected) in [
-            ("pse.canonical.output", Some(predicate.output.clone())),
-            ("pse.canonical.partition", Some(predicate.partition.clone())),
-            (
-                "pse.canonical.minimum-bits",
-                predicate.minimum_bits.map(|v| v.to_string()),
-            ),
-            (
-                "pse.canonical.maximum-bits",
-                predicate.maximum_bits.map(|v| v.to_string()),
-            ),
-            (
-                "pse.canonical.missing",
-                predicate.missing.map(|v| v.to_string()),
-            ),
-        ] {
-            if metadata.get(key) != expected.as_ref() {
-                return Err(invalid(
-                    "IPC selected predicate differs from declared predicate",
-                ));
-            }
-        }
-    } else if metadata.contains_key("pse.canonical.output") {
-        return Err(invalid("undeclared IPC output predicate"));
     }
     Ok(())
 }

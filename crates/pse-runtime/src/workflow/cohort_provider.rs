@@ -164,7 +164,7 @@ impl CohortAnalysisState {
             None,
             None,
         )?;
-        let native = if filter.dense {
+        let native = if filter.predicate.dense() {
             None
         } else {
             let expression = super::result_projection::scalar_selection_expression(
@@ -172,9 +172,7 @@ impl CohortAnalysisState {
                 request.owner,
                 &request.partition,
                 &request.field,
-                None,
-                None,
-                None,
+                filter.predicate,
             )?;
             Some(
                 NativeResultSelection::new(
@@ -415,7 +413,7 @@ impl Scan {
             relation: self.state.relation.to_string(),
             output: self.state.filter.output.clone(),
             partition: self.state.filter.partition.clone(),
-            dense: self.state.filter.dense,
+            dense: self.state.filter.predicate.dense(),
             start: self.state.request.start,
             end: self.state.request.end,
         };

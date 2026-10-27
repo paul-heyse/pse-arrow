@@ -574,6 +574,28 @@ pub(super) enum SelectedRows {
     },
 }
 impl SelectedRows {
+    pub(super) fn from_mask(mask: datafusion::arrow::buffer::BooleanBuffer, base: usize, owner: MemoryReservation) -> Result<Option<Self>, WorkflowError> {
+        // Drop the bitmap before its scratch grant on every success/error path.
+        struct Scratch { mask: datafusion::arrow::buffer::BooleanBuffer, owner: MemoryReservation }
+        let scratch = Scratch { mask, owner };
+        if scratch.mask.inner().capacity() > scratch.owner.size() { return Err(contract("selected bitmap is not prepaid")); }
+        let spans = { let mut spans = scratch.mask.set_slices(); (spans.next(), spans.next()) };
+        let Some((start, end)) = spans.0 else { return Ok(None); };
+        if spans.1.is_none() {
+            let offset = base.checked_add(start).ok_or_else(|| contract("selected row extent"))?;
+            let last = base.checked_add(end - 1).ok_or_else(|| contract("selected row extent"))?;
+            u32::try_from(last).map_err(|_| contract("selected row exceeds Arrow take extent"))?;
+            drop(scratch);
+            return Ok(Some(Self::Range { offset, length: end - start }));
+        }
+        let mut offsets = Vec::with_capacity(scratch.mask.count_set_bits());
+        for index in scratch.mask.set_indices() {
+            offsets.push(u32::try_from(base.checked_add(index).ok_or_else(|| contract("selected row extent"))?)
+                .map_err(|_| contract("selected row exceeds Arrow take extent"))?);
+        }
+        drop(scratch.mask);
+        Ok(Some(Self::from_offsets(offsets, scratch.owner)?))
+    }
     pub(super) fn from_offsets(
         offsets: Vec<u32>,
         owner: MemoryReservation,
@@ -888,7 +910,8 @@ impl NativeResultSelection {
             .register(&services.preparation().pool());
         // The registry predicate has bounded shape; retain the native expression,
         // pruning rewrite and schema handles for the full selection lifetime.
-        owner.try_grow(64 * 1024 + schema.fields().len() * 512)?;
+        owner.try_grow(pse_columnar::schema_working_extent(schema.as_ref()).map_err(pse_columnar::external)?
+            .checked_add(64 * 1024).ok_or_else(|| DataFusionError::ResourcesExhausted("selection plan extent".into()))?)?;
         let native = DFSchema::try_from(schema.as_ref().clone())?;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("canonical.result.physical_predicate_plans", "count", 1);
@@ -943,21 +966,10 @@ impl NativeResultSelection {
         {
             return Ok(None);
         }
-        let extent = self
-            .schema
-            .fields()
-            .len()
-            .checked_mul(512)
-            .and_then(|bytes| bytes.checked_add(2048))
-            .and_then(|bytes| count.checked_mul(bytes))
-            .and_then(|base| {
-                (0..count).try_fold(base, |bytes, index| {
-                    let encoded = member(index)
-                        .and_then(|(block, _)| block.statistics.as_ref())
-                        .map_or(0, |bytes| bytes.len());
-                    bytes.checked_add(encoded.checked_mul(16)?)
-                })
-            })
+        let extent = super::result_selection::pruning_working_extent(
+            self.schema.fields().len(), count,
+            (0..count).map(|index| member(index).and_then(|(block, _)| block.statistics.as_ref()).map_or(0, |bytes| bytes.len())),
+        )
             .ok_or_else(|| {
                 DataFusionError::ResourcesExhausted("result pruning metadata extent".into())
             })?;
@@ -1149,6 +1161,24 @@ impl PartitionStream for SnapshotPartition {
 mod selected_snapshot_unit {
     use super::*;
     use pse_columnar::{GreedyMemoryPool, MemoryPool};
+    #[test]
+    fn bitmap_selection_handles_empty_ranges_sparse_offsets_and_u32_overflow() {
+        use datafusion::arrow::buffer::BooleanBuffer;
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(4096));
+        let make = |values: Vec<bool>, base| {
+            let owner = MemoryConsumer::new("fixture:selected-mask").register(&pool);
+            owner.try_grow(1024).unwrap();
+            SelectedRows::from_mask(BooleanBuffer::from(values), base, owner)
+        };
+        assert!(make(vec![false; 4], usize::MAX).unwrap().is_none());
+        assert!(matches!(make(vec![true; 4], 6).unwrap(), Some(SelectedRows::Range { offset: 6, length: 4 })));
+        assert!(matches!(make(vec![false, true, true, false], 10).unwrap(), Some(SelectedRows::Range { offset: 11, length: 2 })));
+        let sparse = make(vec![true, false, true], 7).unwrap().unwrap();
+        assert!(matches!(&sparse, SelectedRows::Sparse { offsets, .. } if offsets == &[7, 9]));
+        drop(sparse); assert_eq!(pool.reserved(), 0);
+        assert!(make(vec![true, true], u32::MAX as usize).is_err());
+        assert_eq!(pool.reserved(), 0);
+    }
     #[test]
     fn selected_offsets_require_admission_coalesce_dense_ranges_and_release_sparse_storage() {
         let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(4096));
