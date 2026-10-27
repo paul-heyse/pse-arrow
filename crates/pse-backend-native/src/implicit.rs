@@ -503,7 +503,7 @@ impl InnerWorker for Kinsol {
 }
 
 /// Handcrafted fixtures have actual source IDs and no local attribution tokens.
-#[cfg(test)]
+#[cfg(all(test, feature = "root-isolation"))]
 pub(crate) fn source_body_for_test(
     instance: pse_ids::SemanticId,
     prepared: &pse_math::guarded::PreparedBody,

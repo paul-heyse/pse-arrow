@@ -305,19 +305,19 @@ diffsol = { version = "=0.16.2", path = "vendor/diffsol", default-features = fal
 diffsol-la = { version = "=0.1.1", path = "vendor/diffsol-la", default-features = false, features = [
   "faer",
 ] }
-pounce-presolve = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
-pounce-nlp = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
-pounce-common = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
+pounce-presolve = { git = "https://github.com/paul-heyse/pounce", rev = "141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe", version = "=0.12.0" }
+pounce-nlp = { git = "https://github.com/paul-heyse/pounce", rev = "141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe", version = "=0.12.0" }
+pounce-common = { git = "https://github.com/paul-heyse/pounce", rev = "141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe", version = "=0.12.0" }
 finitediff = "=0.2.0"
-pounce-rs = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0", features = [
+pounce-rs = { git = "https://github.com/paul-heyse/pounce", rev = "141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe", version = "=0.12.0", features = [
   "qp",
   "convex",
 ] }
-pounce-feral = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
-pounce-linsol = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
+pounce-feral = { git = "https://github.com/paul-heyse/pounce", rev = "141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe", version = "=0.12.0" }
+pounce-linsol = { git = "https://github.com/paul-heyse/pounce", rev = "141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe", version = "=0.12.0" }
 # The sensitivity core's backsolver contract over a FERAL KKT factor (Plan 22 S0, I1).
-pounce-sens-core = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
-pounce-qp = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.12.0" }
+pounce-sens-core = { git = "https://github.com/paul-heyse/pounce", rev = "141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe", version = "=0.12.0" }
+pounce-qp = { git = "https://github.com/paul-heyse/pounce", rev = "141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe", version = "=0.12.0" }
 egobox-ego = { version = "=0.38.1", default-features = false, features = [
   "persistent",
 ] }
@@ -328,7 +328,7 @@ argmin = { version = "=0.11.0", default-features = false }
 levenberg-marquardt = { git = "https://github.com/rust-cv/levenberg-marquardt.git", rev = "e67066cf1351e91e054c30fcb2ff49d005db1e50", version = "=0.15.0", default-features = false }
 ndarray = "=0.16.1"
 # Direct FERAL for conditioning and certified inertia (Plan 22 N4); the version pounce-feral resolves.
-feral = { git = "https://github.com/paul-heyse/pounce", rev = "7f5e2e9d78555bd53f780c1af186c8fd22c922f5", version = "=0.18.0" }
+feral = { git = "https://github.com/paul-heyse/pounce", rev = "141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe", version = "=0.18.0" }
 # Quantiles of the fit's confidence intervals (ADR-0118 item 8). Defaults are disabled
 # here, but egobox-moe enables them by feature unification, retaining nalgebra 0.33/rand.
 # Quantile callers do not cross nalgebra types; this is not a pinned-family split.
@@ -633,8 +633,7 @@ pyo3 = { version = "0.29", match = "minor", crates = [
 # may be bumped when the work calls for it. Remove the entry when the reason lapses.
 [workspace.metadata.pse.pins]
 symbolica = "Maintained 3.0.1 bounded exact-root APIs and certified binary64 conversion; Dualizer, evaluator/export/abort and cache realization are release-coupled. Revisit with exact-source API and scientific controls before removing the patch or changing Symbolica/Numerica. See vendor/symbolica-bounded-roots.md."
-faer = "Maintained nonfused 0.24.4 kernel realization; revisit only with complete consumed dispatch and generated-code controls. See vendor/faer-arithmetic.md."
-faer-traits = "Companion scalar arithmetic realization for held faer; update and qualify together with faer."
+faer = "Maintained nonfused 0.24.4 kernel realization and companion faer-traits source; update and qualify together, revisiting only with complete consumed dispatch and generated-code controls. See vendor/faer-arithmetic.md."
 levenberg-marquardt = "Exact nalgebra 0.35 compatibility commit; release 0.15 algorithm/API unchanged; revisit when a release carries this family update."
 pounce-presolve = "POUNCE fork at one immutable revision; the whole POUNCE family resolves to one coherent source (Plan 25n)"
 pounce-nlp = "POUNCE fork at one immutable revision; the whole POUNCE family resolves to one coherent source (Plan 25n)"

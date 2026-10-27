@@ -161,6 +161,7 @@ impl Normalization {
                     Op::Mul(index, index + 1)
                 }
                 Op::Const(v) => Op::Const(v),
+                Op::ConstInterval {lo,hi} => Op::ConstInterval {lo,hi},
                 Op::Opaque => Op::Opaque,
                 Op::Add(a, b) => Op::Add(map[a], map[b]),
                 Op::Sub(a, b) => Op::Sub(map[a], map[b]),

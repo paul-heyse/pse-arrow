@@ -670,3 +670,19 @@ fn smooth_complementarity_row_vanishes_on_eps_sq_over_4() {
         }
     }
 }
+
+#[test]
+fn bigm_derived_exact_rational_constant_survives_amplified_cancellation() {
+    let (mut workspace,root)=setup(
+        "package p { def Root { var x: Scalar; disjunction route { alternative guarded { eq cap: 1267650600228229401496703205376 * (x + 1/3) <= 0; } alternative free { eq open: x <= 1; } } realize how on route using bigm(derived); } }",
+    );
+    let d=6004799503160661.0/18014398509481984.0;
+    let case=Case::new(&mut workspace,root,&[("x",Some(-d),Some(-d))]).unwrap();
+    let m=case.prepared.derived.values[&case.symbol("cap.big_m_upper")];
+    // The authored exact row at this finite binary64 point is
+    // (1/3 - 6004799503160661/2^54)*2^100 = 2^46/3.
+    // An inactive guarded alternative must not cut that point off. The
+    // current numerical evaluator's coefficient conversion is a separate claim.
+    let exact=pse_math::factorable::Rational::from(1_i64<<46)/pse_math::factorable::Rational::from(3);
+    assert!(pse_math::factorable::Rational::try_from(m).unwrap()>=exact,"derived upper M {m} excludes the exact authored row");
+}

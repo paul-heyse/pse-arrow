@@ -15,6 +15,42 @@ pub(crate) fn bits(value: &Rational) -> Result<usize, MathError> {
     .map_err(|_| MathError::Limit("rational binary64 extent"))
 }
 
+fn precision(value: &Rational) -> Result<u32, MathError> {
+    value.numerator_ref().significant_bits()
+        .checked_add(value.denominator_ref().significant_bits())
+        .and_then(|bits| bits.checked_add(1078))
+        .and_then(|bits| u32::try_from(bits).ok())
+        .ok_or(MathError::Limit("rational binary64 precision"))
+}
+
+/// Peak mathematical storage for the two sequential directed conversions,
+/// exact dyadic comparison and current numerical projection. 128 rational/
+/// integer/float slots include canonicalization scratch and old/new overlap;
+/// their limb extent is bounded by the same N+D+1078 precision used below.
+/// Callers retain one high-water reservation across their constant population.
+pub(crate) fn conversion_bytes(value: &Rational) -> Result<usize, MathError> {
+    let bits = usize::try_from(precision(value)?).map_err(|_|MathError::Limit("rational conversion extent"))?;
+    bits.checked_add(7).and_then(|n|n.checked_div(8))
+        .and_then(|n|n.checked_mul(2)).and_then(|n|n.checked_add(size_of::<Rational>()))
+        .and_then(|n|n.checked_mul(128)).and_then(|n|n.checked_add(4096))
+        .ok_or(MathError::Limit("rational conversion extent"))
+}
+
+/// The tight adjacent-binary64 enclosure of the exact rational. Conversion is
+/// certified first; comparison with its exact dyadic image then selects the
+/// outward neighbour. Overflow and subnormal/zero transitions stay explicit.
+pub(crate) fn enclosure(value: &Rational) -> Result<(f64,f64), MathError> {
+    let point = nearest(value)?;
+    if point==f64::INFINITY {return Ok((f64::MAX,f64::INFINITY));}
+    if point==f64::NEG_INFINITY {return Ok((f64::NEG_INFINITY,-f64::MAX));}
+    let image = Rational::try_from(point).map_err(|error|MathError::Library(error.to_string()))?;
+    Ok(match image.cmp(value) {
+        std::cmp::Ordering::Less => (point,point.next_up()),
+        std::cmp::Ordering::Equal => (point,point),
+        std::cmp::Ordering::Greater => (point.next_down(),point),
+    })
+}
+
 /// Two MPFR directed enclosures followed by Rug's nearest-even binary64
 /// conversion must have bit-identical images. No 53-bit intermediate is used.
 ///
@@ -26,11 +62,7 @@ pub(crate) fn bits(value: &Rational) -> Result<usize, MathError> {
 /// Numerica 3.0.1 float-mpfr delegates from_rational_round to MPFR set_q;
 /// Rug 1.30.0 Float::to_f64 uses nearest-even, including gradual underflow.
 pub(crate) fn nearest(value: &Rational) -> Result<f64, MathError> {
-    let precision = value.numerator_ref().significant_bits()
-        .checked_add(value.denominator_ref().significant_bits())
-        .and_then(|bits| bits.checked_add(1078))
-        .and_then(|bits| u32::try_from(bits).ok())
-        .ok_or(MathError::Limit("rational binary64 precision"))?;
+    let precision = precision(value)?;
     let lower = Float::from_rational_round(value, precision, RoundingDirection::Down)
         .as_raw().to_f64();
     let upper = Float::from_rational_round(value, precision, RoundingDirection::Up)
@@ -50,6 +82,16 @@ mod tests {
         (Integer::from(n), Integer::from(2).pow(exponent)).into()
     }
 
+    #[test]
+    fn rational_binary64_outward_enclosures_include_subnormal_and_overflow_values() {
+        for value in [Rational::from((1,3)),dyadic(1,1075),dyadic(-1,1075),Rational::from(Integer::from(2).pow(1024)),Rational::from(-Integer::from(2).pow(1024))] {
+            let (lower,upper)=enclosure(&value).unwrap();
+            if lower.is_finite() {assert!(Rational::try_from(lower).unwrap()<=value);}
+            if upper.is_finite() {assert!(value<=Rational::try_from(upper).unwrap());}
+            assert!(lower==upper || lower.next_up()==upper);
+            assert!(conversion_bytes(&value).unwrap()>0);
+        }
+    }
     #[test]
     fn rational_binary64_exact_ties_subnormals_and_overflow() {
         // Expected images follow directly from IEEE binary64 even-significand

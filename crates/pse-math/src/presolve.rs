@@ -210,6 +210,15 @@ impl CasePlan {
                 other @ (FactorableError::DisjunctiveBranch { .. }
                 | FactorableError::ExactRequired { .. }) => MathError::Contract(other.to_string()),
             })?;
+        // Literal population is already node-budgeted. Prepay one peak scratch
+        // extent before any finite, non-iterative exact conversion, rather than
+        // growing the constructor once for every row's repeated literal.
+        let mut constant_scratch=0;
+        for node in &program.nodes {
+            if cancel.load(Ordering::Relaxed) {return Err(MathError::Cancelled);}
+            if let Node::Const(value)=node {constant_scratch=constant_scratch.max(value.enclosure_bytes()?);}
+        }
+        crate::construction::additional(constant_scratch)?;
         let lower: Vec<_> = program.variables.iter().map(|v| v.lower).collect();
         let upper: Vec<_> = program.variables.iter().map(|v| v.upper).collect();
         let mut facts = Facts {
@@ -239,7 +248,7 @@ impl CasePlan {
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
             }
-            let status = admission(&program, obligation, &lower, &upper, &mut remaining)?;
+            let status = admission(&program, obligation, &lower, &upper, &mut remaining, cancel)?;
             let current = facts
                 .obligations
                 .entry(obligation.instance)
@@ -259,16 +268,16 @@ impl CasePlan {
                 ObligationScope::Unconditional,
                 Some(argument),
             ) = (obligation.kind, obligation.scope, obligation.argument)
-                && let Some((column, coefficient)) = single_column(&program, argument)
+                && let Some((column, positive)) = single_column_sign(&program, argument)
             {
                 use crate::guarded::Condition;
                 let sign = match condition {
                     Condition::Positive => Some(GuardSign {
-                        positive: coefficient > 0.0,
+                        positive,
                         strict: true,
                     }),
                     Condition::Nonnegative => Some(GuardSign {
-                        positive: coefficient > 0.0,
+                        positive,
                         strict: false,
                     }),
                     Condition::Nonzero if lower[column] >= 0.0 => Some(GuardSign {
@@ -299,7 +308,7 @@ impl CasePlan {
             let tape = match row.expression {
                 // The original expression remains executable. A partial native tape
                 // cannot support any interval conclusion.
-                Some(root) => optional_tape(tape(&program, root, &mut remaining, true))?,
+                Some(root) => optional_tape(tape(&program, root, &mut remaining, true, cancel))?,
                 None => None,
             };
             let tape = tape.unwrap_or_else(|| FbbtTape {
@@ -333,7 +342,7 @@ impl CasePlan {
         }
         let mut h = FramedHasher::new(pse_ids::Frame::MathBoundFactsV3);
         h.hash(&facts.structure)
-            .str("pounce-nlp-0.12.0;projection-v4;value-domain;explicit-class-proof;aggregate-coefficients;curvature-v1");
+            .str("pounce-nlp-0.12.0;projection-v5;constant-enclosures;exact-exponents;value-domain;explicit-class-proof;aggregate-coefficients;curvature-v1");
         for (id, b) in &facts.values {
             h.str(&id.to_string()).u64(*b);
         }
@@ -349,6 +358,7 @@ fn admission(
     lower: &[f64],
     upper: &[f64],
     remaining: &mut usize,
+    cancel: &AtomicBool,
 ) -> Result<ObligationStatus, MathError> {
     use crate::guarded::Condition;
     // A requirement is checked through its exact condition on the argument; a domain
@@ -373,7 +383,7 @@ fn admission(
             ),
         };
     for (root, check) in checks {
-        let Some(tape) = optional_tape(tape(program, root, remaining, false))? else {
+        let Some(tape) = optional_tape(tape(program, root, remaining, false, cancel))? else {
             status = ObligationStatus::Unestablished;
             continue;
         };
@@ -447,16 +457,16 @@ enum Check {
     Closed(Constraint),
 }
 /// `coefficient * column` with no offset, as a hard sign domain requires.
-fn single_column(program: &FactorableProgram, node: NodeId) -> Option<(usize, f64)> {
+fn single_column_sign(program: &FactorableProgram, node: NodeId) -> Option<(usize, bool)> {
     match program.nodes.get(node)? {
-        Node::Var(c) => Some((*c, 1.0)),
+        Node::Var(c) => Some((*c, true)),
         Node::Product(children) if children.len() == 2 => {
             match (
                 program.nodes.get(children[0])?,
                 program.nodes.get(children[1])?,
             ) {
                 (Node::Const(k), Node::Var(c)) | (Node::Var(c), Node::Const(k)) => {
-                    Some((*c, k.value()))
+                    k.shared_sign().map(|positive|(*c,positive))
                 }
                 _ => None,
             }
@@ -471,11 +481,13 @@ fn tape(
     root: NodeId,
     remaining: &mut usize,
     prepaid: bool,
+    cancel: &AtomicBool,
 ) -> Result<FbbtTape, MathError> {
     let mut prepaid = prepaid;
     let mut reachable = BTreeSet::new();
     let mut stack = vec![root];
     while let Some(n) = stack.pop() {
+        if cancel.load(Ordering::Relaxed) {return Err(MathError::Cancelled);}
         if !reachable.insert(n) {
             continue;
         }
@@ -515,10 +527,14 @@ fn tape(
     // Node identities are topological: children precede their parents, and the root is
     // the largest reachable identity, so it is the tape result.
     for n in reachable {
+        if cancel.load(Ordering::Relaxed) {return Err(MathError::Cancelled);}
         let emitted = match &program.nodes[n] {
             Node::Var(c) => push(&mut ops, Op::Var(*c))?,
             Node::Aux(_) => push(&mut ops, Op::Opaque)?,
-            Node::Const(c) => push(&mut ops, Op::Const(c.value()))?,
+            Node::Const(c) => {
+                let (lo,hi)=c.enclosure()?;
+                push(&mut ops,Op::ConstInterval {lo,hi})?
+            }
             Node::Sum(children) | Node::Product(children) => {
                 let sum = matches!(program.nodes[n], Node::Sum(_));
                 let (first, rest) = children
@@ -526,6 +542,7 @@ fn tape(
                     .ok_or_else(|| MathError::Contract("empty projected operation".into()))?;
                 let mut acc = slot(&slots, first)?;
                 for child in rest {
+                    if cancel.load(Ordering::Relaxed) {return Err(MathError::Cancelled);}
                     let next = slot(&slots, child)?;
                     acc = push(
                         &mut ops,
@@ -540,25 +557,16 @@ fn tape(
             }
             Node::Pow { base, exponent } => {
                 let b = slot(&slots, base)?;
-                let e = exponent.value();
-                if e.to_bits() == 0.5_f64.to_bits() {
+                if exponent.is_exact_half() {
                     push(&mut ops, Op::Sqrt(b))?
-                } else if e.fract() == 0.0 && e.abs() <= 64.0 {
-                    #[expect(
-                        clippy::cast_possible_truncation,
-                        clippy::cast_sign_loss,
-                        reason = "the branch proved an integer absolute exponent at most 64"
-                    )]
-                    let power = e.abs() as u32;
-                    let p = push(&mut ops, Op::PowInt(b, power))?;
-                    if e < 0.0 {
-                        let one = push(&mut ops, Op::Const(1.0))?;
-                        push(&mut ops, Op::Div(one, p))?
-                    } else {
-                        p
-                    }
+                } else if let Some(e)=exponent.small_integer() {
+                    let p = push(&mut ops, Op::PowInt(b,e.unsigned_abs()))?;
+                    if e<0 {
+                        let one=push(&mut ops,Op::Const(1.0))?;
+                        push(&mut ops,Op::Div(one,p))?
+                    } else {p}
                 } else {
-                    push(&mut ops, Op::Opaque)?
+                    push(&mut ops,Op::Opaque)?
                 }
             }
             Node::Exp(i) => push(&mut ops, Op::Exp(slot(&slots, i)?))?,
@@ -596,12 +604,12 @@ mod tape_construction_tests {
         });
         let program = crate::factorable::tape_construction_fixture(nodes);
         let mut remaining = 35;
-        let retained = tape(&program, 17, &mut remaining, false).unwrap();
+        let retained = tape(&program, 17, &mut remaining, false, &AtomicBool::new(false)).unwrap();
         assert_eq!(retained.ops.len(), 34); // sixteen leaves, fifteen adds, three negative-power ops
         assert!(retained.first_invalid_slot().is_none());
         assert_eq!(remaining, 1);
         assert!(matches!(
-            tape(&program, 17, &mut remaining, true),
+            tape(&program, 17, &mut remaining, true, &AtomicBool::new(false)),
             Err(MathError::Limit("presolve tape extent"))
         ));
         // The second call builds its full reachable-node set, initial operation
@@ -616,14 +624,78 @@ mod tape_construction_tests {
             Node::Sum(vec![0; 256]),
         ]);
         let mut remaining = 256;
-        let complete = tape(&program, 1, &mut remaining, false).unwrap();
+        let complete = tape(&program, 1, &mut remaining, false, &AtomicBool::new(false)).unwrap();
         assert_eq!(complete.ops.len(), 256);
         assert!(complete.first_invalid_slot().is_none());
         let mut insufficient = 255;
         assert!(matches!(
-            tape(&program, 1, &mut insufficient, false),
+            tape(&program, 1, &mut insufficient, false, &AtomicBool::new(false)),
             Err(MathError::Limit("presolve tape extent"))
         ));
         assert_eq!(insufficient, 0);
+    }
+}
+
+#[cfg(test)]
+mod rational_interval_tests {
+    use super::*;
+    use crate::factorable::{Constant,Rational,tape_construction_fixture};
+    fn emit(nodes:Vec<Node>,root:usize)->FbbtTape {
+        let program=tape_construction_fixture(nodes);
+        tape(&program,root,&mut 4096,false,&AtomicBool::new(false)).unwrap()
+    }
+    #[test]
+    fn exact_rational_leaf_prevents_amplified_cancellation_from_shrinking_enclosure() {
+        // d=6004799503160661/2^54 is the nearest binary64 BELOW 1/3.
+        // Therefore (1/3-d)*2^100 = 2^46/3, independently of this tape.
+        let d=6004799503160661.0/18014398509481984.0;
+        let tape=emit(vec![Node::Var(0),Node::Const(Constant::Rational(Rational::new(1,3))),Node::Sum(vec![0,1]),Node::Const(Constant::Float(2.0_f64.powi(100))),Node::Product(vec![2,3])],4);
+        let values=pounce_presolve::fbbt::forward_pass(&tape,&[-d],&[-d]).unwrap();
+        let range=pounce_presolve::fbbt::forward_result(&values);
+        let exact=Rational::from(1_i64<<46)/Rational::from(3);
+        assert!(Rational::try_from(range.lo).unwrap()<=exact);
+        assert!(Rational::try_from(range.hi).unwrap()>=exact);
+        assert!(range.hi>1.0e13);
+    }
+    #[test]
+    fn constant_interval_contains_exact_source_and_existing_double_rounded_projection() {
+        // Numerator rounds up to2^53+4, denominator down to2^53, so
+        // the existing two-conversion quotient is1+2ulp. The exact ratio is
+        // strictly between1 and1+1ulp, with nearest image1+1ulp.
+        let exact=Rational::from((9007199254740995_i64,9007199254740993_i64));
+        let constant=Constant::Rational(exact.clone());
+        assert_eq!(constant.value().to_bits(),1.0_f64.to_bits()+2);
+        // This is the same source-owned map_coeff conversion consumed by
+        // scalar, defined-scalar and Taylor floating evaluator construction.
+        use symbolica::atom::{Atom,AtomCore};
+        crate::initialize().unwrap();
+        let expression=Atom::num(exact.clone());
+        let mut numerical=expression.evaluator::<Atom>(&[]).build().unwrap().map_coeff(&|value|value.re.to_f64());
+        assert_eq!(numerical.evaluate_single(&[]).to_bits(),constant.value().to_bits());
+        assert_eq!(crate::rational_binary64::nearest(&exact).unwrap().to_bits(),1.0_f64.to_bits()+1);
+        let (lo,hi)=constant.enclosure().unwrap();
+        assert!(Rational::try_from(lo).unwrap()<=exact && exact<=Rational::try_from(hi).unwrap());
+        assert!(lo<=constant.value() && constant.value()<=hi);
+    }
+    #[test]
+    fn exact_exponent_dispatch_never_rounds_near_integer_or_half_into_supported_power() {
+        let epsilon=Rational::from((1_i64,1_i64<<54));
+        for exponent in [Rational::one()+&epsilon,Rational::new(1,2)+Rational::from((1_i64,1_i64<<56))] {
+            let tape=emit(vec![Node::Var(0),Node::Pow {base:0,exponent:Constant::Rational(exponent)}],1);
+            assert_eq!(tape.ops.last(),Some(&Op::Opaque));
+        }
+        for (exponent,expected) in [(Rational::from(2),Op::PowInt(0,2)),(Rational::new(1,2),Op::Sqrt(0))] {
+            let tape=emit(vec![Node::Var(0),Node::Pow {base:0,exponent:Constant::Rational(exponent)}],1);
+            assert_eq!(tape.ops.last(),Some(&expected));
+        }
+    }
+    #[test]
+    fn underflowed_coefficient_cannot_fabricate_a_negative_hard_sign() {
+        use symbolica::domains::integer::Integer;
+        let tiny=Rational::from((Integer::one(),Integer::from(2).pow(1200)));
+        let constant=Constant::Rational(tiny);
+        assert_eq!(constant.value(),0.0);
+        let program=tape_construction_fixture(vec![Node::Var(0),Node::Const(constant),Node::Product(vec![0,1])]);
+        assert_eq!(single_column_sign(&program,2),None);
     }
 }

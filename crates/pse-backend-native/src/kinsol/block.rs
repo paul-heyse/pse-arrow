@@ -27,28 +27,17 @@ pub(super) struct Blocks {
     pub(super) solve_calls: u64,
 }
 fn checked_extent(n: usize) -> Result<usize, ProblemError> {
-    // FERAL 0.18 Markowitz keeps sparse row/column projections, LU/CSR copies and
-    // length-n work vectors. Its row_cols memberships and lazy heaps can retain
-    // historical fill entries: at most n pivot rounds x n rows x n column updates.
-    // The cubic term covers those entries, heap pairs and growing capacities;
-    // the quadratic term covers full live fill and simultaneous factor scratch.
-    // No FT updates or sparse/hyper solves are used here.
-    n.checked_mul(n)
-        .and_then(|square| {
-            square.checked_mul(2048).and_then(|live| {
-                square
-                    .checked_mul(n)
-                    .and_then(|history| history.checked_mul(256))
-                    .and_then(|history| live.checked_add(history))
-            })
-        })
-        .and_then(|bytes| {
-            n.checked_mul(4096)
-                .and_then(|linear| bytes.checked_add(linear))
-        })
-        .and_then(|bytes| bytes.checked_add(size_of::<Block>() + size_of::<feral::SparseLu>()))
+    // Supplier-owned fill/history/growth bound. Caller source projections and
+    // borrowed CSC input remain local; the supplier excludes them explicitly.
+    let factor=feral::SparseLu::conservative_markowitz_storage_bytes(n);
+    let projection=n.checked_mul(n)
+        .and_then(|entries| entries.checked_mul(4*(2*size_of::<usize>()+size_of::<f64>())))
+        .and_then(|bytes| n.max(4).checked_mul(2*(4*size_of::<usize>()+size_of::<f64>())).and_then(|vectors|bytes.checked_add(vectors)))
+        .and_then(|bytes|bytes.checked_add(size_of::<Block>()));
+    factor.zip(projection).and_then(|(factor,projection)|factor.checked_add(projection))
         .ok_or_else(|| ProblemError::memory("block LU storage extent"))
 }
+
 impl Blocks {
     pub(super) fn admit(
         function: &Function,
