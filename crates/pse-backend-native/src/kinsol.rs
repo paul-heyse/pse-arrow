@@ -3163,14 +3163,12 @@ mod tests {
                 crate::solver_tests::stamp(Backend::Kinsol),
             )
             .unwrap();
-            // SAFETY: session owns idle live KINSOL memory; callbacks access no
-            // userdata and remain static until the session is dropped.
-            let code = unsafe {
-                if depth_failure {
-                    ffi::KINSetDepthFn(session.mem, Some(depth))
-                } else {
-                    ffi::KINSetDampingFn(session.mem, Some(damping))
-                }
+            let code = if depth_failure {
+                // SAFETY: idle owned memory; this static callback accesses no userdata.
+                unsafe { ffi::KINSetDepthFn(session.mem, Some(depth)) }
+            } else {
+                // SAFETY: idle owned memory; this static callback accesses no userdata.
+                unsafe { ffi::KINSetDampingFn(session.mem, Some(damping)) }
             };
             assert_eq!(code, 0);
             let report = session
@@ -3228,10 +3226,9 @@ mod tests {
             let workspace = |session: &Session| {
                 let (mut reals, mut integers) = (0, 0);
                 // SAFETY: read-only query of this test's live exclusively owned session.
-                assert_eq!(
-                    unsafe { ffi::KINGetWorkSpace(session.mem, &mut reals, &mut integers) },
-                    0
-                );
+                let queried =
+                    unsafe { ffi::KINGetWorkSpace(session.mem, &mut reals, &mut integers) };
+                assert_eq!(queried, 0);
                 (reals, integers)
             };
             let initial_words = workspace(&session);

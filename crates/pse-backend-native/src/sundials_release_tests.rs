@@ -36,33 +36,28 @@ fn sundials_790_krylov_reporters_and_opaque_headers_fit_admitted_layout() {
     let m: i32 = 5;
     let mut context = std::ptr::null_mut();
     // SAFETY: valid out pointer, serial communicator, released after all dependent objects.
-    assert_eq!(
-        unsafe { ffi::SUNContext_Create(ffi::comm_no_mpi(), &mut context) },
-        0
-    );
+    let created = unsafe { ffi::SUNContext_Create(ffi::comm_no_mpi(), &mut context) };
+    assert_eq!(created, 0);
     // SAFETY: the context is exclusively owned and live until cleanup below.
     unsafe { crate::sundials_errors::install(context) }.unwrap();
     // SAFETY: admitted small finite extent on the live context.
     let vector = unsafe { ffi::N_VNew_Serial(n, context) };
     assert!(!vector.is_null());
     for flexible in [false, true] {
-        // SAFETY: live vector/context, supported no-preconditioner strategy and dimension.
-        let solver = unsafe {
-            if flexible {
-                ffi::SUNLinSol_SPFGMR(vector, 0, m, context)
-            } else {
-                ffi::SUNLinSol_SPGMR(vector, 0, m, context)
-            }
+        let solver = if flexible {
+            // SAFETY: live vector/context, supported no-preconditioner strategy and dimension.
+            unsafe { ffi::SUNLinSol_SPFGMR(vector, 0, m, context) }
+        } else {
+            // SAFETY: live vector/context, supported no-preconditioner strategy and dimension.
+            unsafe { ffi::SUNLinSol_SPGMR(vector, 0, m, context) }
         };
         assert!(!solver.is_null());
         // SAFETY: this exclusively owned solver initializes its own work arrays.
         assert_eq!(unsafe { ffi::SUNLinSolInitialize(solver) }, 0);
         let (mut reals, mut integers) = (0, 0);
         // SAFETY: read-only query on the live initialized solver, valid out pointers.
-        assert_eq!(
-            unsafe { ffi::SUNLinSolSpace(solver, &mut reals, &mut integers) },
-            0
-        );
+        let queried = unsafe { ffi::SUNLinSolSpace(solver, &mut reals, &mut integers) };
+        assert_eq!(queried, 0);
         let vectors = if flexible { 2 * m + 4 } else { m + 5 };
         assert_eq!(reals, n * i64::from(vectors) + i64::from(m * (m + 5) + 2));
         assert_eq!(integers, i64::from(vectors));
@@ -85,11 +80,10 @@ fn sundials_790_krylov_reporters_and_opaque_headers_fit_admitted_layout() {
         // SAFETY: each solver is freed before its template vector and context.
         assert_eq!(unsafe { ffi::SUNLinSolFree(solver) }, 0);
     }
-    // SAFETY: no solver retains the template vector; no object retains the context.
-    unsafe {
-        ffi::N_VDestroy(vector);
-        ffi::SUNContext_Free(&mut context);
-    }
+    // SAFETY: all solvers were freed; this test owns the remaining live vector.
+    unsafe { ffi::N_VDestroy(vector) };
+    // SAFETY: all dependent objects were freed; the context has one owner.
+    unsafe { ffi::SUNContext_Free(&mut context) };
 }
 
 #[test]
@@ -102,11 +96,11 @@ fn sundials_790_anderson_allocations_follow_allocated_depth_through_resize_failu
     static FAIL_AT: AtomicUsize = AtomicUsize::new(usize::MAX);
     unsafe extern "C" fn clone(vector: ffi::N_Vector) -> ffi::N_Vector {
         if ATTEMPTS.fetch_add(1, SeqCst) + 1 == FAIL_AT.load(SeqCst) {
-            // SAFETY: test-only supplier seam models the serial allocator's
-            // malloc failure signal on this vector's exclusively owned context.
-            unsafe {
-                (*(*vector).sunctx).last_err = ffi::SUNErrCode__SUN_ERR_MALLOC_FAIL;
-            }
+            // SAFETY: the supplier invokes cloning with a live serial template.
+            let context = unsafe { (*vector).sunctx };
+            // SAFETY: this test exclusively owns the live context; set the exact
+            // serial allocation-failure signal at the deterministic supplier seam.
+            unsafe { (*context).last_err = ffi::SUNErrCode__SUN_ERR_MALLOC_FAIL };
             return std::ptr::null_mut();
         }
         // SAFETY: native cloning supplies a live serial template. The serial clone
@@ -119,10 +113,11 @@ fn sundials_790_anderson_allocations_follow_allocated_depth_through_resize_failu
     }
     unsafe extern "C" fn clone_empty(vector: ffi::N_Vector) -> ffi::N_Vector {
         if ATTEMPTS.fetch_add(1, SeqCst) + 1 == FAIL_AT.load(SeqCst) {
-            // SAFETY: same deterministic private allocation-error seam as above.
-            unsafe {
-                (*(*vector).sunctx).last_err = ffi::SUNErrCode__SUN_ERR_MALLOC_FAIL;
-            }
+            // SAFETY: the supplier invokes cloning with a live serial template.
+            let context = unsafe { (*vector).sunctx };
+            // SAFETY: this test exclusively owns the context; this is the same
+            // deterministic private allocation-error seam as in the full clone.
+            unsafe { (*context).last_err = ffi::SUNErrCode__SUN_ERR_MALLOC_FAIL };
             return std::ptr::null_mut();
         }
         // SAFETY: serial header clone of a live template, preserving test ops.
@@ -144,13 +139,17 @@ fn sundials_790_anderson_allocations_follow_allocated_depth_through_resize_failu
         output: ffi::N_Vector,
         _: *mut std::ffi::c_void,
     ) -> i32 {
-        // SAFETY: this control supplies equal 17-entry serial input/output vectors.
-        unsafe {
-            let input = std::slice::from_raw_parts(ffi::N_VGetArrayPointer_Serial(input), 17);
-            let output = std::slice::from_raw_parts_mut(ffi::N_VGetArrayPointer_Serial(output), 17);
-            for (source, target) in input.iter().zip(output) {
-                *target = 1.0 + 0.5 * source;
-            }
+        // SAFETY: KINSOL supplies this control's live 17-entry serial input vector.
+        let input_data = unsafe { ffi::N_VGetArrayPointer_Serial(input) };
+        // SAFETY: KINSOL supplies this control's distinct live 17-entry serial output.
+        let output_data = unsafe { ffi::N_VGetArrayPointer_Serial(output) };
+        // SAFETY: the live input allocation holds 17 initialized doubles for this call.
+        let input = unsafe { std::slice::from_raw_parts(input_data, 17) };
+        // SAFETY: the output allocation holds 17 doubles, is disjoint from input,
+        // and is exclusively borrowed by KINSOL for this callback's duration.
+        let output = unsafe { std::slice::from_raw_parts_mut(output_data, 17) };
+        for (source, target) in input.iter().zip(output) {
+            *target = 1.0 + 0.5 * source;
         }
         0
     }
@@ -175,57 +174,87 @@ fn sundials_790_anderson_allocations_follow_allocated_depth_through_resize_failu
         DESTROYS.store(0, SeqCst);
         FAIL_AT.store(usize::MAX, SeqCst);
         let mut context = std::ptr::null_mut();
-        // SAFETY: all native objects below have one test owner and are destroyed
-        // before the context. No failing allocation is requested from the host.
-        unsafe {
-            assert_eq!(ffi::SUNContext_Create(ffi::comm_no_mpi(), &mut context), 0);
-            crate::sundials_errors::install(context).unwrap();
-            let vector = ffi::N_VNew_Serial(17, context);
-            assert!(!vector.is_null());
-            (*(*vector).ops).nvclone = Some(clone);
-            (*(*vector).ops).nvcloneempty = Some(clone_empty);
-            (*(*vector).ops).nvdestroy = Some(destroy);
-            let scale = ffi::N_VClone(vector);
-            assert!(!scale.is_null());
-            ffi::N_VConst(1.0, scale);
-            let mut memory = ffi::KINCreate(context);
-            assert!(!memory.is_null());
-            assert_eq!(ffi::KINInit(memory, Some(map), vector), 0);
-            assert_eq!(ffi::KINSetOrthAA(memory, ffi::KIN_ORTH_ICWY), 0);
-            assert_eq!(ffi::KINSetFuncNormTol(memory, 1e-8), 0);
-            if let Some(offset) = fail_offset {
-                FAIL_AT.store(ATTEMPTS.load(SeqCst) + offset, SeqCst);
-            }
-            for (iterations, depth) in [(4, 3), (1, 0), (9, 5), (1, 0)] {
-                ffi::N_VConst(0.0, vector);
-                assert_eq!(ffi::KINSetNumMaxIters(memory, iterations), 0);
-                assert_eq!(ffi::KINSetMAA(memory, depth), 0);
-                let flag = ffi::KINSol(memory, vector, ffi::KIN_FP, scale, scale);
-                if fail_offset.is_some() {
-                    assert_eq!(flag, ffi::KIN_MEM_FAIL);
-                    assert_eq!(ATTEMPTS.load(SeqCst), FAIL_AT.load(SeqCst));
-                    break;
-                }
-                assert!(
-                    flag >= 0 || flag == ffi::KIN_MAXITER_REACHED,
-                    "unexpected native status {flag}"
-                );
-            }
-            ffi::KINFree(&mut memory);
-            ffi::SUNContext_GetLastError(context);
-            // Exercise the identical generic empty-array cleanup at j=0/1/2.
-            if fail_offset.is_none() {
-                for offset in 1..=3 {
-                    FAIL_AT.store(ATTEMPTS.load(SeqCst) + offset, SeqCst);
-                    assert!(ffi::N_VCloneEmptyVectorArray(3, vector).is_null());
-                    assert_eq!(ATTEMPTS.load(SeqCst), FAIL_AT.load(SeqCst));
-                    ffi::SUNContext_GetLastError(context);
-                }
-            }
-            ffi::N_VDestroy(scale);
-            ffi::N_VDestroy(vector);
-            ffi::SUNContext_Free(&mut context);
+        // SAFETY: valid out pointer and serial communicator; this test owns the context.
+        let created = unsafe { ffi::SUNContext_Create(ffi::comm_no_mpi(), &mut context) };
+        assert_eq!(created, 0);
+        // SAFETY: the context is live and has no other error-handler owner.
+        unsafe { crate::sundials_errors::install(context) }.unwrap();
+        // SAFETY: small finite extent on the live context, freed below before that context.
+        let vector = unsafe { ffi::N_VNew_Serial(17, context) };
+        assert!(!vector.is_null());
+        // SAFETY: this test owns the live serial vector and its initialized operation table.
+        let operations = unsafe { (*vector).ops };
+        // SAFETY: the idle vector's table is exclusive; the static callback preserves serial cloning.
+        unsafe { (*operations).nvclone = Some(clone) };
+        // SAFETY: the same exclusive table accepts this static serial empty-clone callback.
+        unsafe { (*operations).nvcloneempty = Some(clone_empty) };
+        // SAFETY: the same exclusive table accepts this static serial destructor callback.
+        unsafe { (*operations).nvdestroy = Some(destroy) };
+        // SAFETY: the live template has initialized serial clone operations.
+        let scale = unsafe { ffi::N_VClone(vector) };
+        assert!(!scale.is_null());
+        // SAFETY: this test exclusively owns the live 17-entry scale vector.
+        unsafe { ffi::N_VConst(1.0, scale) };
+        // SAFETY: the context remains live until this solver and all vectors are freed.
+        let mut memory = unsafe { ffi::KINCreate(context) };
+        assert!(!memory.is_null());
+        // SAFETY: memory and template are live; the static callback consumes this exact extent.
+        let initialized = unsafe { ffi::KINInit(memory, Some(map), vector) };
+        assert_eq!(initialized, 0);
+        // SAFETY: this test owns idle initialized memory; ICWY is a supported native policy.
+        let orthogonalization = unsafe { ffi::KINSetOrthAA(memory, ffi::KIN_ORTH_ICWY) };
+        assert_eq!(orthogonalization, 0);
+        // SAFETY: idle owned memory and a finite positive tolerance.
+        let tolerance = unsafe { ffi::KINSetFuncNormTol(memory, 1e-8) };
+        assert_eq!(tolerance, 0);
+        if let Some(offset) = fail_offset {
+            FAIL_AT.store(ATTEMPTS.load(SeqCst) + offset, SeqCst);
         }
+        for (iterations, depth) in [(4, 3), (1, 0), (9, 5), (1, 0)] {
+            // SAFETY: the solver is idle; this test exclusively owns its live iterate vector.
+            unsafe { ffi::N_VConst(0.0, vector) };
+            // SAFETY: idle owned memory and a positive native iteration cap.
+            let limited = unsafe { ffi::KINSetNumMaxIters(memory, iterations) };
+            assert_eq!(limited, 0);
+            // SAFETY: idle owned memory; each history depth is nonnegative and below its cap.
+            let configured = unsafe { ffi::KINSetMAA(memory, depth) };
+            assert_eq!(configured, 0);
+            // SAFETY: initialized owned memory, live iterate/scales and static callback.
+            // Both scale arguments are read-only; all objects outlive this synchronous call.
+            let flag = unsafe { ffi::KINSol(memory, vector, ffi::KIN_FP, scale, scale) };
+            if fail_offset.is_some() {
+                assert_eq!(flag, ffi::KIN_MEM_FAIL);
+                assert_eq!(ATTEMPTS.load(SeqCst), FAIL_AT.load(SeqCst));
+                break;
+            }
+            assert!(
+                flag >= 0 || flag == ffi::KIN_MAXITER_REACHED,
+                "unexpected native status {flag}"
+            );
+        }
+        // SAFETY: this test is the sole owner of idle solver memory and no callback is active.
+        unsafe { ffi::KINFree(&mut memory) };
+        // SAFETY: the context is still live; clear its injected error before the next control.
+        unsafe { ffi::SUNContext_GetLastError(context) };
+        // Exercise the identical generic empty-array cleanup at j=0/1/2.
+        if fail_offset.is_none() {
+            for offset in 1..=3 {
+                FAIL_AT.store(ATTEMPTS.load(SeqCst) + offset, SeqCst);
+                // SAFETY: live serial template and positive small array count. The injected
+                // clone failure leaves cleanup ownership with the native constructor.
+                let failed = unsafe { ffi::N_VCloneEmptyVectorArray(3, vector) };
+                assert!(failed.is_null());
+                assert_eq!(ATTEMPTS.load(SeqCst), FAIL_AT.load(SeqCst));
+                // SAFETY: the exclusively owned context remains live after array cleanup.
+                unsafe { ffi::SUNContext_GetLastError(context) };
+            }
+        }
+        // SAFETY: the solver was freed; this test owns the remaining scale vector.
+        unsafe { ffi::N_VDestroy(scale) };
+        // SAFETY: no solver or clone constructor retains the original template.
+        unsafe { ffi::N_VDestroy(vector) };
+        // SAFETY: every dependent object was destroyed; this test is the sole context owner.
+        unsafe { ffi::SUNContext_Free(&mut context) };
         assert_eq!(
             DESTROYS.load(SeqCst),
             CLONES.load(SeqCst) + 1,

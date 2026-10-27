@@ -74,7 +74,7 @@ pub fn decompose(
     };
     checkpoint()?;
     validate_input(inc)?;
-    let m = hopcroft_karp(&inc);
+    let m = hopcroft_karp(inc);
     checkpoint()?;
     let invalid = || ProjectionError::Invalid("library structural result invariant".into());
     if m.row_to_var.len() != inc.n_eq_rows()
@@ -91,7 +91,7 @@ pub fn decompose(
             return Err(invalid());
         }
     }
-    let dm = DulmageMendelsohnPartition::from_matching(&inc, &m);
+    let dm = DulmageMendelsohnPartition::from_matching(inc, &m);
     checkpoint()?;
     if dm.row_part.len() != inc.n_eq_rows() || dm.col_part.len() != inc.n_vars {
         return Err(invalid());
@@ -120,7 +120,7 @@ pub fn decompose(
     ) {
         return Err(invalid());
     }
-    let components = SquareComponents::of_square_part(&inc, &m, &dm);
+    let components = SquareComponents::of_square_part(inc, &m, &dm);
     let mut blocks = vec![];
     let mut seen_r = BTreeSet::new();
     let mut seen_c = BTreeSet::new();
@@ -145,7 +145,7 @@ pub fn decompose(
         {
             return Err(invalid());
         }
-        let btf = BlockTriangularForm::of_component(&inc, &m, &comp);
+        let btf = BlockTriangularForm::of_component(inc, &m, &comp);
         let mut br = BTreeSet::new();
         let mut bc = BTreeSet::new();
         let mut owners = BTreeMap::new();

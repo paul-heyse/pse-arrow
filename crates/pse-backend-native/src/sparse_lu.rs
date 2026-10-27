@@ -132,7 +132,15 @@ pub(crate) fn solve(
     memory: &mut MemBuffer,
     name: &str,
 ) -> Result<(), ProblemError> {
-    solve_with_transpose(symbolic, numeric, conj, rhs, parallel, memory, name, false)
+    solve_operation(
+        symbolic,
+        numeric,
+        SolveOperation::Forward(conj),
+        rhs,
+        parallel,
+        memory,
+        name,
+    )
 }
 pub(crate) fn solve_transpose(
     symbolic: &SymbolicLu<usize>,
@@ -143,33 +151,43 @@ pub(crate) fn solve_transpose(
     memory: &mut MemBuffer,
     name: &str,
 ) -> Result<(), ProblemError> {
-    solve_with_transpose(symbolic, numeric, conj, rhs, parallel, memory, name, true)
+    solve_operation(
+        symbolic,
+        numeric,
+        SolveOperation::Transpose(conj),
+        rhs,
+        parallel,
+        memory,
+        name,
+    )
 }
-fn solve_with_transpose(
+enum SolveOperation {
+    Forward(Conj),
+    Transpose(Conj),
+}
+fn solve_operation(
     symbolic: &SymbolicLu<usize>,
     numeric: &NumericLu<usize, f64>,
-    conj: Conj,
+    operation: SolveOperation,
     rhs: MatMut<'_, f64>,
     parallel: Par,
     memory: &mut MemBuffer,
     name: &str,
-    transpose: bool,
 ) -> Result<(), ProblemError> {
     if rhs.nrows() != symbolic.nrows() {
         return Err(ProblemError::Contract("faer solve RHS shape".into()));
     }
     let mut rhs = rhs;
     let lu = LuRef::new_unchecked(symbolic, numeric);
-    crate::observation::scoped(name, || {
-        if transpose {
-            lu.solve_transpose_in_place_with_conj(
-                conj,
-                rhs.as_mut(),
-                parallel,
-                MemStack::new(memory),
-            );
-        } else {
-            lu.solve_in_place_with_conj(conj, rhs.as_mut(), parallel, MemStack::new(memory));
+    crate::observation::scoped(name, || match operation {
+        SolveOperation::Transpose(conj) => lu.solve_transpose_in_place_with_conj(
+            conj,
+            rhs.as_mut(),
+            parallel,
+            MemStack::new(memory),
+        ),
+        SolveOperation::Forward(conj) => {
+            lu.solve_in_place_with_conj(conj, rhs.as_mut(), parallel, MemStack::new(memory))
         }
     });
     if rhs

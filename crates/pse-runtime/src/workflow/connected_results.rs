@@ -4453,9 +4453,9 @@ mod result_selection_unit {
             expression,
         )
         .unwrap();
-        let limit = match pool.memory_limit() {
-            datafusion::execution::memory_pool::MemoryLimit::Finite(limit) => limit,
-            _ => unreachable!("fixture has a finite admission pool"),
+        let datafusion::execution::memory_pool::MemoryLimit::Finite(limit) = pool.memory_limit()
+        else {
+            panic!("fixture has a finite admission pool");
         };
         let pressure = MemoryConsumer::new("fixture:window-only-headroom").register(&pool);
         pressure

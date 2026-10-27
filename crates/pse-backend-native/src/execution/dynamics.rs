@@ -119,6 +119,37 @@ fn diffsol_profile(source: &str, provider: &[u8]) -> Option<pse_ids::ContentHash
     Some(h.finish_hash())
 }
 
+impl BackendExecution for Idas {
+    fn build(&self) -> Option<pse_ids::ContentHash> {
+        #[cfg(feature = "idas")]
+        {
+            crate::sundials_profile::build()
+        }
+        #[cfg(not(feature = "idas"))]
+        {
+            None
+        }
+    }
+    fn backend(&self) -> Backend {
+        Backend::Idas
+    }
+    fn capability(&self) -> &'static Capability {
+        &IDAS_CAPABILITY
+    }
+    fn representation(&self) -> Representation {
+        Representation::Trajectory
+    }
+    fn linked(&self) -> bool {
+        cfg!(feature = "idas")
+    }
+    fn automatic(&self) -> Option<u8> {
+        None
+    }
+    fn execute(&self, _: &mut Retained, _: Input<'_>) -> Result<SolveReport, ProblemError> {
+        Err(trajectory(Backend::Idas))
+    }
+}
+
 #[cfg(test)]
 mod build_tests {
     use super::*;
@@ -163,35 +194,5 @@ mod build_tests {
             crate::execution::adapter(Backend::Diffsol).build(),
             Some(actual)
         );
-    }
-}
-impl BackendExecution for Idas {
-    fn build(&self) -> Option<pse_ids::ContentHash> {
-        #[cfg(feature = "idas")]
-        {
-            crate::sundials_profile::build()
-        }
-        #[cfg(not(feature = "idas"))]
-        {
-            None
-        }
-    }
-    fn backend(&self) -> Backend {
-        Backend::Idas
-    }
-    fn capability(&self) -> &'static Capability {
-        &IDAS_CAPABILITY
-    }
-    fn representation(&self) -> Representation {
-        Representation::Trajectory
-    }
-    fn linked(&self) -> bool {
-        cfg!(feature = "idas")
-    }
-    fn automatic(&self) -> Option<u8> {
-        None
-    }
-    fn execute(&self, _: &mut Retained, _: Input<'_>) -> Result<SolveReport, ProblemError> {
-        Err(trajectory(Backend::Idas))
     }
 }

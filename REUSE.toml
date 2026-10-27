@@ -170,7 +170,11 @@ SPDX-License-Identifier = "MIT OR Apache-2.0"
 # imported documentation, metadata and sources retain upstream terms. The sys
 # wrapper license does not relicense the native sources it packages.
 [[annotations]]
-path = ["vendor/faer-traits/**", "vendor/deltas/faer-traits.patch", "vendor/deltas/faer.patch"]
+path = [
+  "vendor/faer-traits/**",
+  "vendor/deltas/faer-traits.patch",
+  "vendor/deltas/faer.patch",
+]
 precedence = "override"
 SPDX-FileCopyrightText = [
   "sarah quiñones and faer contributors",

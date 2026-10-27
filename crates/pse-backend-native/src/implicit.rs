@@ -504,6 +504,10 @@ impl InnerWorker for Kinsol {
 
 /// Handcrafted fixtures have actual source IDs and no local attribution tokens.
 #[cfg(all(test, feature = "root-isolation"))]
+#[allow(
+    clippy::expect_used,
+    reason = "handcrafted test fixtures assert successful source binding and compiled-body construction"
+)]
 pub(crate) fn source_body_for_test(
     instance: pse_ids::SemanticId,
     prepared: &pse_math::guarded::PreparedBody,
@@ -519,8 +523,8 @@ pub(crate) fn source_body_for_test(
         Default::default(),
         Default::default(),
     )
-    .unwrap();
-    pse_math::SourceBody::new(compiled, bindings).unwrap()
+    .expect("handcrafted fixture source bindings");
+    pse_math::SourceBody::new(compiled, bindings).expect("handcrafted fixture compiled source body")
 }
 
 #[cfg(test)]

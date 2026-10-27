@@ -27,7 +27,7 @@ pub enum ProcessRead<T> {
 pub struct ProcessIdentity {
     /// Kernel boot identifier.
     pub boot_id: String,
-    /// Kernel PID namespace link, e.g. pid:[4026531836].
+    /// Kernel PID namespace link, e.g. `pid:[4026531836]`.
     pub pid_namespace: String,
     /// PID as seen by this observer.
     pub pid: u32,

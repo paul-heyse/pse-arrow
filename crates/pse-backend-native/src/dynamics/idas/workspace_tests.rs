@@ -334,10 +334,8 @@ fn sundials_790_reinit_clears_attached_linear_counts_before_new_steps() {
     );
     // SAFETY: live exclusively owned vectors of the original state extent; ReInit
     // copies them and resets counters without invoking the detached callback.
-    assert_eq!(
-        unsafe { ffi::IDAReInit(held.mem, selected.start, held.y, held.dy) },
-        0
-    );
+    let reinitialized = unsafe { ffi::IDAReInit(held.mem, selected.start, held.y, held.dy) };
+    assert_eq!(reinitialized, 0);
     let mut current = -1;
     // SAFETY: the same idle memory and scalar out pointer remain live.
     assert_eq!(unsafe { ffi::IDAGetNumJacEvals(held.mem, &mut current) }, 0);
@@ -346,10 +344,8 @@ fn sundials_790_reinit_clears_attached_linear_counts_before_new_steps() {
         "7.9 resets the attached linear counter at ReInit"
     );
     // SAFETY: read-only query of this reinitialized memory into the scalar local.
-    assert_eq!(
-        unsafe { ffi::IDAGetNumConstraintFails(held.mem, &mut current) },
-        0
-    );
+    let queried = unsafe { ffi::IDAGetNumConstraintFails(held.mem, &mut current) };
+    assert_eq!(queried, 0);
     assert_eq!(current, 0);
 }
 #[test]

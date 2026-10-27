@@ -81,10 +81,10 @@ impl SupervisedChild {
         policy: DrainFailurePolicy,
         stderr: Option<StderrCapture>,
     ) -> Result<Self, SupervisionError> {
-        if let DrainFailurePolicy::Refuse(allowance) = policy {
-            if allowance.is_zero() || Instant::now().checked_add(allowance).is_none() {
-                return Err(SupervisionError::Drain);
-            }
+        if let DrainFailurePolicy::Refuse(allowance) = policy
+            && (allowance.is_zero() || Instant::now().checked_add(allowance).is_none())
+        {
+            return Err(SupervisionError::Drain);
         }
         if let Some(capture) = stderr {
             if capture.bytes == 0
@@ -205,10 +205,10 @@ impl SupervisedChild {
                 }
                 Ok(())
             })();
-            if let Err(error) = live {
-                if !exited(fd)? {
-                    return Err(error);
-                }
+            if let Err(error) = live
+                && !exited(fd)?
+            {
+                return Err(error);
             }
         }
         self.identity = Some(identity);

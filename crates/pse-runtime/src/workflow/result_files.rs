@@ -348,8 +348,8 @@ mod result_files_unit {
         bytes[length - 10..length - 6].copy_from_slice(&i32::MAX.to_le_bytes());
         let mut reader = Observed(Cursor::new(bytes), 0);
         let error = open_file_reader(&mut reader, &source.schema(), None)
-            .err()
-            .expect("corrupt footer refused");
+            .map(|_| ())
+            .expect_err("corrupt footer refused");
         assert!(error.to_string().contains("footer outside actual file"));
         assert_eq!(reader.1, 10);
     }

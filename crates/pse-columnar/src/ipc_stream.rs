@@ -564,7 +564,7 @@ pub(crate) fn alignment_copies(
                     .map_err(|_| invalid("IPC alignment offset"))?;
                 let len = usize::try_from(buffer.length())
                     .map_err(|_| invalid("IPC alignment length"))?;
-                if (body.as_ptr() as usize + start) % alignment != 0 {
+                if !(body.as_ptr() as usize + start).is_multiple_of(alignment) {
                     // Arrow validates even empty typed-buffer addresses and
                     // realigns them too; retain a nonzero admitted copy marker.
                     copies = add(copies, rounded(len.max(1))?)?;
