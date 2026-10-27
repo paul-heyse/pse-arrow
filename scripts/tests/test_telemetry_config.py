@@ -218,26 +218,63 @@ class ConfigurationTests(unittest.TestCase):
         ):
             for value in (1, maximum):
                 with self.subTest(variable=variable, value=value):
-                    resolve_process("test", environment={**self.env, "OTEL_BSP_MAX_QUEUE_SIZE": "65536", "OTEL_BSP_MAX_EXPORT_BATCH_SIZE": "1", variable: str(value)})
+                    resolve_process(
+                        "test",
+                        environment={
+                            **self.env,
+                            "OTEL_BSP_MAX_QUEUE_SIZE": "65536",
+                            "OTEL_BSP_MAX_EXPORT_BATCH_SIZE": "1",
+                            variable: str(value),
+                        },
+                    )
             for value in (0, maximum + 1):
-                with self.subTest(variable=variable, value=value), self.assertRaises(ValueError):
-                    resolve_process("test", environment={**self.env, variable: str(value)})
+                with (
+                    self.subTest(variable=variable, value=value),
+                    self.assertRaises(ValueError),
+                ):
+                    resolve_process(
+                        "test", environment={**self.env, variable: str(value)}
+                    )
         for sampler in TelemetrySampler:
             for argument in ("0", "1"):
-                resolved = resolve_process("test", environment={**self.env, "OTEL_TRACES_SAMPLER": sampler.value, "OTEL_TRACES_SAMPLER_ARG": argument})
+                resolved = resolve_process(
+                    "test",
+                    environment={
+                        **self.env,
+                        "OTEL_TRACES_SAMPLER": sampler.value,
+                        "OTEL_TRACES_SAMPLER_ARG": argument,
+                    },
+                )
                 self.assertIs(resolved.wire.sampler, sampler)
-        for variable, value in (("OTEL_TRACES_SAMPLER", "unknown"), *( ("OTEL_TRACES_SAMPLER_ARG", value) for value in ("-0.01", "1.01", "nan", "inf") )):
-            with self.subTest(variable=variable, value=value), self.assertRaises(ValueError):
+        for variable, value in (
+            ("OTEL_TRACES_SAMPLER", "unknown"),
+            *(
+                ("OTEL_TRACES_SAMPLER_ARG", value)
+                for value in ("-0.01", "1.01", "nan", "inf")
+            ),
+        ):
+            with (
+                self.subTest(variable=variable, value=value),
+                self.assertRaises(ValueError),
+            ):
                 resolve_process("test", environment={**self.env, variable: value})
 
     def test_signal_timeout_checks_original_seconds_before_quantization(self) -> None:
-        for variable in ("OTEL_EXPORTER_OTLP_TIMEOUT", "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT"):
+        for variable in (
+            "OTEL_EXPORTER_OTLP_TIMEOUT",
+            "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT",
+        ):
             for seconds, milliseconds in (("0.0001", 1), ("60", 60000)):
                 with self.subTest(variable=variable, seconds=seconds):
-                    settings = resolve_process("test", environment={**self.env, variable: seconds})
+                    settings = resolve_process(
+                        "test", environment={**self.env, variable: seconds}
+                    )
                     self.assertEqual(settings.wire.traces.timeout_ms, milliseconds)
             for seconds in ("0", "-1", "60.0001", "nan", "inf"):
-                with self.subTest(variable=variable, seconds=seconds), self.assertRaises(ValueError):
+                with (
+                    self.subTest(variable=variable, seconds=seconds),
+                    self.assertRaises(ValueError),
+                ):
                     resolve_process("test", environment={**self.env, variable: seconds})
 
     def test_instances_stable_per_process_and_distinct_in_actual_child(self) -> None:

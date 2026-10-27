@@ -113,7 +113,9 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(self.interface.status()["restart_required"])
             result = await self.client.call_tool("first", {})
         self.assertEqual(result.structured_content, {"count": 3})
-        changed = self.sources.check(self.interface.common | self.interface.operations["first"])
+        changed = self.sources.check(
+            self.interface.common | self.interface.operations["first"]
+        )
         self.assertIn("scripts/dependency.py", changed)
         self.assertIn("scripts/capabilities/server.py", changed)
 

@@ -9,7 +9,8 @@ fn reserve_projection<T>(
     extent: usize,
     operation: &'static str,
 ) -> Result<(), crate::math::MathRuntimeError> {
-    values.try_reserve_exact(extent)
+    values
+        .try_reserve_exact(extent)
         .map_err(|source| crate::math::MathRuntimeError::Allocation { operation, source })
 }
 
@@ -768,19 +769,35 @@ mod allocation_tests {
     use super::*;
     #[test]
     fn trajectory_capacity_overflow_keeps_typed_resource_cause_through_math_nesting() {
-        use pse_model::diagnostic::{BoundaryClass, DiagnosticProjection};
         use crate::math::MathRuntimeError;
+        use pse_model::diagnostic::{BoundaryClass, DiagnosticProjection};
         for operation in ["live output projection", "live mode projection"] {
             let mut values = Vec::<f64>::new();
             let error = reserve_projection(&mut values, usize::MAX, operation).unwrap_err();
-            assert!(std::error::Error::source(&error).unwrap().is::<std::collections::TryReserveError>());
-            assert!(matches!(&error, MathRuntimeError::Allocation { operation: actual, .. } if *actual == operation));
-            assert_eq!(error.retained_bytes().unwrap(), size_of::<MathRuntimeError>());
-            assert_eq!(crate::math::strategy::runtime_failure(&error), pse_model::generated::enums::NumericalAttemptObservation::ResourceExhausted);
+            assert!(
+                std::error::Error::source(&error)
+                    .unwrap()
+                    .is::<std::collections::TryReserveError>()
+            );
+            assert!(
+                matches!(&error, MathRuntimeError::Allocation { operation: actual, .. } if *actual == operation)
+            );
+            assert_eq!(
+                error.retained_bytes().unwrap(),
+                size_of::<MathRuntimeError>()
+            );
+            assert_eq!(
+                crate::math::strategy::runtime_failure(&error),
+                pse_model::generated::enums::NumericalAttemptObservation::ResourceExhausted
+            );
             let nested = MathRuntimeError::Math(error.into_math());
-            let diagnostic = nested.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation);
+            let diagnostic =
+                nested.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation);
             assert_eq!(diagnostic.class, BoundaryClass::ResourceLimit);
-            assert_eq!(diagnostic.code, pse_diagnostics::DiagnosticCode::RuntimeResourceLimit);
+            assert_eq!(
+                diagnostic.code,
+                pse_diagnostics::DiagnosticCode::RuntimeResourceLimit
+            );
         }
     }
 }

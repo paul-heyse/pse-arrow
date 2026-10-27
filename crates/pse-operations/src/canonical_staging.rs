@@ -596,7 +596,8 @@ impl CanonicalStore {
                 crate::canonical::transport::within_clock(
                     deadline,
                     self.stage_plan(&token, &plan, edits),
-                ).await?;
+                )
+                .await?;
                 Ok(StageOutcome::Closed(token))
             })
             .await
@@ -649,19 +650,34 @@ impl CanonicalStore {
                     return Err(CanonicalError::Timeout);
                 }
                 if let Some(revision) = crate::canonical::transport::within_clock(
-                    deadline, self.source_edit_receipt(operation, plan),
-                ).await? {
+                    deadline,
+                    self.source_edit_receipt(operation, plan),
+                )
+                .await?
+                {
                     return Ok(StageOutcome::Acknowledged(revision));
                 }
-                match crate::canonical::transport::within_clock(deadline,
-                    self.begin_stage_inner(problem, expected, operation, plan,
-                        STAGE_LIFETIME, StagePurpose::SourceEdit),
-                ).await {
+                match crate::canonical::transport::within_clock(
+                    deadline,
+                    self.begin_stage_inner(
+                        problem,
+                        expected,
+                        operation,
+                        plan,
+                        STAGE_LIFETIME,
+                        StagePurpose::SourceEdit,
+                    ),
+                )
+                .await
+                {
                     Ok(Some(token)) => return Ok(StageOutcome::Closed(token)),
                     Ok(None) => {
                         if let Some(revision) = crate::canonical::transport::within_clock(
-                            deadline, self.source_edit_receipt(operation, plan),
-                        ).await? {
+                            deadline,
+                            self.source_edit_receipt(operation, plan),
+                        )
+                        .await?
+                        {
                             return Ok(StageOutcome::Acknowledged(revision));
                         }
                     }
@@ -669,22 +685,35 @@ impl CanonicalStore {
                         // A stale stage can race an activation. Preserve both failed
                         // observations when the exact receipt cannot settle that race.
                         match crate::canonical::transport::within_clock(
-                            deadline, self.source_edit_receipt(operation, plan),
-                        ).await {
+                            deadline,
+                            self.source_edit_receipt(operation, plan),
+                        )
+                        .await
+                        {
                             Ok(Some(revision)) => return Ok(StageOutcome::Acknowledged(revision)),
-                            Err(CanonicalError::OperationReused) => return Err(CanonicalError::OperationReused),
+                            Err(CanonicalError::OperationReused) => {
+                                return Err(CanonicalError::OperationReused);
+                            }
                             Ok(None) if error.source_transaction_refused() => {
                                 return Err(CanonicalError::SourceEditRefused {
-                                    problem: problem.into(), operation: operation.into(),
+                                    problem: problem.into(),
+                                    operation: operation.into(),
                                     source: Box::new(error),
                                 });
                             }
-                            Err(readback) => return Err(CanonicalError::SourceEditUnsettled {
-                                problem: problem.into(), operation: operation.into(),
-                                source: Box::new(crate::canonical::settlement::unresolved(
-                                    "source-stage", operation, &plan.request, error, Some(readback),
-                                )),
-                            }),
+                            Err(readback) => {
+                                return Err(CanonicalError::SourceEditUnsettled {
+                                    problem: problem.into(),
+                                    operation: operation.into(),
+                                    source: Box::new(crate::canonical::settlement::unresolved(
+                                        "source-stage",
+                                        operation,
+                                        &plan.request,
+                                        error,
+                                        Some(readback),
+                                    )),
+                                });
+                            }
                             Ok(None) => return Err(error),
                         }
                     }
@@ -693,9 +722,11 @@ impl CanonicalStore {
                 crate::canonical::transport::within_clock(deadline, async {
                     tokio::time::sleep(Duration::from_millis(20)).await;
                     Ok(())
-                }).await?;
+                })
+                .await?;
             }
-        }).await
+        })
+        .await
     }
 
     /// Stage two immutable physical products without cloning either retained byte owner.

@@ -861,7 +861,9 @@ async fn admit_revision_authorized(
     )?;
     let origin = match runtime.publication() {
         None => None,
-        Some(_) => Some(source_publication_future(runtime, previous, edits, cancel, project)?.await?),
+        Some(_) => {
+            Some(source_publication_future(runtime, previous, edits, cancel, project)?.await?)
+        }
     };
     let issuer = origin
         .as_ref()
@@ -907,9 +909,14 @@ fn source_publication_future<'a>(
     project: Option<&'a pse_operations::canonical_projects::ProjectPublication>,
 ) -> Result<SourcePublicationFuture<'a>, WorkflowError> {
     let future = publish_source_revision(runtime, previous, edits, cancel, project);
-    let owner = runtime.preparation().math()
+    let owner = runtime
+        .preparation()
+        .math()
         .reserve("modeling:source-publication-future", size_of_val(&future))?;
-    Ok(SourcePublicationFuture { future: Box::pin(future), _owner: owner })
+    Ok(SourcePublicationFuture {
+        future: Box::pin(future),
+        _owner: owner,
+    })
 }
 
 async fn publish_source_revision(
@@ -950,9 +957,7 @@ async fn publish_source_revision(
             .edit(&problem, old.map(|old| old.key.as_str()), &operation, edits)
             .await
             .map_err(|source| {
-                crate::workflow::source_settlement::source_edit_error(
-                    problem, operation, source,
-                )
+                crate::workflow::source_settlement::source_edit_error(problem, operation, source)
             })?
     };
     Ok(recorded)
@@ -3270,30 +3275,48 @@ mod tests {
         let original_deadline = cancel.deadline();
         let edits = Vec::new();
         let baseline = pool.reserved();
-        let future = source_publication_future(&services, None, &edits, Some(&cancel), None).unwrap();
+        let future =
+            source_publication_future(&services, None, &edits, Some(&cancel), None).unwrap();
         let charged = future._owner.size();
         assert!(charged > size_of_val(&future));
         assert_eq!(pool.reserved(), baseline + charged);
         drop(future);
-        assert_eq!(pool.reserved(), baseline, "unpolled child releases only its own grant");
+        assert_eq!(
+            pool.reserved(),
+            baseline,
+            "unpolled child releases only its own grant"
+        );
         assert!(services.publication().is_none());
         assert_eq!(cancel.deadline(), original_deadline);
         assert!(!cancel.token().is_cancelled());
 
-        let mut future = source_publication_future(&services, None, &edits, Some(&cancel), None).unwrap();
+        let mut future =
+            source_publication_future(&services, None, &edits, Some(&cancel), None).unwrap();
         let mut context = std::task::Context::from_waker(futures_util::task::noop_waker_ref());
-        assert!(matches!(Future::poll(std::pin::Pin::new(&mut future), &mut context),
-            std::task::Poll::Ready(Err(WorkflowError::RecordingUnavailable))));
-        assert_eq!(pool.reserved(), baseline + charged, "ready child stays prepaid until its allocation drops");
+        assert!(matches!(
+            Future::poll(std::pin::Pin::new(&mut future), &mut context),
+            std::task::Poll::Ready(Err(WorkflowError::RecordingUnavailable))
+        ));
+        assert_eq!(
+            pool.reserved(),
+            baseline + charged,
+            "ready child stays prepaid until its allocation drops"
+        );
         drop(future);
         assert_eq!(pool.reserved(), baseline);
 
         runtime.shared.math().clear_program_cache();
         runtime.shared.math().shutdown_native_lanes().await;
-        let pressure = pse_columnar::MemoryConsumer::new("test:source-publication-refusal").register(&pool);
-        pressure.try_grow(runtime.shared.budget().memory_limit_bytes.get() - pool.reserved()).unwrap();
+        let pressure =
+            pse_columnar::MemoryConsumer::new("test:source-publication-refusal").register(&pool);
+        pressure
+            .try_grow(runtime.shared.budget().memory_limit_bytes.get() - pool.reserved())
+            .unwrap();
         assert!(source_publication_future(&services, None, &edits, Some(&cancel), None).is_err());
-        assert!(edits.is_empty(), "refused construction preserves the borrowed source edits");
+        assert!(
+            edits.is_empty(),
+            "refused construction preserves the borrowed source edits"
+        );
         assert_eq!(cancel.deadline(), original_deadline);
         assert!(!cancel.token().is_cancelled());
     }

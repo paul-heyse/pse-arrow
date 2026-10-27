@@ -189,11 +189,16 @@ class NativeTool(Tool):
 
     async def run(self, arguments: dict[str, object]) -> ToolResult:
         if self._reads.admission_closed:
-            return ToolResult(structured_content=intact_result({
-                "outcome": "transport_failure",
-                "code": "pse.native.endpoint_closed_before_admission",
-                "native_receiver": "not_entered",
-            }, self.name).model_dump(mode="json"))
+            return ToolResult(
+                structured_content=intact_result(
+                    {
+                        "outcome": "transport_failure",
+                        "code": "pse.native.endpoint_closed_before_admission",
+                        "native_receiver": "not_entered",
+                    },
+                    self.name,
+                ).model_dump(mode="json")
+            )
         value: dict[str, JsonValue]
         try:
             request = self._binding.request.model_validate(arguments, strict=True)

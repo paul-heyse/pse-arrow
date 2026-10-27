@@ -368,7 +368,9 @@ impl TelemetrySampler {
             Self::TraceIdRatio => Sampler::TraceIdRatioBased(argument),
             Self::ParentBasedAlwaysOn => Sampler::ParentBased(Box::new(Sampler::AlwaysOn)),
             Self::ParentBasedAlwaysOff => Sampler::ParentBased(Box::new(Sampler::AlwaysOff)),
-            Self::ParentBasedTraceIdRatio => Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(argument))),
+            Self::ParentBasedTraceIdRatio => {
+                Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(argument)))
+            }
         }
     }
 }
@@ -460,13 +462,17 @@ impl Settings {
         if self.schema_version != SETTINGS_VERSION
             || self.process_incarnation.is_empty()
             || self.resource.get("service.instance.id") != Some(&self.process_incarnation)
-            || (self.max_queue_size < TELEMETRY_MINIMUM as usize || self.max_queue_size > TELEMETRY_QUEUE_MAX)
+            || (self.max_queue_size < TELEMETRY_MINIMUM as usize
+                || self.max_queue_size > TELEMETRY_QUEUE_MAX)
             || self.max_export_batch_size < TELEMETRY_MINIMUM as usize
             || self.max_export_batch_size > TELEMETRY_QUEUE_MAX
             || self.max_export_batch_size > self.max_queue_size
-            || (self.schedule_delay_ms < TELEMETRY_MINIMUM || self.schedule_delay_ms > TELEMETRY_TIMEOUT_MAX_MS)
-            || (self.export_timeout_ms < TELEMETRY_MINIMUM || self.export_timeout_ms > TELEMETRY_TIMEOUT_MAX_MS)
-            || (self.metric_export_interval_ms < TELEMETRY_MINIMUM || self.metric_export_interval_ms > TELEMETRY_METRIC_INTERVAL_MAX_MS)
+            || (self.schedule_delay_ms < TELEMETRY_MINIMUM
+                || self.schedule_delay_ms > TELEMETRY_TIMEOUT_MAX_MS)
+            || (self.export_timeout_ms < TELEMETRY_MINIMUM
+                || self.export_timeout_ms > TELEMETRY_TIMEOUT_MAX_MS)
+            || (self.metric_export_interval_ms < TELEMETRY_MINIMUM
+                || self.metric_export_interval_ms > TELEMETRY_METRIC_INTERVAL_MAX_MS)
             || !self.sampler_argument.is_finite()
             || !(TELEMETRY_RATIO_MIN..=TELEMETRY_RATIO_MAX).contains(&self.sampler_argument)
         {
@@ -475,7 +481,8 @@ impl Settings {
             ));
         }
         for signal in [&self.traces, &self.logs, &self.metrics] {
-            if signal.timeout_ms < TELEMETRY_MINIMUM || signal.timeout_ms > TELEMETRY_TIMEOUT_MAX_MS {
+            if signal.timeout_ms < TELEMETRY_MINIMUM || signal.timeout_ms > TELEMETRY_TIMEOUT_MAX_MS
+            {
                 return Err(TelemetryError("signal timeout outside host bounds".into()));
             }
             if signal.headers.len() > 32
@@ -1911,7 +1918,9 @@ mod tests {
     }
     #[test]
     fn resolved_settings_sampler_adapters_preserve_parent_semantics() {
-        use opentelemetry::trace::{SpanContext, SpanId, SpanKind, TraceFlags, TraceId, TraceState};
+        use opentelemetry::trace::{
+            SpanContext, SpanId, SpanKind, TraceFlags, TraceId, TraceState,
+        };
         use opentelemetry_sdk::trace::{SamplingDecision, ShouldSample};
         let trace_id = TraceId::from(1_u128);
         for (name, root_sampled, parent_based) in [
@@ -1922,18 +1931,45 @@ mod tests {
             ("parentbased_always_off", false, true),
             ("parentbased_traceidratio", false, true),
         ] {
-            let selection: TelemetrySampler = serde_json::from_value(serde_json::json!(name)).unwrap();
+            let selection: TelemetrySampler =
+                serde_json::from_value(serde_json::json!(name)).unwrap();
             assert_eq!(serde_json::to_value(selection).unwrap(), name);
             let sampler = selection.sdk(0.0);
-            let decision = |parent: Option<&Context>| sampler.should_sample(parent, trace_id, "fixture", &SpanKind::Internal, &[], &[]).decision;
-            let sampled = |value| if value { SamplingDecision::RecordAndSample } else { SamplingDecision::Drop };
+            let decision = |parent: Option<&Context>| {
+                sampler
+                    .should_sample(parent, trace_id, "fixture", &SpanKind::Internal, &[], &[])
+                    .decision
+            };
+            let sampled = |value| {
+                if value {
+                    SamplingDecision::RecordAndSample
+                } else {
+                    SamplingDecision::Drop
+                }
+            };
             assert_eq!(decision(None), sampled(root_sampled), "{name} root");
             for remote in [false, true] {
                 for parent_sampled in [false, true] {
                     let parent = Context::new().with_remote_span_context(SpanContext::new(
-                        trace_id, SpanId::from(1_u64), if parent_sampled { TraceFlags::SAMPLED } else { TraceFlags::default() }, remote, TraceState::default(),
+                        trace_id,
+                        SpanId::from(1_u64),
+                        if parent_sampled {
+                            TraceFlags::SAMPLED
+                        } else {
+                            TraceFlags::default()
+                        },
+                        remote,
+                        TraceState::default(),
                     ));
-                    assert_eq!(decision(Some(&parent)), sampled(if parent_based {parent_sampled} else {root_sampled}), "{name} parent");
+                    assert_eq!(
+                        decision(Some(&parent)),
+                        sampled(if parent_based {
+                            parent_sampled
+                        } else {
+                            root_sampled
+                        }),
+                        "{name} parent"
+                    );
                 }
             }
         }
@@ -1948,7 +1984,10 @@ mod tests {
             ("max_export_batch_size", TELEMETRY_QUEUE_MAX as u64),
             ("schedule_delay_ms", TELEMETRY_TIMEOUT_MAX_MS),
             ("export_timeout_ms", TELEMETRY_TIMEOUT_MAX_MS),
-            ("metric_export_interval_ms", TELEMETRY_METRIC_INTERVAL_MAX_MS),
+            (
+                "metric_export_interval_ms",
+                TELEMETRY_METRIC_INTERVAL_MAX_MS,
+            ),
         ] {
             assert_eq!(schema["properties"][field]["minimum"], TELEMETRY_MINIMUM);
             assert_eq!(schema["properties"][field]["maximum"], maximum);
@@ -1957,12 +1996,18 @@ mod tests {
                 wire["max_queue_size"] = serde_json::json!(TELEMETRY_QUEUE_MAX);
                 wire["max_export_batch_size"] = serde_json::json!(1);
                 wire[field] = serde_json::json!(endpoint);
-                assert!(Settings::from_json(&wire.to_string()).is_ok(), "{field}={endpoint}");
+                assert!(
+                    Settings::from_json(&wire.to_string()).is_ok(),
+                    "{field}={endpoint}"
+                );
             }
             for outside in [0, maximum + 1] {
                 let mut wire = original.clone();
                 wire[field] = serde_json::json!(outside);
-                assert!(Settings::from_json(&wire.to_string()).is_err(), "{field}={outside}");
+                assert!(
+                    Settings::from_json(&wire.to_string()).is_err(),
+                    "{field}={outside}"
+                );
             }
         }
         for endpoint in [TELEMETRY_MINIMUM, TELEMETRY_TIMEOUT_MAX_MS] {

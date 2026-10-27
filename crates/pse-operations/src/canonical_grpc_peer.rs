@@ -179,7 +179,8 @@ async fn start_scripted(generations: usize, delay: bool, source_stage_fault: Opt
                             "Query" => {
                                 let request = rpc::QueryRequest::decode(payload).unwrap();
                                 #[cfg(feature = "canonical-tests")]
-                                let _ = requests_sent.send((std::time::Instant::now(), request.clone()));
+                                let _ = requests_sent
+                                    .send((std::time::Instant::now(), request.clone()));
                                 let query = request.query;
                                 let _ = sent.send(query.clone());
                                 if query.contains("FIRST_READ") || query.contains("SECOND_READ") {
@@ -190,22 +191,35 @@ async fn start_scripted(generations: usize, delay: bool, source_stage_fault: Opt
                                 }
                                 let source_receipt = source_stage_fault.is_some()
                                     && query.contains("SELECT * FROM ONLY type::record('canonical_revisions', $key)");
-                                let source_readback = source_receipt && receipt_reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 0;
-                                let source_begin = source_stage_fault.is_some() && query.contains("LET $stage_guard =");
+                                let source_readback = source_receipt
+                                    && receipt_reads
+                                        .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+                                        > 0;
+                                let source_begin = source_stage_fault.is_some()
+                                    && query.contains("LET $stage_guard =");
                                 if source_readback && source_stage_fault == Some(true) {
                                     release.acquire().await.unwrap().forget();
                                 }
                                 if source_begin || source_readback {
                                     if source_begin {
                                         status = "10";
-                                        native_error = Some(proto::SurrealError::new(
-                                            proto::ErrorKind::Query, "source stage statement refusal",
-                                        ).with_details("Cancelled", None).encode_to_vec());
+                                        native_error = Some(
+                                            proto::SurrealError::new(
+                                                proto::ErrorKind::Query,
+                                                "source stage statement refusal",
+                                            )
+                                            .with_details("Cancelled", None)
+                                            .encode_to_vec(),
+                                        );
                                     } else {
                                         status = "14";
-                                        native_error = Some(proto::SurrealError::new(
-                                            proto::ErrorKind::Connection, "source receipt connection reply",
-                                        ).encode_to_vec());
+                                        native_error = Some(
+                                            proto::SurrealError::new(
+                                                proto::ErrorKind::Connection,
+                                                "source receipt connection reply",
+                                            )
+                                            .encode_to_vec(),
+                                        );
                                     }
                                     Vec::new()
                                 } else if query.contains("READ_ALWAYS_CONFLICT")
@@ -255,7 +269,11 @@ async fn start_scripted(generations: usize, delay: bool, source_stage_fault: Opt
                                                 "x".repeat(8192),
                                             )),
                                         }
-                                    } else if source_receipt || (source_stage_fault.is_some() && query.contains("canonical_project_operations")) || query.contains("canonical_interpretations") {
+                                    } else if source_receipt
+                                        || (source_stage_fault.is_some()
+                                            && query.contains("canonical_project_operations"))
+                                        || query.contains("canonical_interpretations")
+                                    {
                                         proto::Value {
                                             value: Some(proto::value::Value::None(
                                                 proto::NoneValue {},

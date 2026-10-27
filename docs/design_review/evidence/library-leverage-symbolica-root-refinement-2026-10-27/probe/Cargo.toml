@@ -5,7 +5,10 @@ edition = "2024"
 publish = false
 
 [dependencies]
-symbolica = { version = "=3.0.1", default-features = false, features = ["integer-gmp", "float-mpfr"] }
+symbolica = { version = "=3.0.1", default-features = false, features = [
+  "integer-gmp",
+  "float-mpfr",
+] }
 
 [profile.dev]
 panic = "unwind"

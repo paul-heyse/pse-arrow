@@ -33,8 +33,12 @@ extend-exclude = [
 ]
 
 [default]
-# Git's abbreviated object hashes in source patches are immutable provenance.
-extend-ignore-re = ["(?m)^index [0-9a-f]+\\.\\.[0-9a-f]+(?: [0-7]+)?$"]
+# Git object hashes and rows of exact IEEE-754 bit patterns are immutable evidence,
+# not prose. Keep captured scientific bytes intact rather than spelling-correct them.
+extend-ignore-re = [
+  "(?m)^index [0-9a-f]+\\.\\.[0-9a-f]+(?: [0-7]+)?$",
+  "(?m)^[ \\t]*(?:[0-9a-f]{16}[ \\t]+)+[0-9a-f]{16}[ \\t]*$",
+]
 # Native library C symbols (SCIPaddSol, SCIPreleaseCons, SCIPeventGetType, IDA_NO_BCK,
 # POUNCE's OT_String) split into fragments that look like misspellings.
 extend-ignore-identifiers-re = [

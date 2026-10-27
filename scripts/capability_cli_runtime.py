@@ -77,9 +77,21 @@ def connection(root: Path) -> Client:
     )
 
 
+def _require_drain_acknowledgement(result: CallToolResult) -> None:
+    if result.is_error or answer(result) != {
+        "state": "drained",
+        "native_admission": "closed",
+    }:
+        raise ClientRefusedError(
+            "Endpoint native drain was not acknowledged; physical settlement is unestablished."
+        )
+
+
 async def drain_connection(client: Client) -> None:
     """Settle the endpoint before the STDIO SDK begins its bounded disconnect."""
-    task = asyncio.create_task(client.call_tool("capabilities_drain", {}, raise_on_error=False))
+    task = asyncio.create_task(
+        client.call_tool("capabilities_drain", {}, raise_on_error=False)
+    )
     cancellation: asyncio.CancelledError | None = None
     while not task.done():
         try:
@@ -91,9 +103,7 @@ async def drain_connection(client: Client) -> None:
             # and the actual drain failure both survive settlement.
             break
     try:
-        result = task.result()
-        if result.is_error or answer(result) != {"state": "drained", "native_admission": "closed"}:
-            raise ClientRefusedError("Endpoint native drain was not acknowledged; physical settlement is unestablished.")
+        _require_drain_acknowledgement(task.result())
     except BaseException as error:
         if cancellation is not None:
             raise cancellation from error
@@ -114,7 +124,9 @@ async def owned_connection(root: Path) -> AsyncGenerator[Client]:
             await drain_connection(client)
         except BaseException as error:
             if original is not None:
-                raise BaseExceptionGroup("Foreground operation and native drain failed", [original, error]) from None
+                raise BaseExceptionGroup(
+                    "Foreground operation and native drain failed", [original, error]
+                ) from None
             raise
         if original is not None:
             raise original

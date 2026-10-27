@@ -365,7 +365,10 @@ def capture(
 
 
 def admit_import(
-    environment: Mapping[str, str], *, validated: bool = True, native: bool = False,
+    environment: Mapping[str, str],
+    *,
+    validated: bool = True,
+    native: bool = False,
     profile: str | None = None,
 ) -> dict[str, object]:
     """Perform an explicitly requested import in the caller's selected environment."""
@@ -373,7 +376,9 @@ def admit_import(
         capture(environment, validated=validated, native=native)
         if profile is None
         else requested_artifact(
-            environment, mode="native" if native else "dev", profile=profile,
+            environment,
+            mode="native" if native else "dev",
+            profile=profile,
             validated=validated,
         )
     )
@@ -839,8 +844,10 @@ def stubs_prepare(
 ) -> StageResult:
     """Independent declaration/tool/binary/output currency for actual API stubs."""
     artifact = requested_artifact(
-        environment, mode="native" if mode == "native" else "dev",
-        profile=profile, validated=validated,
+        environment,
+        mode="native" if mode == "native" else "dev",
+        profile=profile,
+        validated=validated,
     )
     inputs = preparation_inputs(
         "python-stubs", mode, profile, environment, validated=validated
@@ -878,8 +885,10 @@ def stubs_prepare(
             stage="stubs-check" if check else "stubs", status="failed", exit_code=result
         )
     if artifact != requested_artifact(
-        environment, mode="native" if mode == "native" else "dev",
-        profile=profile, validated=validated,
+        environment,
+        mode="native" if mode == "native" else "dev",
+        profile=profile,
+        validated=validated,
     ) or inputs != preparation_inputs(
         "python-stubs", mode, profile, environment, validated=validated
     ):
@@ -957,11 +966,17 @@ def run_stages(
                 status="admitted",
                 artifact=ExtensionArtifact.model_validate(
                     admit_import(
-                        environment, validated=validated, native=mode == "native",
+                        environment,
+                        validated=validated,
+                        native=mode == "native",
                         profile=profile,
-                    ) if operation == "admit" else requested_artifact(
-                        environment, mode="native" if mode == "native" else "dev",
-                        profile=profile, validated=validated,
+                    )
+                    if operation == "admit"
+                    else requested_artifact(
+                        environment,
+                        mode="native" if mode == "native" else "dev",
+                        profile=profile,
+                        validated=validated,
                     )
                 ),
             )

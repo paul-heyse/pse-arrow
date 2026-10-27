@@ -20,6 +20,7 @@ from scripts.generated.telemetry_settings import Settings, SignalSettings
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from typing import NoReturn
 
 
 @dataclass
@@ -47,13 +48,22 @@ def state_directory(environment: Mapping[str, str]) -> Path:
     )
 
 
-def _integer_limits(record: type[Settings] | type[SignalSettings], name: str) -> tuple[int, int]:
+def _metadata_contract_failure() -> NoReturn:
+    raise RuntimeError("telemetry owner scalar metadata is unavailable")
+
+
+def _integer_limits(
+    record: type[Settings | SignalSettings], name: str
+) -> tuple[int, int]:
     """Read the scalar declaration projected from the telemetry owner."""
     info = msgspec.inspect.type_info(record)
-    assert isinstance(info, msgspec.inspect.StructType)
-    scalar = next(field.type for field in info.fields if field.name == name)
-    assert isinstance(scalar, msgspec.inspect.IntType)
-    assert scalar.ge is not None and scalar.le is not None
+    if not isinstance(info, msgspec.inspect.StructType):
+        _metadata_contract_failure()
+    scalar = next((field.type for field in info.fields if field.name == name), None)
+    if not isinstance(scalar, msgspec.inspect.IntType):
+        _metadata_contract_failure()
+    if scalar.ge is None or scalar.le is None:
+        _metadata_contract_failure()
     return scalar.ge, scalar.le
 
 
@@ -74,7 +84,9 @@ def _integer(environment: Mapping[str, str], name: str, default: int) -> int:
     return int(value)
 
 
-def _timeout_seconds(environment: Mapping[str, str], name: str, default: float) -> float:
+def _timeout_seconds(
+    environment: Mapping[str, str], name: str, default: float
+) -> float:
     value = _number(environment, name, default)
     _, maximum_ms = _integer_limits(SignalSettings, "timeout_ms")
     # Enforce the original seconds before quantization (tiny positives round up).
@@ -266,16 +278,16 @@ def resolve_process(
             f"OTEL_EXPORTER_OTLP_{name}_TIMEOUT",
             _timeout_seconds(env, "OTEL_EXPORTER_OTLP_TIMEOUT", 5),
         )
-        signals[name] = dict(
-            enabled=enabled and bool(endpoint),
-            endpoint=_endpoint(endpoint) if endpoint and enabled else None,
-            headers=dict(
+        signals[name] = {
+            "enabled": enabled and bool(endpoint),
+            "endpoint": _endpoint(endpoint) if endpoint and enabled else None,
+            "headers": dict(
                 _headers(env.get(f"OTEL_EXPORTER_OTLP_{name}_HEADERS", base_headers))
             )
             if enabled
             else {},
-            timeout_ms=max(1, int(timeout * 1000)),
-        )
+            "timeout_ms": max(1, int(timeout * 1000)),
+        }
     resource = dict(_headers(env.get("OTEL_RESOURCE_ATTRIBUTES", "")))
     try:
         package_version = version("pse-arrow")
@@ -297,23 +309,23 @@ def resolve_process(
     argument = _number(env, "OTEL_TRACES_SAMPLER_ARG", 1)
     configuration_id = configuration.get("configuration_id")
     return ResolvedSettings.from_wire(
-        wire=dict(
-            disabled=disabled,
-            traces=signals["TRACES"],
-            logs=signals["LOGS"],
-            metrics=signals["METRICS"],
-            resource=resource,
-            process_incarnation=resource["service.instance.id"],
-            max_queue_size=queue,
-            max_export_batch_size=batch,
-            schedule_delay_ms=_integer(env, "OTEL_BSP_SCHEDULE_DELAY", 5000),
-            export_timeout_ms=_integer(env, "OTEL_BSP_EXPORT_TIMEOUT", 5000),
-            metric_export_interval_ms=_integer(
+        wire={
+            "disabled": disabled,
+            "traces": signals["TRACES"],
+            "logs": signals["LOGS"],
+            "metrics": signals["METRICS"],
+            "resource": resource,
+            "process_incarnation": resource["service.instance.id"],
+            "max_queue_size": queue,
+            "max_export_batch_size": batch,
+            "schedule_delay_ms": _integer(env, "OTEL_BSP_SCHEDULE_DELAY", 5000),
+            "export_timeout_ms": _integer(env, "OTEL_BSP_EXPORT_TIMEOUT", 5000),
+            "metric_export_interval_ms": _integer(
                 env, "OTEL_METRIC_EXPORT_INTERVAL", 60000
             ),
-            sampler=sampler,
-            sampler_argument=argument,
-        ),
+            "sampler": sampler,
+            "sampler_argument": argument,
+        },
         selection="disabled"
         if disabled
         else "environment"

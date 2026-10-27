@@ -363,33 +363,53 @@ class ActualCanonicalReadAdverseTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(cursor, dict)
         assert isinstance(cursor, dict)
         request["cursor"] = cursor
-        sessions = [session for session in owned_sessions(lifetime) if not session.retired]
+        sessions = [
+            session for session in owned_sessions(lifetime) if not session.retired
+        ]
         self.assertEqual(len(sessions), 1)
         return arguments, first, sessions[0]
 
-    async def test_actual_publication_replacement_retains_old_cursor_then_drains_and_attaches_new_generation(self) -> None:
+    async def test_actual_publication_replacement_retains_old_cursor_then_drains_and_attaches_new_generation(
+        self,
+    ) -> None:
         selection = CanonicalReadSelection.selected()
         workers = []
-        with tempfile.TemporaryDirectory(prefix="pse-two-read-generations-") as directory:
+        with tempfile.TemporaryDirectory(
+            prefix="pse-two-read-generations-"
+        ) as directory:
             generations = PublishedReadGenerations(ROOT, Path(directory))
             first = await asyncio.to_thread(generations.publish)
-            with patch.dict(os.environ, {"_PSE_NATIVE_PUBLICATION": str(generations.receipt)}):
+            with patch.dict(
+                os.environ, {"_PSE_NATIVE_PUBLICATION": str(generations.receipt)}
+            ):
                 endpoint = build(ROOT)
                 tool = endpoint.catalogue.tools["native_result_inspect"]
                 assert isinstance(tool, native.NativeTool)
                 lifetime = tool.read_lifetime()
                 try:
                     async with Client(endpoint.server) as client:
-                        arguments, _page, old = await self.first_result_page(client, lifetime, selection)
+                        arguments, _page, old = await self.first_result_page(
+                            client, lifetime, selection
+                        )
                         old_worker = AuthenticatedReadWorker(old)
                         workers.append(old_worker)
                         old_worker.require_image(first)
                         second = await asyncio.to_thread(generations.publish)
                         self.assertNotEqual(first.generation, second.generation)
-                        self.assertNotEqual(first.artifact.binary, second.artifact.binary)
-                        self.assertEqual(first.artifact.features, second.artifact.features)
+                        self.assertNotEqual(
+                            first.artifact.binary, second.artifact.binary
+                        )
+                        self.assertEqual(
+                            first.artifact.features, second.artifact.features
+                        )
                         old_worker.require_image(first)
-                        advanced = payload((await client.call_tool("native_result_inspect", arguments)).structured_content)
+                        advanced = payload(
+                            (
+                                await client.call_tool(
+                                    "native_result_inspect", arguments
+                                )
+                            ).structured_content
+                        )
                         self.assertEqual(advanced["outcome"], "observed")
                         document = advanced["document"]
                         assert isinstance(document, dict)
@@ -401,10 +421,20 @@ class ActualCanonicalReadAdverseTests(unittest.IsolatedAsyncioTestCase):
                         process = old._process  # noqa: SLF001 -- actual normal EOF owner
                         assert process is not None
                         self.assertEqual(process.returncode, 0)
-                        refused = payload((await client.call_tool("native_result_inspect", arguments)).structured_content)
-                        self.assertEqual(refused["code"], "pse.native.retired_session_cursor")
+                        refused = payload(
+                            (
+                                await client.call_tool(
+                                    "native_result_inspect", arguments
+                                )
+                            ).structured_content
+                        )
+                        self.assertEqual(
+                            refused["code"], "pse.native.retired_session_cursor"
+                        )
                         self.assertEqual(owned_sessions(lifetime), [old])
-                        _arguments, _page, new = await self.first_result_page(client, lifetime, selection)
+                        _arguments, _page, new = await self.first_result_page(
+                            client, lifetime, selection
+                        )
                         new_worker = AuthenticatedReadWorker(new)
                         workers.append(new_worker)
                         self.assertNotEqual(new.incarnation, old.incarnation)
@@ -415,7 +445,9 @@ class ActualCanonicalReadAdverseTests(unittest.IsolatedAsyncioTestCase):
                     async with Client(endpoint.server) as client:
                         successor = tool.read_lifetime()
                         self.assertIsNot(successor, lifetime)
-                        _arguments, _page, attached = await self.first_result_page(client, successor, selection)
+                        _arguments, _page, attached = await self.first_result_page(
+                            client, successor, selection
+                        )
                         attached_worker = AuthenticatedReadWorker(attached)
                         workers.append(attached_worker)
                         self.assertNotEqual(attached.incarnation, new.incarnation)
@@ -638,18 +670,32 @@ class ActualCanonicalReadAdverseTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ActualNativeCliSessionTests(unittest.IsolatedAsyncioTestCase):
-    async def test_foreground_cli_two_generations_keep_successive_pages_then_eof_drains_and_reconnects(self) -> None:
+    async def test_foreground_cli_two_generations_keep_successive_pages_then_eof_drains_and_reconnects(
+        self,
+    ) -> None:
         selection = CanonicalReadSelection.selected()
-        with tempfile.TemporaryDirectory(prefix="pse-cli-read-generations-") as directory:
+        with tempfile.TemporaryDirectory(
+            prefix="pse-cli-read-generations-"
+        ) as directory:
             generations = PublishedReadGenerations(ROOT, Path(directory))
             first = await asyncio.to_thread(generations.publish)
             second = None
             for attachment in range(2):
                 with tempfile.TemporaryFile() as errors:
                     process = await asyncio.create_subprocess_exec(
-                        str(ROOT / ".venv/bin/python"), "-m", "scripts.capability_cli", "session",
-                        cwd=ROOT, env={**os.environ, "OTEL_SDK_DISABLED": "true", "_PSE_NATIVE_PUBLICATION": str(generations.receipt)},
-                        stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=errors,
+                        str(ROOT / ".venv/bin/python"),
+                        "-m",
+                        "scripts.capability_cli",
+                        "session",
+                        cwd=ROOT,
+                        env={
+                            **os.environ,
+                            "OTEL_SDK_DISABLED": "true",
+                            "_PSE_NATIVE_PUBLICATION": str(generations.receipt),
+                        },
+                        stdin=asyncio.subprocess.PIPE,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=errors,
                     )
                     assert process.stdin is not None
                     assert process.stdout is not None
@@ -664,10 +710,25 @@ class ActualNativeCliSessionTests(unittest.IsolatedAsyncioTestCase):
                         request["view"] = {"kind": "schema", "offset": 0, "limit": 1}
                         request["cursor"] = None
 
-                        async def page(request_id: str) -> dict[str, object]:
+                        async def page(
+                            request_id: str,
+                            process: asyncio.subprocess.Process,
+                            arguments: dict[str, JsonValue],
+                        ) -> dict[str, object]:
                             assert process.stdin is not None
                             assert process.stdout is not None
-                            process.stdin.write((json.dumps({"id": request_id, "capability": "native_result_inspect", "arguments": arguments}) + "\n").encode())
+                            process.stdin.write(
+                                (
+                                    json.dumps(
+                                        {
+                                            "id": request_id,
+                                            "capability": "native_result_inspect",
+                                            "arguments": arguments,
+                                        }
+                                    )
+                                    + "\n"
+                                ).encode()
+                            )
                             await process.stdin.drain()
                             reply = json.loads(await process.stdout.readline())
                             self.assertEqual(reply["id"], request_id)
@@ -678,19 +739,25 @@ class ActualNativeCliSessionTests(unittest.IsolatedAsyncioTestCase):
                             assert isinstance(document, dict)
                             return document
 
-                        original = await page("first")
-                        worker = AuthenticatedReadWorker.from_foreground(generations.receipt, process.pid)
+                        original = await page("first", process, arguments)
+                        worker = AuthenticatedReadWorker.from_foreground(
+                            generations.receipt, process.pid
+                        )
                         issued = first if attachment == 0 else second
                         assert issued is not None
                         worker.require_image(issued)
                         if attachment == 0:
                             second = await asyncio.to_thread(generations.publish)
                             self.assertNotEqual(second.generation, first.generation)
-                        request["cursor"] = JSON_OBJECT.validate_python(original["next_cursor"])
-                        advanced = await page("next")
+                        request["cursor"] = JSON_OBJECT.validate_python(
+                            original["next_cursor"]
+                        )
+                        advanced = await page("next", process, arguments)
                         self.assertEqual(advanced["offset"], 1)
                         worker.require_image(issued)
-                        again = AuthenticatedReadWorker.from_foreground(generations.receipt, process.pid)
+                        again = AuthenticatedReadWorker.from_foreground(
+                            generations.receipt, process.pid
+                        )
                         try:
                             self.assertEqual(again.pid, worker.pid)
                         finally:

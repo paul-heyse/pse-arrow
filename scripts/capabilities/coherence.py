@@ -76,7 +76,13 @@ class Interface:
     def status(self, capability: str | None = None) -> dict[str, JsonValue]:
         """Project the loaded contract for automatic consumers, without source I/O."""
         changed = []
-        names = (capability,) if capability in self.tools else self.tools if capability is None else ()
+        names = (
+            (capability,)
+            if capability in self.tools
+            else self.tools
+            if capability is None
+            else ()
+        )
         for name in names:
             if execution_basis.wire(self.tools[name]) != self.wires[name]:
                 changed.append("exposed-tool-contract:" + name)

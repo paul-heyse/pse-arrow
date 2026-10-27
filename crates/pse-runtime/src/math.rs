@@ -291,9 +291,11 @@ impl MathRuntimeError {
             }
             Self::Allocation { .. } => 0,
             Self::WorkerJoin { source, .. } if source.is_cancelled() => 0,
-            Self::WorkerJoin { .. } => return Err(ProblemError::Unsupported(
-                "worker panic payload has no retained allocation contract".into(),
-            )),
+            Self::WorkerJoin { .. } => {
+                return Err(ProblemError::Unsupported(
+                    "worker panic payload has no retained allocation contract".into(),
+                ));
+            }
             Self::Limit(_) | Self::PreparationExpired | Self::Cancelled | Self::Retiring => 0,
         };
         add(size_of::<Self>(), payload)
@@ -376,9 +378,12 @@ impl MathRuntimeError {
                 cause: pse_model::diagnostic::DiagnosticCause::new(e),
             }),
             Self::WorkerJoin { ref source, .. } if source.is_cancelled() => ProblemError::Cancelled,
-            Self::Allocation { .. } | Self::WorkerJoin { .. } | Self::Retiring | Self::Infrastructure(_) | Self::Internal(_) | Self::Panic(_) => {
-                self.into_retained_problem()
-            }
+            Self::Allocation { .. }
+            | Self::WorkerJoin { .. }
+            | Self::Retiring
+            | Self::Infrastructure(_)
+            | Self::Internal(_)
+            | Self::Panic(_) => self.into_retained_problem(),
         }
     }
 }

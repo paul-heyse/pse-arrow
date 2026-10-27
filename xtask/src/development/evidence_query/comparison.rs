@@ -139,8 +139,18 @@ impl JsonSchema for ComparisonSectionsSchema {
     }
     fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
         let mut schema = schemars::json_schema!({"type": "object"});
-        schema.insert("propertyNames".into(), generator.subschema_for::<EvidenceComparisonSection>().to_value());
-        schema.insert("additionalProperties".into(), generator.subschema_for::<EvidenceSectionSelection>().to_value());
+        schema.insert(
+            "propertyNames".into(),
+            generator
+                .subschema_for::<EvidenceComparisonSection>()
+                .to_value(),
+        );
+        schema.insert(
+            "additionalProperties".into(),
+            generator
+                .subschema_for::<EvidenceSectionSelection>()
+                .to_value(),
+        );
         schema
     }
 }
@@ -895,7 +905,11 @@ impl EvidenceAnalysis {
                     "candidate measurement mapping is conflicting or outside selected population",
                 )
             })?;
-            pairs.push((EvidenceComparisonCorrespondence::SuppliedMapping, vec![left], vec![right]));
+            pairs.push((
+                EvidenceComparisonCorrespondence::SuppliedMapping,
+                vec![left],
+                vec![right],
+            ));
         }
         for (source_rows, baseline) in [(baseline_rows, true), (candidate_rows, false)] {
             for (identity, row) in source_rows {
@@ -1162,7 +1176,10 @@ fn append_pair(
         candidate_outcomes,
         mixed_outcomes,
     });
-    for (rows, side) in [(left.rows, EvidenceComparisonSide::Baseline), (right.rows, EvidenceComparisonSide::Candidate)] {
+    for (rows, side) in [
+        (left.rows, EvidenceComparisonSide::Baseline),
+        (right.rows, EvidenceComparisonSide::Candidate),
+    ] {
         for row in rows {
             members.push(EvidenceComparisonMember {
                 side,

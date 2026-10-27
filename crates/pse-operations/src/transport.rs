@@ -69,13 +69,11 @@ pin_project_lite::pin_project! {
     impl<F> PinnedDrop for OperationScope<F> {
         fn drop(this: Pin<&mut Self>) {
             let mut this = this.project();
-            if this.future.is_some() {
-                if let Some(deadline) = *this.selected {
-                    OPERATION_DEADLINE.sync_scope(deadline, || this.future.set(None));
-                }
-                // Before the first poll, the old async scope had not entered its
-                // deadline. Leave that child to ordinary ambient destruction.
+            if this.future.is_some() && let Some(deadline) = *this.selected {
+                OPERATION_DEADLINE.sync_scope(deadline, || this.future.set(None));
             }
+            // Before the first poll, the old async scope had not entered its
+            // deadline. Leave that child to ordinary ambient destruction.
         }
     }
 }
@@ -221,10 +219,19 @@ pub(crate) fn checked(
 #[cfg(test)]
 mod operation_scope_unit {
     use super::*;
-    use std::{pin::Pin, sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}}, task::{Context, Poll}};
+    use std::{
+        pin::Pin,
+        sync::{
+            Arc, Mutex,
+            atomic::{AtomicBool, Ordering},
+        },
+        task::{Context, Poll},
+    };
+
+    type ClockObservations = Arc<Mutex<Vec<Option<tokio::time::Instant>>>>;
 
     struct ClockProbe {
-        clocks: Arc<Mutex<Vec<Option<tokio::time::Instant>>>>,
+        clocks: ClockObservations,
         ready: Arc<AtomicBool>,
         dropped: Arc<AtomicBool>,
     }
@@ -232,7 +239,11 @@ mod operation_scope_unit {
         type Output = ();
         fn poll(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<()> {
             self.clocks.lock().unwrap().push(current_deadline());
-            if self.ready.load(Ordering::Acquire) { Poll::Ready(()) } else { Poll::Pending }
+            if self.ready.load(Ordering::Acquire) {
+                Poll::Ready(())
+            } else {
+                Poll::Pending
+            }
         }
     }
     impl Drop for ClockProbe {
@@ -241,11 +252,27 @@ mod operation_scope_unit {
             self.dropped.store(true, Ordering::Release);
         }
     }
-    fn clock_probe(ready: bool) -> (ClockProbe, Arc<Mutex<Vec<Option<tokio::time::Instant>>>>, Arc<AtomicBool>, Arc<AtomicBool>) {
+    fn clock_probe(
+        ready: bool,
+    ) -> (
+        ClockProbe,
+        ClockObservations,
+        Arc<AtomicBool>,
+        Arc<AtomicBool>,
+    ) {
         let clocks = Arc::new(Mutex::new(Vec::new()));
         let ready = Arc::new(AtomicBool::new(ready));
         let dropped = Arc::new(AtomicBool::new(false));
-        (ClockProbe { clocks: clocks.clone(), ready: ready.clone(), dropped: dropped.clone() }, clocks, ready, dropped)
+        (
+            ClockProbe {
+                clocks: clocks.clone(),
+                ready: ready.clone(),
+                dropped: dropped.clone(),
+            },
+            clocks,
+            ready,
+            dropped,
+        )
     }
 
     #[tokio::test]
@@ -256,7 +283,10 @@ mod operation_scope_unit {
         // The child's construction has no parent. Its first poll must inherit one.
         let child = crate::canonical::operation_scope(parent + Duration::from_secs(30), probe);
         operation_scope(parent, child).await;
-        assert_eq!(*clocks.lock().unwrap(), vec![Some(expected), Some(expected)]);
+        assert_eq!(
+            *clocks.lock().unwrap(),
+            vec![Some(expected), Some(expected)]
+        );
         assert!(dropped.load(Ordering::Acquire));
         assert_eq!(current_deadline(), None);
     }
@@ -268,24 +298,45 @@ mod operation_scope_unit {
         let earlier = parent - Duration::from_millis(1);
         let (probe, clocks, ready, dropped) = clock_probe(false);
         let mut child = Box::pin(operation_scope(parent + Duration::from_secs(30), probe));
-        operation_scope(parent, std::future::poll_fn(|cx| {
-            assert!(child.as_mut().poll(cx).is_pending());
-            Poll::Ready(())
-        })).await;
+        operation_scope(
+            parent,
+            std::future::poll_fn(|cx| {
+                assert!(child.as_mut().poll(cx).is_pending());
+                Poll::Ready(())
+            }),
+        )
+        .await;
         tokio::time::sleep_until(expected + Duration::from_millis(1)).await;
-        assert!(!dropped.load(Ordering::Acquire), "expiry carries the owner; it does not drop it");
+        assert!(
+            !dropped.load(Ordering::Acquire),
+            "expiry carries the owner; it does not drop it"
+        );
         std::future::poll_fn(|cx| {
             assert!(child.as_mut().poll(cx).is_pending());
             Poll::Ready(())
-        }).await;
-        operation_scope(earlier, std::future::poll_fn(|cx| {
-            assert!(child.as_mut().poll(cx).is_pending());
-            Poll::Ready(())
-        })).await;
+        })
+        .await;
+        operation_scope(
+            earlier,
+            std::future::poll_fn(|cx| {
+                assert!(child.as_mut().poll(cx).is_pending());
+                Poll::Ready(())
+            }),
+        )
+        .await;
         ready.store(true, Ordering::Release);
         child.as_mut().await;
         let earlier = tokio::time::Instant::from_std(earlier);
-        assert_eq!(*clocks.lock().unwrap(), vec![Some(expected), Some(expected), Some(earlier), Some(earlier), Some(earlier)]);
+        assert_eq!(
+            *clocks.lock().unwrap(),
+            vec![
+                Some(expected),
+                Some(expected),
+                Some(earlier),
+                Some(earlier),
+                Some(earlier)
+            ]
+        );
         assert!(dropped.load(Ordering::Acquire));
         assert_eq!(current_deadline(), None);
     }
@@ -296,12 +347,19 @@ mod operation_scope_unit {
         let expected = tokio::time::Instant::from_std(parent);
         let (probe, clocks, _, dropped) = clock_probe(false);
         let mut child = Box::pin(operation_scope(parent + Duration::from_secs(30), probe));
-        operation_scope(parent, std::future::poll_fn(|cx| {
-            assert!(child.as_mut().poll(cx).is_pending());
-            Poll::Ready(())
-        })).await;
+        operation_scope(
+            parent,
+            std::future::poll_fn(|cx| {
+                assert!(child.as_mut().poll(cx).is_pending());
+                Poll::Ready(())
+            }),
+        )
+        .await;
         drop(child);
-        assert_eq!(*clocks.lock().unwrap(), vec![Some(expected), Some(expected)]);
+        assert_eq!(
+            *clocks.lock().unwrap(),
+            vec![Some(expected), Some(expected)]
+        );
         assert!(dropped.load(Ordering::Acquire));
         assert_eq!(current_deadline(), None);
 
@@ -315,7 +373,10 @@ mod operation_scope_unit {
     #[test]
     fn operation_scope_retains_one_inline_child_without_async_state_duplication() {
         let payload = [0_u8; 64 * 1024];
-        let child = async move { std::future::pending::<()>().await; std::hint::black_box(payload) };
+        let child = async move {
+            std::future::pending::<()>().await;
+            std::hint::black_box(payload)
+        };
         let child_bytes = size_of_val(&child);
         let scoped = crate::canonical::operation_scope(std::time::Instant::now(), child);
         assert!(size_of_val(&scoped) <= child_bytes + 4 * size_of::<tokio::time::Instant>());

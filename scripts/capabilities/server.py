@@ -201,7 +201,13 @@ def build(root: Path = ROOT) -> Runtime:
 
     lock = asyncio.Lock()
 
-    @server.tool(annotations={"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True})
+    @server.tool(
+        annotations={
+            "readOnlyHint": False,
+            "destructiveHint": False,
+            "idempotentHint": True,
+        }
+    )
     async def capabilities_drain() -> DrainResult:
         """Close native admission and await this foreground endpoint's original native owners before disconnect. No reload, replay or forced termination is performed."""
         nonlocal drain_task

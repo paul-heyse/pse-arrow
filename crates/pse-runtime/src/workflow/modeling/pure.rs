@@ -261,9 +261,14 @@ mod compiler_join_tests {
         let error = join_compiler(task, &cancel, &flag).await.unwrap_err();
         let diagnostic = error.boundary_diagnostic();
         assert_eq!(diagnostic.class, BoundaryClass::Internal);
-        assert_eq!(diagnostic.code, pse_diagnostics::DiagnosticCode::WorkflowPanic);
+        assert_eq!(
+            diagnostic.code,
+            pse_diagnostics::DiagnosticCode::WorkflowPanic
+        );
         assert!(!format!("{diagnostic:?}").contains("private compiler panic payload"));
-        assert!(matches!(error, WorkflowError::Math(crate::math::MathRuntimeError::WorkerJoin { operation: "pure compiler", source }) if source.is_panic()));
+        assert!(
+            matches!(error, WorkflowError::Math(crate::math::MathRuntimeError::WorkerJoin { operation: "pure compiler", source }) if source.is_panic())
+        );
 
         let task = tokio::spawn(std::future::pending::<Result<(), WorkflowError>>());
         task.abort();
@@ -274,9 +279,13 @@ mod compiler_join_tests {
         let worker_flag = flag.clone();
         let worker_drained = drained.clone();
         let task = tokio::task::spawn_blocking(move || {
-            while !worker_flag.is_cancelled() { std::thread::yield_now(); }
+            while !worker_flag.is_cancelled() {
+                std::thread::yield_now();
+            }
             worker_drained.store(true, std::sync::atomic::Ordering::Release);
-            Err::<(), _>(WorkflowError::Math(crate::math::MathRuntimeError::Cancelled))
+            Err::<(), _>(WorkflowError::Math(
+                crate::math::MathRuntimeError::Cancelled,
+            ))
         });
         cancel.cancel();
         let error = join_compiler(task, &cancel, &flag).await.unwrap_err();
@@ -284,4 +293,3 @@ mod compiler_join_tests {
         assert!(drained.load(std::sync::atomic::Ordering::Acquire));
     }
 }
-

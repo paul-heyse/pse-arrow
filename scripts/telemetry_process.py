@@ -43,7 +43,9 @@ class NativeProvider(Provider, Protocol):
     def loss_health(self) -> dict[str, object] | None: ...
 
 
-def _sdk_sampler(selection: TelemetrySampler, argument: float) -> opentelemetry.sdk.trace.sampling.Sampler:
+def _sdk_sampler(
+    selection: TelemetrySampler, argument: float
+) -> opentelemetry.sdk.trace.sampling.Sampler:
     """Adapt the owner's closed selection to the installed SDK without parsing names."""
     from opentelemetry.sdk.trace.sampling import (  # noqa: PLC0415
         ALWAYS_OFF,
@@ -389,6 +391,7 @@ def _compose(owner: ProcessLifetime) -> None:
         )
         from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415
         from opentelemetry.sdk.trace.export import BatchSpanProcessor  # noqa: PLC0415
+
         sampler = _sdk_sampler(wire.sampler, wire.sampler_argument)
         provider = TracerProvider(
             resource=resource, sampler=sampler, shutdown_on_exit=False

@@ -1844,12 +1844,12 @@ mod tests {
             (vec![], vec![1], vec![1]),
         ] {
             let error = intentions(
-                    &existing,
-                    add.into_iter(),
-                    replace.into_iter(),
-                    remove.into_iter()
-                )
-                .unwrap_err();
+                &existing,
+                add.into_iter(),
+                replace.into_iter(),
+                remove.into_iter(),
+            )
+            .unwrap_err();
             assert!(matches!(
                 &error,
                 WorkflowError::ScientificRefusal(diagnostic)

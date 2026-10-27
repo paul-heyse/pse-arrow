@@ -95,7 +95,12 @@ class PythonExtensionTests(unittest.TestCase):
     def test_stage_composition_has_independent_operations_and_preserves_failures(
         self,
     ) -> None:
-        stages = ["environment_ensure", "extension_prepare", "stubs_prepare", "requested_artifact"]
+        stages = [
+            "environment_ensure",
+            "extension_prepare",
+            "stubs_prepare",
+            "requested_artifact",
+        ]
         for operation, expected in (
             ("environment", ["environment_ensure"]),
             ("prepare", ["extension_prepare"]),
@@ -451,33 +456,52 @@ class PublicationPreparationTests(unittest.TestCase):
             prepared.artifact.binary,
         )
 
-    def test_explicit_stages_refuse_incompatible_contract_before_import_or_generator(self) -> None:
+    def test_explicit_stages_refuse_incompatible_contract_before_import_or_generator(
+        self,
+    ) -> None:
         path = python_extension.stage_receipt("extension", self.environment)
         published = artifact_publication.publish(
-            path, kind="extension", source=self.alias, mode="native",
-            profile="producer", validated=True,
+            path,
+            kind="extension",
+            source=self.alias,
+            mode="native",
+            profile="producer",
+            validated=True,
             interpreter=str(python_extension.interpreter(self.environment)),
             features=lambda _candidate: ["force-validate", "native-solvers"],
         )
         original = path.read_bytes()
         for stage in ("admit", "stubs", "stubs-check"):
-            for mode, profile in (("dev", "producer"), ("native", "dev"), ("dev", "dev")):
+            for mode, profile in (
+                ("dev", "producer"),
+                ("native", "dev"),
+                ("dev", "dev"),
+            ):
                 with (
                     self.subTest(stage=stage, mode=mode, profile=profile),
                     patch.object(python_extension.subprocess, "check_call") as imported,
                     patch.object(python_extension.subprocess, "call") as generated,
                     patch.object(python_extension, "preparation_inputs") as inputs,
-                    self.assertRaisesRegex(ValueError, "requested .*incompatible-publication"),
+                    self.assertRaisesRegex(
+                        ValueError, "requested .*incompatible-publication"
+                    ),
                 ):
                     python_extension.run_stages(stage, mode, profile, self.environment)
                 imported.assert_not_called()
                 generated.assert_not_called()
                 inputs.assert_not_called()
                 self.assertEqual(path.read_bytes(), original)
-        self.assertEqual(python_extension.capture(self.environment), published.artifact.model_dump())
+        self.assertEqual(
+            python_extension.capture(self.environment), published.artifact.model_dump()
+        )
         interactive = artifact_publication.publish(
-            path, kind="extension", source=self.alias, mode="dev", profile="dev",
-            validated=False, interpreter=str(python_extension.interpreter(self.environment)),
+            path,
+            kind="extension",
+            source=self.alias,
+            mode="dev",
+            profile="dev",
+            validated=False,
+            interpreter=str(python_extension.interpreter(self.environment)),
             features=lambda _candidate: [],
         )
         for stage in ("admit", "stubs", "stubs-check"):
@@ -490,28 +514,57 @@ class PublicationPreparationTests(unittest.TestCase):
                 python_extension.run_stages(stage, "dev", "dev", self.environment)
             imported.assert_not_called()
             generated.assert_not_called()
-        self.assertEqual(python_extension.read_publication("extension", self.environment), interactive)
+        self.assertEqual(
+            python_extension.read_publication("extension", self.environment),
+            interactive,
+        )
 
-    def test_explicit_compatible_stage_contract_matches_result_and_child_selection(self) -> None:
-        for mode, profile, validated in (("dev", "dev", False), ("native", "producer", True)):
+    def test_explicit_compatible_stage_contract_matches_result_and_child_selection(
+        self,
+    ) -> None:
+        for mode, profile, validated in (
+            ("dev", "dev", False),
+            ("native", "producer", True),
+        ):
             published = artifact_publication.publish(
                 python_extension.stage_receipt("extension", self.environment),
-                kind="extension", source=self.alias, mode=mode, profile=profile,
-                validated=validated, interpreter=str(python_extension.interpreter(self.environment)),
-                features=lambda _candidate: (["force-validate"] if validated else []) + (["native-solvers"] if mode == "native" else []),
+                kind="extension",
+                source=self.alias,
+                mode=mode,
+                profile=profile,
+                validated=validated,
+                interpreter=str(python_extension.interpreter(self.environment)),
+                features=lambda _candidate, validated=validated, mode=mode: (
+                    (["force-validate"] if validated else [])
+                    + (["native-solvers"] if mode == "native" else [])
+                ),
             )
             for stage in ("admit", "stubs", "stubs-check"):
                 with (
                     self.subTest(stage=stage, mode=mode),
-                    patch.object(python_extension.subprocess, "check_call", return_value=0) as imported,
-                    patch.object(python_extension.subprocess, "call", return_value=0) as generated,
-                    patch.object(python_extension, "preparation_inputs", return_value=None),
+                    patch.object(
+                        python_extension.subprocess, "check_call", return_value=0
+                    ) as imported,
+                    patch.object(
+                        python_extension.subprocess, "call", return_value=0
+                    ) as generated,
+                    patch.object(
+                        python_extension, "preparation_inputs", return_value=None
+                    ),
                 ):
-                    result = python_extension.run_stages(stage, mode, profile, self.environment, validated=validated)
-                self.assertEqual((result.mode, result.profile, result.validated), (mode, profile, validated))
+                    result = python_extension.run_stages(
+                        stage, mode, profile, self.environment, validated=validated
+                    )
+                self.assertEqual(
+                    (result.mode, result.profile, result.validated),
+                    (mode, profile, validated),
+                )
                 self.assertEqual(result.stages[-1].artifact, published.artifact)
                 child = imported if stage == "admit" else generated
-                self.assertEqual(child.call_args.kwargs["env"]["_PSE_NATIVE_PUBLISHED_IMAGE"], published.artifact.binary)
+                self.assertEqual(
+                    child.call_args.kwargs["env"]["_PSE_NATIVE_PUBLISHED_IMAGE"],
+                    published.artifact.binary,
+                )
 
     def test_ordinary_sync_uses_new_publication_instead_of_inherited_strict_selection(
         self,

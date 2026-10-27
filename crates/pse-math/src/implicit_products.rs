@@ -90,7 +90,9 @@ impl Problem {
         let mut programs = self
             .product_workers
             .lock()
-            .map_err(|_| MathError::PoisonedOwner { owner: "implicit product" })?;
+            .map_err(|_| MathError::PoisonedOwner {
+                owner: "implicit product",
+            })?;
         if let Some(program) = programs
             .iter()
             .find(|p| p.kind == kind && p.order == order && p.columns == columns)
@@ -163,14 +165,15 @@ impl Problem {
         program
             .worker
             .lock()
-            .map_err(|_| MathError::PoisonedOwner { owner: "implicit product" })?
+            .map_err(|_| MathError::PoisonedOwner {
+                owner: "implicit product",
+            })?
             .worker
-            .prepare_providers(
-                &mut *self
-                    .providers
-                    .lock()
-                    .map_err(|_| MathError::PoisonedOwner { owner: "implicit provider" })?,
-            )?;
+            .prepare_providers(&mut *self.providers.lock().map_err(|_| {
+                MathError::PoisonedOwner {
+                    owner: "implicit provider",
+                }
+            })?)?;
         programs
             .try_reserve_exact(1)
             .map_err(|_| MathError::Limit("implicit prepared program slots"))?;
@@ -188,7 +191,9 @@ impl Problem {
         scope.check().map_err(crate::error::scope_error)?;
         self.product_workers
             .lock()
-            .map_err(|_| MathError::PoisonedOwner { owner: "implicit product" })?
+            .map_err(|_| MathError::PoisonedOwner {
+                owner: "implicit product",
+            })?
             .iter()
             .find(|p| p.kind == kind && p.order == order && p.columns == columns)
             .cloned()
@@ -223,7 +228,9 @@ impl Problem {
         let columns = (0..self.inputs).collect::<Vec<_>>();
         self.product_workers
             .lock()
-            .map_err(|_| MathError::PoisonedOwner { owner: "implicit product" })?
+            .map_err(|_| MathError::PoisonedOwner {
+                owner: "implicit product",
+            })?
             .iter()
             .find(|p| {
                 p.kind == ProductKind::SelectedPartials && p.order == order && p.columns == columns
@@ -281,10 +288,12 @@ impl Problem {
         self.check_residual_order(request.order)?;
         scope.check().map_err(crate::error::scope_error)?;
         let prepare = || {
-            let mut demands = self
-                .prepared_demands
-                .lock()
-                .map_err(|_| MathError::PoisonedOwner { owner: "implicit preparation" })?;
+            let mut demands =
+                self.prepared_demands
+                    .lock()
+                    .map_err(|_| MathError::PoisonedOwner {
+                        owner: "implicit preparation",
+                    })?;
             if demands.contains(request) {
                 return Ok(());
             }
@@ -422,7 +431,9 @@ impl Problem {
         let parallel = self
             .factor
             .lock()
-            .map_err(|_| MathError::PoisonedOwner { owner: "implicit factor" })?
+            .map_err(|_| MathError::PoisonedOwner {
+                owner: "implicit factor",
+            })?
             .parallel;
         let memory = self
             .symbolic
@@ -472,7 +483,9 @@ impl Problem {
         let mut admitted = self
             .prepared_bytes
             .lock()
-            .map_err(|_| MathError::PoisonedOwner { owner: "implicit preparation" })?;
+            .map_err(|_| MathError::PoisonedOwner {
+                owner: "implicit preparation",
+            })?;
         if bytes > *admitted {
             crate::construction::additional(bytes - *admitted)?;
             *admitted = bytes;
@@ -559,23 +572,30 @@ impl Problem {
         let mut held = program
             .worker
             .lock()
-            .map_err(|_| MathError::PoisonedOwner { owner: "implicit residual product" })?;
+            .map_err(|_| MathError::PoisonedOwner {
+                owner: "implicit residual product",
+            })?;
         let ResidualWorker {
             worker,
             inputs,
             evaluation,
         } = &mut *held;
         fill_selected_inputs(worker, point, parameters, inputs)?;
-        let mut values = program.values.lock().map_err(|_| {
-            MathError::PoisonedOwner { owner: "implicit residual product result" }
-        })?;
+        let mut values = program
+            .values
+            .lock()
+            .map_err(|_| MathError::PoisonedOwner {
+                owner: "implicit residual product result",
+            })?;
         worker.evaluate_product_trial_into(
             inputs,
             product,
             &mut *self
                 .providers
                 .lock()
-                .map_err(|_| MathError::PoisonedOwner { owner: "implicit provider" })?,
+                .map_err(|_| MathError::PoisonedOwner {
+                    owner: "implicit provider",
+                })?,
             cancel,
             &mut values,
             evaluation,
@@ -748,7 +768,9 @@ impl Problem {
         let mut scratch = self
             .product_scratch
             .lock()
-            .map_err(|_| MathError::PoisonedOwner { owner: "implicit product scratch" })?;
+            .map_err(|_| MathError::PoisonedOwner {
+                owner: "implicit product scratch",
+            })?;
         let ProductScratch { seed, children, .. } = &mut *scratch;
         let mut coefficients = vec![0.; self.pattern.row_idx().len()];
         seed.resize(width, 0.);
@@ -757,7 +779,9 @@ impl Problem {
         let candidate = self
             .factor
             .lock()
-            .map_err(|_| MathError::PoisonedOwner { owner: "implicit factor" })?
+            .map_err(|_| MathError::PoisonedOwner {
+                owner: "implicit factor",
+            })?
             .association
             .as_ref()
             .is_some_and(|association| {
@@ -780,10 +804,9 @@ impl Problem {
                     Ok(())
                 },
             )?;
-            let held = self
-                .factor
-                .lock()
-                .map_err(|_| MathError::PoisonedOwner { owner: "implicit factor" })?;
+            let held = self.factor.lock().map_err(|_| MathError::PoisonedOwner {
+                owner: "implicit factor",
+            })?;
             if let Some(association) = held.association.as_ref().filter(|association| {
                 association.matches_state(premise, point, coefficients.len())
                     && association.children == *children
