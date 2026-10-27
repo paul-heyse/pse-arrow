@@ -50,8 +50,11 @@ defaults/bounds, effects, prerequisites and read eligibility once for generated 
 
 Explicit preparation runs the trusted build/install path, records the resulting mode/profile,
 validation and compiled features, copies its image into a private generation and atomically
-publishes the typed descriptor in the existing receipt. Construction or publication failure leaves
-the preceding publication usable. Partial installation never becomes the selected generation.
+publishes the typed descriptor in the existing receipt. Failure before publication commits leaves
+the preceding selection usable. If replacement may already have committed when interrupted,
+the constructor preserves the candidate and preceding generation; it never deletes a possibly
+selected image or asks readers to reconstruct validity. Partial installation never becomes
+the selected generation.
 Construction establishes artifact validity once; consumers do not reproduce construction checks.
 
 A consumer attaches the published generation once and loads that exact immutable image.

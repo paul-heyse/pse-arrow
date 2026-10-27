@@ -457,7 +457,8 @@ construction, not the issued generation's validity. A valid generation can be in
 particular requested contract.
 
 Explicit preparation constructs a candidate immutable image and publishes its descriptor only
-after completion. Failure preserves the preceding publication. Native workers attach that exact
+after completion. Failure before commit preserves the preceding selection; an uncertain rename
+outcome retains both possible generations. Native workers attach that exact
 issued path at the package's single native import gate. Retained workers use their existing
 attachment; they do not reread receipts or validate image metadata between pages. Replacing a
 mutable installation alias or publishing a later generation does not revoke an attached generation.

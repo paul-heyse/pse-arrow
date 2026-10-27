@@ -1,6 +1,6 @@
 ---
 title: "Plan 56: Design principle alignment"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: []
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -102,7 +102,8 @@ Product/development catalogues and dependency edges follow responsibility. Host 
 bootstrap documents derive from their real owner, not a second set of defaults/dispatch tables.
 Production profiles drive conformance while preserving every selected numeric/profile constraint.
 Shared process observations support distinct launcher/manager/drain policies. Reused foreground
-read workers remain source/image witnessed, charged, protected and drained; they are not a daemon
+read workers retain their owner-published artifact generation, authored context, charge, protection
+and actual drain; they are not a daemon
 or compiler persistence project. Telemetry remains off scientific identity and has truthful stage,
 instrument and loss-observation meaning.
 
@@ -128,7 +129,7 @@ revised proposal. No rejection silently waives a supported MUST.
 | RC03 | Reconsider I21's development/product placement conclusion for widened consumers: move development evidence/knowledge implementation/publication to existing xtask composition; retain product observability/hub and no new crate | Retain current placement and propose another effective dependency seam; nominal feature gating is insufficient | selected and implemented 2026-10-26 in joint 56d/56e; proposed ADR-0229/0230 retain formal status; delivery/acceptance boundaries at companion Outcomes |
 | RC04 | Blueprint §3.2 composition roots: place actual product worker/project and product recovery roots in existing product package targets; retain fixture controls and I24 exploration in xtask | Keep xtask roots but provide a genuinely product-only build/closure without fixture/development dependencies; adapt E02 before implementation | selected and implemented 2026-10-26 in joint 56d/56e; proposed ADR-0229/0230 retain formal status; delivery/acceptance boundaries at companion Outcomes |
 | RC05 | Production profile authority: put separately typed product profile values upstream in existing capacity configuration with Rust validation/materialization; conformance selects/consumes, with no selected numeric reduction | Preserve conformance authority; remove duplicate literals but explicitly resolve the remaining test-to-production dependency in the target | selected and implemented 2026-10-26 in joint 56d/56e; proposed ADR-0229/0230 retain formal status; delivery/acceptance boundaries at companion Outcomes |
-| RC06 | Blueprint §24.1 fresh-worker wording: allow an actually witnessed foreground endpoint/workload read worker to remain admitted across exact pages/calls, retiring on changed supported basis and draining before replacement | Keep fresh children, improve currency and use one explicit multi-page workload where possible; retain/reassess remaining cross-call setup work | selected 2026-10-26; proposed ADR-0231 and focused review precede retained-worker implementation |
+| RC06 | Blueprint §24.1: allow foreground endpoint/workload read ownership across exact pages/calls; controlled construction publishes validity once, consumers attach the immutable generation, explicit replacement drains the original owner | Keep fresh children and their original operation ownership; repeated construction validation is not required by either option | selected 2026-10-26 and amended 2026-10-27 under explicit maintainer direction; proposed ADR-0231 and attributed focused review precede the revised implementation |
 
 RC01/RC02 affect durable/Python/identity boundary contracts and require their applicable ADR and
 design-review routes. Accepted ADR-0116 is immutable: supersede/supplement through the decision
@@ -204,8 +205,8 @@ enduring publication and checks no contradictory current description remains.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| P00 | selected RC01–RC07 integrated; implementation and final publication remain | 56 coordinator | Concrete rule dispositions integrated and required design/ADR/review route supplies dependent authorization basis |
-| P01 | in-progress; typed products, current rebind owner and shared role navigation reconciled | 56 coordinator | Current contract navigation reconciled at actual owners without invalid governance changes |
+| P00 | complete; selected RC01–RC07 and the construction-authoritative RC06 amendment implemented | 56 coordinator | Concrete rule dispositions integrated and required design/ADR/review route supplies dependent authorization basis |
+| P01 | complete; current architecture, operations, publication and role navigation reconciled | 56 coordinator | Current contract navigation reconciled at actual owners without invalid governance changes |
 
 ## Scenarios
 
@@ -220,7 +221,7 @@ enduring publication and checks no contradictory current description remains.
 | <a id="s07"></a>S07 | Live cohort capture is coherent; executable exchange is exact with useful bounded-live encodings |
 | <a id="s08"></a>S08 | Frozen backup/copy/restore integrity survives corruption/interruption with explicit closed-state recovery |
 | <a id="s09"></a>S09 | Product/deployment/profile/process responsibilities agree without fixture authority or cyclic owner knowledge |
-| <a id="s10"></a>S10 | Public host contracts/prerequisites and witnessed native reads preserve source/image and physical drain |
+| <a id="s10"></a>S10 | Public host contracts/prerequisites and issued artifact generations preserve original cursor/context and physical drain |
 | <a id="s11"></a>S11 | Metric/export/loss observations state declared populations and actual precision, without scientific side effects |
 | <a id="s12"></a>S12 | Current mechanism and supplier records are truthful and recoverable without changing formal decision semantics |
 
@@ -248,15 +249,15 @@ identities retain lineage to the active home. No fresh qualification is inferred
 | [DA-012](../design_review/audit/boundaries-and-composition.md#da-012) | preservation | superseded | coordinator / affected consumer | Shared supervisor retained; kind projection residue remains DA-009; source audit at f9b96810a |
 | [DA-013](../design_review/audit/boundaries-and-composition.md#da-013) | preservation | resolved | coordinator / affected consumer | Pure shared study prediction policy retained; source audit at f9b96810a |
 | [DA-014](../design_review/audit/boundaries-and-composition.md#da-014) | preservation | resolved — closed by decision | coordinator / affected consumer | I22/RC12 supported study subset and explicit refusals retained; source audit at f9b96810a |
-| [DA-015](../design_review/audit/boundaries-and-composition.md#da-015) | S10 | scheduled — proposed | [F02](56f-host-agent-and-observability-contracts.md) | All intended hosts derive operation envelopes/defaults/effects/prerequisites, with actual receiver glue |
+| [DA-015](../design_review/audit/boundaries-and-composition.md#da-015) | S10 | resolved | [F02](56f-host-agent-and-observability-contracts.md) | **Implemented/Tested:** finite responsibility-owned projections and typed receiver glue exercised through installed/native, supplied-only executable/MCP/CLI and project journeys; [56f final Outcome](56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27) |
 | [DA-016](../design_review/audit/boundaries-and-composition.md#da-016) | preservation | superseded | coordinator / affected consumer | Adapter-owned admission retained; residual coupling remains DA-017; source audit at f9b96810a |
 | [DA-017](../design_review/audit/boundaries-and-composition.md#da-017) | S04 | resolved | [B05](56b-scientific-operations-and-permission.md) | **Implemented/Tested:** B05 default/configured capability, recovery and concrete dynamics attribution controls pass, including actual KINSOL; [56b Outcome](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25) owns exact composite conditions and exclusions |
 | [DA-018](../design_review/audit/boundaries-and-composition.md#da-018) | preservation | resolved — closed by decision | coordinator / affected consumer | I23 retained solver patches; no new patch-semantics investigation; source audit at f9b96810a |
-| [DA-019](../design_review/audit/boundaries-and-composition.md#da-019) | S09 | in-progress — implemented; fresh activation pending | [E02](56e-product-deployment-and-resource-ownership.md) | Product roots, generated deployment protocol and bounded v2 prepared closure implemented; the exact legacy owner is drained with data retained, and fresh actual reference activation remains with E02/G02 |
+| [DA-019](../design_review/audit/boundaries-and-composition.md#da-019) | S09 | resolved | [E02](56e-product-deployment-and-resource-ownership.md) | **Implemented/Tested:** product roots/protocol/frozen receiver closure passed actual normal reference initialization, workload and original drain; [56e final activation](56e-product-deployment-and-resource-ownership.md#final-activation-outcome--2026-10-26) |
 | [DA-020](../design_review/audit/boundaries-and-composition.md#da-020) | S09 | resolved — Implemented/Tested | [E01](56e-product-deployment-and-resource-ownership.md) | Responsibility-owned declarations/private publication and actual ordinary product builds exclude development analytics; E01 Outcome retains closure and generation evidence |
 | [DA-021](../design_review/audit/local-reasoning-and-assurance.md#da-021) | S04 | resolved | [B04](56b-scientific-operations-and-permission.md) | **Implemented/Tested:** B04 explicit service/value boundaries, source binding/issuer admission and independent caller lifetime pass; reverse declarations removed; [56b Outcome](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25) owns exact composite conditions and exclusions |
 | [DA-022](../design_review/audit/execution-fit.md#da-022) | preservation | resolved — closed by decision | coordinator / affected consumer | I16 sizing decision retained; no new estimator/allocation campaign; source audit at f9b96810a |
-| [DA-023](../design_review/audit/local-reasoning-and-assurance.md#da-023) | S12 | scheduled — proposed | [P01](56-design-principle-alignment.md) | Stale current descriptions corrected without false ADR/status/path-rule diagnosis |
+| [DA-023](../design_review/audit/local-reasoning-and-assurance.md#da-023) | S12 | resolved | [P01](56-design-principle-alignment.md) | **Implemented:** typed products, MathService::rebind, shared roles, generated paths and artifact/qualification descriptions reconciled at their enduring owners; [final closeout](#final-selected-closeout--2026-10-27) |
 | [DA-024](../design_review/audit/local-reasoning-and-assurance.md#da-024) | preservation | superseded | coordinator / affected consumer | Broad purposelessness/startup diagnosis unestablished; optional producer, local admission and outer lineage scopes retained; source audit at f9b96810a |
 | [DA-025](../design_review/audit/execution-fit.md#da-025) | preservation | superseded | coordinator / affected consumer | Public collector and returned-space/no-auto-collector scope retained; no collection implementation selected; source audit at f9b96810a |
 | [DA-026](../design_review/audit/execution-fit.md#da-026) | preservation | resolved | coordinator / affected consumer | No per-row locator restoration; native DataFusion pruning retained; source audit at f9b96810a |
@@ -269,14 +270,14 @@ identities retain lineage to the active home. No fresh qualification is inferred
 | [DA-033](../design_review/audit/boundaries-and-composition.md#da-033) | S05 | resolved — Implemented/Tested | [C02](56c-canonical-contracts-and-effects.md) | Shared exact settlement knowledge and both causes preserved with real owner atomicity distinctions; [56c Outcome](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26) owns acceptance |
 | [DA-034](../design_review/audit/execution-fit.md#da-034) | S06 | resolved — Implemented/Tested | [D01](56d-publication-and-workload-fit.md) | Actual native grouped publication/frontier/placement controls passed; D01 Outcome; no renewed I30 ratio or comparative speed claim |
 | [DA-035](../design_review/audit/execution-fit.md#da-035) | S06, S07 | resolved — Implemented/Tested | [D02–D04](56d-publication-and-workload-fit.md) | Actual 10,000-point changing-live capture/provider/cancellation/summary, final 8/8 public and 4/4 parent/history observation controls passed; D Outcome owns exact scopes |
-| [DA-036](../design_review/audit/development-tooling.md#da-036) | S09 | in-progress — implemented; fresh activation pending | [E03](56e-product-deployment-and-resource-ownership.md) | One upstream production profile drives Rust materialization, host and setup consumers; 5/5 controls and actual changed-input setup passed; the exact legacy lifetime is drained and fresh actual reference activation remains with E03/G02 |
+| [DA-036](../design_review/audit/development-tooling.md#da-036) | S09 | resolved | [E03](56e-product-deployment-and-resource-ownership.md) | **Implemented/Tested:** one upstream profile drives consumers; actual reference preserves selected sixteen scientific lanes, logical CPU quota and role/memory allocations; [56e final activation](56e-product-deployment-and-resource-ownership.md#final-activation-outcome--2026-10-26) |
 | [DA-037](../design_review/audit/development-tooling.md#da-037) | S09 | resolved — Implemented/Tested | [E04](56e-product-deployment-and-resource-ownership.md) | Leaf observations and borrower boundary remove reverse imports; composite adverse lifecycle controls and exact frozen orphan recovery preserve distinct drain policies; E04 Outcome |
 | [DA-038](../design_review/audit/semantic-model-and-authority.md#da-038) | S01, S04 | resolved | [B01/B02](56b-scientific-operations-and-permission.md) | **Implemented/Tested:** B01/B02 original/product facts govern all local, persisted, public and derived consumers; failed-fit, profile and horizon controls pass; [56b Outcome](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25) owns exact composite conditions and exclusions |
 | [DA-039](../design_review/audit/structure-and-invariants.md#da-039) | S05 | resolved | [B06 + F03](56b-scientific-operations-and-permission.md) | **Implemented/Tested:** B06 plus minimal F03 typed failures/effects drive lazy refusal, recovery and redacted source-attributed remedies; [56b Outcome](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25) owns exact composite conditions and exclusions |
-| [DA-040](../design_review/audit/structure-and-invariants.md#da-040) | S10, S11 | scheduled — proposed | [F01](56f-host-agent-and-observability-contracts.md) | Owned enum/bound/key/event/instrument semantics preserved in all generated and query consumers |
+| [DA-040](../design_review/audit/structure-and-invariants.md#da-040) | S10, S11 | resolved | [F01](56f-host-agent-and-observability-contracts.md) | **Implemented/Tested:** closed owner vocabulary, scalar bounds, enum keys and keyed metric/event semantics survive native/generated/query boundaries; [56f final Outcome](56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27) |
 | [DA-041](../design_review/audit/local-reasoning-and-assurance.md#da-041) | S12 | resolved — Implemented/Tested | [E05](56e-product-deployment-and-resource-ownership.md) | All seven complete supplier trees reconstruct exact retained bytes; truthful origin/delta/workaround records; E05 Outcome; no supplier implementation change |
-| [DA-042](../design_review/audit/execution-fit.md#da-042) | S11 | scheduled — proposed | [F04](56f-host-agent-and-observability-contracts.md) | Stage eligibility and observable SDK queue-loss precision replace prefix/compiled-away selection |
-| [DA-043](../design_review/audit/development-tooling.md#da-043) | S10 | scheduled — proposed | [F05/F06](56f-host-agent-and-observability-contracts.md) | Supported producing receipt and exact admitted read lifetime replace repeated supersets/imports; no unsupported-mode closure |
+| [DA-042](../design_review/audit/execution-fit.md#da-042) | S11 | resolved | [F04](56f-host-agent-and-observability-contracts.md) | **Implemented/Tested:** explicit export stage and SDK first-drop/shutdown-attempt cumulative-loss meanings qualified by owner/filter/health/capture controls; [56f final Outcome](56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27) |
+| [DA-043](../design_review/audit/development-tooling.md#da-043) | S10 | resolved | [F05/F06](56f-host-agent-and-observability-contracts.md) | **Implemented/Tested:** constructor-issued immutable generations and exact foreground context/cursor/protection/drain replace redundant input/image checks and per-page reconstruction; original freshness-refusal criteria superseded by explicit maintainer direction; [56f final Outcome](56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27) |
 | [DA-044](../design_review/audit/execution-fit.md#da-044) | S08 | resolved — Implemented/Tested | [D05](56d-publication-and-workload-fit.md) | Current fused helper passes one-GiB mixed-placement recovery plus interrupted explicit resume and changed-destination refusals; original source/copy/readback guarantees retained; D05 Outcome |
 | [DA-045](../design_review/audit/execution-fit.md#da-045) | S07 | resolved — Implemented/Tested | [D06](56d-publication-and-workload-fit.md) | Actual selected two-revision exchange/explanation retains bounded hydrated units, source identity, allowance and cancellation boundaries; D06 Outcome |
 
@@ -365,3 +366,31 @@ and earlier/unrelated data and live lifetimes are preserved. Work stops at this 
 ## Remaining E/F/G authorization — 2026-10-26
 
 The maintainer authorized the remaining 56e/56f/56g implementation and selected RC06. The exact legacy-service authenticated drain preserves its database/receipts; only the known history typo is corrected. SDK loss health follows the pinned Rust diagnostic-event route with Python queue loss explicitly unknown. Existing E01/E04/E05 and D completion stand at their recorded scopes; actual E02/E03 activation and full remaining F/G acceptance remain open. No full 505-case matrix, other-plan campaign or new persistence authority is selected.
+
+
+## Final selected closeout — 2026-10-27
+
+**Implemented/Tested:** the authorized A–F packages are complete at their named local Linux
+acceptance. The seven remaining adopted finding obligations above are resolved through E/F's
+actual construction, normal frozen reference, installed/native/project, supplied-only tooling,
+canonical cursor/protection and original lifecycle journeys. All 45 DA identities retain their
+single dispositions here, including the original inherited/superseded/disproved lineages; no new
+broad audit is inferred. P00/P01 reconcile selected decisions and current owner descriptions.
+
+[56g's final selected qualification](56g-qualification-and-publication.md#final-selected-qualification-outcome--2026-10-27)
+owns aggregate commands, source cuts, original failures, repairs and exclusions. G01–G04 are
+complete at their selected local Linux conditions; final governance and the
+documentation build passed against zero failures. The series is complete for its
+authorized scope. The highest-numbered series and companions remain retained for proposed-ADR
+and current qualification readers. Formal proposed ADR statuses do not imply unimplemented work
+and are not promoted through this closeout. Retention authorizes no new implementation.
+
+The consequential correction during final execution was to place artifact validity at controlled
+construction/publication rather than repeatedly infer it from source and mutable compiler records.
+The original source/scanner checks were deleted; strict deployment and interrupted-publication
+contingencies were modeled at their owner. Reused readers retain their generation and original
+context until explicit drain/reload. Benefit claims are structural and unmeasured.
+
+Full fleet/parity, a fresh 505-case campaign, feature powerset, wheels/release/distribution, remote
+CI, other platforms and actual desktop-host attachment remain unclaimed. The 100,000-point ceiling
+is unqualified. These exclusions are not newly authorized work or a reopened historical campaign.

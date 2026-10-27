@@ -326,8 +326,9 @@ generated stubs and consumer attachment. Explicit extension preparation invokes 
 Cargo/Maturin path; Cargo owns incremental rebuild decisions. The preparation owner copies a
 completed image to a private immutable generation, observes its compiled contract once and
 atomically publishes the descriptor in the existing receipt. Build, installation, copy or
-publication failure preserves the preceding generation. Partial installation cannot become an
-issued generation. Stub generation retains its independent declaration/output responsibilities.
+publication failure before the descriptor commits preserves the preceding selection. An uncertain
+replacement outcome retains both possible generations; no selected image is deleted. Partial
+installation cannot become an issued generation. Stub generation retains its independent declaration/output responsibilities.
 
 Consumers use that issued contract. They do not reconstruct source/compiler/environment inputs,
 parse Cargo dep-info or logs, hash the image again or fence its metadata on every read. Linting,
@@ -442,9 +443,11 @@ honestly. Do not omit a source family to fit an observation allowance.
 These interactive builds omit `force-validate`. `just py-unit` and `just py-test` first
 build the explicitly validated correctness extension, preserving the installed ordinary or
 linked selection. `just py-sync-correctness dev` and `just py-sync-native-correctness`
-select it directly. Native qualification builds it before deployment capture; observers
-then refuse a mismatched imported path, binary digest or actual Rust feature report rather
-than rebuilding beneath a receipt. Environment text never certifies compiled features.
+select it directly. Native qualification constructs/publishes its associated immutable image
+before deployment capture. Tests attach that issued generation; construction establishes compiled
+feature facts, while test startup retains the separate explicit correctness-feature requirement.
+Readers do not hash the image or repeat construction checks. Environment text never certifies
+compiled features.
 
 Discover the native grammar with `just --usage check-package` and inspect composition
 with `just --show codegen`. For a focused machine-readable view, filter a transient

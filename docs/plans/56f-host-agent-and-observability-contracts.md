@@ -1,10 +1,10 @@
 ---
 title: "Plan 56f: Host, agent and observability contracts"
-status: in-progress
+status: complete
 date: 2026-10-25
-adrs: [ADR-0227]
-review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
-scenario_sources: [docs/design_review/audit/system-architecture.md]
+adrs: [ADR-0227, ADR-0231]
+review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md, docs/design_review/reviews/design_review_retained-native-read-currency_2026-10-26.md]
+scenario_sources: [docs/design_review/audit/system-architecture.md, docs/design_review/reviews/design_review_retained-native-read-currency_2026-10-26.md]
 doc_role: plan
 doc_owner: docs/plans/56-design-principle-alignment.md
 doc_topics: [design, diagnostics, environment, preparation]
@@ -16,14 +16,35 @@ doc_topics: [design, diagnostics, environment, preparation]
 
 **Proposed:** finite public operation contracts project faithfully into hosts; boundary meaning
 survives generation; telemetry questions/export/loss observations state their real semantics;
-native reads pay proportionate preparation without losing source/image or drain guarantees.
+native reads consume owner-published immutable generations and retain admitted preparation through
+its useful lifetime, preserving original context, scientific permission and physical drain.
 This companion owns DA-015/040/042/043 and consumes A/B/C/E products.
 [Plan 56](56-design-principle-alignment.md) owns rule decisions and finding status.
 
 Reuse Rust/serde document authority, schemars 1.2.2, the closed existing emitter, strict directional
 wire/version/fingerprint checks, generated msgspec contracts, FastMCP 4.1.3 and the derived CLI.
-The image witness, source fencing, original-error redaction and existing preparation receipt remain
-needed. Intervening runtime-selector exceptions do not eliminate broad per-call identity work.
+Keep original-error redaction and the existing preparation receipt. Under amended ADR-0231 and the
+[attributed focused review](../design_review/reviews/design_review_retained-native-read-currency_2026-10-26.md),
+controlled construction establishes artifact validity once and atomically publishes its typed
+contract. Consumers attach the issued immutable generation; reads and internal handoffs do not
+reconstruct source/build currency or revalidate its image. Distinct requested-interface/mode
+compatibility, external request decoding and scientific/context/lifetime boundaries retain their
+own duties. This target is Proposed; revised F05/F06 implementation and acceptance remain in progress.
+
+## Maintainer-directed artifact amendment — 2026-10-27
+
+Controlled construction and editing establish artifact validity once. F05/F06 now target
+ADR-0231's owner-published immutable generation contract. The amended target removes
+source/environment/Cargo-record rescans and repeated image validation from reads. Build/install/publication failures
+preserve the preceding generation; only a completed generation is published. A consumer attaches
+that generation, checks distinct requested compatibility, and retains it through actual drain.
+Serving-code edits require explicit drain/reload, including lazy imports. Source edits, linting,
+mutable installation aliases and later publication do not revoke an attached generation.
+
+Earlier source-change and alias-change refusal obligations below record the original execution
+cut and are superseded where they conflict with this amendment. Qualification must exercise
+publication failure preservation, lint/source independence and explicit replacement without cursor
+rebinding. The original request/cursor/physical/scientific/Arrow boundaries remain separate.
 
 ## Boundary and host design
 
@@ -55,8 +76,8 @@ methods genuinely differ. This is the supported public surface, not serializatio
 runtime function or a second workflow language. B's kind lifecycle projection is a different,
 scientific contract consumed by this host boundary.
 
-Supplied-only evidence comparison routes through the tooling evidence executable with executable
-currency/source admission and no product extension/runtime/store prerequisite. Product operations
+Supplied-only evidence comparison routes through the tooling evidence executable's published generation,
+without a product extension/runtime/store prerequisite. Product operations
 retain their real physical/deployment/native requirements. Generated projections replace the
 hand `BINDINGS`/worker request-type/default sets and the Plan51 four-host mirrors together.
 
@@ -86,31 +107,46 @@ or patch the SDK for this scope.
 
 ## Currency and native lifetime
 
-Replace repeated whole-workspace hashing/environment deny-lists using the actually consumed
-installed extension/executable's producing Cargo unit/package evidence, attached to the existing
-preparation receipt. Cover supported transitive units/features/targets, rustc environment inputs,
-build-script declared/default-directory inputs, relevant Cargo config/flags, interpreter/PyO3/
-maturin selection and consumed native installation identities. Conservative producing-package
-closure is acceptable for supported opaque inputs; a final-crate `.d` file alone is insufficient.
+Use the existing preparation owner/receipt to issue a typed published artifact contract. Explicit
+preparation runs the trusted build/install route, records the resulting mode/profile, validation
+and compiled features, and copies the successful final extension or executable into a private
+immutable generation. Publish its descriptor atomically only after construction and copy complete.
+Build, installation, copy or publication failure preserves the preceding publication; incomplete
+candidates never become selected. The owner also controls replacement and reclamation, retaining
+referenced generations and provider resources through attached consumers' actual drain.
 
-Qualify this finite supported route before removing its old guarantee. This does not revive
-ADR-0189/Plan39's withdrawn all-role/source-completeness or strict-producer campaigns. Unknown
-unsupported modes refuse explicitly and do not count DA-043 closed. Reuse endpoint-held input/
-artifact witnesses, hash changed relevant inputs, and bind admission to the image actually loaded
-in the worker. One shared currency contract applies to the evidence executable as well as the
-extension; no parallel freshness ledger is added.
+Construction observations such as Cargo unit/artifact records, stdout, dep-info and input/environment
+selection may support construction or diagnose failure. They are not ongoing consumer proof
+obligations. Remove source/environment/Cargo-record scans, `Witness.inputs`, image digests/fences
+and redundant construction validation from read admission and internal handoffs. Do not replace the
+same scanner with a new typed provenance framework or ledger. A source edit affects a future build;
+it does not invalidate an older successfully issued generation or imply semantic equivalence of
+the edited source. Lint rewrites and mutable build/install aliases likewise cannot revoke it.
 
-Under RC06, retain a foreground endpoint-owned read worker/admitted multi-page workload. Reuse
-only exact immutable source/physical/provider/preparation context; page cuts bind inputs, receiver
-and worker incarnation. Recheck changed supported basis and image identity before reuse; drain
-before replacement. Effects/crash-isolated operations can retain dedicated children with their
-actual native owners. Endpoint EOF/shutdown drains its workers; this is not a daemon or persistent
-compiler-product cache. Cancellation never implies rollback or releases charged native work before
-actual drain. Pool width follows existing admission, not a new workstation CPU/RAM partition.
+A consumer attaches the exact immutable generation path once. Check distinct requested interface
+or mode compatibility at attachment only where an independent requested contract can differ;
+projections from the same admitted owner do not require duplicate agreement checks. Missing
+publication or incompatible requested capabilities require explicit owner preparation/selection,
+not hidden read-time rebuilding or source freshness inference. The fixed evidence executable uses
+the same publication lifecycle without acquiring product-extension/store prerequisites.
 
-If RC06 is rejected, fresh dedicated children remain; currency can still improve and one explicitly
-admitted page workload can amortize its own preparation without reusing workers across calls.
-The reduced scope/cost consequence must remain explicit.
+Under RC06, the foreground endpoint/workload owns the attached read worker and exact admitted
+physical/provider/preparation/deployment context. Bind changing requests/page cuts, receiver and
+cursor to that worker incarnation; a newer publication never silently rebinds existing cursors.
+An attached generation remains usable while its owner allows it. Explicit replacement drains the
+old worker before attaching the selected generation. Python serving-code edits require drain and
+reload before edited code serves operations, including lazy imports; source scanning does not
+substitute for that controlled editing contract.
+
+Preserve necessary external request decoding, operation/response correlation, original physical
+and scientific permission, deadlines and context transitions. These do not repeat artifact validity
+checks. Effects/crash-isolated operations may retain dedicated children with their actual native
+owners. EOF/shutdown drains endpoint workers; cancellation neither implies rollback nor releases
+charged native work before settlement. Existing shared admission covers retained preparation,
+active/queued work and responses without a new workstation CPU/RAM partition. This is not a daemon
+or persistent compiler-product cache. An explicitly admitted multi-page workload remains a
+conforming fallback where cross-call worker retention is unnecessary; it consumes the same issued
+publication without restoring per-read freshness validation.
 
 ## Packages
 
@@ -147,54 +183,66 @@ actual precision. Guard against recursive export and preserve pure host construc
 installation order. Delete prefix-based ordinary export assumptions and unavailable-by-build
 selection where SDK evidence can truthfully be observed.
 
-### F05 — Producing-artifact currency
+### F05 — Owner-published immutable artifact generations
 
-First settle a bounded extraction slice for the existing ordinary editable dev/native domain,
-including correctness/interactive selection and the existing selected profiles/features, plus the
-fixed product/tooling executable build routes. Start from `maturin_cargo_command`,
-`capture_build_graph`/`arrow_validation.resolve` and the existing native-test unit/artifact
-association: capture the actual selected Cargo unit graph and `compiler-artifact`/
-`build-script-executed` records, then qualify dep-info/environment and build-script input
-interpretation against this pinned Cargo. JSON artifact records identify outputs; they do not by
-themselves enumerate complete inputs. Preserve Maturin-installed byte witnessing after its
-legitimate transformations. The extraction decision and revealing controls precede receipt
-replacement, not a promise that one final depfile supplies the contract.
+Implement amended ADR-0231 for ordinary editable dev/native construction, interactive/correctness
+selection and the existing selected profiles/features, plus fixed product/tooling executable
+routes. Reuse the existing preparation receipt as the typed published descriptor. Successfully
+construct/install and copy the final image into a private immutable generation before atomically
+publishing its identity/path, mode/profile, validation and compiled capability selection.
+Construction/publication failure leaves the previous issued generation usable. Reclamation must
+respect attached owners; partial candidates are never an admission option.
 
-Current cross-compilation, custom Maturin/PGO and unmanaged-provider cases retain their explicit
-conservative preparation path outside this initial optimization. If extraction is unavailable for
-an ordinary supported route, keep its current checks and settle the bounded alternative before
-claiming that route corrected; do not expand into an all-role producer proof service.
+Consumers use the published contract and attach its exact immutable path. Keep only genuinely
+distinct requested-interface/mode compatibility at attachment. Delete read-time producer/source/
+environment/dep-info scans, `Witness.inputs`, secondary-interpreter imports and image digests/fences,
+including obsolete collectors/callers/fixtures with no remaining construction or diagnostic use.
+Do not qualify a universal extractor or retain a parallel fallback scanner for the ordinary route.
+Cross-compilation, custom Maturin/PGO and unmanaged-provider cases retain their explicitly scoped
+construction policies outside this initial route; they do not authorize expanding this scope.
 
-Qualify the supported producing receipt using both changed relevant and unrelated input controls;
-include raced artifact replacement between admission/import. Extend it to the executable route.
-Only then remove supersets, deny-lists, second-interpreter import and full unchanged-binary digest
-from each read. If evidence exposes an unsupported input class, resolve that finite route or keep
-the affected finding obligation open; a receipt that silently omits it is not a replacement.
+Targeted acceptance exercises successful extension/executable construction, incomplete candidate
+exclusion and failed build/install/copy/publication preservation of the old generation. Lint,
+source/environment changes and mutable installed aliases must leave an issued generation usable;
+they need not be classified as semantically equivalent source edits. Challenge actual distinct
+interface/mode incompatibility where present and prove consumers use the issued immutable path.
+The old source/producer/alias-change refusal criteria are superseded, not retained as guarantees
+to reproduce. F05 remains in progress until these actual construction/attachment controls pass.
 
 ### F06 — Endpoint/workload-owned read lifetime
 
-Consume E02/E03's materialized deployment/allocation and F05 currency under RC06. Reuse an admitted
-read context/pages; bind cursor/worker incarnation and retire on changed premises. Migrate native
-worker transport, both dispatch routes and the foreground CLI session; preserve effect isolation,
-backpressure and exact protection/cancellation ownership. Delete per-page repeated admission and
-redundant imports only when their current guarantees are supplied by the retained owner.
+Consume E02/E03's materialized deployment/allocation and F05's issued immutable generation under
+RC06. Attach once and carry the admitted typed owner through reads and internal handoffs without
+artifact revalidation. Preserve original physical/provider/preparation context and opaque cursor/
+worker incarnation, independently bound requests/responses, original deadlines and scientific
+permission. Source edits, alias changes and a newer publication do not implicitly retire or rebind
+the attached generation. Explicit generation selection or serving-code reload drains/replaces the
+owner; edited Python code, including lazy imports, serves only after that explicit transition.
+
+Migrate both dispatch routes, native worker transport and foreground CLI session. Preserve effect
+isolation, backpressure, original protection/cancellation ownership and actual settlement on EOF,
+shutdown and replacement. Delete replaced per-page admission/import/freshness mechanisms and their
+obsolete refusal tests. Targeted actual page/context/cursor/cancel/EOF/reload/replacement controls
+must establish the amended lifetime; earlier passing image/source refusal controls do not do so.
+F06 remains in progress until those controls and the final canonical protected-cursor journey pass.
 
 ## Package state
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| F01 | implemented boundary and keyed metric adoption; composed acceptance remains | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive every generated boundary |
-| F02 | implemented full finite native/project/research/study projections; installed composed acceptance remains | 56f | Intended public hosts agree on contracts/defaults/effects and actual prerequisites without parallel operation lists |
-| F03 | implemented typed remedies and instrument-query admission; composed acceptance remains | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
-| F04 | implemented; local Rust SDK/filter controls passed, installed bridge acceptance remains | 56f | Ordinary export follows stage policy; SDK queue loss observed with truthful lifetime/final-count precision |
-| F05 | in-progress; actual Cargo extraction controls passed, actual installed/executable receipts remain | 56f | Supported producing receipt and actual image witness replace per-read supersets/deny-lists without lost inputs |
-| F06 | implemented foreground read ownership; actual installed/endpoint/CLI acceptance remains | 56f | Admitted read/page lifetime amortizes preparation while source/image, protections and physical drain remain exact |
+| F01 | complete at scoped boundary and keyed-metric acceptance | 56f | Scoped closed vocabulary/constraint/key meaning and typed metric populations survive generated boundaries; selected evidence below |
+| F02 | complete at installed/native, supplied-only executable/MCP/CLI and public project journeys | 56f | Finite declarations project contracts/defaults/effects and actual prerequisites without parallel operation lists |
+| F03 | complete at typed remedy and instrument-query acceptance | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
+| F04 | complete at SDK/filter, installed disabled bridge and selected capture acceptance | 56f | Ordinary export follows stage policy; queue-loss observations retain actual lifetime/shutdown-attempt precision |
+| F05 | complete at owner publication, strict selection and actual dev/native/evidence attachment acceptance | 56f | Successful construction issues a complete immutable generation atomically; failed candidates preserve the prior publication; consumers do not reconstruct producer/source/image validity |
+| F06 | complete at original cursor/context/protection/cancel/EOF and immutable-generation lifetime acceptance | 56f | An attached generation and admitted physical/provider context retain original cursor/request ownership through actual drain; source or mutable-alias edits do not revoke the generation |
 
 F01/E01 share the declaration/codegen owner. F02 consumes actual A03/B01/B05 and E02 contracts,
 but its finite operation declaration can be designed early. F03 consumes B06/C02/F01. F04 proceeds
-once its local vocabulary exists. F05 is independent of worker retention; F06 requires its working
-currency and E deployment/allocation, not all E scope. No worker reuse substitutes for stale-image
-admission or reopens I10 compiler persistence.
+once its local vocabulary exists. F05 construction/publication is independent of worker retention;
+F06 consumes its issued generation and E deployment/allocation, not all E scope. Both remain in
+progress until the amended target's actual controls pass. Retention does not add producer
+revalidation or reopen I10 compiler persistence.
 
 **56a prerequisite — 2026-10-25:** source-owned physical identity declarations emit aliases to
 existing Rust wrappers and preserve typed Python domains. Physical inspection request/output
@@ -218,8 +266,9 @@ so the Rust-owned schema/emitter must preserve that vocabulary explicitly; Pytho
 does not qualify host schema fidelity. This did not import the product extension or start a host.
 Cargo's [build-script contract](https://github.com/rust-lang/cargo/blob/master/doc/book/src/reference/build-scripts.md)
 and [unstable freshness documentation](https://github.com/rust-lang/cargo/blob/master/doc/book/src/reference/unstable.md)
-separate compile inputs from build-script change detection. Existing repository generation and
-receipt owners remain the integration authority.
+separate compile inputs from build-script change detection. These sources supported the earlier
+producing-input candidate; they do not require read-time reconstruction under the amended target.
+Existing generation and preparation/publication owners remain the integration authority.
 
 Exact SDK 0.33.1 `trace/span_processor.rs` emits
 `BatchSpanProcessor.SpanDroppingStarted` and `BatchSpanProcessor.SpansDropped` with
@@ -230,11 +279,18 @@ provides context, not a claim of complete ingestion. No library was bumped; the 
 **Planned:** independent expected schema keys/defaults/effects across actual hosts; unknown enum/map
 keys and invalid numeric/cross-field values; metric reordering and inadmissible queries; coarse
 versus finite inner spans; deterministic queue pressure showing first-drop versus shutdown-attempt cumulative
-count and abrupt-loss unknown. Currency controls separately change consumed source/env/native
-inputs and an unrelated workspace leaf, replace the installed image during admission, reuse pages,
-cancel reads and replace workers while protections survive. A supplied-only comparison must work
-without product-extension/store startup. No source-only pass establishes current call latency,
-full native qualification or unexercised supported input modes.
+count and abrupt-loss unknown. Artifact acceptance follows the revised review's S02–S04: successful
+construction publishes only a complete immutable generation; build/install/copy/publication failures
+preserve the preceding publication; lint/build-control/source/environment changes and mutable
+installation aliases do not revoke or redirect the issued generation. No post-publication digest or
+producer rescan is part of acceptance. Challenge genuinely distinct requested-interface/mode
+compatibility at attachment where that boundary exists. Review S05–S06 preserve original context,
+pages/cursors, deadlines, cancellation, EOF and native drain during explicit reload/replacement.
+Exercise the actual extension/executable routes and both dispatch routes plus foreground CLI;
+a supplied-only comparison must work without product-extension/store startup. Replace obsolete
+source/producer/alias refusal tests with these construction/lifetime controls and delete the old
+mechanism after its consumers migrate. No source-only pass establishes current call latency, full
+native qualification or unexercised supported build modes.
 
 ## Selected 56b adoption — 2026-10-25
 
@@ -266,58 +322,288 @@ outcomes and custody; it does not establish retained endpoint/page workers or pr
 currency.
 
 [56d's Outcome](56d-publication-and-workload-fit.md#verification-and-outcome--2026-10-26)
-and 56e own their selected workload, recovery and ownership evidence. The final installed public
-selection passes 8/8 and native parent/history controls 4/4. Ordinary reference activation remains
-blocked before initialization by a preserved unrelated live legacy service, as recorded at E's
-Outcome; actual receiver activation is unqualified. Finite generated operation declarations/all-host envelopes,
+and 56e own their selected workload, recovery and ownership evidence. At that prerequisite cut,
+the selected installed public tests passed 8/8 and native parent/history controls 4/4. Ordinary
+reference activation was blocked before initialization by a preserved unrelated live legacy service,
+as recorded at E's Outcome; actual receiver activation was unqualified. Finite operation projections,
 typed metric populations/questions, span/loss telemetry, producing-artifact currency and retained
-read/page lifetimes remain open. RC06 remains a separate rule choice with the coordinator; no
-worker retention or full F acceptance follows from the D/E prerequisites.
+read/page lifetimes were still open, and RC06 was a separate coordinator rule choice. These describe
+the original prerequisite cut; the current F package state and consolidated outcome follow below.
 
-## Remaining-scope execution — 2026-10-26
+## Verification and Outcome — 2026-10-26
 
-The maintainer authorized the remaining 56e/56f/56g scope and selected RC06 retained foreground native read workers, authenticated drain of the exact blocking legacy service with its data/receipts preserved, and the single known `ORDER` spelling correction while preserving other history edits. Rust SDK span-processor loss observations are selected; Python SDK queues remain explicitly unknown. Proposed ADR-0231 precedes dependent retention changes. Root owns shared contracts, generation, integration, Cargo and status; independent producer-metric/query, SDK-health and currency slices are underway. Current source implementation and targeted controls do not establish assembled G acceptance.
+**Historical evidence cut:** the Outcome below records the original implementation and tests at
+its named source/installed-image conditions. Its producer/source/environment/installed-alias refusal
+criteria are superseded by the 2026-10-27 maintainer amendment and revised F05/F06 definitions.
+Those recorded passes/failures remain unchanged and do not qualify immutable publication or its
+explicit reload/replacement lifecycle. Current package state and planned acceptance above govern
+the remaining work; both F05 and F06 remain in progress.
 
-## Integrated execution checkpoint — 2026-10-26
+**Implemented:** F01–F06 functional scope is integrated at the coordinator's `1e5a6e79a` source
+baseline. RC02/RC03 and selected RC06 supply responsibility-owned contracts and foreground read
+retention under proposed ADR-0231. Earlier dated prerequisite sections describe their original cuts;
+their pending statements do not override this package table and outcome. Plan56 owns finding/rule
+dispositions; [56g](56g-qualification-and-publication.md) owns assembled qualification and comprehensive
+static-check accounting. This companion remains in progress for the remaining final journeys below.
 
-Keyed producer metrics, declared span export and Rust SDK loss observations are implemented.
-The finite native-agent headers and metadata project from their Rust/tooling owners; bootstrap
-contracts retain a source-only leaf base and responsibility-scoped schema imports. Foreground
-read sessions retain actual immutable native objects, original source/image witnesses and
-owner-declared continuation meaning. Mutable diagnostics and supplied-file headers stay dedicated.
-Standalone callers retain their own per-call lifetime. Installed native, endpoint and foreground
-CLI acceptance remains pending.
+**Implemented:** all 53 existing project/research/study Python/PyO3 wrappers and the 21 runtime plus
+one tooling native-agent operation rows derive from their responsibility owners. Their typed receiver
+glue, original defaults, Rust-owned resource budgets, structured effects and actual prerequisites
+remain distinct. The replaced wrapper bodies, private command envelope, handwritten host
+envelopes/default sets and positional metric-name assignments are removed. Plan51 remains closed;
+this work aligns existing functionality. Shared modeling `Limits` validates positivity before
+compilation, reuse or native specialization; the duplicate remote declaration is removed.
 
-Producing extraction has exercised actual pinned Cargo graph/artifact/dep-info records, transitive
-path and macro inputs, declared/default build-script inputs, membership and environment changes,
-with an unselected workspace member remaining current. The current-helper build and installed
-Maturin/executable association must still pass their actual supported routes before F05 closes.
-The original failed directives-path probe and repaired actual extraction remain separate evidence.
+**Implemented:** ordinary Rust export requires the exact `pse.owner.stage` marker, with the exact
+SDK request lifecycle explicitly eligible; finite capture retains its separate inner-event contract.
+SDK 0.33.1 structured diagnostics record first queue-drop observation during process life and a
+cumulative dropped-span count only when the shutdown-attempt diagnostic is observed, before
+shutdown control is sent or awaited. Incarnation, clock and scope survive passive health. The count
+does not establish successful shutdown, queue drain, export or ingestion; shutdown status remains
+independent and abrupt-exit buffered loss stays unknown. Python SDK queues remain unavailable.
 
-F02 still includes the existing project/research/study operation surface. Its private product
-command envelope and repeated host adapters/defaults remain to be migrated; the native-agent
-projection alone does not close DA-015. This is Plan56 work on existing functionality; Plan51
-stays closed and has no remaining work. Root retains generation, Cargo, integration and status.
+**Implemented:** ordinary producing receipts retain actual selected Cargo units/artifacts/dep-info,
+compiler and build-script input meaning, selected tools/environment/provider identities and the
+Maturin-installed byte association in the existing owner receipt. Supported retained reads reuse
+unchanged input/image witnesses without a whole unchanged source/binary byte hash or a second
+interpreter import on each page. Unsupported producing observations retain conservative preparation
+or refuse; no parallel ledger or all-role producer-proof campaign is introduced. Retained workers
+own actual immutable Runtime/physical/modeling objects, source and loaded-image witnesses, and
+owner-declared opaque cursor associations. Offsets remain selectors. Changed premises retire the
+worker; observer cancellation retains charged work until settlement and EOF closes the actual owners.
+Mutable diagnostics, effectful operations and supplied-file/tooling routes retain dedicated lifetimes.
+
+**Implemented:** final integration corrected the evidence executable's compiler context under
+`ba87baa51`. Its build and executable children consume the same passive composition without local
+shell selection, remove inherited `LD_LIBRARY_PATH` and track that normalized absence. The parent
+native environment is unchanged. Actual Cargo-declared environment inputs remain checked; unrelated
+native-provider, BINDGEN and CMake selections are not added as broad supplemental inputs to the pure
+tooling route. Older receipts require explicit owner rebuild before reuse.
+
+**Implemented:** protected canonical reads now distinguish a strict study conclusion from a
+scientific completion receipt. Study parents carry `[1, Conclusion]`; compact indexed native
+parent-run/revision association and the original strict owner decoder preserve that meaning.
+A study conclusion yields no scientific receipt or product-permission claim. Malformed or
+misassociated tuples refuse; original object-shaped scientific/recovery receipt behavior remains.
+This correction is integrated, with fresh composed canonical acceptance still pending below.
+
+### Selected functional evidence
+
+The failure baseline for each selection is zero. Counts below name the exercised population;
+filtered-out tests are outside that selection, not additional passing evidence.
+
+- **Tested:** `cargo nextest run -p pse-runtime --locked --no-fail-fast` with explicit
+  `pse-runtime/force-validate` and the SDK-loss, production-span-filter, operational/runtime metric,
+  preparation-key and finite metric-domain filter passed **18/18**, with 1,040 outside the filter.
+  `/tmp/pse-56efg-pure-sdk-metric-tests.log` retains the exact filter. The selected
+  `pse-operations` canonical metric-key/owner/statistics filter passed **5/5**, with 165 outside the
+  filter, in `/tmp/pse-56efg-canonical-metric-controls.log`.
+- **Tested:** selected instrument-query/passive-health controls passed **19/19** in
+  `/tmp/pse-56efg-query-health-controls.log`. Runtime modeling-limits, preparation controls,
+  project defaults/effects/projection, exact IPC export and host prerequisite/preservation controls
+  passed **6/6**, with 1,048 outside the filter, under the `pse-runtime` nextest selection recorded in
+  `/tmp/pse-56efg-runtime-operation-limits-controls.log`.
+- **Tested:** actual Maturin preparation/install/admission exercised all four ordinary dev/native ×
+  interactive/correctness modes at profile `dev`, using `producing-cargo-inputs-v1`, at their earlier
+  recorded source cuts. The earlier native correctness sync installed force-validation and native features with SHA-256
+  `bf695c09b0a7be3dad512f1d6e0045438420eadcf6a010622e679b57140a26a4`;
+  `/tmp/pse-56efg-final-native-correctness-sync.log` records the prepared artifact and admission.
+  These qualify their recorded routes and unchanged mechanisms; they do not establish all four modes
+  at the latest integrated source, every profile or unsupported build mode. The latest native
+  correctness rebuild is recorded separately below.
+- **Tested:** actual dev-interactive and native-correctness receipt controls distinguished changed
+  consumed Rust from an unchanged unselected leaf, compiler-environment changes, selected native
+  provider receipt overlays, artifact byte replacement and an isolated OS inode-replacement race.
+  The native provider overlay was selected only for the native receipt. Real reversible source bytes
+  were restored and final original-owner admission returned current. Evidence is in
+  `/tmp/pse-56efg-actual-dev-interactive-receipt-controls.log` and
+  `/tmp/pse-56efg-actual-native-correctness-receipt-controls-qualified.log`. The image-race fixture
+  is disposable; these controls do not claim mutation of a managed native installation or receiver
+  execution. Actual tooling executable build and receipt controls passed in
+  `/tmp/pse-56efg-actual-evidence-build.log` and `/tmp/pse-56efg-actual-evidence-receipt-controls.log`.
+- **Tested:** the actual supplied-only evidence executable, MCP and foreground CLI agreed while
+  the product extension was intentionally unloadable and the canonical store absent. The receipt
+  `build/qualification/56efg-evidence-supplied-11481da9a635/receipt.json` records passed routes,
+  zero failures, no product-extension import and no canonical-store creation. Its independently
+  supplied metadata selection establishes no scientific execution or backend ingestion.
+- **Tested:** `scripts/pse-env --native -- .venv/bin/python -m unittest` selecting
+  `scripts.tests.test_native_read_native.{ActualNativeContextTests,ActualNativeEndpointTests,ActualNativeCliSessionTests}`,
+  `scripts.tests.test_telemetry_process.ProcessTests.test_actual_disabled_native_bridge_retains_typed_passive_health`
+  and `scripts.tests.test_telemetry_profiles.CaptureBridgeTests` passed **8/8** in
+  `/tmp/pse-56efg-final-native-read-cli-health-capture-controls.log`. This exercises actual retained
+  native objects, both MCP dispatch routes, foreground CLI EOF, the disabled installed health bridge
+  and capture-only cancellation ownership; it is not an actual desktop-host attachment or trace
+  ingestion campaign. This selection retains its original installed-image/source conditions;
+  it is not reattributed to the later study/evidence corrections.
+- **Tested:** the two `ActualNativeAdverseTests` passed **2/2** in
+  `/tmp/pse-56efg-actual-native-read-image-cancel-drain.log`: owned installed-image replacement
+  retires the old worker and restores original inode/bytes; authenticated pidfd SIGSTOP leaves a real
+  request queued while observer cancellation/endpoint EOF retain worker allocation until actual drain.
+  The queued control does not establish entry into Rust or a numerical solver.
+- **Tested:** installed-dev source/context/MCP/CLI and exact compiled-catalogue controls passed
+  **4/4**. The wrong-effect negative uses the actual compiled catalogue return and changes only its
+  selected fact. Actual installed-dev project facade tests in
+  `python/pse/tests/test_project_operation_facade.py` passed **9/9** using a fresh owned pytest
+  base directory; `/tmp/pse-56efg-actual-dev-project-facade-owned-temp.log` retains that selection.
+- **Tested:** the evidence executable's owned pure compiler-context controls passed **30/30** in
+  `/tmp/pse-56efg-evidence-owned-pure-context-controls.log`. Compiler and runtime loader probes with
+  no `LD_LIBRARY_PATH` passed in `/tmp/pse-56efg-evidence-pure-loader-probes.log`. These establish
+  the selected environment correction; old-receipt replacement and fresh composed supplied-only
+  acceptance still require the explicit build and final journey under their owner.
+- **Tested:** original study-conclusion owner controls passed **3/3** in
+  `/tmp/pse-56efg-original-study-conclusion-controls-final.log`, including strict decoding and
+  original parent association. The latest native-correctness rebuild in
+  `/tmp/pse-56efg-final-study-repaired-native-correctness-sync.log` installed SHA-256
+  `af05e8761b9956fc914e11f0868e85590c64af8c54d5d6daf9028f6ce019d39f` with
+  `force-validate`, `native-solvers` and `solver-highs`. Installation/admission is separate from the
+  pending current-source canonical and project journeys.
+
+### Corrections and qualification limits
+
+**Interface-checked/Implemented:** independent source review exposed three structured-effect
+mismatches and a copied `8192` engine batch default. The responsibility owners and projected consumer were corrected;
+the subsequent review found no additional material gap in its examined contracts at `30f1`.
+This is source-review judgment and focused regression evidence, not whole-system qualification.
+
+**Interface-checked:** the subsequent independent review at `1e5a6e79a` found the loader-context and
+study-conclusion corrections resolved within its examined paths, with no additional material gap.
+Fresh actual-host behavior remains a separate acceptance obligation. The reference receiver's
+successful activation belongs to [56e's Outcome](56e-product-deployment-and-resource-ownership.md#verification-and-outcome--2026-10-26);
+it does not substitute for F's final canonical or public project journeys.
+
+**Implemented — deliberate scope choices:** SDK experimental bound metrics remain unselected;
+loss health consumes the pinned processor's structured diagnostics without replacing its processor
+or installing globals during host construction. Foreground retention follows existing admission,
+while unsupported producing modes keep conservative owner checks. Scientific outcomes and retained
+result protections remain with their original owners.
+
+**Tested:** preserved failed attempts include the original Cargo directives-path probe, a private
+read-only receipt-copy permission error repaired only in its driver, supplied-evidence public
+fingerprint extra-key refusal repaired in its driver, and compiled catalogue tuple/list mismatch
+repaired through the original codec's JSON normalization. The first project facade pytest attempt
+ended with a shared temporary-directory ownership `INTERNALERROR` before tests ran; the successful
+selection used a fresh owned base directory without altering the shared path. None of these attempts
+is counted as a pass or erased by its later focused correction.
+
+**Tested — preserved composed failure:**
+`build/qualification/56efg-canonical-retained-final/receipt.json` records **1/3 passed, 2 failed**
+against the zero-failure baseline: project selection passed; knowledge currency falsely reported
+stale and nested result inspection failed. The diagnosis repeated the original checks through a
+private wrapper in `/tmp/pse-56efg-canonical-decoding-diagnosis.log`. That failed receipt remains
+failed after the loader-context and strict study-parent corrections; it is not a fresh acceptance
+receipt. Two initial SQL lifetime compile failures and a correct moving-source preparation refusal
+also precede the successful three-control study selection and retain their original outcomes.
+
+**Tested:** the initial `just hygiene` composite had **seven failing leaves**. Repairs brought the
+failing leaf checks to the zero target, including full Pyrefly **572 → 0 diagnostics** with its seven
+existing deliberate suppressions and default/no-default Clippy zero findings. The failed composite
+retains that outcome; this is not a substituted aggregate pass. Final `just governance` passed every
+required check at `build/assessment/20261027T000821.554421Z-governance-2370456-2736a4`, with zero
+failures. G03 owns the full command/mode/leaf accounting and remaining aggregate obligations.
+
+**Tested:** the final integration `just typecheck` leaf reports **0 diagnostics**, with seven
+existing deliberate suppressions, in `/tmp/pse-56efg-final-integration-typecheck.log`; the final Ruff
+selection reports **0 findings** in `/tmp/pse-56efg-final-integration-ruff.log`. These current-source
+leaf results do not replace the earlier failed hygiene composite or qualify the pending journeys.
+
+**Pending:** the coordinator's explicit evidence-executable rebuild and final supplied-only composed
+acceptance after the pure-context correction; the final held canonical opaque-cursor/protected-reader
+cancellation and EOF journey; and the final public project CLI journey against the rebuilt current
+extension. Their completion is required before this
+companion claims its selected host/lifetime acceptance. No selected control above establishes the
+505-case scientific campaign, solver fleet, IDAES parity, other platforms, distribution, performance
+benefit or measured latency/speedup. Unsupported cross-compilation, custom Maturin/PGO and
+unmanaged-provider cases keep their documented conservative routes.
 
 
-## Full operation migration and qualification checkpoint — 2026-10-26
+## Final publication and acceptance Outcome — 2026-10-27
 
-The remaining existing project/research/study surface now uses the runtime-owned command protocol
-and finite public method declarations. All 53 Python/PyO3 wrappers project their original typed
-receiver glue, defaults and public metadata; the old wrapper bodies and private command envelope
-are removed. Structured effect facts reach public help, including source admission versus canonical
-diagnostic writes and retained cohort capture. Independent review exposed three effect mismatches
-and a copied engine batch default; those are corrected at the owner and projected consumer.
-Plan51 remains closed: this is F02 alignment of existing functionality.
+This Outcome supersedes the earlier pending execution checkpoints. Earlier receipts keep their
+original source, mode, date and pass/fail boundaries; the maintainer-directed construction contract
+supersedes their source-change and mutable-alias-change refusal criteria.
 
-The shared modeling `Limits` owner now validates positivity before compilation, reuse or native
-specialization. The duplicated remote declaration is removed; valid historical wire meaning remains.
-Targeted runtime, schema/wire and native-specialization controls have exercised that boundary.
-Actual Cargo extraction now also refuses missing associated compiler dep-info rather than supplying
-an incomplete optimized receipt. The isolated actual Cargo fixture passes changed consumed and
-unchanged unselected controls; this does not establish Maturin or executable installation acceptance.
+**Implemented:** `artifact_publication` issues typed immutable generations through the existing
+preparation owner. Explicit Cargo/Maturin construction copies a candidate, observes the exact
+candidate's compiled contract once and atomically publishes its descriptor. Failure before commit
+preserves the prior selection. If replacement may have committed before interruption, both possible
+issued images remain retained. Strict producer deployment publishes/selects its own exact associated
+image instead of borrowing an ordinary installation. Explicit live import checks remain requested
+observations; ordinary sync consumes its constructor's successful import without repeating it.
 
-All selected functional source is integrated. Scope-end generation/static repair and actual installed
-extension, executable, retained endpoint/CLI/canonical and reference-deployment journeys remain in
-progress. Independent source review found no additional material currency/lifetime defect in the
-examined paths; its final correction reassessment and G evidence reconciliation remain open.
+**Implemented:** consumers attach that issued image once. Native reads perform no source,
+compiler-environment, Cargo stdout/dep-info, binary digest or repeated image-stat validation.
+The ordinary input scanner, observer branch, xtask commands/module and their obsolete tests were
+deleted. Serving-code edits require explicit drain/reload before edited code serves operations,
+including lazy imports. Live request/wire/cursor/physical/scientific/Arrow and resource-drain checks
+retain their distinct meanings. New publication never silently replaces a loaded generation.
+
+**Tested, baseline zero:**
+
+- The six owner/strict-adapter modules (`test_artifact_publication`, `test_python_extension`,
+  `test_evidence_currency`, `test_evidence_store`, `test_producer_cargo`, `test_producer_deployment`)
+  passed **87/87** through `.venv/bin/python -m unittest`. Root's later ten-module repair selection
+  passed **118/118**; the final two constructor-fixture modules passed **29/29**. These populations
+  overlap. Logs: `/tmp/pse-56efg-publication-strict-owner-controls-repaired.log`,
+  `/tmp/pse-56efg-publication-final-repair-tests.log`,
+  `/tmp/pse-56efg-publication-final-owner-fixture-repairs.log`.
+- Reader/readiness/preparation controls passed **46/46**, affected caller/composer controls
+  **68/68**, and native/Python routing controls **27/27** through the named unittest selections
+  in `/tmp/pse-56efg-publication-final-reader-unit.log`,
+  `/tmp/pse-56efg-publication-callers-unit-repaired.log` and
+  `/tmp/pse-56efg-publication-native-routing-unit.log`. The serving-contract selection passed
+  **32/32**, with seven source-only acceptance controls at
+  `/tmp/pse-controlled-serving-tests.log` and `/tmp/pse-controlled-serving-contract-rerun.log`.
+- Actual `scripts.python_extension prepare dev dev` and `prepare native dev` passed through their
+  original environment owner, both with correctness validation. Dev generation
+  `c045fc514b114487be05644200c377a1` and native generation
+  `32dfdf57f8444ce1bece7e2226485962` were published. The latter's compiled image is
+  `af05e8761b9956fc914e11f0868e85590c64af8c54d5d6daf9028f6ce019d39f`, with
+  `force-validate`, `native-solvers`, `solver-highs`. Actual dev endpoint reuse/drain passed **1/1**.
+  Logs: `/tmp/pse-56efg-published-dev-construction-owned.log`,
+  `/tmp/pse-56efg-published-native-construction.log`,
+  `/tmp/pse-56efg-published-dev-actual-endpoint-repaired.log`.
+- `scripts.evidence_store build` published the pure fixed executable. Actual executable, MCP and
+  foreground CLI supplied-only comparison passed with no extension import and no canonical store:
+  `build/qualification/56efg-published-evidence-supplied-alias/receipt.json` and
+  `/tmp/pse-56efg-published-evidence-supplied-alias.log`. One independently supplied failure resolved;
+  no scientific execution or ingestion claim follows.
+- The actual native context/endpoint/adverse/CLI plus disabled-health and capture selection passed
+  **10/10** under `scripts/pse-env --native -- .venv/bin/python -m unittest` conditions in
+  `/tmp/pse-56efg-published-native-read-controls.log`. It includes mutable-alias replacement while
+  the retained reader continues and a fresh worker attaches the issued private image, then original
+  endpoint EOF/drain. Queued SIGSTOP/cancel does not claim Rust or solver entry.
+- Actual canonical project/knowledge/protected-result cases passed **3/3** at
+  `build/qualification/56efg-published-canonical/receipt.json`. Its live handoff supported the two
+  `ActualCanonicalReadAdverseTests`, **2/2**, and three selected installed Python/project CLI/
+  portability journeys, **3/3** with the default sixteen xdist lanes and a fresh owned basetemp.
+  Logs: `/tmp/pse-56efg-publication-canonical-adverse.log`,
+  `/tmp/pse-56efg-publication-projects.log`. The original fixture lifecycle reported all contexts
+  and kernel scopes drained and its owned state retired; receipts remain retained.
+
+**Interface-checked:** independent implementation review found two material gaps—strict deployment
+selecting ordinary publication and interrupted rename deleting a possibly selected image. Both
+were repaired and independently reassessed with no remaining material finding in that scope.
+This source assessment is separate from actual execution. `just check-package xtask --features
+full-codegen` passed after scanner retirement. Generation, static/manual accounting and final
+publication belong to [56g's closeout](56g-qualification-and-publication.md#final-selected-qualification-outcome--2026-10-27).
+
+### A mistake made and corrected
+
+The initial implementation inferred validity again from mutable Cargo records; actual Clippy
+rewrote a control spool and falsely refused a valid installed image. The maintainer's correction
+removed that inference rather than patching more filenames. An old qualification helper then
+selected the new immutable image from its receipt where it had previously selected the mutable
+alias; its replacement interfered with one dev attachment. The helper now selects/authenticates
+only the owned alias, restores original inode/bytes, and the fresh sequential dev endpoint and
+supplied-only controls pass. Initial fixture/arity/type/style failures and exact repairs remain
+in their logs. A root attempt using internal `--resolved` without its required environment failed
+before build/effects; the ordinary constructor entry passed.
+
+### Deliberate deviations and limits
+
+Construction and controlled editing establish artifact validity once. Duplicate validation is not
+retained as assurance. The constructor owns failure contingencies; consumers retain only distinct
+requested compatibility and live operation ownership. No new daemon, ledger, host CPU/RAM cap or
+source-proof campaign was added. No speed/memory/capacity improvement is measured. Wider 505-case,
+solver fleet/parity, feature powerset, release/wheel, remote-CI, desktop-host, other-platform and
+100,000-point qualification remain unclaimed. Formal ADR statuses remain proposed.

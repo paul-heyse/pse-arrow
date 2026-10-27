@@ -1,6 +1,6 @@
 ---
 title: "Plan 56g: Qualification and publication"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: []
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -44,6 +44,17 @@ Prerequisites mean working contracts and migrated consumers, not only declaratio
 Keep separate scopes for implementation, required qualification and unmeasured benefits. A failed
 check is a failure against zero; no baseline or aggregate pass erases it.
 
+## Artifact acceptance amendment — 2026-10-27
+
+The maintainer explicitly superseded artifact freshness inference with controlled construction,
+editing and publication (ADR-0231). F05/F06 acceptance now exercises successful immutable
+publication, failed-publication preservation, source/lint independence and explicit attachment/
+drain/replacement. Readers consume the issued contract without source, compiler-environment,
+Cargo-record or image revalidation. Serving-code edits require explicit drain/reload, including
+lazy imports. Original source/alias-refusal receipts below remain evidence for their original cut,
+not current requirements. Distinct request/interface/physical/scientific/protection obligations
+retain their owners. Final revised acceptance remains pending until its actual journeys complete.
+
 ## Assembled scenarios
 
 | Scenario | Required positive behavior | Revealing adverse/control case |
@@ -58,7 +69,7 @@ check is a failure against zero; no baseline or aggregate pass erases it.
 | Cohort and exchange | One exact cohort fact set and incremental source encoding preserve complete scope | Live mutation between pages, unavailable members, multi-revision export/cancel/output exhaustion and unchanged protected readers |
 | Backup/restore | Frozen inventory/copy/digests and application closure survive explicit resume | Corrupt/aliased file, stale checkpoint, changed destination, timeout/stall and unknown borrower; no automatic thaw |
 | Deployment and ownership | Product targets and frozen import closure work without fixtures; profiles agree across consumers | Unrelated script edit, missing generated import, PID reuse/uncertainty, launcher death with descendants and custody conversion |
-| Agent read lifecycle | Correct operation/prerequisite, current witnessed image and reused exact page context | Consumed versus unrelated edit, image replacement race, endpoint EOF/cancel/worker replacement with native drain |
+| Agent read lifecycle | Correct operation/prerequisite, issued immutable generation and reused exact page context | Failed construction preserves prior publication; lint/source edits and mutable aliases do not revoke attachment; explicit replacement, endpoint EOF/cancel and original cursor/native drain |
 | Telemetry interpretation | Event populations and admissible questions are exact; only selected stages export | Gauge-rate/non-histogram-p95 refused; inner capture span excluded; queue pressure distinguishes first-drop/final count/abrupt unknown |
 | Supplier and current contracts | Exact retained edits and documented current extension routes are recoverable | Dropped/extra supplier hunk, whitespace-only drift, obsolete type/role instructions and unaccepted ADR mistaken for unimplemented behavior |
 
@@ -122,10 +133,10 @@ references and owning scope are satisfied; other plan series retain their obliga
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| G01 | planned; selected 56a–56e contributions recorded below | 56g | Named scientific/installed/public journeys exercise the composed target and adverse semantics |
-| G02 | planned; selected 56a–56e contributions recorded below | 56g | Exact durable/workload/operator journeys pass with original custody/drain and supported scope |
-| G03 | planned; selected 56a–56e contributions recorded below | 56g | Relevant zero-target scope-end/manual checks complete; structural and measured claims separated |
-| G04 | planned; selected 56a–56e contributions recorded below | 56g | Independent assessment, all finding obligations/evidence reconciled and enduring meaning published |
+| G01 | complete at selected scientific, installed project/Python CLI and actual public canonical acceptance | 56g | Named scientific/installed/public journeys exercise the composed target and adverse semantics |
+| G02 | complete at actual frozen reference, canonical/protection/cursor and original lifecycle acceptance | 56g | Exact durable/workload/operator journeys pass with original custody/drain and supported scope |
+| G03 | complete; required selected zero-target leaf/manual checks and documentation build passed | 56g | Relevant zero-target scope-end/manual checks complete; structural and measured claims separated |
+| G04 | complete; independent findings repaired, dispositions reconciled and enduring contracts published | 56g | Independent assessment, all finding obligations/evidence reconciled and enduring meaning published |
 
 G01/G02 consume completed relevant functional scope and C05 activation; neither substitutes for
 another's subjects. G03 runs after all functional work; G04 closes the integrated evidence/authority
@@ -235,3 +246,224 @@ performance claim follows.
 ## Remaining-scope execution — 2026-10-26
 
 The maintainer authorized the remaining 56e/56f/56g scope and selected RC06 retained foreground native read workers, authenticated drain of the exact blocking legacy service with its data/receipts preserved, and the single known `ORDER` spelling correction while preserving other history edits. Rust SDK span-processor loss observations are selected; Python SDK queues remain explicitly unknown. Proposed ADR-0231 precedes dependent retention changes. Root owns shared contracts, generation, integration, Cargo and status; independent producer-metric/query, SDK-health and currency slices are underway. Current source implementation and targeted controls do not establish assembled G acceptance.
+
+
+## Verification and Outcome — remaining E/F/G, 2026-10-26
+
+### Delivered scope and evidence boundary
+
+**Implemented:** the remaining E/F target is integrated on main. [56f's Outcome](56f-host-agent-and-observability-contracts.md#verification-and-outcome--2026-10-26)
+owns finite operation projection, typed metrics/remedies, explicit stage/SDK-loss semantics,
+producing-input currency and retained native read ownership. [56e](56e-product-deployment-and-resource-ownership.md)
+owns actual frozen reference activation and the integration corrections exposed there. Earlier
+A–D and completed E contributions above retain their original conditions and composite failures;
+this final selection does not repeat every historical scenario or expand their numerical scope.
+All failure baselines below are zero. Counts describe separate selections and are not summed into
+an invented full-series test total.
+
+**Tested:** `scripts/pse-env --native -- just unit-package pse-runtime
+'test(original_fit_failure_withholds_completed_statistical_products_in_invocation) |
+test(kernel_nonlinear_dae_initial_parameter_sensitivities_and_quadrature_agree) |
+test(limited_native_incumbent_is_original_feasible_and_explicitly_nonoptimal)'
+--features native-solvers --execution-effects native-local` passed **3/3**, explicitly validated.
+The actual native selection exercises original-fit statistical-product refusal, nonlinear DAE
+trajectory/sensitivity/quadrature agreement, and an original-feasible limited incumbent retained
+as explicitly nonoptimal. Log: `/tmp/pse-56efg-selected-native-science-qualified.log`.
+The first invocation omitted the native environment and failed build-script setup before any
+scientific assertion; it remains in `/tmp/pse-56efg-selected-native-science.log`.
+`just ready` subsequently passed against zero.
+
+**Tested:** installed native correctness Python ran `scripts/pse-env --native -- .venv/bin/python
+-m pytest python/pse/tests/test_physical_boundary.py::test_initialization_and_primal_output_keep_converted_keyed_snapshots
+--basetemp <fresh-owned-directory>`: **1/1** passed. The actual KINSOL initialization and primal
+result retain independently checked converted keyed snapshots after producer mutation. Log:
+`/tmp/pse-56efg-selected-python-science.log`. This is local initialization evidence, without a
+full solver-fleet or parity claim.
+
+**Tested:** F's separate selections include SDK/filter controls 18/18, canonical keyed metrics
+5/5, query/passive health 19/19, operation/Limits controls 6/6, actual four ordinary Maturin modes,
+actual extension/executable currency mutations, installed native context/MCP/CLI/health/capture
+8/8 and actual image/queued cancellation/EOF controls 2/2. Real supplied-only executable, MCP
+and foreground CLI comparison passed with the extension deliberately unloadable and no canonical
+store created. These named controls and their limitations are retained at F; they do not qualify
+an unexercised attached desktop host or end-to-end trace ingestion.
+
+### Scope-end checks
+
+**Tested:** original `just hygiene` failed **seven leaves**, not a clean aggregate pass.
+Assessment: `build/assessment/20261026T233912.739698Z-hygiene-948474-f24e0e`.
+Actual findings were repaired: typo/license metadata, generated method descriptor and generic
+payload typing, guarded Python-cache output recognition, regenerated capability references and
+strict default/no-default Clippy findings. Full `just typecheck` then reported **0 diagnostics**
+(with seven existing deliberate suppressions reported separately); Ruff, spelling, license and
+both Clippy closures passed. Final `just governance` passed every leaf, including governance
+controls, five generated-output comparisons and family checks:
+`build/assessment/20261027T000821.554421Z-governance-2370456-2736a4`.
+Subsequent E activation repairs require their affected checks before final closure; the remaining
+manual checks and final documentation publication are still pending at this checkpoint.
+
+### Independent assessment and deliberate limits
+
+**Implemented/Interface-checked:** independent review examined stable integrated source through
+`30f1b728b`, then reassessed the actual E activation corrections. It exposed inaccurate operation
+effects and a copied engine default; owner declarations and generated consumers were corrected.
+Further review found no additional material gap in the examined currency, image/context, drain,
+metric and typed-projection paths. This is source assessment, separate from the actual journeys.
+Blueprint revision 292 publishes implemented §21.1/§24.1 contracts under the authorized decision
+route; the owning ADRs retain formal proposed status.
+
+**Not_run / unmeasured:** no new 505-case feature powerset, full solver fleet/parity, release/wheel,
+other-platform or remote-CI campaign. Changed closures are selected default/no-default and actual
+native/product/tooling/installed correctness compositions; no unrelated historical campaign is
+restarted. The existing 100,000 workload ceiling remains unqualified. Structural removal of
+repeated declarations, unchanged tree/image hashing/import, per-page reconstruction and per-item
+publication work establishes mechanisms, without a measured speed, memory or capacity benefit.
+
+### A mistake made and corrected
+
+Actual acceptance exposed distinctions that source and focused tests had missed: an operator
+built with native linkage was selected outside its environment; an original stopped v2 service
+still held a charge through its incompatible modern receipt reader; pending readiness discarded
+verified generation evidence; native execution retained a smaller configuration bound than its
+canonical peer; and scientific physical-lane width was mistaken for the host logical-CPU quota.
+The original owner reconciled only the authenticated drained legacy charge, preserving all other
+owners and data. Production fixes preserve original clocks, loaded-image/native checks and
+placement authority. Failed invocations and subsequent exact/fresh reruns remain separate evidence
+at E. Test-driver failures, the initial descriptor/type failures and affected repairs remain at F;
+none is recast as a clean first-pass qualification.
+
+
+## Final selected qualification Outcome — 2026-10-27
+
+This is the joined closeout for the authorized remaining E/F/G scope. Earlier checkpoint failures
+remain their original cuts. The [E final activation](56e-product-deployment-and-resource-ownership.md#final-activation-outcome--2026-10-26)
+and [F final Outcome](56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27)
+own detailed mechanisms, commands and original failures; this section reconciles their scope.
+
+### Functional and lifecycle acceptance
+
+**Implemented/Tested:** E01–E05 and F01–F06 are delivered. Actual normal frozen reference
+initialization, helper/worker launch, workload, quiesce, drain and cleanup passed under invocation
+`f925550666bf488f8c1d71018ac97385`, generation
+`3a6e27620b8b08824e235b1fdf7536df62a6b1d4754b1d275f25562bf4bd49ea`, state
+`build/qualification/56efg-reference-frozen-final-qualified-20261027T010527`.
+The legacy service/data interpretation remains retained after original-owner drain; the original
+frozen reconciler removed only its unchanged dead allocation. No other owner's allocation changed.
+Reference profile observations distinguish sixteen scientific lanes from thirty-two logical CPU
+quota and preserve the selected memory/role allocations; no new ordinary workstation cap follows.
+
+**Tested:** the three selected native scientific tests passed **3/3** through
+`scripts/pse-env --native -- just unit-package pse-runtime` with `--features native-solvers
+--execution-effects native-local`: original fit-check rejection withholds statistical products,
+nonlinear DAE sensitivities/quadrature agree, and a limited feasible incumbent remains explicitly
+nonoptimal. `/tmp/pse-56efg-selected-native-science-qualified.log` retains exact selected names and
+conditions. The installed KINSOL converted/keyed initialization/primal snapshot test passed **1/1**
+at its original installed/source cut in `/tmp/pse-56efg-selected-python-science.log`. These selected
+results do not establish an entire scientific campaign or transfer to unexercised solvers.
+
+**Tested:** owner/strict publication, typed host/readiness and affected caller/routing controls
+passed as separately named populations at F. Actual dev/native correctness construction and pure
+evidence construction passed; the new published native image retains the exact `af05e876...`
+compiled artifact described there. Supplied executable/MCP/foreground-CLI comparison passed with
+no extension import and no canonical-store allocation. Ten actual native read/lifetime/CLI/health/
+capture controls passed, including retained and new attachments during mutable-alias replacement.
+
+**Tested, baseline zero:** actual canonical joined cases passed **3/3** through
+`scripts/pse-env --native -- .venv/bin/python /tmp/pse-56efg-canonical-traced.py canonical
+--output build/qualification/56efg-published-canonical --hold-seconds 1200 --initializer
+build/qualification/56efg-current-canonical-tools-v2/xtask`. The trace wrapper preserves all original
+Recorder assertions. Its live `host-ready.json` selected **2/2**
+`ActualCanonicalReadAdverseTests`: original native cursor basis/retired issuer and independent
+reader protection through queued observer cancellation/EOF. It also selected **3/3** installed
+Python tests via `scripts.python_tests`: retained project selection/version, exact Rust project
+CLI reopen and import retry/fresh ownership after supplied-pack removal. These used fresh owned
+basetemp, default sixteen xdist lanes and independently owned databases. Logs:
+`/tmp/pse-56efg-publication-canonical-adverse.log`,
+`/tmp/pse-56efg-publication-projects.log`,
+`/tmp/pse-56efg-publication-canonical-composed.log`.
+
+The root settled both callers, wrote the original release file and awaited the original controller.
+`build/qualification/56efg-published-canonical/receipt.json` reports passed; its
+`lifecycle/passed.json` records `all_contexts_and_kernel_scopes_drained=true` and
+`fixture_retired=true`, unit `pse-surreal-d402452cbbac2b3f.service`, invocation
+`7378a808561a48a08a480947f8af38b3`. The disposable fixture data was positively retired; receipts
+remain. No unrelated database, cache, resource or worktree was removed.
+
+### Scope-end checks and generation
+
+**Tested:** the latest full `just hygiene` attempt failed **six leaves** against baseline zero:
+ADR frontmatter/index checks, Ruff, Pyrefly and two generated capability views. Assessment:
+`build/assessment/20261027T030314.475037Z-hygiene-2877129-b9a2b8`.
+The original seven-leaf failure remains separately recorded above. Current repairs do not turn
+either failed aggregate into a clean aggregate pass.
+
+`just turn-end` regenerated the ADR index and applied safe formatting/import cleanup. `just codegen`
+regenerated all ten schema targets plus affected capability reference/CLI views. The four failing
+ADR/capability comparison recipes then passed with zero failures at
+`/tmp/pse-56efg-publication-generated-checks.log`. Final `just typecheck` reports **0 diagnostics**
+(seven existing deliberate suppressions), and `just lint-py` reports **0 findings**:
+`/tmp/pse-56efg-publication-typecheck-final.log`,
+`/tmp/pse-56efg-publication-ruff-final.log`. The root's repaired ten-module unit selection passed
+**118/118**; its final constructor-fixture selection passed **29/29**, with overlapping scope.
+
+**Tested:** `just check-package xtask --features full-codegen` passed after ordinary scanner
+retirement; default/no-default Clippy and Rust docs passed within the latest hygiene attempt.
+`just lint-native-contracts` and `just lint-native-data` both passed their explicit force-validated
+native selections, preserving the original workstation policy. Logs:
+`/tmp/pse-56efg-publication-xtask-check.log`,
+`/tmp/pse-56efg-publication-lint-native-contracts.log`,
+`/tmp/pse-56efg-publication-lint-native-data.log`.
+The changed dispatcher/full-codegen closure and existing product/native compositions are checked;
+no dependency or feature declaration changed in the artifact amendment. A new global feature
+powerset would not answer an additional selected acceptance question and was not launched.
+
+**Tested:** final `just governance` passed every required leaf, baseline zero, at
+`build/assessment/20261027T032442.874746Z-governance-2964203-3da144`. It includes all generated
+comparisons, installed Python stubs, governance controls and family checks. A fresh actual native
+endpoint read/reuse/EOF test after Clippy also passed **1/1** at
+`/tmp/pse-56efg-publication-after-lint-native-endpoint.log`, using the same issued native generation.
+**Tested:** `just docs` passed, publishing **691 chapters** with scoped search at
+`/tmp/pse-56efg-publication-docs.log`. The chapter count describes this checkout, including
+concurrent library notes preserved outside this change. G03/G04 are complete for this selected scope. Final
+status-only Markdown updates do not repeat product/static qualification.
+
+### Independent assessment and enduring meaning
+
+**Interface-checked/Implemented:** existing integrated E/F reviews remain at their original cuts.
+A fresh review of the publication and serving changes found two consequential defects: strict
+producer consumers could select an ordinary generation, and interruption immediately after
+replacement could delete a selected image. Both were fixed at their constructor/selection owner,
+covered by targeted controls and independently reassessed. No remaining material finding was
+reported in that examined scope. This is not a new broad audit or a formal proof of the product.
+
+Blueprint revision 294 publishes the current ownership and selected qualification basis in
+§24.1/§24.2; the operating guides describe construction-once publication, explicit reload/drain,
+precise metric questions and loss observations. The proposed ADRs retain their formal status.
+Plan56 remains the sole finding disposition owner. The highest-numbered series and companions
+remain retained for current qualification/proposed-ADR readers and authorize no further work.
+
+### A mistake made and corrected
+
+The original source/input revalidation model repeated construction assurance and falsely rejected
+an installed image after Clippy changed a Cargo spool. The maintainer-directed amendment removes
+that model. Constructor interruption and strict-deployment adoption were then corrected rather
+than left as local happy-path exceptions. An old actual-test helper was updated to replace only
+the mutable alias; its mistaken published-image replacement and the resulting failed dev read
+remain recorded separately from the repaired passes. Type/lint/mock/arity findings were fixed
+structurally, not suppressed as a baseline. The child process-tree signal test also lacked an
+explicit `operation_lifetime` import and could fail before its intended assertion; the child import
+and unconditional pipe settlement were repaired, and its affected composer selection passed.
+
+### Deliberate limits and benefit evidence
+
+**Implemented, unmeasured:** ordinary reads no longer reconstruct source/compiler inputs, parse
+producer logs, hash image bytes, start a second interpreter or reconstruct native receivers per
+page. Controlled constructors and foreground lifetime owners discharge those duties once. These
+are structural changes, not measured speed, memory or capacity improvements. No benchmark was
+run without a concrete acceptance decision requiring it.
+
+**Not_run/unqualified:** full 505-case scientific/fleet/IDAES parity, global feature powerset,
+release/wheels/distribution, remote CI, other platforms and actual desktop-host attachment. The
+existing 100,000-point ceiling remains unqualified. The selected 10,000-point and interrupted
+1 GiB recovery evidence retain their original D source cuts. Failed attempts are not erased,
+focused controls are not summed into a full-product pass, and no old campaign was restarted.

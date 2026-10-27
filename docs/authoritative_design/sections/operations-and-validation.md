@@ -642,8 +642,8 @@ and requires its own integration/acceptance. Framework availability alone is ins
 > Decision: [ADR-0231](../../adr/0231-retained-native-read-currency.md) (proposed; maintainer-selected RC06 target).
 
 **Implemented:** eligible native reads reuse a foreground endpoint-owned worker and actual immutable
-Runtime/physical/model objects under their original source, provider, preparation and deployment
-context. Both native dispatch routes and the foreground CLI share this owner; standalone calls
+Runtime/physical/model objects under their original authored scientific source, provider,
+artifact generation and deployment context. Both native dispatch routes and the foreground CLI share this owner; standalone calls
 retain a dedicated lifetime. Each request carries its own identity, correlation and original
 optional deadline. Known opaque cursors bind their original native basis and session incarnation;
 changed requests and retired sessions refuse rather than attaching the cursor to a replacement.
@@ -656,11 +656,12 @@ retirement physically drains before replacement and retains individual failures.
 mutable diagnostic and crash-isolated operations retain dedicated execution. No database transaction
 spans pages, daemon, host CPU partition or persistent compiler product cache follows.
 
-**Proposed amendment (ADR-0231, maintainer-directed):** ordinary editable dev/native and fixed
+**Implemented (ADR-0231, maintainer-directed):** ordinary editable dev/native and fixed
 evidence-executable construction publish a completed immutable artifact generation through the
 existing preparation receipt. The build/install owner establishes validity once and publishes the
-typed descriptor only after completion. Construction or publication failure preserves the previous
-publication. Consumers attach the issued generation and check only distinct requested compatibility;
+typed descriptor only after completion. Failure before publication commits preserves the previous selection. If descriptor replacement
+has an uncertain outcome, the constructor retains both possible issued generations rather than
+deleting an image the descriptor may now select. Consumers attach the issued generation and check only distinct requested compatibility;
 they do not rescan source, compiler environments, Cargo records or artifact digests. Linting and
 source edits affect later construction, not the validity of the existing generation. An attached
 generation survives mutable installation-alias changes and newer publications until explicit
@@ -670,7 +671,7 @@ Each attachment names its checkout and interpreter. Environment/provider lifetim
 its original owner. Serving-code edits require explicit endpoint drain/reload before edited code
 serves requests, including lazy imports; live source scanning does not establish this contract.
 No new ledger or general validation mechanism follows. Source-only discovery never prepares native
-prerequisites. Implementation and final qualification of this amendment remain with Plan56 F/G.
+prerequisites. The [Plan56f final Outcome](../../plans/56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27) records implementation and selected actual qualification.
 Native observation activates only after the helper admits its image and retains the same process
 shutdown owner. Independent endpoint resource owners settle despite sibling teardown failures;
 retained failures and cancellation remain visible after settlement.
@@ -818,8 +819,9 @@ whole-source cut. Ordinary selected Rust execution consumes its retained actual 
 catalogue, including original tool/configuration inputs; generation aggregates invoke shared
 owners once while their independent comparison routes remain available. Python environment,
 editable extension, stubs and fresh import admission have independent responsibilities and
-supported currency premises. Owner-published artifact validity is established at construction rather than repeated by
-readers; fresh numerical-state checks retain their scientific responsibility. Declared assessment-output placement and process SDK
+supported owner contracts. Published artifact validity is established at construction rather than
+repeated by readers; fresh numerical-state checks retain their scientific responsibility. Declared
+assessment-output placement and process SDK
 selection are runtime observations rather than compiler inputs; unknown/compiler/provider
 environment controls belong to subsequent construction or their explicit runtime owner.
 
@@ -1437,22 +1439,36 @@ is unqualified. One-GiB sealed opaque bodies plus eight inline bytes survive SIG
 backup/restore and explicit interrupted-copy resume; descriptors and bytes match original custody.
 This establishes storage behavior, without numerical-success or comparative-speed claims.
 
-**Implemented/Tested:** E01/E04/E05 deliver responsibility-owned declarations, development/product
-partition, shared observations/borrowers, exact frozen orphan drain and truthful supplier records.
-Product roots, upstream profile materialization and frozen prepared-input/import closure are
-implemented, with selected builds and five declaration/profile controls passing. Final generated
-comparisons, governance, strict default/no-default/full native-private Clippy and repaired Python/
-dependency/license checks pass against zero. The unrelated dirty `history.txt` retains one spelling
-finding; original hygiene failures and affected repairs remain explicit. No clean full-hygiene pass
-is claimed.
+**Implemented/Tested:** E01–E05 deliver responsibility-owned declarations, product/development
+partition, upstream production profiles, product roots and frozen receiver closure, shared
+observations/borrowers, original-owner orphan drain and truthful supplier records. The preserved
+legacy v2 service was authenticated and drained by its original owner; only its unchanged dead
+allocation row was reconciled. Data, frozen interpretation and receipts remain retained.
+Actual current reference initialization, frozen helper/normal worker launch, workload, quiesce,
+drain and cleanup passed with sixteen scientific lanes and the existing logical-CPU/profile
+allocations. This establishes deployment/resource behavior, not sixteen numerical solve outcomes.
+See [56e's final activation](../../plans/56e-product-deployment-and-resource-ownership.md#final-activation-outcome--2026-10-26).
 
-E02/E03 actual ordinary reference activation remains **blocked** by a preserved unrelated live
-legacy service: setup accepts the fresh profile, but exclusive admission exits 125 before
-initialization or receiving-helper/worker launch. Source and focused controls do not qualify that
-actual activation. Owned current test/private services are stopped; failed-run databases/receipts
-and the unrelated legacy lifetime are preserved. Wider F/G, full-series assessment, feature
-powerset, parity/fleet, distribution, desktop attachment and other-platform qualification remain
-open or not_run. ADR-0229/0230 retain formal proposed status.
+**Implemented/Tested:** F01–F06 deliver finite operation/default/effect/prerequisite projections,
+owned bound/key/metric semantics, typed remedies and instrument-correct questions, explicit stage
+export and precise SDK loss observations. Controlled constructors publish immutable artifact
+generations once. Supplied-only executable/MCP/CLI evidence needs no product extension or canonical
+store. Ten actual native attachment/context/CLI/cancellation/EOF/health/capture controls pass;
+mutable installation-alias replacement preserves both an attached generation and fresh attachment.
+Three actual canonical project/knowledge/protected-result cases, two original-cursor/protection
+adverse cases and three installed project/Python CLI journeys pass. The disposable canonical
+fixture's original lifecycle reports all contexts and kernel scopes drained and its owned state
+retired. No image/source/build-record revalidation is performed per read.
+
+[56f's final Outcome](../../plans/56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27)
+and [56g's closeout](../../plans/56g-qualification-and-publication.md#final-selected-qualification-outcome--2026-10-27)
+retain source cuts, commands, failures, repairs and exclusions. Independent review found and
+resolved strict deployment selection and interrupted-publication cleanup gaps. The latest full
+hygiene attempt failed six leaves; affected type/lint/index/generation repairs pass separately,
+with default/no-default and both native Clippy selections passing against zero. Final governance passes all leaves at baseline zero and `just docs` publishes scoped search. Formal ADR-0229/0230/0231 status
+remains proposed. No 505-case campaign, full solver fleet/parity, feature powerset, release/wheels,
+remote CI, other-platform or actual desktop-host qualification, 100,000-point qualification or
+measured performance improvement follows from these selected local Linux results.
 
 ### 24.3 Benchmarks
 

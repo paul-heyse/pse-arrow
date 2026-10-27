@@ -1,6 +1,6 @@
 ---
 title: "Plan 56e: Product, deployment and resource ownership"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: [ADR-0229]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -158,8 +158,8 @@ repair truthful records. Archive diffs are useful evidence, not a new per-comman
 | Package | Status | Owner | Completion |
 |---|---|---|---|
 | E01 | complete at selected local build/generation/public acceptance | 56e | Normal product closure excludes development-only families/queries; all catalogue consumers use their owner |
-| E02 | implemented; legacy prerequisite drained, fresh actual reference activation pending | 56e | One deployment protocol/validator and working product targets/frozen receiver closure replace mirrors |
-| E03 | implemented; role controls passed, fresh actual reference activation pending | 56e | Production profile drives conformance and all allocation readers without repeated finite rules |
+| E02 | complete at actual normal frozen reference activation and original drain | 56e | One deployment protocol/validator and working product targets/frozen receiver closure replace mirrors |
+| E03 | complete at role controls and actual admitted reference execution | 56e | Production profile drives conformance and all allocation readers without repeated finite rules |
 | E04 | complete at selected composite lifecycle/borrower/recovery acceptance | 56e | Leaf observations and borrower interface remove cyclic owner knowledge while preserving distinct policies |
 | E05 | complete; exact source reconstruction tested | 56e | Truthful supplier origin/delta/workaround record reconstructs actual bytes without a mandated format |
 
@@ -424,4 +424,88 @@ this selected scope. No measured build-time or general latency improvement is cl
 
 ## Remaining activation prerequisite — 2026-10-26
 
-The maintainer authorized authenticated drain of the exact legacy service at `surreal-b1-hcqo_3r2/restored`. Its original immutable supervisor, configured interpreter, service invocation, supervisor/child process lifetimes and kernel cgroup were authenticated. The first modern-receipt probe refused before effects because this v2 receipt has only child PID/instance; the corrected observer retained that legacy meaning and independently authenticated current kernel lifetimes. Original-owner quiesce and drained stop both passed; the original processes are gone and the service is inactive with empty cgroup. Its database, v2 interpretation, frozen generation and receipts remain retained. No fresh-engine, data conversion or allocation bypass was applied. Actual current reference activation remains pending at G02, now without this live blocker. Evidence: `/tmp/pse-56efg-authenticated-legacy-drain-v2.log`.
+The maintainer authorized authenticated drain of the exact legacy service at `surreal-b1-hcqo_3r2/restored`. Its original immutable supervisor, configured interpreter, service invocation, supervisor/child process lifetimes and kernel cgroup were authenticated. The first modern-receipt probe refused before effects because this v2 receipt has only child PID/instance; the corrected observer retained that legacy meaning and independently authenticated current kernel lifetimes. Original-owner quiesce and drained stop both passed; the original processes are gone and the service is inactive with empty cgroup. Its database, v2 interpretation, frozen generation and receipts remain retained. No fresh-engine, data conversion or allocation bypass was applied. The stopped legacy owner still retained a capacity charge because the current reader correctly refuses its v2 process receipt. Its original frozen admission reconciler authenticated dead caller and original cgroup/invocation, then comparison-removed only the unchanged legacy row; every other owner, including the active compiler cache, remained byte-equal. This uses the original owner rather than new legacy production support or a fabricated ledger. Data and receipts remain retained. Actual current reference activation remains pending at G02. Evidence: `/tmp/pse-56efg-legacy-capacity-reconciled.log` and `/tmp/pse-56efg-authenticated-legacy-drain-v2.log`.
+
+
+## Final activation Outcome — 2026-10-26
+
+**Implemented/Tested:** E02/E03 now complete their actual receiving-process acceptance. The
+maintainer-authorized original legacy drain and frozen-owner reconciliation above preserved its
+v2 data, immutable generation and receipts. No current supervisor compatibility path, migration,
+fresh-engine action, fabricated ledger or admission bypass was introduced.
+
+The fresh ordinary command was `PSE_DEPLOYMENT_OPERATOR=<current-pure-operator> just reference-run
+--state <fresh-state> --worker <current-normal-worker> --initializer <current-product-initializer>
+-- .venv/bin/python /tmp/pse-56de-prepared-receiver-journey.py --state <same-fresh-state>`.
+The selected state is `build/qualification/56efg-reference-frozen-final-qualified-20261027T010527`;
+invocation `f925550666bf488f8c1d71018ac97385` and log
+`/tmp/pse-56efg-fresh-reference-final-qualified.log` retain the original lifetime. Setup/start
+completed; initialization, workload, quiesce and cleanup returned **0**; service/native drain
+completed against the zero failure baseline. Databases, generations and receipts remain retained.
+
+The actual isolated `-I -B` storage supervisor and native helper use their frozen v2 closure and
+prepared environment. The normal product worker has no `canonical-tests` native-entry hook.
+Authenticated supervisor/helper/worker PIDs, start identities, executable inodes, invocation and
+cgroup agree with their original launch. The original execution declaration retains sixteen
+scientific lanes and every role budget; kernel readback observes **32 logical CPU quota cores**
+and **171,798,691,840 bytes** in the admitted host ancestor, with exact worker/storage role caps.
+Native provider receipts, generation/descriptor/declaration digests and original context remain
+unchanged. Late caller compiler inputs absent from the frozen descriptor remain absent in the
+actual child. This is actual deployment/ownership evidence, not sixteen numerical solves.
+
+**Implemented/Tested:** actual attempts exposed three additional E integration corrections:
+
+- Pending readiness discarded the admission owner's verified generation on every absent marker.
+  It now shares unchanged evidence during pending polls, still recapturing process transitions
+  and refusing changed bytes/aliases/ownership. Five lifecycle/cache/clock controls passed; the
+  extended pending/restored-mtime mutation control passed separately. Original startup clocks and
+  actual native process checks remain intact.
+- Native execution limited the same configuration to 64 KiB while canonical connection already
+  accepted 256 KiB for immutable source receipts. Both consume the existing deployment-owned
+  bound; credentials retain their separate bound. Seven validated native-selection controls
+  passed, including realistic >64 KiB receipts, exact 256 KiB acceptance, one-byte-over refusal and
+  changed-configuration invalidation. An initial unsupported `local-only` invocation selector
+  refused before compilation; the corrected command selected `native-local`.
+- Worker placement equated sixteen scientific lanes with the host's logical-CPU quota. Host
+  admission keeps exact envelope authority; the worker checks its exact memory cap, sufficient
+  finite ancestor capacity and actual affinity. Six validated product-worker placement controls
+  passed, including the wider logical envelope and narrow/unlimited/missing-controller refusals.
+  The fresh actual journey independently verifies the exact selected kernel quota and memory.
+
+Commands use `scripts.arrow_validation`/`just unit-package` with explicit force-validation and
+native environment; source controls are retained at `/tmp/pse-56efg-pending-primary-generation-controls.log`,
+`/tmp/pse-56efg-pending-primary-mutation-control.log`,
+`/tmp/pse-56efg-native-shared-deployment-bound-qualified.log` and
+`/tmp/pse-56efg-worker-placement-controls.log`. Independent source review reassessed the repairs.
+No profile reduction or new workstation cap was used to make activation pass.
+
+### Failed attempts and deliberate boundaries
+
+The earlier historical live-legacy refusal remains above. Remaining-scope setup attempts
+`218eb951812e46cfba261ef04e6b50cd` and `9da359e66d734888b69134ffa27a3615`
+stopped before workload: first an explicitly selected native-linked allocator outside its
+native environment, then the stale original legacy charge. The allocator was rebuilt through its
+pure route and the original owner reconciled only its authenticated drained charge. Subsequent
+actual invocations `5177817a89d74ef4b7c6c3c5595e10ea`,
+`5c2cc53983f54a4691c6dc6ae494ab22` and `aa9da94d52d944d5a3a143bbad52cabe`
+failed workload on the pending-readiness, configuration-bound and placement mismatches,
+respectively. Their original cleanup/drain completed; states and failure receipts remain retained.
+A fresh invocation, rather than reinterpretation of a failed handle, establishes the pass above.
+
+**Implemented:** enduring contracts are at blueprint §3.2/§21.1/§24.1 and the environment/interface
+guides, with final supported qualification at §24.2. ADR-0229/0230/0231 retain formal proposed
+status. E's functional/actual activation scope is complete; shared final G checks and publication
+retain their own completion boundary. No feature powerset, full fleet/parity, other-platform,
+distribution or measured performance claim is added.
+
+
+## Final companion disposition — 2026-10-27
+
+**Implemented/Tested:** E01–E05 are complete at the selected local acceptance recorded above.
+The remaining host/publication work now has its own [56f final Outcome](56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27),
+and [56g](56g-qualification-and-publication.md#final-selected-qualification-outcome--2026-10-27)
+owns final joined check accounting. The earlier blocked reference attempts remain their original
+historical cuts; the successful actual normal frozen reference is the current E02/E03 disposition.
+No remaining E implementation or reference-activation obligation is scheduled. Wider scientific,
+platform and performance exclusions remain unchanged. Retention serves the highest-numbered
+series, proposed-ADR readers and the current qualification basis; it authorizes no new work.

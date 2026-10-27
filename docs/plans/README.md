@@ -1,38 +1,25 @@
 # Current work and plans
 
-[Plan56: Design principle alignment](56-design-principle-alignment.md) is an alignment series
-addressing the 24 findings active at the followup production audit, with explicit dispositions
-for all 45 DA identities. Seven companions develop model/scientific meaning, canonical effects,
-publication/workload fit, product/resource ownership, host/observability contracts and joined
-qualification. The coordinator owns finding dispositions and shared
-[rule choices](56-design-principle-alignment.md#rule-changes); companions own package state.
-Remedy comparison is part of this series, with controlled fresh regeneration selected for needed
-cutovers. These were planning proposals at authoring; that decision alone authorized no production
-implementation or changed rules. The maintainer subsequently authorized
-[56a execution](56a-model-meaning-and-physical-interpretation.md#verification-and-outcome--2026-10-25),
-including minimal boundary/permission/context prerequisites and source-owned identity direction
-RC07 (proposed ADR-0226). A01–A03 are complete at their recorded local Linux conditions. Subsequent authorized
-[56b execution](56b-scientific-operations-and-permission.md#verification-and-outcome--2026-10-25)
-completed B01–B06 with necessary C/F adoption and selected local native/canonical/Python/MCP/CLI
-acceptance. [56c execution](56c-canonical-contracts-and-effects.md#verification-and-outcome--2026-10-26)
-completed C01–C05 with selected canonical/native/Python/public and private mixed recovery acceptance.
-The authorized [56d Outcome](56d-publication-and-workload-fit.md#verification-and-outcome--2026-10-26)
-and [56e Outcome](56e-product-deployment-and-resource-ownership.md#verification-and-outcome--2026-10-26)
-record implemented publication/workload and product/resource ownership work, including the selected
-responsibility-scoped catalogue/enum/constraint prerequisite, actual public 10,000-point/native
-controls, fused 1 GiB interrupted/resumed storage recovery, full generation and exact orphan drain.
-D01–D06 are complete at their selected local acceptance, including the final 8/8 installed public
-and 4/4 native parent/history controls. E01/E04/E05 are delivered; E02/E03 remain implemented
-with actual ordinary reference activation blocked before initialization by a preserved unrelated
-live legacy service. The Outcomes own exact evidence, the blocker and next step. Shared checks
-retain one unrelated `history.txt` spelling finding against zero; no clean full-hygiene claim follows.
-[56f](56f-host-agent-and-observability-contracts.md#selected-56d56e-prerequisites--2026-10-26)
-retains wider metrics, operation projection, telemetry, currency and retention/RC06 work;
-[56g](56g-qualification-and-publication.md#selected-56d56e-qualification-contribution--2026-10-26)
-records the selected contribution without closing full-series qualification. The coordinator owns
-current rule choices and finding dispositions; completed prerequisites remain as evidence for
-active dependents.
-Other plans retain their independent scope and status.
+[Plan56: Design principle alignment](56-design-principle-alignment.md) is complete for its selected
+local model/scientific, canonical, publication/workload, product/resource and host/observability
+alignment scope. Its [finding dispositions](56-design-principle-alignment.md#finding-dispositions)
+remain the single owner for all 45 DA identities and the 24 adopted audit findings. A–G acceptance
+is complete at the named source/mode conditions; [56g's closeout](56g-qualification-and-publication.md#final-selected-qualification-outcome--2026-10-27)
+records exact commands, source cuts, zero-target repairs and supported limits.
+
+The [56e final activation](56e-product-deployment-and-resource-ownership.md#final-activation-outcome--2026-10-26)
+records successful actual normal frozen reference execution and original-owner drain.
+[56f's final Outcome](56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27)
+records generated host contracts, precise telemetry, constructor-issued immutable artifacts and
+actual retained-read/cursor/protection/cancellation/EOF acceptance. Controlled construction and
+editing establish artifact validity once; readers do not repeat source, compiler-record or image
+validation. Original failures, corrected runs and unmeasured benefits remain explicit.
+
+The highest-numbered series and its companions remain retained for current qualification and
+proposed-ADR readers, without authorizing further work. Full scientific/fleet/parity, feature
+powerset, release/distribution, remote-CI, other-platform and actual desktop-host qualification
+are not claimed; the 100,000-point ceiling remains unqualified. Other plans retain their independent
+scope and status.
 
 [Plan55: MCP development effectiveness](55-mcp-development-effectiveness.md) is complete for
 its selected capability/client, knowledge/evidence, native model/result, validation/editing and

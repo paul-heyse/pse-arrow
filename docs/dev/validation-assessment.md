@@ -321,9 +321,12 @@ truncated results fail the gate. Nonzero process exit cannot be replaced by a pa
 Native identities retain executed binary and `ldd` library hashes, `rustc -Vv`, actual
 relevant environment, feature/Cargo profile and thread settings. Default refusal controls
 retain their own default graph identity, including the real serial QDLDL control.
-Native Python resolves the imported package and extension in pytest's interpreter/import
-environment, refuses origins outside this checkout, and checks the same loaded extension
-inside pytest before collection. On-disk candidates are not execution identity.
+Native Python selects the construction owner's issued immutable image for its interpreter.
+Ordinary and strict deployment publications retain their separate explicit owners. Pytest startup
+requires the actual correctness feature; it does not repeat binary digests, source scanning or
+construction validation. Explicit import-compatibility requests observe a live import once. Native
+qualification provenance remains an observation of the executed provider context, rather than a
+per-reader artifact validity proof.
 
 For explicitly requested strict assembled persisted-reuse qualification, use `--python-profile producer` and
 supply the reviewed host inputs through `PSE_RUNTIME_PRODUCER_DECLARATIONS`,
@@ -453,8 +456,8 @@ records its selected fixture corrections and evidence limits.
 | `just native-test [nextest args]` | The full workspace with `pse-runtime/native-solvers`, `pse-runtime/canonical-tests`, `pse-tests-conformance/native-acceptance` and force-validation, under the native environment. Nextest owns selection. The wrapper writes a raw selection artifact and native identity before execution. |
 | `just doctest` | Workspace doctests with force-validation. `pse-py` is excluded because Cargo cannot run cdylib doctests. `doctest-release` is the release-profile variant. |
 | `just py-sync` / `just py-sync-native` | Rebuilds the interactive editable extension without `force-validate`, ordinary or linked respectively, and regenerates its actual API stubs. Local admission and structural transport safety remain. |
-| `just py-sync-correctness [mode] [profile]` / `just py-sync-native-correctness [profile]` | Builds the explicitly force-validated correctness extension and its actual stubs. `auto` preserves the installed ordinary/linked selection; explicit `dev` or `native` selects it. Compiled Rust flags, imported checkout path and binary digest are independently checked before tests. |
-| `just native-python <output> [pytest args]` | Linked Python `unit or component or integration` tests, reported to `<output>/native-python.xml`. Canonical fixture consumers require an initialized supervised `PSE_SURREAL_STATE`. Build with `py-sync-native-correctness` before capturing deployment association or running tests; the observer refuses wrong-mode/stale imports and never rebuilds behind a captured receipt. |
+| `just py-sync-correctness [mode] [profile]` / `just py-sync-native-correctness [profile]` | Builds the explicitly force-validated correctness extension and its actual stubs. `auto` preserves the installed ordinary/linked selection; explicit `dev` or `native` selects it. The constructor records actual compiled flags and publishes an immutable image once; tests select that generation and retain the explicit correctness-feature requirement. |
+| `just native-python <output> [pytest args]` | Linked Python `unit or component or integration` tests, reported to `<output>/native-python.xml`. Canonical fixture consumers require an initialized supervised `PSE_SURREAL_STATE`. Build with `py-sync-native-correctness` before capturing deployment association or running tests; the observer selects the compatible issued generation and never rebuilds behind a captured receipt. |
 | `just governance-tests [args]` | `pse-tests-governance` with force-validation. |
 | `just setup-test` | Stdlib `unittest` discovery over `scripts/tests`: setup, guards, runner, docs and build tooling. |
 | `just setup-test-report <output>` | The same discovery with an XML reporter, writing `setup-test.xml` and `setup-test-selected.json`. Fails on skips or an empty run. |
