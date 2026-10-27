@@ -1,0 +1,5 @@
+case c1: left-endpoint root 1, interval [1, 3/2), p>0 inside; input (1, 3/2)
+returned [13510798882111487/9007199254740992 , 3/2] ~ [1.5e0, 1.5e0] after 160.078µs; width 1.1102230246251565e-16
+p(lo) = 274031556999544317445600509785959979333856526335/730750818665451459101842416358141509827966271488, p(hi) = 3/8; contains candidate roots: 0:false 1/4:false 1:false 2:false 3:false
+exit=0 maxrss_kb=8452 wall=0.00
+status=0

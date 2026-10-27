@@ -1,0 +1,5 @@
+case d2: isolator's own interval (0, 1] for root 1/4; endpoint 1 is another root; input (0, 1)
+returned [1/4 , 9007199254740993/36028797018963968] ~ [2.5e-1, 2.5e-1] after 142.757µs; width 2.7755575615628914e-17
+p(lo) = 0, p(hi) = -1216944576219100207422436567678975/11692013098647223345629478661730264157247460343808; contains candidate roots: 0:false 1/4:true 1:false 2:false 3:false
+exit=0 maxrss_kb=8452 wall=0.00
+status=0

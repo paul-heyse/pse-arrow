@@ -1,0 +1,25 @@
+seed=42 lhs-classic nx=3 ns=10 shape=[10, 3] fnv1a64=3d589b2dcb6e2d1e
+seed=42 lhs-classic nx=6 ns=40 shape=[40, 6] fnv1a64=da13a090e2f68dc1
+seed=42 lhs-centered nx=3 ns=10 shape=[10, 3] fnv1a64=c23b0969b21ead61
+seed=42 lhs-centered nx=6 ns=40 shape=[40, 6] fnv1a64=c17d5be4537a2247
+seed=42 lhs-maximin nx=3 ns=10 shape=[10, 3] fnv1a64=3d589b2dcb6e2d1e
+seed=42 lhs-maximin nx=6 ns=40 shape=[40, 6] fnv1a64=1104d26b992068d0
+seed=42 lhs-centered_maximin nx=3 ns=10 shape=[10, 3] fnv1a64=c23b0969b21ead61
+seed=42 lhs-centered_maximin nx=6 ns=40 shape=[40, 6] fnv1a64=c17d5be4537a2247
+seed=42 lhs-optimized nx=3 ns=10 shape=[10, 3] fnv1a64=018f369becf54f06
+seed=42 lhs-optimized nx=6 ns=40 shape=[40, 6] fnv1a64=8fb1bcc37bf98c65
+seed=42 random nx=3 ns=10 shape=[10, 3] fnv1a64=cf54e8714ef04b94
+seed=7 lhs-classic nx=3 ns=10 shape=[10, 3] fnv1a64=d91ea615455abff5
+seed=7 lhs-classic nx=6 ns=40 shape=[40, 6] fnv1a64=0c5378da3e8457bf
+seed=7 lhs-centered nx=3 ns=10 shape=[10, 3] fnv1a64=dc789ef63ffbacb1
+seed=7 lhs-centered nx=6 ns=40 shape=[40, 6] fnv1a64=9408649ffb6d05b7
+seed=7 lhs-maximin nx=3 ns=10 shape=[10, 3] fnv1a64=03f36487e12ef0ba
+seed=7 lhs-maximin nx=6 ns=40 shape=[40, 6] fnv1a64=7dc018da789fb3a3
+seed=7 lhs-centered_maximin nx=3 ns=10 shape=[10, 3] fnv1a64=8ce5e7d3cbb11941
+seed=7 lhs-centered_maximin nx=6 ns=40 shape=[40, 6] fnv1a64=6adfdc9313b6cc2b
+seed=7 lhs-optimized nx=3 ns=10 shape=[10, 3] fnv1a64=98b817124ba26525
+seed=7 lhs-optimized nx=6 ns=40 shape=[40, 6] fnv1a64=1812cc39d6d7272b
+seed=7 random nx=3 ns=10 shape=[10, 3] fnv1a64=33109438a4b275f6
+fullfactorial nx=3 ns=10 shape=[10, 3] fnv1a64=96616152761346e5
+stateful-continuation equal=false
+entropy-default equal=false

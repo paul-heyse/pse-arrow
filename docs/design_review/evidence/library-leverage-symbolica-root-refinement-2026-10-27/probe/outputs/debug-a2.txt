@@ -1,0 +1,5 @@
+case a2: right-endpoint root 3, interval (5/2, 3], p<0 inside; input (5/2, 3)
+returned [13510798882111487/4503599627370496 , 3] ~ [3e0, 3e0] after 274.874µs; width 2.220446049250313e-16
+p(lo) = -40564819207303327337095620460545/91343852333181432387730302044767688728495783936, p(hi) = 0; contains candidate roots: 0:false 1/4:false 1:false 2:false 3:true
+exit=0 maxrss_kb=21696 wall=0.00
+status=0

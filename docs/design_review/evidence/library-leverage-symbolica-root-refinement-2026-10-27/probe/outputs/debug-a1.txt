@@ -1,0 +1,9 @@
+case a1: right-endpoint root 2, interval (3/2, 2], p>0 inside; input (3/2, 2)
+
+thread 'main' (695421) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/symbolica-3.0.1/src/poly/univariate/roots.rs:2202:9:
+assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+PANIC after 238.481µs: assertion failed: u.evaluate(&interval.1).is_negative() != left_bound_neg
+Command exited with non-zero status 101
+exit=101 maxrss_kb=22148 wall=0.00
+status=101

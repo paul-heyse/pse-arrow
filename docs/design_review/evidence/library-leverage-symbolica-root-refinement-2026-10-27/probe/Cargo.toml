@@ -1,0 +1,15 @@
+[package]
+name = "symbolica-refine-root-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+symbolica = { version = "=3.0.1", default-features = false, features = ["integer-gmp", "float-mpfr"] }
+
+[profile.dev]
+panic = "unwind"
+[profile.release]
+panic = "unwind"
+
+[workspace]

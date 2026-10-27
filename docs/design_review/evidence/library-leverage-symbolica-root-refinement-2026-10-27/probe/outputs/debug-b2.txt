@@ -1,0 +1,9 @@
+case b2: symmetric (-1/2, 1/2), root at 1/4; input (-1/2, 1/2)
+
+thread 'main' (696960) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/numerica-3.0.1/src/domains/rational.rs:773:13:
+Division by 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+PANIC after 262.043µs: Division by 0
+Command exited with non-zero status 101
+exit=101 maxrss_kb=22412 wall=0.00
+status=101

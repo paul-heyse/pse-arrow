@@ -1,0 +1,4 @@
+case b3: asymmetric (-1/2, 1/4), root at 0; input (-1/2, 1/4)
+Command exited with non-zero status 124
+exit=124 maxrss_kb=8700 wall=20.00
+status=124

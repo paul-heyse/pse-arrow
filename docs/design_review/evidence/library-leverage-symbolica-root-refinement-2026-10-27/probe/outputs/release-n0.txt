@@ -1,0 +1,5 @@
+case n0: control: interior root 2, interval (3/2, 5/2); input (3/2, 5/2)
+returned [2 , 9007199254740993/4503599627370496] ~ [2e0, 2e0] after 72.754µs; width 2.220446049250313e-16
+p(lo) = 0, p(hi) = -20282409603651670423947251286015/91343852333181432387730302044767688728495783936; contains candidate roots: 0:false 1/4:false 1:false 2:true 3:false
+exit=0 maxrss_kb=8728 wall=0.00
+status=0

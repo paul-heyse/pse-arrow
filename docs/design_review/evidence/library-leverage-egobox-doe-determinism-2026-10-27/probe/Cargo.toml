@@ -1,0 +1,16 @@
+[package]
+name = "egobox-doe-determinism-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+egobox-doe = { version = "=0.35.1", default-features = false }
+ndarray = "=0.16.1"
+rand_xoshiro = "=0.6.0"
+
+[profile.release]
+opt-level = 3
+debug = false
