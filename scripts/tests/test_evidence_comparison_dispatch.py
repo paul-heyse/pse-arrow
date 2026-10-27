@@ -50,8 +50,6 @@ class EvidenceComparisonDispatchTests(unittest.TestCase):
                 run.return_value.returncode = 0
                 result = evidence_store.main(
                     [
-                        "--tool",
-                        str(tool),
                         "compare-offline",
                         "--request",
                         str(request),
@@ -94,7 +92,7 @@ class EvidenceComparisonDispatchTests(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertEqual(run.call_args.args[0], Path("/selected/state"))
         self.assertEqual(
-            run.call_args.args[2],
+            run.call_args.args[1],
             [
                 "compare-indexed",
                 "--request",

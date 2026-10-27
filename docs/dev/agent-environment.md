@@ -321,24 +321,22 @@ create cold build copies merely to parallelize a matrix when storage/cold cost d
 Cargo-hack's native partitions are disjoint command groups, but their dependencies still share
 units in one target, so partitioning alone does not remove this limitation.
 
-Ordinary editable Python correctness preparation has independent dependency-environment,
-extension-installation, generated-stub and fresh-import admission stages. Compatible completed
-stage receipts avoid repeating mutation or generation; actual installed/imported extension
-bytes and current supported source, tool, feature and native inputs determine currency.
-Unknown build-affecting selections refuse the unsupported shortcut. Stub currency also binds
-its generator declarations and outputs. Fresh import admission remains mandatory when a worker
-loads its image, even when preparation is reusable. These receipts do not revive a
-portable producer reconstruction campaign or establish scientific result validity.
+Ordinary editable Python preparation separates dependency setup, artifact construction,
+generated stubs and consumer attachment. Explicit extension preparation invokes the trusted
+Cargo/Maturin path; Cargo owns incremental rebuild decisions. The preparation owner copies a
+completed image to a private immutable generation, observes its compiled contract once and
+atomically publishes the descriptor in the existing receipt. Build, installation, copy or
+publication failure preserves the preceding generation. Partial installation cannot become an
+issued generation. Stub generation retains its independent declaration/output responsibilities.
 
-Supported ordinary installation also observes Cargo's actual producing-input selection and
-associates it with the installed extension in that same receipt. Currency checks consume this
-selection, including selected configuration, tools, environment and admitted provider identities.
-An endpoint retains metadata/link/directory witnesses and rehashes bytes when those witnesses
-change, instead of rehashing an unchanged full source tree for each read. Supported installed-byte
-currency checks do not launch another interpreter for every retained request; the original worker
-still fences the actual image through its first import and subsequent use. Unsupported producing
-observations keep the conservative owner route; missing or changed evidence cannot establish
-currency. There is no additional receipt store or parallel preparation ledger.
+Consumers use that issued contract. They do not reconstruct source/compiler/environment inputs,
+parse Cargo dep-info or logs, hash the image again or fence its metadata on every read. Linting,
+unrelated builds and source edits do not invalidate the issued generation. Supported local images
+load from their published immutable path. A retained worker keeps that generation until explicit
+drain/replacement; new publication does not silently replace an existing import or cursor owner.
+Native provider resources retain their original lifetimes. Serving-code edits require draining
+and reloading affected endpoints before edited code serves operations, including lazy imports.
+There is no source watcher or secondary freshness ledger establishing that editing contract.
 
 Capability requirements distinguish the installed correctness extension from explicit native
 correctness. The installed receipt supplies omitted mode/profile selections; it never defaults an

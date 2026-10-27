@@ -35,7 +35,7 @@ class KnowledgeStoreTests(unittest.TestCase):
         }
 
         def read(
-            _state: Path, _tool: Path, arguments: list[str], *, deadline: float
+            _state: Path, arguments: list[str], *, deadline: float
         ) -> dict:
             self.assertGreater(deadline, 0)
             self.assertEqual(arguments[0], "knowledge-query")
@@ -44,7 +44,7 @@ class KnowledgeStoreTests(unittest.TestCase):
 
         with patch.object(knowledge_store, "native", side_effect=read):
             result = knowledge_store.indexed(
-                request, state=Path("/selected"), tool=Path("/tool")
+                request, state=Path("/selected")
             )
         self.assertIs(result["document"], original)
         self.assertEqual(result["source_observations"], [])
@@ -59,7 +59,7 @@ class KnowledgeStoreTests(unittest.TestCase):
             ),
         ):
             result = knowledge_store.indexed(
-                {"version": 1}, state=Path("/state"), tool=Path("/tool")
+                {"version": 1}, state=Path("/state")
             )
         self.assertEqual(result, refusal)
 
@@ -159,7 +159,6 @@ class KnowledgeStoreTests(unittest.TestCase):
     ) -> None:
         def run(
             _state: Path,
-            _tool: Path,
             arguments: list[str],
             *,
             deadline: float,
@@ -176,7 +175,7 @@ class KnowledgeStoreTests(unittest.TestCase):
             knowledge_store.evidence_store, "run_native", side_effect=run
         ):
             result = knowledge_store.native(
-                Path("/selected"), Path("/built/tool"), ["knowledge-status"], deadline=1
+                Path("/selected"), ["knowledge-status"], deadline=1
             )
         self.assertEqual(result, {"generation": "selected"})
 

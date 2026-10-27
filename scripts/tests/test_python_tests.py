@@ -70,8 +70,8 @@ class PythonProcessRoutingTests(unittest.TestCase):
         )
         self.assertEqual(python_tests.ROOT, Path(__file__).resolve().parents[2])
         self.assertEqual(
-            run.call_args.kwargs["env"]["PSE_NATIVE_EXPECTED_FEATURES"],
-            '["force-validate"]',
+            run.call_args.kwargs["env"]["_PSE_NATIVE_PUBLISHED_IMAGE"],
+            "/selected/_native.so",
         )
 
     def test_explicit_integration_keeps_selection_inside_ordinary_partition(

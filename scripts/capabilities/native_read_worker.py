@@ -41,7 +41,6 @@ from scripts.capabilities.native_read_protocol import (
 )
 from scripts.capabilities.native_read_sessions import context_identity
 from scripts.capabilities.workers import WORKERS
-from scripts.producing_currency import Witness
 
 
 class ReadCurrencyError(ReadImageChangedError):
@@ -71,7 +70,6 @@ def _startup() -> SessionAdmission:
 def _verify(
     startup: SessionAdmission,
     request: ReadRequest,
-    witness: Witness,
     root: Path,
     *,
     entering: bool = True,
@@ -100,21 +98,8 @@ def _verify(
         raise SessionProtocolError(
             "native read request extent or immutable context changed"
         )
-    if any(
-        startup.definition.sources.get(name, "not-loaded") != digest
-        for name, digest in request.admission.definition.sources.items()
-    ):
-        raise SessionProtocolError(
-            "native read selected definition differs from loaded session sources"
-        )
     execution_basis.verify_handoff(
-        root, startup.worker, request.operation, raw, request.admission, witness=witness
-    )
-    # The route/import closure was loaded under this separate startup admission.
-    # A later operation cannot bless new on-disk bytes underneath already loaded code.
-    loaded = request.admission.model_copy(update={"definition": startup.definition})
-    execution_basis.verify_handoff(
-        root, startup.worker, request.operation, raw, loaded, witness=witness
+        root, startup.worker, request.operation, raw, request.admission
     )
     if entering:
         request.require_live_deadline()
@@ -138,16 +123,8 @@ def _currency(binding: native_contracts.Binding) -> python_extension.ExtensionCu
 
 
 def _admit_image(current: python_extension.ExtensionCurrency) -> LoadedReadImage:
-    if "pse._native" in sys.modules:
-        raise ReadImageChangedError(
-            "already loaded image lacks this session's original import witness"
-        )
     image = LoadedReadImage.admit(current)
-    image.require_loaded(image.artifact.binary)
-    import pse  # noqa: PLC0415, F401 -- original import after explicit image admission
-
-    loaded = sys.modules.get("pse._native")
-    image.require_loaded(str(getattr(loaded, "__file__", "")))
+    image.attach()
     return image
 
 
@@ -156,7 +133,6 @@ def main() -> int:
     startup = _startup()
     if Path(startup.checkout) != root:
         raise SessionProtocolError("native read session belongs to another checkout")
-    witness = Witness()
     context: NativeReadContext | None = None
     image: LoadedReadImage | None = None
     with tempfile.TemporaryDirectory(prefix="pse-native-read-context-") as temporary:
@@ -169,14 +145,16 @@ def main() -> int:
             ) is not None:
                 retired = False
                 try:
-                    binding = _verify(startup, request, witness, root)
-                    current = _currency(binding)
+                    binding = _verify(startup, request, root)
                     if image is None:
-                        image = _admit_image(current)
-                    else:
-                        image.require_current(current)
-                        loaded = sys.modules.get("pse._native")
-                        image.require_loaded(str(getattr(loaded, "__file__", "")))
+                        image = _admit_image(_currency(binding))
+                    requirement = binding.extension_requirement
+                    if requirement is None:
+                        raise ReadImageChangedError("native read lacks its owned prerequisite")
+                    image.require(
+                        native=requirement.mode == "native_correctness",
+                        validated=requirement.validated,
+                    )
                     bound_context = image.context_identity(request.context)
                     if context is None:
                         context = NativeReadContext(bound_context)
@@ -189,9 +167,7 @@ def main() -> int:
                         scratch=scratch,
                         context=context,
                     )
-                    loaded = sys.modules.get("pse._native")
-                    image.require_loaded(str(getattr(loaded, "__file__", "")))
-                    _verify(startup, request, witness, root, entering=False)
+                    _verify(startup, request, root, entering=False)
                     if value.get("outcome") in {
                         "stale_interface",
                         "prerequisite_unavailable",

@@ -86,11 +86,13 @@ class ReadinessTests(unittest.IsolatedAsyncioTestCase):
         path.write_text(
             json.dumps(
                 {
-                    "inputs": {
-                        "mode": mode,
-                        "validated": validated,
-                        "profile": profile,
-                    },
+                    "document_version": 1,
+                    "kind": "extension",
+                    "generation": "owned-generation",
+                    "mode": mode,
+                    "validated": validated,
+                    "profile": profile,
+                    "interpreter": str(self.root / ".venv/bin/python"),
                     "artifact": {
                         "binary": str(self.root / "python/pse/_native.so"),
                         "sha256": "recorded",
@@ -107,15 +109,14 @@ class ReadinessTests(unittest.IsolatedAsyncioTestCase):
         self.receipt()
         tools = self.tools(capability(extension()))
         currency = python_extension.ExtensionCurrency(
-            state="stale",
+            state="unsupported",
             checkout=str(self.root),
             interpreter=str(self.root / ".venv/bin/python"),
             mode="dev",
             profile="producer",
             validated=True,
-            source_basis="fresh-source-basis",
             receipt_recorded=True,
-            cause="inputs-changed",
+            cause="incompatible-publication",
             remedy="Explicitly prepare and reattach.",
         )
         with (
@@ -144,7 +145,7 @@ class ReadinessTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result.artifact_prepared.value)
         self.assertIsNone(result.import_compatible.value)
         self.assertIsNone(result.operation_exercised.value)
-        self.assertEqual(result.receipts[0].currency, "unknown")
+        self.assertEqual(result.receipts[0].currency, "published")
         check.assert_awaited_once_with(
             self.root, "dev", profile="producer", validated=True
         )
@@ -326,7 +327,7 @@ class ReadinessTests(unittest.IsolatedAsyncioTestCase):
             await tools["capability_readiness"].run({"capability": "selected"})
         )
         self.assertTrue(before.artifact_prepared.value)
-        self.assertEqual(before.receipts[0].currency, "unknown")
+        self.assertEqual(before.receipts[0].currency, "published")
         self.assertIsNone(before.import_compatible.value)
         incompatible = preparation.ImportCheckResult(
             mode="dev", validated=True, compatible=False, cause="ValueError"
@@ -534,7 +535,7 @@ class ReadinessTests(unittest.IsolatedAsyncioTestCase):
         self.receipt()
         path = python_extension.stage_receipt("extension", os.environ, root=self.root)
         document = json.loads(path.read_text())
-        document["inputs"]["mode"] = {"invalid": "selection"}
+        document["mode"] = {"invalid": "selection"}
         path.write_text(json.dumps(document))
         original = path.read_bytes()
         result = observed(

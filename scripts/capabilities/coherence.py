@@ -1,11 +1,10 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""A bounded serving-source cut, distinct from current project/source facts.
+"""Loaded serving contracts and optional source-provenance diagnostics.
 
-Capture before importing operation bindings, verify after composition, and check
-only the common interpretation plus the selected operation's local dependency
-closure before dispatch. This is a restart fence, not a Python hot reloader or
-proof about arbitrary third-party/runtime dependencies.
+Construction captures the interface once. Serving-code edits require explicit
+drain/reload, including lazy imports; dispatch does not infer that lifecycle from
+filesystem scans.
 """
 
 from __future__ import annotations
@@ -66,7 +65,7 @@ class Interface:
                 paths.append(module.replace(".", "/") + ".py")
             # Fixed workers are executed by name in fresh children, not imported
             # into the serving process. Their modules and local imports still
-            # interpret the loaded contract and must share its restart fence.
+            # contribute provenance to the loaded contract.
             for call in spec.worker_calls:
                 paths.append(call.declaration.module.replace(".", "/") + ".py")
                 paths.extend(call.declaration.sources)
@@ -95,10 +94,20 @@ class Interface:
         }
 
     def require(self, capability: str | None = None) -> None:
-        status = self.status(capability)
-        if status["restart_required"]:
+        # Live in-memory tool metadata can change independently of the captured
+        # wire contract. This check concerns that contract, not source currency.
+        if (
+            capability in self.tools
+            and execution_basis.wire(self.tools[capability]) != self.wires[capability]
+        ):
             raise ToolError(
-                json.dumps({"code": "pse.capabilities.restart_required", **status})
+                json.dumps(
+                    {
+                        "code": "pse.capabilities.restart_required",
+                        "revision": self.revision,
+                        "changed_contract": capability,
+                    }
+                )
             )
 
 
@@ -112,8 +121,7 @@ class RestartMiddleware(Middleware):
         call_next: CallNext[CallToolRequestParams, ToolResult],
     ) -> ToolResult:
         name = context.message.name
-        # Bootstrap still describes the loaded snapshot and the restart cause.
-        # The invokers call canonical dispatch again, where the selected owner is fenced.
+        # The invokers call canonical dispatch again under the loaded contract.
         if name in self.interface.operations:
             self.interface.require(name)
             paths = self.interface.common | self.interface.operations[name]
@@ -131,15 +139,14 @@ class RestartMiddleware(Middleware):
 
 
 def install(server: FastMCP, sources: Sources, catalogue: Catalogue) -> Interface:
-    sources.verify_composition()
     interface = Interface(sources, catalogue)
     server.add_middleware(RestartMiddleware(interface))
     return interface
 
 
 # The server imports this module before its operation modules. Capture source
-# bytes once for this process; later build() calls cannot relabel old imports
-# with newly edited source. The launch owner performs a second composition check.
+# bytes once for provenance; later build() calls cannot relabel old imports
+# with newly edited source. Controlled editing owns explicit drain/reload.
 LOADED = Sources(
     Path(__file__).resolve().parents[2],
     (

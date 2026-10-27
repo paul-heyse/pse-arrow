@@ -389,7 +389,7 @@ PYTHON_EXTENSION_SUPPORT_INPUTS = (
     "scripts/native_operation.py",
     "scripts/producer-cargo",
     "scripts/producer_cargo.py",
-    "scripts/producing_currency.py",
+    "scripts/artifact_publication.py",
     "scripts/installed_artifact.py",
 )
 

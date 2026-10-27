@@ -151,8 +151,3 @@ class Sources:
                         self.changed.add(path)
             return tuple(sorted(self.changed.intersection(paths)))
 
-    def verify_composition(self) -> None:
-        if self.check(self.sources):
-            raise ValueError(
-                "Serving source changed while loading; restart the endpoint"
-            )

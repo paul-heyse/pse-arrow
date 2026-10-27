@@ -8,7 +8,6 @@ owned by Rust, the extension types are registered,
 belongs to this checkout.
 """
 
-import hashlib
 import json
 import os
 import subprocess
@@ -52,7 +51,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def pytest_sessionstart() -> None:
-    """Refuse an import origin different from the native wrapper's recorded binary."""
+    """Require the explicit correctness feature on the selected test extension."""
     features = compiled_features()
     if "force-validate" not in features:
         message = (
@@ -60,25 +59,6 @@ def pytest_sessionstart() -> None:
             "run just py-sync-correctness"
         )
         raise pytest.UsageError(message)
-    expected_features = os.environ.get("PSE_NATIVE_EXPECTED_FEATURES")
-    if expected_features is not None and features != json.loads(expected_features):
-        message = "native Python feature flags differ from wrapper capture"
-        raise pytest.UsageError(message)
-    expected = os.environ.get("PSE_NATIVE_EXPECTED_BINARY")
-    if expected is None:
-        return
-    module = sys.modules.get("pse._native")
-    actual = module.__file__ if module is not None else None
-    if actual is None or Path(actual).resolve() != Path(expected).resolve():
-        message = "native Python import differs from the binary recorded by the wrapper"
-        raise pytest.UsageError(message)
-    expected_hash = os.environ.get("PSE_NATIVE_EXPECTED_SHA256")
-    if expected_hash is not None:
-        with Path(actual).open("rb") as stream:
-            observed_hash = hashlib.file_digest(stream, "sha256").hexdigest()
-        if observed_hash != expected_hash:
-            message = "native Python binary changed after wrapper provenance capture"
-            raise pytest.UsageError(message)
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:

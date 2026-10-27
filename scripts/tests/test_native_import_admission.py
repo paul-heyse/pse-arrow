@@ -35,11 +35,10 @@ class NativeImportTests(unittest.TestCase):
                 mode="native",
                 profile="dev",
                 validated=True,
-                source_basis="selected-source",
+                generation="selected-generation",
                 artifact=artifact,
-                artifact_stamp=python_extension.artifact_stamp(artifact),
                 receipt_recorded=True,
-                cause="matching-inputs-and-artifact",
+                cause="published-compatible-artifact",
                 remedy="Explicit preparation only.",
             )
             with (

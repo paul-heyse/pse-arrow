@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Paul Heyse
 """Consume an owned extension requirement and the actual installed receipt selection.
 
-Selection reads no extension and prepares nothing. Currency/provider admission remains
-with python_extension; a consumer never guesses dev mode or an omitted build profile.
+Selection consumes the published constructor contract and prepares nothing. A consumer
+never guesses dev mode or an omitted build profile.
 """
 
 from __future__ import annotations
@@ -61,43 +61,15 @@ def selected_extension(
     if requirement_mode == "native_correctness":
         mode = "native"
     if mode is None or profile is None:
-        path = python_extension.stage_receipt("extension", environment, root=root)
-        if path.is_symlink() or not path.is_file():
-            raise ExtensionSelectionError("receipt_is_not_an_ordinary_owner_file")
-        previous = python_extension.read_receipt(path)
-        inputs = previous.get("inputs")
-        if not isinstance(inputs, dict):
-            raise ExtensionSelectionError("missing_recorded_selection")
-        recorded_mode = inputs.get("mode")
-        if recorded_mode == "dev":
-            installed_mode: python_extension.Mode = "dev"
-        elif recorded_mode == "native":
-            installed_mode = "native"
-        else:
-            raise ExtensionSelectionError("invalid_recorded_mode")
-        try:
-            installed_profile = python_extension.PROFILE.validate_python(
-                inputs.get("profile"), strict=True
-            )
-            artifact = python_extension.ExtensionArtifact.model_validate(
-                previous.get("artifact")
-            )
-        except ValueError:
-            raise ExtensionSelectionError(
-                "invalid_recorded_profile_or_artifact"
-            ) from None
-        recorded_validation = inputs.get("validated")
-        if type(recorded_validation) is not bool:
-            raise ExtensionSelectionError("invalid_recorded_validation")
-        native_features = "native-solvers" in artifact.features
-        if native_features != (installed_mode == "native"):
-            raise ExtensionSelectionError("recorded_mode_feature_mismatch")
-        if recorded_validation and "force-validate" not in artifact.features:
-            raise ExtensionSelectionError("recorded_validation_feature_mismatch")
+        published = python_extension.read_publication("extension", environment, root=root)
+        if published is None:
+            raise ExtensionSelectionError("missing_published_generation")
+        if requirement_mode == "native_correctness" and published.mode != "native":
+            raise ExtensionSelectionError("publication_incompatible_with_requested_mode")
         if mode is None:
-            mode = installed_mode
+            mode = published.mode
         if profile is None:
-            profile = installed_profile
+            profile = published.profile
     try:
         profile = python_extension.PROFILE.validate_python(profile, strict=True)
     except ValueError:
@@ -116,8 +88,7 @@ def extension_currency(
     if validated is not True:
         raise ExtensionSelectionError("owned_correctness_validation_required")
     selection = selected_extension(environment, requirement_mode, validated=validated)
-    # Pin this exact observed mode/profile for the owner's current-input/image check.
-    # In particular a native receipt never borrows dev's provider-free admission.
+    # Requested compatibility is distinct from construction validity.
     return python_extension.currency_check(
         environment,
         mode=selection.mode,

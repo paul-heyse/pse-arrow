@@ -59,7 +59,6 @@ def bindings(root: Path) -> tuple[tuple[Capability, ...], dict[str, Tool]]:
                 request,
                 explain=operation == "knowledge_explain",
                 state=Path(selected),
-                tool=root / "target/debug/pse-evidence",
                 root=root,
                 timeout=timeout,
             )

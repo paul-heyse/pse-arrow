@@ -21,6 +21,8 @@ from scripts.capabilities.native_read_protocol import (
     MAXIMUM_REQUEST_FRAME_BYTES,
     ReadRequest,
     ReadResponse,
+    SessionAdmission,
+    SESSION_ENVIRONMENT,
     SessionProtocolError,
     decode,
     encoded,
@@ -33,7 +35,6 @@ from scripts.capabilities.native_read_sessions import (
     page_basis,
 )
 from scripts.capabilities.workers import Worker
-from scripts.producing_currency import Witness
 
 if TYPE_CHECKING:
     from pydantic import JsonValue
@@ -154,70 +155,60 @@ class ProtocolTests(unittest.TestCase):
             page_basis(binding(), changed), page_basis(binding(), arguments("issued"))
         )
 
-    def test_fresh_handoff_verifies_request_and_caches_only_unchanged_scoped_source(
-        self,
-    ) -> None:
+    def test_fresh_handoff_checks_request_without_rehashing_sources(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            source = root / "owner.py"
-            source.write_text("value = 1\n")
+            original = request()
             worker = Worker("fixture.worker", frozenset({"fixture_read"}))
             with patch.dict(execution_basis.WORKERS, {"native-read": worker}):
-                original = request()
                 admitted = original.admission.model_copy(
                     update={
                         "definition": original.admission.definition.model_copy(
-                            update={
-                                "checkout": str(root),
-                                "sources": {
-                                    "owner.py": hashlib.sha256(
-                                        source.read_bytes()
-                                    ).hexdigest()
-                                },
-                            }
+                            update={"checkout": str(root), "sources": {"missing.py": "captured"}}
                         ),
                         "route_revision": execution_basis.route_revision("native-read"),
                     }
                 )
-                witness = Witness()
-                with patch("hashlib.file_digest", wraps=hashlib.file_digest) as hashed:
+                with patch("scripts.capabilities.source_basis.Sources.__init__", side_effect=AssertionError("source scan")):
                     execution_basis.verify_handoff(
-                        root,
-                        "native-read",
-                        original.operation,
-                        original.original_document(),
-                        admitted,
-                        witness=witness,
+                        root, "native-read", original.operation, original.original_document(), admitted
                     )
-                    execution_basis.verify_handoff(
-                        root,
-                        "native-read",
-                        original.operation,
-                        original.original_document(),
-                        admitted,
-                        witness=witness,
-                    )
-                    self.assertEqual(hashed.call_count, 1)
                     with self.assertRaises(execution_basis.AdmissionRefusedError):
                         execution_basis.verify_handoff(
-                            root,
-                            "native-read",
-                            original.operation,
-                            b"different request",
-                            admitted,
-                            witness=witness,
+                            root, "native-read", original.operation, b"different request", admitted
                         )
-                    source.write_text("value = 2\n")
-                    with self.assertRaises(execution_basis.AdmissionRefusedError):
-                        execution_basis.verify_handoff(
-                            root,
-                            "native-read",
-                            original.operation,
-                            original.original_document(),
-                            admitted,
-                            witness=witness,
-                        )
-                    self.assertEqual(hashed.call_count, 2)
+
+
+class SessionStartupTests(unittest.IsolatedAsyncioTestCase):
+    async def test_startup_publishes_captured_definition_without_rescanning(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original = request()
+            definition = original.admission.definition.model_copy(
+                update={"checkout": str(root), "sources": {"missing.py": "captured"}}
+            )
+            handoff = original.admission.model_copy(update={"definition": definition})
+            observed = []
+
+            async def spawn(*command: str, **options: object) -> object:
+                environment = options["env"]
+                assert isinstance(environment, dict)
+                path = Path(environment[SESSION_ENVIRONMENT])
+                observed.append(SessionAdmission.model_validate_json(path.read_bytes()))
+                return object()
+
+            session = ReadSession(root, "context")
+            with (
+                patch("scripts.capabilities.native_read_sessions.selected_worker_environment", return_value=[]),
+                patch("scripts.capabilities.native_read_sessions.asyncio.create_subprocess_exec", side_effect=spawn),
+                patch("scripts.capabilities.source_basis.Sources.__init__", side_effect=AssertionError("source scan")),
+            ):
+                try:
+                    await session._start(handoff)  # noqa: SLF001 -- exercise the construction boundary
+                    self.assertEqual(observed[0].definition, definition)
+                finally:
+                    session._process = None  # noqa: SLF001 -- fake process owns no operating-system lifetime
+                    await session.close()
 
 
 class FakeSession(ReadSession):

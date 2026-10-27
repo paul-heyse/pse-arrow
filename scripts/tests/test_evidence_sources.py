@@ -554,8 +554,7 @@ class EvidenceSourceTests(unittest.TestCase):
     def test_wrapper_offline_before_state_service_and_no_implicit_build(self) -> None:
         handle = test_resources.invocation("python", [{"name": "suite::missing"}])
 
-        def run(tool: Path, arguments: list[str], *, deadline: float) -> int:
-            self.assertEqual(tool, evidence_store.ROOT / "target/debug/pse-evidence")
+        def run(arguments: list[str], *, deadline: float) -> int:
             self.assertGreater(deadline, 0)
             source = Path(arguments[arguments.index("--input") + 1])
             self.assertEqual(
@@ -580,46 +579,6 @@ class EvidenceSourceTests(unittest.TestCase):
                     ]
                 ),
                 0,
-            )
-        # An actual tiny supplied executable proves Python dispatch has no service or build.
-        tool = self.root / "explicit-tool"
-        tool.write_text(
-            f'#!{sys.executable}\nimport sys\nassert sys.argv[1:3] == ["evidence", "offline"]\n'
-        )
-        tool.chmod(0o700)
-        with patch.object(
-            evidence_store.surreal_server,
-            "tooling_activity",
-            side_effect=AssertionError("service"),
-        ):
-            self.assertEqual(
-                evidence_store.main(
-                    [
-                        "--tool",
-                        str(tool),
-                        "offline",
-                        "--invocation",
-                        str(handle),
-                        "--registry",
-                        str(self.registry),
-                    ]
-                ),
-                0,
-            )
-        with contextlib.redirect_stderr(io.StringIO()):
-            self.assertEqual(
-                evidence_store.main(
-                    [
-                        "--tool",
-                        str(self.root / "absent"),
-                        "offline",
-                        "--invocation",
-                        str(handle),
-                        "--registry",
-                        str(self.registry),
-                    ]
-                ),
-                1,
             )
 
 

@@ -31,7 +31,6 @@ from scripts.capabilities.native_read_protocol import (
     operation_document,
     receive,
 )
-from scripts.capabilities.source_basis import Sources
 from scripts.capabilities.workers import WORKERS, selected_worker_environment
 from scripts.telemetry_process import helper_environment
 
@@ -138,22 +137,6 @@ class ReadSession:
         )
         self._temporary = tempfile.TemporaryDirectory(prefix="pse-native-read-session-")
         directory = Path(self._temporary.name)
-        # Capture the actual fixed route and its local import closure once per worker.
-        sources = Sources(
-            self.root,
-            (
-                declaration.module.replace(".", "/") + ".py",
-                *declaration.sources,
-                *handoff.definition.sources,
-            ),
-        )
-        definition = handoff.definition.model_copy(
-            update={
-                "sources": {
-                    name: source.digest for name, source in sources.sources.items()
-                }
-            }
-        )
         admission = SessionAdmission(
             incarnation=self.incarnation,
             checkout=str(self.root),
@@ -161,7 +144,7 @@ class ReadSession:
                 "Literal['native-read', 'native-read-prepared']", handoff.worker
             ),
             route_revision=execution_basis.route_revision(handoff.worker),
-            definition=definition,
+            definition=handoff.definition,
         )
         source = directory / "session.json"
         with source.open("xb") as stream:

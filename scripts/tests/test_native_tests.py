@@ -1761,8 +1761,7 @@ class ManagedPythonRouteTests(unittest.TestCase):
             self.assertNotIn("--managed-primary-route", command)
             environment = run.call_args.kwargs["env"]
             self.assertEqual(environment["PSE_TEST_ENUMERATION"], str(selected))
-            self.assertEqual(environment["PSE_NATIVE_EXPECTED_BINARY"], str(binary))
-            self.assertEqual(environment["PSE_NATIVE_EXPECTED_SHA256"], "actual-digest")
+            self.assertEqual(environment["_PSE_NATIVE_PUBLISHED_IMAGE"], str(binary))
             self.assertEqual(
                 json.loads((Path(directory) / "native.json").read_text())["files"],
                 {str(binary): "actual-digest"},

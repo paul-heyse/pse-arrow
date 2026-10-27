@@ -73,7 +73,6 @@ def execute(
         with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as output:
             try:
                 code = evidence_store.run_offline(
-                    root / "target/debug/pse-evidence",
                     command_arguments,
                     deadline=deadline,
                     operation="compare-offline",

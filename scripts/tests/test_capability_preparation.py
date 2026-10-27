@@ -48,7 +48,7 @@ class PreparationTests(unittest.IsolatedAsyncioTestCase):
             profile="dev",
             validated=True,
             receipt_recorded=True,
-            cause="unsupported-inputs-or-providers",
+            cause="incompatible-publication",
             remedy="Explicitly prepare, reattach and check again.",
         )
         with patch.object(
@@ -79,7 +79,7 @@ class PreparationTests(unittest.IsolatedAsyncioTestCase):
             mode="dev",
             profile="producer",
             validated=False,
-            cause="missing-preparation-evidence",
+            cause="missing-publication",
             remedy="Explicitly prepare.",
         )
         stages = []
@@ -238,7 +238,7 @@ class PreparationWorkerTests(unittest.TestCase):
                 {"UV_PROJECT_ENVIRONMENT": "/foreign", "VIRTUAL_ENV": "/foreign"},
             ),
             patch.object(
-                python_extension, "capture", side_effect=ValueError("refused")
+                python_extension, "admit_import", side_effect=ValueError("refused")
             ) as capture,
         ):
             preparation_worker.invoke(
@@ -349,7 +349,7 @@ class PreparationWorkerTests(unittest.TestCase):
         stages = []
         with (
             patch.object(
-                python_extension, "capture", side_effect=ValueError("private failure")
+                python_extension, "admit_import", side_effect=ValueError("private failure")
             ) as capture,
             patch.object(python_extension, "run_stages") as prepare,
         ):
@@ -379,7 +379,7 @@ class PreparationWorkerTests(unittest.TestCase):
     ) -> None:
         artifact = {"binary": "/selected/native.so", "sha256": "actual", "features": []}
         with patch.object(
-            python_extension, "capture", return_value=artifact
+            python_extension, "admit_import", return_value=artifact
         ) as capture:
             actual = preparation.ImportCheckResult.model_validate(
                 preparation_worker.invoke(

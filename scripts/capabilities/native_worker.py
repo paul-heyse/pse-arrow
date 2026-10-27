@@ -404,15 +404,18 @@ def execute(
                     "code": "pse.native.artifact_not_current",
                     "currency": current.model_dump(mode="json"),
                 }
-            if (
-                "pse._native" in sys.modules
-                or current.artifact is None
-                or current.artifact_stamp is None
-            ):
+            from scripts.capabilities.native_read_image import (  # noqa: PLC0415
+                LoadedReadImage,
+                ReadImageChangedError,
+            )
+
+            try:
+                LoadedReadImage.admit(current).attach()
+            except ReadImageChangedError:
                 return {
                     "outcome": "stale_interface",
                     "code": "pse.native.unbound_loaded_artifact",
-                    "remedy": "Use a fresh native worker after explicit preparation; no native receiver was entered.",
+                    "remedy": "Drain the original owner and attach a fresh worker; no receiver was entered.",
                 }
     import pse  # noqa: PLC0415 -- selected owner loads only at this boundary
     from pse import (  # noqa: PLC0415 -- selected owner loads only at this boundary
@@ -423,25 +426,6 @@ def execute(
         documents as contracts,
     )
 
-    if current is not None:
-        loaded = sys.modules.get("pse._native")
-        try:
-            unchanged = (
-                current.artifact is not None
-                and loaded is not None
-                and Path(str(getattr(loaded, "__file__", ""))).resolve()
-                == Path(current.artifact.binary)
-                and python_extension.artifact_stamp(current.artifact)
-                == current.artifact_stamp
-            )
-        except (OSError, ValueError):
-            unchanged = False
-        if not unchanged:
-            return {
-                "outcome": "stale_interface",
-                "code": "pse.native.artifact_changed_during_import",
-                "remedy": "Let explicit preparation settle, then use a fresh worker; no native receiver was entered.",
-            }
     if fingerprint != pse.SCHEMA_SET_FINGERPRINT:
         return {
             "outcome": "stale_interface",
@@ -455,14 +439,17 @@ def execute(
 
     if (
         os.environ.get("PSE_CAPABILITY_ADMISSION") or context is not None
-    ) and JSON_OBJECT.validate_json(
-        codec.encode_json(pse.host_operation_catalogue())
-    ) != host.native_catalogue():
-        return {
-            "outcome": "stale_interface",
-            "code": "pse.native.operation_catalogue_mismatch",
-            "remedy": "Prepare the compatible native extension and reattach the endpoint; no receiver was entered.",
-        }
+    ) and (context is None or not context.interface_compatible):
+        if JSON_OBJECT.validate_json(
+            codec.encode_json(pse.host_operation_catalogue())
+        ) != host.native_catalogue():
+            return {
+                "outcome": "stale_interface",
+                "code": "pse.native.operation_catalogue_mismatch",
+                "remedy": "Select a compatible publication and reattach the endpoint; no receiver was entered.",
+            }
+        if context is not None:
+            context.interface_compatible = True
     activate_native()
     physical_packages: list[dict[str, bytes]] = []
     packages: list[dict[str, bytes]] = []

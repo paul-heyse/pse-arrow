@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Actual canonical source fences protect direct, projected and fixed reads."""
+"""Loaded contracts serve direct, projected and fixed reads without source scans."""
 # ruff: noqa: PT009, PT027
 
 from __future__ import annotations
@@ -10,7 +10,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastmcp import Client
-from mcp import MCPError
 
 from scripts import telemetry_selection
 from scripts.capabilities import server
@@ -20,11 +19,10 @@ from scripts.telemetry_selection import SelectionPage, SelectionReference
 ROOT = Path(__file__).resolve().parents[2]
 
 
-class ActualTelemetryFenceTests(unittest.IsolatedAsyncioTestCase):
-    async def check_fence(self, changed_source: str) -> None:
+class ActualTelemetryContractTests(unittest.IsolatedAsyncioTestCase):
+    async def check_loaded_dispatch(self, changed_source: str) -> None:
         runtime = server.build(ROOT)
-        # Isolate the sticky changed-generation account from other tests and the
-        # module's loaded snapshot. The actual handlers retain this same Interface.
+        # Preserve the loaded provenance while forbidding implicit source scans.
         cut = Sources(ROOT, runtime.interface.sources.sources)
         runtime.interface.sources = cut
         self.assertIn(
@@ -49,12 +47,6 @@ class ActualTelemetryFenceTests(unittest.IsolatedAsyncioTestCase):
         )
         arguments = {"reference": reference.model_dump(mode="json"), "limit": 2}
         uri = f"pse://telemetry/selection/{telemetry_selection.resource_reference(reference)}/0/2"
-        original = cut._read_optional  # noqa: SLF001 -- inject serving generation drift without editing actual sources
-
-        def changed(path: str) -> bytes | None:
-            raw = original(path)
-            return (raw or b"") + b"\n " if path == changed_source else raw
-
         with patch.object(telemetry_selection, "page", return_value=page) as owner:
             async with Client(runtime.server) as client:
                 await client.call_tool(
@@ -71,7 +63,7 @@ class ActualTelemetryFenceTests(unittest.IsolatedAsyncioTestCase):
                     (await client.call_tool("read_resource", {"uri": uri})).is_error
                 )
                 owner.reset_mock()
-                with patch.object(cut, "_read_optional", side_effect=changed):
+                with patch.object(cut, "check", side_effect=AssertionError("source scan")):
                     direct = await client.call_tool(
                         "telemetry_selection_read", arguments, raise_on_error=False
                     )
@@ -86,25 +78,22 @@ class ActualTelemetryFenceTests(unittest.IsolatedAsyncioTestCase):
                     projected = await client.call_tool(
                         "read_resource", {"uri": uri}, raise_on_error=False
                     )
-                    with self.assertRaises(MCPError):
-                        await client.read_resource(uri)
-                self.assertTrue(direct.is_error)
-                self.assertTrue(fixed.is_error)
-                self.assertTrue(projected.is_error)
-                self.assertIn("restart_required", str(direct.content))
-                self.assertIn("restart_required", str(fixed.content))
-                owner.assert_not_called()
+                    await client.read_resource(uri)
+                self.assertFalse(direct.is_error)
+                self.assertFalse(fixed.is_error)
+                self.assertFalse(projected.is_error)
+                self.assertEqual(owner.call_count, 4)
 
-    async def test_changed_selection_owner_refuses_before_every_dispatch_path(
+    async def test_selection_dispatch_uses_loaded_contract_on_every_path(
         self,
     ) -> None:
-        await self.check_fence("scripts/telemetry_selection.py")
+        await self.check_loaded_dispatch("scripts/telemetry_selection.py")
 
-    async def test_changed_metric_declaration_generation_refuses_resources_too(
+    async def test_loaded_metric_declaration_provenance_includes_resources(
         self,
     ) -> None:
         self.assertTrue((ROOT / METRIC_DECLARATIONS).is_file())
-        await self.check_fence(METRIC_DECLARATIONS)
+        await self.check_loaded_dispatch(METRIC_DECLARATIONS)
 
 
 if __name__ == "__main__":

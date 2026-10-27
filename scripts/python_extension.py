@@ -22,122 +22,9 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
 
-from scripts import arrow_validation, producing_currency
+from scripts import arrow_validation, artifact_publication
 
 ROOT = Path(__file__).resolve().parents[1]
-PRODUCING_WITNESS = producing_currency.Witness()
-
-# Positive compiler/installer selectors supplement actual dep-info and build
-# directives, including newly introduced values in these supported namespaces.
-PRODUCING_ENVIRONMENT_PREFIXES = (
-    "PYO3_",
-    "BINDGEN_",
-    "PKG_CONFIG_",
-    "CMAKE_",
-)
-PRODUCING_ENVIRONMENT = (
-    "PATH",
-    "HOME",
-    "TMPDIR",
-    "TEMP",
-    "TMP",
-    "LD_LIBRARY_PATH",
-    "LIBRARY_PATH",
-    "CPATH",
-    "C_INCLUDE_PATH",
-    "CPLUS_INCLUDE_PATH",
-    "PYTHONPATH",
-    "PYTHONHOME",
-    "PYTHONNOUSERSITE",
-    "PYTHONUSERBASE",
-    "PYTHONSAFEPATH",
-    "PYTHONPLATLIBDIR",
-    "PYTHON_SYS_EXECUTABLE",
-    "_PYTHON_SYSCONFIGDATA_NAME",
-    "_PYTHON_SYSCONFIGDATA_PATH",
-    "_PYTHON_HOST_PLATFORM",
-    "_PYTHON_PROJECT_BASE",
-    "CARGO",
-    "CARGO_HOME",
-    "CARGO_TARGET_DIR",
-    "CARGO_INCREMENTAL",
-    "RUSTC",
-    "RUSTC_WRAPPER",
-    "RUSTC_WORKSPACE_WRAPPER",
-    "RUSTFLAGS",
-    "CARGO_ENCODED_RUSTFLAGS",
-    "RUSTDOC",
-    "RUSTDOCFLAGS",
-    "CARGO_ENCODED_RUSTDOCFLAGS",
-    "RUSTC_BOOTSTRAP",
-    "RUSTUP_TOOLCHAIN",
-    "RUSTUP_HOME",
-    "RUSTUP_OVERRIDE_HOST_TRIPLE",
-    "CARGO_BUILD_WARNINGS",
-    "CARGO_BUILD_JOBS",
-    "CARGO_BUILD_RUSTC",
-    "CARGO_BUILD_RUSTC_WRAPPER",
-    "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER",
-    "CARGO_BUILD_RUSTDOC",
-    "CARGO_BUILD_TARGET",
-    "CARGO_BUILD_TARGET_DIR",
-    "CARGO_BUILD_BUILD_DIR",
-    "CARGO_BUILD_RUSTFLAGS",
-    "CARGO_BUILD_RUSTDOCFLAGS",
-    "CARGO_BUILD_INCREMENTAL",
-    "CARGO_BUILD_DEP_INFO_BASEDIR",
-    "CARGO_RESOLVER_LOCKFILE_PATH",
-    "CC",
-    "CXX",
-    "FC",
-    "AR",
-    "RANLIB",
-    "CFLAGS",
-    "CXXFLAGS",
-    "CPPFLAGS",
-    "LDFLAGS",
-    "SOURCE_DATE_EPOCH",
-    "TZ",
-    "LIBCLANG_PATH",
-    "CLANG_PATH",
-    "LLVM_CONFIG_PATH",
-    "COMPILER_PATH",
-    "GCC_EXEC_PREFIX",
-    "IPOPT_DIR",
-    "SCIPOPTDIR",
-    "UNO_DIR",
-    "PETSC_DIR",
-    "SUITESPARSE_INCLUDE_DIR",
-    "SUITESPARSE_LIBRARY_DIR",
-    "PSE_KLU_PROVIDER_RECEIPT",
-    "PSE_ROOT_ISOLATION_DIR",
-    "PSE_SCCACHE_BINARY",
-    "PSE_NATIVE_COMPILER_CACHE",
-    "PSE_LLVM_PREFIX",
-    "SCCACHE_CONF",
-)
-# The fixed pure evidence target has no solver/provider or optional bindgen/CMake
-# composition. These are supplemental inputs only for extension/native preparation;
-# actual Cargo-declared reads below remain authoritative for every target.
-# LD_LIBRARY_PATH remains a tracked compiler selector; the evidence owner instead
-# prevents its consumption by removing it from both compiler and executable envs.
-EVIDENCE_RUNTIME_ENVIRONMENT = frozenset(
-    {
-        "IPOPT_DIR",
-        "SCIPOPTDIR",
-        "UNO_DIR",
-        "PETSC_DIR",
-        "SUITESPARSE_INCLUDE_DIR",
-        "SUITESPARSE_LIBRARY_DIR",
-        "PSE_KLU_PROVIDER_RECEIPT",
-        "PSE_ROOT_ISOLATION_DIR",
-        "PSE_NATIVE_COMPILER_CACHE",
-    }
-)
-PRODUCING_CARGO_SELECTOR = re.compile(
-    r"CARGO_TARGET_[A-Z0-9_]+_(?:LINKER|RUSTFLAGS|RUSTDOCFLAGS)"
-    r"|CARGO_PROFILE_[A-Z0-9_]+_(?:BUILD_OVERRIDE_)?(?:CODEGEN_UNITS|DEBUG|DEBUG_ASSERTIONS|INCREMENTAL|LTO|OVERFLOW_CHECKS|OPT_LEVEL|PANIC|RPATH|SPLIT_DEBUGINFO|STRIP)"
-)
 
 
 class ExtensionContract(BaseModel):
@@ -146,132 +33,30 @@ class ExtensionContract(BaseModel):
     )
 
 
-class ExtensionArtifact(ExtensionContract):
-    """Host-observed imported artifact identity, not a scientific package schema."""
-
-    binary: str
-    sha256: str
-    features: list[str]
-
+ExtensionArtifact = artifact_publication.Artifact
 
 Stage = Literal["environment", "prepare", "stubs", "stubs-check", "admit"]
-Mode = Literal["dev", "native"]
-Profile = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")]
+Mode = artifact_publication.Mode
+Profile = artifact_publication.Profile
 PROFILE = TypeAdapter(Profile)
 
 
-class ExtensionInputChanges(ExtensionContract):
-    """Bounded input KEY names only; no recorded values or value digests."""
-
-    sections: Annotated[tuple[str, ...], Field(max_length=16)]
-    source_keys: Annotated[tuple[str, ...], Field(max_length=32)] = ()
-    configuration_keys: Annotated[tuple[str, ...], Field(max_length=32)] = ()
-    environment_keys: Annotated[tuple[str, ...], Field(max_length=32)] = ()
-    complete: bool
-
-
-def changed_inputs(
-    previous: dict[str, object], current: dict[str, object]
-) -> ExtensionInputChanges:
-    """Explain an unequal owner input snapshot without exposing opaque values."""
-    sections = sorted(
-        name
-        for name in previous.keys() | current.keys()
-        if name not in previous
-        or name not in current
-        or previous[name] != current[name]
-    )
-    complete = len(sections) <= 16
-    known_sections = {
-        "schema",
-        "stage",
-        "mode",
-        "profile",
-        "validated",
-        "files",
-        "environment",
-        "configuration",
-        "interpreter",
-        "tools",
-        "generations",
-        "compiler",
-    }
-    section_names = tuple(name for name in sections if name in known_sections)[:16]
-    complete = complete and len(section_names) == len(sections)
-
-    def keys(section: str, *, paths: bool = False) -> tuple[str, ...]:
-        nonlocal complete
-        before, after = previous.get(section, {}), current.get(section, {})
-        if not isinstance(before, dict) or not isinstance(after, dict):
-            complete = False
-            return ()
-        names = []
-        for key in sorted(before.keys() | after.keys()):
-            if key in before and key in after and before[key] == after[key]:
-                continue
-            if not isinstance(key, str):
-                complete = False
-                continue
-            name = key
-            if paths:
-                path = Path(name)
-                if path.is_absolute():
-                    try:
-                        path = path.relative_to(ROOT)
-                    except ValueError:
-                        complete = False
-                        continue
-                name = path.as_posix()
-                if (
-                    ".." in path.parts
-                    or name.startswith("resolved:")
-                    or not re.fullmatch(r"[A-Za-z0-9_./:-]{1,256}", name)
-                ):
-                    complete = False
-                    continue
-            elif not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", name):
-                complete = False
-                continue
-            names.append(name)
-        if len(names) > 32:
-            complete = False
-        return tuple(names[:32])
-
-    source_keys = keys("files", paths=True)
-    configuration_keys = keys("configuration", paths=True)
-    environment_keys = keys("environment")
-    return ExtensionInputChanges(
-        sections=section_names,
-        source_keys=source_keys,
-        configuration_keys=configuration_keys,
-        environment_keys=environment_keys,
-        complete=complete,
-    )
-
-
 class ExtensionCurrency(ExtensionContract):
-    """Redacted admission-time correspondence, separate from import compatibility."""
+    """Issued artifact compatibility, without source or image revalidation."""
 
-    state: Literal["current", "stale", "unknown", "unsupported"]
+    state: Literal["current", "unknown", "unsupported"]
     checkout: str
     interpreter: str
     mode: Mode
     profile: str | None
     validated: bool
-    source_basis: str | None = None
-    input_changes: ExtensionInputChanges | None = None
+    generation: str | None = None
     artifact: ExtensionArtifact | None = None
-    artifact_stamp: tuple[int, int, int, int, int] | None = None
     receipt_recorded: bool = False
     cause: Literal[
-        "matching-inputs-and-artifact",
-        "missing-preparation-evidence",
-        "unsupported-preparation-evidence",
-        "unsupported-inputs-or-providers",
-        "inputs-unavailable",
-        "inputs-changed",
-        "import-unavailable",
-        "artifact-changed",
+        "published-compatible-artifact",
+        "missing-publication",
+        "incompatible-publication",
         "not-selected",
         "check-unavailable",
     ]
@@ -280,13 +65,13 @@ class ExtensionCurrency(ExtensionContract):
     @model_validator(mode="after")
     def established_current(self) -> ExtensionCurrency:
         if self.state == "current" and (
-            self.source_basis is None
+            self.generation is None
             or self.artifact is None
             or self.profile is None
             or not self.receipt_recorded
-            or self.cause != "matching-inputs-and-artifact"
+            or self.cause != "published-compatible-artifact"
         ):
-            raise ValueError("current currency requires source and artifact evidence")
+            raise ValueError("current selection requires an issued artifact contract")
         return self
 
 
@@ -514,10 +299,13 @@ def maturin(command: Sequence[str]) -> int:
     return subprocess.call(selected, cwd=ROOT)
 
 
-def capture(
-    environment: Mapping[str, str], *, validated: bool = True, native: bool = False
-) -> dict[str, object]:
-    """Bind Rust cfg flags to the imported checkout path and observed binary bytes."""
+def _capture_candidate_features(
+    environment: Mapping[str, str], candidate: Path, *, validated: bool, native: bool
+) -> list[str]:
+    """Observe compiled features once from the constructor's exact private candidate."""
+    selected = dict(environment)
+    selected.pop("_PSE_NATIVE_PUBLISHED_IMAGE", None)
+    selected["_PSE_NATIVE_PUBLISHED_IMAGE"] = str(candidate.absolute())
     program = (
         "import json, sys, pse\n"
         "from pse._build import compiled_features\n"
@@ -526,62 +314,59 @@ def capture(
         "'features': compiled_features()}))\n"
     )
     try:
-        imported = json.loads(
-            subprocess.check_output(
-                [str(interpreter(environment)), "-c", program],
-                cwd=ROOT,
-                env=environment,
-                text=True,
-            )
-        )
+        imported = json.loads(subprocess.check_output(
+            [str(interpreter(environment)), "-c", program], cwd=ROOT, env=selected, text=True
+        ))
     except (subprocess.CalledProcessError, json.JSONDecodeError) as error:
-        raise ValueError(
-            "cannot inspect compiled extension features; rebuild with just py-sync-correctness"
-        ) from error
+        raise ValueError("cannot inspect the constructed extension candidate") from error
     if not isinstance(imported, dict):
-        raise TypeError("invalid compiled extension report")
-    package, binary, features = (
-        imported.get("package"),
-        imported.get("native"),
-        imported.get("features"),
-    )
-    if not isinstance(package, str) or not isinstance(binary, str):
-        raise TypeError("invalid compiled extension import paths")
-    if imported.get("prefix") != str(interpreter(environment).parent.parent):
-        raise ValueError("native Python import belongs to a different environment")
-    package_path, binary_path = Path(package).resolve(), Path(binary).resolve()
-    expected = (ROOT / "python/pse").resolve()
-    if package_path != expected / "__init__.py" or binary_path.parent != expected:
-        raise ValueError("native Python import belongs to a different checkout")
+        raise TypeError("invalid constructed extension report")
     if (
-        not isinstance(features, list)
-        or any(not isinstance(feature, str) for feature in features)
-        or len(features) != len(set(features))
+        imported.get("prefix") != str(interpreter(environment).parent.parent)
+        or imported.get("package") != str(ROOT / "python/pse/__init__.py")
+        or imported.get("native") != str(candidate.absolute())
     ):
-        raise ValueError("invalid compiled extension feature flags")
+        raise ValueError("constructed extension loaded a different image or interpreter")
+    features = imported.get("features")
+    if not isinstance(features, list) or any(not isinstance(item, str) for item in features) or len(features) != len(set(features)):
+        raise ValueError("invalid constructed extension feature flags")
     if validated and "force-validate" not in features:
-        raise ValueError(
-            "Python correctness requires a force-validated extension; run just py-sync-correctness"
-        )
-    if native and "native-solvers" not in features:
-        raise ValueError(
-            "native Python correctness requires the linked extension; run just py-sync-correctness native"
-        )
-    with binary_path.open("rb") as stream:
-        digest = hashlib.file_digest(stream, "sha256").hexdigest()
-    return {"binary": str(binary_path), "sha256": digest, "features": features}
+        raise ValueError("Python correctness requires a force-validated extension")
+    if native != ("native-solvers" in features):
+        raise ValueError("constructed extension mode does not match native solver features")
+    return features
+
+
+def capture(
+    environment: Mapping[str, str], *, validated: bool = True, native: bool = False
+) -> dict[str, object]:
+    """Project the constructor's issued artifact; do not import or verify it again."""
+    publication = read_publication("extension", environment)
+    mode: Mode = "native" if native else publication.mode if publication else "dev"
+    current = currency_check_installed(environment, mode=mode, validated=validated)
+    if current.state != "current" or current.artifact is None:
+        raise ValueError("no compatible published extension; explicitly prepare the requested contract")
+    return current.artifact.model_dump()
+
+
+def admit_import(
+    environment: Mapping[str, str], *, validated: bool = True, native: bool = False
+) -> dict[str, object]:
+    """Perform an explicitly requested import in the caller's selected environment."""
+    artifact = capture(environment, validated=validated, native=native)
+    subprocess.check_call(
+        [str(interpreter(environment)), "-c", "import pse"],
+        cwd=ROOT,
+        env=execution_environment(environment, artifact),
+    )
+    return artifact
 
 
 def execution_environment(
     environment: Mapping[str, str], artifact: Mapping[str, object]
 ) -> dict[str, str]:
-    """Carry observations to pytest, which independently verifies its own import."""
-    return {
-        **environment,
-        "PSE_NATIVE_EXPECTED_BINARY": str(artifact["binary"]),
-        "PSE_NATIVE_EXPECTED_SHA256": str(artifact["sha256"]),
-        "PSE_NATIVE_EXPECTED_FEATURES": json.dumps(artifact["features"]),
-    }
+    """Attach a child to the exact generation selected by its artifact owner."""
+    return {**environment, "_PSE_NATIVE_PUBLISHED_IMAGE": str(artifact["binary"])}
 
 
 def develop_command(
@@ -728,7 +513,7 @@ def preparation_inputs(
     *,
     validated: bool,
 ) -> dict[str, object] | None:
-    """Known ordinary editable inputs; unknown native providers always prepare.
+    """Independent stub-generator inputs; ordinary artifact validity does not use this.
 
     Managed providers have already been admitted and sealed by pse-env. Consume
     that owner here rather than rescanning native installation trees.
@@ -869,19 +654,18 @@ def read_receipt(path: Path) -> dict[str, object]:
         return {}
 
 
-def artifact_stamp(artifact: ExtensionArtifact) -> tuple[int, int, int, int, int]:
-    """Observe the selected ordinary binary's import-window mutation witness."""
-    path = Path(artifact.binary)
-    if path.is_symlink() or not path.is_file():
-        raise ValueError("prepared native artifact is not an ordinary file")
-    value = path.stat()
-    return (
-        value.st_dev,
-        value.st_ino,
-        value.st_size,
-        value.st_mtime_ns,
-        value.st_ctime_ns,
-    )
+def publication_path(
+    stage: str, environment: Mapping[str, str], *, root: Path | None = None
+) -> Path:
+    if stage == "extension" and environment.get("_PSE_NATIVE_PUBLICATION"):
+        return Path(environment["_PSE_NATIVE_PUBLICATION"])
+    return stage_receipt(stage, environment, root=root)
+
+
+def read_publication(
+    stage: str, environment: Mapping[str, str], *, root: Path | None = None
+) -> artifact_publication.Publication | None:
+    return artifact_publication.read(publication_path(stage, environment, root=root))
 
 
 def currency_check(
@@ -891,141 +675,57 @@ def currency_check(
     profile: str = "dev",
     validated: bool = True,
 ) -> ExtensionCurrency:
-    """Inspect existing preparation and actual import; never prepare or repair.
-
-    Native providers must already have been admitted by their original operation
-    owner. A source-only caller cannot establish that prerequisite by importing.
-    No result is cached: callers may carry it only within their admitted operation.
-    """
-    remedy = (
-        "Explicitly select python_extension_" + mode + "_stage with stage=prepare, "
-        f"profile={profile} and validated={str(validated).lower()} in the selected "
-        "checkout/environment; then restart or reattach and check again. "
-        "Preparation does not update a running endpoint or replay effects."
-    )
+    """Select an issued generation and check the requested distinct compatibility."""
+    publication = read_publication("extension", environment)
     base: dict[str, object] = {
-        "checkout": str(ROOT.resolve()),
+        "checkout": str(ROOT.absolute()),
         "interpreter": str(interpreter(environment).absolute()),
         "mode": mode,
         "profile": profile,
         "validated": validated,
-        "remedy": remedy,
+        "remedy": "Explicitly prepare the requested extension contract, then restart or reattach; existing readers retain their issued generation.",
     }
-
-    def observed(state: str, cause: str, **facts: object) -> ExtensionCurrency:
+    if publication is None:
         return ExtensionCurrency.model_validate(
-            {**base, "state": state, "cause": cause, **facts}
+            {**base, "state": "unknown", "cause": "missing-publication"}
         )
-
-    previous = read_receipt(stage_receipt("extension", environment))
-    if not previous:
-        return observed("unknown", "missing-preparation-evidence")
-    inputs = previous.get("inputs")
-    try:
-        recorded = ExtensionArtifact.model_validate(previous.get("artifact"))
-    except ValueError:
-        return observed("unknown", "missing-preparation-evidence")
-    if not isinstance(inputs, dict) or inputs.get("schema") not in {
-        "ordinary-editable-inputs-v1",
-        "producing-cargo-inputs-v1",
-    }:
-        return observed(
-            "unsupported", "unsupported-preparation-evidence", receipt_recorded=True
-        )
-    try:
-        if inputs.get("schema") == "producing-cargo-inputs-v1":
-            producing = previous.get("producing")
-            if (
-                not isinstance(producing, dict)
-                or not isinstance(producing.get("selection"), dict)
-                or not isinstance(producing.get("association"), dict)
-            ):
-                return observed(
-                    "unsupported",
-                    "unsupported-preparation-evidence",
-                    receipt_recorded=True,
-                )
-            current = producing_inputs(
-                producing["selection"],
-                environment,
-                mode=mode,
-                profile=profile,
-                validated=validated,
-            )
-        else:
-            current = preparation_inputs(
-                "python-extension", mode, profile, environment, validated=validated
-            )
-    except (OSError, ValueError, TypeError, subprocess.SubprocessError):
-        return observed("unknown", "inputs-unavailable", receipt_recorded=True)
-    if current is None:
-        return observed(
-            "unsupported", "unsupported-inputs-or-providers", receipt_recorded=True
-        )
-    basis = hashlib.sha256(
-        json.dumps(current, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
-    facts: dict[str, object] = {"source_basis": basis, "receipt_recorded": True}
-    if inputs != current:
-        return observed(
-            "stale",
-            "inputs-changed",
-            input_changes=changed_inputs(inputs, current),
-            **facts,
-        )
-    try:
-        before = artifact_stamp(recorded)
-        if inputs.get("schema") == "producing-cargo-inputs-v1":
-            identity = PRODUCING_WITNESS.file(Path(recorded.binary))
-            if (
-                Path(recorded.binary).parent != (ROOT / "python/pse").resolve()
-                or identity["sha256"] != recorded.sha256
-                or (validated and "force-validate" not in recorded.features)
-                or (mode == "native" and "native-solvers" not in recorded.features)
-            ):
-                return observed("stale", "artifact-changed", **facts)
-            artifact = recorded
-        else:
-            artifact = ExtensionArtifact.model_validate(
-                capture(environment, validated=validated, native=mode == "native")
-            )
-        after = artifact_stamp(artifact)
-    except (OSError, ValueError, TypeError, subprocess.SubprocessError):
-        return observed("unknown", "import-unavailable", **facts)
-    facts["artifact"] = artifact
-    facts["artifact_stamp"] = after
-    if artifact != recorded or before != after:
-        return observed("stale", "artifact-changed", **facts)
-    return observed("current", "matching-inputs-and-artifact", **facts)
+    features = publication.artifact.features
+    compatible = (
+        publication.kind == "extension"
+        and publication.mode == mode
+        and publication.profile == profile
+        and publication.interpreter == base["interpreter"]
+        and (not validated or (publication.validated and "force-validate" in features))
+        and (mode != "native" or "native-solvers" in features)
+    )
+    return ExtensionCurrency.model_validate(
+        {
+            **base,
+            "state": "current" if compatible else "unsupported",
+            "cause": "published-compatible-artifact" if compatible else "incompatible-publication",
+            "receipt_recorded": True,
+            "generation": publication.generation,
+            "artifact": publication.artifact,
+        }
+    )
 
 
 def currency_check_installed(
     environment: Mapping[str, str], *, mode: Mode, validated: bool = True
 ) -> ExtensionCurrency:
-    """Use only the installed preparation owner's explicit supported profile.
-
-    Execution requirements select mode and validation, not an invented build
-    profile. A missing or malformed recorded selection cannot establish currency.
-    """
-    previous = read_receipt(stage_receipt("extension", environment))
-    inputs = previous.get("inputs")
-    try:
-        profile = PROFILE.validate_python(
-            inputs.get("profile") if isinstance(inputs, dict) else None,
-            strict=True,
-        )
-    except ValueError:
+    publication = read_publication("extension", environment)
+    if publication is None:
         return ExtensionCurrency(
             state="unknown",
-            checkout=str(ROOT.resolve()),
+            checkout=str(ROOT.absolute()),
             interpreter=str(interpreter(environment).absolute()),
             mode=mode,
             profile=None,
             validated=validated,
-            cause="missing-preparation-evidence",
-            remedy="Inspect the original Python preparation owner and explicitly select its prepare stage with a supported profile, mode and validation; then restart or reattach and check again. No profile was guessed or preparation attempted.",
+            cause="missing-publication",
+            remedy="Explicitly prepare a compatible extension contract, then restart or reattach.",
         )
-    return currency_check(environment, mode=mode, profile=profile, validated=validated)
+    return currency_check(environment, mode=mode, profile=publication.profile, validated=validated)
 
 
 def publish_receipt(path: Path, value: dict[str, object]) -> None:
@@ -1035,364 +735,40 @@ def publish_receipt(path: Path, value: dict[str, object]) -> None:
     validation.write_json(path, value)
 
 
-def prepare_extractor(
-    environment: Mapping[str, str],
-) -> tuple[int, dict[str, object] | None]:
-    """Explicit preparation of the finite observer, never a read-time action."""
-    from scripts import producer_cargo  # noqa: PLC0415
-
-    witness = producing_currency.Witness()
-    sources = {
-        str(ROOT / name): witness.file(ROOT / name)
-        for name in producer_cargo.OBSERVER_SOURCE_INPUTS
-    }
-    command = [
-        str(interpreter(environment)),
-        "-m",
-        "scripts.arrow_validation",
-        "build",
-        "-p",
-        "xtask",
-        "--bin",
-        "xtask",
-        "--no-default-features",
-        "--locked",
-    ]
-    code = subprocess.call(command, cwd=ROOT, env=environment)
-    if code:
-        return code, None
-    if any(value["sha256"] is None for value in sources.values()) or sources != {
-        name: witness.file(Path(name)) for name in sources
-    }:
-        raise ValueError(
-            "Producing observer source changed during explicit preparation"
-        )
-    extractor = ROOT / "target/debug/xtask"
-    if not extractor.is_file():
-        raise ValueError(
-            "Explicit producing observer build did not supply its fixed executable"
-        )
-    return 0, {
-        "source_basis": producing_currency.basis(sources),
-        "artifact_stamp": list(producing_currency.stamp(extractor)),
-        "command": command,
-    }
-
-
-def observed_installation(
-    command: Sequence[str], environment: Mapping[str, str]
-) -> tuple[int, dict[str, object] | None]:
-    """Capture actual ordinary Cargo input selection; unsupported stays conservative."""
-    from scripts import producer_cargo  # noqa: PLC0415
-
-    extractor = ROOT / "target/debug/xtask"
-    config = (
-        tomllib.loads((ROOT / "pyproject.toml").read_text())
-        .get("tool", {})
-        .get("maturin", {})
-    )
-    if (
-        config.get("strip")
-        or config.get("pgo-command")
-        or any(name.startswith(("PYO3_CROSS", "MATURIN_")) for name in environment)
-    ):
-        return subprocess.call(command, cwd=ROOT, env=environment), None
-    code, observer = prepare_extractor(environment)
-    if code:
-        return code, None
-    if observer is None or not extractor.is_file():
-        return subprocess.call(command, cwd=ROOT, env=environment), None
-    with tempfile.TemporaryDirectory(prefix="pse-ordinary-installation-") as temporary:
-        selected = producer_cargo.configure_currency(
-            ROOT, Path(temporary), environment, observer=observer
-        )
-        code = subprocess.call(command, cwd=ROOT, env=selected)
-        if code:
-            return code, None
-        path = Path(selected[producer_cargo.CURRENCY_CAPTURE])
-        status = read_receipt(path.with_suffix(".status.json"))
-        if status.get("supported") is not True:
-            print(
-                "producing-currency: retained conservative preparation checks ("
-                + str(status.get("cause", "observation-unavailable"))
-                + ")",
-                file=sys.stderr,
-            )
-            return 0, None
-        inputs = read_receipt(path.with_suffix(".inputs.json"))
-        invocation = read_receipt(path.with_suffix(".selection.json"))
-        if not inputs or not invocation:
-            return 0, None
-        return 0, {"inputs": inputs, "invocation": invocation}
-
-
-def producing_selection(
-    observed: dict[str, object], context: dict[str, object]
-) -> dict[str, object]:
-    """Bind preparation tools/configuration to the actual producing selection."""
-    from scripts import validation_scope  # noqa: PLC0415
-
-    raw = observed.get("inputs")
-    if not isinstance(raw, dict):
-        raise TypeError("missing producing input observation")
-    selection = dict(raw)
-    files = set(producing_currency.string_list(selection.get("files")))
-    files.update(
-        str(ROOT / name) for name in validation_scope.PYTHON_EXTENSION_SUPPORT_INPUTS
-    )
-    for section in ("tools", "configuration"):
-        values = context.get(section)
-        if not isinstance(values, dict):
-            raise TypeError("missing producing tool/configuration identity")
-        for value in values.values():
-            if isinstance(value, dict) and isinstance(value.get("path"), str):
-                files.add(value["path"])
-    selected_interpreter = context.get("interpreter")
-    if not isinstance(selected_interpreter, dict):
-        raise TypeError("missing producing interpreter identity")
-    for key in ("binary", "venv"):
-        value = selected_interpreter.get(key)
-        if not isinstance(value, dict) or not isinstance(value.get("path"), str):
-            raise TypeError("missing producing interpreter file")
-        files.add(value["path"])
-    configuration = selected_interpreter.get("configuration")
-    if not isinstance(configuration, dict):
-        raise TypeError("missing producing interpreter configuration")
-    files.update(producing_currency.string_list(configuration.get("files")))
-    selection["files"] = sorted(files)
-    selection["environment"] = sorted(
-        set(producing_currency.string_list(selection.get("environment")))
-        | set(PRODUCING_ENVIRONMENT)
-    )
-    selection["invocation"] = observed.get("invocation")
-    selection["generations"] = context.get("generations")
-    if isinstance(selection["generations"], dict):
-        for generation in selection["generations"].values():
-            if isinstance(generation, dict) and isinstance(
-                generation.get("receipt"), dict
-            ):
-                path = generation["receipt"].get("path")
-                if isinstance(path, str):
-                    files.add(path)
-    selection["files"] = sorted(files)
-    return producing_currency.retained_selection(selection)
-
-
-def producing_inputs(
-    selection: dict[str, object],
-    environment: Mapping[str, str],
-    *,
-    mode: str,
-    profile: str,
-    validated: bool,
-    stage: str = "python-extension",
-) -> dict[str, object] | None:
-    """Read only changed relevant files; tools and interpreter are witnessed inputs."""
-    from scripts import native_operation  # noqa: PLC0415
-
-    if any(name.startswith(("PYO3_CROSS", "MATURIN_")) for name in environment):
-        return None
-    generations = selection.get("generations")
-    if not isinstance(generations, dict):
-        return None
-    if mode == "native":
-        for name, expected in generations.items():
-            if not isinstance(expected, dict):
-                return None
-            prefix = expected.get("prefix")
-            selected = environment.get(name)
-            if not isinstance(prefix, str) or not selected:
-                return None
-            path = Path(selected).resolve()
-            if name == "SUITESPARSE_LIBRARY_DIR":
-                path = path.parent
-            if str(path) != prefix:
-                return None
-            admitted = native_operation.remembered("prefix:" + prefix)
-            if admitted != expected.get("admission"):
-                return None
-    supplemental = set(PRODUCING_ENVIRONMENT)
-    prefixes = PRODUCING_ENVIRONMENT_PREFIXES
-    if stage == "evidence-executable":
-        supplemental.difference_update(EVIDENCE_RUNTIME_ENVIRONMENT)
-        prefixes = tuple(
-            prefix for prefix in prefixes if prefix not in {"BINDGEN_", "CMAKE_"}
-        )
-    names = (
-        set(producing_currency.string_list(selection.get("environment"))) | supplemental
-    )
-    names.update(
-        name
-        for name in environment
-        if name.startswith(prefixes)
-        or PRODUCING_CARGO_SELECTOR.fullmatch(name) is not None
-    )
-    observed = PRODUCING_WITNESS.inputs(
-        {**selection, "environment": sorted(names)}, environment
-    )
-    return {
-        "schema": "producing-cargo-inputs-v1",
-        "stage": stage,
-        "mode": mode,
-        "profile": profile,
-        "validated": validated,
-        **observed,
-        "configuration": {"producing-selection": producing_currency.basis(selection)},
-    }
-
-
-def installed_association(
-    selection: dict[str, object],
-    installed: dict[str, object],
-    environment: Mapping[str, str],
-) -> dict[str, object] | None:
-    """Associate the imported installation with its actual Cargo root output."""
-    records = selection.get("root_artifacts")
-    if not isinstance(records, list):
-        return None
-    names = set()
-    for record in records:
-        if not isinstance(record, dict) or not isinstance(
-            record.get("filenames"), list
-        ):
-            return None
-        for name in record["filenames"]:
-            if isinstance(name, str) and Path(name).suffix in {".so", ".pyd", ".dylib"}:
-                names.add(name)
-    if len(names) != 1:
-        return None
-    built = PRODUCING_WITNESS.file(Path(names.pop()))
-    from scripts import installed_artifact  # noqa: PLC0415
-
-    invocation = selection.get("invocation")
-    recorded = invocation.get("artifacts") if isinstance(invocation, dict) else None
-    if not isinstance(recorded, dict) or recorded.get(str(built["path"])) != built:
-        return None
-    messages = selection.get("build_scripts")
-    if not isinstance(messages, list) or any(
-        not isinstance(message, dict) for message in messages
-    ):
-        return None
-    try:
-        before = producing_currency.stamp(Path(str(installed["binary"])))
-        transformation = installed_artifact.associate(
-            Path(str(built["path"])),
-            Path(str(installed["binary"])),
-            str(built["sha256"]),
-            str(installed["sha256"]),
-            messages,
-            environment=environment,
-        )
-        if before != producing_currency.stamp(Path(str(installed["binary"]))):
-            return None
-        tool = transformation.get("tool")
-        if isinstance(tool, str):
-            selection["files"] = sorted(
-                set(producing_currency.string_list(selection.get("files"))) | {tool}
-            )
-    except (OSError, ValueError, TypeError, subprocess.SubprocessError):
-        return None
-    return {"built": built, "installed": installed, "transformation": transformation}
-
-
 def extension_prepare(
     mode: str, profile: str, environment: Mapping[str, str], *, validated: bool = True
 ) -> StageResult:
-    """Install only when a completed supported preparation no longer applies."""
-    command = develop_command(
-        ROOT, mode, profile, environment=environment, validated=validated
-    )
-    # Refuse unsupported correctness selections before any currency shortcut.
+    """Explicit construction delegates incremental build decisions to Cargo/Maturin."""
+    if mode not in {"dev", "native"}:
+        raise ValueError("extension mode must be dev or native")
+    selected = dict(environment)
+    selected.pop("_PSE_NATIVE_PUBLISHED_IMAGE", None)
+    command = develop_command(ROOT, mode, profile, environment=selected, validated=validated)
     maturin_cargo_command(command, ROOT)
-    path = stage_receipt("extension", environment)
-    previous = read_receipt(path)
-    previous_inputs = previous.get("inputs")
-    if (
-        isinstance(previous_inputs, dict)
-        and previous_inputs.get("schema") == "producing-cargo-inputs-v1"
-    ):
-        current = currency_check(
-            environment,
-            mode="native" if mode == "native" else "dev",
-            profile=profile,
-            validated=validated,
-        )
-        if current.state == "current":
-            return StageResult(
-                stage="prepare",
-                status="reused",
-                receipt=str(path),
-                artifact=current.artifact,
-            )
-    inputs = preparation_inputs(
-        "python-extension", mode, profile, environment, validated=validated
-    )
-    if inputs is not None and previous.get("inputs") == inputs:
-        # A stale or unsupported preparation must build regardless of the old
-        # installed bytes. Import/hash them only when they can establish reuse.
-        try:
-            installed = capture(
-                environment, validated=validated, native=mode == "native"
-            )
-        except (ValueError, OSError, subprocess.SubprocessError):
-            installed = None
-        if installed is not None and previous == {
-            "inputs": inputs,
-            "artifact": installed,
-        }:
-            return StageResult(
-                stage="prepare",
-                status="reused",
-                receipt=str(path),
-                artifact=ExtensionArtifact.model_validate(installed),
-            )
     if validated:
-        command = validated_maturin_command(command, environment)
-    result, producing = (
-        observed_installation(command, environment)
-        if inputs is not None
-        else (subprocess.call(command, cwd=ROOT, env=environment), None)
-    )
+        command = validated_maturin_command(command, selected)
+    result = subprocess.call(command, cwd=ROOT, env=selected)
     if result:
         return StageResult(stage="prepare", status="failed", exit_code=result)
-    installed = capture(environment, validated=validated, native=mode == "native")
-    after = preparation_inputs(
-        "python-extension", mode, profile, environment, validated=validated
+    installed = sorted((ROOT / "python/pse").glob("_native*.so"))
+    if len(installed) != 1:
+        raise ValueError("installer must supply exactly one ordinary extension image")
+    path = stage_receipt("extension", selected)
+    publication = artifact_publication.publish(
+        path,
+        kind="extension",
+        source=installed[0],
+        mode=mode,
+        profile=profile,
+        validated=validated,
+        interpreter=str(interpreter(selected).absolute()),
+        features=lambda candidate: _capture_candidate_features(
+            selected, candidate, validated=validated, native=mode == "native"
+        ),
     )
-    if after != inputs:
-        raise ValueError("Python extension inputs changed during preparation")
-    # Bind installed/imported bytes. Maturin may legitimately transform editable
-    # RPATH bytes, so raw Cargo-artifact equality is not a currency premise.
-    if inputs is not None:
-        receipt: dict[str, object] = {"inputs": inputs, "artifact": installed}
-        if producing is not None:
-            selection = producing_selection(producing, inputs)
-            association = installed_association(selection, installed, environment)
-            if association is not None:
-                selected_inputs = producing_inputs(
-                    selection,
-                    environment,
-                    mode=mode,
-                    profile=profile,
-                    validated=validated,
-                )
-                if selected_inputs is not None:
-                    receipt.update(
-                        inputs=selected_inputs,
-                        producing={"selection": selection, "association": association},
-                    )
-            else:
-                print(
-                    "producing-currency: retained conservative preparation checks (installed-artifact-association-unavailable)",
-                    file=sys.stderr,
-                )
-        publish_receipt(path, receipt)
     return StageResult(
-        stage="prepare",
-        status="prepared",
-        artifact=ExtensionArtifact.model_validate(installed),
-        receipt=str(path) if inputs is not None else None,
-        published=inputs is not None,
+        stage="prepare", status="prepared", artifact=publication.artifact,
+        receipt=str(path), published=True,
     )
 
 
@@ -1444,7 +820,7 @@ def stubs_prepare(
     command = arrow_validation.resolve(
         command, run=lambda selected: capture_build_graph(selected, environment)
     ).command
-    result = subprocess.call(command, cwd=ROOT, env=environment)
+    result = subprocess.call(command, cwd=ROOT, env=execution_environment(environment, artifact))
     if result:
         return StageResult(
             stage="stubs-check" if check else "stubs", status="failed", exit_code=result
@@ -1489,6 +865,11 @@ def run_stages(
         raise ValueError("unsupported Python preparation stage")
     if mode not in {"dev", "native"}:
         raise ValueError("resolved extension mode must be dev or native")
+    if operation in {"sync", "prepare"}:
+        # These operations own a new ordinary publication. A strict deployment's
+        # selection remains relevant only to independent stubs/import operations.
+        environment = dict(environment)
+        environment.pop("_PSE_NATIVE_PUBLICATION", None)
     stages: list[StageResult] = []
     selected = (
         ("environment", "prepare", "stubs", "admit")
@@ -1522,7 +903,9 @@ def run_stages(
                 stage="admit",
                 status="admitted",
                 artifact=ExtensionArtifact.model_validate(
-                    capture(environment, validated=validated, native=mode == "native")
+                    (admit_import if operation == "admit" else capture)(
+                        environment, validated=validated, native=mode == "native"
+                    )
                 ),
             )
         stages.append(result)

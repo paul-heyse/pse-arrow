@@ -16,10 +16,6 @@ pub(crate) use history::verify_historical_evidence;
 #[path = "producer_preparation.rs"]
 mod preparation;
 pub(crate) use preparation::begin as begin_preparation;
-#[path = "producing_inputs.rs"]
-mod producing_inputs;
-pub(crate) use producing_inputs::extract as currency_inputs;
-pub(crate) use producing_inputs::graph as currency_graph;
 
 use anyhow::{Context, Result, ensure};
 use pse_ids::{EncodingHasher, Frame, FramedHasher};

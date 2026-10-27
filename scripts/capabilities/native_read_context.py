@@ -31,6 +31,7 @@ class NativeReadContext:
         if not identity:
             raise ValueError("retained read context requires its admitted identity")
         self.identity = identity
+        self.interface_compatible = False
         self._runtime: tuple[str, object] | None = None
         self._close_runtime: Callable[[], None] | None = None
         self._physical: dict[str, object] = {}

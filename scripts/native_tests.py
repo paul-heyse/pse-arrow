@@ -272,9 +272,8 @@ RUST_EXECUTION_ENVIRONMENT = frozenset(
         "PYTEST_XDIST_WORKER",
         "PYTEST_XDIST_WORKER_COUNT",
         "PYTEST_XDIST_TESTRUNUID",
-        "PSE_NATIVE_EXPECTED_BINARY",
-        "PSE_NATIVE_EXPECTED_FEATURES",
-        "PSE_NATIVE_EXPECTED_SHA256",
+        "_PSE_NATIVE_PUBLISHED_IMAGE",
+        "_PSE_NATIVE_PUBLICATION",
         "PSE_TEST_ENUMERATION",
         "PSE_TEST_INVOCATION",
         "PSE_TEST_EXECUTION_PROFILE",
@@ -509,23 +508,8 @@ def rust_completion_arguments(extra: list[str]) -> list[str]:
 
 
 def python_native_binary(environment: Mapping[str, str]) -> Path:
-    """Resolve the imported extension using pytest's interpreter and import environment."""
-    program = (
-        "import json, sys, pse\n"
-        "print(json.dumps({'package': pse.__file__, "
-        "'native': sys.modules['pse._native'].__file__}))\n"
-    )
-    imported = json.loads(
-        subprocess.check_output(
-            [sys.executable, "-c", program], cwd=ROOT, env=environment, text=True
-        )
-    )
-    package = Path(imported["package"]).resolve()
-    binary = Path(imported["native"]).resolve()
-    expected = (ROOT / "python/pse").resolve()
-    if package != expected / "__init__.py" or binary.parent != expected:
-        raise ValueError("native Python import belongs to a different checkout")
-    return binary
+    """Use the construction owner's issued image for deployment observations."""
+    return Path(str(python_extension.capture(environment, native=True)["binary"]))
 
 
 def observe_deployed_artifacts(
@@ -1425,9 +1409,6 @@ def main() -> int:
             if Path(observed).exists():
                 raise ValueError("deployment observation output already exists")
             env["PSE_PYTHON_DEPLOYMENT_ATTESTATION"] = observed
-        # The running pytest session must consume the same imported extension.
-        if native["files"][str(binary)] != artifact["sha256"]:
-            raise ValueError("Python extension changed during provenance capture")
         env = python_extension.execution_environment(env, artifact)
         selection = report.with_name(report.stem + "-selected.txt")
         if owner == "standalone":

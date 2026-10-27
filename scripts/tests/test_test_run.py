@@ -430,7 +430,7 @@ class TerminalComposerTests(unittest.TestCase):
         self.assertEqual(forwarded_command, command)
         self.assertEqual(command[-1], "--junitxml=" + str(report))
         self.assertEqual(forwarded[resources.MARKER], str(path))
-        self.assertEqual(forwarded["PSE_NATIVE_EXPECTED_SHA256"], "observed")
+        self.assertEqual(forwarded["_PSE_NATIVE_PUBLISHED_IMAGE"], artifact["binary"])
         self.assertEqual(
             run.call_args.kwargs["details"], {"artifacts": {"python": artifact}}
         )
@@ -799,7 +799,7 @@ class TerminalComposerTests(unittest.TestCase):
             [
                 "import os,sys",
                 "from pathlib import Path",
-                "from scripts import native_operation, native_tests, scientific_inputs, test_run",
+                "from scripts import native_operation, native_tests, operation_lifetime, scientific_inputs, test_run",
                 # This control owns a real process tree without a systemd scope.
                 "operation_lifetime.scope_owner=lambda **_options:None",
                 "native_operation.cancel_foreground_handoffs=lambda **_options:None",
@@ -848,7 +848,7 @@ class TerminalComposerTests(unittest.TestCase):
         finally:
             if parent.poll() is None:
                 parent.kill()
-                parent.communicate(timeout=3)
+            parent.communicate(timeout=3)
 
 
 @patch(

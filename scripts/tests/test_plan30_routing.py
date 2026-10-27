@@ -573,8 +573,8 @@ class Plan30RoutingTests(unittest.TestCase):
         capture.assert_called_once()
         self.assertEqual(run.call_args.kwargs["artifact"], self.python_artifact)
         self.assertEqual(
-            run.call_args.kwargs["env"]["PSE_NATIVE_EXPECTED_SHA256"],
-            self.python_artifact["sha256"],
+            run.call_args.kwargs["env"]["_PSE_NATIVE_PUBLISHED_IMAGE"],
+            self.python_artifact["binary"],
         )
 
     def test_native_process_groups_preserve_parallel_pure_tests(self) -> None:
@@ -868,9 +868,7 @@ class Plan30RoutingTests(unittest.TestCase):
                             self.assertEqual(
                                 os.environ.get("PSE_WORKER_BINARY"), ambient
                             )
-                            self.assertNotIn("PSE_NATIVE_EXPECTED_BINARY", os.environ)
-                            self.assertNotIn("PSE_NATIVE_EXPECTED_SHA256", os.environ)
-                            self.assertNotIn("PSE_NATIVE_EXPECTED_FEATURES", os.environ)
+                            self.assertNotIn("_PSE_NATIVE_PUBLISHED_IMAGE", os.environ)
                     select.assert_called_once()
                     observer.assert_not_called()
                     if module is python_tests:

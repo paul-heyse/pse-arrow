@@ -299,11 +299,11 @@ class ActualNativeAdverseTests(unittest.IsolatedAsyncioTestCase):
                 if worker is not None:
                     worker.close()
 
-    async def test_owned_installed_image_replacement_retires_actual_session_and_restores_original_inode(
+    async def test_mutable_installation_alias_does_not_revoke_published_attachment(
         self,
     ) -> None:
-        # Root selects exact fresh bits and holds producers for this sequential test.
-        # Absence of that explicit selection is a failure, never a skipped control.
+        # The root authenticates only the test-owned mutable alias being replaced.
+        # Production consumers use the already-issued immutable generation.
         selected_image = ImageSelection.selected(ROOT)
         endpoint = build(ROOT)
         tool = endpoint.catalogue.tools["native_model_declarations"]
@@ -311,7 +311,7 @@ class ActualNativeAdverseTests(unittest.IsolatedAsyncioTestCase):
         lifetime = tool.read_lifetime()
         async with Client(endpoint.server) as client:
             selected, _first, session = await self.first_page(client, lifetime)
-            process = session._process  # noqa: SLF001 -- compare actual admitted supervised process
+            process = session._process  # noqa: SLF001 -- actual process lifetime oracle
             assert process is not None
             with replaced_image(selected_image):
                 self.assertNotEqual(
@@ -319,33 +319,21 @@ class ActualNativeAdverseTests(unittest.IsolatedAsyncioTestCase):
                 )
                 result = await client.call_tool("native_model_declarations", selected)
                 self.assertFalse(result.is_error)
-                refused = payload(result.structured_content)
-                self.assertIn(
-                    refused["outcome"], {"stale_interface", "prerequisite_unavailable"}
-                )
-                self.assertIn(
-                    refused["code"],
-                    {
-                        "pse.native.artifact_not_current",
-                        "pse.native.retained_read_context_changed",
-                    },
-                )
-                self.assertTrue(session.retired)
-                self.assertEqual(process.returncode, 0)
+                self.assertEqual(payload(result.structured_content)["outcome"], "observed")
+                self.assertFalse(session.retired)
+                self.assertIsNone(process.returncode)
+                self.assertEqual(len(owned_sessions(lifetime)), 1)
+                # A distinct fresh worker attaches the published image even while
+                # the mutable installation alias contains a deliberate bad image.
+                fresh = build(ROOT)
+                fresh_tool = fresh.catalogue.tools["native_model_declarations"]
+                assert isinstance(fresh_tool, native.NativeTool)
+                async with Client(fresh.server) as new_client:
+                    await self.first_page(new_client, fresh_tool.read_lifetime())
             self.assertEqual(
                 image_stamp(selected_image.binary)[:2], selected_image.stamp[:2]
             )
-            selected["request"] = {"document_version": 1, "offset": 0, "limit": 1}
-            restored = payload(
-                (
-                    await client.call_tool("native_model_declarations", selected)
-                ).structured_content
-            )
-            self.assertEqual(restored["outcome"], "observed")
-            peers = [peer for group in lifetime._sessions.values() for peer in group]  # noqa: SLF001 -- fresh original-image admission follows exact prior worker drain
-            self.assertEqual(len(peers), 2)
-            self.assertIs(peers[0], session)
-            self.assertNotEqual(peers[1].incarnation, session.incarnation)
+        self.assertEqual(process.returncode, 0)
 
 
 class ActualCanonicalReadAdverseTests(unittest.IsolatedAsyncioTestCase):

@@ -51,7 +51,7 @@ def invoke(
             artifact = python_extension.ExtensionArtifact.model_validate(
                 # Native read dispatch uses this same fixed checkout interpreter,
                 # rather than a caller's alternate installer environment.
-                python_extension.capture(
+                python_extension.admit_import(
                     python_extension.bind_interpreter(
                         {**os.environ, "UV_PROJECT_ENVIRONMENT": sys.prefix}
                     ),

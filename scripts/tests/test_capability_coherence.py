@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Restart fences follow loaded serving contracts, not the inspected project."""
+"""Dispatch uses loaded contracts; explicit status can inspect source provenance."""
 # ruff: noqa: PT009, PT027 -- stdlib host controls
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ from fastmcp.tools import Tool
 from scripts.capabilities.catalogue import Catalogue
 from scripts.capabilities.coherence import Sources, install
 from scripts.capabilities.model import Capability, Domain
-from scripts.capabilities.workers import WORKERS, WorkerCall
 
 
 class CoherenceTests(unittest.IsolatedAsyncioTestCase):
@@ -80,7 +79,7 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
         await self.client.__aenter__()
         self.addAsyncCleanup(self.client.__aexit__, None, None, None)
 
-    async def test_changed_owner_never_dispatches_old_handler_with_new_schema(
+    async def test_source_edit_does_not_replace_loaded_handler_or_schema(
         self,
     ) -> None:
         self.first.write_text(
@@ -93,9 +92,9 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
         result = await self.client.call_tool(
             "first", {"limit": 7}, raise_on_error=False
         )
-        self.assertTrue(result.is_error)
-        self.assertIn("pse.capabilities.restart_required", str(result.content))
-        self.assertEqual(self.calls, 0)
+        self.assertFalse(result.is_error)
+        self.assertEqual(result.structured_content, {"count": 7})
+        self.assertEqual(self.calls, 1)
         self.assertTrue(self.interface.status("first")["restart_required"])
         self.assertFalse(self.interface.status("second")["restart_required"])
         self.assertEqual(
@@ -103,23 +102,22 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
             {"outcome": "second"},
         )
 
-    async def test_transitive_local_owner_change_and_deletion_refuse(self) -> None:
+    async def test_dispatch_and_require_do_not_scan_sources(self) -> None:
         self.dependency.unlink()
+        self.common.write_text("# Controlled editing requires explicit drain/reload\n")
+        with patch.object(self.sources, "check", side_effect=AssertionError("source scan")):
+            self.interface.require("first")
+            result = await self.client.call_tool("first", {})
+        self.assertEqual(result.structured_content, {"count": 3})
+        changed = self.interface.status("first")["changed_serving_sources"]
+        self.assertIn("scripts/dependency.py", changed)
+        self.assertIn("scripts/capabilities/server.py", changed)
+
+    async def test_changed_loaded_wire_refuses_before_handler(self) -> None:
+        self.catalogue.tools["first"].description = "Changed live interpretation"
         result = await self.client.call_tool("first", {}, raise_on_error=False)
         self.assertTrue(result.is_error)
-        changed = self.interface.status("first")["changed_serving_sources"]
-        self.assertIsInstance(changed, list)
-        if not isinstance(changed, list):
-            self.fail("Restart status must identify the changed serving paths")
-        self.assertIn("scripts/dependency.py", changed)
-        self.assertEqual(self.calls, 0)
-        self.assertFalse(self.interface.status("second")["restart_required"])
-
-    async def test_common_change_blocks_all_affected_execution(self) -> None:
-        self.common.write_text("# New dispatch interpretation\n")
-        for name in ("first", "second"):
-            result = await self.client.call_tool(name, {}, raise_on_error=False)
-            self.assertTrue(result.is_error)
+        self.assertIn("pse.capabilities.restart_required", str(result.content))
         self.assertEqual(self.calls, 0)
 
     async def test_unrelated_source_and_guide_edits_do_not_invalidate_operation(
@@ -152,12 +150,11 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.interface.status("first")["restart_required"])
         fresh = Sources(self.root, self.sources.sources)
         self.assertFalse(fresh.check(fresh.sources))
-        fresh.verify_composition()
 
-    async def test_edit_during_composition_refuses_before_publication(self) -> None:
-        self.first.write_text("# Changed between capture and composition\n")
-        with self.assertRaisesRegex(ValueError, "changed while loading"):
-            install(FastMCP("not-published"), self.sources, self.catalogue)
+    async def test_install_uses_constructed_provenance_without_second_scan(self) -> None:
+        with patch.object(self.sources, "check", side_effect=AssertionError("source scan")):
+            interface = install(FastMCP("loaded"), self.sources, self.catalogue)
+        self.assertEqual(interface.revision, self.interface.revision)
 
     async def test_revision_uses_bytes_not_checkout_location_or_mtime(self) -> None:
         original = self.sources.revision
@@ -166,63 +163,6 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(copied.revision, original)
         self.assertEqual(copied.check(copied.sources), ())
 
-    async def test_fixed_worker_edit_refuses_before_child_or_handler_effect(
-        self,
-    ) -> None:
-        for worker_name, capability, module in (
-            ("native", "native_source_admit", "scripts.capabilities.native"),
-            ("host", "experiment_archive", "scripts.capabilities.host_actions"),
-            ("qualification", "assessment_run", "scripts.capabilities.qualification"),
-        ):
-            with self.subTest(worker=worker_name):
-                relative = WORKERS[worker_name].module.replace(".", "/") + ".py"
-                worker = self.root / relative
-                worker.write_text("# Original worker generation\n")
-                sources = Sources(self.root, (relative, "scripts/first.py"))
-
-                def action() -> dict[str, str]:
-                    self.calls += 1
-                    return {"outcome": "must not execute"}
-
-                action.__module__ = module
-                tool = Tool.from_function(action, name=capability)
-                spec = Capability(
-                    id=capability,
-                    title=capability,
-                    description=capability,
-                    domain="source",
-                    owner="scripts/first.py",
-                    source="scripts/first.py",
-                    exposure="tool",
-                    effects="Test fixture counter",
-                    worker_calls=(
-                        WorkerCall(
-                            worker_name, next(iter(WORKERS[worker_name].operations))
-                        ),
-                    ),
-                )
-                catalogue = Catalogue(
-                    (Domain(id="source", title="Source", description="Source"),),
-                    (),
-                    (),
-                    (spec,),
-                    {capability: tool},
-                    loaded_source_revision=sources.revision,
-                )
-                endpoint = FastMCP("worker-fence")
-                endpoint.add_tool(tool)
-                interface = install(endpoint, sources, catalogue)
-                self.assertIn(relative, interface.operations[capability])
-                worker.write_text(
-                    "# Newly edited child must not execute under old schema\n"
-                )
-                async with Client(endpoint) as client:
-                    result = await client.call_tool(
-                        capability, {}, raise_on_error=False
-                    )
-                self.assertTrue(result.is_error)
-                self.assertIn("pse.capabilities.restart_required", str(result.content))
-                self.assertEqual(self.calls, 0)
 
 
 if __name__ == "__main__":

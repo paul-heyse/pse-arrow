@@ -1,119 +1,66 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Retained image witness controls; these do not claim actual extension loading."""
+"""An attached generation consumes publication; it does not repeat construction."""
 # ruff: noqa: PT009, PT027 -- stdlib unittest controls
 
 from __future__ import annotations
 
-import hashlib
 import sys
-import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts import python_extension
-from scripts.capabilities.native_read_image import (
-    LoadedReadImage,
-    ReadImageChangedError,
-)
+from scripts.capabilities.native_read_image import LoadedReadImage, ReadImageChangedError
 
 
 class ReadImageTests(unittest.TestCase):
-    def current(self, root: Path) -> python_extension.ExtensionCurrency:
-        binary = root / "_native.so"
-        if not binary.exists():
-            binary.write_bytes(b"original-installed-image")
-        artifact = python_extension.ExtensionArtifact(
-            binary=str(binary),
-            sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
-            features=["force-validate", "native-solvers"],
-        )
+    def current(self) -> python_extension.ExtensionCurrency:
         return python_extension.ExtensionCurrency(
             state="current",
-            checkout=str(root),
+            checkout="/selected",
             interpreter=sys.executable,
             mode="native",
             profile="dev",
             validated=True,
-            source_basis="original-producing-provider-preparation-basis",
-            artifact=artifact,
-            artifact_stamp=python_extension.artifact_stamp(artifact),
+            generation="original-generation",
+            artifact=python_extension.ExtensionArtifact(
+                binary="/published/original/_native.so",
+                sha256="constructor-recorded-identity",
+                features=["force-validate", "native-solvers"],
+            ),
             receipt_recorded=True,
-            cause="matching-inputs-and-artifact",
-            remedy="Explicit preparation only.",
+            cause="published-compatible-artifact",
+            remedy="Select a compatible publication and reattach.",
         )
 
-    def test_original_loaded_image_cannot_borrow_changed_receipt_or_interpreter(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            current = self.current(Path(temporary))
-            image = LoadedReadImage.admit(current)
-            image.require_current(current)
-            assert current.artifact is not None
-            image.require_loaded(current.artifact.binary)
-            for changed in (
-                {"source_basis": "changed-consumed-source"},
-                {"interpreter": "changed-interpreter"},
-                {"profile": "changed-profile"},
-            ):
-                with self.assertRaises(ReadImageChangedError):
-                    image.require_current(current.model_copy(update=changed))
-            self.assertNotEqual(
-                image.context_identity("same-supplied-context"),
-                image.context_identity("changed-supplied-context"),
-            )
+    def test_attachment_uses_issued_contract_without_filesystem_revalidation(self) -> None:
+        with patch.object(Path, "stat", side_effect=AssertionError("redundant validation")):
+            image = LoadedReadImage.admit(self.current())
+            image.require(native=True, validated=True)
+            identity = image.context_identity("same-request")
+            # A later publication does not change this owner's generation or cursors.
+            newer = self.current().model_copy(update={"generation": "next-generation"})
+            self.assertEqual(identity, image.context_identity("same-request"))
+            self.assertNotEqual(identity, LoadedReadImage.admit(newer).context_identity("same-request"))
+            self.assertNotEqual(identity, image.context_identity("different-request"))
 
-    def test_dev_correctness_is_admitted_but_never_borrows_validation_or_native_mode(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            current = self.current(Path(temporary))
-            assert current.artifact is not None
-            dev = current.model_copy(
-                update={
-                    "mode": "dev",
-                    "artifact": current.artifact.model_copy(
-                        update={"features": ["force-validate"]}
-                    ),
-                }
-            )
-            image = LoadedReadImage.admit(dev)
-            image.require_current(dev)
-            assert dev.artifact is not None
-            image.require_loaded(dev.artifact.binary)
-            for changed in (
-                current,
-                dev.model_copy(update={"validated": False}),
-                dev.model_copy(
-                    update={
-                        "artifact": dev.artifact.model_copy(update={"features": []})
-                    }
-                ),
-            ):
-                with self.assertRaises(ReadImageChangedError):
-                    image.require_current(changed)
+    def test_distinct_requested_contract_is_checked_in_memory(self) -> None:
+        current = self.current()
+        dev = current.model_copy(update={"mode": "dev", "validated": False})
+        image = LoadedReadImage.admit(dev)
+        image.require(native=False, validated=False)
+        for requirements in ({"native": True, "validated": False}, {"native": False, "validated": True}):
+            with self.assertRaises(ReadImageChangedError):
+                image.require(**requirements)
+        for changes in ({"state": "unknown"}, {"generation": None}, {"artifact": None}):
+            with self.assertRaises(ReadImageChangedError):
+                LoadedReadImage.admit(current.model_copy(update=changes))
 
-    def test_image_replacement_inside_import_window_or_between_requests_refuses(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            current = self.current(root)
-            image = LoadedReadImage.admit(current)
-            replacement = root / "replacement.so"
-            replacement.write_bytes(b"replacement-installed-image")
-            replacement.replace(root / "_native.so")
-            assert current.artifact is not None
-            with self.assertRaises(ReadImageChangedError):
-                image.require_loaded(current.artifact.binary)
-            newly_current = self.current(root)
-            with self.assertRaises(ReadImageChangedError):
-                image.require_current(newly_current)
-            self.assertNotEqual(
-                image.context_identity("supplied"),
-                LoadedReadImage.admit(newly_current).context_identity("supplied"),
-            )
+    def test_loaded_module_cannot_be_silently_replaced_by_a_new_attachment(self) -> None:
+        image = LoadedReadImage.admit(self.current())
+        with patch.dict(sys.modules, {"pse._native": object()}), self.assertRaises(ReadImageChangedError):
+            image.attach()
 
 
 if __name__ == "__main__":

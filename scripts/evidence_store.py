@@ -23,7 +23,7 @@ from scripts import (
     evidence_projection,
     evidence_sources,
     host_admission,
-    producing_currency,
+    artifact_publication,
     python_extension,
     resource_store,
     surreal_server,
@@ -60,229 +60,50 @@ def compiler_environment(environment: Mapping[str, str]) -> dict[str, str]:
     )
 
 
-def compiler_paths(environment: Mapping[str, str]) -> list[Path]:
-    """Preparation-only compiler/configuration selection for the fixed tool route."""
-    from scripts import native_tests, producer_cargo, validation_scope  # noqa: PLC0415
-
-    paths = {
-        Path(name) for name in native_tests.rust_configuration_paths([], environment)
-    }
-    paths.update(
-        ROOT / name for name in validation_scope.PYTHON_EXTENSION_SUPPORT_INPUTS
-    )
-    paths.add(Path(__file__).resolve())
-    for name in ("cargo", "rustc", "cc", "c++", "clang", "mold", "pkg-config"):
-        identity = python_extension.tool_identity(name, environment)
-        paths.add(Path(str(identity["path"])))
-    for name in producer_cargo.EFFECTIVE_ENVIRONMENT:
-        value = environment.get(name)
-        if not value:
-            continue
-        if name in {"PYO3_CONFIG_FILE", "CMAKE_TOOLCHAIN_FILE", "SCCACHE_CONF"}:
-            paths.add(Path(value))
-        elif name in {
-            "RUSTC_WRAPPER",
-            "RUSTC_WORKSPACE_WRAPPER",
-            "CC",
-            "CXX",
-            "CLANG_PATH",
-            "LLVM_CONFIG_PATH",
-            "PSE_SCCACHE_BINARY",
-        }:
-            identity = python_extension.tool_identity(value, environment)
-            paths.add(Path(str(identity["path"])))
-    sysroot = Path(
-        subprocess.check_output(
-            ["rustc", "--print", "sysroot"],
-            cwd=ROOT,
-            env={**environment, "RUSTUP_AUTO_INSTALL": "0"},
-            text=True,
-        ).strip()
-    )
-    paths.update(sysroot / "bin" / name for name in ("rustc", "cargo"))
-    return sorted(paths)
-
-
 def build() -> int:
-    """Explicitly prepare the fixed evidence executable and its producing receipt."""
-    from scripts import arrow_validation, producer_cargo  # noqa: PLC0415
+    """Explicitly build the fixed tool and publish its completed immutable image."""
+    from scripts import arrow_validation  # noqa: PLC0415 -- explicit constructor only
 
     environment = compiler_environment(os.environ)
-    # The extractor is a preparation tool. Reads never enter this build route.
-    code, observer = python_extension.prepare_extractor(environment)
-    if code:
-        return code
-    if observer is None:
-        raise ExecutableCurrencyError("Evidence producing observer was not prepared")
-    command = [
-        "cargo",
-        "build",
-        "-p",
-        "xtask",
-        "--bin",
-        "pse-evidence",
-        "--no-default-features",
-        "--features",
-        "evidence-tools",
-        "--locked",
-    ]
-    resolution = arrow_validation.resolve(
-        command,
-        run=lambda selected: python_extension.capture_build_graph(
-            selected, environment
-        ),
+    environment.pop("_PSE_NATIVE_PUBLISHED_IMAGE", None)
+    command = arrow_validation.resolve([
+        "cargo", "build", "-p", "xtask", "--bin", "pse-evidence",
+        "--no-default-features", "--features", "evidence-tools", "--locked",
+        "--message-format", "json-render-diagnostics",
+    ], run=lambda selected: python_extension.capture_build_graph(selected, environment)).command
+    completed = subprocess.run(command, cwd=ROOT, env=environment, stdout=subprocess.PIPE, text=True, check=False)
+    if completed.returncode:
+        return completed.returncode
+    artifacts = []
+    for line in completed.stdout.splitlines():
+        if not line.startswith("{"):
+            continue
+        message = json.loads(line)
+        if message.get("reason") == "compiler-artifact" and message.get("target", {}).get("name") == "pse-evidence" and message.get("executable"):
+            artifacts.append(message)
+    if len(artifacts) != 1:
+        raise ExecutableCurrencyError("build must supply one actual evidence executable")
+    artifact = artifacts[0]
+    features = artifact.get("features")
+    if not isinstance(features, list) or any(not isinstance(item, str) for item in features):
+        raise ExecutableCurrencyError("build lacks actual evidence feature facts")
+    artifact_publication.publish(
+        python_extension.stage_receipt("evidence-executable", environment, root=ROOT),
+        kind="evidence-executable", source=Path(artifact["executable"]), mode="dev", profile="dev",
+        validated=True, interpreter=str(python_extension.interpreter(environment).absolute()),
+        features=lambda _candidate: features,
     )
-    arguments = [
-        "rustc",
-        *resolution.command[2:],
-        "--message-format",
-        "json-render-diagnostics",
-    ]
-    witness = producing_currency.Witness()
-    paths = compiler_paths(environment)
-    before = {str(path): witness.file(path) for path in paths}
-    with tempfile.TemporaryDirectory(prefix="pse-evidence-producing-") as temporary:
-        selected = producer_cargo.configure_currency(
-            ROOT, Path(temporary), environment, observer=observer
-        )
-        code = subprocess.call(
-            [str(ROOT / "scripts/producer-cargo"), *arguments], cwd=ROOT, env=selected
-        )
-        if code:
-            return code
-        path = Path(selected[producer_cargo.CURRENCY_CAPTURE])
-        status = python_extension.read_receipt(path.with_suffix(".status.json"))
-        if status.get("supported") is not True:
-            raise ExecutableCurrencyError(
-                "Evidence build lacks supported producing evidence; inspect the explicit preparation output"
-            )
-        selection = python_extension.read_receipt(path.with_suffix(".inputs.json"))
-        invocation = python_extension.read_receipt(path.with_suffix(".selection.json"))
-        artifacts = invocation.get("artifacts")
-        records = selection.get("root_artifacts")
-        if (
-            not isinstance(artifacts, dict)
-            or not isinstance(records, list)
-            or len(records) != 1
-            or not isinstance(records[0], dict)
-        ):
-            raise ExecutableCurrencyError(
-                "Evidence build lacks one actual executable association"
-            )
-        binary = records[0].get("executable")
-        if not isinstance(binary, str) or binary not in artifacts:
-            raise ExecutableCurrencyError(
-                "Evidence build lacks its actual executable witness"
-            )
-        artifact = artifacts[binary]
-        if not isinstance(artifact, dict) or witness.file(Path(binary)) != artifact:
-            raise ExecutableCurrencyError(
-                "Evidence executable changed during preparation"
-            )
-        if before != {str(path): witness.file(path) for path in paths}:
-            raise ExecutableCurrencyError(
-                "Evidence compiler/configuration changed during preparation"
-            )
-        selection["files"] = sorted(
-            set(producing_currency.string_list(selection.get("files"))) | set(before)
-        )
-        selection.update(invocation=invocation, generations={})
-        selection = producing_currency.retained_selection(selection)
-        inputs = python_extension.producing_inputs(
-            selection,
-            environment,
-            mode="dev",
-            profile="dev",
-            validated=True,
-            stage="evidence-executable",
-        )
-        if inputs is None:
-            raise ExecutableCurrencyError(
-                "Evidence build uses unsupported producing inputs"
-            )
-        python_extension.publish_receipt(
-            python_extension.stage_receipt(
-                "evidence-executable", environment, root=ROOT
-            ),
-            {
-                "inputs": inputs,
-                "artifact": {
-                    "binary": binary,
-                    "sha256": artifact["sha256"],
-                    "features": records[0].get("features", []),
-                },
-                "producing": {
-                    "selection": selection,
-                    "association": {
-                        "kind": "actual-cargo-executable-exact-bytes",
-                        "built": artifact,
-                    },
-                },
-            },
-        )
     return 0
 
 
 @contextlib.contextmanager
-def admitted_executable(tool: Path) -> Generator[tuple[str, int]]:
-    """Admit source/image without effects and exec the held, witnessed file inode."""
-    information = tool.stat()
-    if not stat.S_ISREG(information.st_mode) or not os.access(tool, os.X_OK):
-        raise ExecutableCurrencyError(
-            "Evidence tool unavailable; explicitly run just evidence-build"
-        )
-    environment = compiler_environment(os.environ)
-    receipt = python_extension.read_receipt(
-        python_extension.stage_receipt("evidence-executable", environment, root=ROOT)
-    )
-    inputs, producing = receipt.get("inputs"), receipt.get("producing")
-    if (
-        not isinstance(inputs, dict)
-        or inputs.get("schema") != "producing-cargo-inputs-v1"
-        or inputs.get("stage") != "evidence-executable"
-        or not isinstance(producing, dict)
-        or not isinstance(producing.get("selection"), dict)
-    ):
-        raise ExecutableCurrencyError(
-            "Evidence executable unprepared; explicitly run just evidence-build"
-        )
-    selected = python_extension.producing_inputs(
-        producing["selection"],
-        environment,
-        mode="dev",
-        profile="dev",
-        validated=True,
-        stage="evidence-executable",
-    )
-    if selected != inputs:
-        raise ExecutableCurrencyError(
-            "Evidence producing inputs changed; explicitly run just evidence-build"
-        )
-    artifact = python_extension.ExtensionArtifact.model_validate(
-        receipt.get("artifact")
-    )
-    if Path(artifact.binary).resolve() != tool.resolve() or tool.is_symlink():
-        raise ExecutableCurrencyError(
-            "Evidence tool differs from its prepared artifact"
-        )
-    before = python_extension.artifact_stamp(artifact)
-    if python_extension.PRODUCING_WITNESS.file(tool)["sha256"] != artifact.sha256:
-        raise ExecutableCurrencyError(
-            "Evidence executable bytes changed; explicitly run just evidence-build"
-        )
-    descriptor = os.open(tool, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+def admitted_executable() -> Generator[tuple[str, int]]:
+    """Execute the immutable generation issued by the fixed tool's constructor."""
+    publication = python_extension.read_publication("evidence-executable", os.environ, root=ROOT)
+    if publication is None or publication.kind != "evidence-executable":
+        raise ExecutableCurrencyError("Evidence tool unpublished; explicitly run just evidence-build")
+    descriptor = os.open(publication.artifact.binary, os.O_RDONLY | os.O_CLOEXEC)
     try:
-        opened = os.fstat(descriptor)
-        if before != (
-            opened.st_dev,
-            opened.st_ino,
-            opened.st_size,
-            opened.st_mtime_ns,
-            opened.st_ctime_ns,
-        ) or before != python_extension.artifact_stamp(artifact):
-            raise ExecutableCurrencyError(
-                "Evidence executable changed during admission"
-            )
         yield f"/proc/self/fd/{descriptor}", descriptor
     finally:
         os.close(descriptor)
@@ -389,20 +210,14 @@ def selected_configuration(state: Path, service: dict[str, object]) -> None:
 
 def run_native(
     state: Path,
-    tool: Path,
     arguments: list[str],
     *,
     deadline: float,
     stdout: TextIO | None = None,
 ) -> int:
     """Run only the explicit built tool; never install, compile or invoke a shell."""
-    information = tool.stat()
-    if not stat.S_ISREG(information.st_mode) or not os.access(tool, os.X_OK):
-        raise ValueError(
-            "Evidence tool is unavailable; run just evidence-build explicitly"
-        )
     with (
-        admitted_executable(tool) as (executable, executable_fd),
+        admitted_executable() as (executable, executable_fd),
         surreal_server.tooling_activity(state, deadline=deadline) as (
             service,
             activity,
@@ -449,7 +264,6 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument(
         "--state", type=Path, default=os.environ.get("PSE_SURREAL_STATE")
     )
-    result.add_argument("--tool", type=Path, default=ROOT / "target/debug/pse-evidence")
     result.add_argument("--timeout", type=float, default=30)
     commands = result.add_subparsers(dest="command", required=True)
     commands.add_parser("build")
@@ -591,7 +405,6 @@ def selected_snapshot(args: argparse.Namespace) -> evidence_projection.EvidenceS
 
 
 def run_offline(
-    tool: Path,
     arguments: list[str],
     *,
     deadline: float,
@@ -601,11 +414,6 @@ def run_offline(
     """Dispatch an explicitly built tool without configuration, service or build effects."""
     if operation not in {"offline", "compare-offline"}:
         raise ValueError("unsupported supplied-only evidence operation")
-    information = tool.stat()
-    if not stat.S_ISREG(information.st_mode) or not os.access(tool, os.X_OK):
-        raise ValueError(
-            "Evidence tool unavailable; use independent snapshot/detail inspection or explicitly run just evidence-build"
-        )
     environment = {
         key: value
         for key, value in execution_environment(os.environ).items()
@@ -617,7 +425,7 @@ def run_offline(
             "PSE_TOOLING_SERVICE_INSTANCE_ID",
         }
     }
-    with admitted_executable(tool) as (executable, descriptor):
+    with admitted_executable() as (executable, descriptor):
         return subprocess.run(
             [executable, "evidence", operation, *arguments],
             stdout=stdout,
@@ -650,7 +458,6 @@ def analyze(args: argparse.Namespace, *, deadline: float) -> int:
                 arguments += ["--generation", generation]
             return run_native(
                 args.state.absolute(),
-                args.tool.absolute(),
                 ["analyze", *arguments],
                 deadline=deadline,
             )
@@ -685,7 +492,7 @@ def analyze(args: argparse.Namespace, *, deadline: float) -> int:
             raise ValueError("select explicit snapshots or authentic owner sources")
         for path in inputs:
             arguments += ["--input", str(path.absolute())]
-        return run_offline(args.tool.absolute(), arguments, deadline=deadline)
+        return run_offline(arguments, deadline=deadline)
 
 
 def selected_detail(args: argparse.Namespace) -> dict:
@@ -745,7 +552,6 @@ def main(argv: list[str] | None = None) -> int:
             if args.observations:
                 arguments += ["--observations", str(args.observations.absolute())]
             return run_offline(
-                args.tool.absolute(),
                 arguments,
                 deadline=deadline,
                 operation="compare-offline",
@@ -771,7 +577,7 @@ def main(argv: list[str] | None = None) -> int:
             arguments = ["compare-indexed", "--request", str(args.request.absolute())]
             if args.observations:
                 arguments += ["--observations", str(args.observations.absolute())]
-            return run_native(state, args.tool.absolute(), arguments, deadline=deadline)
+            return run_native(state, arguments, deadline=deadline)
         if args.command == "analyze":
             return analyze(args, deadline=deadline)
         arguments = [args.command]
@@ -784,8 +590,7 @@ def main(argv: list[str] | None = None) -> int:
                 resource_store.publish(source, snapshot)
                 return run_native(
                     state,
-                    args.tool.absolute(),
-                    ["import", "--input", str(source)],
+                        ["import", "--input", str(source)],
                     deadline=deadline,
                 )
         if args.command in {"query", "generations"}:
@@ -799,7 +604,7 @@ def main(argv: list[str] | None = None) -> int:
                 value = getattr(args, name)
                 if value is not None:
                     arguments += ["--" + name, str(value)]
-        return run_native(state, args.tool.absolute(), arguments, deadline=deadline)
+        return run_native(state, arguments, deadline=deadline)
     except (
         OSError,
         ValueError,

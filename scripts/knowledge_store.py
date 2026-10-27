@@ -274,11 +274,11 @@ def freshness(page: dict, *, root: Path = ROOT) -> list[dict]:
     return output
 
 
-def native(state: Path, tool: Path, arguments: list[str], *, deadline: float) -> dict:
+def native(state: Path, arguments: list[str], *, deadline: float) -> dict:
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as output:
         try:
             code = evidence_store.run_native(
-                state, tool, arguments, deadline=deadline, stdout=output
+                state, arguments, deadline=deadline, stdout=output
             )
         except (OSError, ValueError, subprocess.TimeoutExpired) as error:
             raise NativeKnowledgeUnavailableError(
@@ -303,7 +303,6 @@ def indexed(
     *,
     explain: bool = False,
     state: Path,
-    tool: Path,
     root: Path = ROOT,
     timeout: float = 30,
 ) -> dict:
@@ -322,7 +321,6 @@ def indexed(
         resource_store.publish(path, request)
         result = native(
             state.absolute(),
-            tool.absolute(),
             [
                 "knowledge-explain" if explain else "knowledge-query",
                 "--input",
@@ -411,7 +409,6 @@ def _run(args: argparse.Namespace) -> int:
             arguments.extend(["--input", str(input_path)])
         result = native(
             args.state.absolute(),
-            args.tool.absolute(),
             arguments,
             deadline=deadline,
         )
@@ -426,7 +423,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--state", type=Path, default=os.environ.get("PSE_SURREAL_STATE")
     )
-    parser.add_argument("--tool", type=Path, default=ROOT / "target/debug/pse-evidence")
     parser.add_argument("--timeout", type=float, default=30)
     commands = parser.add_subparsers(dest="command", required=True)
     for command in ("build", "import"):

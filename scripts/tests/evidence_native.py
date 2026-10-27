@@ -147,8 +147,6 @@ class EvidenceNativeTests(unittest.TestCase):
                 sys.executable,
                 "-m",
                 "scripts.evidence_store",
-                "--tool",
-                str(self.tool),
                 "offline",
                 "--invocation",
                 str(handle),

@@ -186,7 +186,7 @@ class EvidenceStoreTests(unittest.TestCase):
         ):
             self.assertEqual(
                 evidence_store.run_native(
-                    self.state, tool, ["query", "--limit", "3"], deadline=self.deadline
+                    self.state, ["query", "--limit", "3"], deadline=self.deadline
                 ),
                 7,
             )
@@ -222,15 +222,14 @@ class EvidenceStoreTests(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "listener ownership"),
         ):
             evidence_store.run_native(
-                self.state, tool, ["init"], deadline=self.deadline
+                self.state, ["init"], deadline=self.deadline
             )
         run.assert_not_called()
 
-    def test_missing_tool_does_not_initialize_or_start_service(self) -> None:
-        with self.assertRaises(OSError):
+    def test_missing_publication_does_not_initialize_or_start_service(self) -> None:
+        with self.assertRaises(evidence_store.ExecutableCurrencyError):
             evidence_store.run_native(
                 self.state,
-                self.state / "absent-xtask",
                 ["status"],
                 deadline=self.deadline,
             )
@@ -246,14 +245,14 @@ class EvidenceStoreTests(unittest.TestCase):
             self.assertEqual(
                 evidence_store.main(["--state", str(self.state), "query"]), 0
             )
-        self.assertEqual(run.call_args.args[2], ["query"])
+        self.assertEqual(run.call_args.args[1], ["query"])
 
     def test_first_generation_page_has_no_continuation(self) -> None:
         with patch.object(evidence_store, "run_native", return_value=0) as run:
             self.assertEqual(
                 evidence_store.main(["--state", str(self.state), "generations"]), 0
             )
-        self.assertEqual(run.call_args.args[2], ["generations"])
+        self.assertEqual(run.call_args.args[1], ["generations"])
 
     def test_explicit_query_and_generation_selection_are_forwarded_as_arguments(
         self,
@@ -276,7 +275,7 @@ class EvidenceStoreTests(unittest.TestCase):
                 0,
             )
         self.assertEqual(
-            run.call_args.args[2],
+            run.call_args.args[1],
             [
                 "query",
                 "--limit",
@@ -303,7 +302,7 @@ class EvidenceStoreTests(unittest.TestCase):
                 0,
             )
         self.assertEqual(
-            run.call_args.args[2],
+            run.call_args.args[1],
             ["generations", "--limit", "3", "--after", "original_cut"],
         )
 

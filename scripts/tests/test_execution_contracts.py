@@ -36,137 +36,6 @@ from scripts.validation_scope import FUNCTIONAL_SCOPES, Gate
 ROOT = Path(__file__).resolve().parents[2]
 
 
-class NativePythonImportIdentity(unittest.TestCase):
-    def setUp(self) -> None:
-        width = patch.object(native_tests.pse_env, "default_test_width", return_value=4)
-        width.start()
-        self.addCleanup(width.stop)
-        self.directory = tempfile.TemporaryDirectory()
-        self.addCleanup(self.directory.cleanup)
-        self.output = Path(self.directory.name)
-        self.package = self.output / "foreign/pse"
-        self.package.mkdir(parents=True)
-        (self.package / "__init__.py").write_text("from . import _native\n")
-        (self.package / "_native.py").write_text("__version__ = 'compatible'\n")
-        (self.package / "_build.py").write_text(
-            "CacheSettings = EngineSettings = object\n"
-            "def build_info(): return None\n"
-            "def compiled_features(): return ['force-validate', 'native-solvers']\n"
-        )
-        fixture_package = self.package / "tests"
-        fixture_package.mkdir()
-        (fixture_package / "__init__.py").write_text("")
-        (fixture_package / "canonical_fixture.py").write_text(
-            "class CanonicalFixture: pass\n"
-        )
-        self.environment = {
-            **os.environ,
-            "PYTHONPATH": os.pathsep.join((str(self.package.parent), str(ROOT))),
-            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
-        }
-
-    def test_foreign_python_import_is_refused_before_provenance_or_tests(self) -> None:
-        report = self.output / "native-python.xml"
-        with (
-            patch.dict(os.environ, self.environment, clear=True),
-            patch.object(
-                sys,
-                "argv",
-                [
-                    "native_tests",
-                    "python",
-                    "--functional-observer-child",
-                    f"--junitxml={report}",
-                ],
-            ),
-            patch.object(native_tests, "native_provenance") as provenance,
-            patch.object(native_tests.subprocess, "call") as child,
-            self.assertRaisesRegex(ValueError, "different checkout"),
-        ):
-            native_tests.main()
-        provenance.assert_not_called()
-        child.assert_not_called()
-
-    def test_resolved_matching_import_is_the_single_recorded_binary(self) -> None:
-        checkout = self.output / "checkout"
-        expected = checkout / "python/pse"
-        expected.mkdir(parents=True)
-        (expected / "__init__.py").write_text("from . import _native\n")
-        (expected / "_native.py").write_text("__version__ = 'compatible'\n")
-        # A stale candidate must not enter provenance merely because it is on disk.
-        (expected / "_native.stale.so").write_bytes(b"not imported")
-        environment = {**self.environment, "PYTHONPATH": str(expected.parent)}
-        with patch.object(native_tests, "ROOT", checkout):
-            self.assertEqual(
-                native_tests.python_native_binary(environment), expected / "_native.py"
-            )
-
-    def test_running_pytest_refuses_a_changed_import_before_tests(self) -> None:
-        (self.package / "_build.py").write_text(
-            "CacheSettings = EngineSettings = object\ndef build_info(): return None\n"
-            "def compiled_features(): return ['force-validate', 'native-solvers']\n"
-        )
-        contracts = self.package / "contracts"
-        contracts.mkdir()
-        (contracts / "__init__.py").write_text("")
-        (contracts / "extension_types.py").write_text("EXTENSION_NAMES = ()\n")
-        tests = self.output / "tests"
-        tests.mkdir()
-        (tests / "conftest.py").write_bytes(
-            (ROOT / "python/pse/tests/conftest.py").read_bytes()
-        )
-        (tests / "test_probe.py").write_text(
-            "from pathlib import Path\n"
-            "def test_must_not_execute(): Path('executed').write_text('wrong import')\n"
-        )
-        result = subprocess.run(
-            [sys.executable, "-m", "pytest", "tests", "-q", "-p", "no:cacheprovider"],
-            cwd=self.output,
-            env={
-                **self.environment,
-                "PSE_NATIVE_EXPECTED_BINARY": str(ROOT / "python/pse/_native.so"),
-            },
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 4, result.stdout + result.stderr)
-        self.assertIn("differs from the binary recorded", result.stderr)
-        self.assertFalse((self.output / "executed").exists())
-
-    def test_running_pytest_refuses_replacement_at_the_same_path(self) -> None:
-        (self.package / "_build.py").write_text(
-            "CacheSettings = EngineSettings = object\ndef build_info(): return None\n"
-            "def compiled_features(): return ['force-validate', 'native-solvers']\n"
-        )
-        contracts = self.package / "contracts"
-        contracts.mkdir()
-        (contracts / "__init__.py").write_text("")
-        (contracts / "extension_types.py").write_text("EXTENSION_NAMES = ()\n")
-        tests = self.output / "tests"
-        tests.mkdir()
-        (tests / "conftest.py").write_bytes(
-            (ROOT / "python/pse/tests/conftest.py").read_bytes()
-        )
-        (tests / "test_probe.py").write_text(
-            "def test_must_not_execute(): raise AssertionError('executed')\n"
-        )
-        result = subprocess.run(
-            [sys.executable, "-m", "pytest", "tests", "-q", "-p", "no:cacheprovider"],
-            cwd=self.output,
-            env={
-                **self.environment,
-                "PSE_NATIVE_EXPECTED_BINARY": str(self.package / "_native.py"),
-                "PSE_NATIVE_EXPECTED_SHA256": "previous-artifact",
-            },
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 4, result.stdout + result.stderr)
-        self.assertIn("changed after wrapper provenance capture", result.stderr)
-
-
 class ExecutionContracts(unittest.TestCase):
     def setUp(self) -> None:
         width = patch.object(native_tests.pse_env, "default_test_width", return_value=4)
@@ -491,7 +360,7 @@ class ExecutionContracts(unittest.TestCase):
             self.assertEqual(cwd, native_tests.ROOT)
             self.assertIsInstance(observation, dict)
             self.assertEqual(
-                env["PSE_NATIVE_EXPECTED_BINARY"], str(ROOT / "python/pse/_native.so")
+                env["_PSE_NATIVE_PUBLISHED_IMAGE"], str(ROOT / "python/pse/_native.so")
             )
             report.write_text(
                 '<testsuite><testcase name="one"><properties><property name="nodeid" value="one"/></properties></testcase></testsuite>'

@@ -463,10 +463,9 @@ async def canonical_reads(recorder: Recorder, state: Path, hold_seconds: int) ->
                 )
 
                 evidence_store.prepare(state, deadline=time.monotonic() + 30)
-                tool = ROOT / "target/debug/pse-evidence"
                 require(
                     evidence_store.run_native(
-                        state, tool, ["init"], deadline=time.monotonic() + 30
+                        state, ["init"], deadline=time.monotonic() + 30
                     )
                     == 0,
                     "native evidence initialization failed",
@@ -520,7 +519,6 @@ async def canonical_reads(recorder: Recorder, state: Path, hold_seconds: int) ->
                 write(recorder.output / "knowledge-corpus.json", corpus)
                 imported = knowledge_store.native(
                     state,
-                    tool,
                     [
                         "knowledge-import",
                         "--input",
@@ -536,7 +534,7 @@ async def canonical_reads(recorder: Recorder, state: Path, hold_seconds: int) ->
                     "limit": 1,
                 }
                 direct = knowledge_store.indexed(
-                    query, state=state, tool=tool, root=ROOT
+                    query, state=state, root=ROOT
                 )
                 page = await recorder.invoke(
                     client, "knowledge_query", {"request": query, "state": str(state)}

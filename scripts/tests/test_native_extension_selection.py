@@ -41,7 +41,13 @@ class InstalledExtensionTests(unittest.TestCase):
 
     def write(self, mode: str = "dev", profile: str = "correctness") -> None:
         document = {
-            "inputs": {"mode": mode, "profile": profile, "validated": True},
+            "document_version": 1,
+            "kind": "extension",
+            "generation": "owned-generation",
+            "mode": mode,
+            "profile": profile,
+            "validated": True,
+            "interpreter": str(python_extension.interpreter({}).absolute()),
             "artifact": {
                 "binary": str(self.root / "_native.so"),
                 "sha256": "recorded",
@@ -89,15 +95,9 @@ class InstalledExtensionTests(unittest.TestCase):
                 self.path.write_text(contents)
                 with self.assertRaises(ExtensionSelectionError):
                     extension_currency({}, "installed_correctness", validated=True)
-            self.write("native")
-            document = json.loads(self.path.read_text())
-            document["artifact"]["features"] = ["force-validate"]
-            self.path.write_text(json.dumps(document))
-            with self.assertRaises(ExtensionSelectionError):
-                extension_currency({}, "installed_correctness", validated=True)
             self.write()
             document = json.loads(self.path.read_text())
-            document["inputs"]["profile"] = "not/a/profile"
+            document["profile"] = "not/a/profile"
             self.path.write_text(json.dumps(document))
             with self.assertRaises(ExtensionSelectionError):
                 extension_currency({}, "installed_correctness", validated=True)

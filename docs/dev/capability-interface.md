@@ -202,8 +202,9 @@ Digest/member changes, cross-selection cursors and unlisted members refuse. No c
 source path, clock or scientific rerun supplies missing facts. `copied_selection_complete` refers
 to the selected copied rows; `live_population_complete` remains false. The export also returns a
 `pse://telemetry/selection/{reference}/{selection}/{limit}` resource for the same protected read.
-Direct tools, fixed invokers and direct/projected resources retain loaded-source fences; source or
-generated declaration drift requires endpoint restart before owner dispatch.
+Direct tools, fixed invokers and direct/projected resources use the loaded contract. Drain and
+reload affected endpoints before serving edited code or regenerated declarations; dispatch does
+not infer that lifecycle from repeated source scans. Live tool-contract mutation still refuses.
 
 `telemetry_profile_capture` is a separate explicit action. Supply an available/partial suspect
 `QueryAnswer` with records/source, the original native `CaptureRequest`, and complete original
@@ -432,50 +433,38 @@ its owned STDIO process; presentation reset neither cancels nor replays native w
 
 `capability_readiness(capability)` is a passive selected observation of owner-declared requirements
 and existing preparation receipts. It reports independent facts for declared requirements, recorded
-preparation, compatible import, selected service, language provider and exercised operation. An old
-receipt records preparation; its currency stays unknown. Missing metadata stays unknown rather than
+preparation, compatible import, selected service, language provider and exercised operation. An issued immutable
+generation records completed construction; requested import compatibility remains separate. Missing metadata stays unknown rather than
 becoming a universal ready/not-ready answer. Browsing and passive checks do not compile, import the
 extension, start a service or publish files.
 
 `capability_readiness_check(request)` explicitly checks selected `import-compatible`,
 `native-currency`, `selected-service` or `language-provider` prerequisites through their original owners. Language checks
-need a language and file path. Import checks use the selected interpreter, binary origin/digest and
-required features; they do not build a missing extension. A toolkit service check does not establish
+need a language and file path. Import checks observe the selected interpreter and published compiled contract;
+they do not repeat construction validation or build a missing extension. A toolkit service check does not establish
 availability of a request-specific canonical deployment. Checking prerequisites never qualifies the
 operation itself.
 
 `native-currency` uses the operation's declared extension requirement and the existing installed
 receipt's supported mode/profile unless explicitly selected. An `installed_correctness` requirement
 can consume the actual dev or native correctness installation; `native_correctness` requires native.
-An omitted mode never guesses dev, and an omitted profile never invents a build profile. Missing,
-malformed or incompatible receipt selections refuse without import or preparation. It compares
-current supported build inputs and the installed artifact against the existing preparation owner.
-Its outcomes are current, stale, unknown or unsupported; schema compatibility alone cannot establish currency.
-Native modes require already admitted providers and otherwise report unsupported rather than
-preparing them. Unknown inputs remain conservative build inputs; shell bookkeeping, endpoint
-selectors and explicit telemetry carriers retain their runtime meanings. Known pytest/xdist
-observation keys, collection paths and expected-import witnesses likewise do not select compiler
-behavior. A stale input comparison reports bounded section/source/configuration/environment key
-names without values or digests; `complete=false` preserves redaction or truncation.
+An omitted mode never guesses dev, and an omitted profile never invents a build profile. Missing
+publication or a generation incompatible with the requested selection refuses without preparation.
+The construction owner establishes validity once; `native-currency` consumes the typed publication
+and compares the requested mode/profile/validation contract. It does not inspect current sources,
+compiler settings, Cargo logs, dep-info or image contents. Source edits and linting affect future
+construction, not the issued generation's validity. A valid generation can be incompatible with a
+particular requested contract.
 
-Supported ordinary preparation records the actual Cargo producing-input selection and installed
-artifact association in the existing extension receipt. Endpoint witnesses reuse byte identities
-while file metadata, link resolution and directory membership remain unchanged. This avoids an
-unchanged full-source byte hash and a second interpreter import on each supported retained read.
-Unknown or unsupported producing observations retain conservative preparation checks or refuse;
-neither a historical receipt nor matching schemas alone authorizes reuse. Explicit import
-compatibility checks retain their separate fixed-child import observation.
-
-Admitted native workers check currency before loading the extension. The binary's device, inode,
-size and nanosecond modification/change witnesses must remain unchanged through import, and the
-loaded path must match. An already loaded, unbound image refuses admission. Native telemetry then
-activates under the helper's existing shutdown owner. This binds the imported image at admission;
-it does not promise an immutable checkout for the entire operation. Explicit preparation may be
-necessary in the actual attachment environment even when another shell prepared the same checkout.
-Build-sensitive selections such as CMake search paths, CUDA/Conda configuration and compiler
-settings remain bound. Declare intended shared selections through the common environment owner,
-or explicitly prepare in the selected endpoint environment. A different context is not repaired
-by suppressing its selectors or repeatedly preparing once per pytest worker.
+Explicit preparation constructs a candidate immutable image and publishes its descriptor only
+after completion. Failure preserves the preceding publication. Native workers attach that exact
+issued path at the package's single native import gate. Retained workers use their existing
+attachment; they do not reread receipts or validate image metadata between pages. Replacing a
+mutable installation alias or publishing a later generation does not revoke an attached generation.
+Explicit endpoint drain and reload selects a replacement; old cursors never silently rebind.
+Native telemetry activates under the helper's existing shutdown owner. Provider/resource lifetimes
+remain with their original owners. Serving-code editing requires explicit drain/reload before the
+edited code serves operations, including lazy imports; source scanning is not that lifecycle.
 
 `python_extension_dev_stage` and `python_extension_native_stage` accept a chosen `stage`, `profile`
 and `validated` selection. `environment` ensures locked dependencies, `prepare` builds/installs or
@@ -549,10 +538,10 @@ whole-result scientific acceptance. Old version-1 inspection documents fail befo
 
 Operations whose Rust declaration admits `exact_context` reads use foreground endpoint-owned
 workers. A worker retains the actual Runtime and admitted physical/modeling objects only under
-identical immutable context, source, producing/provider/preparation premises and its original
-loaded-image witness. Each request still decodes and admits its original header/body and checks
-currency. Changed premises retire that worker; a new preparation receipt cannot bless its old
-loaded image. Independent contexts may have independent workers under ordinary admission.
+identical immutable request/physical context, original provider owners and attached published
+generation. Each request still decodes and admits its original header/body. Artifact construction
+is not revalidated. Changed request context retires that owner; selecting another generation uses
+explicit drain/replacement. Independent contexts may have independent workers under ordinary admission.
 
 Owner-declared opaque continuations remain associated with the original worker and complete query
 basis. A changed context/query, mixed owners, ambiguity or retired issuer refuses rather than

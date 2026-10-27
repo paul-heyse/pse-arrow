@@ -14,7 +14,30 @@ captured values alongside compiler, profile and source provenance.
 
 from __future__ import annotations
 
+import importlib.util
+import os
+import sys
 from typing import TYPE_CHECKING
+
+
+def _load_published_image() -> None:
+    """Load the construction owner's selected immutable image at this sole gate."""
+    image = os.environ.pop("_PSE_NATIVE_PUBLISHED_IMAGE", None)
+    if image is None:
+        return
+    spec = importlib.util.spec_from_file_location("pse._native", image)
+    if spec is None or spec.loader is None:
+        raise ImportError("published native image has no extension loader")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(spec.name, None)
+        raise
+
+
+_load_published_image()
 
 from pse import _native, contracts
 

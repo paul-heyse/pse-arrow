@@ -65,7 +65,7 @@ class ReceiptObservation(Contract):
     profile: str | None = None
     validated: bool | None = None
     artifact: python_extension.ExtensionArtifact | None = None
-    currency: Literal["unknown"] = "unknown"
+    currency: Literal["published", "unknown"] = "unknown"
 
 
 class CapabilityReadiness(Contract):
@@ -111,7 +111,25 @@ class ReadinessCheckRequest(Contract):
 def receipt_observation(
     root: Path, stage: Literal["extension", "stubs"]
 ) -> ReceiptObservation:
-    path = python_extension.stage_receipt(stage, os.environ, root=root)
+    path = (
+        python_extension.publication_path(stage, os.environ, root=root)
+        if stage == "extension"
+        else python_extension.stage_receipt(stage, os.environ, root=root)
+    )
+    if stage == "extension":
+        published = python_extension.read_publication(stage, os.environ, root=root)
+        if published is None:
+            return ReceiptObservation(stage=stage, path=str(path), recorded=False)
+        return ReceiptObservation(
+            stage=stage,
+            path=str(path),
+            recorded=True,
+            artifact=published.artifact,
+            mode=published.mode,
+            profile=published.profile,
+            validated=published.validated,
+            currency="published",
+        )
     document = python_extension.read_receipt(path)
     artifact = None
     inputs = document.get("inputs")
@@ -172,7 +190,7 @@ def passive(root: Path, capability: Capability) -> CapabilityReadiness:
         artifact_prepared=ReadinessFact(
             value=True if recorded else None,
             observation="passive" if extension else "unobserved",
-            evidence="Existing owner receipt records a matching completed preparation; current input currency and import compatibility remain unknown."
+            evidence="The construction owner issued a matching immutable generation; requested live import compatibility remains unobserved."
             if recorded
             else "No matching completed preparation receipt observed; absence does not establish whether an artifact exists.",
         ),
@@ -206,7 +224,7 @@ def bindings(
         return result
 
     def capability_readiness(capability: Identifier) -> CapabilityReadiness:
-        """Inspect one exact capability's declared requirements and existing preparation receipts without compiler probes, imports, service connections, builds or publication. Receipt presence records prior preparation; current currency, import compatibility, service availability and operation qualification remain unknown until separately observed."""
+        """Inspect one exact capability's declared requirements and existing preparation receipts without compiler probes, imports, service connections, builds or publication. A published generation records completed construction; import compatibility, service availability and operation qualification remain separate observations."""
         return passive(root, selected(capability))
 
     def capability_explain(

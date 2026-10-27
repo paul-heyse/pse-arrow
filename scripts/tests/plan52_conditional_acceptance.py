@@ -214,7 +214,7 @@ async def selected(client: Client) -> None:
 
 
 async def controls(output: Path) -> dict[str, object]:
-    """Independent refusal/source/concurrency controls, not actual-host evidence."""
+    """Independent refusal/contract/concurrency controls, not actual-host evidence."""
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     control = composition.fixtures(output / "fixtures")
@@ -304,64 +304,54 @@ async def controls(output: Path) -> dict[str, object]:
             "independent": independent,
         }
 
-        # Use the production Sources/Interface/RestartMiddleware implementation
-        # against copied real source bytes. Never mutate the shared checkout.
-        source_root = output / "source-tree"
-        for relative in runtime.interface.sources.sources:
-            source = ROOT / relative
-            if source.is_file():
-                destination = source_root / relative
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_bytes(source.read_bytes())
-        sources = coherence.Sources(source_root, runtime.interface.sources.sources)
-        interface = coherence.Interface(sources, runtime.catalogue)
+        # Live tool metadata can change independently of the captured interface.
+        # Exercise canonical dispatch's contract check, without a source edit or scan.
+        interface = coherence.Interface(runtime.interface.sources, runtime.catalogue)
         runtime.server.add_middleware(coherence.RestartMiddleware(interface))
-        target = "scripts/run_inspection.py"
-        require(
-            target in interface.operations["product_run_read"],
-            "source fence omitted real reader dependency",
-        )
-        before = hashlib.sha256((source_root / target).read_bytes()).hexdigest()
+        target = "product_run_read"
+        tool = runtime.catalogue.tools[target]
+        original_description = tool.description
         attempts = 0
 
-        def change_selected_source() -> None:
+        def change_selected_contract() -> None:
             nonlocal attempts
             attempts += 1
             if attempts == 2:
-                with (source_root / target).open("ab") as stream:
-                    stream.write(b"\n# isolated inquiry source-change control\n")
+                tool.description = original_description + " Changed live contract."
 
-        sandbox.next_policy = composition.Policy(before_dispatch=change_selected_source)
-        code = composition.code_for([str(paths[0])])
+        sandbox.next_policy = composition.Policy(
+            eligible=composition.ELIGIBLE | {"inquiry_yield_reader"},
+            before_dispatch=change_selected_contract,
+        )
         code = (
             "try:\n"
-            + "\n".join("    " + line for line in code.splitlines()[:-1])
-            + "\nexcept Exception:\n    pass\nreturn 'caught'"
+            "    await call_tool('inquiry_yield_reader', {'label': 'limited'})\n"
+            "    await call_tool('product_run_read', {'invocation': '/not-opened', 'registry': '/not-opened', 'limit': 1})\n"
+            "except Exception:\n    pass\nreturn 'caught'"
         )
-        answer = mapping(
-            await composition.read_value(client, composition.EXECUTE, {"code": code})
-        )
-        sandbox.next_policy = None
-        require(
-            answer["complete"] is False and answer["examined_dispatches"] == 2,
-            "real changed source became complete after caught refusal",
-        )
-        status = interface.status("product_run_read")
-        require(
-            status["restart_required"] is True
-            and target
-            in sequence(status["changed_serving_sources"], "changed serving sources"),
-            "canonical source fence did not identify changed reader",
-        )
-        cases["changed_callback_source"] = {
-            "answer": answer,
-            "source_status": status,
-            "before_sha256": before,
-            "after_sha256": hashlib.sha256(
-                (source_root / target).read_bytes()
-            ).hexdigest(),
-            "scope": "production fence on copied real source closure; shared checkout unchanged",
-        }
+        try:
+            answer = mapping(
+                await composition.read_value(client, composition.EXECUTE, {"code": code})
+            )
+            require(
+                answer["complete"] is False and answer["examined_dispatches"] == 2,
+                "changed live contract became complete after caught refusal",
+            )
+            status = interface.status(target)
+            require(
+                status["restart_required"] is True
+                and "exposed-tool-contract:" + target
+                in sequence(status["changed_serving_sources"], "changed serving sources"),
+                "canonical dispatch did not identify changed live contract",
+            )
+            cases["changed_callback_contract"] = {
+                "answer": answer,
+                "interface_status": status,
+                "scope": "production contract check on loaded tool metadata; source editing requires explicit drain/reload",
+            }
+        finally:
+            sandbox.next_policy = None
+            tool.description = original_description
 
     # Caught failure does not erase partiality, even after callback cleanup.
     drained = asyncio.Event()

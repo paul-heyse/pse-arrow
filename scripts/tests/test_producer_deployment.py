@@ -1034,7 +1034,7 @@ class ProducerDeploymentTests(unittest.TestCase):
         ) -> str:
             self.assertTrue(text)
             if command[0] == str(self.root / ".venv/bin/python"):
-                return json.dumps(str(installed))
+                return json.dumps({"binary": env["_PSE_NATIVE_PUBLISHED_IMAGE"] if env else "", "features": ["force-validate", "native-solvers"]})
             return actual_check_output(command, text=True, cwd=cwd, env=env)
 
         # The fixture tests byte-exact installation replay on actual ELF files.
@@ -1045,6 +1045,10 @@ class ProducerDeploymentTests(unittest.TestCase):
             patch.object(deployment, "verify_artifact"),
         ):
             self.actual_bind(self.root, self.output, self.environment)
+            published = deployment.artifact_publication.read(self.output / "python-publication.json")
+            assert published is not None
+            copied = Path(published.artifact.binary)
+            self.assertEqual(copied.read_bytes(), installed.read_bytes())
             rebound = producer_receipts.read_object(path)
             association = rebound["deployment"]
             if not isinstance(association, dict):
@@ -1052,7 +1056,7 @@ class ProducerDeploymentTests(unittest.TestCase):
             self.assertEqual(rebound["identity"], receipt["identity"])
             self.assertEqual(
                 association["artifact"],
-                producer_receipts.file_observation(installed),
+                producer_receipts.file_observation(copied),
             )
             self.assertEqual(
                 association["built_artifact"],
@@ -1067,13 +1071,13 @@ class ProducerDeploymentTests(unittest.TestCase):
             )
             self.assertEqual(
                 installation["installed_artifact"],
-                producer_receipts.file_observation(installed),
+                producer_receipts.file_observation(copied),
             )
             transformation = installation["transformation"]
             self.assertIsInstance(transformation, dict)
             self.assertEqual(
                 transformation["replayed_sha256"],
-                producer_receipts.file_observation(installed)["sha256"],
+                producer_receipts.file_observation(copied)["sha256"],
             )
             path.write_text(json.dumps(receipt))
             subprocess.run(
@@ -1104,6 +1108,7 @@ class ProducerDeploymentTests(unittest.TestCase):
             environment["PSE_PYTHON_DEPLOYMENT_ATTESTATION"],
             str(self.output / "python-attestation.json"),
         )
+        self.assertEqual(environment["_PSE_NATIVE_PUBLICATION"], str(self.output / "python-publication.json"))
         self.assertEqual(
             environment, deployment.deployment_environment(self.root, Path("evidence"))
         )

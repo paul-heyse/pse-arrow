@@ -22,8 +22,6 @@ if TYPE_CHECKING:
     from fastmcp.tools import Tool
     from pydantic import JsonValue
 
-    from scripts.producing_currency import Witness
-
 ENVIRONMENT = "PSE_CAPABILITY_ADMISSION"
 MAXIMUM_BYTES = 256 << 10
 
@@ -145,36 +143,17 @@ def verify(root: Path, worker: str, operation: str, request: bytes) -> None:
     verify_handoff(root, worker, operation, request, received)
 
 
-def _source_digest(root: Path, name: str, witness: Witness) -> str | None:
-    path = root / name
-    if path.is_symlink() or not path.resolve().is_relative_to(root):
-        raise ValueError("admitted source is outside the selected checkout")
-    if path.exists() and path.stat().st_size > 4 << 20:
-        raise ValueError("admitted source exceeds its original extent")
-    value = witness.file(path)
-    if value.get("link") is not None or not Path(str(value["resolved"])).is_relative_to(
-        root
-    ):
-        raise ValueError("admitted source changed its link selection")
-    digest = value.get("sha256")
-    if digest is not None and not isinstance(digest, str):
-        raise ValueError("admitted source witness is malformed")
-    return digest
-
-
 def verify_handoff(
     root: Path,
     worker: str,
     operation: str,
     request: bytes,
     received: Handoff,
-    *,
-    witness: Witness | None = None,
 ) -> None:
-    """Verify one independent request, including inside an admitted foreground session.
+    """Bind an independent request to its admitted checkout and fixed route.
 
-    A session-owned witness rehashes only changed selected source files. One-shot
-    callers keep their original source capture; neither route adopts a new definition.
+    Source provenance was captured by the construction owner. Serving-code edits
+    require explicit drain/reload; an internal handoff does not rescan that code.
     """
     expected = received.definition
     if operation not in WORKERS[worker].operations:
@@ -190,25 +169,4 @@ def verify_handoff(
     ):
         raise AdmissionRefusedError(
             "Admitted operation contract changed; reattach before further effects"
-        )
-    actual: dict[str, str | None]
-    try:
-        if witness is None:
-            observed = Sources(root, expected.sources, follow_imports=False)
-            actual = {name: observed.sources[name].digest for name in expected.sources}
-        else:
-            actual = {}
-            selected_root = root.resolve(strict=True)
-            for name in expected.sources:
-                actual[name] = _source_digest(selected_root, name, witness)
-    except (OSError, ValueError, SyntaxError):
-        raise AdmissionRefusedError(
-            "Admitted source changed or became unreadable; reattach before further effects"
-        ) from None
-    # Sources follows local imports to read safely. Shared serving modules may
-    # import unrelated operations: only the admitted operation's selected basis
-    # is authoritative here, exactly as in the parent's restart fence.
-    if actual != expected.sources:
-        raise AdmissionRefusedError(
-            "Admitted source changed; reattach before further effects"
         )

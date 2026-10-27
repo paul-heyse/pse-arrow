@@ -55,68 +55,25 @@ class AdmissionTests(unittest.TestCase):
                 with self.assertRaises(basis.AdmissionRefusedError):
                     basis.verify(self.root, worker, operation, data)
 
-    def test_changed_implementation_refuses(self) -> None:
+    def test_handoff_does_not_revalidate_captured_source_provenance(self) -> None:
         supplied = self.publish()
-        self.source.write_text("changed effect")
+        self.source.unlink()
         with (
             patch.dict(os.environ, supplied),
-            self.assertRaisesRegex(ValueError, "source changed"),
+            patch.object(basis, "Sources", side_effect=AssertionError("source rescan")),
         ):
             basis.verify(self.root, "host", "archive", self.document)
 
-    def test_shared_imports_do_not_expand_the_admitted_operation_basis(self) -> None:
-        shared = self.root / "scripts/shared.py"
-        shared.parent.mkdir()
-        shared.write_text("from scripts import unrelated\n")
-        (shared.parent / "unrelated.py").write_text("VALUE = 1\n")
-        self.definition = self.definition.model_copy(
-            update={
-                "sources": {
-                    "scripts/shared.py": __import__("hashlib")
-                    .sha256(shared.read_bytes())
-                    .hexdigest()
-                }
-            }
-        )
-        with patch.dict(os.environ, self.publish()):
-            basis.verify(self.root, "host", "archive", self.document)
-            (shared.parent / "unrelated.py").write_text("invalid unrelated syntax (\n")
-            basis.verify(self.root, "host", "archive", self.document)
-            shared.write_text("from scripts import new_interpreter\n")
+    def test_other_checkout_and_changed_route_declaration_refuse(self) -> None:
+        supplied = self.publish()
+        with patch.dict(os.environ, supplied):
             with self.assertRaises(basis.AdmissionRefusedError):
-                basis.verify(self.root, "host", "archive", self.document)
+                basis.verify(self.root / "other", "host", "archive", self.document)
+            with patch.object(basis, "route_revision", return_value="changed"):
+                with self.assertRaises(basis.AdmissionRefusedError):
+                    basis.verify(self.root, "host", "archive", self.document)
 
-    def test_new_facade_glue_and_generated_defaults_remain_in_the_admitted_import_closure(
-        self,
-    ) -> None:
-        files = {
-            "scripts/bridge.py": "from pse.generated.project_operations import ProjectRuntimeOperations\n",
-            "python/pse/generated/project_operations.py": "from .._project_operations_glue import ProjectRuntimeGlue\n",
-            "python/pse/_project_operations_glue.py": "from ._project_bundle import ProjectBundle\nfrom .generated.project_operation_defaults import DEFAULT_BRANCH\n",
-            "python/pse/_project_bundle.py": "class ProjectBundle: pass\n",
-            "python/pse/generated/project_operation_defaults.py": "DEFAULT_BRANCH = 'main'\n",
-        }
-        for relative, body in files.items():
-            path = self.root / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(body)
-        captured = Sources(self.root, ("scripts/bridge.py",))
-        closure = captured.closure(("scripts/bridge.py",))
-        self.assertTrue(set(files).issubset(closure))
-        self.definition = self.definition.model_copy(
-            update={
-                "sources": {path: captured.sources[path].digest for path in closure}
-            }
-        )
-        with patch.dict(os.environ, self.publish()):
-            basis.verify(self.root, "host", "archive", self.document)
-            (self.root / "python/pse/_project_bundle.py").write_text(
-                "class ProjectBundle: changed = True\n"
-            )
-            with self.assertRaisesRegex(basis.AdmissionRefusedError, "source changed"):
-                basis.verify(self.root, "host", "archive", self.document)
-
-    def test_bare_package_import_captures_its_relative_private_owner(self) -> None:
+    def test_original_construction_retains_source_import_provenance(self) -> None:
         files = {
             "scripts/bridge.py": "import pse\n",
             "python/pse/__init__.py": "from ._private import value\n",
@@ -127,18 +84,7 @@ class AdmissionTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(body)
         captured = Sources(self.root, ("scripts/bridge.py",))
-        closure = captured.closure(("scripts/bridge.py",))
-        self.assertTrue(set(files).issubset(closure))
-        self.definition = self.definition.model_copy(
-            update={
-                "sources": {path: captured.sources[path].digest for path in closure}
-            }
-        )
-        with patch.dict(os.environ, self.publish()):
-            basis.verify(self.root, "host", "archive", self.document)
-            (self.root / "python/pse/_private.py").write_text("value = 2\n")
-            with self.assertRaises(basis.AdmissionRefusedError):
-                basis.verify(self.root, "host", "archive", self.document)
+        self.assertTrue(set(files).issubset(captured.closure(("scripts/bridge.py",))))
 
     def test_every_declared_native_binding_uses_the_same_closed_worker_set(
         self,
@@ -272,7 +218,7 @@ class NativeCurrencyAdmissionTests(unittest.TestCase):
             mode="native",
             profile=None,
             validated=True,
-            cause="missing-preparation-evidence",
+            cause="missing-publication",
             remedy="Explicitly prepare and reattach.",
         )
         from scripts.tests.test_telemetry_profiles import (  # noqa: PLC0415
