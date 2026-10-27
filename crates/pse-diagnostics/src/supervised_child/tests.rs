@@ -7,6 +7,23 @@ fn spawn(script:&str)->SupervisedChild {
     command.args(["-c",script]).stdout(Stdio::piped());
     SupervisedChild::spawn(&mut command,DrainFailurePolicy::Refuse(Duration::from_secs(3)),None).unwrap()
 }
+struct ProcImage(std::path::PathBuf);
+impl ProcImage {
+    fn new(processes:&[(u32,bool)])->Self {
+        use std::os::unix::fs::symlink;
+        let directory=std::env::temp_dir().join(format!("pse-supervision-exited-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        std::fs::create_dir_all(directory.join("sys/kernel/random")).unwrap();
+        symlink("/proc/sys/kernel/random/boot_id",directory.join("sys/kernel/random/boot_id")).unwrap();
+        for &(process,namespace) in processes {
+            std::fs::create_dir(directory.join(process.to_string())).unwrap();
+            symlink(format!("/proc/{process}/stat"),directory.join(format!("{process}/stat"))).unwrap();
+            if namespace {symlink(format!("/proc/{process}/ns"),directory.join(format!("{process}/ns"))).unwrap();}
+        }
+        Self(directory)
+    }
+    fn reader(&self)->ProcessReader {ProcessReader::new(self.0.clone())}
+}
+impl Drop for ProcImage {fn drop(&mut self){std::fs::remove_dir_all(&self.0).unwrap();}}
 #[test]
 fn supervised_child_post_open_identity_refuses_changed_and_foreign_namespace() {
     let facts=present(ProcessReader::default().process(std::process::id())).unwrap();
@@ -144,8 +161,10 @@ fn supervised_child_member_namespace_unknown_refuses_without_releasing_owner() {
     symlink(format!("/proc/{member}/stat"),directory.join(format!("{member}/stat"))).unwrap();
     symlink("pid:[unknown]",directory.join(format!("{member}/ns/pid"))).unwrap();
     symlink("/proc/sys/kernel/random/boot_id",directory.join("sys/kernel/random/boot_id")).unwrap();
-    child.facts=ProcessReader::new(directory);
+    child.facts=ProcessReader::new(directory.clone());
     assert!(matches!(child.members(),Err(SupervisionError::Identity(_))));
+    std::fs::remove_file(directory.join(format!("{member}/ns/pid"))).unwrap();
+    assert!(matches!(child.members(),Err(SupervisionError::Identity(_))),"missing namespace is not proof that a live member exited");
     assert!(child.retained_status().is_none());
     child.facts=ProcessReader::default();
     child.cancel().unwrap();
@@ -158,4 +177,62 @@ fn supervised_child_known_drain_reader_error_returns_instead_of_parking() {
     child.reader=Some(std::thread::spawn(||Err(io::Error::other("injected completed reader fault"))));
     assert!(matches!(child.wait(),Err(SupervisionError::Io(_))));
     assert!(child.retained_status().unwrap().success());
+}
+
+#[test]
+fn supervised_child_exited_before_admission_retains_leader_until_descendant_drain() {
+    for policy in [DrainFailurePolicy::Park,DrainFailurePolicy::Refuse(Duration::from_secs(3))] {
+        let facts=ProcessReader::default();
+        let namespace=present(facts.observer_namespace()).unwrap();
+        present(facts.spawning_namespace(&namespace)).unwrap();
+        let parent=present(facts.process(std::process::id())).unwrap();
+        assert_eq!(parent.identity.pid_namespace,namespace);
+        let mut command=Command::new("/bin/sh");
+        command.args(["-c","sleep 60 & printf '%s\\n' \"$!\"; exit 23"]).process_group(0).stdout(Stdio::piped());
+        let mut child=command.spawn().unwrap();
+        let leader=child.id();
+        // Deliberately prevent parent admission until the leader has exited.
+        // This is a kernel WNOWAIT barrier, independent of scheduler timing.
+        rustix::process::waitid(rustix::process::WaitId::Pid(pid(leader).unwrap()),rustix::process::WaitIdOptions::EXITED|rustix::process::WaitIdOptions::NOWAIT).unwrap().unwrap();
+        let mut line=String::new();BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
+        let member_pid=line.trim().parse().unwrap();
+        let member=rustix::process::pidfd_open(pid(member_pid).unwrap(),rustix::process::PidfdFlags::empty()).unwrap();
+        // Some kernels retain zombie namespace links; remove that metadata in a
+        // deterministic reader image while keeping real kernel stat/pidfds.
+        let image=ProcImage::new(&[(leader,false),(member_pid,true)]);
+        let mut owner=SupervisedChild {child,process_fd:None,identity:None,finished:None,reader:None,stderr:None,policy:DrainFailurePolicy::Refuse(Duration::from_secs(3)),facts:image.reader()};
+        assert!(matches!(owner.facts.process(leader),ProcessRead::Unavailable(_)),"fixture must inject missing namespace metadata for an exited leader");
+        owner.admit(&parent.identity).unwrap();
+        owner.policy=policy;
+        assert!(exited(owner.process_fd.as_ref().unwrap()).unwrap());
+        assert!(!exited(&member).unwrap());
+        assert_eq!(owner.members().unwrap().len(),1);
+        assert!(owner.retained_status().is_none());
+        assert!(rustix::process::waitid(rustix::process::WaitId::PidFd(owner.process_fd.as_ref().unwrap().as_fd()),rustix::process::WaitIdOptions::EXITED|rustix::process::WaitIdOptions::NOWAIT|rustix::process::WaitIdOptions::NOHANG).unwrap().is_some());
+        assert_eq!(owner.wait().unwrap().code(),Some(23));
+        assert!(exited(&member).unwrap());
+        assert_eq!(rustix::process::waitid(rustix::process::WaitId::Pid(pid(leader).unwrap()),rustix::process::WaitIdOptions::EXITED|rustix::process::WaitIdOptions::NOHANG).unwrap_err(),rustix::io::Errno::CHILD);
+    }
+}
+
+#[test]
+fn supervised_child_already_exited_member_needs_pidfd_exit_not_zombie_namespace() {
+    let mut leader=spawn("exec sleep 60");
+    let mut command=Command::new("/bin/sh");
+    command.args(["-c","exit 29"]).process_group(pid(leader.pid()).unwrap().as_raw_pid());
+    let mut member=command.spawn().unwrap();
+    let member_pid=pid(member.id()).unwrap();
+    rustix::process::waitid(rustix::process::WaitId::Pid(member_pid),rustix::process::WaitIdOptions::EXITED|rustix::process::WaitIdOptions::NOWAIT).unwrap().unwrap();
+    let image=ProcImage::new(&[(member.id(),false)]);
+    assert!(matches!(image.reader().process(member.id()),ProcessRead::Unavailable(_)),"fixture must inject missing namespace metadata for an exited member");
+    leader.facts=image.reader();
+    // The dead member is deliberately left unreaped throughout both inventory
+    // and drain, so it cannot disappear before either read by scheduling luck.
+    let inventory=leader.members();
+    let drain=leader.cancel();
+    leader.facts=ProcessReader::default();
+    let status=member.wait().unwrap();
+    assert!(inventory.unwrap().is_empty());
+    drain.unwrap();
+    assert_eq!(status.code(),Some(29));
 }

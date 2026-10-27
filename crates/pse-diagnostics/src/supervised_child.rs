@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Synchronous ownership of a freshly spawned process group, never setsid containment.
 use crate::{Cancellation, process_facts::{ProcessFacts, ProcessIdentity, ProcessRead, ProcessReader}};
-use std::{io::{self,Read}, os::{fd::OwnedFd,unix::process::CommandExt}, process::{Child,Command,ExitStatus,Stdio}, sync::Arc, time::{Duration,Instant}};
+use std::{io::{self,Read}, os::{fd::{AsFd,OwnedFd},unix::process::CommandExt}, process::{Child,Command,ExitStatus,Stdio}, sync::Arc, time::{Duration,Instant}};
 
 /// Unknown drain never silently releases compiler ownership.
 #[derive(Clone, Copy, Debug)]
@@ -78,21 +78,17 @@ impl SupervisedChild {
         }
         let facts=ProcessReader::default();
         let observer_namespace=present(facts.observer_namespace())?;
+        let current=present(facts.process(std::process::id()))?;
+        if current.identity.pid_namespace!=observer_namespace {
+            return Err(SupervisionError::Identity("observer namespace changed before spawn".into()));
+        }
+        present(facts.spawning_namespace(&observer_namespace))?;
         command.process_group(0);
         let child=command.spawn()?;
         let mut owner=Self {child,process_fd:None,identity:None,finished:None,reader:None,stderr:None,policy,facts};
         // Child ownership reserves this freshly spawned leader even if identity
         // acquisition fails. Drop uses the same explicit drain failure policy.
-        let before=present(owner.facts.process(owner.pid()))?;
-        let fd=rustix::process::pidfd_open(pid(owner.pid())?,rustix::process::PidfdFlags::empty()).map_err(io::Error::from)?;
-        let after=present(owner.facts.process(owner.pid()))?;
-        verify(&before,&after,&before.identity)?;
-        let current=present(owner.facts.process(std::process::id()))?;
-        if after.identity.pid_namespace!=observer_namespace || after.identity.pid_namespace!=current.identity.pid_namespace || after.identity.boot_id!=current.identity.boot_id || after.stat.process_group!=pid(owner.pid())?.as_raw_pid() {
-            return Err(SupervisionError::Identity("spawned leader namespace or process group mismatch".into()));
-        }
-        owner.process_fd=Some(fd);
-        owner.identity=Some(after.identity);
+        owner.admit(&current.identity)?;
         if let Some(capture)=stderr {
             let mut pipe=owner.child.stderr.take().ok_or_else(|| SupervisionError::Reader("stderr pipe absent".into()))?;
             owner.reader=Some(std::thread::Builder::new().name("pse-child-stderr".into()).stack_size(capture.stack_bytes).spawn(move || {
@@ -107,6 +103,39 @@ impl SupervisedChild {
             })?);
         }
         Ok(owner)
+    }
+    fn admit(&mut self, inherited:&ProcessIdentity)->Result<(),SupervisionError> {
+        let before=present(self.facts.stat(self.pid()))?;
+        let fd=rustix::process::pidfd_open(pid(self.pid())?,rustix::process::PidfdFlags::empty()).map_err(io::Error::from)?;
+        self.process_fd=Some(fd);
+        let fd=self.process_fd.as_ref().ok_or_else(||SupervisionError::Identity("leader pidfd absent".into()))?;
+        // pidfd_open(2): exclusive unreaped Child custody also covers a child
+        // which exited before open. P_PIDFD rejects ECHILD rather than assuming
+        // a numeric PID still denotes our child. WNOWAIT retains the PGID anchor.
+        rustix::process::waitid(rustix::process::WaitId::PidFd(fd.as_fd()),rustix::process::WaitIdOptions::EXITED|rustix::process::WaitIdOptions::NOWAIT|rustix::process::WaitIdOptions::NOHANG).map_err(io::Error::from)?;
+        let after=present(self.facts.stat(self.pid()))?;
+        if before.start_ticks!=after.start_ticks || before.process_group!=after.process_group || after.process_group!=pid(self.pid())?.as_raw_pid() {
+            return Err(SupervisionError::Identity("spawned leader start ticks or process group changed across pidfd open".into()));
+        }
+        let identity=ProcessIdentity {boot_id:inherited.boot_id.clone(),pid_namespace:inherited.pid_namespace.clone(),pid:self.pid(),start_ticks:after.start_ticks};
+        // Do not require live procfs namespace metadata once this descriptor
+        // establishes whole-thread-group exit. Inherited facts were checked
+        // for the actual spawning thread before fork, and a
+        // process's active PID namespace cannot change (pid_namespaces(7)).
+        // Readiness proves this process exited, never that its group drained.
+        if !exited(fd)? {
+            let live=(|| {
+                let facts=present(self.facts.process(self.pid()))?;
+                verify(&facts,&facts,&identity)?;
+                if facts.stat.start_ticks!=after.start_ticks || facts.stat.process_group!=after.process_group {
+                    return Err(SupervisionError::Identity("spawned leader changed after pidfd open".into()));
+                }
+                Ok(())
+            })();
+            if let Err(error)=live {if !exited(fd)? {return Err(error);}}
+        }
+        self.identity=Some(identity);
+        Ok(())
     }
     /// Actual freshly spawned PID.
     pub fn pid(&self)->u32 {self.child.id()}
@@ -164,24 +193,22 @@ impl SupervisedChild {
                 other=>return Err(observation_error(other)),
             };
             if stat.process_group!=pid(self.pid())?.as_raw_pid() {continue;}
-            let before=match self.facts.process(member) {
-                ProcessRead::Present(facts)=>facts,
-                ProcessRead::Absent=>continue,
-                other=>return Err(observation_error(other)),
-            };
-            if before.stat.process_group!=stat.process_group || before.stat.start_ticks!=stat.start_ticks {
-                return Err(SupervisionError::Identity("member changed before descriptor open".into()));
-            }
-            verify(&before,&before,expected)?;
             let fd=match rustix::process::pidfd_open(pid(member)?,rustix::process::PidfdFlags::empty()) {
                 Ok(fd)=>fd,Err(rustix::io::Errno::SRCH)=>continue,Err(error)=>return Err(io::Error::from(error).into()),
             };
+            // Do not require live procfs namespace metadata after this exact
+            // descriptor establishes whole-thread-group exit. Only that proof
+            // permits skipping it, without ever signalling it.
+            if exited(&fd)? {continue;}
             let after=match self.facts.process(member) {
                 ProcessRead::Present(facts)=>facts,
                 other=> {if exited(&fd)? {continue;} return Err(observation_error(other));}
             };
-            if let Err(error)=verify(&before,&after,expected) {if exited(&fd)? {continue;} return Err(error);}
-            if after.stat.process_group!=pid(self.pid())?.as_raw_pid() {return Err(SupervisionError::Identity("member left owned process group".into()));}
+            if let Err(error)=verify(&after,&after,expected) {if exited(&fd)? {continue;} return Err(error);}
+            if after.stat.start_ticks!=stat.start_ticks || after.stat.process_group!=stat.process_group {
+                if exited(&fd)? {continue;}
+                return Err(SupervisionError::Identity("member start ticks or process group changed across descriptor open".into()));
+            }
             // A zombie TGID can still have running threads. Only pidfd readiness
             // establishes whole-thread-group exit, never the stat state alone.
             if !exited(&fd)? {members.push(fd);}

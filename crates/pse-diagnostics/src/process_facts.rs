@@ -97,6 +97,24 @@ impl ProcessReader {
         };
         match read() {Ok(namespace)=>ProcessRead::Present(namespace),Err(error)=>ProcessRead::Unavailable(error.to_string())}
     }
+    /// Verify the actual spawning thread inherits this PID namespace into its
+    /// children. A process leader's namespace-for-children need not be this thread's.
+    pub(crate) fn spawning_namespace(&self, expected:&str) -> ProcessRead<()> {
+        let read=|| -> io::Result<()> {
+            // pid_namespaces(7): setns/unshare changes only future children's
+            // PID namespace; the caller's own membership cannot change.
+            for _ in 0..2 {
+                for namespace in ["pid","pid_for_children"] {
+                    let actual=std::fs::read_link(self.root.join("thread-self/ns").join(namespace))?;
+                    if actual.to_str()!=Some(expected) {
+                        return Err(io::Error::other("spawning thread PID namespace or namespace-for-children differs from observer"));
+                    }
+                }
+            }
+            Ok(())
+        };
+        match read() {Ok(())=>ProcessRead::Present(()),Err(error)=>ProcessRead::Unavailable(error.to_string())}
+    }
     /// Read stat alone, allowing inventory to filter foreign groups before namespace access.
     pub fn stat(&self, pid: u32) -> ProcessRead<ProcessStat> {
         match std::fs::read(self.root.join(pid.to_string()).join("stat")) {
@@ -216,7 +234,8 @@ mod tests {
     fn process_facts_live_identity_and_missing_are_explicit() {
         let reader=ProcessReader::default();
         assert!(matches!(reader.process(std::process::id()),ProcessRead::Present(_)));
-        assert!(matches!(reader.observer_namespace(),ProcessRead::Present(_)));
+        let namespace=match reader.observer_namespace() {ProcessRead::Present(namespace)=>namespace,other=>panic!("{other:?}")};
+        assert!(matches!(reader.spawning_namespace(&namespace),ProcessRead::Present(())));
         assert!(matches!(reader.process(u32::MAX),ProcessRead::Absent));
         let reader=ProcessReader::new(PathBuf::from("/dev/null"));
         assert!(matches!(reader.process(1),ProcessRead::Unavailable(_)));
@@ -247,6 +266,27 @@ mod tests {
         for hierarchy in [None,Some(&[][..]),Some(&[122][..]),Some(&[123,123][..]),Some(&[42,123][..])] {
             assert!(observer_pid_view(hierarchy,123).is_err());
         }
+    }
+
+    #[test]
+    fn process_facts_spawning_thread_namespace_for_children_is_independent_of_leader() {
+        use std::os::unix::fs::symlink;
+        let directory=std::env::temp_dir().join(format!("pse-spawning-namespace-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        std::fs::create_dir_all(directory.join("thread-self/ns")).unwrap();
+        std::fs::create_dir_all(directory.join("self/ns")).unwrap();
+        struct Fixture(PathBuf);
+        impl Drop for Fixture {fn drop(&mut self){std::fs::remove_dir_all(&self.0).unwrap();}}
+        let _fixture=Fixture(directory.clone());
+        for path in ["thread-self/ns/pid","self/ns/pid","self/ns/pid_for_children"] {symlink("pid:[expected]",directory.join(path)).unwrap();}
+        let reader=ProcessReader::new(directory.clone());
+        assert!(matches!(reader.spawning_namespace("pid:[expected]"),ProcessRead::Unavailable(_)));
+        let children=directory.join("thread-self/ns/pid_for_children");
+        symlink("pid:[different]",&children).unwrap();
+        assert!(matches!(reader.spawning_namespace("pid:[expected]"),ProcessRead::Unavailable(_)));
+        std::fs::remove_file(&children).unwrap();
+        symlink("pid:[expected]",&children).unwrap();
+        assert!(matches!(reader.spawning_namespace("pid:[expected]"),ProcessRead::Present(())));
+        assert!(matches!(reader.spawning_namespace("pid:[different]"),ProcessRead::Unavailable(_)));
     }
 
 }
