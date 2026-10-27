@@ -44,6 +44,18 @@ compilation or provider runs were needed. The recorded Rust/Python results remai
 passes plus affected reruns, not a new clean full invocation. Permission, replay, native capability,
 service custody and physical-context results remain supported. No measured benefit is added.
 
+## Audit-gap implementation — 2026-10-27
+
+The maintainer authorized CA01 closure. Actual implicit preparation/product/provider/factor poison
+constructors now carry a typed operational cause through existing attribution and diagnostic
+projection. Genuine contract refusals retain their meaning. Trajectory reserve and compiler join
+failures retain typed sources and operation context; cancellation still joins original work, and an
+opaque panic payload does not acquire fabricated retained extent.
+
+The actual poisoned-owner control and the combined runtime constructor/settings selection passed
+at the recorded local force-validated conditions. Native/public adoption and shared scope-end checks
+remain pending before B06 and DA-039 can close. The coordinator remains the sole disposition owner.
+
 ## Purpose and assessed foundations
 
 **Implemented:** completion-owned scientific permission governs every aggregate, derived product

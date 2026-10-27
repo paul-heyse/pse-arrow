@@ -70,6 +70,15 @@ the exact reproducer plus the four selected context/endpoint/foreground CLI cont
 two-generation/cursor/CLI acceptance, canonical adoption controls and scope-end checks remain. Existing failed attempts remain evidence;
 G01/G02/G04 and overall Plan56 completion are still open at this checkpoint.
 
+The broader canonical controller subsequently exited with signal 139 after its knowledge-read
+cases, before publishing the host handoff. That failed run does not establish result-reader or
+two-generation acceptance. Its original owned fixture is retained for authenticated settlement.
+The selected Rust canonical adoption run passed one control and failed three during fixture
+admission because the configured deployment is `pse.substrate.v8`, while the current contract is
+`pse.substrate.v10`. The older deployment is preserved; these controls require a separately owned
+current deployment. Neither failure is relabeled as an implementation pass or erased by earlier
+bounded evidence.
+
 ## Completion boundary
 
 **Proposed:** qualify the delivered alignment target through real producers, consumers and failure

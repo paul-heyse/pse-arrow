@@ -43,6 +43,19 @@ return exact unsettled intents and expose explicit recovery; they do not issue a
 failed readback at issue here. Their conservative unknown outcome is not an additional defect.
 No new performance, fleet, platform or distribution claim follows.
 
+## Audit-gap implementation — 2026-10-27
+
+The maintainer authorized CA02/CA03 closure. Lazy study publication now consumes retained authority
+associations rather than reconstructing prefixes. Source-stage acquisition composes the original
+failure and failed receipt observation through shared unresolved knowledge, retaining exact recovery
+identity and non-retryability.
+
+The source owner propagates original clocks without an enclosing timer discarding failed-acquisition
+settlement. Both ordinary and project entry routes preserve the separate original acquisition and
+activation allowances; actual requests, waits and post-acquisition work remain bounded. The actual
+four-case transport control passed for both entry routes and returned/pending readback failures.
+Canonical producer/authority and adjacent branch acceptance remain pending before C01/C02 close.
+
 ## Purpose and foundation assessment
 
 **Implemented:** canonical declarations own decision-relevant storage meaning, shared settlement

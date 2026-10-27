@@ -103,6 +103,26 @@ context/protection/cancellation/EOF and supplied-only separation retain their re
 The B06 producer classification defect belongs to B06, not a separate F03 reopening. Source-scanning
 removal cannot yet be claimed universally. No speed, memory or capacity improvement was measured.
 
+## Audit-gap implementation — 2026-10-27
+
+The maintainer authorized CA04–CA08 closure. Pinned Schemars/serde declarations now own the actual
+sampler, scalar limits and finite comparison judgments. A schema-only owner adapter preserves enum
+map keys without mirroring their strings; the existing emitter projects typed Python keys. Generated
+msgspec constraints and type inspection drive telemetry receiving admission and environment limit
+conversion. Original open statuses, valid wire spellings and document version 1 remain intact.
+
+Explicit stages select exact mode/profile/validation compatibility while generic installed capture
+keeps its meaning. Automatic interface projections inspect loaded wire contracts rather than serving
+sources. The foreground client uses a scoped FastMCP transport and requests native drain before the
+SDK starts disconnect: the requestless `capabilities_drain` control closes admission, joins original
+owners and acknowledges only their successful settlement. Concurrent close observers now share one
+manager drain; cancelled observers and sibling failures cannot permit an early successor.
+
+Focused generated-owner, SDK-adapter, explicit-stage and host-lifetime controls pass. Independent
+review found the concurrent-close issue, which was repaired and reassessed without a remaining
+material source finding. Final regeneration, actual two-publication/cursor/CLI/EOF acceptance and
+shared scope-end checks remain pending; the package rows and DA dispositions therefore stay open.
+
 ## Target and foundations
 
 **Proposed:** finite public operation contracts project faithfully into hosts; boundary meaning
