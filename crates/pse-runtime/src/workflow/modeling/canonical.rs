@@ -861,45 +861,7 @@ async fn admit_revision_authorized(
     )?;
     let origin = match runtime.publication() {
         None => None,
-        Some(_) => {
-            let store = runtime.canonical_store()?;
-            if let Some(previous) = previous
-                && previous.origin.is_some()
-                && previous.issuer.as_deref() != Some(store.issuing_store()?)
-            {
-                return Err(contract(
-                    "source edit issuer differs from its original admitted source",
-                ));
-            }
-            let old = previous.map(SourceRevision::require_origin).transpose()?;
-            let problem = old.map_or_else(
-                || pse_operations::mint_id::<SemanticId>().to_string(),
-                |old| old.problem.clone(),
-            );
-            let operation = pse_operations::mint_id::<SemanticId>().to_string();
-            if let Some(cancel) = cancel {
-                checkpoint(cancel)?;
-            }
-            let recorded = if let Some(intent) = project {
-                store.edit_project(intent, edits).await.map_err(|source| {
-                    crate::workflow::source_settlement::source_edit_error(
-                        intent.problem().into(),
-                        intent.operation().into(),
-                        source,
-                    )
-                })?
-            } else {
-                store
-                    .edit(&problem, old.map(|old| old.key.as_str()), &operation, edits)
-                    .await
-                    .map_err(|source| {
-                        crate::workflow::source_settlement::source_edit_error(
-                            problem, operation, source,
-                        )
-                    })?
-            };
-            Some(recorded)
-        }
+        Some(_) => Some(source_publication_future(runtime, previous, edits, cancel, project)?.await?),
     };
     let issuer = origin
         .as_ref()
@@ -912,6 +874,88 @@ async fn admit_revision_authorized(
         })
         .transpose()?;
     SourceRevision::admitted(admitted, identity, origin, previous, issuer)
+}
+
+// The canonical edit graph is independently prepaid and heap-owned only for a
+// requested publication. Its child drops before the grant, including unpolled
+// drop, cancellation and after Poll::Ready. Local source admission retains no
+// inline copy of the optional canonical operation state.
+struct SourcePublicationFuture<'a> {
+    future: futures_util::future::BoxFuture<'a, Result<Revision, WorkflowError>>,
+    _owner: Arc<pse_columnar::AllocationLease>,
+}
+impl Future for SourcePublicationFuture<'_> {
+    type Output = Result<Revision, WorkflowError>;
+
+    fn poll(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        self.get_mut().future.as_mut().poll(cx)
+    }
+}
+
+// Construct the large child in a separate synchronous frame before its caller
+// polls it. Box::pin inside the caller's async body would still give that body
+// a large construction temporary on the Python calling thread's stack.
+#[inline(never)]
+fn source_publication_future<'a>(
+    runtime: &'a crate::workflow::SourceServices,
+    previous: Option<&'a SourceRevision>,
+    edits: &'a [ObjectEdit],
+    cancel: Option<&'a crate::CancelSource>,
+    project: Option<&'a pse_operations::canonical_projects::ProjectPublication>,
+) -> Result<SourcePublicationFuture<'a>, WorkflowError> {
+    let future = publish_source_revision(runtime, previous, edits, cancel, project);
+    let owner = runtime.preparation().math()
+        .reserve("modeling:source-publication-future", size_of_val(&future))?;
+    Ok(SourcePublicationFuture { future: Box::pin(future), _owner: owner })
+}
+
+async fn publish_source_revision(
+    runtime: &crate::workflow::SourceServices,
+    previous: Option<&SourceRevision>,
+    edits: &[ObjectEdit],
+    cancel: Option<&crate::CancelSource>,
+    project: Option<&pse_operations::canonical_projects::ProjectPublication>,
+) -> Result<Revision, WorkflowError> {
+    let store = runtime.canonical_store()?;
+    if let Some(previous) = previous
+        && previous.origin.is_some()
+        && previous.issuer.as_deref() != Some(store.issuing_store()?)
+    {
+        return Err(contract(
+            "source edit issuer differs from its original admitted source",
+        ));
+    }
+    let old = previous.map(SourceRevision::require_origin).transpose()?;
+    let problem = old.map_or_else(
+        || pse_operations::mint_id::<SemanticId>().to_string(),
+        |old| old.problem.clone(),
+    );
+    let operation = pse_operations::mint_id::<SemanticId>().to_string();
+    if let Some(cancel) = cancel {
+        checkpoint(cancel)?;
+    }
+    let recorded = if let Some(intent) = project {
+        store.edit_project(intent, edits).await.map_err(|source| {
+            crate::workflow::source_settlement::source_edit_error(
+                intent.problem().into(),
+                intent.operation().into(),
+                source,
+            )
+        })?
+    } else {
+        store
+            .edit(&problem, old.map(|old| old.key.as_str()), &operation, edits)
+            .await
+            .map_err(|source| {
+                crate::workflow::source_settlement::source_edit_error(
+                    problem, operation, source,
+                )
+            })?
+    };
+    Ok(recorded)
 }
 
 /// Publish the already admitted immutable result through the sole canonical edit path.
@@ -3215,6 +3259,44 @@ impl crate::workflow::SourceServices {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn source_publication_future_prepays_optional_child_and_preserves_owner_on_refusal() {
+        let runtime = crate::workflow::tests::runtime();
+        let services = runtime.source_services();
+        let pool = services.preparation().pool();
+        let cancel = crate::CancelSource::new().with_deadline(Some(
+            std::time::Instant::now() + std::time::Duration::from_secs(30),
+        ));
+        let original_deadline = cancel.deadline();
+        let edits = Vec::new();
+        let baseline = pool.reserved();
+        let future = source_publication_future(&services, None, &edits, Some(&cancel), None).unwrap();
+        let charged = future._owner.size();
+        assert!(charged > size_of_val(&future));
+        assert_eq!(pool.reserved(), baseline + charged);
+        drop(future);
+        assert_eq!(pool.reserved(), baseline, "unpolled child releases only its own grant");
+        assert!(services.publication().is_none());
+        assert_eq!(cancel.deadline(), original_deadline);
+        assert!(!cancel.token().is_cancelled());
+
+        let mut future = source_publication_future(&services, None, &edits, Some(&cancel), None).unwrap();
+        let mut context = std::task::Context::from_waker(futures_util::task::noop_waker_ref());
+        assert!(matches!(Future::poll(std::pin::Pin::new(&mut future), &mut context),
+            std::task::Poll::Ready(Err(WorkflowError::RecordingUnavailable))));
+        assert_eq!(pool.reserved(), baseline + charged, "ready child stays prepaid until its allocation drops");
+        drop(future);
+        assert_eq!(pool.reserved(), baseline);
+
+        runtime.shared.math().clear_program_cache();
+        runtime.shared.math().shutdown_native_lanes().await;
+        let pressure = pse_columnar::MemoryConsumer::new("test:source-publication-refusal").register(&pool);
+        pressure.try_grow(runtime.shared.budget().memory_limit_bytes.get() - pool.reserved()).unwrap();
+        assert!(source_publication_future(&services, None, &edits, Some(&cancel), None).is_err());
+        assert!(edits.is_empty(), "refused construction preserves the borrowed source edits");
+        assert_eq!(cancel.deadline(), original_deadline);
+        assert!(!cancel.token().is_cancelled());
+    }
     #[test]
     fn canonical_source_checkpoint_preserves_time_and_cancellation_causes() {
         let driver = crate::CancelSource::new().with_deadline(Some(

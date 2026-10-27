@@ -55,6 +55,21 @@ source scans still occur. No timing, memory or capacity gain is measured. Option
 excluded 505-case/fleet/parity, powerset, release/distribution, remote CI, other-platform, desktop-host
 and 100,000-point qualification do not become new repair obligations.
 
+## Audit-gap qualification checkpoint — 2026-10-27
+
+CA01–CA07 source changes and focused owner/host checks are integrated. Final declaration generation,
+comparison and joined Python controls passed; the actual supplied-only executable/MCP/foreground
+CLI journey passed without product-extension import or canonical-store creation. Independent review
+found and resolved an early concurrent-close/successor race.
+
+The first actual local-model native run then exposed a stack overflow in the optional canonical
+publication future. Native symbolization and the stack guard established the cause. The optional
+publication child is now separately prepaid and heap-owned without changing stack limits, tasks,
+clocks or scientific meaning; its grant/drop/refusal control passed. The rebuilt native image passed
+the exact reproducer plus the four selected context/endpoint/foreground CLI controls. Actual
+two-generation/cursor/CLI acceptance, canonical adoption controls and scope-end checks remain. Existing failed attempts remain evidence;
+G01/G02/G04 and overall Plan56 completion are still open at this checkpoint.
+
 ## Completion boundary
 
 **Proposed:** qualify the delivered alignment target through real producers, consumers and failure
