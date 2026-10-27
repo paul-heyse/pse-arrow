@@ -562,3 +562,38 @@ async fn evidence_comparison_inquiry_reuses_one_analysis_for_selected_questions(
         .collect::<BTreeSet<_>>();
     assert_eq!(comparison_cut, supplied_cut);
 }
+
+#[test]
+fn evidence_comparison_closed_request_schema_and_unknown_variants() {
+    let (_, _, request) = fixtures();
+    let schema = schemars::schema_for!(EvidenceComparisonRequest).to_value();
+    assert_eq!(schema["properties"]["sections"]["propertyNames"]["$ref"], "#/$defs/EvidenceComparisonSection");
+    for section in ["subjects", "members", "samples", "measurements", "contexts", "associations"] {
+        let mut wire = serde_json::to_value(&request).unwrap();
+        wire["sections"] = serde_json::json!({ section: {"limit": 1, "offset": 0} });
+        assert!(EvidenceComparisonRequest::decode_json(&serde_json::to_vec(&wire).unwrap()).is_ok());
+    }
+    let mut wire = serde_json::to_value(&request).unwrap();
+    wire["sections"] = serde_json::json!({"not_a_section": {"limit": 1, "offset": 0}});
+    assert!(EvidenceComparisonRequest::decode_json(&serde_json::to_vec(&wire).unwrap()).is_err());
+    assert!(serde_json::from_str::<EvidenceComparisonClassification>("\"unknown\"").is_err());
+    assert!(serde_json::from_str::<EvidenceComparisonCorrespondence>("\"unknown\"").is_err());
+    assert!(serde_json::from_str::<EvidenceComparisonSide>("\"unknown\"").is_err());
+    assert!(serde_json::from_str::<EvidenceMeasurementConditions>("\"unknown\"").is_err());
+}
+
+#[tokio::test]
+async fn evidence_comparison_unknown_original_status_remains_open() {
+    let baseline = source("baseline", vec![test("subject", "subject", "owner_future_status")]);
+    let candidate = source("candidate", vec![test("subject", "subject", "pass")]);
+    let mut request = request(&baseline, &candidate);
+    for section in [EvidenceComparisonSection::Subjects, EvidenceComparisonSection::Members] {
+        request.sections.insert(section, EvidenceSectionSelection { limit: 10, offset: 0 });
+    }
+    let mut analysis = EvidenceAnalysis::new(vec![baseline, candidate], true).unwrap();
+    let comparison = analysis.compare(&request, &[]).await.unwrap();
+    assert_eq!(comparison.summary.inconclusive, 1);
+    assert_eq!(comparison.subjects.unwrap().rows[0].classification, EvidenceComparisonClassification::Inconclusive);
+    let members = comparison.members.unwrap();
+    assert!(members.rows.iter().any(|row| row.side == EvidenceComparisonSide::Baseline && row.status == "owner_future_status"));
+}

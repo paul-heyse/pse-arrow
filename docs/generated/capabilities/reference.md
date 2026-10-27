@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `375c81cef6c14839ca880f0df5a4fb489f733697d1d5624c419d959a1609b2aa`.
+Catalogue content revision: `a5a823fe973e143be47b62579b894a5a7c59ac77cac3a7417f90651e115d79d6`.
 
 ## Domains
 
@@ -698,6 +698,12 @@ Catalogue content revision: `375c81cef6c14839ca880f0df5a4fb489f733697d1d5624c419
 
 - `skill-functional-extension-review` — functional-extension-review: [.codex/skills/functional-extension-review/SKILL.md](../../../.codex/skills/functional-extension-review/SKILL.md); resource `pse://guidance/skill-functional-extension-review`.
 
+- `skill-leverage-codebase-audit` — leverage-codebase-audit: [.codex/skills/leverage-codebase-audit/SKILL.md](../../../.codex/skills/leverage-codebase-audit/SKILL.md); resource `pse://guidance/skill-leverage-codebase-audit`.
+
+- `skill-leverage-library-assessment` — leverage-library-assessment: [.codex/skills/leverage-library-assessment/SKILL.md](../../../.codex/skills/leverage-library-assessment/SKILL.md); resource `pse://guidance/skill-leverage-library-assessment`.
+
+- `skill-leverage-opportunity-review` — leverage-opportunity-review: [.codex/skills/leverage-opportunity-review/SKILL.md](../../../.codex/skills/leverage-opportunity-review/SKILL.md); resource `pse://guidance/skill-leverage-opportunity-review`.
+
 - `skill-plan-completion-audit` — plan-completion-audit: [.codex/skills/plan-completion-audit/SKILL.md](../../../.codex/skills/plan-completion-audit/SKILL.md); resource `pse://guidance/skill-plan-completion-audit`.
 
 - `skill-plan-creation` — plan-creation: [.codex/skills/plan-creation/SKILL.md](../../../.codex/skills/plan-creation/SKILL.md); resource `pse://guidance/skill-plan-creation`.
@@ -818,6 +824,49 @@ Exact component key: `tool:capabilities_domains@`.
     "type": "object"
   },
   "title": "Capabilities Domains"
+}
+```
+
+### `capabilities_drain`
+
+Exact component key: `tool:capabilities_drain@`.
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": []
+    }
+  },
+  "annotations": {
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "readOnlyHint": false
+  },
+  "description": "Close native admission and await this foreground endpoint's original native owners before disconnect. No reload, replay or forced termination is performed.",
+  "inputSchema": {
+    "additionalProperties": false,
+    "properties": {},
+    "type": "object"
+  },
+  "name": "capabilities_drain",
+  "outputSchema": {
+    "additionalProperties": false,
+    "properties": {
+      "native_admission": {
+        "const": "closed",
+        "default": "closed",
+        "type": "string"
+      },
+      "state": {
+        "const": "drained",
+        "default": "drained",
+        "type": "string"
+      }
+    },
+    "type": "object"
+  },
+  "title": "Capabilities Drain"
 }
 ```
 
@@ -8563,7 +8612,7 @@ Exact callable component key: `tool:knowledge_explain@`. The following is the re
           "exported_name": "KnowledgeExplain",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/knowledge-explain.output.schema.json",
-          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
+          "schema_set_fingerprint": "blake3:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed",
           "schema_sha256": "332463e9d1913b4a7293875e893c91af5f0b16b935f980fbfd8d3ed1d97aa245",
           "slug": "knowledge-explain",
           "version": 1,
@@ -8574,7 +8623,7 @@ Exact callable component key: `tool:knowledge_explain@`. The following is the re
           "exported_name": "KnowledgeQuery",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/knowledge-query.input.schema.json",
-          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
+          "schema_set_fingerprint": "blake3:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed",
           "schema_sha256": "38fcd76d053c89a9153cd3b7afb5c1c581a0e16434197f634b4986721fd31a77",
           "slug": "knowledge-query",
           "version": 1,
@@ -8688,7 +8737,7 @@ Exact callable component key: `tool:knowledge_explain@`. The following is the re
             "type": "string"
           }
         },
-        "$id": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:knowledge-query:input",
+        "$id": "urn:pse:boundary:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed:knowledge-query:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact conjunction of native facets; no relevance substitution or arbitrary SQL.",
@@ -8854,7 +8903,7 @@ Exact callable component key: `tool:knowledge_explain@`. The following is the re
     "description": "Host routing only; the request body is declared and decoded by Rust.",
     "properties": {
       "request": {
-        "$ref": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:knowledge-query:input"
+        "$ref": "urn:pse:boundary:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed:knowledge-query:input"
       },
       "state": {
         "anyOf": [
@@ -9145,7 +9194,7 @@ Exact callable component key: `tool:knowledge_query@`. The following is the regi
           "exported_name": "KnowledgePage",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/knowledge-page.output.schema.json",
-          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
+          "schema_set_fingerprint": "blake3:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed",
           "schema_sha256": "bc814360b3d25527323f4efb5824b2b9200ee8a7b7e2352777465343eab06528",
           "slug": "knowledge-page",
           "version": 1,
@@ -9156,7 +9205,7 @@ Exact callable component key: `tool:knowledge_query@`. The following is the regi
           "exported_name": "KnowledgeQuery",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/knowledge-query.input.schema.json",
-          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
+          "schema_set_fingerprint": "blake3:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed",
           "schema_sha256": "38fcd76d053c89a9153cd3b7afb5c1c581a0e16434197f634b4986721fd31a77",
           "slug": "knowledge-query",
           "version": 1,
@@ -9270,7 +9319,7 @@ Exact callable component key: `tool:knowledge_query@`. The following is the regi
             "type": "string"
           }
         },
-        "$id": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:knowledge-query:input",
+        "$id": "urn:pse:boundary:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed:knowledge-query:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Exact conjunction of native facets; no relevance substitution or arbitrary SQL.",
@@ -9436,7 +9485,7 @@ Exact callable component key: `tool:knowledge_query@`. The following is the regi
     "description": "Host routing only; the request body is declared and decoded by Rust.",
     "properties": {
       "request": {
-        "$ref": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:knowledge-query:input"
+        "$ref": "urn:pse:boundary:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed:knowledge-query:input"
       },
       "state": {
         "anyOf": [
@@ -19565,8 +19614,8 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "exported_name": "EvidenceComparison",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/evidence-comparison.output.schema.json",
-          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
-          "schema_sha256": "27f4d68081e210a42bf1b898bd2ac0f89d72b7a87d2e5294ed89b3ee6bda2a47",
+          "schema_set_fingerprint": "blake3:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed",
+          "schema_sha256": "97708d020b44e9eddac8db453c3a5690f0fdbccdd7138f1b7b8347d85b2347f1",
           "slug": "evidence-comparison",
           "version": 1,
           "wire": "Native"
@@ -19576,8 +19625,8 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "exported_name": "EvidenceComparisonRequest",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/evidence-comparison-request.input.schema.json",
-          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
-          "schema_sha256": "3ac2cfa2b6377ab2fd4c399af285d60a3c300d129770e470c4874f87d26ab50c",
+          "schema_set_fingerprint": "blake3:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed",
+          "schema_sha256": "80baf97bc562c602bd647f3d58ae305680d6a22e76174158339eeaf456ebd608",
           "slug": "evidence-comparison-request",
           "version": 1,
           "wire": "Native"
@@ -19587,7 +19636,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "exported_name": "EvidenceSnapshot",
           "registration_source": "xtask/src/codegen/private_documents.rs",
           "schema_path": "scripts/generated/evidence_schema/evidence-snapshot.input.schema.json",
-          "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
+          "schema_set_fingerprint": "blake3:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed",
           "schema_sha256": "b79048150e52edda8c0710ce27443c9f6f8ccab8fa95f6d35a89d38be83b4f7a",
           "slug": "evidence-snapshot",
           "version": null,
@@ -19597,7 +19646,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
       "preserve_document": true,
       "read_eligibility": "supplied_tooling",
       "receiver": "xtask::development::evidence_query::EvidenceAnalysis::compare",
-      "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796"
+      "schema_set_fingerprint": "blake3:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed"
     }
   },
   "annotations": {
@@ -19612,6 +19661,41 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
       "JsonValue": {},
       "evidence-comparison-request": {
         "$defs": {
+          "EvidenceComparisonSection": {
+            "description": "Details selected before acquisition; no section is implicitly hydrated.",
+            "oneOf": [
+              {
+                "const": "subjects",
+                "description": "One row per paired or unpaired subject cohort.",
+                "type": "string"
+              },
+              {
+                "const": "members",
+                "description": "Original subject outcomes and binary IDs, independently paged.",
+                "type": "string"
+              },
+              {
+                "const": "samples",
+                "description": "Original measurement sample membership and order, independently paged.",
+                "type": "string"
+              },
+              {
+                "const": "measurements",
+                "description": "Measurement cohort compatibility and original summary values.",
+                "type": "string"
+              },
+              {
+                "const": "contexts",
+                "description": "Original selected context declarations.",
+                "type": "string"
+              },
+              {
+                "const": "associations",
+                "description": "Declared measurement association and censoring, without inferred membership.",
+                "type": "string"
+              }
+            ]
+          },
           "EvidenceComparisonSelection": {
             "additionalProperties": false,
             "description": "An explicit side of a comparison. Generation IDs identify exact source versions.",
@@ -19750,7 +19834,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:evidence-comparison-request:input",
+        "$id": "urn:pse:boundary:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed:evidence-comparison-request:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Finite native request. Both sides and every mapping remain explicit.",
@@ -19793,6 +19877,9 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
             },
             "default": {},
             "description": "Optional independently bounded detail pages.",
+            "propertyNames": {
+              "$ref": "#/$defs/EvidenceComparisonSection"
+            },
             "type": "object"
           },
           "version": {
@@ -19915,7 +20002,7 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
             "type": "object"
           }
         },
-        "$id": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:evidence-snapshot:input",
+        "$id": "urn:pse:boundary:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed:evidence-snapshot:input",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "additionalProperties": false,
         "description": "Frozen owner adapter output. Partial source coverage is not a complete test population.",
@@ -19987,11 +20074,11 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
         "type": "array"
       },
       "request": {
-        "$ref": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:evidence-comparison-request:input"
+        "$ref": "urn:pse:boundary:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed:evidence-comparison-request:input"
       },
       "snapshots": {
         "items": {
-          "$ref": "urn:pse:boundary:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796:evidence-snapshot:input"
+          "$ref": "urn:pse:boundary:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed:evidence-snapshot:input"
         },
         "maxItems": 64,
         "minItems": 1,
@@ -20009,6 +20096,71 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
   "name": "native_evidence_compare",
   "outputSchema": {
     "$defs": {
+      "EvidenceComparisonClassification": {
+        "description": "Classification of the selected paired or unpaired subject evidence.",
+        "oneOf": [
+          {
+            "const": "ambiguous",
+            "description": "Identity cannot be paired unambiguously.",
+            "type": "string"
+          },
+          {
+            "const": "unmatched_candidate",
+            "description": "Only the candidate contains this cohort.",
+            "type": "string"
+          },
+          {
+            "const": "unmatched_baseline",
+            "description": "Only the baseline contains this cohort.",
+            "type": "string"
+          },
+          {
+            "const": "persistent_failure",
+            "description": "Both sides contain failure evidence.",
+            "type": "string"
+          },
+          {
+            "const": "new_failure",
+            "description": "Candidate failure follows explicit baseline success.",
+            "type": "string"
+          },
+          {
+            "const": "resolved_failure",
+            "description": "Candidate success follows baseline failure.",
+            "type": "string"
+          },
+          {
+            "const": "unexecuted",
+            "description": "At least one side lacks execution.",
+            "type": "string"
+          },
+          {
+            "const": "unchanged_success",
+            "description": "Both sides contain only explicit success.",
+            "type": "string"
+          },
+          {
+            "const": "inconclusive",
+            "description": "The original evidence supports no change verdict.",
+            "type": "string"
+          }
+        ]
+      },
+      "EvidenceComparisonCorrespondence": {
+        "description": "Basis for pairing original owner populations.",
+        "oneOf": [
+          {
+            "const": "supplied_mapping",
+            "description": "Explicit original endpoints selected by the caller.",
+            "type": "string"
+          },
+          {
+            "const": "exact_compatible_owner_identity",
+            "description": "Exact compatible identity declared by the original owner.",
+            "type": "string"
+          }
+        ]
+      },
       "EvidenceComparisonDenominator": {
         "additionalProperties": false,
         "description": "Full semantic population counts, computed before detail limits.",
@@ -20094,8 +20246,8 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
             "type": "string"
           },
           "side": {
-            "description": "Baseline or candidate selected population.",
-            "type": "string"
+            "$ref": "#/$defs/EvidenceComparisonSide",
+            "description": "Baseline or candidate selected population."
           }
         },
         "required": [
@@ -20129,8 +20281,8 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
             "description": "Original generation and member."
           },
           "side": {
-            "description": "Baseline or candidate.",
-            "type": "string"
+            "$ref": "#/$defs/EvidenceComparisonSide",
+            "description": "Baseline or candidate."
           },
           "status": {
             "description": "Original binary outcome, including unknowns.",
@@ -20378,6 +20530,21 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "rows"
         ],
         "type": "object"
+      },
+      "EvidenceComparisonSide": {
+        "description": "Side of one original comparison member or fact.",
+        "oneOf": [
+          {
+            "const": "baseline",
+            "description": "Selected baseline population.",
+            "type": "string"
+          },
+          {
+            "const": "candidate",
+            "description": "Selected candidate population.",
+            "type": "string"
+          }
+        ]
       },
       "EvidenceComparisonSource": {
         "additionalProperties": false,
@@ -20760,12 +20927,12 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
             "type": "array"
           },
           "conditions": {
-            "description": "Comparable conditions, incompatible conditions, or unavailable basis.",
-            "type": "string"
+            "$ref": "#/$defs/EvidenceMeasurementConditions",
+            "description": "Comparable conditions, incompatible conditions, or unavailable basis."
           },
           "correspondence": {
-            "description": "Exact compatible owner identity or explicitly supplied mapping.",
-            "type": "string"
+            "$ref": "#/$defs/EvidenceComparisonCorrespondence",
+            "description": "Exact compatible owner identity or explicitly supplied mapping."
           },
           "revision_build": {
             "description": "Revision/build interpretation retained with the assessment.",
@@ -20797,6 +20964,26 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
           "revision_build"
         ],
         "type": "object"
+      },
+      "EvidenceMeasurementConditions": {
+        "description": "Compatibility of the declared measurement conditions.",
+        "oneOf": [
+          {
+            "const": "unavailable",
+            "description": "A complete comparison basis is unavailable.",
+            "type": "string"
+          },
+          {
+            "const": "incompatible",
+            "description": "At least one declared condition differs.",
+            "type": "string"
+          },
+          {
+            "const": "comparable_conditions",
+            "description": "All required declared conditions agree.",
+            "type": "string"
+          }
+        ]
       },
       "EvidenceMeasurementSummary": {
         "additionalProperties": false,
@@ -20938,19 +21125,23 @@ Exact callable component key: `tool:native_evidence_compare@`. The following is 
             "description": "Full candidate outcome counts."
           },
           "classification": {
-            "description": "Classification never rewrites either original outcome.",
-            "type": "string"
+            "$ref": "#/$defs/EvidenceComparisonClassification",
+            "description": "Classification never rewrites either original outcome."
           },
           "cohort": {
             "description": "Deterministic reference within this exact comparison cut.",
             "type": "string"
           },
           "correspondence": {
-            "description": "Exact-compatible or explicitly supplied correspondence; absent for unpaired rows.",
-            "type": [
-              "string",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "$ref": "#/$defs/EvidenceComparisonCorrespondence"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Exact-compatible or explicitly supplied correspondence; absent for unpaired rows."
           },
           "mixed_outcomes": {
             "description": "Repeated success and failure occurred in at least one side; no statistical inference.",
@@ -78099,6 +78290,99 @@ Exposure: **native**. Owner: `.codex/skills/functional-extension-review/SKILL.md
 }
 ```
 
+### `skill-leverage-codebase-audit` — leverage-codebase-audit
+
+Exposure: **native**. Owner: `.codex/skills/leverage-codebase-audit/SKILL.md`. Declaration source: [.codex/skills/leverage-codebase-audit/SKILL.md](../../../.codex/skills/leverage-codebase-audit/SKILL.md).
+
+```json
+{
+  "description": "Read the owned skill instructions; preparation and action retain their separate phase and authorization boundaries.",
+  "domain": "governance",
+  "effects": "Instruction retrieval only; no workflow execution.",
+  "exposure": "native",
+  "family": null,
+  "guides": [
+    "skill-leverage-codebase-audit"
+  ],
+  "id": "skill-leverage-codebase-audit",
+  "invocation_lifetime": null,
+  "owner": ".codex/skills/leverage-codebase-audit/SKILL.md",
+  "prerequisites": [],
+  "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
+  "route": [
+    ".codex/skills/leverage-codebase-audit/SKILL.md"
+  ],
+  "source": ".codex/skills/leverage-codebase-audit/SKILL.md",
+  "title": "leverage-codebase-audit",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": []
+}
+```
+
+### `skill-leverage-library-assessment` — leverage-library-assessment
+
+Exposure: **native**. Owner: `.codex/skills/leverage-library-assessment/SKILL.md`. Declaration source: [.codex/skills/leverage-library-assessment/SKILL.md](../../../.codex/skills/leverage-library-assessment/SKILL.md).
+
+```json
+{
+  "description": "Read the owned skill instructions; preparation and action retain their separate phase and authorization boundaries.",
+  "domain": "governance",
+  "effects": "Instruction retrieval only; no workflow execution.",
+  "exposure": "native",
+  "family": null,
+  "guides": [
+    "skill-leverage-library-assessment"
+  ],
+  "id": "skill-leverage-library-assessment",
+  "invocation_lifetime": null,
+  "owner": ".codex/skills/leverage-library-assessment/SKILL.md",
+  "prerequisites": [],
+  "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
+  "route": [
+    ".codex/skills/leverage-library-assessment/SKILL.md"
+  ],
+  "source": ".codex/skills/leverage-library-assessment/SKILL.md",
+  "title": "leverage-library-assessment",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": []
+}
+```
+
+### `skill-leverage-opportunity-review` — leverage-opportunity-review
+
+Exposure: **native**. Owner: `.codex/skills/leverage-opportunity-review/SKILL.md`. Declaration source: [.codex/skills/leverage-opportunity-review/SKILL.md](../../../.codex/skills/leverage-opportunity-review/SKILL.md).
+
+```json
+{
+  "description": "Read the owned skill instructions; preparation and action retain their separate phase and authorization boundaries.",
+  "domain": "governance",
+  "effects": "Instruction retrieval only; no workflow execution.",
+  "exposure": "native",
+  "family": null,
+  "guides": [
+    "skill-leverage-opportunity-review"
+  ],
+  "id": "skill-leverage-opportunity-review",
+  "invocation_lifetime": null,
+  "owner": ".codex/skills/leverage-opportunity-review/SKILL.md",
+  "prerequisites": [],
+  "reason": "An owned instruction package remains native guidance, not a callable placeholder.",
+  "requirements": [],
+  "route": [
+    ".codex/skills/leverage-opportunity-review/SKILL.md"
+  ],
+  "source": ".codex/skills/leverage-opportunity-review/SKILL.md",
+  "title": "leverage-opportunity-review",
+  "work_owner": null,
+  "worker_calls": [],
+  "workflows": []
+}
+```
+
 ### `skill-native-solver-libraries` — native-solver-libraries
 
 Exposure: **native**. Owner: `.codex/skills/native-solver-libraries/SKILL.md`. Declaration source: [.codex/skills/native-solver-libraries/SKILL.md](../../../.codex/skills/native-solver-libraries/SKILL.md).
@@ -90612,6 +90896,135 @@ Exact callable component key: `tool:workspace_task_context@`. The following is t
   "name": "skill-functional-extension-review",
   "title": "functional-extension-review",
   "uri": "pse://guidance/skill-functional-extension-review"
+}
+```
+
+### `resource:pse://guidance/skill-leverage-codebase-audit/files/aa0cd4e58790143f815aa0c8ddddd32b392c22d11378dffde885fabecd884373@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-leverage-codebase-audit"
+      ]
+    }
+  },
+  "description": "Read one complete captured owned supporting file; no trust, activation or execution.",
+  "mimeType": "text/markdown",
+  "name": "skill-leverage-codebase-audit-aa0cd4e58790143f815aa0c8ddddd32b392c22d11378dffde885fabecd884373",
+  "uri": "pse://guidance/skill-leverage-codebase-audit/files/aa0cd4e58790143f815aa0c8ddddd32b392c22d11378dffde885fabecd884373"
+}
+```
+
+### `resource:pse://guidance/skill-leverage-codebase-audit/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-leverage-codebase-audit"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-leverage-codebase-audit-manifest",
+  "uri": "pse://guidance/skill-leverage-codebase-audit/manifest"
+}
+```
+
+### `resource:pse://guidance/skill-leverage-codebase-audit@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-leverage-codebase-audit"
+      ]
+    }
+  },
+  "description": "Owned Markdown instructions; retrieval performs no workflow effects.",
+  "mimeType": "application/json",
+  "name": "skill-leverage-codebase-audit",
+  "title": "leverage-codebase-audit",
+  "uri": "pse://guidance/skill-leverage-codebase-audit"
+}
+```
+
+### `resource:pse://guidance/skill-leverage-library-assessment/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-leverage-library-assessment"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-leverage-library-assessment-manifest",
+  "uri": "pse://guidance/skill-leverage-library-assessment/manifest"
+}
+```
+
+### `resource:pse://guidance/skill-leverage-library-assessment@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-leverage-library-assessment"
+      ]
+    }
+  },
+  "description": "Owned Markdown instructions; retrieval performs no workflow effects.",
+  "mimeType": "application/json",
+  "name": "skill-leverage-library-assessment",
+  "title": "leverage-library-assessment",
+  "uri": "pse://guidance/skill-leverage-library-assessment"
+}
+```
+
+### `resource:pse://guidance/skill-leverage-opportunity-review/manifest@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-leverage-opportunity-review"
+      ]
+    }
+  },
+  "description": "Complete captured owned skill supporting-file manifest; no activation or execution.",
+  "mimeType": "application/json",
+  "name": "skill-leverage-opportunity-review-manifest",
+  "uri": "pse://guidance/skill-leverage-opportunity-review/manifest"
+}
+```
+
+### `resource:pse://guidance/skill-leverage-opportunity-review@`
+
+```json
+{
+  "_meta": {
+    "fastmcp": {
+      "tags": [
+        "guide:skill-leverage-opportunity-review"
+      ]
+    }
+  },
+  "description": "Owned Markdown instructions; retrieval performs no workflow effects.",
+  "mimeType": "application/json",
+  "name": "skill-leverage-opportunity-review",
+  "title": "leverage-opportunity-review",
+  "uri": "pse://guidance/skill-leverage-opportunity-review"
 }
 ```
 

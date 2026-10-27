@@ -5,9 +5,19 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Annotated, ClassVar, Literal
 
 import msgspec
+
+
+class EvidenceComparisonSection(StrEnum):
+    SUBJECTS = "subjects"
+    MEMBERS = "members"
+    SAMPLES = "samples"
+    MEASUREMENTS = "measurements"
+    CONTEXTS = "contexts"
+    ASSOCIATIONS = "associations"
 
 
 class EvidenceComparisonRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -28,7 +38,7 @@ class EvidenceComparisonRequest(msgspec.Struct, frozen=True, forbid_unknown_fiel
     #: Explicit measurement population mappings; unknown or conflicting endpoints are refused.
     measurement_mappings: tuple[EvidenceMeasurementMapping, ...] = msgspec.field(default_factory=tuple)
     #: Optional independently bounded detail pages.
-    sections: dict[str, EvidenceSectionSelection] = msgspec.field(default_factory=dict)
+    sections: dict[EvidenceComparisonSection, EvidenceSectionSelection] = msgspec.field(default_factory=dict)
 
     def __repr__(self) -> str:
         return "EvidenceComparisonRequest(<private>)"
@@ -112,6 +122,7 @@ class EvidenceSubjectMapping(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
 __all__ = [
     "EvidenceComparisonRequest",
+    "EvidenceComparisonSection",
     "EvidenceComparisonSelection",
     "EvidenceMeasurementIdentity",
     "EvidenceMeasurementMapping",

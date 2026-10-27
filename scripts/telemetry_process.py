@@ -15,12 +15,14 @@ from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol, Self
 
+from scripts.generated.telemetry_settings import TelemetrySampler
 from scripts.telemetry_config import ResolvedSettings, resolve_process
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Mapping
     from pathlib import Path
 
+    import opentelemetry.sdk.trace.sampling
     from requests import PreparedRequest, Request, Session
 
 CARRIER_ENV = "PSE_TELEMETRY_CARRIER"
@@ -39,6 +41,31 @@ class NativeProvider(Provider, Protocol):
     activation: dict[str, str | None]
 
     def loss_health(self) -> dict[str, object] | None: ...
+
+
+def _sdk_sampler(selection: TelemetrySampler, argument: float) -> opentelemetry.sdk.trace.sampling.Sampler:
+    """Adapt the owner's closed selection to the installed SDK without parsing names."""
+    from opentelemetry.sdk.trace.sampling import (  # noqa: PLC0415
+        ALWAYS_OFF,
+        ALWAYS_ON,
+        ParentBased,
+        TraceIdRatioBased,
+    )
+
+    match selection:
+        case TelemetrySampler.ALWAYS_ON:
+            return ALWAYS_ON
+        case TelemetrySampler.ALWAYS_OFF:
+            return ALWAYS_OFF
+        case TelemetrySampler.TRACEIDRATIO:
+            return TraceIdRatioBased(argument)
+        case TelemetrySampler.PARENTBASED_ALWAYS_ON:
+            return ParentBased(ALWAYS_ON)
+        case TelemetrySampler.PARENTBASED_ALWAYS_OFF:
+            return ParentBased(ALWAYS_OFF)
+        case TelemetrySampler.PARENTBASED_TRACEIDRATIO:
+            return ParentBased(TraceIdRatioBased(argument))
+    raise ValueError("unsupported typed telemetry sampler")
 
 
 def _diagnostic(code: str) -> None:
@@ -362,22 +389,7 @@ def _compose(owner: ProcessLifetime) -> None:
         )
         from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415
         from opentelemetry.sdk.trace.export import BatchSpanProcessor  # noqa: PLC0415
-        from opentelemetry.sdk.trace.sampling import (  # noqa: PLC0415
-            ALWAYS_OFF,
-            ALWAYS_ON,
-            ParentBased,
-            TraceIdRatioBased,
-        )
-
-        sampler = (
-            ALWAYS_OFF
-            if wire.sampler.endswith("always_off")
-            else TraceIdRatioBased(wire.sampler_argument)
-            if "traceidratio" in wire.sampler
-            else ALWAYS_ON
-        )
-        if wire.sampler.startswith("parentbased"):
-            sampler = ParentBased(sampler)
+        sampler = _sdk_sampler(wire.sampler, wire.sampler_argument)
         provider = TracerProvider(
             resource=resource, sampler=sampler, shutdown_on_exit=False
         )

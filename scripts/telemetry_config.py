@@ -47,25 +47,40 @@ def state_directory(environment: Mapping[str, str]) -> Path:
     )
 
 
-def _number(
-    environment: Mapping[str, str], name: str, default: float, *, maximum: float = 60000
-) -> float:
+def _integer_limits(record: type[Settings] | type[SignalSettings], name: str) -> tuple[int, int]:
+    """Read the scalar declaration projected from the telemetry owner."""
+    info = msgspec.inspect.type_info(record)
+    assert isinstance(info, msgspec.inspect.StructType)
+    scalar = next(field.type for field in info.fields if field.name == name)
+    assert isinstance(scalar, msgspec.inspect.IntType)
+    assert scalar.ge is not None and scalar.le is not None
+    return scalar.ge, scalar.le
+
+
+def _number(environment: Mapping[str, str], name: str, default: float) -> float:
     try:
         value = float(environment.get(name, str(default)))
     except ValueError:
         raise ValueError("invalid telemetry numeric setting: " + name) from None
-    if not math.isfinite(value) or not 0 < value <= maximum:
+    if not math.isfinite(value):
         raise ValueError("invalid telemetry numeric setting: " + name)
     return value
 
 
-def _integer(
-    environment: Mapping[str, str], name: str, default: int, *, maximum: int = 60000
-) -> int:
-    value = _number(environment, name, default, maximum=maximum)
+def _integer(environment: Mapping[str, str], name: str, default: int) -> int:
+    value = _number(environment, name, default)
     if not value.is_integer():
         raise ValueError("telemetry integer setting required: " + name)
     return int(value)
+
+
+def _timeout_seconds(environment: Mapping[str, str], name: str, default: float) -> float:
+    value = _number(environment, name, default)
+    _, maximum_ms = _integer_limits(SignalSettings, "timeout_ms")
+    # Enforce the original seconds before quantization (tiny positives round up).
+    if not 0 < value <= maximum_ms / 1000:
+        raise ValueError("invalid telemetry numeric setting: " + name)
+    return value
 
 
 def _headers(value: str) -> tuple[tuple[str, str], ...]:
@@ -128,11 +143,11 @@ class ResolvedSettings:
 
     @classmethod
     def from_wire(
-        cls, *, wire: Settings, selection: str, configuration_id: str | None
+        cls, *, wire: Mapping[str, object], selection: str, configuration_id: str | None
     ) -> ResolvedSettings:
         """Freeze the generated wire once, without retaining mutable maps."""
         try:
-            document = msgspec.json.encode(wire)
+            document = msgspec.json.encode(msgspec.convert(wire, type=Settings))
         except (TypeError, ValueError):
             raise ValueError("invalid private telemetry settings") from None
         if len(document) > 65536:
@@ -189,7 +204,7 @@ class ResolvedSettings:
             "resource": safe_resource,
             "sdk_versions": versions,
             "lifecycle_owner": "process host",
-            "sampler": wire.sampler,
+            "sampler": wire.sampler.value,
             "sampler_argument": wire.sampler_argument,
             "max_queue_size": wire.max_queue_size,
             "max_export_batch_size": wire.max_export_batch_size,
@@ -229,7 +244,7 @@ def resolve_process(
     )
     disabled = env.get("OTEL_SDK_DISABLED", "false").lower() == "true" or not selected
     base_headers = env.get("OTEL_EXPORTER_OTLP_HEADERS", "")
-    signals: dict[str, SignalSettings] = {}
+    signals: dict[str, dict[str, object]] = {}
     for name in ("TRACES", "LOGS", "METRICS"):
         exporter = env.get(f"OTEL_{name}_EXPORTER", "otlp")
         if exporter not in {"otlp", "none"}:
@@ -246,13 +261,12 @@ def resolve_process(
         endpoint = env.get(f"OTEL_EXPORTER_OTLP_{name}_ENDPOINT")
         if endpoint is None and base:
             endpoint = base.rstrip("/") + "/v1/" + name.lower()
-        timeout = _number(
+        timeout = _timeout_seconds(
             env,
             f"OTEL_EXPORTER_OTLP_{name}_TIMEOUT",
-            _number(env, "OTEL_EXPORTER_OTLP_TIMEOUT", 5, maximum=60),
-            maximum=60,
+            _timeout_seconds(env, "OTEL_EXPORTER_OTLP_TIMEOUT", 5),
         )
-        signals[name] = SignalSettings(
+        signals[name] = dict(
             enabled=enabled and bool(endpoint),
             endpoint=_endpoint(endpoint) if endpoint and enabled else None,
             headers=dict(
@@ -275,29 +289,15 @@ def resolve_process(
             "process.pid": str(os.getpid()),
         }
     )
-    queue = _integer(env, "OTEL_BSP_MAX_QUEUE_SIZE", 2048, maximum=65536)
-    batch = _integer(env, "OTEL_BSP_MAX_EXPORT_BATCH_SIZE", 512, maximum=65536)
+    queue = _integer(env, "OTEL_BSP_MAX_QUEUE_SIZE", 2048)
+    batch = _integer(env, "OTEL_BSP_MAX_EXPORT_BATCH_SIZE", 512)
     if batch > queue:
         raise ValueError("telemetry export batch exceeds bounded queue")
     sampler = env.get("OTEL_TRACES_SAMPLER", "parentbased_always_on")
-    if sampler not in {
-        "always_on",
-        "always_off",
-        "parentbased_always_on",
-        "parentbased_always_off",
-        "traceidratio",
-        "parentbased_traceidratio",
-    }:
-        raise ValueError("unsupported telemetry sampler")
-    try:
-        argument = float(env.get("OTEL_TRACES_SAMPLER_ARG", "1"))
-    except ValueError:
-        raise ValueError("invalid telemetry sampler argument") from None
-    if not math.isfinite(argument) or not 0 <= argument <= 1:
-        raise ValueError("invalid telemetry sampler argument")
+    argument = _number(env, "OTEL_TRACES_SAMPLER_ARG", 1)
     configuration_id = configuration.get("configuration_id")
     return ResolvedSettings.from_wire(
-        wire=Settings(
+        wire=dict(
             disabled=disabled,
             traces=signals["TRACES"],
             logs=signals["LOGS"],
@@ -309,7 +309,7 @@ def resolve_process(
             schedule_delay_ms=_integer(env, "OTEL_BSP_SCHEDULE_DELAY", 5000),
             export_timeout_ms=_integer(env, "OTEL_BSP_EXPORT_TIMEOUT", 5000),
             metric_export_interval_ms=_integer(
-                env, "OTEL_METRIC_EXPORT_INTERVAL", 60000, maximum=3600000
+                env, "OTEL_METRIC_EXPORT_INTERVAL", 60000
             ),
             sampler=sampler,
             sampler_argument=argument,

@@ -74,6 +74,77 @@ pub enum EvidenceComparisonSection {
     /// Declared measurement association and censoring, without inferred membership.
     Associations,
 }
+/// Classification of the selected paired or unpaired subject evidence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceComparisonClassification {
+    /// Identity cannot be paired unambiguously.
+    Ambiguous,
+    /// Only the candidate contains this cohort.
+    UnmatchedCandidate,
+    /// Only the baseline contains this cohort.
+    UnmatchedBaseline,
+    /// Both sides contain failure evidence.
+    PersistentFailure,
+    /// Candidate failure follows explicit baseline success.
+    NewFailure,
+    /// Candidate success follows baseline failure.
+    ResolvedFailure,
+    /// At least one side lacks execution.
+    Unexecuted,
+    /// Both sides contain only explicit success.
+    UnchangedSuccess,
+    /// The original evidence supports no change verdict.
+    Inconclusive,
+}
+/// Basis for pairing original owner populations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceComparisonCorrespondence {
+    /// Explicit original endpoints selected by the caller.
+    SuppliedMapping,
+    /// Exact compatible identity declared by the original owner.
+    ExactCompatibleOwnerIdentity,
+}
+/// Side of one original comparison member or fact.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceComparisonSide {
+    /// Selected baseline population.
+    Baseline,
+    /// Selected candidate population.
+    Candidate,
+}
+/// Compatibility of the declared measurement conditions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceMeasurementConditions {
+    /// A complete comparison basis is unavailable.
+    Unavailable,
+    /// At least one declared condition differs.
+    Incompatible,
+    /// All required declared conditions agree.
+    ComparableConditions,
+}
+
+// Schema-only adapter: documented enum variants are oneOf/const, so schemars cannot
+// infer BTreeMap's key domain. Keep the runtime map and derive both domains here.
+struct ComparisonSectionsSchema;
+impl JsonSchema for ComparisonSectionsSchema {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "EvidenceComparisonSections".into()
+    }
+    fn inline_schema() -> bool {
+        true
+    }
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        let mut schema = schemars::json_schema!({"type": "object"});
+        schema.insert("propertyNames".into(), generator.subschema_for::<EvidenceComparisonSection>().to_value());
+        schema.insert("additionalProperties".into(), generator.subschema_for::<EvidenceSectionSelection>().to_value());
+        schema
+    }
+}
+
 /// Finite native request. Both sides and every mapping remain explicit.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -95,6 +166,7 @@ pub struct EvidenceComparisonRequest {
     pub continuation_cut: Option<String>,
     /// Optional independently bounded detail pages.
     #[serde(default)]
+    #[schemars(with = "ComparisonSectionsSchema")]
     pub sections: BTreeMap<EvidenceComparisonSection, EvidenceSectionSelection>,
 }
 impl EvidenceComparisonRequest {
@@ -198,9 +270,9 @@ pub struct EvidenceSubjectComparison {
     /// Deterministic reference within this exact comparison cut.
     pub cohort: String,
     /// Exact-compatible or explicitly supplied correspondence; absent for unpaired rows.
-    pub correspondence: Option<String>,
+    pub correspondence: Option<EvidenceComparisonCorrespondence>,
     /// Classification never rewrites either original outcome.
-    pub classification: String,
+    pub classification: EvidenceComparisonClassification,
     /// Original baseline identity.
     pub baseline: Option<EvidenceSubjectIdentity>,
     /// Original candidate identity.
@@ -217,7 +289,7 @@ pub struct EvidenceSubjectComparison {
 #[serde(deny_unknown_fields)]
 pub struct EvidenceComparisonMember {
     /// Baseline or candidate.
-    pub side: String,
+    pub side: EvidenceComparisonSide,
     /// Exact cohort reference in subjects.
     pub cohort: String,
     /// Original generation and member.
@@ -286,7 +358,7 @@ pub struct EvidenceComparisonPage<T> {
 #[serde(deny_unknown_fields)]
 pub struct EvidenceComparisonFact {
     /// Baseline or candidate selected population.
-    pub side: String,
+    pub side: EvidenceComparisonSide,
     /// Original immutable generation.
     pub generation: String,
     /// Original native fact, including member, sample identity and context declaration.
@@ -322,7 +394,7 @@ pub struct EvidenceMeasurementCohort {
 #[serde(deny_unknown_fields)]
 pub struct EvidenceMeasurementComparison {
     /// Exact compatible owner identity or explicitly supplied mapping.
-    pub correspondence: String,
+    pub correspondence: EvidenceComparisonCorrespondence,
     /// Baseline original cohorts before display bounds.
     pub baseline_cohorts: usize,
     /// Candidate original cohorts before display bounds.
@@ -332,7 +404,7 @@ pub struct EvidenceMeasurementComparison {
     /// Candidate descriptor only when exactly one original cohort exists.
     pub candidate: Option<EvidenceMeasurementCohort>,
     /// Comparable conditions, incompatible conditions, or unavailable basis.
-    pub conditions: String,
+    pub conditions: EvidenceMeasurementConditions,
     /// Relevant declared conditions that differ.
     pub changed_fields: Vec<String>,
     /// Relevant conditions not declared by at least one original owner.
@@ -753,7 +825,7 @@ impl EvidenceAnalysis {
         let rows = rows
             .into_iter()
             .map(|mut row| {
-                let side = text(&row, "side")?;
+                let side = serde_json::from_value(row["side"].clone()).map_err(invalid)?;
                 let generation = text(&row, "generation")?;
                 let object = row
                     .as_object_mut()
@@ -823,7 +895,7 @@ impl EvidenceAnalysis {
                     "candidate measurement mapping is conflicting or outside selected population",
                 )
             })?;
-            pairs.push(("supplied_mapping".to_owned(), vec![left], vec![right]));
+            pairs.push((EvidenceComparisonCorrespondence::SuppliedMapping, vec![left], vec![right]));
         }
         for (source_rows, baseline) in [(baseline_rows, true), (candidate_rows, false)] {
             for (identity, row) in source_rows {
@@ -847,7 +919,7 @@ impl EvidenceAnalysis {
         }
         for (_, group) in groups {
             pairs.push((
-                "exact_compatible_owner_identity".to_owned(),
+                EvidenceComparisonCorrespondence::ExactCompatibleOwnerIdentity,
                 group.baseline,
                 group.candidate,
             ));
@@ -891,7 +963,7 @@ impl EvidenceAnalysis {
                 || baseline[0]["sample_count"].as_u64().unwrap_or(0) == 0
                 || candidate[0]["sample_count"].as_u64().unwrap_or(0) == 0
             {
-                "unavailable"
+                EvidenceMeasurementConditions::Unavailable
             } else if let (Some(left), Some(right)) =
                 (context_for(&baseline[0]), context_for(&candidate[0]))
             {
@@ -903,24 +975,24 @@ impl EvidenceAnalysis {
                     }
                 }
                 if !changed.is_empty() {
-                    "incompatible"
+                    EvidenceMeasurementConditions::Incompatible
                 } else if !unknown.is_empty() {
-                    "unavailable"
+                    EvidenceMeasurementConditions::Unavailable
                 } else {
-                    "comparable_conditions"
+                    EvidenceMeasurementConditions::ComparableConditions
                 }
             } else {
-                "unavailable"
+                EvidenceMeasurementConditions::Unavailable
             };
             match state {
-                "incompatible" => summary.incompatible += 1,
-                "comparable_conditions" => summary.comparable += 1,
+                EvidenceMeasurementConditions::Incompatible => summary.incompatible += 1,
+                EvidenceMeasurementConditions::ComparableConditions => summary.comparable += 1,
                 _ => summary.unavailable += 1,
             }
             let cohort = |original: &[serde_json::Value]| -> Result<Option<EvidenceMeasurementCohort>,EvidenceError> {
                 if original.len()==1 {serde_json::from_value(original[0].clone()).map(Some).map_err(invalid)} else {Ok(None)}
             };
-            rows.push(EvidenceMeasurementComparison {correspondence,baseline_cohorts:baseline.len(),candidate_cohorts:candidate.len(),baseline:cohort(&baseline)?,candidate:cohort(&candidate)?,conditions:state.into(),changed_fields:changed.into_iter().map(str::to_owned).collect(),unknown_fields:unknown.into_iter().map(str::to_owned).collect(),association:"original declared association only; criterion-to-invocation membership is not inferred".into(),verdict:"inconclusive".into(),revision_build:"included among compatibility conditions; differences do not establish causality".into()});
+            rows.push(EvidenceMeasurementComparison {correspondence,baseline_cohorts:baseline.len(),candidate_cohorts:candidate.len(),baseline:cohort(&baseline)?,candidate:cohort(&candidate)?,conditions:state,changed_fields:changed.into_iter().map(str::to_owned).collect(),unknown_fields:unknown.into_iter().map(str::to_owned).collect(),association:"original declared association only; criterion-to-invocation membership is not inferred".into(),verdict:"inconclusive".into(),revision_build:"included among compatibility conditions; differences do not establish causality".into()});
         }
         Ok((summary, rows))
     }
@@ -993,7 +1065,7 @@ fn pair_subjects(
         append_pair(
             Cohort { rows: vec![left] },
             Cohort { rows: vec![right] },
-            Some("supplied_mapping"),
+            Some(EvidenceComparisonCorrespondence::SuppliedMapping),
             false,
             &mut subjects,
             &mut members,
@@ -1017,7 +1089,7 @@ fn pair_subjects(
             || left.ambiguous()
             || right.ambiguous();
         let correspondence = (!ambiguous && !left.rows.is_empty() && !right.rows.is_empty())
-            .then_some("exact_compatible_owner_identity");
+            .then_some(EvidenceComparisonCorrespondence::ExactCompatibleOwnerIdentity);
         append_pair(
             left,
             right,
@@ -1037,7 +1109,7 @@ fn pair_subjects(
 fn append_pair(
     left: Cohort,
     right: Cohort,
-    correspondence: Option<&str>,
+    correspondence: Option<EvidenceComparisonCorrespondence>,
     ambiguous: bool,
     subjects: &mut Vec<EvidenceSubjectComparison>,
     members: &mut Vec<EvidenceComparisonMember>,
@@ -1047,34 +1119,34 @@ fn append_pair(
     let candidate_outcomes = right.counts();
     let classification = if ambiguous {
         summary.ambiguous += 1;
-        "ambiguous"
+        EvidenceComparisonClassification::Ambiguous
     } else if left.rows.is_empty() {
         summary.unmatched_candidate += 1;
-        "unmatched_candidate"
+        EvidenceComparisonClassification::UnmatchedCandidate
     } else if right.rows.is_empty() {
         summary.unmatched_baseline += 1;
-        "unmatched_baseline"
+        EvidenceComparisonClassification::UnmatchedBaseline
     } else {
         summary.paired += 1;
         let unexecuted = baseline_outcomes.unexecuted > 0 || candidate_outcomes.unexecuted > 0;
         summary.unexecuted += usize::from(unexecuted);
         if baseline_outcomes.failures > 0 && candidate_outcomes.failures > 0 {
             summary.persistent_failures += 1;
-            "persistent_failure"
+            EvidenceComparisonClassification::PersistentFailure
         } else if baseline_outcomes.all_success() && candidate_outcomes.failures > 0 {
             summary.new_failures += 1;
-            "new_failure"
+            EvidenceComparisonClassification::NewFailure
         } else if baseline_outcomes.failures > 0 && candidate_outcomes.all_success() {
             summary.resolved_failures += 1;
-            "resolved_failure"
+            EvidenceComparisonClassification::ResolvedFailure
         } else if unexecuted {
-            "unexecuted"
+            EvidenceComparisonClassification::Unexecuted
         } else if baseline_outcomes.all_success() && candidate_outcomes.all_success() {
             summary.unchanged_successes += 1;
-            "unchanged_success"
+            EvidenceComparisonClassification::UnchangedSuccess
         } else {
             summary.inconclusive += 1;
-            "inconclusive"
+            EvidenceComparisonClassification::Inconclusive
         }
     };
     let mixed_outcomes = baseline_outcomes.mixed() || candidate_outcomes.mixed();
@@ -1082,18 +1154,18 @@ fn append_pair(
     let cohort = format!("subject:{}", subjects.len());
     subjects.push(EvidenceSubjectComparison {
         cohort: cohort.clone(),
-        correspondence: correspondence.map(str::to_owned),
-        classification: classification.into(),
+        correspondence,
+        classification,
         baseline: left.rows.first().map(|row| row.identity.clone()),
         candidate: right.rows.first().map(|row| row.identity.clone()),
         baseline_outcomes,
         candidate_outcomes,
         mixed_outcomes,
     });
-    for (rows, side) in [(left.rows, "baseline"), (right.rows, "candidate")] {
+    for (rows, side) in [(left.rows, EvidenceComparisonSide::Baseline), (right.rows, EvidenceComparisonSide::Candidate)] {
         for row in rows {
             members.push(EvidenceComparisonMember {
-                side: side.into(),
+                side,
                 cohort: cohort.clone(),
                 original: row.original,
                 identity: row.identity,

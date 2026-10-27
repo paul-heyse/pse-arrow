@@ -132,7 +132,7 @@ def fixture() -> dict:
             "rows": [
                 {
                     "cohort": "resolved-cohort",
-                    "correspondence": "exact-owner",
+                    "correspondence": "exact_compatible_owner_identity",
                     "classification": "resolved_failure",
                     "baseline": identity,
                     "candidate": identity,
@@ -238,7 +238,7 @@ class EvidenceComparisonReportTests(unittest.TestCase):
     def test_native_local_refs_and_resource_id_resolve_without_network_retrieval(
         self,
     ) -> None:
-        original = report.SchemaSet(report.ROOT)
+        original = report.SchemaSet(report.ROOT, family="evidence")
         schema = original.document("evidence-comparison", "output")
         schema["$id"] = "https://example.invalid/native-owned-resource"
         with patch.object(report, "SchemaSet") as owner:

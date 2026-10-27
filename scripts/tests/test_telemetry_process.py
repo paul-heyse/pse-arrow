@@ -32,6 +32,7 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from scripts import telemetry_process
+from scripts.generated.telemetry_settings import TelemetrySampler
 from scripts.telemetry_config import resolve_process
 from scripts.telemetry_process import (
     current_carrier,
@@ -45,6 +46,29 @@ PARENT = {
     "traceparent": "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01",
     "tracestate": "fixture=selected",
 }
+
+
+class SamplerTests(unittest.TestCase):
+    def test_enum_adapters_preserve_root_and_local_remote_parent_sampling(self) -> None:
+        from opentelemetry.sdk.trace.sampling import Decision
+
+        for selection, root_sampled, parent_based in (
+            (TelemetrySampler.ALWAYS_ON, True, False),
+            (TelemetrySampler.ALWAYS_OFF, False, False),
+            (TelemetrySampler.TRACEIDRATIO, False, False),
+            (TelemetrySampler.PARENTBASED_ALWAYS_ON, True, True),
+            (TelemetrySampler.PARENTBASED_ALWAYS_OFF, False, True),
+            (TelemetrySampler.PARENTBASED_TRACEIDRATIO, False, True),
+        ):
+            sampler = telemetry_process._sdk_sampler(selection, 0.0)
+            with self.subTest(selection=selection):
+                self.assertEqual(sampler.should_sample(context.Context(), 1, "fixture").decision, Decision.RECORD_AND_SAMPLE if root_sampled else Decision.DROP)
+                for remote in (False, True):
+                    for sampled in (False, True):
+                        parent = trace.SpanContext(trace_id=1, span_id=1, is_remote=remote, trace_flags=trace.TraceFlags(1 if sampled else 0))
+                        parent_context = trace.set_span_in_context(trace.NonRecordingSpan(parent), context.Context())
+                        expected = sampled if parent_based else root_sampled
+                        self.assertEqual(sampler.should_sample(parent_context, 1, "fixture").decision, Decision.RECORD_AND_SAMPLE if expected else Decision.DROP)
 
 
 class ProcessTests(unittest.TestCase):
@@ -702,6 +726,7 @@ asyncio.run(main())
     def test_actual_disabled_native_bridge_retains_typed_passive_health(self) -> None:
         result = self.child(
             """import json
+from scripts.generated.telemetry_settings import TelemetrySampler
 from scripts.telemetry_config import resolve_process
 from pse._telemetry import initialize
 from pse._build import _telemetry_status

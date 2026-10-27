@@ -330,6 +330,49 @@ pub struct TelemetryError(pub String);
 /// Private resolved telemetry wire version.
 pub const SETTINGS_VERSION: u32 = 1;
 
+// Scalar bounds are shared by runtime admission and the generated bootstrap schema.
+const TELEMETRY_MINIMUM: u64 = 1;
+const TELEMETRY_TIMEOUT_MAX_MS: u64 = 60_000;
+const TELEMETRY_QUEUE_MAX: usize = 65_536;
+const TELEMETRY_METRIC_INTERVAL_MAX_MS: u64 = 3_600_000;
+const TELEMETRY_RATIO_MIN: f64 = 0.0;
+const TELEMETRY_RATIO_MAX: f64 = 1.0;
+
+/// Standard sampler selection shared with embedding process hosts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TelemetrySampler {
+    /// Sample every root span.
+    AlwaysOn,
+    /// Sample no root span.
+    AlwaysOff,
+    /// Sample roots by their trace ID and configured ratio.
+    #[serde(rename = "traceidratio")]
+    TraceIdRatio,
+    /// Honor the parent, sampling every root span.
+    #[serde(rename = "parentbased_always_on")]
+    ParentBasedAlwaysOn,
+    /// Honor the parent, sampling no root span.
+    #[serde(rename = "parentbased_always_off")]
+    ParentBasedAlwaysOff,
+    /// Honor the parent, sampling roots by trace ID and ratio.
+    #[serde(rename = "parentbased_traceidratio")]
+    ParentBasedTraceIdRatio,
+}
+impl TelemetrySampler {
+    fn sdk(self, argument: f64) -> opentelemetry_sdk::trace::Sampler {
+        use opentelemetry_sdk::trace::Sampler;
+        match self {
+            Self::AlwaysOn => Sampler::AlwaysOn,
+            Self::AlwaysOff => Sampler::AlwaysOff,
+            Self::TraceIdRatio => Sampler::TraceIdRatioBased(argument),
+            Self::ParentBasedAlwaysOn => Sampler::ParentBased(Box::new(Sampler::AlwaysOn)),
+            Self::ParentBasedAlwaysOff => Sampler::ParentBased(Box::new(Sampler::AlwaysOff)),
+            Self::ParentBasedTraceIdRatio => Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(argument))),
+        }
+    }
+}
+
 /// Resolved signal settings; environment precedence belongs to the host resolver.
 #[derive(Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -341,6 +384,7 @@ pub struct SignalSettings {
     /// Resolved authentication/transport headers; never rendered.
     pub headers: HashMap<String, String>,
     /// Actual transport request timeout in milliseconds.
+    #[schemars(range(min = TELEMETRY_MINIMUM, max = TELEMETRY_TIMEOUT_MAX_MS))]
     pub timeout_ms: u64,
 }
 /// Shared Python/Rust host settings. Credentials are never Debug; serialization is private launcher transport.
@@ -363,18 +407,24 @@ pub struct Settings {
     /// Incarnation shared with the embedding Python host in this actual process.
     pub process_incarnation: String,
     /// SDK finite batch queue capacity.
+    #[schemars(range(min = TELEMETRY_MINIMUM, max = TELEMETRY_QUEUE_MAX))]
     pub max_queue_size: usize,
     /// SDK maximum items per export batch.
+    #[schemars(range(min = TELEMETRY_MINIMUM, max = TELEMETRY_QUEUE_MAX))]
     pub max_export_batch_size: usize,
     /// SDK periodic batch delay.
+    #[schemars(range(min = TELEMETRY_MINIMUM, max = TELEMETRY_TIMEOUT_MAX_MS))]
     pub schedule_delay_ms: u64,
     /// Host-requested SDK shutdown wait; transport deadlines remain independent.
+    #[schemars(range(min = TELEMETRY_MINIMUM, max = TELEMETRY_TIMEOUT_MAX_MS))]
     pub export_timeout_ms: u64,
     /// Dedicated metric reader interval.
+    #[schemars(range(min = TELEMETRY_MINIMUM, max = TELEMETRY_METRIC_INTERVAL_MAX_MS))]
     pub metric_export_interval_ms: u64,
     /// Standard sampler name selected by the host resolver.
-    pub sampler: String,
+    pub sampler: TelemetrySampler,
     /// Ratio argument for ratio-based samplers.
+    #[schemars(range(min = TELEMETRY_RATIO_MIN, max = TELEMETRY_RATIO_MAX))]
     pub sampler_argument: f64,
 }
 impl std::fmt::Debug for SignalSettings {
@@ -410,21 +460,22 @@ impl Settings {
         if self.schema_version != SETTINGS_VERSION
             || self.process_incarnation.is_empty()
             || self.resource.get("service.instance.id") != Some(&self.process_incarnation)
-            || (self.max_queue_size == 0 || self.max_queue_size > 65536)
-            || self.max_export_batch_size == 0
+            || (self.max_queue_size < TELEMETRY_MINIMUM as usize || self.max_queue_size > TELEMETRY_QUEUE_MAX)
+            || self.max_export_batch_size < TELEMETRY_MINIMUM as usize
+            || self.max_export_batch_size > TELEMETRY_QUEUE_MAX
             || self.max_export_batch_size > self.max_queue_size
-            || (self.schedule_delay_ms == 0 || self.schedule_delay_ms > 60000)
-            || (self.export_timeout_ms == 0 || self.export_timeout_ms > 60000)
-            || (self.metric_export_interval_ms == 0 || self.metric_export_interval_ms > 3600000)
+            || (self.schedule_delay_ms < TELEMETRY_MINIMUM || self.schedule_delay_ms > TELEMETRY_TIMEOUT_MAX_MS)
+            || (self.export_timeout_ms < TELEMETRY_MINIMUM || self.export_timeout_ms > TELEMETRY_TIMEOUT_MAX_MS)
+            || (self.metric_export_interval_ms < TELEMETRY_MINIMUM || self.metric_export_interval_ms > TELEMETRY_METRIC_INTERVAL_MAX_MS)
             || !self.sampler_argument.is_finite()
-            || !(0.0..=1.0).contains(&self.sampler_argument)
+            || !(TELEMETRY_RATIO_MIN..=TELEMETRY_RATIO_MAX).contains(&self.sampler_argument)
         {
             return Err(TelemetryError(
                 "invalid shared identity, schema or batch bounds".into(),
             ));
         }
         for signal in [&self.traces, &self.logs, &self.metrics] {
-            if signal.timeout_ms == 0 || signal.timeout_ms > 60000 {
+            if signal.timeout_ms < TELEMETRY_MINIMUM || signal.timeout_ms > TELEMETRY_TIMEOUT_MAX_MS {
                 return Err(TelemetryError("signal timeout outside host bounds".into()));
             }
             if signal.headers.len() > 32
@@ -458,27 +509,10 @@ impl Settings {
                 }
             }
         }
-        let _ = self.sampler()?;
         Ok(())
     }
-    fn sampler(&self) -> Result<opentelemetry_sdk::trace::Sampler, TelemetryError> {
-        use opentelemetry_sdk::trace::Sampler;
-        let ratio = || {
-            if self.sampler_argument.is_finite() && (0.0..=1.0).contains(&self.sampler_argument) {
-                Ok(Sampler::TraceIdRatioBased(self.sampler_argument))
-            } else {
-                Err(TelemetryError("invalid sampler ratio".into()))
-            }
-        };
-        match self.sampler.as_str() {
-            "always_on" => Ok(Sampler::AlwaysOn),
-            "always_off" => Ok(Sampler::AlwaysOff),
-            "traceidratio" => ratio(),
-            "parentbased_always_on" => Ok(Sampler::ParentBased(Box::new(Sampler::AlwaysOn))),
-            "parentbased_always_off" => Ok(Sampler::ParentBased(Box::new(Sampler::AlwaysOff))),
-            "parentbased_traceidratio" => Ok(Sampler::ParentBased(Box::new(ratio()?))),
-            _ => Err(TelemetryError("unsupported sampler".into())),
-        }
+    fn sampler(&self) -> opentelemetry_sdk::trace::Sampler {
+        self.sampler.sdk(self.sampler_argument)
     }
 }
 
@@ -1036,7 +1070,7 @@ impl Host {
             Some(
                 SdkTracerProvider::builder()
                     .with_resource(resource.clone())
-                    .with_sampler(settings.sampler()?)
+                    .with_sampler(settings.sampler())
                     .with_span_processor(ObservedBatchProcessor::new(
                         opentelemetry_sdk::trace::BatchSpanProcessor::builder(exporter)
                             .with_batch_config(batch)
@@ -1875,6 +1909,95 @@ mod tests {
         )
         .unwrap()
     }
+    #[test]
+    fn resolved_settings_sampler_adapters_preserve_parent_semantics() {
+        use opentelemetry::trace::{SpanContext, SpanId, SpanKind, TraceFlags, TraceId, TraceState};
+        use opentelemetry_sdk::trace::{SamplingDecision, ShouldSample};
+        let trace_id = TraceId::from(1_u128);
+        for (name, root_sampled, parent_based) in [
+            ("always_on", true, false),
+            ("always_off", false, false),
+            ("traceidratio", false, false),
+            ("parentbased_always_on", true, true),
+            ("parentbased_always_off", false, true),
+            ("parentbased_traceidratio", false, true),
+        ] {
+            let selection: TelemetrySampler = serde_json::from_value(serde_json::json!(name)).unwrap();
+            assert_eq!(serde_json::to_value(selection).unwrap(), name);
+            let sampler = selection.sdk(0.0);
+            let decision = |parent: Option<&Context>| sampler.should_sample(parent, trace_id, "fixture", &SpanKind::Internal, &[], &[]).decision;
+            let sampled = |value| if value { SamplingDecision::RecordAndSample } else { SamplingDecision::Drop };
+            assert_eq!(decision(None), sampled(root_sampled), "{name} root");
+            for remote in [false, true] {
+                for parent_sampled in [false, true] {
+                    let parent = Context::new().with_remote_span_context(SpanContext::new(
+                        trace_id, SpanId::from(1_u64), if parent_sampled { TraceFlags::SAMPLED } else { TraceFlags::default() }, remote, TraceState::default(),
+                    ));
+                    assert_eq!(decision(Some(&parent)), sampled(if parent_based {parent_sampled} else {root_sampled}), "{name} parent");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn resolved_settings_scalar_schema_and_receiving_admission_agree() {
+        let schema = schemars::schema_for!(Settings).to_value();
+        let original = serde_json::to_value(settings()).unwrap();
+        for (field, maximum) in [
+            ("max_queue_size", TELEMETRY_QUEUE_MAX as u64),
+            ("max_export_batch_size", TELEMETRY_QUEUE_MAX as u64),
+            ("schedule_delay_ms", TELEMETRY_TIMEOUT_MAX_MS),
+            ("export_timeout_ms", TELEMETRY_TIMEOUT_MAX_MS),
+            ("metric_export_interval_ms", TELEMETRY_METRIC_INTERVAL_MAX_MS),
+        ] {
+            assert_eq!(schema["properties"][field]["minimum"], TELEMETRY_MINIMUM);
+            assert_eq!(schema["properties"][field]["maximum"], maximum);
+            for endpoint in [TELEMETRY_MINIMUM, maximum] {
+                let mut wire = original.clone();
+                wire["max_queue_size"] = serde_json::json!(TELEMETRY_QUEUE_MAX);
+                wire["max_export_batch_size"] = serde_json::json!(1);
+                wire[field] = serde_json::json!(endpoint);
+                assert!(Settings::from_json(&wire.to_string()).is_ok(), "{field}={endpoint}");
+            }
+            for outside in [0, maximum + 1] {
+                let mut wire = original.clone();
+                wire[field] = serde_json::json!(outside);
+                assert!(Settings::from_json(&wire.to_string()).is_err(), "{field}={outside}");
+            }
+        }
+        for endpoint in [TELEMETRY_MINIMUM, TELEMETRY_TIMEOUT_MAX_MS] {
+            let mut wire = original.clone();
+            wire["traces"]["timeout_ms"] = serde_json::json!(endpoint);
+            assert!(Settings::from_json(&wire.to_string()).is_ok());
+        }
+        for outside in [0, TELEMETRY_TIMEOUT_MAX_MS + 1] {
+            let mut wire = original.clone();
+            wire["traces"]["timeout_ms"] = serde_json::json!(outside);
+            assert!(Settings::from_json(&wire.to_string()).is_err());
+        }
+        for ratio in [TELEMETRY_RATIO_MIN, TELEMETRY_RATIO_MAX] {
+            let mut wire = original.clone();
+            wire["sampler_argument"] = serde_json::json!(ratio);
+            assert!(Settings::from_json(&wire.to_string()).is_ok());
+        }
+        for ratio in [-0.01, 1.01] {
+            let mut wire = original.clone();
+            wire["sampler_argument"] = serde_json::json!(ratio);
+            assert!(Settings::from_json(&wire.to_string()).is_err());
+        }
+        let mut direct = settings();
+        direct.sampler_argument = f64::NAN;
+        assert!(direct.validate().is_err());
+        direct.sampler_argument = f64::INFINITY;
+        assert!(direct.validate().is_err());
+        let mut wire = original.clone();
+        wire["max_export_batch_size"] = serde_json::json!(65);
+        assert!(Settings::from_json(&wire.to_string()).is_err());
+        wire = original;
+        wire["sampler"] = serde_json::json!("unknown_sampler");
+        assert!(Settings::from_json(&wire.to_string()).is_err());
+    }
+
     #[test]
     fn resolved_settings_preserve_shared_incarnation_and_refuse_invalid_bounds() {
         let settings = settings();

@@ -540,7 +540,7 @@ def write_report(
         raise ValueError("original comparison exceeds its selected bound")
     original_digest = hashlib.sha256(raw).hexdigest()
     comparison = JSON_OBJECT.validate_json(raw, strict=True)
-    schemas = SchemaSet(ROOT)
+    schemas = SchemaSet(ROOT, family="evidence")
     schema = schemas.document("evidence-comparison", "output")
     try:
         Draft202012Validator(schema, registry=Registry()).validate(comparison)

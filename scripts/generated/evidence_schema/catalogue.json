@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "schema_set_fingerprint": "blake3:350b4224939b7f0f3533eb4ee450804f982f96812cc3338ac7ac5ef656207796",
+  "schema_set_fingerprint": "blake3:f690cb444fea16fe93fa0beca79666f07f4a97776a9818fbeaf850ae35ecc7ed",
   "documents": [
     {
       "slug": "evidence-comparison",
       "direction": "input",
       "exported_name": "EvidenceComparison",
       "schema_path": "scripts/generated/evidence_schema/evidence-comparison.input.schema.json",
-      "schema_sha256": "8ba5d889070d630b127bdf53896d6e1ca292c9d2e1bbdadc13de5a02d4f805d7",
+      "schema_sha256": "640523742a0c240d8d56274e3a230e49f71647f9d92386404abeb00d04aae7d7",
       "version": 1,
       "wire": "Native",
       "registration_source": "xtask/src/codegen/private_documents.rs"
@@ -17,7 +17,7 @@
       "direction": "output",
       "exported_name": "EvidenceComparison",
       "schema_path": "scripts/generated/evidence_schema/evidence-comparison.output.schema.json",
-      "schema_sha256": "27f4d68081e210a42bf1b898bd2ac0f89d72b7a87d2e5294ed89b3ee6bda2a47",
+      "schema_sha256": "97708d020b44e9eddac8db453c3a5690f0fdbccdd7138f1b7b8347d85b2347f1",
       "version": 1,
       "wire": "Native",
       "registration_source": "xtask/src/codegen/private_documents.rs"
@@ -27,7 +27,7 @@
       "direction": "input",
       "exported_name": "EvidenceComparisonRequest",
       "schema_path": "scripts/generated/evidence_schema/evidence-comparison-request.input.schema.json",
-      "schema_sha256": "3ac2cfa2b6377ab2fd4c399af285d60a3c300d129770e470c4874f87d26ab50c",
+      "schema_sha256": "80baf97bc562c602bd647f3d58ae305680d6a22e76174158339eeaf456ebd608",
       "version": 1,
       "wire": "Native",
       "registration_source": "xtask/src/codegen/private_documents.rs"
@@ -37,7 +37,7 @@
       "direction": "output",
       "exported_name": "EvidenceComparisonRequest",
       "schema_path": "scripts/generated/evidence_schema/evidence-comparison-request.output.schema.json",
-      "schema_sha256": "5c07defad84d247c94a6d3d0e355d0a1302cfc0e33d1457809095f644bfb5167",
+      "schema_sha256": "f4c15629752b7bbaa4691910ad61310d501fcbcc005295d7bf9a78598044902b",
       "version": 1,
       "wire": "Native",
       "registration_source": "xtask/src/codegen/private_documents.rs"

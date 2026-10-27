@@ -5,9 +5,38 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Annotated, ClassVar, Literal
 
 import msgspec
+
+
+class EvidenceComparisonClassification(StrEnum):
+    AMBIGUOUS = "ambiguous"
+    UNMATCHED_CANDIDATE = "unmatched_candidate"
+    UNMATCHED_BASELINE = "unmatched_baseline"
+    PERSISTENT_FAILURE = "persistent_failure"
+    NEW_FAILURE = "new_failure"
+    RESOLVED_FAILURE = "resolved_failure"
+    UNEXECUTED = "unexecuted"
+    UNCHANGED_SUCCESS = "unchanged_success"
+    INCONCLUSIVE = "inconclusive"
+
+
+class EvidenceComparisonCorrespondence(StrEnum):
+    SUPPLIED_MAPPING = "supplied_mapping"
+    EXACT_COMPATIBLE_OWNER_IDENTITY = "exact_compatible_owner_identity"
+
+
+class EvidenceComparisonSide(StrEnum):
+    BASELINE = "baseline"
+    CANDIDATE = "candidate"
+
+
+class EvidenceMeasurementConditions(StrEnum):
+    UNAVAILABLE = "unavailable"
+    INCOMPATIBLE = "incompatible"
+    COMPARABLE_CONDITIONS = "comparable_conditions"
 
 
 class EvidenceComparison(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -84,7 +113,7 @@ class EvidenceComparisonFact(msgspec.Struct, frozen=True, forbid_unknown_fields=
     #: Original immutable generation.
     generation: str
     #: Baseline or candidate selected population.
-    side: str
+    side: EvidenceComparisonSide
 
     def __repr__(self) -> str:
         return "EvidenceComparisonFact(<private>)"
@@ -102,7 +131,7 @@ class EvidenceComparisonMember(msgspec.Struct, frozen=True, forbid_unknown_field
     #: Original generation and member.
     original: EvidenceMemberIdentity
     #: Baseline or candidate.
-    side: str
+    side: EvidenceComparisonSide
     #: Original binary outcome, including unknowns.
     status: str
 
@@ -339,9 +368,9 @@ class EvidenceMeasurementComparison(msgspec.Struct, frozen=True, forbid_unknown_
     #: Relevant declared conditions that differ.
     changed_fields: tuple[str, ...]
     #: Comparable conditions, incompatible conditions, or unavailable basis.
-    conditions: str
+    conditions: EvidenceMeasurementConditions
     #: Exact compatible owner identity or explicitly supplied mapping.
-    correspondence: str
+    correspondence: EvidenceComparisonCorrespondence
     #: Revision/build interpretation retained with the assessment.
     revision_build: str
     #: Relevant conditions not declared by at least one original owner.
@@ -414,11 +443,11 @@ class EvidenceSubjectComparison(msgspec.Struct, frozen=True, forbid_unknown_fiel
     #: Full candidate outcome counts.
     candidate_outcomes: EvidenceOutcomeCounts
     #: Classification never rewrites either original outcome.
-    classification: str
+    classification: EvidenceComparisonClassification
     #: Deterministic reference within this exact comparison cut.
     cohort: str
     #: Exact-compatible or explicitly supplied correspondence; absent for unpaired rows.
-    correspondence: str | None
+    correspondence: EvidenceComparisonCorrespondence | None
     #: Repeated success and failure occurred in at least one side; no statistical inference.
     mixed_outcomes: bool
 
@@ -448,6 +477,8 @@ class EvidenceSubjectIdentity(msgspec.Struct, frozen=True, forbid_unknown_fields
 
 __all__ = [
     "EvidenceComparison",
+    "EvidenceComparisonClassification",
+    "EvidenceComparisonCorrespondence",
     "EvidenceComparisonDenominator",
     "EvidenceComparisonFact",
     "EvidenceComparisonMember",
@@ -455,11 +486,13 @@ __all__ = [
     "EvidenceComparisonPage2",
     "EvidenceComparisonPage3",
     "EvidenceComparisonPage4",
+    "EvidenceComparisonSide",
     "EvidenceComparisonSource",
     "EvidenceComparisonSummary",
     "EvidenceFact",
     "EvidenceMeasurementCohort",
     "EvidenceMeasurementComparison",
+    "EvidenceMeasurementConditions",
     "EvidenceMeasurementSummary",
     "EvidenceMemberIdentity",
     "EvidenceOutcomeCounts",

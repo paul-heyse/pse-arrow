@@ -1,5 +1,40 @@
 {
   "$defs": {
+    "EvidenceComparisonSection": {
+      "description": "Details selected before acquisition; no section is implicitly hydrated.",
+      "oneOf": [
+        {
+          "const": "subjects",
+          "description": "One row per paired or unpaired subject cohort.",
+          "type": "string"
+        },
+        {
+          "const": "members",
+          "description": "Original subject outcomes and binary IDs, independently paged.",
+          "type": "string"
+        },
+        {
+          "const": "samples",
+          "description": "Original measurement sample membership and order, independently paged.",
+          "type": "string"
+        },
+        {
+          "const": "measurements",
+          "description": "Measurement cohort compatibility and original summary values.",
+          "type": "string"
+        },
+        {
+          "const": "contexts",
+          "description": "Original selected context declarations.",
+          "type": "string"
+        },
+        {
+          "const": "associations",
+          "description": "Declared measurement association and censoring, without inferred membership.",
+          "type": "string"
+        }
+      ]
+    },
     "EvidenceComparisonSelection": {
       "additionalProperties": false,
       "description": "An explicit side of a comparison. Generation IDs identify exact source versions.",
@@ -184,6 +219,9 @@
       },
       "default": {},
       "description": "Optional independently bounded detail pages.",
+      "propertyNames": {
+        "$ref": "#/$defs/EvidenceComparisonSection"
+      },
       "type": "object"
     },
     "version": {

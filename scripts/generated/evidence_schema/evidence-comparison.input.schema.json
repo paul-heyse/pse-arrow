@@ -1,5 +1,70 @@
 {
   "$defs": {
+    "EvidenceComparisonClassification": {
+      "description": "Classification of the selected paired or unpaired subject evidence.",
+      "oneOf": [
+        {
+          "const": "ambiguous",
+          "description": "Identity cannot be paired unambiguously.",
+          "type": "string"
+        },
+        {
+          "const": "unmatched_candidate",
+          "description": "Only the candidate contains this cohort.",
+          "type": "string"
+        },
+        {
+          "const": "unmatched_baseline",
+          "description": "Only the baseline contains this cohort.",
+          "type": "string"
+        },
+        {
+          "const": "persistent_failure",
+          "description": "Both sides contain failure evidence.",
+          "type": "string"
+        },
+        {
+          "const": "new_failure",
+          "description": "Candidate failure follows explicit baseline success.",
+          "type": "string"
+        },
+        {
+          "const": "resolved_failure",
+          "description": "Candidate success follows baseline failure.",
+          "type": "string"
+        },
+        {
+          "const": "unexecuted",
+          "description": "At least one side lacks execution.",
+          "type": "string"
+        },
+        {
+          "const": "unchanged_success",
+          "description": "Both sides contain only explicit success.",
+          "type": "string"
+        },
+        {
+          "const": "inconclusive",
+          "description": "The original evidence supports no change verdict.",
+          "type": "string"
+        }
+      ]
+    },
+    "EvidenceComparisonCorrespondence": {
+      "description": "Basis for pairing original owner populations.",
+      "oneOf": [
+        {
+          "const": "supplied_mapping",
+          "description": "Explicit original endpoints selected by the caller.",
+          "type": "string"
+        },
+        {
+          "const": "exact_compatible_owner_identity",
+          "description": "Exact compatible identity declared by the original owner.",
+          "type": "string"
+        }
+      ]
+    },
     "EvidenceComparisonDenominator": {
       "additionalProperties": false,
       "description": "Full semantic population counts, computed before detail limits.",
@@ -85,8 +150,8 @@
           "type": "string"
         },
         "side": {
-          "description": "Baseline or candidate selected population.",
-          "type": "string"
+          "$ref": "#/$defs/EvidenceComparisonSide",
+          "description": "Baseline or candidate selected population."
         }
       },
       "required": [
@@ -120,8 +185,8 @@
           "description": "Original generation and member."
         },
         "side": {
-          "description": "Baseline or candidate.",
-          "type": "string"
+          "$ref": "#/$defs/EvidenceComparisonSide",
+          "description": "Baseline or candidate."
         },
         "status": {
           "description": "Original binary outcome, including unknowns.",
@@ -364,6 +429,21 @@
         "rows"
       ],
       "type": "object"
+    },
+    "EvidenceComparisonSide": {
+      "description": "Side of one original comparison member or fact.",
+      "oneOf": [
+        {
+          "const": "baseline",
+          "description": "Selected baseline population.",
+          "type": "string"
+        },
+        {
+          "const": "candidate",
+          "description": "Selected candidate population.",
+          "type": "string"
+        }
+      ]
     },
     "EvidenceComparisonSource": {
       "additionalProperties": false,
@@ -742,12 +822,12 @@
           "type": "array"
         },
         "conditions": {
-          "description": "Comparable conditions, incompatible conditions, or unavailable basis.",
-          "type": "string"
+          "$ref": "#/$defs/EvidenceMeasurementConditions",
+          "description": "Comparable conditions, incompatible conditions, or unavailable basis."
         },
         "correspondence": {
-          "description": "Exact compatible owner identity or explicitly supplied mapping.",
-          "type": "string"
+          "$ref": "#/$defs/EvidenceComparisonCorrespondence",
+          "description": "Exact compatible owner identity or explicitly supplied mapping."
         },
         "revision_build": {
           "description": "Revision/build interpretation retained with the assessment.",
@@ -777,6 +857,26 @@
         "revision_build"
       ],
       "type": "object"
+    },
+    "EvidenceMeasurementConditions": {
+      "description": "Compatibility of the declared measurement conditions.",
+      "oneOf": [
+        {
+          "const": "unavailable",
+          "description": "A complete comparison basis is unavailable.",
+          "type": "string"
+        },
+        {
+          "const": "incompatible",
+          "description": "At least one declared condition differs.",
+          "type": "string"
+        },
+        {
+          "const": "comparable_conditions",
+          "description": "All required declared conditions agree.",
+          "type": "string"
+        }
+      ]
     },
     "EvidenceMeasurementSummary": {
       "additionalProperties": false,
@@ -918,19 +1018,23 @@
           "description": "Full candidate outcome counts."
         },
         "classification": {
-          "description": "Classification never rewrites either original outcome.",
-          "type": "string"
+          "$ref": "#/$defs/EvidenceComparisonClassification",
+          "description": "Classification never rewrites either original outcome."
         },
         "cohort": {
           "description": "Deterministic reference within this exact comparison cut.",
           "type": "string"
         },
         "correspondence": {
-          "description": "Exact-compatible or explicitly supplied correspondence; absent for unpaired rows.",
-          "type": [
-            "string",
-            "null"
-          ]
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceComparisonCorrespondence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Exact-compatible or explicitly supplied correspondence; absent for unpaired rows."
         },
         "mixed_outcomes": {
           "description": "Repeated success and failure occurred in at least one side; no statistical inference.",

@@ -5,9 +5,19 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Annotated, Literal
 
 import msgspec
+
+
+class TelemetrySampler(StrEnum):
+    ALWAYS_ON = "always_on"
+    ALWAYS_OFF = "always_off"
+    TRACEIDRATIO = "traceidratio"
+    PARENTBASED_ALWAYS_ON = "parentbased_always_on"
+    PARENTBASED_ALWAYS_OFF = "parentbased_always_off"
+    PARENTBASED_TRACEIDRATIO = "parentbased_traceidratio"
 
 
 class Settings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -16,15 +26,15 @@ class Settings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=
     #: Process-wide telemetry disable selection.
     disabled: bool
     #: Host-requested SDK shutdown wait; transport deadlines remain independent.
-    export_timeout_ms: Annotated[int, msgspec.Meta(ge=0)]
+    export_timeout_ms: Annotated[int, msgspec.Meta(ge=1, le=60000)]
     #: Resolved log selection.
     logs: SignalSettings
     #: SDK maximum items per export batch.
-    max_export_batch_size: Annotated[int, msgspec.Meta(ge=0)]
+    max_export_batch_size: Annotated[int, msgspec.Meta(ge=1, le=65536)]
     #: SDK finite batch queue capacity.
-    max_queue_size: Annotated[int, msgspec.Meta(ge=0)]
+    max_queue_size: Annotated[int, msgspec.Meta(ge=1, le=65536)]
     #: Dedicated metric reader interval.
-    metric_export_interval_ms: Annotated[int, msgspec.Meta(ge=0)]
+    metric_export_interval_ms: Annotated[int, msgspec.Meta(ge=1, le=3600000)]
     #: Resolved metric selection.
     metrics: SignalSettings
     #: Incarnation shared with the embedding Python host in this actual process.
@@ -32,11 +42,11 @@ class Settings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=
     #: Shared process/service attributes; SDK attributes are Rust-owned.
     resource: dict[str, str]
     #: Standard sampler name selected by the host resolver.
-    sampler: str
+    sampler: TelemetrySampler
     #: Ratio argument for ratio-based samplers.
-    sampler_argument: float
+    sampler_argument: Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
     #: SDK periodic batch delay.
-    schedule_delay_ms: Annotated[int, msgspec.Meta(ge=0)]
+    schedule_delay_ms: Annotated[int, msgspec.Meta(ge=1, le=60000)]
     #: Shared host settings document version.
     schema_version: Literal[1] = 1
     #: Resolved trace selection.
@@ -56,7 +66,7 @@ class SignalSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     #: Resolved authentication/transport headers; never rendered.
     headers: dict[str, str]
     #: Actual transport request timeout in milliseconds.
-    timeout_ms: Annotated[int, msgspec.Meta(ge=0)]
+    timeout_ms: Annotated[int, msgspec.Meta(ge=1, le=60000)]
 
     def __repr__(self) -> str:
         return "SignalSettings(<private>)"
@@ -65,4 +75,5 @@ class SignalSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 __all__ = [
     "Settings",
     "SignalSettings",
+    "TelemetrySampler",
 ]
