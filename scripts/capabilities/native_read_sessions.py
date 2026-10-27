@@ -292,10 +292,11 @@ class ReadSessions:
         self._closed = False
         self.foreground_selected = False
         self._closing = False
+        self._close_task: asyncio.Task[None] | None = None
         self._close_failure: BaseException | None = None
 
     def successor(self) -> ReadSessions:
-        if not self._closed:
+        if not self._closed or self._close_task is None or not self._close_task.done():
             raise SessionProtocolError(
                 "an active foreground lifetime cannot be replaced"
             )
@@ -482,11 +483,29 @@ class ReadSessions:
                 session.busy = self._reservations[session] > 0
 
     async def close(self) -> None:
-        if self._closed:
-            if self._close_failure is not None:
-                raise self._close_failure
-            return
-        self._closed = True
+        self.begin_close()
+        if self._close_task is None:
+            self._close_task = asyncio.create_task(self._drain())
+        task = self._close_task
+        cancellation: asyncio.CancelledError | None = None
+        while not task.done():
+            try:
+                # wait() cancels only this observer's waiter, never the original
+                # task. Every observer retrieves that task's same result below.
+                await asyncio.wait((task,))
+            except asyncio.CancelledError as error:
+                cancellation = error
+        try:
+            task.result()
+        except BaseException as failure:
+            if cancellation is not None:
+                raise cancellation from failure
+            raise
+        if cancellation is not None:
+            raise cancellation
+
+    async def _drain(self) -> None:
+        """The original lifetime owns settlement; close callers only observe it."""
         # Snapshot after refusing new requests, then settle all work and all resources
         # even when individual owners fail. Observation cancellation is repropagated
         # only after these independent obligations have all reached their own outcome.
@@ -529,6 +548,7 @@ class ReadSessions:
             else None
         )
         self._close_failure = failure
+        self._closed = True
         if cancellation is not None:
             raise cancellation from failure
         if failure is not None:

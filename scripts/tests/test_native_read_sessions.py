@@ -370,6 +370,79 @@ class SessionTests(unittest.IsolatedAsyncioTestCase):
 
         return ReadSessions(Path.cwd(), factory=create), sessions, events
 
+    async def test_concurrent_close_observers_share_original_pending_and_physical_drain(self) -> None:
+        for fail in (False, True):
+            with self.subTest(failure=fail):
+                manager, sessions, events = self.manager()
+                await manager.run(binding(), arguments())
+                changed = arguments()
+                changed["physical"] = "independent-sibling"
+                await manager.run(binding(), changed)
+                sessions[0].release.clear()
+                for session in sessions:
+                    session.close_release.clear()
+                sessions[0].fail_close = fail
+                active = asyncio.create_task(manager.run(binding(), arguments()))
+                while not sessions[0].busy:
+                    await asyncio.sleep(0)
+                first = asyncio.create_task(manager.close())
+                second = None
+                try:
+                    while not manager.admission_closed:
+                        await asyncio.sleep(0)
+                    second = asyncio.create_task(manager.close())
+                    first.cancel()
+                    await asyncio.sleep(0)
+                    self.assertFalse(first.done())
+                    self.assertFalse(second.done())
+                    self.assertFalse(manager.closed)
+                    with self.assertRaises(SessionProtocolError):
+                        manager.successor()
+                    with self.assertRaisesRegex(SessionProtocolError, "closed"):
+                        await manager.run(binding(), arguments())
+                    self.assertFalse(any(session.close_started.is_set() for session in sessions))
+                    sessions[0].release.set()
+                    await active
+                    await asyncio.gather(*(session.close_started.wait() for session in sessions))
+                    self.assertFalse(first.done())
+                    self.assertFalse(second.done())
+                    self.assertFalse(manager.closed)
+                    with self.assertRaises(SessionProtocolError):
+                        manager.successor()
+                    with self.assertRaisesRegex(SessionProtocolError, "closed"):
+                        await manager.run(binding(), changed)
+                finally:
+                    sessions[0].release.set()
+                    for session in sessions:
+                        session.close_release.set()
+                    await active
+                    observers = [first] if second is None else [first, second]
+                    outcomes = await asyncio.gather(*observers, return_exceptions=True)
+                self.assertTrue(manager.closed)
+                self.assertEqual(sum(event.startswith("close:") for event in events), 2)
+                self.assertIsInstance(outcomes[0], asyncio.CancelledError)
+                # gather synthesizes CancelledError rather than returning its cause;
+                # awaiting the original observer retains its actual cancellation.
+                with self.assertRaises(asyncio.CancelledError) as cancelled:
+                    await first
+                if fail:
+                    original = outcomes[1]
+                    self.assertIsInstance(original, BaseExceptionGroup)
+                    self.assertIs(cancelled.exception.__cause__, original)
+                    for _ in range(2):
+                        with self.assertRaises(BaseExceptionGroup) as repeated:
+                            await manager.close()
+                        self.assertIs(repeated.exception, original)
+                    with self.assertRaises(BaseExceptionGroup) as successor:
+                        manager.successor()
+                    self.assertIs(successor.exception, original)
+                else:
+                    self.assertIsNone(outcomes[1])
+                    self.assertIsNone(cancelled.exception.__cause__)
+                    await manager.close()
+                    self.assertFalse(manager.successor().closed)
+                self.assertEqual(sum(event.startswith("close:") for event in events), 2)
+
     async def test_worker_log_and_directory_failures_all_survive_independent_cleanup(
         self,
     ) -> None:
