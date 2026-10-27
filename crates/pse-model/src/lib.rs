@@ -27,6 +27,8 @@ pub mod numerics;
 pub mod scalars;
 /// Declared bounded numerical composition and consumed product contracts.
 pub mod strategy;
+/// Shared source-derived conservative container bounds.
+pub mod allocation;
 /// Pure occurrence, dependency and outcome facts shared by study executors.
 pub mod study;
 /// Effect-free study admission, candidate decisions and transition policy.
@@ -176,6 +178,22 @@ impl<T: HeapUsage, const N: usize> HeapUsage for [T; N] {
     fn heap_bytes(&self) -> usize {
         self.iter()
             .fold(0usize, |n, v| n.saturating_add(v.heap_bytes()))
+    }
+}
+impl<K: Ord + HeapUsage, V: HeapUsage> HeapUsage for std::collections::BTreeMap<K, V> {
+    fn heap_bytes(&self) -> usize {
+        self.iter().fold(
+            allocation::btree_allocation_bound::<K, V>(self.len()).unwrap_or(usize::MAX),
+            |bytes, (key, value)| bytes.saturating_add(key.heap_bytes()).saturating_add(value.heap_bytes()),
+        )
+    }
+}
+impl<K: Ord + HeapUsage> HeapUsage for std::collections::BTreeSet<K> {
+    fn heap_bytes(&self) -> usize {
+        self.iter().fold(
+            allocation::btree_allocation_bound::<K, ()>(self.len()).unwrap_or(usize::MAX),
+            |bytes, key| bytes.saturating_add(key.heap_bytes()),
+        )
     }
 }
 

@@ -178,10 +178,11 @@ pub struct SourceLocation {
 impl SourceLocation {
     /// Owned string payload, excluding this inline location value.
     pub fn heap_bytes(&self) -> usize {
-        self.path
-            .capacity()
-            .saturating_add(self.name.as_ref().map_or(0, String::capacity))
-            .saturating_add(self.occurrence_role.as_ref().map_or(0, String::capacity))
+        let Self { source: _, revision: _, document: _, occurrence_role,
+            occurrence_position: _, path, name, start: _, end: _ } = self;
+        path.capacity()
+            .saturating_add(name.as_ref().map_or(0, String::capacity))
+            .saturating_add(occurrence_role.as_ref().map_or(0, String::capacity))
     }
     /// Complete current receiving-source identity, never reusable arithmetic identity.
     pub fn frame(&self, hash: &mut pse_ids::FramedHasher) {
@@ -242,8 +243,9 @@ pub struct ValidityLineage {
 impl ValidityLineage {
     /// Owned heap extent.
     pub fn heap_bytes(&self) -> usize {
-        (self.sets.capacity() + self.members.capacity()) * size_of::<SemanticId>()
-            + self.variables.capacity() * size_of::<u32>()
+        let Self { layer: _, source: _, form: _, sets, variables, members } = self;
+        sets.capacity().saturating_add(members.capacity()).saturating_mul(size_of::<SemanticId>())
+            .saturating_add(variables.capacity().saturating_mul(size_of::<u32>()))
     }
 }
 /// Stable structured cause shared by Rust and the public error projection.
@@ -343,54 +345,37 @@ impl BoundaryDiagnostic {
 }
 impl crate::HeapUsage for BoundaryDiagnostic {
     fn heap_bytes(&self) -> usize {
-        self.applicability.capacity() * size_of::<crate::applicability::Observation>()
-            + self
-                .applicability
-                .iter()
-                .map(crate::applicability::Observation::retained_bytes)
-                .sum::<usize>()
-            + self.causes.capacity() * size_of::<Self>()
-            + self
-                .causes
-                .iter()
-                .map(crate::HeapUsage::heap_bytes)
-                .sum::<usize>()
-            + self.sources.capacity() * size_of::<SemanticId>()
-            + self.locations.capacity() * size_of::<SourceLocation>()
-            + self
-                .validity
-                .as_ref()
-                .map_or(0, ValidityLineage::heap_bytes)
-            + self
-                .locations
-                .iter()
-                .map(|v| {
-                    v.path.capacity()
-                        + v.name.as_ref().map_or(0, String::capacity)
-                        + v.occurrence_role.as_ref().map_or(0, String::capacity)
-                })
-                .sum::<usize>()
-            + self
-                .observations
-                .iter()
-                .map(|(name, value)| {
-                    // A conservative BTree node allowance includes its inline key/value.
-                    128 + name.capacity()
-                        + match value {
-                            Observation::Text(value) => value.capacity(),
-                            Observation::Contracts(contracts) => {
-                                contracts.capacity() * size_of::<OperandContract>()
-                                    + contracts
-                                        .iter()
-                                        .map(|c| c.indices.capacity() * size_of::<[[u8; 16]; 3]>())
-                                        .sum::<usize>()
-                            }
-                            _ => 0,
-                        }
-                })
-                .sum::<usize>()
+        let Self { code: _, causes, class: _, severity: _, stage: _, sources,
+            rule: _, observations, locations, validity, applicability } = self;
+        applicability.iter().fold(
+            applicability.capacity().saturating_mul(size_of::<crate::applicability::Observation>()),
+            |bytes, value| bytes.saturating_add(value.retained_bytes()),
+        ).saturating_add(causes.heap_bytes())
+            .saturating_add(sources.heap_bytes())
+            .saturating_add(observations.heap_bytes())
+            .saturating_add(locations.iter().fold(
+                locations.capacity().saturating_mul(size_of::<SourceLocation>()),
+                |bytes, value| bytes.saturating_add(value.heap_bytes()),
+            ))
+            .saturating_add(validity.as_ref().map_or(0, ValidityLineage::heap_bytes))
     }
 }
+impl crate::HeapUsage for Observation {
+    fn heap_bytes(&self) -> usize {
+        match self {
+            Self::Missing | Self::Real(_) | Self::Nonfinite(_) | Self::Physical(_)
+                | Self::Integer(_) | Self::Boolean(_) => 0,
+            Self::Text(value) => value.capacity(),
+            Self::Contracts(contracts) => contracts.iter().fold(
+                contracts.capacity().saturating_mul(size_of::<OperandContract>()),
+                |bytes, value| bytes.saturating_add(
+                    value.indices.capacity().saturating_mul(size_of::<[[u8; 16]; 3]>()),
+                ),
+            ),
+        }
+    }
+}
+
 pse_diagnostics::impl_diagnostic! {
     BoundaryDiagnostic,
     code(this) { Some(this.code) },

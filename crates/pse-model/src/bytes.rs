@@ -62,7 +62,8 @@ impl crate::SemanticEq for Bytes {
 
 impl crate::HeapUsage for Bytes {
     fn heap_bytes(&self) -> usize {
-        self.0.capacity()
+        let Self(bytes) = self;
+        bytes.capacity()
     }
 }
 

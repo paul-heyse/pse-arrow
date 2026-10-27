@@ -616,52 +616,23 @@ fn unique<T: Ord>(values: &[T], reason: &str) -> Result<(), ModelError> {
 }
 impl HeapUsage for NumericalStrategy {
     fn heap_bytes(&self) -> usize {
-        self.start
-            .recovery
-            .capacity()
-            .saturating_mul(size_of::<StartOrigin>())
-            .saturating_add(
-                self.mechanisms.iter().fold(
-                    self.mechanisms
-                        .capacity()
-                        .saturating_mul(size_of::<Mechanism>()),
-                    |bytes, mechanism| {
-                        bytes
-                            .saturating_add(
-                                mechanism
-                                    .operation
-                                    .inputs
-                                    .capacity()
-                                    .saturating_mul(size_of::<ProductDemand>()),
-                            )
-                            .saturating_add(
-                                mechanism
-                                    .operation
-                                    .outputs
-                                    .capacity()
-                                    .saturating_mul(size_of::<ProductionDemand>()),
-                            )
-                            .saturating_add(
-                                mechanism
-                                    .support
-                                    .capacity()
-                                    .saturating_mul(size_of::<ContentHash>()),
-                            )
-                            .saturating_add(
-                                mechanism
-                                    .starts
-                                    .capacity()
-                                    .saturating_mul(size_of::<StartOrigin>()),
-                            )
-                            .saturating_add(
-                                mechanism
-                                    .transitions
-                                    .capacity()
-                                    .saturating_mul(size_of::<Transition>()),
-                            )
-                    },
-                ),
-            )
+        let Self { start, branch: _, mechanisms, limits: _ } = self;
+        let StartRules { policy: _, recovery } = start;
+        mechanisms.iter().fold(
+            recovery.capacity().saturating_mul(size_of::<StartOrigin>())
+                .saturating_add(mechanisms.capacity().saturating_mul(size_of::<Mechanism>())),
+            |bytes, mechanism| {
+                let Mechanism { kind: _, position: _, required: _, profile: _, support,
+                    operation, limits: _, starts, transitions } = mechanism;
+                let OperationContract { inputs, outputs } = operation;
+                bytes
+                    .saturating_add(inputs.capacity().saturating_mul(size_of::<ProductDemand>()))
+                    .saturating_add(outputs.capacity().saturating_mul(size_of::<ProductionDemand>()))
+                    .saturating_add(support.capacity().saturating_mul(size_of::<ContentHash>()))
+                    .saturating_add(starts.capacity().saturating_mul(size_of::<StartOrigin>()))
+                    .saturating_add(transitions.capacity().saturating_mul(size_of::<Transition>()))
+            },
+        )
     }
 }
 
