@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 294
-date: 2026-10-26
+revision: 296
+date: 2026-10-27
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 296 | 2026-10-27 | Publish Plan56 audit-gap producer, contract and host-lifetime adoption in §24.1/§24.2; retain distinct actual native acceptance and qualification obligations. | Maintainer-authorized audit-gap execution; PSE_DESIGN_EDIT=1. No formal ADR status change or reader revalidation. |
 | 295 | 2026-10-27 | Correct Plan56 implementation and qualification descriptions in §24.1/§24.2 after the completion audit; preserve construction-once validity, historical passes and bounded benefits. | Authorized completion-audit publication; PSE_DESIGN_EDIT=1. Owning plans retain open obligations; no contract or ADR status change. |
 | 294 | 2026-10-27 | Publish implemented immutable artifact ownership and selected remaining E/F/G local qualification in §24.1/§24.2, preserving failed attempts and unmeasured/wider-scope limits. | Maintainer-authorized Plan56 closeout under proposed ADR-0231; PSE_DESIGN_EDIT=1. Final governance/documentation status remains with the owning Outcome. |
 | 293 | 2026-10-27 | Amend §24.1 artifact validity to controlled construction and atomic immutable publication; remove read-time source/build-record inference and redundant artifact validation. | Explicit maintainer direction under proposed ADR-0231; PSE_DESIGN_EDIT=1. Revised implementation and qualification remain in Plan56 F/G. |

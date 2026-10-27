@@ -404,12 +404,15 @@ pure schema inspection does not inherit an execution worker just from its name. 
 exposure changes require explicit drain/reload before edited code serves operations, including lazy
 imports. Direct MCP dispatch checks its loaded wire contract without scanning source files.
 
-**Current implementation gap:** the foreground CLI still calls source-scanning description before
-each operation and refuses `restart_required`. Explicit `admit` stages also fail to propagate the
-requested mode/profile faithfully. [Plan56f's completion audit](../plans/56f-host-agent-and-observability-contracts.md#completion-audit--2026-10-27)
-owns these remaining consumer migrations and the missing actual new-generation/reload acceptance.
-They do not invalidate an issued immutable artifact or justify reader source/image revalidation.
-Explicit description can still report provenance separately from operation admission.
+**Implemented:** foreground CLI admission checks the captured loaded-wire contract without
+serving-source scans. Explicit preparation compares the requested mode/profile/validation contract
+before import or publication. Explicit description reports provenance separately. On EOF the CLI
+calls `capabilities_drain` before disconnecting its transport: native admission closes immediately,
+all observers join one original retained drain and a successor becomes available only after actual
+settlement. Cancellation of an observer cannot cancel or bypass that drain. An original drain failure
+remains visible to every observer. [Plan56f's audit-gap implementation](../plans/56f-host-agent-and-observability-contracts.md#audit-gap-implementation--2026-10-27)
+owns the focused adoption evidence and separately required actual two-generation acceptance.
+Issued immutable artifacts retain construction-once validity.
 
 Captured source provenance describes the loaded definition. Local imports are recorded at that
 construction boundary, including package initializers and absent candidate paths.
