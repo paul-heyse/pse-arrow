@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 298
+revision: 299
 date: 2026-10-27
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 299 | 2026-10-27 | Publish selected Plan57 A–C functional acceptance and original lifetime settlement in §24.2; retain broader inquiries and incomplete feature coverage. | Maintainer-authorized closeout; PSE_DESIGN_EDIT=1. Full matrix/no-default validation deferred to series end at the maintainer's request; no ADR status change or global qualification claim. |
 | 298 | 2026-10-27 | Publish selected Plan57 IPC admission/ownership and current writer/selection mechanics (§19.2), bounded cubic and exact proof constants (§7.5/§14.3), shared structural/LU/gate owners and truthful native supplier premises (§15.3/§16.5/§18.2/§18.8/§18.10). Reconcile the remaining R-41 source fixes. | Maintainer-authorized A–C execution; PSE_DESIGN_EDIT=1. Existing-contract corrections, no ADR status change. Joined qualification remains with Plan57j; no broader/global accounting, performance or portability claim. |
 | 297 | 2026-10-27 | Publish completed Plan56 audit-gap and remaining F/G selected local qualification in §24.1/§24.2, including actual two-generation/native drain, repaired checks and preserved failure/wider-scope limits. | Maintainer-authorized closure; PSE_DESIGN_EDIT=1. Composed evidence, no formal ADR status change or reader revalidation. |
 | 296 | 2026-10-27 | Publish Plan56 audit-gap producer, contract and host-lifetime adoption in §24.1/§24.2; retain distinct actual native acceptance and qualification obligations. | Maintainer-authorized audit-gap execution; PSE_DESIGN_EDIT=1. No formal ADR status change or reader revalidation. |

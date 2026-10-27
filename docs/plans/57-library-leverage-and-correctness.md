@@ -149,18 +149,19 @@ correction/integration package, `open` an inquiry or target decision, `deferred`
 unselected replacement with an observable reopening trigger, and `disproved` a rejected premise.
 The latter two do not create implementation work merely to populate a plan. They do not imply
 that the corresponding product was newly tested. A source opportunity can survive this plan's
-bounded completion. No production correction is currently marked resolved.
+bounded completion. The selected A–C resolutions below consume their actual implementation and
+functional evidence; the maintainer deferred full series-wide feature validation to J03.
 
 | Finding | Review scenarios | Disposition | Work owner | Required evidence or question |
 |---|---|---|---|---|
-| CBO-001 | [Complete prepayment](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-001) | planned — joint owners; derive open | [A](57a-result-data-and-prepaid-accounting.md#a05), [B](57b-mathematics-and-structural-preparation.md), [C](57c-native-solvers-and-arithmetic.md) | Full residual envelopes and migrated consumers; A06 settles derive value, not automatic crate creation |
-| CBO-002 | [Bounded sinks](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-002) | planned | [A01](57a-result-data-and-prepaid-accounting.md#a01) | Typed overflow/checkpoint/I/O distinction, unchanged splitting, dead trial path deleted |
+| CBO-001 | [Complete prepayment](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-001) | open — selected prepayment implemented; broader inquiries remain | [A](57a-result-data-and-prepaid-accounting.md#a05), [B](57b-mathematics-and-structural-preparation.md), [C](57c-native-solvers-and-arithmetic.md) | Selected envelopes/derive inquiry delivered; generic alias-header accounting and tighter complete whole-Jacobian/opaque replacements remain unresolved |
+| CBO-002 | [Bounded sinks](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-002) | resolved — selected typed sinks | [A01](57a-result-data-and-prepaid-accounting.md#a01) | Typed overflow/checkpoint/I/O, unchanged splitting and deleted trial path; A/J Outcomes |
 | CBO-003 | [Publication](../library_leverage/reviews/host-processes-and-durable-files.md#cbo-003) | planned | [G](57g-host-files-and-maintenance.md) | No replacement, directory durability, resumable staging and legacy alias crash states |
-| CBO-004 | [Supervised child](../library_leverage/reviews/host-processes-and-durable-files.md#cbo-004) | planned — core; containment open | [G](57g-host-files-and-maintenance.md) | Working shared child lifecycle; exact-unit delegation, controller/observer implications before optional containment |
-| CBO-005 | [IPC trust boundaries](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-005) | planned | [A02/A03](57a-result-data-and-prepaid-accounting.md#a02) | Actual import/reader routes refuse before unsafe allocation; complete residual/lineage envelope |
-| CBO-006 | [Dense indexing](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-006) | planned | [A04](57a-result-data-and-prepaid-accounting.md#a04) | Window-local contiguity, NaN/zero bits and selected-prefix parity |
-| CBO-007 | [Predicate meaning](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-007) | planned — predicate; planner premise disproved | [A04](57a-result-data-and-prepaid-accounting.md#a04) | One lowering/metadata codec; indexed canonical descriptor pruning retained |
-| CBO-008 | [Progress](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-008) | planned — sink only; representation retained | [A01](57a-result-data-and-prepaid-accounting.md#a01) | Typed full marker, ordered bounded replay; no replacement of open-key JSON observations |
+| CBO-004 | [Supervised child](../library_leverage/reviews/host-processes-and-durable-files.md#cbo-004) | open — compiler/capture core tested; remaining G scope | [G](57g-host-files-and-maintenance.md) | Working shared child lifecycle; exact-unit delegation, controller/observer implications before optional containment |
+| CBO-005 | [IPC trust boundaries](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-005) | resolved — selected IPC boundaries | [A02/A03](57a-result-data-and-prepaid-accounting.md#a02) | Admitted stream/file representation, retained residual custody and actual import/readback; A/J Outcomes |
+| CBO-006 | [Dense indexing](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-006) | resolved — selected dense indexing | [A04](57a-result-data-and-prepaid-accounting.md#a04) | Original-column indexing, window-local selection and canonical readback; A/J Outcomes |
+| CBO-007 | [Predicate meaning](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-007) | resolved — predicate; planner premise disproved | [A04](57a-result-data-and-prepaid-accounting.md#a04) | Shared predicate/metadata codec and indexed canonical pruning preserved; A/J Outcomes |
+| CBO-008 | [Progress](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-008) | resolved — sink; representation retained | [A01](57a-result-data-and-prepaid-accounting.md#a01) | Typed bounded progress sink adopted; heterogeneous JSON policy retained; A Outcome |
 | CBO-009 | [Canonical client](../library_leverage/reviews/canonical-store-transport.md#cbo-009) | planned — decision route conditional | [E](57e-canonical-client-and-requests.md) | Whole canonical/xtask/fixture surface, hidden error seam, admission and two-driver restoration/drain |
 | CBO-010 | [Retry and scripts](../library_leverage/reviews/execution-lifecycle-and-observation.md#cbo-010) | planned | [E](57e-canonical-client-and-requests.md) | One migration, typed guarded result slots, settled-effect retry and original pacing/clock |
 | CBO-011 | [Shared flights](../library_leverage/reviews/execution-lifecycle-and-observation.md#cbo-011) | planned — unused wrapper only; flights retained | [F](57f-execution-lifecycle-and-observation.md) | Confirm wrapper consumers absent, preserve producer completion and explicit prepaid authority |
@@ -171,18 +172,18 @@ bounded completion. No production correction is currently marked resolved.
 | CBO-016 | [Notification](../library_leverage/reviews/canonical-store-transport.md#cbo-016) | deferred — notification; sleep correction planned | [E](57e-canonical-client-and-requests.md), [F02](57f-execution-lifecycle-and-observation.md#f02) | Preserve polling and authoritative reread; F02 makes study sleep cancellation-aware. Reopen notifications only for material measured discovery/query burden; server has no resume |
 | CBO-017 | [Python waits](../library_leverage/reviews/execution-lifecycle-and-observation.md#cbo-017) | planned | [F](57f-execution-lifecycle-and-observation.md) | Signals, final checks, per-caller stop action, recovery key and owned drain |
 | CBO-018 | [Native joins](../library_leverage/reviews/execution-lifecycle-and-observation.md#cbo-018) | planned — owner consolidation | [F](57f-execution-lifecycle-and-observation.md) | Per-owner join observes TLS/native destruction; pidfd replacement only after settling its exact exit semantics |
-| CBO-019 | [Process facts](../library_leverage/reviews/host-processes-and-durable-files.md#cbo-019) | planned | [G](57g-host-files-and-maintenance.md) | Shared Rust reader preserves boot/namespace/start identity, unknown/malformed state and owner tests |
+| CBO-019 | [Process facts](../library_leverage/reviews/host-processes-and-durable-files.md#cbo-019) | planned — remaining G migrations; reader foundation tested | [G](57g-host-files-and-maintenance.md) | Shared Rust reader preserves boot/namespace/start identity, unknown/malformed state and owner tests |
 | CBO-020 | [Primary observation](../library_leverage/reviews/host-processes-and-durable-files.md#cbo-020) | open — revised realization | [G](57g-host-files-and-maintenance.md) | Worker/supervisor distinction, authenticated handoff, group lifetime and conservative fallback |
-| CBO-021 | [Symbolica mirrors](../library_leverage/reviews/mathematics-preparation.md#cbo-021) | planned — hold/bound owner; mirror retained | [B](57b-mathematics-and-structural-preparation.md) | Current source coupling and release trigger; no unavailable abort/budget API treated as present |
+| CBO-021 | [Symbolica mirrors](../library_leverage/reviews/mathematics-preparation.md#cbo-021) | resolved — selected hold/bound work; mirrors retained | [B](57b-mathematics-and-structural-preparation.md) | Canonical source-coupling/non-RNE hold, shared bounds and exact proof constants; B Outcome |
 | CBO-022 | [Reuse lifetimes](../library_leverage/reviews/mathematics-preparation.md#cbo-022) | disproved — consolidation premise | [B](57b-mathematics-and-structural-preparation.md) | Four distinct lifetimes retained; revisit only if actual duplicate owner/invalid reuse is demonstrated |
-| CBO-023 | [Decomposition](../library_leverage/reviews/mathematics-preparation.md#cbo-023) | planned | [B](57b-mathematics-and-structural-preparation.md) | Checked shared dense decomposition, caller-owned stack and original-coordinate evidence |
-| CBO-024 | [Expression consumers](../library_leverage/reviews/mathematics-preparation.md#cbo-024) | open — bound confirmation; IR premise disproved | [B03](57b-mathematics-and-structural-preparation.md#b03) | Trace FBBT tightened-bound confirmation separately from infeasibility and B01 coefficient conversion |
-| CBO-025 | [Exact/cubic operations](../library_leverage/reviews/mathematics-preparation.md#cbo-025) | planned — cubic; LDLᵀ retained | [B01](57b-mathematics-and-structural-preparation.md#b01) | Complete distinct roots, finite verified representative, bounded exact work/storage and identity advancement beyond current v2 |
-| CBO-026 | [Sparse factors](../library_leverage/reviews/native-solver-integration.md#cbo-026) | planned | [C](57c-native-solvers-and-arithmetic.md) | Narrow faer helper, charge-before-allocate and typed validated-pattern breaches; C02 covers arithmetic separately |
-| CBO-027 | [Diffsol](../library_leverage/reviews/native-solver-integration.md#cbo-027) | planned — local fixes; integration retained | [C](57c-native-solvers-and-arithmetic.md) | Typed terminal cause and documentation; no fabricated fallible set_linearisation API |
-| CBO-028 | [Native supplier moves](../library_leverage/reviews/native-solver-integration.md#cbo-028) | planned — SUNDIALS; Uno inquiry | [C](57c-native-solvers-and-arithmetic.md) | Effective patch identity first, complete wrapper/control rebase; Uno seed checked before any removal |
+| CBO-023 | [Decomposition](../library_leverage/reviews/mathematics-preparation.md#cbo-023) | resolved — shared checked decomposition | [B](57b-mathematics-and-structural-preparation.md) | Both consumers migrated, caller stack preserved, admitted root/reconstruction cases pass; B/J Outcomes |
+| CBO-024 | [Expression consumers](../library_leverage/reviews/mathematics-preparation.md#cbo-024) | resolved — FBBT soundness; IR premise disproved | [B03](57b-mathematics-and-structural-preparation.md#b03) | Interval constants/exact exponents enclose authored and current numerical values; compiler big-M controls pass; B Outcome |
+| CBO-025 | [Exact/cubic operations](../library_leverage/reviews/mathematics-preparation.md#cbo-025) | resolved — selected cubic; LDLᵀ retained | [B01](57b-mathematics-and-structural-preparation.md#b01) | Bounded complete associations and verified finite candidates; debug/release and runtime controls; B/J Outcomes |
+| CBO-026 | [Sparse factors](../library_leverage/reviews/native-solver-integration.md#cbo-026) | resolved — selected LU helper/bound | [C](57c-native-solvers-and-arithmetic.md) | Three faer consumers and supplier block bound integrated; opaque diagnostic alternatives remain under CBO-001; C Outcome |
+| CBO-027 | [Diffsol](../library_leverage/reviews/native-solver-integration.md#cbo-027) | resolved — local terminal fixes; integration retained | [C](57c-native-solvers-and-arithmetic.md) | Typed causes and owned-stop precedence tested through actual boundaries; C/J Outcomes |
+| CBO-028 | [Native supplier moves](../library_leverage/reviews/native-solver-integration.md#cbo-028) | resolved — selected SUNDIALS; Uno trigger retained | [C](57c-native-solvers-and-arithmetic.md) | Consumed-source identity, 7.9.0 rebase, corrected history/restart/storage controls; C/J Outcomes |
 | CBO-029 | [NLP translation](../library_leverage/reviews/native-solver-integration.md#cbo-029) | disproved — duplicate translator premise | [C](57c-native-solvers-and-arithmetic.md) | Semantic normalization/presolve and ABI containment remain successive distinct layers |
-| CBO-030 | [Native exclusion](../library_leverage/reviews/native-solver-integration.md#cbo-030) | planned — helper; gate policy open | [C](57c-native-solvers-and-arithmetic.md) | Correct resource handoff/quiescence, HiGHS resume_compute discipline; KINSOL LRU retained |
+| CBO-030 | [Native exclusion](../library_leverage/reviews/native-solver-integration.md#cbo-030) | resolved — selected helper; IBEX exception retained | [C](57c-native-solvers-and-arithmetic.md) | PETSc/SCIP/HiGHS acquisition and writer preference tested; distinct IBEX policy retained; C/J Outcomes |
 | CBO-031 | [Conic layouts](../library_leverage/reviews/native-solver-integration.md#cbo-031) | disproved — missing hub premise | [C](57c-native-solvers-and-arithmetic.md) | Current hub/spoke mappings and independent ray/refinement checks retained |
 | CBO-032 | [Retired occurrence](../library_leverage/reviews/native-solver-integration.md#cbo-032) | disproved — retired; ID not reused | [C](57c-native-solvers-and-arithmetic.md) | Named POUNCE surfaces already used; fix-relax only on a separately selected functional target |
 | CBO-033 | [Design producer](../library_leverage/reviews/numerical-workflows.md#cbo-033) | planned — recorded-point route | [D](57d-sampling-and-statistical-workflows.md) | Seeded normalized producer plus local mapping/Grid, actual overlays/identity and admitted workspace |
@@ -206,7 +207,7 @@ bounded completion. No production correction is currently marked resolved.
 | CBO-051 | [Capture peer](../library_leverage/reviews/developer-tooling.md#cbo-051) | planned — sink remedy; raw peer retained | [I](57i-python-and-developer-workflows.md) | HTTP/2 ownership and explicit incomplete reporting satisfy current acceptance consumers; front-matter owners unchanged |
 | CBO-052 | [Command surfaces](../library_leverage/reviews/developer-tooling.md#cbo-052) | disproved — blanket consolidation premise | [I](57i-python-and-developer-workflows.md) | Keep coherent MCP/CLI/recipe layers; only actual request declaration duplication joins I's work |
 | CBO-053 | [Maintenance output](../library_leverage/reviews/host-processes-and-durable-files.md#cbo-053) | open — demand/lifetime inquiry | [G](57g-host-files-and-maintenance.md) | Full catalogs, nonce ack and copy logs differ; select bounded ownership without arbitrary restore timeout |
-| FMA | [Arithmetic conflict](../library_leverage/reviews/native-solver-integration.md#faer-kernels-and-the-fma-free-premise) | open — conformance blocker | [C02](57c-native-solvers-and-arithmetic.md#c02) | Full consumed dispatcher/kernel closure, not pulp-only patch or ISA attribution |
+| FMA | [Arithmetic conflict](../library_leverage/reviews/native-solver-integration.md#faer-kernels-and-the-fma-free-premise) | resolved — consumed faer realization | [C02](57c-native-solvers-and-arithmetic.md#c02) | Maintained nonfused source/dispatch closure, optimized-IR probe and actual LU/SVD/EVD consumers; C/J Outcomes; no cross-CPU measurement |
 
 ## Investigation outcomes and non-selected alternatives
 
@@ -270,14 +271,25 @@ still follows the decision route. The first C02 candidate uses maintained faer/t
 scalar arithmetic and generic matmul while preserving caller-selected parallelism; it is not
 accepted as complete until the consumed dispatch closure and scientific controls establish it.
 
-**Current checkpoint:** execution started from clean `28e025c29`. All selected functional
-packages are integrated: typed IPC admission and cached-file custody, columnar selection and
-writer preparation, shared construction/decomposition, bounded cubic and exact FBBT preparation,
-nonfused arithmetic suppliers, SUNDIALS 7.9.0 integration and lifecycle repairs, shared native
-LU/terminal/gate handling, and the minimum compiler/capture supervisor. The tested FERAL bound
-and FBBT interval leaf are published at the selected immutable maintainer-fork revision, with
-remote availability verified. Focused controls and independent source review are complete;
-57j's joined qualification and scope-end failure repairs are in progress. Enduring contracts
-are published through blueprint revision 298. General alias-header accounting and unreplaced
-opaque bounds retain explicit limits; no performance, cross-CPU or whole-Plan57 completion is
-claimed.
+**Current selected outcome:** A01–A06, B01–B03 and C01–C07 are complete for their selected
+implementation, inquiry/retention and functional acceptance scope at product source `2bd80093b`.
+The minimum G03 compiler/capture prerequisite is delivered; other G03 consumers and D–I remain
+with their owners. Current composed acceptance is **153 Rust case executions** across canonical,
+native, IDAS-only-backend and compiled-evaluator modes, plus **five Python cases** with composed
+passes. [57j's Outcome](57j-qualification-and-publication.md#selected-a-c-outcome--2026-10-27)
+owns exact commands, actual modes, original failures, immutable artifacts, independent review,
+repaired checks and original-owner settlement. The maintainer-fork source is published and pinned
+at the remotely verified immutable revision after explicit approval.
+
+On 2026-10-27 the maintainer canceled the remaining feature campaign and deferred full matrix/
+no-default validation to the end of this plan series. Its retained prefix is **179 passed,
+1 interrupted, 321 not_run** of **501** configurations; the no-default sweep did not start.
+The original interruption/wrapper outcomes remain unchanged, and only the exact emptied campaign
+allocation was released through its owner. No background campaign or owned test service remains.
+This deferral is not a full feature qualification claim or whole-Plan57 completion.
+
+Enduring contracts are published through blueprint revision 298, with the selected qualification
+and timing amendment recorded at revision 299. Broader CBO-001 alias-header/tighter-bound inquiries,
+retained source/API couplings and conditional upstream/supplier choices remain explicit.
+Performance and cross-CPU benefits are unmeasured. A–C leave active current-work selection but
+remain for active readers and shared inquiry context; the coordinator and J own remaining work.

@@ -1,6 +1,6 @@
 ---
 title: "Plan 57c: Native solvers and arithmetic"
-status: in-progress
+status: complete
 date: 2026-10-27
 adrs: []
 review_sources: [docs/library_leverage/reviews/native-solver-integration.md, docs/library_leverage/reviews/result-data-and-prepaid-accounting.md, docs/library_leverage/reviews/numerical-workflows.md]
@@ -13,12 +13,13 @@ doc_topics: [current-work, design, libraries, numerical-execution, environment, 
 
 ## Target, baseline and decision boundaries
 
-**Proposed:** make native supplier identity truthful, resolve the complete FMA-free kernel route,
+**Implemented:** make native supplier identity truthful, resolve the complete FMA-free kernel route,
 move bundled SUNDIALS to the reviewed release after its decision prerequisite, consolidate the
 three faer-LU mechanics and native gate acquisition, and preserve terminal resource causes
 through Diffsol. This companion covers CBO-026–031, records CBO-032's retirement and supplies
 native bounds to CBO-001. The [coordinator](57-library-leverage-and-correctness.md) is the sole
-full CBO disposition owner; package progress lives here. This is implementation planning only.
+full CBO disposition owner; package progress lives here. The initial publication was planning
+only; the Outcome records separately authorized execution.
 No native image, provider, solver, dependency, fork, ADR or architecture change is authorized by
 creation of these documents.
 
@@ -109,13 +110,13 @@ existing ownership chain; no compatibility execution route is added.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| C01 | implemented; joined qualification pending | [Supplier identity](#c01) | Same-version delta and IDAS-only moves change the consumed build premise; controls pass |
-| C02 | implemented; joined qualification pending | [FMA-free closure inquiry and realization](#c02) | Complete FMA-free realization demonstrated; an unresolved inquiry outcome leaves arithmetic conformance open |
-| C03 | implemented; joined qualification pending | [SUNDIALS release move](#c03) | Decision route, identity, integration-hunk rebase, formula/status migration and targeted controls complete |
-| C04 | implemented; joined qualification pending | [LU mechanics and native bounds](#c04) | Three faer consumers migrated; supplier LU bound integrated without unsupported tighter limits |
-| C05 | implemented; joined qualification pending | [Diffsol terminal causes](#c05) | Resource/contract causes survive solver retries and all affected integration paths |
-| C06 | implemented; joined qualification pending | [Quiescent gates](#c06) | Gate consumers migrated with their health/poison/panic behavior; HiGHS inquiry disposed |
-| C07 | retained dispositions; joined reconciliation pending | [Retained suppliers and conditional upstream work](#c07) | Retention reasons and observable triggers reconciled; no unsolicited rebase/contact |
+| C01 | complete | [Supplier identity](#c01) | Same-version delta and IDAS-only moves change the consumed build premise; controls pass |
+| C02 | complete | [FMA-free closure inquiry and realization](#c02) | Consumed nonfused source/dispatch closure and scientific controls establish the selected route |
+| C03 | complete | [SUNDIALS release move](#c03) | Decision route, identity, integration-hunk rebase, formula/status migration and targeted controls complete |
+| C04 | complete | [LU mechanics and native bounds](#c04) | Three faer consumers migrated; supplier LU bound integrated without unsupported tighter limits |
+| C05 | complete | [Diffsol terminal causes](#c05) | Resource/contract causes survive solver retries and all affected integration paths |
+| C06 | complete | [Quiescent gates](#c06) | Gate consumers migrated with their health/poison/panic behavior; HiGHS inquiry disposed |
+| C07 | complete | [Retained suppliers and conditional upstream work](#c07) | Retention reasons and observable triggers reconciled; no unsolicited rebase/contact |
 
 C01 precedes every SUNDIALS source/hunk change. C03 preserves the existing contracts and follows
 ordinary dependency/bug-fix handling; an actual contract change needs its exact decision route
@@ -488,5 +489,5 @@ block LU remedy is not applied as a blanket cubic diagnostic charge. General coe
 rounding retains B's explicit disposition. Benefits remain unmeasured. The tested maintainer-fork
 branch was pushed only after explicit approval and is pinned at
 `141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe`; no upstream contact is authorized by that push.
-Enduring native contracts are published through revision 298. Final selected closure awaits
-57j's remaining feature/manual and publication work.
+Enduring native contracts are published through revision 298. Selected implementation and
+functional acceptance are complete. The maintainer deferred the remaining full feature matrix to series-end validation under 57j on 2026-10-27.

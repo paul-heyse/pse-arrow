@@ -1492,7 +1492,7 @@ controls, three rebuilt canonical cases and both actual CA08 journeys. The root'
 controller exited zero with all contexts/kernel scopes drained and positive disposable-fixture
 retirement. The old selected store and failed-run data remain preserved.
 
-The latest full hygiene attempt remains a six-leaf failure; all affected leaves were repaired and
+Plan56's final full hygiene attempt recorded six unsuccessful leaves; all affected leaves were repaired and
 passed separately. Default/no-default Clippy, declared native contract/data static recipes,
 seven-leaf governance, actual post-lint/post-clean native CLI and documentation publication pass
 against zero at their recorded conditions. The native-data ENOSPC interruption, cold rerun after
@@ -1502,6 +1502,33 @@ qualification; formal ADR-0229/0230/0231 statuses remain proposed. No 505-case c
 fleet/parity, global feature powerset, release/wheels, remote CI, other-platform or actual
 desktop-host qualification, 100,000-point qualification or measured performance improvement
 follows from these selected local Linux results.
+
+Selected Plan57a–c implementation and functional acceptance on 2026-10-27 is recorded in
+[57j's Outcome](../../plans/57j-qualification-and-publication.md#selected-a-c-outcome--2026-10-27).
+**Implemented/Tested:** current protected IPC/import/export and original-column selection,
+bounded cubic/exact-proof preparation, source/arithmetic identity, SUNDIALS 7.9.0, LU/terminal/gate
+and compiler/capture supervision pass their selected local Linux routes: 153 Rust case executions
+across the declared modes and five composed Python cases. Independent reconciliation confirms
+matching product inputs/artifact digests and original enclosing lifetime settlement; inner
+unobserved drain fields retain their distinct scope. The current native correctness extension
+was explicitly rebuilt/admitted. The owned fresh v10 fixture was quiesced/stopped and its
+allocation retired; the earlier v8 state and original failure evidence remain preserved.
+
+The hygiene aggregate recorded seven unsuccessful leaves, repaired and passed separately;
+governance passes all seven leaves, and default/no-default/native lint and rustdoc checks pass.
+No clean original aggregate is inferred. The maintainer canceled the remaining feature campaign:
+179 configurations passed, one was interrupted and 321 were not run out of the current 501;
+the separate no-default sweep did not start. Its source remains unchanged, but complete coverage
+is false. Full matrix/no-default validation is explicitly deferred to the end of Plan57. The
+original cancellation outcomes remain, and only the authenticated empty campaign allocation was
+released. No campaign remains active.
+
+These are selected functional/local checks, not whole-Plan57, full feature, solver-fleet/parity,
+distribution, other-platform or performance qualification. Broader CBO-001 alias-header and
+unestablished tighter whole-Jacobian/opaque bounds remain open. General non-RNE coefficient
+conversion retains its hold and exact/current-numerical proof hull; recorded-point replay is
+not an arithmetic waiver. The IBEX exception and retained supplier triggers remain. Benefits
+beyond implemented structural removal are unmeasured.
 
 ### 24.3 Benchmarks
 

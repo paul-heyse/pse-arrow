@@ -233,7 +233,7 @@ This table alone owns local package state; the coordinator owns CBO dispositions
 | --- | --- | --- | --- |
 | G01 | pending | Plan57g | Named publication preserves no-clobber/staging/durability and accounts for legacy aliases. |
 | G02 | pending | Plan57g | Python ledgers consume shared private publication/lock mechanics with proven sweep scope. |
-| G03 | partial — A–C prerequisite integrated | Plan57g | Rust process-fact reader and group supervisor replace duplicated parsing/drain mechanics. |
+| G03 | open — A–C prerequisite tested; remaining consumers planned | Plan57g | Rust process-fact reader and group supervisor replace duplicated parsing/drain mechanics. |
 | G04 | pending | Plan57g | Authenticated primary handoff supplies in-process observation with guarded fallback. |
 | G05 | pending | Plan57g | Maintenance demand/lifetime inquiry selects a justified output policy and acceptance. |
 | G06 | pending | Plan57g | Selected maintenance output changes integrate and host/file journeys hand off. |

@@ -1,6 +1,6 @@
 ---
 title: "Plan 57a: Result data and prepaid accounting"
-status: in-progress
+status: complete
 date: 2026-10-27
 adrs: [ADR-0055]
 review_sources: [docs/library_leverage/reviews/result-data-and-prepaid-accounting.md]
@@ -14,7 +14,7 @@ doc_topics: [current-work, libraries, storage, numerical-execution, validation]
 
 ## Purpose and baseline
 
-**Proposed:** replace repeated result-boundary machinery with one bounded realization per
+**Implemented:** replace repeated result-boundary machinery with one bounded realization per
 responsibility, retaining scientific bits, admission, ownership and deterministic publication.
 This companion develops CBO-001, CBO-002, CBO-005–008 and CBO-012. The
 [coordinator](57-library-leverage-and-correctness.md#finding-dispositions) owns their scheduled
@@ -25,8 +25,8 @@ dispositions; [57b](57b-mathematics-and-structural-preparation.md) and
 `4f52fd239`; the consumed comparative review is `93946f572`, initial review `b29fcf802`.
 Use base patterns 0.2, additional patterns revision 4, Core 3.4, efficiency heuristics 1.0,
 Process Simulator 1.5 and the repository binding. The review's installed Arrow family 59.3.0
-and DataFusion 55.1.0 remain the realization being planned. No dependency move or new product
-test result is established by this document.
+and DataFusion 55.1.0 were the authoring realization. That snapshot established no new product
+result; the Outcome below records separately authorized implementation and acceptance.
 
 The [hostile-stream evidence](../design_review/evidence/library-leverage-arrow-ipc-stream-hostile-2026-10-27/README.md)
 Tests Arrow behavior on its stated fixture; reachability through runtime replay/import is
@@ -81,12 +81,12 @@ store's indexed descriptor selection to DataFusion or change extrema/identity co
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| A01 | implemented; joined qualification pending | Result encoding and `pse-ids` | Typed bounded/counting sink adopted at all selected consumers; dead trial path deleted |
-| A02 | implemented; joined qualification pending | Columnar framing and import consumers | Complete stream admission precedes decode on replay, pack and portable/physical input routes |
-| A03 | implemented; joined qualification pending | Columnar file admission and runtime readers | Cached admitted file decoder and full allocation envelope replace duplicate reads/whole-file grants |
-| A04 | implemented; joined qualification pending | Runtime result selection | Column-wise indexing and one predicate/metadata owner preserve current results |
-| A05 | implemented selected footprint; joined qualification pending | Integration-specific bound owners | Selected result/container bounds have a single source-derived owner and all consumers move |
-| A06 | implemented; joined qualification pending | Coordinator with retained-size owners | Bounded hand-accounting census selects an idiom or justified derive route; no crate adoption implied |
+| A01 | complete | Result encoding and `pse-ids` | Typed bounded/counting sink adopted at all selected consumers; dead trial path deleted |
+| A02 | complete | Columnar framing and import consumers | Complete stream admission precedes decode on replay, pack and portable/physical input routes |
+| A03 | complete | Columnar file admission and runtime readers | Cached admitted file decoder and full allocation envelope replace duplicate reads/whole-file grants |
+| A04 | complete | Runtime result selection | Column-wise indexing and one predicate/metadata owner preserve current results |
+| A05 | complete | Integration-specific bound owners | Selected result/container bounds have a single source-derived owner and all consumers move |
+| A06 | complete | Coordinator with retained-size owners | Bounded hand-accounting census selects an idiom or justified derive route; no crate adoption implied |
 
 <a id="a01"></a>
 
@@ -307,8 +307,8 @@ Compile the affected package and run targeted tests with explicit Arrow force-va
 the repository recipes. [57j](57j-qualification-and-publication.md) owns the single scope-end
 assembled journeys, static/manual checks and final publication. No product checks ran for this
 authoring; the evidence above retains its original scope. Enduring result/storage wording,
-including the stale blueprint §19.2 description, moves through the architecture route at J's
-publication boundary, not by an incidental edit here.
+including blueprint §19.2, was reconciled through the authorized architecture route at revision
+298. The Outcome records current selected acceptance and the deferred series validation.
 
 ## Outcome — implementation and functional acceptance, 2026-10-27
 
@@ -338,5 +338,5 @@ named conservative execution allowances and the separate durable publication/tra
 Generic arbitrary `FieldCheckedBatch` alias-header accounting remains an investigation under
 CBO-001. The selected writer/snapshot/source improvements do not establish globally complete
 accounting. Benefits beyond deleted duplicate work remain unmeasured. Enduring result contracts
-are published through blueprint revision 298; final selected closure awaits 57j's remaining
-feature/manual and publication work.
+are published through blueprint revision 298. Selected implementation and functional acceptance
+are complete. The maintainer deferred the remaining full feature matrix to series-end validation under 57j on 2026-10-27.

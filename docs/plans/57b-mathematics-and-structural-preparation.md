@@ -1,6 +1,6 @@
 ---
 title: "Plan 57b: Mathematics and structural preparation"
-status: in-progress
+status: complete
 date: 2026-10-27
 adrs: []
 review_sources: [docs/library_leverage/reviews/mathematics-preparation.md, docs/library_leverage/reviews/result-data-and-prepaid-accounting.md]
@@ -13,12 +13,13 @@ doc_topics: [current-work, design, libraries, preparation, numerical-execution, 
 
 ## Purpose, baseline and authority
 
-**Proposed:** repair the cubic accelerator's incomplete root enumeration and hidden retention,
+**Implemented:** repair the cubic accelerator's incomplete root enumeration and hidden retention,
 extend the checked structural boundary to implicit reconstruction, and make the remaining
 mathematics supplier couplings explicit. This companion develops CBO-021–025 and the mathematics
 contribution to CBO-001. The [coordinator](57-library-leverage-and-correctness.md) owns their full
 scheduled dispositions and shared decisions; the package table below owns only this document's
-execution progress. Creating this plan authorizes no production, dependency or architecture edit.
+execution progress. Creating this plan authorized no production, dependency or architecture edit;
+the Outcome records separately authorized execution.
 
 The consumed review is [G5](../library_leverage/reviews/mathematics-preparation.md), including its
 2026-10-27 reassessment and conversion corrections, published at `93946f572`. The common source
@@ -99,9 +100,9 @@ from KINSOL or native-child consumers that also use `MATCHING_STACK`.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| B01 | implemented; joined qualification pending | [Cubic repair](#b01) | Complete bounded enumeration, candidate conversion, admission and old-path deletion; targeted controls pass |
-| B02 | implemented; joined qualification pending | [Checked decomposition](#b02) | Both consumers use the checked non-spawning owner; targeted controls pass |
-| B03 | implemented; joined qualification pending | [Supplier coupling and bounds](#b03) | Hold and math bound consumers integrated; residual/upstream conditions retain explicit dispositions |
+| B01 | complete | [Cubic repair](#b01) | Complete bounded enumeration, candidate conversion, admission and old-path deletion; targeted controls pass |
+| B02 | complete | [Checked decomposition](#b02) | Both consumers use the checked non-spawning owner; targeted controls pass |
+| B03 | complete | [Supplier coupling and bounds](#b03) | Hold and math bound consumers integrated; residual/upstream conditions retain explicit dispositions |
 
 B01 is highest consequence and can proceed independently of B02. B03's hold can precede both;
 its final contents must remove couplings actually retired by B01. Packages are outcomes, not
@@ -360,6 +361,6 @@ remains non-RNE under its explicit canonical hold, with proof consumers enclosin
 current numerical values. Collocation's separate unbounded route/identity, exact LDLᵀ,
 generation-local caches, private source-coupled mirrors and the 100,000-row structural limit
 remain. The minimum compiler/capture supervision prerequisite is qualified; other G03 migrations
-remain open. Enduring mathematics/native contracts are published through revision 298. Final
-selected closure awaits 57j's remaining feature/manual and publication work; benefits remain
-unmeasured.
+remain open. Enduring mathematics/native contracts are published through revision 298. Selected
+implementation and functional acceptance are complete. The maintainer deferred the remaining full feature matrix to series-end validation under 57j on 2026-10-27; benefits
+remain unmeasured.

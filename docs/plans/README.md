@@ -6,9 +6,12 @@ and additional arithmetic finding. Ten companions develop the selected correctio
 mechanisms, foundation improvements, bounded investigations, retained alternatives and joined
 qualification. The coordinator owns finding dispositions and confirmed operator directions;
 companions own package progress. The maintainer authorized execution of 57a–57c and their
-minimum compiler/capture supervision prerequisite. Their functional changes are integrated;
-[57j](57j-qualification-and-publication.md#j01) owns selected joined qualification and publication.
-Other companions remain proposed, and other plans retain their independent scope and status.
+minimum compiler/capture supervision prerequisite. Their selected implementation and functional
+acceptance are complete; [57j's Outcome](57j-qualification-and-publication.md#selected-a-c-outcome--2026-10-27)
+records actual passes, original failures, repaired checks and drained ownership. At the maintainer's
+request, the remaining full feature matrix/no-default sweep is deferred to series-end validation.
+No campaign is running. Broader CBO-001 inquiries, other G03 consumers and D–I remain with their
+existing owners; other plans retain their independent scope and status.
 
 [Plan56: Design principle alignment](56-design-principle-alignment.md) is **complete** for its
 selected local Linux target, including all 37 packages, the completion audit's CA01–CA08 repairs

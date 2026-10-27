@@ -56,11 +56,11 @@ pass is useful evidence, not closure of an untested obligation.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| J01 | partial — selected A–C preparation complete | Coordinator and acceptance owners | Selected scope, delivered prerequisites, conditional decisions and test routes reconciled before joined execution |
-| J02 | partial — selected A–C functional acceptance complete | Scientific, canonical, Python and host journey owners | Actual affected public/composed routes pass original and added assertions with owned drain |
-| J03 | in-progress — final feature campaign running | Root integrator | Scope-end hygiene/manual/feature checks pass at the zero baseline, or exact unresolved obligations remain open |
-| J04 | partial — selected A–C benefits left unmeasured | Coordinator and measurement owners | Benefits are either appropriately measured or explicitly left unmeasured for a stated decision reason |
-| J05 | partial — selected source/evidence reconciliation complete | Coordinator and independent reviewer | Coverage/completion reconciled, enduring publication and lifecycle/retirement handoff complete |
+| J01 | open — selected A–C preparation complete | Coordinator and acceptance owners | Selected scope, delivered prerequisites, conditional decisions and test routes reconciled before joined execution |
+| J02 | open — selected A–C functional acceptance complete | Scientific, canonical, Python and host journey owners | Actual affected public/composed routes pass original and added assertions with owned drain |
+| J03 | deferred — full series-wide feature validation | Root integrator | Scope-end hygiene/manual/feature checks pass at the zero baseline, or exact unresolved obligations remain open |
+| J04 | open — selected A–C benefit decision complete | Coordinator and measurement owners | Benefits are either appropriately measured or explicitly left unmeasured for a stated decision reason |
+| J05 | open — selected A–C closeout published | Coordinator and independent reviewer | Coverage/completion reconciled, enduring publication and lifecycle/retirement handoff complete |
 
 <a id="j01"></a>
 
@@ -125,8 +125,10 @@ ownership and exit witnesses. Actual compiler/capture refresh remains part of th
 Compiler/capture process controls retain their original-owner drain boundaries and do not
 claim escaped-descendant containment.
 
-J02 waits for the selected functional baseline to stabilize. J03 then runs the existing hygiene,
-governance, documentation, native-contract and complete declared feature-powerset recipes.
+J02 consumes the stable selected functional baseline. J03 runs the existing hygiene,
+governance, documentation and native-contract checks. By the maintainer's 2026-10-27 amendment,
+the complete feature-powerset/no-default sweep now belongs at the end of the whole plan series;
+its current interrupted prefix is partial evidence, not selected A–C full feature qualification.
 The powerset check decides whether changed supplier/binding and helper feature closures compile;
 it is not a performance campaign. No optional timing, cross-CPU, parity, fleet or distribution
 campaign is selected. Benefits beyond deleted duplicate work remain unmeasured because none is
@@ -177,8 +179,10 @@ teardown failures and do not treat an unfinished/cancelled run as a pass.
 
 After all selected functional work and local tests are complete, run `just hygiene` once for
 the integrated change, fix what fails and rerun the failing recipe. Run required manual
-`just governance`, `just docs`, `just lint-solver-contracts` and `just features-powerset` for
-the affected feature/native surface under the repository's pinned routes. The feature check
+`just governance`, `just docs` and `just lint-solver-contracts` for the affected surface. The
+maintainer explicitly deferred the remaining `just features-powerset` campaign to full series-end
+validation on 2026-10-27. Run the complete declared matrix/no-default sweep there through the
+pinned routes after reconciling current source and applicable prior evidence. The feature check
 guards capability/build closure across the current supported catalogue; do not hard-code an
 old configuration count or substitute an earlier plan's result. Report native/link exclusions
 and any genuinely unrun coverage explicitly.
@@ -263,8 +267,9 @@ Package completion is not permission to push, change ADR status or broaden the s
 J05 reconciliation at `2bd80093b` found no outstanding material selected-scope blocker. The
 latter independently confirmed all four canonical Rust source snapshots equal the current
 11,442-input product snapshot, original report digests match and Python captures use the same
-admitted validated native extension. J03's full feature campaign and final documentation/status
-publication are still in progress; this is not whole-Plan57 closure.
+admitted validated native extension. The maintainer canceled the remaining feature campaign on 2026-10-27 and moved that full
+qualification to series end. Selected A–C implementation and functional acceptance are complete;
+J03 retains the deferred series-wide feature obligation. This is not whole-Plan57 closure.
 
 All counts below use baseline **zero**, pinned routes and the ordinary unbounded host selection.
 Selection filters are retained by each original native metadata/invocation owner, rather than
@@ -328,9 +333,21 @@ This is composed repaired evidence, not a claim that the original aggregate pass
 **Tested:** `just ready` passes; `just governance` passes all **7/7 leaves**, including actual
 generator comparison and family checks, at
 `build/assessment/20261027T195737.328313Z-governance-3088076-c8069e/summary.md`. The documentation
-build published **865 chapters** at its recorded cut. The complete declared feature-powerset
-campaign is running against the unchanged source; no final feature result or full selected
-closure is inferred until it settles.
+publication passes with **865 chapters**. Root `just turn-end` passes ADR index and formatting
+against baseline zero (`build/assessment/20261027T203216.394058Z-turn-end-3336777-457499/summary.md`). The complete declared feature campaign
+was canceled at the maintainer's request: **179 passed, 1 interrupted, 321 not_run** of **501**
+depth-two configurations, baseline zero; the separate no-default sweep was **not_run**. No
+completed configuration failed. The campaign retains `source_unchanged=true`,
+`complete=false` and `required_checks_covered=false` at
+`build/assessment/20261027T200036.172691Z-features-powerset-3104783-31301d/features-combinations/feature-campaign.json`.
+The aggregate records inner interruption **130**, with the outer wrapper **125** because its
+allocation was retained during cancellation. The exact scope then ended; after authenticating
+its original unit/invocation/inode and proving the whole allocation subtree empty, the existing
+owner API released only allocation `04448ea3dacf472f81ea6317ee35b10e`. Its charge is gone and
+slice inactive; unrelated owners, original clocks and receipts were unchanged. This later
+administrative settlement does not rewrite the cancellation outcome. No campaign remains
+running. Full matrix/no-default validation is deferred to series end; partial passes do not
+qualify the unrun configurations or automatically apply after future source changes.
 
 ### Lifetimes, retained choices and publication
 
@@ -364,5 +381,7 @@ original residual/branch meaning, and IBEX retains its distinct acquisition poli
 No optional measurement is needed to select these correctness corrections. Retained upstream,
 solver-image and tighter-bound leads reopen only on their recorded decision triggers. No
 whole-Plan57, full solver-fleet/parity, other-platform, distribution or performance qualification
-follows. Other G03 consumers and D–I work remain with their existing owners. Final lifecycle and
-current-work publication follows completion of the remaining selected checks.
+follows. Other G03 consumers and D–I work remain with their existing owners. Completed A–C documents remain retained for active coordinator/D/I/J readers and the broader
+CBO-001 inquiry; they leave active current-work selection. Their enduring contracts are already
+published. The coordinator and J remain active for the rest of the series and deferred full
+validation; no completed plan/review is deleted while those readers still depend on it.
