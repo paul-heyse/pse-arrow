@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 291
+revision: 292
 date: 2026-10-26
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 292 | 2026-10-26 | Publish implemented finite operation/constraint projections (§21.1), producing artifact currency, foreground retained read/drain and precise owner metric/SDK loss contracts (§24.1); selected final qualification remains in §24.2 and Plan56 Outcomes. | Authorized remaining Plan56e/f/g under proposed ADR-0231; PSE_DESIGN_EDIT=1. No formal ADR status or unsupported-platform/performance claim. |
 | 291 | 2026-10-26 | Reconcile the current value-rebind owner (§13.5) and link mutable model/effort policy to its shared role owner (§24.4). | Authorized Plan56/P01 current-contract correction; PSE_DESIGN_EDIT=1. Existing §7.1 typed-product reconciliation is preserved; no runtime or formal ADR status change. |
 | 290 | 2026-10-26 | Select finite operation projections, actual producing/installed currency and foreground-owned admitted read lifetime (§21.1/§24.1). | Maintainer-selected RC06 and authorized remaining Plan56e/f/g; proposed ADR-0231 independently Accept at Proposed design evidence. PSE_DESIGN_EDIT=1; actual implementation and qualification remain with F/G. |
 | 289 | 2026-10-26 | Publish implemented product/private ownership, prepared frozen launch, bounded capture and fused offline integrity contracts (§3.2/§19.3/§20.6), with selected public 10,000-point acceptance and qualification limits (§24.2). | Authorized joint Plan56d/56e execution under proposed ADR-0229/0230; PSE_DESIGN_EDIT=1. Owning Outcomes retain assembled qualification and exclusions; prior data/receipts and formal ADR status are preserved. |

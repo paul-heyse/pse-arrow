@@ -1548,7 +1548,23 @@ invent completion, redispatch native work or promise returned physical disk spac
 
 > Decision: [ADR-0231](../../adr/0231-retained-native-read-currency.md) (proposed; maintainer-selected Plan56 F02/F05/F06 target).
 
-A finite responsibility-owned operation declaration supplies stable public identity, typed request/result references, receiver category, defaults/bounds, effects, prerequisites and read-lifetime eligibility. Generate mechanical host projections while preserving typed receiver glue. Supplied-only tooling evidence comparison retains executable currency without acquiring a scientific extension or store prerequisite. Actual producer association and retained read qualification remain with Plan56f; declarations alone do not complete them.
+**Implemented:** finite responsibility-owned operation declarations supply stable public identity,
+typed request/result references, receiver category, defaults/bounds, structured effects,
+prerequisites and read-lifetime eligibility. Runtime-owned declarations project the existing 53
+project/research/study Python and PyO3 methods, retaining their typed receiver glue, signatures and
+public metadata. The native-agent catalogue composes 21 runtime operations and one tooling
+operation. Source admission, canonical diagnostic writes and retained cohort capture keep their
+distinct effects in host help and dispatch; neither prose nor a successful import grants read-only
+eligibility. Source-only discovery imports its leaf contracts without preparing a native image.
+Supplied-only evidence comparison uses the witnessed tooling executable without acquiring a
+scientific extension or store prerequisite. Compiled catalogue comparison uses the original codec's
+complete JSON projection before runtime acquisition.
+
+Modeling `Limits` owns positive optional body capacities and validates them before compilation,
+reuse and native specialization; remote and host projections do not redeclare those constraints.
+Generated host capture envelopes bind their concrete query-answer payload through the same generic
+contract, with strict source/checkpoint validation. Generated Python method metadata is applied in
+place so receiver descriptor binding and static typing remain intact.
 
 > Decision: [ADR-0229](../../adr/0229-responsibility-owned-product-contracts.md) (proposed):
 > product and private declaration publication follow responsibility; scientific meaning stays

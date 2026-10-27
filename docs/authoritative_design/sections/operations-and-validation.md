@@ -160,6 +160,17 @@ prove receipt; ingest acceptance, query visibility and crash survival remain sep
 Passive effective-configuration and pipeline-health reads start no service or scientific work and
 retain unavailable, unsupported, lost, sampled, expired and unknown observations.
 
+Owner-keyed metric instruments retain declared population, unit, monotonicity and histogram bucket
+meaning through producer, schema and query. Gauge-rate and non-histogram percentile questions,
+invalid buckets and unsupported native exemplars refuse before querying. Ordinary span export
+selects the explicit `pse.owner.stage` marker and exact SDK request span; finite inner capture is
+separate. Rust SDK 0.33.1 internal diagnostics expose first-drop observation during processor life
+and a cumulative drop count at the SDK shutdown attempt, before its control-send/wait. That count
+does not establish successful shutdown, queue drain, export or ingestion. Failed shutdown remains
+independent; abrupt buffered loss is unknown, and capacity is not occupancy. Python SDK queues
+remain unavailable rather than inferred from native observations. The small delegating processor
+observes SDK events without replacing its queue or mutating global meter configuration.
+
 The resolved private host-settings wire is declared by Rust serde types and projected through the
 existing schema generator into source-only Python bindings. Python owns environment resolution;
 immutable encoded settings and native validation preserve that single selection. Public effective
@@ -630,7 +641,34 @@ and requires its own integration/acceptance. Framework availability alone is ins
 
 > Decision: [ADR-0231](../../adr/0231-retained-native-read-currency.md) (proposed; maintainer-selected RC06 target).
 
-Qualified producing inputs and actual installed/loaded-image witnesses may support a foreground endpoint/workload-owned native read worker. Each bounded request retains its identity, original clock and worker/context incarnation. Unchanged source/physical/provider/preparation/deployment premises permit reuse; changed premises retire and physically drain before replacement, with stale cursors refused. Retained state, queued bytes, outputs and native protections remain charged under existing admission. Effects and crash isolation retain dedicated execution. No database transaction spans pages, daemon or persistent compiler cache follows. Current one-shot checks remain until their qualified replacement is integrated; Plan56f owns implementation and Plan56g assembled acceptance.
+**Implemented:** eligible native reads reuse a foreground endpoint-owned worker and actual immutable
+Runtime/physical/model objects under their original source, provider, preparation and deployment
+context. Both native dispatch routes and the foreground CLI share this owner; standalone calls
+retain a dedicated lifetime. Each request carries its own identity, correlation and original
+optional deadline. Known opaque cursors bind their original native basis and session incarnation;
+changed requests and retired sessions refuse rather than attaching the cursor to a replacement.
+Unknown portable continuations still enter original native admission. Numeric page offsets retain
+their separate meaning. Independent contexts can use sibling workers under existing admission.
+
+Observer cancellation detaches observation while queued or running native work, retained bytes and
+protections stay owned and charged until actual completion. Endpoint EOF settles all owned work;
+retirement physically drains before replacement and retains individual failures. Effectful,
+mutable diagnostic and crash-isolated operations retain dedicated execution. No database transaction
+spans pages, daemon, host CPU partition or persistent compiler product cache follows.
+
+Ordinary local editable dev/native preparation associates the actual Maturin Cargo child with
+selected unit-graph/artifact/compiler/build-script records, transitive source and macro inputs,
+declared/default build inputs and consumed environment/provider installation facts. Missing
+associated compiler dep-info refuses the optimized receipt. The existing preparation receipt owns
+`producing-cargo-inputs-v1`; no second freshness ledger is introduced. Unchanged witnessed file
+identities avoid repeated tree/image hashing, while changed metadata or directory membership
+rechecks content. Build-window extractor artifacts need not remain installed. Installed artifact
+bytes must match the producer, or the exact pinned Maturin RPATH transformation must replay to the
+complete installed digest. Fixed evidence executables use the same association and execute through
+the admitted file descriptor. Pre/post-import fences and subsequent reuse bind the actual loaded
+image; a new receipt cannot bless an old loaded image. Unsupported cross/custom-Maturin/PGO or
+unmanaged-provider routes retain explicit conservative preparation. These mechanisms establish
+currency and work removal, without a measured latency claim.
 
 Each attachment names its checkout and interpreter. Selected launch defaults refresh through the
 existing environment owner while intentional overrides and disclosed process-owned settings retain
