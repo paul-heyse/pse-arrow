@@ -79,6 +79,11 @@ validation, storage interpretation, watcher, daemon, full historical campaign or
 claim. The coordinator owns integration, generated publication coordination, original resource
 settlement, independent review and the affected joined qualification before closing findings.
 
+The maintainer additionally authorized proceeding directly from audit-gap closure into any
+remaining 56f/56g scope. Their existing package owners and acceptance boundaries remain binding;
+the root will reconcile those documents and finish their remaining implementation, joined
+qualification and publication without a separate approval pause.
+
 ## Target, scope and authorization
 
 **Proposed:** bring the implemented simulator and development/operator system into alignment
