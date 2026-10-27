@@ -287,20 +287,6 @@ fn launch_capture_late_operation_links_require_exact_published_process_identity(
 }
 
 #[test]
-fn launch_capture_member_identity_handles_comm_delimiters_and_refuses_missing_start() {
-    let stat = format!(
-        "123 (worker ) name) S 1 456 {} 987 0",
-        vec!["0"; 16].join(" ")
-    );
-    assert_eq!(member_identity(&stat).unwrap(), (true, 456, 987));
-    assert_eq!(
-        member_identity(&stat.replace(") S ", ") Z ")).unwrap(),
-        (false, 456, 987)
-    );
-    assert!(member_identity("123 (worker) S 1 456").is_err());
-}
-
-#[test]
 fn launch_capture_owned_group_waits_exact_member_notifications_without_stopping_foreign_child() {
     let directory = tempfile::tempdir().unwrap();
     let marker = directory.path().join("descendant-started");
@@ -324,7 +310,7 @@ fn launch_capture_owned_group_waits_exact_member_notifications_without_stopping_
         std::thread::sleep(Duration::from_millis(1));
     }
     assert!(marker.exists());
-    let members = group_members(command.locator().pid).unwrap();
+    let members = command.child.members().unwrap();
     assert!(!members.is_empty());
     let mut foreign = Command::new("/bin/sleep").arg("60").spawn().unwrap();
     let result = command.cancel();
@@ -443,7 +429,7 @@ int main(int argc, char **argv) {
         stat.rsplit_once(')').unwrap().1.split_whitespace().next(),
         Some("Z")
     );
-    let members = group_members(command.locator().pid).unwrap();
+    let members = command.child.members().unwrap();
     assert_eq!(
         members.len(),
         1,

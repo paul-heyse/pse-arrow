@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     io::Write,
     path::PathBuf,
-    process::{Child, Command, ExitStatus, Stdio},
+    process::{Command, ExitStatus, Stdio},
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -53,310 +53,56 @@ pub struct LaunchCaptureRequest {
 /// Command owner. Capture workers do not retain this handle or its cancellation authority.
 #[derive(Debug)]
 pub struct LaunchedCommand {
-    child: Child,
+    child: pse_diagnostics::SupervisedChild,
     locator: ProcessLocator,
-    finished: Option<ExitStatus>,
-    process_fd: std::os::fd::OwnedFd,
 }
 impl LaunchedCommand {
-    pub(crate) fn take_stdout(&mut self) -> Option<std::process::ChildStdout> {
-        self.child.stdout.take()
-    }
-    pub(crate) fn take_stderr(&mut self) -> Option<std::process::ChildStderr> {
-        self.child.stderr.take()
-    }
-    pub(crate) fn retained_status(&self) -> Option<ExitStatus> {
-        self.finished
-    }
+    pub(crate) fn take_stdout(&mut self) -> Option<std::process::ChildStdout> { self.child.take_stdout() }
+    pub(crate) fn take_stderr(&mut self) -> Option<std::process::ChildStderr> { self.child.take_stderr() }
+    pub(crate) fn retained_status(&self) -> Option<ExitStatus> { self.child.retained_status() }
     /// Exact launched process identity, retained independently of optional diagnostics.
-    pub fn locator(&self) -> &ProcessLocator {
-        &self.locator
-    }
-    /// Reap an already completed command after draining its exact owned process group.
+    pub fn locator(&self) -> &ProcessLocator { &self.locator }
+    /// Reap an already completed command after independently proving owned group drain.
     pub fn try_wait(&mut self) -> Result<Option<i32>, CaptureError> {
-        if let Some(status) = self.finished {
-            return Ok(Some(code(status)));
-        }
-        let pid = owned_pid(self.child.id())?;
-        let result = rustix::process::waitid(
-            rustix::process::WaitId::Pid(pid),
-            rustix::process::WaitIdOptions::EXITED
-                | rustix::process::WaitIdOptions::NOWAIT
-                | rustix::process::WaitIdOptions::NOHANG,
-        )
-        .map_err(std::io::Error::from)?;
-        if result.is_none() {
-            return Ok(None);
-        }
-        self.drain_and_reap().map(Some)
+        self.child.try_wait().map(|status|status.map(code)).map_err(supervision_error)
     }
-    /// Wait on the kernel process descriptor, without a retry sleep or reaping the leader early.
-    pub fn wait_ready(&mut self, interval: Duration) -> Result<Option<i32>, CaptureError> {
-        if let Some(status) = self.try_wait()? {
-            return Ok(Some(status));
-        }
-        let timeout = rustix::event::Timespec {
-            tv_sec: interval.as_secs() as i64,
-            tv_nsec: interval.subsec_nanos() as i64,
-        };
-        let mut descriptors = [rustix::event::PollFd::new(
-            &self.process_fd,
-            rustix::event::PollFlags::IN,
-        )];
-        match rustix::event::poll(&mut descriptors, Some(&timeout)) {
-            Ok(_) => self.try_wait(),
-            Err(rustix::io::Errno::INTR) => Ok(None),
-            Err(error) => Err(std::io::Error::from(error).into()),
+    /// Wait on the verified leader descriptor using one original interval deadline.
+    pub fn wait_ready(&mut self, interval:Duration) -> Result<Option<i32>,CaptureError> {
+        if let Some(status)=self.try_wait()? {return Ok(Some(status));}
+        let deadline=Instant::now().checked_add(interval).ok_or_else(||CaptureError::Invalid("launch wait deadline extent".into()))?;
+        match self.child.wait_ready(None,Some(deadline)) {
+            Ok(())=>self.try_wait(),
+            Err(pse_diagnostics::SupervisionError::Deadline)=>Ok(None),
+            Err(error)=>Err(supervision_error(error)),
         }
     }
-    /// Wait for command completion, preserving the leader until owned descendants drain.
-    pub fn wait(&mut self) -> Result<i32, CaptureError> {
-        if let Some(status) = self.finished {
-            return Ok(code(status));
-        }
-        rustix::process::waitid(
-            rustix::process::WaitId::Pid(owned_pid(self.child.id())?),
-            rustix::process::WaitIdOptions::EXITED | rustix::process::WaitIdOptions::NOWAIT,
-        )
-        .map_err(std::io::Error::from)?;
-        self.drain_and_reap()
-    }
-    /// Explicitly cancel only this independently owned command and its process group.
-    pub fn cancel(&mut self) -> Result<i32, CaptureError> {
-        if let Some(status) = self.finished {
-            return Ok(code(status));
-        }
-        match rustix::process::pidfd_send_signal(&self.process_fd, rustix::process::Signal::KILL) {
-            Ok(()) | Err(rustix::io::Errno::SRCH) => {}
-            Err(error) => return Err(std::io::Error::from(error).into()),
-        }
-        self.wait()
-    }
+    /// Wait for leader completion and exact process-group drain.
+    pub fn wait(&mut self)->Result<i32,CaptureError> {self.child.wait().map(code).map_err(supervision_error)}
+    /// Stop this owned command independently of CPU capture.
+    pub fn cancel(&mut self)->Result<i32,CaptureError> {self.child.cancel().map(code).map_err(supervision_error)}
     /// End command ownership; a live command is cancelled and reaped.
-    pub fn close(&mut self) -> Result<i32, CaptureError> {
-        self.cancel()
-    }
-    fn drain_and_reap(&mut self) -> Result<i32, CaptureError> {
-        // WNOWAIT keeps the leader PID/PGID reserved until every exact member has exited.
-        let deadline = Instant::now() + Duration::from_secs(3);
-        loop {
-            if Instant::now() >= deadline {
-                return Err(CaptureError::Invalid(
-                    "owned launch process group did not drain; leader remains unreaped".into(),
-                ));
-            }
-            // The unreaped leader reserves this PGID. Stop the entire owned group
-            // before inventory so surviving members cannot keep forking past an empty scan.
-            match rustix::process::kill_process_group(
-                owned_pid(self.child.id())?,
-                rustix::process::Signal::KILL,
-            ) {
-                Ok(()) | Err(rustix::io::Errno::SRCH) => {}
-                Err(error) => return Err(std::io::Error::from(error).into()),
-            }
-            let members = group_members(self.child.id())?;
-            if members.is_empty() {
-                break;
-            }
-            for member in &members {
-                match rustix::process::pidfd_send_signal(member, rustix::process::Signal::KILL) {
-                    Ok(()) | Err(rustix::io::Errno::SRCH) => {}
-                    Err(error) => return Err(std::io::Error::from(error).into()),
-                }
-            }
-            for member in &members {
-                wait_member_exit(member, deadline)?;
-            }
-            // A member may have forked before its kill. Re-inventory only after kernel
-            // exit notifications; neither leader exit nor one empty pidfd proves group drain.
-        }
-        let status = self.child.wait()?;
-        self.finished = Some(status);
-        Ok(code(status))
+    pub fn close(&mut self)->Result<i32,CaptureError> {self.cancel()}
+}
+fn supervision_error(error:pse_diagnostics::SupervisionError)->CaptureError {
+    match error {
+        pse_diagnostics::SupervisionError::Io(error)=>CaptureError::Io(error),
+        error=>CaptureError::Invalid(error.to_string()),
     }
 }
-impl Drop for LaunchedCommand {
-    fn drop(&mut self) {
-        if self.finished.is_none() {
-            let _ = self.cancel();
-        }
-    }
-}
-fn owned_pid(pid: u32) -> Result<rustix::process::Pid, CaptureError> {
-    i32::try_from(pid)
-        .ok()
-        .and_then(rustix::process::Pid::from_raw)
-        .ok_or_else(|| CaptureError::Invalid("owned launch PID cannot be represented".into()))
-}
-fn member_identity(stat: &str) -> Result<(bool, u32, u64), CaptureError> {
-    let fields = stat
-        .rsplit_once(')')
-        .map(|(_, fields)| fields.split_whitespace().collect::<Vec<_>>())
-        .ok_or_else(|| CaptureError::Invalid("cannot determine launch member identity".into()))?;
-    let group = fields
-        .get(2)
-        .and_then(|value| value.parse().ok())
-        .ok_or_else(|| CaptureError::Invalid("launch member group identity unavailable".into()))?;
-    let start = fields
-        .get(19)
-        .and_then(|value| value.parse().ok())
-        .ok_or_else(|| CaptureError::Invalid("launch member start identity unavailable".into()))?;
-    Ok((
-        !matches!(fields.first().copied(), Some("Z" | "X")),
-        group,
-        start,
-    ))
-}
-fn group_members(leader: u32) -> Result<Vec<std::os::fd::OwnedFd>, CaptureError> {
-    let mut members = Vec::new();
-    for entry in std::fs::read_dir("/proc")? {
-        let entry = entry?;
-        let Some(pid) = entry
-            .file_name()
-            .to_str()
-            .and_then(|text| text.parse::<u32>().ok())
-        else {
-            continue;
-        };
-        if pid == leader {
-            continue;
-        }
-        let path = entry.path().join("stat");
-        let read = || match std::fs::read_to_string(&path) {
-            Ok(stat) => member_identity(&stat).map(Some),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(error) => Err(error.into()),
-        };
-        let Some(before) = read()? else {
-            continue;
-        };
-        if before.1 != leader {
-            continue;
-        }
-        let member = match rustix::process::pidfd_open(
-            owned_pid(pid)?,
-            rustix::process::PidfdFlags::empty(),
-        ) {
-            Ok(fd) => fd,
-            Err(rustix::io::Errno::SRCH) => continue,
-            Err(error) => return Err(std::io::Error::from(error).into()),
-        };
-        // A reaped/reused numeric PID never grants permission to signal its replacement.
-        let Some(after) = read()? else {
-            continue;
-        };
-        if after.1 == leader && after.2 == before.2 {
-            // A zombie TGID leader may still have executing threads. Only the process
-            // descriptor becoming exit-readable establishes whole-thread-group exit.
-            let mut readiness = [rustix::event::PollFd::new(
-                &member,
-                rustix::event::PollFlags::IN,
-            )];
-            loop {
-                match rustix::event::poll(
-                    &mut readiness,
-                    Some(&rustix::event::Timespec {
-                        tv_sec: 0,
-                        tv_nsec: 0,
-                    }),
-                ) {
-                    Err(rustix::io::Errno::INTR) => continue,
-                    Err(error) => return Err(std::io::Error::from(error).into()),
-                    Ok(_) => break,
-                }
-            }
-            let ready = readiness[0].revents();
-            if ready.contains(rustix::event::PollFlags::NVAL) {
-                return Err(CaptureError::Invalid(
-                    "launch member descriptor invalid".into(),
-                ));
-            }
-            if !ready.intersects(
-                rustix::event::PollFlags::IN
-                    | rustix::event::PollFlags::HUP
-                    | rustix::event::PollFlags::ERR,
-            ) {
-                members.push(member);
-            }
-        }
-    }
-    Ok(members)
-}
-fn wait_member_exit(member: &std::os::fd::OwnedFd, deadline: Instant) -> Result<(), CaptureError> {
-    loop {
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        if remaining.is_zero() {
-            return Err(CaptureError::Invalid(
-                "owned launch process group did not drain; leader remains unreaped".into(),
-            ));
-        }
-        let timeout = rustix::event::Timespec {
-            tv_sec: remaining.as_secs() as i64,
-            tv_nsec: remaining.subsec_nanos() as i64,
-        };
-        let mut descriptors = [rustix::event::PollFd::new(
-            member,
-            rustix::event::PollFlags::IN,
-        )];
-        match rustix::event::poll(&mut descriptors, Some(&timeout)) {
-            Ok(0) => {
-                return Err(CaptureError::Invalid(
-                    "owned launch process group did not drain; leader remains unreaped".into(),
-                ));
-            }
-            Ok(_)
-                if descriptors[0]
-                    .revents()
-                    .intersects(rustix::event::PollFlags::IN | rustix::event::PollFlags::HUP) =>
-            {
-                return Ok(());
-            }
-            Ok(_) => {
-                return Err(CaptureError::Invalid(
-                    "owned launch member exit notification unavailable".into(),
-                ));
-            }
-            Err(rustix::io::Errno::INTR) => continue,
-            Err(error) => return Err(std::io::Error::from(error).into()),
-        }
-    }
-}
-fn code(status: ExitStatus) -> i32 {
+fn code(status:ExitStatus)->i32 {
     use std::os::unix::process::ExitStatusExt;
-    status
-        .code()
-        .unwrap_or_else(|| 128 + status.signal().unwrap_or(0))
+    status.code().unwrap_or_else(||128+status.signal().unwrap_or(0))
 }
-
-/// Establish the same pidfd/process-group owner for cooperating source launches.
-pub(crate) fn spawn_owned_command(command: &mut Command) -> Result<LaunchedCommand, CaptureError> {
-    use std::os::unix::process::CommandExt as _;
-    command.process_group(0);
-    let mut child = command.spawn()?;
-    let locator = ProcessLocator::for_pid(child.id());
-    let process_fd = match owned_pid(child.id()).and_then(|pid| {
-        rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty())
-            .map_err(std::io::Error::from)
-            .map_err(Into::into)
-    }) {
-        Ok(fd) => fd,
-        Err(error) => {
-            let _ = child.kill();
-            // The unreaped leader reserves this freshly created group even if pidfd
-            // admission failed. Stop descendants before releasing its numeric identity.
-            if let Ok(pid) = owned_pid(child.id()) {
-                let _ = rustix::process::kill_process_group(pid, rustix::process::Signal::KILL);
-            }
-            let _ = child.wait();
-            return Err(error);
-        }
+/// Establish shared verified group ownership with the existing diagnostic drain bound.
+pub(crate) fn spawn_owned_command(command:&mut Command)->Result<LaunchedCommand,CaptureError> {
+    let child=pse_diagnostics::SupervisedChild::spawn(command,pse_diagnostics::DrainFailurePolicy::Refuse(Duration::from_secs(3)),None).map_err(supervision_error)?;
+    let identity=child.identity().ok_or_else(||CaptureError::Invalid("verified launch identity absent".into()))?;
+    let locator=ProcessLocator {
+        pid:identity.pid,
+        start_ticks:Some(identity.start_ticks),
+        executable:std::fs::read_link(format!("/proc/{}/exe",identity.pid)).ok(),
     };
-    Ok(LaunchedCommand {
-        child,
-        locator,
-        finished: None,
-        process_fd,
-    })
+    Ok(LaunchedCommand {child,locator})
 }
 
 /// Launch CPU capture before exec. A refused/failed optional sampler still releases the command.
@@ -414,17 +160,13 @@ fn launch_with(
         ])
         .args(&request.argv)
         .stdin(Stdio::piped());
-    // This standard spawn attribute is applied by Rust, not a caller-supplied pre_exec hook.
-    use std::os::unix::process::CommandExt;
-    command.process_group(0);
     if let Some(cwd) = &request.cwd {
         command.current_dir(cwd);
     }
     let mut command = spawn_owned_command(&mut command)?;
     let gate = command
         .child
-        .stdin
-        .take()
+        .take_stdin()
         .ok_or_else(|| CaptureError::Invalid("launch exec gate unavailable".into()))?;
     let locator = command.locator.clone();
     let stop = Arc::new(AtomicBool::new(false));

@@ -233,7 +233,7 @@ This table alone owns local package state; the coordinator owns CBO dispositions
 | --- | --- | --- | --- |
 | G01 | pending | Plan57g | Named publication preserves no-clobber/staging/durability and accounts for legacy aliases. |
 | G02 | pending | Plan57g | Python ledgers consume shared private publication/lock mechanics with proven sweep scope. |
-| G03 | pending | Plan57g | Rust process-fact reader and group supervisor replace duplicated parsing/drain mechanics. |
+| G03 | partial — A–C prerequisite integrated | Plan57g | Rust process-fact reader and group supervisor replace duplicated parsing/drain mechanics. |
 | G04 | pending | Plan57g | Authenticated primary handoff supplies in-process observation with guarded fallback. |
 | G05 | pending | Plan57g | Maintenance demand/lifetime inquiry selects a justified output policy and acceptance. |
 | G06 | pending | Plan57g | Selected maintenance output changes integrate and host/file journeys hand off. |
@@ -290,6 +290,13 @@ leader PGID reservation, stop/deadline, bounded stderr and distinct Park/Refuse 
 Delete hand parsers and superseded inventory/drain blocks and their implementation-only tests;
 retain owner tests for unknown-drain resource custody and diagnostic refusal. Deliver the
 working SupervisedChild capability to Plan57b's compiler work without waiting for G04–G06.
+The selected A–C execution delivers the shared reader and supervisor with compiler and
+capture/review consumers first. The remaining reader migrations listed above stay open here;
+this useful prerequisite does not close G03. The shared owner preserves original-clock
+checks, independent procfs observer-view and post-open pidfd identity checks, WNOWAIT leader
+reservation, re-inventory after group signalling, bounded stderr and Park/Refuse custody.
+Process-group drain still does not establish containment of descendants that escape the group.
+
 Conditional containment has no selected implementation package until its placement decision;
 it cannot hold this useful consolidation hostage or silently replace the retained fallback.
 

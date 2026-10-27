@@ -11,6 +11,13 @@ pub use document::ClosedDuration;
 mod cancellation;
 pub use cancellation::{Cancellation, CancellationWatch, WakeSignal, WakeWatch};
 
+#[cfg(target_os = "linux")]
+pub mod process_facts;
+#[cfg(target_os = "linux")]
+mod supervised_child;
+#[cfg(target_os = "linux")]
+pub use supervised_child::{DrainFailurePolicy, StderrCapture, SupervisedChild, SupervisionError};
+
 pub mod inspection;
 pub mod observation;
 
