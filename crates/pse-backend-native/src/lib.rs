@@ -36,6 +36,8 @@ mod sundials_profile;
 mod build_source;
 pub mod assembled;
 #[cfg(test)]
+mod arithmetic_tests;
+#[cfg(test)]
 #[path = "../build-link.rs"]
 mod build_link;
 #[cfg(test)]

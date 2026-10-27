@@ -1,0 +1,628 @@
+{
+  "archive_sha256": "0965398bbe5063c00b3a0d078d7d3dc57b61819b97e960b73e9a7e9602662795",
+  "delta_sha256": "49ab1087c8580140c45a182db9fda5b7fa3f14cfde53c29ad2d7ea16115c05e9",
+  "files": {
+    ".cargo_vcs_info.json": {
+      "mode": "100644",
+      "sha256": "73c5cfc6d29d556d7517509d92051546ff96e58845b89b3ebe37b2f907620e78"
+    },
+    ".github/.codecov.yml": {
+      "mode": "100644",
+      "sha256": "e02b90f396727eb042f0e214475c92ad3d42a55a4048ba94aabea615d63a2793"
+    },
+    ".github/workflows/coverage.yml": {
+      "mode": "100644",
+      "sha256": "b16bb5e1b910ede8530cd58f6011ddf90b9453821b0a0e249585c15f4b36fe37"
+    },
+    ".github/workflows/publish_pypi.yml": {
+      "mode": "100644",
+      "sha256": "3af55992e134e0eab4fc708834ffcd4ac526d90cd3fa5756649c632d1f718b6f"
+    },
+    ".gitignore": {
+      "mode": "100644",
+      "sha256": "ce5c11f0408e1fb6acced9264305ac4581623a78c1aa01f1eb50daafc6cf6391"
+    },
+    "Cargo.lock": {
+      "mode": "100644",
+      "sha256": "e1f466c318a66b7b0359906ebf76aab36bf8ac63ae1fd51676bc6a21735ac798"
+    },
+    "Cargo.toml": {
+      "mode": "100644",
+      "sha256": "0182e6d1e5ba60d43405ea25b71fdd103dbf3002e939415d96a39b6b9ed825d2"
+    },
+    "Cargo.toml.orig": {
+      "mode": "100644",
+      "sha256": "c59b1346d45dd71d4b5639ea170552f7fe85b4297939cd9af03a90e9393d1578"
+    },
+    "Contributing.md": {
+      "mode": "100644",
+      "sha256": "b0e06d9e6c681f89de3a659bd43cf15af6dd930be10648770c9c5bdf0ca640f8"
+    },
+    "License.md": {
+      "mode": "100644",
+      "sha256": "95576170a17bc8996fb8a94473745545048b6edc5d91e3867f091f7fc6b26981"
+    },
+    "Readme.md": {
+      "mode": "100644",
+      "sha256": "48a278e5c923f91428a2ee30b41297da9016db7f254b52de90e899832fa034ed"
+    },
+    "benches/extract_slow_fac.py": {
+      "mode": "100644",
+      "sha256": "79c3b01137ba661da22207d290433acdd0a6752289c37a0f3907673a2ea338dd"
+    },
+    "benches/flint_comparison.rs": {
+      "mode": "100644",
+      "sha256": "b5b6104ee72f11a99f0b1fe7c51fb556639d4a35a323c0edfc76d64614653ed4"
+    },
+    "benches/slow_fac_operations.rs": {
+      "mode": "100644",
+      "sha256": "57864e0828b9a0a0d0206a3d49dfc6ada80fec907cc664952dfb69115d30c47b"
+    },
+    "benches/support/cases.rs": {
+      "mode": "100644",
+      "sha256": "0979b50737df8ae75d796a1a2aff47c4aaa30a58029357d79d825b716d2dd206"
+    },
+    "benches/support/flint.rs": {
+      "mode": "100644",
+      "sha256": "01a8fcca4b8b2c6e4cc153ae46b8e1d85c0145b726b44e610826c0ca70d450b5"
+    },
+    "benches/support/mod.rs": {
+      "mode": "100644",
+      "sha256": "18cf92e2e70d885e16df587d7b783650882cc7081987e6b40d9d5051c006b169"
+    },
+    "benches/support/paired.rs": {
+      "mode": "100644",
+      "sha256": "c4bc35f8bb2f4f792c71e1e5a11821fbea644bd5142b2653037a857b2369688a"
+    },
+    "benches/support/polybench_cases.rs": {
+      "mode": "100644",
+      "sha256": "313cf257903f38307847dfbda90dc7f1b716270d7cac98bd35a0439cdb11455a"
+    },
+    "benches/support/rational_shapes.rs": {
+      "mode": "100644",
+      "sha256": "99f23465e64636b3cf264f62c377b6a96fa08d1a38c0321eab554eb58b230c75"
+    },
+    "benches/support/symbolica.rs": {
+      "mode": "100644",
+      "sha256": "202828443a5a5a9e64ceb21646edfcf1d50c909ca93aaf26f47f134c83b5c346"
+    },
+    "benches/symbolica_polynomial.rs": {
+      "mode": "100644",
+      "sha256": "f089a417db448be65a4db2d57cd94869ee73c6ddce41949aa831e8edc283e131"
+    },
+    "build.rs": {
+      "mode": "100644",
+      "sha256": "a98b2f963c4873f64e49b2333da43c991e5420cc2c0e515b189f9968a1b46a05"
+    },
+    "examples/algebraic_factor_expression.rs": {
+      "mode": "100644",
+      "sha256": "f77361c2b0473f180e0b697fbf39b90f74945b38999bacd0b6da9939db51e338"
+    },
+    "examples/builder.rs": {
+      "mode": "100644",
+      "sha256": "7f5dc5b306f6d0f94a3bf0411b2a079a43264b96d3a00f4ac3dbaf1d60bea92e"
+    },
+    "examples/coefficient_ring.rs": {
+      "mode": "100644",
+      "sha256": "e8acc1d2af97105514d6b6e50c9039d139f4570161ad22b526339bfedd18d536"
+    },
+    "examples/collect.rs": {
+      "mode": "100644",
+      "sha256": "46e925662d838b4f1794043313afda709f529188aab842c216317d7cacbe2272"
+    },
+    "examples/derivative.rs": {
+      "mode": "100644",
+      "sha256": "dc3ed6621081534230764378f80fdbcba3bf41ea3b7a65fb6f805b92aaa85fbf"
+    },
+    "examples/dual.rs": {
+      "mode": "100644",
+      "sha256": "c88e28b8c576b2bbad190b39b08c37c8a7d5e870bf4827d88f5445861b87466e"
+    },
+    "examples/evaluate.rs": {
+      "mode": "100644",
+      "sha256": "edaf8acb91721b33fecd24c8261576a4f440a952d767fb40be8cf3db4b10bad7"
+    },
+    "examples/expansion.rs": {
+      "mode": "100644",
+      "sha256": "a0dc37d5db83f54c2ce1001d25d0a71a2a79ea355cad33688270506c57a9927b"
+    },
+    "examples/factorization.rs": {
+      "mode": "100644",
+      "sha256": "03a7b1624bf10d44c3d498835d829e22942cabf8e93ceb94b517d0ae6e4873c3"
+    },
+    "examples/fibonacci.rs": {
+      "mode": "100644",
+      "sha256": "c9979d0fa9ba655a368f66593f94ea48df982269a8379375a3b6965f35cdcb3a"
+    },
+    "examples/fuel_backend.rs": {
+      "mode": "100644",
+      "sha256": "4d1a48a1212b7f3264b6feb56894cd75136646b915e671f2927369bb6931e222"
+    },
+    "examples/generate_python_stubs.rs": {
+      "mode": "100644",
+      "sha256": "9934b40c5e6f2ddd6ade728fc64d04bcb707f57ee253b364ec255212ef031abe"
+    },
+    "examples/groebner_basis.rs": {
+      "mode": "100644",
+      "sha256": "901b8f339c966c87fffe793647497b92b7fd1df987b034705a6be41cbbc044e1"
+    },
+    "examples/nested_evaluation.rs": {
+      "mode": "100644",
+      "sha256": "25bf7fb7e9e894a08ed08a06c64d15f6caa2e42e658c1b18501f492f5ab3fade"
+    },
+    "examples/numerical_integration.rs": {
+      "mode": "100644",
+      "sha256": "8f93082de28f6331d9ab038a4721501a03090cf806576cc68ec3578a8fc25856"
+    },
+    "examples/optimize.rs": {
+      "mode": "100644",
+      "sha256": "4575ff58289e472546a4ad12abf134578cb1684e63ca1a819ba0d978d8d2634a"
+    },
+    "examples/optimize_multiple.rs": {
+      "mode": "100644",
+      "sha256": "5fc629984f1b5b00a98289adae4142c0786b0705f05dd136544d27740c0dd1eb"
+    },
+    "examples/partial_fraction.rs": {
+      "mode": "100644",
+      "sha256": "98f78da7e29e07172490f0262b7a5583d4c47623eb00be91e3b4699eb0f473fd"
+    },
+    "examples/partition.rs": {
+      "mode": "100644",
+      "sha256": "1701756bdc6bb52cda043779366ed912d1b57eec88edd81cbfadce8b54f5f354"
+    },
+    "examples/pattern_match.rs": {
+      "mode": "100644",
+      "sha256": "775ef736be1d751195d7bea0bb012cb310a0b6a5c31bc7c2245f75b0dcd4b289"
+    },
+    "examples/pattern_restrictions.rs": {
+      "mode": "100644",
+      "sha256": "23de124bb8c62d1632a64b14349b2edae526bef0cdc87169a729b82005db3ffa"
+    },
+    "examples/polynomial.rs": {
+      "mode": "100644",
+      "sha256": "5e6476a6172ca7b5dfe38c49317e43e5b40cd5d3c8792c6456f61ab8e635fad8"
+    },
+    "examples/polynomial_gcd.rs": {
+      "mode": "100644",
+      "sha256": "fa54e2ff4a5f25978f02d7160381a1f748ddb68ec7603a0ce509ec85b79e4850"
+    },
+    "examples/rational_polynomial.rs": {
+      "mode": "100644",
+      "sha256": "f66122f3b59eac82d5cb0ee3884202717595e989fab9d9c8b26987bad55c53eb"
+    },
+    "examples/rational_polynomial_exact_division.rs": {
+      "mode": "100644",
+      "sha256": "071d6d6a184499a8b477dd39007349c6da3cf051ee508cf47b20cf418e3174a9"
+    },
+    "examples/rational_polynomial_shapes.rs": {
+      "mode": "100644",
+      "sha256": "739d8f28a81edb55a7fb97f9c2e70ad6b45c1a3f6e6399068a95d9a1a7dc1521"
+    },
+    "examples/rational_reconstruction.rs": {
+      "mode": "100644",
+      "sha256": "8c4eced3d6a73a029d10dd17135047a122bcf04be87f6d85570fd3fe1ba24ea4"
+    },
+    "examples/replace_all.rs": {
+      "mode": "100644",
+      "sha256": "d556ad20a9b0ffa8994e84433e29070b8feab70548d15370ca65255c2a6bb0b0"
+    },
+    "examples/replace_once.rs": {
+      "mode": "100644",
+      "sha256": "ed440d5617f7cc8ec4ac6d6ea9ed0ca8f87aeee972727119168d231667966185"
+    },
+    "examples/series.rs": {
+      "mode": "100644",
+      "sha256": "3875f2fd16cba1f324d4213bc73c22a9055906dc065bae510e5180ecdcf474f1"
+    },
+    "examples/solve_linear_system.rs": {
+      "mode": "100644",
+      "sha256": "562e42e38344e8114ceac275fdaf5d0481c39680b32f5f20076bf991bad071de"
+    },
+    "examples/streaming.rs": {
+      "mode": "100644",
+      "sha256": "56eff5ae5a7df8b046efdd2e608817119eba4ad7493722eb686a0b49b1ce400a"
+    },
+    "examples/tree_replace.rs": {
+      "mode": "100644",
+      "sha256": "56d38782012cbc10cfe6034e4694e7f161baff46928c3ac06442bbee95c6923e"
+    },
+    "examples/tree_walk.rs": {
+      "mode": "100644",
+      "sha256": "c3265c2254bcf1a3ed694303a8ab75009cc379f50d7c99184f52e618136a670a"
+    },
+    "pyproject.toml": {
+      "mode": "100644",
+      "sha256": "b7e2a73c6a91f74f248d77384c1eeae10411aad8ff19414979230df8d4fa7d4d"
+    },
+    "src/api.rs": {
+      "mode": "100644",
+      "sha256": "882db524039b3cddee91e9a80dad8babf8c18eebf4dbbcb2857f6808bfb02ea4"
+    },
+    "src/api/cpp.rs": {
+      "mode": "100644",
+      "sha256": "ebcd2420b27e3699e2a4e494d5a3fbb43e5d0fe330aefaf32171209f84ba2ea2"
+    },
+    "src/api/mathematica.rs": {
+      "mode": "100644",
+      "sha256": "b5a62a4ee55891198d4246863acfab2dfcbad4dd162e82aeac1ef7f007d08b56"
+    },
+    "src/api/python.rs": {
+      "mode": "100644",
+      "sha256": "a641afc107df4ef1dbb87c3c3405559a32bfcb4a9e7b6c3429ebc34031d869b5"
+    },
+    "src/api/python/atom.rs": {
+      "mode": "100644",
+      "sha256": "dda0a441381ff9dca2c3f0bff50128be9d750e8813ff62ace7b77467ec51818f"
+    },
+    "src/api/python/citation.rs": {
+      "mode": "100644",
+      "sha256": "f71a02f3ce5027091257f30142599eec868395dcf7d6fa4a634a6916facad6f2"
+    },
+    "src/api/python/condition.rs": {
+      "mode": "100644",
+      "sha256": "74f476a9c82d4066dba7c88d0695083932f1ec03f411eb47baf5f76cc0cdc016"
+    },
+    "src/api/python/evaluator.rs": {
+      "mode": "100644",
+      "sha256": "d2237532001d49ee2ca507845e1d0c6262180aa65f191fa89e5f6fdf12c263e6"
+    },
+    "src/api/python/expression.rs": {
+      "mode": "100644",
+      "sha256": "0e24984c577940c8c2d3fae0178519431cb9b7dd94c10eb07b8a4e43d0b50466"
+    },
+    "src/api/python/graph.rs": {
+      "mode": "100644",
+      "sha256": "3e642e8b2dab00fd5c96695109b4394c99a8c33d1e3b79e9f94f354ace352c6d"
+    },
+    "src/api/python/integer.rs": {
+      "mode": "100644",
+      "sha256": "24f4080fc35b26373236074b2e05b81d059fb2f610a8a82ceedaa9f1c583a104"
+    },
+    "src/api/python/integration.rs": {
+      "mode": "100644",
+      "sha256": "acdcae8b9d13a6c8b7e33c643eef564f49a456e51fa10c8bfd3f1c3c3d818bcc"
+    },
+    "src/api/python/matrix.rs": {
+      "mode": "100644",
+      "sha256": "0bcd823ba0f50cc728efb61913cbba44d43495cc34d2db99b992b4d14f164d37"
+    },
+    "src/api/python/polynomial.rs": {
+      "mode": "100644",
+      "sha256": "76b44343b43e79fdd4f77e682edf46e58811e30c2077c4aafb2acd883b4b95d3"
+    },
+    "src/api/python/series.rs": {
+      "mode": "100644",
+      "sha256": "8301f81097a5d9c678063ab811f3c63beef409fb2997d7cc85ea3a69e9414fae"
+    },
+    "src/api/python/solution.rs": {
+      "mode": "100644",
+      "sha256": "68fac9a1440735bab97c185d78f995c9ed5cab2bd592cc227f506bac8497780f"
+    },
+    "src/api/python/symbolic_integration.rs": {
+      "mode": "100644",
+      "sha256": "28d9fe3322638ac68197c7bd7b52cc53f371233869b7b89010610bb8689ad6cc"
+    },
+    "src/atom.rs": {
+      "mode": "100644",
+      "sha256": "8a80326d8fba8686ee894d7de87834e0c4a04cb2ed881a77d56673119ad0f5aa"
+    },
+    "src/atom/alias.rs": {
+      "mode": "100644",
+      "sha256": "e72a91fbd2e3df316295e2f78b2a5de3433c75d514c82c13fe5205a072f683df"
+    },
+    "src/atom/coefficient.rs": {
+      "mode": "100644",
+      "sha256": "c23a44275b971ea1174eea8508c4f251a082e936e7683dc63852c87af094824a"
+    },
+    "src/atom/core.rs": {
+      "mode": "100644",
+      "sha256": "7cee9e6b344d8ea44a9ea4c0d5b250df63790456cf6180914d562bf5573b628f"
+    },
+    "src/atom/ops.rs": {
+      "mode": "100644",
+      "sha256": "de1d6e78fd654877f216dda8bbc13c581a0a4820a07684feea26cf0ec5e6e5e1"
+    },
+    "src/atom/properties.rs": {
+      "mode": "100644",
+      "sha256": "b10705cdecfd2b2c24bfc79b66064f01d9ac06d5d5e347cc68afe8ad6aba3ec0"
+    },
+    "src/atom/representation.rs": {
+      "mode": "100644",
+      "sha256": "88e16330628e16ea2ba8804cdef2cdb4abb1a09e6b7f6f4ef891834c605577e7"
+    },
+    "src/coefficient.rs": {
+      "mode": "100644",
+      "sha256": "db0edf43c9215fb9c897a21e03ab367351fe0c792a1cf7954a6f1c3cf79387e9"
+    },
+    "src/collect.rs": {
+      "mode": "100644",
+      "sha256": "ec0ac39e3299f29d2a1b3320836a86406979017b31dd8e167bef10fcc3596767"
+    },
+    "src/derivative.rs": {
+      "mode": "100644",
+      "sha256": "ed997817ac0bdc71e265bffe2cc0d8af95795c46cda5a4ca390c5c74567fdc60"
+    },
+    "src/domains.rs": {
+      "mode": "100644",
+      "sha256": "1614cde1aae3f5aad7e452a9cc3788d4c542a760c7a2d45c0d20309ddf1fdd65"
+    },
+    "src/domains/algebraic.rs": {
+      "mode": "100644",
+      "sha256": "81fc50d65bead87d5ecda0185d3feb8a7528394686bd7625adf742b4b5e39f81"
+    },
+    "src/domains/algebraic/kernels.rs": {
+      "mode": "100644",
+      "sha256": "4877eaeecf427b29ebf43b9e1cbc5457fce7e5a36815f3f9eeed8398e787510c"
+    },
+    "src/domains/algebraic/tests.rs": {
+      "mode": "100644",
+      "sha256": "1c6aa0b73095a285b3053e53d66b3759f82bcd3922d40d51ab524074c22ec0ef"
+    },
+    "src/domains/atom.rs": {
+      "mode": "100644",
+      "sha256": "dfc6d0b597417383eea5569ed29bb28d686d2bc2ffd29d564cbc0b7d2ba1d66a"
+    },
+    "src/domains/factorized_rational_polynomial.rs": {
+      "mode": "100644",
+      "sha256": "52127d7ff58b68fffb158ec59c42d859c57a863ea51d23f79d868614d71985be"
+    },
+    "src/domains/factorized_rational_polynomial/apart.rs": {
+      "mode": "100644",
+      "sha256": "6df76a90009488fcc1a20c1ac74113ff5848deefee0aa28a599ebd8c09bab764"
+    },
+    "src/domains/factorized_rational_polynomial/apart/linear.rs": {
+      "mode": "100644",
+      "sha256": "078ab190558257b79f4224e78e9f6795f2682e4e2d44f752a5ded08c72e1065e"
+    },
+    "src/domains/factorized_rational_polynomial/apart/tests.rs": {
+      "mode": "100644",
+      "sha256": "8b12b82db9a4180ef5fae59abab9763f8a5c46415ee1037980bb879ce35d7145"
+    },
+    "src/domains/factorized_rational_polynomial/constructor_tests.rs": {
+      "mode": "100644",
+      "sha256": "2cefec8e84c7c156375d7894230162d1f4a6aa69ae81404720e3a3f532a96632"
+    },
+    "src/domains/rational_polynomial.rs": {
+      "mode": "100644",
+      "sha256": "df3f5748f6d5957969c8af1c138696d4d9ac931b9c3dc4429bfe962574baffda"
+    },
+    "src/domains/rational_polynomial/arithmetic_tests.rs": {
+      "mode": "100644",
+      "sha256": "6f1bfacde0816b871de4d9ddd9b2cacc0bce9a78197af2a41b7ca8e4cfcd6dbb"
+    },
+    "src/evaluate.rs": {
+      "mode": "100644",
+      "sha256": "2c253d7b16c46778d811389f600d8bf8653384d70907bced47c9314868b21d34"
+    },
+    "src/evaluate/backend.rs": {
+      "mode": "100644",
+      "sha256": "030ceb7d2fa266a78efeb99275abc9185cb16e4e150aa0f1e64a5c3b74e14797"
+    },
+    "src/evaluate/backend/tests.rs": {
+      "mode": "100644",
+      "sha256": "f04d1bc45a8d50793f6ba6804fdb0ccfb6363bac2072636412ebbc0c64b93768"
+    },
+    "src/evaluate/domain.rs": {
+      "mode": "100644",
+      "sha256": "b39b4e26c8f08ba3d7e18c9ed15e178957cb11864032c2e73416539f23c9a93c"
+    },
+    "src/evaluate/dual.rs": {
+      "mode": "100644",
+      "sha256": "a6da1267821bb28f8c8f7eda8584c73f574308f93592ef74409d74b86519e040"
+    },
+    "src/evaluate/evaluator.rs": {
+      "mode": "100644",
+      "sha256": "97ab4e5382cb7942f80f5742c23b5ac7ea018929f9244a1db1ac69233cf68c65"
+    },
+    "src/evaluate/export.rs": {
+      "mode": "100644",
+      "sha256": "e900325f3f2fdf0510e13cc05c440d80e98b9b1eb4b4ac565f237424735c6f2c"
+    },
+    "src/evaluate/external.rs": {
+      "mode": "100644",
+      "sha256": "025b9a73d310afd29993e079af59a90e5a264656dc174b6f794bd1121a4a11e0"
+    },
+    "src/evaluate/function_map.rs": {
+      "mode": "100644",
+      "sha256": "9ebc261953a132f7045db29c20887af0bda50764f55859b2a21186af06644b7e"
+    },
+    "src/evaluate/instruction.rs": {
+      "mode": "100644",
+      "sha256": "4f6b10ad349d3f9e3f25355b2b572390fd61c90c13e1ed16349c77c9f652d7f5"
+    },
+    "src/evaluate/optimize.rs": {
+      "mode": "100644",
+      "sha256": "899d86347eb9efc9ae39d85e94d0c5a35fbc6de8a1efa13b9ccc95464f92e0f6"
+    },
+    "src/evaluate/tree.rs": {
+      "mode": "100644",
+      "sha256": "7b5e7e358bce1f30c2ed696ff25ffc48448544004d3b96de7c38304045ad0952"
+    },
+    "src/expand.rs": {
+      "mode": "100644",
+      "sha256": "29c6af5f56a52d0d4f9b501d8a45cc3fd12b8c36c1ea6222de7931a02c3ee101"
+    },
+    "src/id.rs": {
+      "mode": "100644",
+      "sha256": "2a4102f0516861703093282144da822fc3518938beea8689f5f833828cf0f63e"
+    },
+    "src/lib.rs": {
+      "mode": "100644",
+      "sha256": "d1b1f6a767aae19f85cf30bd95ace6620b432b6127f4372cab4f1682aa77b4dd"
+    },
+    "src/license.rs": {
+      "mode": "100644",
+      "sha256": "423218f91095968f04baabfff6ff02183209cbb3f4be7a0e290d97f57cbb83e9"
+    },
+    "src/normalize.rs": {
+      "mode": "100644",
+      "sha256": "51edb0c499845287d40ebdb199b6072934284290a1b472cc8cd7ddd550d9dcc1"
+    },
+    "src/parser.rs": {
+      "mode": "100644",
+      "sha256": "9f6147e60dd6fc73788bc09685d1e79b1b51795c31e418f5600b91f9a4997562"
+    },
+    "src/poly.rs": {
+      "mode": "100644",
+      "sha256": "acd384abc3e6433ad8ee8207031833fa3dcbec1d96098746a6e61eab4b6a6a58"
+    },
+    "src/poly/benchmark_capture.rs": {
+      "mode": "100644",
+      "sha256": "9d9a43f9b8d3a19e541d08b547cbdfc9906fdc87762735e6f3b8f62fe6b94565"
+    },
+    "src/poly/factor.rs": {
+      "mode": "100644",
+      "sha256": "d5eaea5bc76e04aa29a0f481f94ba43580230d314fb0b182faebd9fe469e3fa1"
+    },
+    "src/poly/gcd.rs": {
+      "mode": "100755",
+      "sha256": "35332a1b91b5b970c0b3a86f0b3a03aedad1e8ee9026d380b67a35e0f7a3b357"
+    },
+    "src/poly/groebner.rs": {
+      "mode": "100644",
+      "sha256": "dde870942b229ef95a9cf1db67a83903a3c6133b87d549503a8bd9873e55f5be"
+    },
+    "src/poly/polynomial.rs": {
+      "mode": "100755",
+      "sha256": "0b027b7db5ed8de255b75a1ad7d6accb8af93c948ad7100bc46050e0596e0e74"
+    },
+    "src/poly/polynomial/division_tests.rs": {
+      "mode": "100644",
+      "sha256": "e2e0b83cbad69be875a3218879796d249a3cd4271486b6a555b4a542a173c69a"
+    },
+    "src/poly/polynomial/homogeneous.rs": {
+      "mode": "100644",
+      "sha256": "96cedf821226683348902fd4d8a09c56a5f4640f354d890ee5abc4e32d8e09df"
+    },
+    "src/poly/polynomial/rational_division.rs": {
+      "mode": "100644",
+      "sha256": "264f1d780f9253b3e0d8b6cf71b527696302f673116f169a6d0a23364e26ab91"
+    },
+    "src/poly/resultant.rs": {
+      "mode": "100644",
+      "sha256": "73ab04c2c264b0a1b81a781edd76cf055c27742ccfdd8b06e97381d54044085c"
+    },
+    "src/poly/series.rs": {
+      "mode": "100644",
+      "sha256": "1e9b1237e32c882445a92db70beb2283333274a65399ea13bf7c29d97ad87516"
+    },
+    "src/poly/univariate.rs": {
+      "mode": "100644",
+      "sha256": "e6cac5f6d129414f532f1ad29fa4b040ddfb1b3f38afe851e3b2247b727b2b31"
+    },
+    "src/poly/univariate/roots.rs": {
+      "mode": "100644",
+      "sha256": "a46ea7bacf65ddd543146ab3b49621d3f0c578dbedb710f2df0bc6631f54e8ca"
+    },
+    "src/poly/univariate/roots/tests.rs": {
+      "mode": "100644",
+      "sha256": "2f5763a1657b2edd9356b0004090b24547b194c781a4dfdbf5a2ee2044e1eb8b"
+    },
+    "src/poly/univariate/tests.rs": {
+      "mode": "100644",
+      "sha256": "bfcc6f69879171aa9499777accb6acb779b5fe562da2c7e2ee65c918e31e7f0c"
+    },
+    "src/printer.rs": {
+      "mode": "100644",
+      "sha256": "897979f1c75a33e243ef9c935521d0f70a5da6d8f2fb5033a62577b13e289057"
+    },
+    "src/solve.rs": {
+      "mode": "100644",
+      "sha256": "40eb24bf0c9ab16df75e4d0413ab4c0f28c934195894732bd272fdfffade79c6"
+    },
+    "src/solve/solution_set.rs": {
+      "mode": "100644",
+      "sha256": "5858008efbb58451c1dfc37ae42d95db2089ea0c1738f3405ea94316d6ebd1de"
+    },
+    "src/state.rs": {
+      "mode": "100644",
+      "sha256": "0635ce16ad670e57d8b9761163bdaf31eab64413810cd1d7731c93793c874a1c"
+    },
+    "src/streaming.rs": {
+      "mode": "100644",
+      "sha256": "9e0a2f19a932e6dc2b7a966a72cacf4f77cb52b6be65bad4735844e045b8dcba"
+    },
+    "src/tensors.rs": {
+      "mode": "100644",
+      "sha256": "f1e071d7397a4c1618bdb0cff3e9474d456709b8513dcff76b7772ad2a497629"
+    },
+    "src/transcendental.rs": {
+      "mode": "100644",
+      "sha256": "99786b82b110ec42607878c3e5a97c9580e5604b7aaab70b7c9c11f069db841c"
+    },
+    "src/transcendental/cpp.rs": {
+      "mode": "100644",
+      "sha256": "2d23105bcf2723a4999775e9369111f294b488ae8635f4369d522f2f379d4a1c"
+    },
+    "src/transformer.rs": {
+      "mode": "100644",
+      "sha256": "9f4b1c559a2c46f505c6e1cc863bf15cd20941800fc68cf9f7b49c673eaa38c0"
+    },
+    "src/utils.rs": {
+      "mode": "100644",
+      "sha256": "2436b2a8e04f7d41c793303584658dd231563476aeafa82c1b7b151163eb001b"
+    },
+    "symbolica.pyi": {
+      "mode": "100644",
+      "sha256": "37cc21964cac187db0c6cc8d45e38411d257f4427b648ddb614b76e2baa95e3c"
+    },
+    "tests/cpp_transcendentals.rs": {
+      "mode": "100644",
+      "sha256": "a78428372ef9daefe5cbd934e9f9bd4ca8c7e8dbdd610f41a98d31488b44fc7a"
+    },
+    "tests/evaluation.rs": {
+      "mode": "100644",
+      "sha256": "b7f7c83b8247c0ee392b0e41d65b9fbadad8536bcbb9b361e75dd6eb3e512710"
+    },
+    "tests/import_export.rs": {
+      "mode": "100644",
+      "sha256": "d561e6bf32d456ade8052c2a1cf04b4ddc933808a3a146251416f5ceb8f17b7e"
+    },
+    "tests/numerica_api.py": {
+      "mode": "100644",
+      "sha256": "c00a163071aff9063fd117fa7a271fa6a78e3a43221532e2ed776b367388bd1e"
+    },
+    "tests/pattern_matching.rs": {
+      "mode": "100644",
+      "sha256": "412061f1ababc6a8bd66fb08ae6818f733b4b6794732429b956d42a1603ec70e"
+    },
+    "tests/polynomial_division.py": {
+      "mode": "100644",
+      "sha256": "c0663cf1468bfc30312ffd3bc2ebb78e16c2e3bee24239c4b07eddbb2fef7ac3"
+    },
+    "tests/properties.rs": {
+      "mode": "100644",
+      "sha256": "123b12d06c7d89c001ecb4a865db030ac6c0e3b0aee930914c87433c1e30cb4b"
+    },
+    "tests/properties_api.py": {
+      "mode": "100644",
+      "sha256": "998a933ff42e7badd845939ab86ce4484303170e98833bc1300eac3be1f6a41a"
+    },
+    "tests/python_floats.py": {
+      "mode": "100644",
+      "sha256": "5420c670606a491429e1b68b7b0861b0f701fd80036244588508134dc33b084f"
+    },
+    "tests/rational_polynomial.rs": {
+      "mode": "100644",
+      "sha256": "3502919b3be8582e0e47c620e91228112fc39a0f5a596e32f9c6c8eb74ba3a2e"
+    },
+    "tests/root_scaling.rs": {
+      "mode": "100644",
+      "sha256": "762506e375891b3258bb19c8ebb6c74338effee88f0d035d7680b52521881cd6"
+    },
+    "tests/solve_api.py": {
+      "mode": "100644",
+      "sha256": "5ebbc6affb649e808dfdcb06a3ca5a56168a426c3444a92a6f005da22d3681f2"
+    },
+    "tools/check_api_stubs.py": {
+      "mode": "100644",
+      "sha256": "7677e13da44e7a836eba59efef5cef5b8dceedca2c17ffbeb2467d63c350a7d2"
+    },
+    "tools/check_doc_examples.py": {
+      "mode": "100644",
+      "sha256": "c3eb969721cdc2d02cf122b6612304a560fda22a472712aa9430659cb1fe5432"
+    }
+  },
+  "package": "symbolica",
+  "version": "3.0.1"
+}

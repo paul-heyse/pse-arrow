@@ -24,6 +24,7 @@ the archive. The wrapper bundles SUNDIALS 7.1.1; its version is distinct from th
 | `faer-traits` | `faer-traits` | `0.24.0` | `b87d23ed7ab1f26c0cba0e5b9e061a796fbb7dc170fa8bee6970055a1308bb0f` | `8dfcceee8eb3d81231366acc9d3f157ac5e7057a` | `faer-traits` | https://github.com/sarah-quinones/faer-rs |
 | `surrealdb` | `surrealdb` | `3.3.4` | `c045d1519c7f0b7a15eb1f0b53bda772e95b4a50de3000b30ac2dcfebaa891dd` | `1ac2b1dba7cd177621a4cf5d507caebeb2414395` | `surrealdb` | https://github.com/surrealdb/surrealdb |
 | `surrealdb-engine-api` | `surrealdb-engine-api` | `3.3.4` | `604b176c1ead986bb77da66f8d8e22f634d203e8cae8b23b3ca9afbf6144c954` | `1ac2b1dba7cd177621a4cf5d507caebeb2414395` | `surrealdb/engine-api` | https://github.com/surrealdb/surrealdb |
+| `symbolica` | `symbolica` | `3.0.1` | `0965398bbe5063c00b3a0d078d7d3dc57b61819b97e960b73e9a7e9602662795` | `e9a0d35490a834afb2fa40d97c8c0b1e58ef5a5e` | `.` | https://github.com/symbolica-dev/symbolica |
 
 ## Complete byte deltas
 
@@ -47,15 +48,18 @@ categories describe the diff and do not assert semantic equivalence.
 | `diffsol` | 2 | 0 | 0 | 0 | [diffsol.patch](diffsol.patch) |
 | `diffsol-la` | 1 | 0 | 0 | 0 | [diffsol-la.patch](diffsol-la.patch) |
 | `diffsol-nl` | 1 | 0 | 0 | 0 | [diffsol-nl.patch](diffsol-nl.patch) |
+| `faer` | 3 | 0 | 0 | 0 | [faer.patch](faer.patch) |
+| `faer-traits` | 1 | 0 | 0 | 0 | [faer-traits.patch](faer-traits.patch) |
 | `surrealdb` | 64 | 20 | 6 | 0 | [surrealdb.patch](surrealdb.patch) |
 | `surrealdb-engine-api` | 4 | 0 | 2 | 0 | [surrealdb-engine-api.patch](surrealdb-engine-api.patch) |
+| `symbolica` | 2 | 0 | 0 | 0 | [symbolica.patch](symbolica.patch) |
 
 The SDK's twenty whitespace-only files include sixteen `src/` files, `build.rs` and
 three benchmark files. Added SDK files are `.cargo-ok`, `src/engine/remote/grpc_lifecycle.rs`,
 `grpc_lifecycle_tests.rs`, `grpc_wire.rs`, `grpc_wire_schema.rs` in that same directory,
 and `tools/update_grpc_wire_schema.py`. The engine API adds `.cargo-ok` and `src/request.rs`.
 SuiteSparse adds `.gitattributes` to retain its two published CRLF files. There are no deleted
-archive files in these seven current trees; the comparison below still checks the entire path
+archive files in these supplier trees; the comparison below still checks the entire path
 set and would detect an omitted deletion. The patch itself is the complete hunk inventory.
 
 ## Reconstruct and compare

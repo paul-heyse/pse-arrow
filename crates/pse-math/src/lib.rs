@@ -32,6 +32,7 @@ mod native_compiled;
 pub mod normalization;
 pub mod numerics;
 pub mod presolve;
+mod rational_binary64;
 pub mod sparse;
 pub mod typed;
 pub use error::MathError;

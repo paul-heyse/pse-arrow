@@ -136,6 +136,16 @@ mod tests {
         fs::write(&source, b"original source").unwrap();
         fs::write(&delta, b"changed delta").unwrap();
         assert!(authenticated(&root, "supplier").is_err());
+        // Intentional same-version edits become a different authenticated input
+        // only after the maintained delta and its reconstruction receipt move.
+        fs::write(&source, b"changed same-version source").unwrap();
+        let mut changed = receipt.clone();
+        changed["delta_sha256"] = sha256(b"changed delta").into();
+        changed["files"]["src/lib.rs"]["sha256"] = sha256(b"changed same-version source").into();
+        fs::write(root.join("vendor/deltas/supplier.source.json"), changed.to_string()).unwrap();
+        assert_ne!(authenticated(&root, "supplier").unwrap(), identity);
+        fs::write(root.join("vendor/deltas/supplier.source.json"), receipt.to_string()).unwrap();
+        fs::write(&source, b"original source").unwrap();
         fs::write(&delta, b"complete delta").unwrap();
         fs::write(root.join("vendor/supplier/src/new.rs"), b"new source").unwrap();
         assert!(authenticated(&root, "supplier").is_err());

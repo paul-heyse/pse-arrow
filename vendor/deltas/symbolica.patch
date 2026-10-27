@@ -1,0 +1,332 @@
+diff --git a/src/poly/univariate.rs b/src/poly/univariate.rs
+index ea11041071da2240d1d097f0bd9f0ef2d9ab7f23..fab6c117a4920a354ded673f3e20a7c2873f138f 100644
+--- a/src/poly/univariate.rs
++++ b/src/poly/univariate.rs
+@@ -36,6 +36,42 @@ use super::{
+     polynomial::{MultivariatePolynomial, PolynomialRing},
+ };
+ 
++/// Incremental admission immediately before exact real-root isolation work.
++#[derive(Clone, Copy, Debug)]
++pub struct RealRootIsolationStep {
++    /// Conservative scalar exact-arithmetic operation count for the next stage.
++    pub operations: usize,
++    /// Conservative peak live integer/rational/vector mathematical storage.
++    pub bytes: usize,
++}
++
++/// A bounded isolation request refused without publishing partial roots.
++#[derive(Debug)]
++pub enum BoundedRootIsolationError<E> {
++    /// The caller's cancellation, deadline, work or storage refusal.
++    Control(E),
++    /// An unsupported degree or an unrepresentable predicted extent.
++    Extent,
++}
++
++/// Extents are mathematical storage, including old/new vector overlap and
++/// temporaries, rather than allocator bookkeeping or process RSS. For cubic VAS
++/// a stage retains <=3 pending intervals, <=6 root intervals (before endpoint
++/// normalization), and <=3 temporary degree-three polynomials. 512 integer slots
++/// dominate their limbs, matrices, rational numerators/denominators, arithmetic
++/// temporaries and old/new vector capacities. Each slot includes its Rust owner
++/// and twice the rounded limb payload for growth/copy overlap.
++fn real_root_step<E>(bits: u64, operations: usize) -> Result<RealRootIsolationStep, BoundedRootIsolationError<E>> {
++    let limb_bytes = bits.checked_add(63).and_then(|n| n.checked_div(64))
++        .and_then(|n| n.checked_mul(8)).and_then(|n| usize::try_from(n).ok())
++        .ok_or(BoundedRootIsolationError::Extent)?;
++    let bytes = limb_bytes.checked_mul(2)
++        .and_then(|n| n.checked_add(std::mem::size_of::<Integer>()))
++        .and_then(|n| n.checked_mul(512)).and_then(|n| n.checked_add(8192))
++        .ok_or(BoundedRootIsolationError::Extent)?;
++    Ok(RealRootIsolationStep { operations, bytes })
++}
++
+ /// A univariate polynomial ring.
+ #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+ pub struct UnivariatePolynomialRing<R: Ring> {
+@@ -1117,12 +1153,27 @@ impl<F: Ring> UnivariatePolynomial<F> {
+     }
+ 
+     fn quot_rem_impl(&self, div: &Self, early_return: bool) -> (Self, Self) {
++        match self.quot_rem_impl_controlled::<std::convert::Infallible>(div, early_return, None) {
++            Ok(result) => result,
++            Err(error) => match error {},
++        }
++    }
++
++    fn quot_rem_impl_controlled<E>(
++        &self,
++        div: &Self,
++        early_return: bool,
++        mut control: Option<&mut dyn FnMut(&Self, &Self) -> Result<(), E>>,
++    ) -> Result<(Self, Self), E> {
++        if let Some(admit) = control.as_mut() {
++            admit(self,div)?;
++        }
+         if div.is_zero() {
+             panic!("Cannot divide by 0");
+         }
+ 
+         if self.is_zero() {
+-            return (self.clone(), self.clone());
++            return Ok((self.clone(), self.clone()));
+         }
+ 
+         if self.variable != div.variable {
+@@ -1133,7 +1184,7 @@ impl<F: Ring> UnivariatePolynomial<F> {
+         let m = div.degree();
+ 
+         if n < m {
+-            return (self.zero(), self.clone());
++            return Ok((self.zero(), self.clone()));
+         }
+ 
+         let mut q = self.zero();
+@@ -1142,11 +1193,14 @@ impl<F: Ring> UnivariatePolynomial<F> {
+         let mut r = self.clone();
+ 
+         while n >= m {
++            if let Some(admit) = control.as_mut() {
++                admit(&r,div)?;
++            }
+             if let Some(qq) = self.ring.try_div(&r.coefficients[n], &div.coefficients[m]) {
+                 r = r - div.mul_exp(n - m).mul_coeff(&qq);
+                 q.coefficients[n - m] = qq;
+             } else if early_return {
+-                return (self.zero(), r);
++                return Ok((self.zero(), r));
+             } else {
+                 break;
+             }
+@@ -1160,7 +1214,7 @@ impl<F: Ring> UnivariatePolynomial<F> {
+ 
+         q.truncate();
+ 
+-        (q, r)
++        Ok((q, r))
+     }
+ }
+ 
+@@ -1427,6 +1481,28 @@ impl UnivariatePolynomial<IntegerRing> {
+ 
+     /// Isolate the roots of the polynomial using VAS-CF.
+     fn isolate_real_roots_square_free(&self) -> Vec<(Rational, Rational)> {
++        match self.isolate_real_roots_square_free_controlled::<std::convert::Infallible>(None) {
++            Ok(roots) => roots,
++            Err(BoundedRootIsolationError::Control(error)) => match error {},
++            Err(BoundedRootIsolationError::Extent) => unreachable!("unbounded VAS has no extent admission"),
++        }
++    }
++
++    fn isolate_real_roots_square_free_controlled<E>(
++        &self,
++        mut control: Option<&mut dyn FnMut(RealRootIsolationStep) -> Result<(), E>>,
++    ) -> Result<Vec<(Rational, Rational)>, BoundedRootIsolationError<E>> {
++        if let Some(admit) = control.as_mut() {
++            if self.degree() == 0 || self.degree() > 3 {
++                return Err(BoundedRootIsolationError::Extent);
++            }
++            let height = self.coefficients.iter().map(Integer::significant_bits).max().unwrap_or(1);
++            // Local-max root bound has <=h+5 bits. Scaling by its
++            // i-th power (i<=3), reversal and unit shift need <=4h+32.
++            let bits = height.checked_mul(4).and_then(|n| n.checked_add(32))
++                .ok_or(BoundedRootIsolationError::Extent)?;
++            admit(real_root_step(bits, 256)?).map_err(BoundedRootIsolationError::Control)?;
++        }
+         let mut roots = vec![];
+ 
+         let mut p = self.clone();
+@@ -1455,12 +1531,12 @@ impl UnivariatePolynomial<IntegerRing> {
+ 
+         let s = p.sign_changes();
+         if s == 0 {
+-            return roots;
++            return Ok(roots);
+         }
+ 
+         if s == 1 {
+             roots.push((0.into(), max_root.into()));
+-            return roots;
++            return Ok(roots);
+         }
+ 
+         struct Interval {
+@@ -1490,6 +1566,26 @@ impl UnivariatePolynomial<IntegerRing> {
+             mut s,
+         }) = intervals.pop()
+         {
++            if let Some(admit) = control.as_mut() {
++                let height = p.coefficients.iter().map(Integer::significant_bits).max().unwrap_or(1);
++                let matrix = [&a,&b,&c,&d].into_iter().map(Integer::significant_bits).max().unwrap_or(1);
++                let retained = intervals.iter().flat_map(|interval| {
++                    interval.p.coefficients.iter().chain([&interval.a,&interval.b,&interval.c,&interval.d])
++                }).map(Integer::significant_bits).chain(roots.iter().flat_map(|(a,b)| {
++                    [a.numerator_ref(),a.denominator_ref(),b.numerator_ref(),b.denominator_ref()]
++                }).map(Integer::significant_bits)).max().unwrap_or(1);
++                // Reversed local-max bound and its reciprocal have <=h+5
++                // bits. Rescaling degree<=3 and then a unit shift gives
++                // coefficient limbs <=4h+32. Matrix products/additions
++                // need <=matrix+h+8. Both candidate branches and all pending
++                // states/roots are covered together before any transform.
++                let bits = height.checked_mul(4).and_then(|n| n.checked_add(32))
++                    .zip(matrix.checked_add(height).and_then(|n| n.checked_add(8)))
++                    .map(|(a,b)| a.max(b).max(retained))
++                    .ok_or(BoundedRootIsolationError::Extent)?;
++                admit(real_root_step(bits, 512)?).map_err(BoundedRootIsolationError::Control)?;
++            }
++
+             // compute lower bound on root
+             p.coefficients.reverse();
+             let upper_bound = p.max_real_root_bound();
+@@ -1589,7 +1685,7 @@ impl UnivariatePolynomial<IntegerRing> {
+             }
+         }
+ 
+-        roots
++        Ok(roots)
+     }
+ }
+ 
+diff --git a/src/poly/univariate/roots.rs b/src/poly/univariate/roots.rs
+index 7fac867d337cb888371313162b1b6d976ab350a3..730cf12253f607f9299ffdd959fc415b0ff1c8b8 100644
+--- a/src/poly/univariate/roots.rs
++++ b/src/poly/univariate/roots.rs
+@@ -2171,6 +2171,137 @@ impl UnivariatePolynomial<RationalField> {
+         stripped.isolate_real_root_intervals()
+     }
+ 
++    /// Deterministic square-free reduction for degree one through three,
++    /// admitting every exact quotient step before allocation and arithmetic.
++    /// The result differs from p/gcd(p,p') only by a nonzero scalar.
++    pub fn square_free_part_bounded<E>(
++        &self,
++        mut control: impl FnMut(RealRootIsolationStep) -> Result<(), E>,
++    ) -> Result<Self, BoundedRootIsolationError<E>> {
++        let mut peak_bytes = 0;
++        let mut report = |mut step: RealRootIsolationStep| {
++            peak_bytes = peak_bytes.max(step.bytes);
++            step.bytes = peak_bytes;
++            control(step)
++        };
++        if self.degree()==0 || self.degree()>3 {
++            return Err(BoundedRootIsolationError::Extent);
++        }
++        let mut admit = |left: &Self, right: &Self| {
++            let height = left.coefficients.iter().chain(&right.coefficients).flat_map(|c| {
++                [c.numerator_ref().significant_bits(),c.denominator_ref().significant_bits()]
++            }).max().unwrap_or(1);
++            // One rational quotient has <=2h-bit limbs; multiplying its
++            // divisor uses <=3h, and subtracting from a remainder coefficient
++            // uses <=4h+1 before canonical reduction. Degree<=3 keeps all
++            // vectors at four entries, covered by the common slot envelope.
++            let bits = height.checked_add(4).and_then(|n| n.checked_mul(8))
++                .ok_or(BoundedRootIsolationError::Extent)?;
++            report(real_root_step(bits,64)?).map_err(BoundedRootIsolationError::Control)
++        };
++        admit(self,self)?;
++        let mut left = self.clone();
++        let mut right = self.derivative();
++        while !right.is_zero() {
++            let (_,remainder) = left.quot_rem_impl_controlled(&right,false,Some(&mut admit))?;
++            left=right;
++            right=remainder;
++        }
++        let (square_free,remainder) = self.quot_rem_impl_controlled(&left,false,Some(&mut admit))?;
++        if !remainder.is_zero() {
++            return Err(BoundedRootIsolationError::Extent);
++        }
++        Ok(square_free)
++    }
++
++    /// Isolate an already square-free rational polynomial of degree one to
++    /// three using VAS-CF, with admission before every finite transform.
++    ///
++    /// The caller establishes square-freeness. Unlike the general API this
++    /// overload never invokes Yun factorization, a preferred polynomial GCD,
++    /// complex isolation or the global root cache. Exact endpoint roots are
++    /// normalized to singleton intervals; every other interval owns one root
++    /// strictly in its open interior. No partial list is returned on refusal.
++    pub fn isolate_real_root_intervals_square_free_bounded<E>(
++        &self,
++        mut control: impl FnMut(RealRootIsolationStep) -> Result<(), E>,
++    ) -> Result<Vec<(Rational, Rational)>, BoundedRootIsolationError<E>> {
++        let mut peak_bytes = 0;
++        let mut report = |mut step: RealRootIsolationStep| {
++            peak_bytes = peak_bytes.max(step.bytes);
++            step.bytes = peak_bytes;
++            control(step)
++        };
++        if self.degree() == 0 || self.degree() > 3 {
++            return Err(BoundedRootIsolationError::Extent);
++        }
++        let height = self.coefficients.iter().flat_map(|c| {
++            [c.numerator_ref().significant_bits(), c.denominator_ref().significant_bits()]
++        }).max().unwrap_or(1);
++        // At most four rational coefficients: common denominator/product
++        // content, divisions and conversion to primitive integer coefficients
++        // use <=32h+64 bits including unreduced rational intermediates.
++        let bits = height.checked_mul(32).and_then(|n| n.checked_add(64))
++            .ok_or(BoundedRootIsolationError::Extent)?;
++        report(real_root_step(bits, 256)?).map_err(BoundedRootIsolationError::Control)?;
++        let content = self.content();
++        let stripped = self.map_coeff(|coefficient| {
++            self.ring.div(coefficient, &content).numerator()
++        }, Z);
++        let mut intervals = Vec::with_capacity(2*self.degree());
++        for negative in [true, false] {
++            report(real_root_step(bits, 32)?).map_err(BoundedRootIsolationError::Control)?;
++            let mut polynomial = stripped.clone();
++            if negative {
++                for coefficient in polynomial.coefficients.iter_mut().skip(1).step_by(2) {
++                    *coefficient = -coefficient.clone();
++                }
++            }
++            for (mut a, mut b) in polynomial.isolate_real_roots_square_free_controlled(Some(&mut report))? {
++                if negative {
++                    std::mem::swap(&mut a, &mut b);
++                    a = -a;
++                    b = -b;
++                }
++                intervals.push((a,b));
++            }
++        }
++        // VAS can return an exact root as an endpoint of a nondegenerate
++        // interval. Preserve it separately, then use signs immediately inside
++        // the ends to decide whether an open-interior root also belongs here.
++        // Degree<=3 and square-freeness make these simple endpoint roots.
++        let mut result = Vec::with_capacity(2*self.degree());
++        for (a,b) in &intervals {
++            let endpoints = intervals.iter().flat_map(|(a,b)| {
++                [a.numerator_ref(),a.denominator_ref(),b.numerator_ref(),b.denominator_ref()]
++            }).map(Integer::significant_bits).max().unwrap_or(1);
++            let bits = height.checked_add(endpoints).and_then(|n| n.checked_add(2))
++                .and_then(|n| n.checked_mul(8)).ok_or(BoundedRootIsolationError::Extent)?;
++            report(real_root_step(bits, 128)?).map_err(BoundedRootIsolationError::Control)?;
++            let fa = self.evaluate(a);
++            let fb = self.evaluate(b);
++            for (point,value) in [(a,&fa),(b,&fb)] {
++                if value.is_zero() && !result.iter().any(|(lo,hi)| lo==point && hi==point) {
++                    result.push((point.clone(),point.clone()));
++                }
++            }
++            if a==b {
++                continue;
++            }
++            let derivative = self.derivative();
++            let left_negative = if fa.is_zero() { derivative.evaluate(a).is_negative() } else { fa.is_negative() };
++            let right_negative = if fb.is_zero() { !derivative.evaluate(b).is_negative() } else { fb.is_negative() };
++            if left_negative != right_negative {
++                result.push((a.clone(),b.clone()));
++            }
++        }
++        result.sort();
++        if result.len()>self.degree() {
++            return Err(BoundedRootIsolationError::Extent);
++        }
++        Ok(result)
++    }
++
+     /// Approximate the single root of the polynomial in the interval (lower, higher) with a given tolerance
+     /// using bisection.
+     pub fn refine_root_interval(

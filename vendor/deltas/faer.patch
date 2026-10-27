@@ -1,0 +1,440 @@
+diff --git a/src/linalg/matmul/internal/mod.rs b/src/linalg/matmul/internal/mod.rs
+index ef84d6b7b8c819175264c880c366affa44bc5925..26619c08a16f244bd3acf3642610dbc080eac964 100644
+--- a/src/linalg/matmul/internal/mod.rs
++++ b/src/linalg/matmul/internal/mod.rs
+@@ -3,19 +3,7 @@ use crate::linalg::matmul::triangular::DiagonalKind;
+ use crate::{MatRef, assert};
+ use linalg::matmul::triangular::BlockStructure;
+ pub fn has_spicy_matmul<T: ComplexField>() -> bool {
+-	#[cfg(all(target_arch = "x86_64", feature = "std"))]
+-	if const {
+-		T::IS_NATIVE_F64
+-			|| T::IS_NATIVE_F32
+-			|| T::IS_NATIVE_C64
+-			|| T::IS_NATIVE_C32
+-	} {
+-		if std::is_x86_feature_detected!("avx2")
+-			&& std::is_x86_feature_detected!("fma")
+-		{
+-			return true;
+-		}
+-	}
++	// Native GEMM is excluded by the maintained nonfused arithmetic policy.
+ 	false
+ }
+ pub fn spicy_matmul_scratch<T: ComplexField>(
+@@ -25,19 +13,7 @@ pub fn spicy_matmul_scratch<T: ComplexField>(
+ 	gather: bool,
+ 	diag: bool,
+ ) -> StackReq {
+-	#[cfg(all(target_arch = "x86_64", feature = "std"))]
+-	if const {
+-		T::IS_NATIVE_F64
+-			|| T::IS_NATIVE_F32
+-			|| T::IS_NATIVE_C64
+-			|| T::IS_NATIVE_C32
+-	} {
+-		if std::is_x86_feature_detected!("avx2")
+-			&& std::is_x86_feature_detected!("fma")
+-		{
+-			return StackReq::EMPTY;
+-		}
+-	}
++
+ 	let diag = temp_mat_scratch::<T>(nrows, if diag { depth } else { 0 });
+ 	let gather = temp_mat_scratch::<T>(nrows, if gather { ncols } else { 0 });
+ 	diag.and(gather)
+@@ -86,123 +62,8 @@ pub fn spicy_matmul<I: Index, T: ComplexField>(
+ 			assert!(j.zx() < C.ncols());
+ 		}
+ 	}
+-	#[cfg(all(target_arch = "x86_64", feature = "std"))]
+-	if const {
+-		T::IS_NATIVE_F64
+-			|| T::IS_NATIVE_F32
+-			|| T::IS_NATIVE_C64
+-			|| T::IS_NATIVE_C32
+-	} {
+-		use private_gemm_x86::*;
+-		let feat = if std::arch::is_x86_feature_detected!("avx512f") {
+-			Some(InstrSet::Avx512)
+-		} else if std::arch::is_x86_feature_detected!("avx2")
+-			&& std::arch::is_x86_feature_detected!("fma")
+-		{
+-			Some(InstrSet::Avx256)
+-		} else {
+-			None
+-		};
+-		if let Some(feat) = feat {
+-			let mut C = C;
+-			let mut A = A;
+-			let mut B = B;
+-			let mut row_idx = row_idx;
+-			let mut col_idx = col_idx;
+-			if matches!(
+-				C_block,
+-				BlockStructure::StrictTriangularLower
+-					| BlockStructure::UnitTriangularLower
+-			) {
+-				if nrows == 0 {
+-					return;
+-				}
+-				A = A.get(1.., ..);
+-				if let Some(row_idx) = &mut row_idx {
+-					*row_idx = &row_idx[1..];
+-				} else {
+-					C = C.get_mut(1.., ..);
+-				}
+-			}
+-			if matches!(
+-				C_block,
+-				BlockStructure::StrictTriangularUpper
+-					| BlockStructure::UnitTriangularUpper
+-			) {
+-				if ncols == 0 {
+-					return;
+-				}
+-				B = B.get(.., 1..);
+-				if let Some(col_idx) = &mut col_idx {
+-					*col_idx = &col_idx[1..];
+-				} else {
+-					C = C.get_mut(.., 1..);
+-				}
+-			}
+-			unsafe {
+-				private_gemm_x86::gemm(
+-					const {
+-						if T::IS_NATIVE_F64 {
+-							DType::F64
+-						} else if T::IS_NATIVE_F32 {
+-							DType::F32
+-						} else if T::IS_NATIVE_C64 {
+-							DType::C64
+-						} else {
+-							DType::C32
+-						}
+-					},
+-					const {
+-						if size_of::<I>() == 4 {
+-							IType::U32
+-						} else if size_of::<I>() == 8 {
+-							IType::U64
+-						} else {
+-							unreachable!()
+-						}
+-					},
+-					feat,
+-					nrows,
+-					ncols,
+-					depth,
+-					C.as_ptr_mut() as _,
+-					C.row_stride(),
+-					C.col_stride(),
+-					row_idx.map(|idx| idx.as_ptr()).unwrap_or(core::ptr::null())
+-						as _,
+-					col_idx.map(|idx| idx.as_ptr()).unwrap_or(core::ptr::null())
+-						as _,
+-					match C_block {
+-						BlockStructure::Rectangular => DstKind::Full,
+-						BlockStructure::TriangularLower => DstKind::Lower,
+-						BlockStructure::StrictTriangularLower => DstKind::Lower,
+-						BlockStructure::UnitTriangularLower => DstKind::Lower,
+-						BlockStructure::TriangularUpper => DstKind::Upper,
+-						BlockStructure::StrictTriangularUpper => DstKind::Upper,
+-						BlockStructure::UnitTriangularUpper => DstKind::Upper,
+-					},
+-					match beta {
+-						crate::Accum::Replace => Accum::Replace,
+-						crate::Accum::Add => Accum::Add,
+-					},
+-					A.as_ptr() as _,
+-					A.row_stride(),
+-					A.col_stride(),
+-					conj_A == Conj::Yes,
+-					D.map(|D| D.column_vector().as_ptr() as _)
+-						.unwrap_or(core::ptr::null()),
+-					D.map(|D| D.column_vector().row_stride()).unwrap_or(0),
+-					B.as_ptr() as _,
+-					B.row_stride(),
+-					B.col_stride(),
+-					conj_B == Conj::Yes,
+-					&raw const alpha as _,
+-					par.degree(),
+-				);
+-				return;
+-			}
+-		}
+-	}
++	// Always use the generic route and its matching gather/diagonal scratch.
++
+ 	let (mut out, stack) = unsafe {
+ 		temp_mat_uninit::<T, _, _>(
+ 			nrows,
+diff --git a/src/linalg/matmul/mod.rs b/src/linalg/matmul/mod.rs
+index 1c4c0f2d869473181cd7845fca11de5625002de5..c94b50e991b5959ec72b3ffe9b06095068cdd6f0 100644
+--- a/src/linalg/matmul/mod.rs
++++ b/src/linalg/matmul/mod.rs
+@@ -13,8 +13,6 @@ use equator::assert;
+ use faer_traits::{ByRef, ComplexField, Conjugate};
+ use pulp::Simd;
+ use reborrow::*;
+-const NANO_GEMM_THRESHOLD: usize = 16 * 16 * 16;
+-const PAR_THRESHOLD_MNK: usize = 4096;
+ pub(crate) mod internal;
+ /// triangular matrix multiplication module, where some of the operands are
+ /// treated as triangular matrices
+@@ -1309,166 +1307,8 @@ fn matmul_imp<'M, 'N, 'K, T: ComplexField>(
+ 				return;
+ 			}
+ 		}
+-		macro_rules! gemm_call {
+-			($kind:ident, $ty:ty, $nanogemm:ident) => {
+-				unsafe {
+-					let dst = core::mem::transmute_copy::<
+-						MatMut<'_, T, Dim<'M>, Dim<'N>>,
+-						MatMut<'_, $ty, Dim<'M>, Dim<'N>>,
+-					>(&dst);
+-					let lhs = core::mem::transmute_copy::<
+-						MatRef<'_, T, Dim<'M>, Dim<'K>>,
+-						MatRef<'_, $ty, Dim<'M>, Dim<'K>>,
+-					>(&lhs);
+-					let rhs = core::mem::transmute_copy::<
+-						MatRef<'_, T, Dim<'K>, Dim<'N>>,
+-						MatRef<'_, $ty, Dim<'K>, Dim<'N>>,
+-					>(&rhs);
+-					let alpha = *core::mem::transmute_copy::<&T, &$ty>(&alpha);
+-					if (*M).saturating_mul(*N).saturating_mul(*K)
+-						<= NANO_GEMM_THRESHOLD
+-					{
+-						nano_gemm::planless::$nanogemm(
+-							*M,
+-							*N,
+-							*K,
+-							dst.as_ptr_mut(),
+-							dst.row_stride(),
+-							dst.col_stride(),
+-							lhs.as_ptr(),
+-							lhs.row_stride(),
+-							lhs.col_stride(),
+-							rhs.as_ptr(),
+-							rhs.row_stride(),
+-							rhs.col_stride(),
+-							match beta {
+-								Accum::Replace => core::mem::zeroed(),
+-								Accum::Add => {
+-									<$ty as ComplexFieldExt>::from_f64(1.0)
+-								},
+-							},
+-							alpha,
+-							conj_lhs == Conj::Yes,
+-							conj_rhs == Conj::Yes,
+-						);
+-						return;
+-					} else {
+-						#[cfg(all(target_arch = "x86_64", feature = "std"))]
+-						{
+-							use private_gemm_x86::*;
+-							let feat = if std::arch::is_x86_feature_detected!(
+-								"avx512f"
+-							) {
+-								Some(InstrSet::Avx512)
+-							} else if std::arch::is_x86_feature_detected!(
+-								"avx2"
+-							) && std::arch::is_x86_feature_detected!(
+-								"fma"
+-							) {
+-								Some(InstrSet::Avx256)
+-							} else {
+-								None
+-							};
+-							if let Some(feat) = feat {
+-								gemm(
+-									DType::$kind,
+-									IType::U64,
+-									feat,
+-									*M,
+-									*N,
+-									*K,
+-									dst.as_ptr_mut() as *mut (),
+-									dst.row_stride(),
+-									dst.col_stride(),
+-									core::ptr::null(),
+-									core::ptr::null(),
+-									DstKind::Full,
+-									match beta {
+-										$crate::Accum::Replace => {
+-											Accum::Replace
+-										},
+-										$crate::Accum::Add => Accum::Add,
+-									},
+-									lhs.as_ptr() as *const (),
+-									lhs.row_stride(),
+-									lhs.col_stride(),
+-									conj_lhs == Conj::Yes,
+-									core::ptr::null(),
+-									0,
+-									rhs.as_ptr() as *const (),
+-									rhs.row_stride(),
+-									rhs.col_stride(),
+-									conj_rhs == Conj::Yes,
+-									&raw const alpha as *const (),
+-									if *M * *N * *K
+-										>= const {
+-											PAR_THRESHOLD_MNK * size_of::<T>()
+-										} {
+-										par.degree()
+-									} else {
+-										1
+-									},
+-								);
+-								return;
+-							}
+-						}
+-						{
+-							gemm::gemm(
+-								M.unbound(),
+-								N.unbound(),
+-								K.unbound(),
+-								dst.as_ptr_mut(),
+-								dst.col_stride(),
+-								dst.row_stride(),
+-								beta != Accum::Replace,
+-								lhs.as_ptr(),
+-								lhs.col_stride(),
+-								lhs.row_stride(),
+-								rhs.as_ptr(),
+-								rhs.col_stride(),
+-								rhs.row_stride(),
+-								match beta {
+-									Accum::Replace => core::mem::zeroed(),
+-									Accum::Add => {
+-										<$ty as ComplexFieldExt>::from_f64(1.0)
+-									},
+-								},
+-								alpha,
+-								false,
+-								conj_lhs == Conj::Yes,
+-								conj_rhs == Conj::Yes,
+-								match par {
+-									Par::Seq => gemm::Parallelism::None,
+-									#[cfg(feature = "rayon")]
+-									Par::Rayon(nthreads) => {
+-										gemm::Parallelism::Rayon(nthreads.get())
+-									},
+-								},
+-							);
+-							return;
+-						}
+-					}
+-				};
+-			};
+-		}
+-		if const { T::IS_NATIVE_F64 } {
+-			gemm_call!(F64, f64, execute_f64);
+-		}
+-		if const { T::IS_NATIVE_C64 } {
+-			gemm_call!(C64, num_complex::Complex<f64>, execute_c64);
+-		}
+-		if const { T::IS_NATIVE_F32 } {
+-			gemm_call!(F32, f32, execute_f32);
+-		}
+-		if const { T::IS_NATIVE_C32 } {
+-			gemm_call!(C32, num_complex::Complex<f32>, execute_c32);
+-		}
+-		if const {
+-			!(T::IS_NATIVE_F64
+-				|| T::IS_NATIVE_F32
+-				|| T::IS_NATIVE_C64
+-				|| T::IS_NATIVE_C32)
+-		} {
++		// Native scalars use the same nonfused generic kernels as custom fields.
++		{
+ 			if let (Some(dst), Some(lhs)) =
+ 				(dst.rb_mut().try_as_col_major_mut(), lhs.try_as_col_major())
+ 			{
+diff --git a/src/linalg/matmul/triangular.rs b/src/linalg/matmul/triangular.rs
+index 4de5f98dbf3f24764a1d6074697fbe9ccd5f8a6b..afbb4e722e69bfe059f2f29786615f7b0f921abb 100644
+--- a/src/linalg/matmul/triangular.rs
++++ b/src/linalg/matmul/triangular.rs
+@@ -610,79 +610,8 @@ fn mat_x_mat_into_lower_impl_unchecked<'N, 'K, T: ComplexField>(
+ 	conj_rhs: Conj,
+ 	par: Par,
+ ) {
+-	#[cfg(all(target_arch = "x86_64", feature = "std"))]
+-	if const {
+-		T::IS_NATIVE_F64
+-			|| T::IS_NATIVE_F32
+-			|| T::IS_NATIVE_C64
+-			|| T::IS_NATIVE_C32
+-	} {
+-		use private_gemm_x86::*;
+-		let feat = if std::arch::is_x86_feature_detected!("avx512f") {
+-			Some(InstrSet::Avx512)
+-		} else if std::arch::is_x86_feature_detected!("avx2")
+-			&& std::arch::is_x86_feature_detected!("fma")
+-		{
+-			Some(InstrSet::Avx256)
+-		} else {
+-			None
+-		};
+-		if *dst.nrows() > 0 && *dst.ncols() > 0 && *lhs.ncols() > 0 {
+-			if let Some(feat) = feat {
+-				unsafe {
+-					let (dst, lhs) = if skip_diag {
+-						(
+-							dst.as_dyn_mut().get_mut(1.., ..),
+-							lhs.as_dyn().get(1.., ..),
+-						)
+-					} else {
+-						(dst.as_dyn_mut(), lhs.as_dyn())
+-					};
+-					private_gemm_x86::gemm(
+-						const {
+-							if T::IS_NATIVE_F64 {
+-								DType::F64
+-							} else if T::IS_NATIVE_F32 {
+-								DType::F32
+-							} else if T::IS_NATIVE_C64 {
+-								DType::C64
+-							} else {
+-								DType::C32
+-							}
+-						},
+-						const { IType::U32 },
+-						feat,
+-						dst.nrows(),
+-						dst.ncols(),
+-						lhs.ncols(),
+-						dst.as_ptr_mut() as _,
+-						dst.row_stride(),
+-						dst.col_stride(),
+-						core::ptr::null(),
+-						core::ptr::null(),
+-						DstKind::Lower,
+-						match beta {
+-							crate::Accum::Replace => Accum::Replace,
+-							crate::Accum::Add => Accum::Add,
+-						},
+-						lhs.as_ptr() as _,
+-						lhs.row_stride(),
+-						lhs.col_stride(),
+-						conj_lhs == Conj::Yes,
+-						core::ptr::null(),
+-						0,
+-						rhs.as_ptr() as _,
+-						rhs.row_stride(),
+-						rhs.col_stride(),
+-						conj_rhs == Conj::Yes,
+-						alpha as *const T as *const (),
+-						par.degree(),
+-					);
+-					return;
+-				}
+-			}
+-		}
+-	}
++	// Preserve the generic blocked/parallel route under the nonfused policy.
++
+ 	let N = dst.nrows();
+ 	let K = lhs.ncols();
+ 	let n = N.unbound();

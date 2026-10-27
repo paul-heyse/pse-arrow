@@ -3927,6 +3927,19 @@ mod tests {
         let (s, _) = decompose(&singular, 1 << 20, false).unwrap();
         assert!(s[1] < 1e-12);
         assert!(decompose(&a, 0, false).is_err());
+        // The covariance consumer requests the full right singular basis.
+        // Independently reconstruct (A^T A)^-1 = 0.25 I, including off-diagonals.
+        let (s, basis) = decompose(&a, 1 << 20, true).unwrap();
+        let basis = basis.unwrap();
+        for row in 0..2 {
+            for col in 0..2 {
+                let covariance: f64 = (0..2)
+                    .map(|k| basis[(row, k)] * basis[(col, k)] / (s[k] * s[k]))
+                    .sum();
+                let expected = if row == col { 0.25 } else { 0.0 };
+                assert!((covariance - expected).abs() < 1e-14);
+            }
+        }
     }
 }
 

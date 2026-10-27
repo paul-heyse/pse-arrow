@@ -111,6 +111,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 /// Embed only consumed suppliers. The dependency itself reports the final SUNDIALS
 /// source selection, including an external-header failure's bundled fallback.
 fn supplier_sources(out: &Path, root: &Path, workspace: &toml::Value) -> Result<(), Box<dyn Error>> {
+    let mut arithmetic = String::from("faer-f64-nonfused-scalar-generic.v1\n");
+    for name in ["faer", "faer-traits"] {
+        let declared = workspace["patch"]["crates-io"][name]["path"].as_str().ok_or("missing selected arithmetic source path")?;
+        if root.join(declared).canonicalize()? != root.join("vendor").join(name).canonicalize()? {
+            return Err("selected arithmetic source has no checked maintained-source receipt".into());
+        }
+        arithmetic.push_str(&build_source::authenticated(root, name)?);
+        arithmetic.push('\n');
+    }
+    build_receipt::write_if_changed(&out.join("arithmetic-source.txt"), arithmetic.as_bytes())?;
     let selected = env::var_os("CARGO_FEATURE_KINSOL").is_some() || env::var_os("CARGO_FEATURE_IDAS").is_some();
     let source = if selected {
         let actual = PathBuf::from(env::var_os("DEP_SUNDIALS_SOURCE_ROOT").ok_or("missing selected SUNDIALS wrapper source")?).canonicalize()?;
@@ -140,10 +150,14 @@ fn supplier_sources(out: &Path, root: &Path, workspace: &toml::Value) -> Result<
     Ok(())
 }
 
-/// Capture the admitted KLU provider whenever SUNDIALS consumes it, including IDAS-only.
+/// Capture the admitted KLU provider for every linked consumer, including IDAS-only
+/// and Diffsol configurations without SUNDIALS.
 fn kinsol_profile(out: &Path) -> Result<(), Box<dyn Error>> {
     let output = out.join("kinsol-klu-provider.json");
-    if env::var_os("CARGO_FEATURE_KINSOL").is_none() && env::var_os("CARGO_FEATURE_IDAS").is_none() {
+    if env::var_os("CARGO_FEATURE_KINSOL").is_none()
+        && env::var_os("CARGO_FEATURE_IDAS").is_none()
+        && env::var_os("CARGO_FEATURE_DIFFSOL").is_none()
+    {
         build_receipt::write_if_changed(&output, b"")?;
         return Ok(());
     }

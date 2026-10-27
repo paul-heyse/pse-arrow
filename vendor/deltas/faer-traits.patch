@@ -1,0 +1,62 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index a06d62ca606f70d98d3ee184dfe4448d5e487058..c2bf4f8aa561a6dde1e28ced58d2cc84ec2c26e3 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -1596,7 +1596,8 @@ pub trait RealField:
+ 	fn sqrt_max_positive_impl() -> Self;
+ }
+ impl ComplexField for f32 {
+-	type Arch = pulp::Arch;
++	// Maintained nonfused arithmetic policy: native real/complex fields dispatch Scalar.
++	type Arch = pulp::Scalar;
+ 	type Index = u32;
+ 	type Real = Self;
+ 	type SimdCtx<S: Simd> = S;
+@@ -2071,7 +2072,8 @@ impl RealField for f32 {
+ 	}
+ }
+ impl ComplexField for f64 {
+-	type Arch = pulp::Arch;
++	// Maintained nonfused arithmetic policy: native real/complex fields dispatch Scalar.
++	type Arch = pulp::Scalar;
+ 	type Index = u64;
+ 	type Real = Self;
+ 	type SimdCtx<S: Simd> = S;
+@@ -3271,7 +3273,8 @@ impl<T> From<Complex<T>> for ComplexImpl<T> {
+ 	}
+ }
+ impl ComplexField for ComplexImpl<f32> {
+-	type Arch = pulp::Arch;
++	// Maintained nonfused arithmetic policy: native real/complex fields dispatch Scalar.
++	type Arch = pulp::Scalar;
+ 	type Index = u32;
+ 	type Real = f32;
+ 	type SimdCtx<S: Simd> = S;
+@@ -3628,7 +3631,7 @@ impl ComplexField for ComplexImpl<f32> {
+ 		if const {
+ 			core::mem::size_of::<S::c32s>() == core::mem::size_of::<S::f32s>()
+ 		} {
+-			bytemuck::cast(ctx.mul_add_f32s(
++			bytemuck::cast(ctx.mul_add_e_f32s(
+ 				bytemuck::cast(value),
+ 				bytemuck::cast(value),
+ 				bytemuck::cast(acc),
+@@ -3938,7 +3941,8 @@ impl ComplexField for ComplexImpl<f32> {
+ 	}
+ }
+ impl ComplexField for ComplexImpl<f64> {
+-	type Arch = pulp::Arch;
++	// Maintained nonfused arithmetic policy: native real/complex fields dispatch Scalar.
++	type Arch = pulp::Scalar;
+ 	type Index = u64;
+ 	type Real = f64;
+ 	type SimdCtx<S: Simd> = S;
+@@ -4295,7 +4299,7 @@ impl ComplexField for ComplexImpl<f64> {
+ 		if const {
+ 			core::mem::size_of::<S::c64s>() == core::mem::size_of::<S::f64s>()
+ 		} {
+-			bytemuck::cast(ctx.mul_add_f64s(
++			bytemuck::cast(ctx.mul_add_e_f64s(
+ 				bytemuck::cast(value),
+ 				bytemuck::cast(value),
+ 				bytemuck::cast(acc),

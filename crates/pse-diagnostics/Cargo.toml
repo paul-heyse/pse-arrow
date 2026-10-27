@@ -25,6 +25,7 @@ miette.workspace = true
 serde.workspace = true
 schemars.workspace = true
 rustix.workspace = true
+procfs-core.workspace = true
 
 [dev-dependencies]
 allocation-counter.workspace = true

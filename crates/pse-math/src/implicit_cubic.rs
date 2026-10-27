@@ -14,9 +14,14 @@ pub struct CubicRoots {
     coefficients: symbolica::evaluate::ExpressionEvaluator<f64>,
     parameters: usize,
     bytes: usize,
+    limits: crate::jets::EvaluationLimits,
+    construction_owner: Option<Arc<dyn crate::construction::ConstructionAdmission>>,
 }
 #[derive(Debug)]
 struct CubicWorker {
+    construction_owner: Option<Arc<dyn crate::construction::ConstructionAdmission>>,
+    reserved: usize,
+    limits: crate::jets::EvaluationLimits,
     coefficients: symbolica::evaluate::ExpressionEvaluator<f64>,
     parameters: usize,
 }
@@ -72,10 +77,24 @@ impl CubicRoots {
             .and_then(|bytes| bytes.checked_add(storage.instruction_bytes))
             .and_then(|bytes| bytes.checked_add(size_of::<CubicWorker>()))
             .ok_or(MathError::Limit("cubic coefficient storage extent"))?;
+        let count = inspected.facts.operations;
+        let coefficient_operations = count.additions.checked_add(count.multiplications)
+            .and_then(|n| n.checked_add(count.inversions))
+            .and_then(|n| n.checked_add(count.function_calls))
+            .ok_or(MathError::Limit("cubic coefficient work extent"))?;
+        let limits = crate::jets::EvaluationLimits {
+            operations: limits.operations.checked_sub(coefficient_operations)
+                .ok_or(MathError::Limit("cubic coefficient operations"))?,
+            scratch_bytes: limits.scratch_bytes.checked_sub(bytes)
+                .ok_or(MathError::Limit("cubic coefficient scratch bytes"))?,
+            ..limits
+        };
         Ok(Self {
             coefficients: inspected.evaluator,
             parameters: formals.len(),
             bytes,
+            limits,
+            construction_owner: crate::construction::current(),
         })
     }
 }
@@ -84,10 +103,13 @@ impl InnerSolver for CubicRoots {
         DerivativeOrder::Value
     }
     fn identity(&self) -> ContentHash {
-        solver_identity("symbolica.cubic-roots.v2")
+        solver_identity("symbolica.cubic-roots.v3")
     }
     fn worker(&self) -> Box<dyn InnerWorker> {
         Box::new(CubicWorker {
+            limits: self.limits,
+            construction_owner: self.construction_owner.clone(),
+            reserved: 0,
             coefficients: self.coefficients.clone(),
             parameters: self.parameters,
         })
@@ -97,6 +119,20 @@ impl InnerSolver for CubicRoots {
     }
     fn worker_bytes(&self) -> usize {
         self.bytes
+    }
+}
+impl CubicWorker {
+    fn reserve(&mut self, bytes: usize) -> Result<(), MathError> {
+        if bytes > self.limits.scratch_bytes {
+            return Err(MathError::Limit("cubic isolation scratch bytes"));
+        }
+        if bytes > self.reserved {
+            if let Some(owner) = &self.construction_owner {
+                owner.try_grow(bytes - self.reserved)?;
+            }
+            self.reserved = bytes;
+        }
+        Ok(())
     }
 }
 impl InnerWorker for CubicWorker {
@@ -128,6 +164,15 @@ impl InnerWorker for CubicWorker {
                 requirement: "finite cubic coefficients",
             });
         }
+        // Four finite binary64 dyadics have <=1075-bit rational limbs.
+        // Eight limb payloads, Rational owners, vector capacity overlap and
+        // construction temporaries fit in this fixed source-derived extent.
+        self.reserve(8192)?;
+        let limits = crate::jets::EvaluationLimits {
+            operations: self.limits.operations.checked_sub(4)
+                .ok_or(MathError::Limit("cubic coefficient conversion operations"))?,
+            ..self.limits
+        };
         let mut coefficients = coefficients
             .into_iter()
             .map(|v| Rational::try_from(v).map_err(|e| MathError::Library(e.to_string())))
@@ -150,23 +195,31 @@ impl InnerWorker for CubicWorker {
             coefficients,
             Arc::new(symbolica::poly::PolyVariable::Symbol(x.get_symbol())),
         );
-        let roots = real_points(&polynomial, cancel)?;
+        let mut reserve = |bytes| self.reserve(bytes);
+        let roots = real_points(&polynomial, cancel, started, options.time_limit, limits, &mut reserve)?;
         if started.elapsed() > options.time_limit {
             return Err(MathError::Limit("cubic root isolation time"));
         }
         let mut accepted = Vec::new();
-        for root in roots {
+        for candidates in roots {
             if cancel.load(Ordering::Acquire) {
                 return Err(MathError::Cancelled);
             }
             if started.elapsed() > options.time_limit {
                 return Err(MathError::Limit("cubic root isolation time"));
             }
-            let point = vec![root];
-            match problem.verify(parameters, &point, options, cancel) {
-                Ok(()) => accepted.push(point),
-                Err(error) if matches!(error.instance_cause(), MathError::Domain { .. }) => {}
-                Err(error) => return Err(error),
+            for root in candidates {
+                check_control(cancel, started, options.time_limit)?;
+                let point = vec![root];
+                match problem.verify(parameters, &point, options, cancel) {
+                    Ok(()) => {
+                        check_control(cancel, started, options.time_limit)?;
+                        accepted.push(point);
+                        break;
+                    }
+                    Err(error) if matches!(error.instance_cause(), MathError::Domain { .. }) => {}
+                    Err(error) => return Err(error),
+                }
             }
         }
         if cancel.load(Ordering::Acquire) {
@@ -187,57 +240,174 @@ impl InnerWorker for CubicWorker {
     }
 }
 
-/// Real intervals are complete for the exact rational polynomial. The public
-/// refiner requires non-root endpoints; near-critical separation can violate
-/// that premise, so those intervals use Symbolica's certified general fallback.
+fn check_control(
+    cancel: &Arc<AtomicBool>,
+    started: std::time::Instant,
+    deadline: Duration,
+) -> Result<(), MathError> {
+    if cancel.load(Ordering::Acquire) {
+        return Err(MathError::Cancelled);
+    }
+    if started.elapsed() >= deadline {
+        return Err(MathError::Limit("cubic root isolation time"));
+    }
+    Ok(())
+}
+
+/// Admission for local exact bisection, conversion and temporary rational
+/// payload, after the supplier's separately admitted isolation stages.
+#[derive(Debug)]
+struct BracketEnvelope {
+    steps: usize,
+    operations: usize,
+    bytes: usize,
+}
+impl BracketEnvelope {
+    fn new(polynomial: &UnivariatePolynomial<Q>, a: &Rational, b: &Rational) -> Result<Self, MathError> {
+        let checked = || MathError::Limit("cubic bracket extent");
+        let endpoint = crate::rational_binary64::bits(a)?.max(crate::rational_binary64::bits(b)?);
+        let height = polynomial.coefficients().iter().try_fold(1, |height, coefficient| {
+            Ok::<_, MathError>(height.max(crate::rational_binary64::bits(coefficient)?))
+        })?;
+        // |b-a| < 2^(endpoint+1). After endpoint+1077 bisections
+        // width < 2^-1076, strictly less than the minimum distance
+        // 2^-1074 between two binary64 nearest-rounding boundaries.
+        let steps = endpoint.checked_add(1077).ok_or_else(checked)?;
+        // A common denominator da*db followed by k halvings bounds every
+        // retained endpoint numerator/denominator by 2*endpoint+k+2 bits.
+        let bits = endpoint.checked_mul(2).and_then(|v| v.checked_add(steps))
+            .and_then(|v| v.checked_add(2)).ok_or_else(checked)?;
+        // Horner at degree <=3 needs at most 4*(height+bits+2)
+        // bits in either rational limb before reduction. Extra copies cover
+        // midpoint addition, derivative signs and two directed MPFR values.
+        let limb = height.checked_add(bits).and_then(|v| v.checked_add(2))
+            .and_then(|v| v.checked_mul(8)).ok_or_else(checked)?;
+        let bytes = limb.checked_add(7).and_then(|v| v.checked_div(8))
+            .and_then(|v| v.checked_mul(128)).and_then(|v| v.checked_add(4096)).ok_or_else(checked)?;
+        let operations = steps.checked_mul(48).and_then(|v| v.checked_add(256)).ok_or_else(checked)?;
+        Ok(Self { steps, operations, bytes })
+    }
+}
+
+fn finite_root_candidate(value: f64) -> Result<Vec<f64>, MathError> {
+    if !value.is_finite() {
+        return Err(MathError::Limit("finite binary64 cubic root representative"));
+    }
+    Ok(vec![value])
+}
+
+fn bracket_candidates(
+    polynomial: &UnivariatePolynomial<Q>,
+    mut a: Rational,
+    mut b: Rational,
+    steps: usize,
+    cancel: &Arc<AtomicBool>,
+    started: std::time::Instant,
+    deadline: Duration,
+) -> Result<Vec<f64>, MathError> {
+    check_control(cancel, started, deadline)?;
+    if a == b {
+        let value = crate::rational_binary64::nearest(&a)?;
+        return finite_root_candidate(value);
+    }
+    let value = polynomial.evaluate(&a);
+    // A different root may occupy a bracket endpoint. Its one-sided sign,
+    // rather than treating it as the designated root, retains the open interior.
+    let negative = if value.is_zero() {
+        polynomial.derivative().evaluate(&a).is_negative()
+    } else {
+        value.is_negative()
+    };
+    for _ in 0..=steps {
+        check_control(cancel, started, deadline)?;
+        let lower = crate::rational_binary64::nearest(&a)?;
+        let upper = crate::rational_binary64::nearest(&b)?;
+        let midpoint = (&a + &b) / Rational::from(2);
+        if lower == upper || lower.next_up() == upper {
+            let middle = crate::rational_binary64::nearest(&midpoint)?;
+            let mut candidates = Vec::with_capacity(3);
+            for point in [middle, lower, upper] {
+                if point.is_finite() && !candidates.contains(&point) {
+                    candidates.push(point);
+                }
+            }
+            check_control(cancel, started, deadline)?;
+            if candidates.is_empty() {
+                return Err(MathError::Limit("finite binary64 cubic root representative"));
+            }
+            return Ok(candidates);
+        }
+        let value = polynomial.evaluate(&midpoint);
+        if value.is_zero() {
+            let point = crate::rational_binary64::nearest(&midpoint)?;
+            return finite_root_candidate(point);
+        }
+        if value.is_negative() == negative {
+            a = midpoint;
+        } else {
+            b = midpoint;
+        }
+    }
+    Err(MathError::Contract("exact cubic bisection exceeded derived extent".into()))
+}
+
+/// Each returned vector belongs to one distinct exact root. Equal binary64
+/// images of different roots retain separate associations for uniqueness.
 fn real_points(
     polynomial: &UnivariatePolynomial<Q>,
     cancel: &Arc<AtomicBool>,
-) -> Result<Vec<f64>, MathError> {
-    if cancel.load(Ordering::Acquire) {
-        return Err(MathError::Cancelled);
+    started: std::time::Instant,
+    deadline: Duration,
+    limits: crate::jets::EvaluationLimits,
+    reserve: &mut dyn FnMut(usize) -> Result<(), MathError>,
+) -> Result<Vec<Vec<f64>>, MathError> {
+    check_control(cancel, started, deadline)?;
+    limits.check()?;
+    if polynomial.degree() == 0 || polynomial.degree() > 3 {
+        return Err(MathError::Contract("cubic isolation degree".into()));
     }
-    let intervals = polynomial.isolate_real_root_intervals();
-    if cancel.load(Ordering::Acquire) {
-        return Err(MathError::Cancelled);
+    let mut remaining = limits.operations;
+    let mut admit = |step: symbolica::poly::univariate::RealRootIsolationStep| {
+        check_control(cancel, started, deadline)?;
+        if step.operations > remaining {
+            return Err(MathError::Limit("cubic isolation operations"));
+        }
+        if step.bytes > limits.scratch_bytes {
+            return Err(MathError::Limit("cubic isolation scratch bytes"));
+        }
+        reserve(step.bytes)?;
+        remaining -= step.operations;
+        Ok(())
+    };
+    let supplier_error = |error| match error {
+        symbolica::poly::univariate::BoundedRootIsolationError::Control(error) => error,
+        symbolica::poly::univariate::BoundedRootIsolationError::Extent => MathError::Limit("cubic isolation extent"),
+    };
+    // Source-owned hooks admit each exact quotient and VAS transformation.
+    // Already square-free input bypasses repeated Yun/preferred-GCD work.
+    let square_free = polynomial.square_free_part_bounded(&mut admit).map_err(supplier_error)?;
+    let intervals = square_free.isolate_real_root_intervals_square_free_bounded(&mut admit).map_err(supplier_error)?;
+    if intervals.len() > square_free.degree() {
+        return Err(MathError::Contract("cubic isolation root population".into()));
     }
-    let precision = Rational::from((1_i64, 1_i64 << 54));
+    check_control(cancel, started, deadline)?;
+    let envelopes = intervals.iter().map(|(a,b)| BracketEnvelope::new(&square_free,a,b))
+        .collect::<Result<Vec<_>, _>>()?;
+    let operations = envelopes.iter().try_fold(0_usize, |sum, envelope| sum.checked_add(envelope.operations))
+        .ok_or(MathError::Limit("cubic bracket operations"))?;
+    if operations > remaining {
+        return Err(MathError::Limit("cubic bracket operations"));
+    }
+    let bytes = envelopes.iter().map(|e| e.bytes).max().unwrap_or(0);
+    if bytes > limits.scratch_bytes {
+        return Err(MathError::Limit("cubic bracket scratch bytes"));
+    }
+    reserve(bytes)?;
     let mut points = Vec::with_capacity(intervals.len());
-    let mut fallback = false;
-    for (a, b, _) in intervals {
-        if cancel.load(Ordering::Acquire) {
-            return Err(MathError::Cancelled);
-        }
-        if a == b {
-            points.push(a.to_f64());
-        } else if polynomial.evaluate(&a).is_zero() || polynomial.evaluate(&b).is_zero() {
-            fallback = true;
-            break;
-        } else {
-            let (lower, upper) = polynomial.refine_root_interval((a, b), &precision);
-            if cancel.load(Ordering::Acquire) {
-                return Err(MathError::Cancelled);
-            }
-            if lower.to_f64() != upper.to_f64() {
-                fallback = true;
-                break;
-            }
-            points.push(((lower + upper) / Rational::from(2)).to_f64());
-        }
+    for ((a,b), envelope) in intervals.into_iter().zip(envelopes) {
+        points.push(bracket_candidates(&square_free,a,b,envelope.steps,cancel,started,deadline)?);
     }
-    if fallback || points.iter().any(|point| !point.is_finite()) {
-        points.clear();
-        let roots = polynomial.isolate_real_roots();
-        if cancel.load(Ordering::Acquire) {
-            return Err(MathError::Cancelled);
-        }
-        for (root, _) in roots {
-            points.push(root.refined(&precision).enclosure().center().re.to_f64());
-            if cancel.load(Ordering::Acquire) {
-                return Err(MathError::Cancelled);
-            }
-        }
-    }
+    check_control(cancel, started, deadline)?;
     Ok(points)
 }
 
@@ -291,12 +461,113 @@ mod tests {
         let cancel = Arc::new(AtomicBool::new(false));
         for (coefficients, expected) in fixtures {
             let poly = polynomial(coefficients);
-            let mut actual = real_points(&poly, &cancel).unwrap();
+            let mut actual = real_points(&poly, &cancel, std::time::Instant::now(), Duration::from_secs(2), crate::jets::EvaluationLimits::default(), &mut |_| Ok(())).unwrap().into_iter().map(|points| points[0]).collect::<Vec<_>>();
             actual.sort_by(f64::total_cmp);
             assert_eq!(actual.len(), expected.len());
             for (actual, expected) in actual.into_iter().zip(expected) {
-                assert!((actual - expected).abs() <= 1e-14 * expected.abs().max(1.0));
+                assert!((actual - expected).abs() <= 1e-14 * expected.abs().max(1.0), "actual={actual:?} expected={expected:?}");
             }
+        }
+    }
+
+    #[test]
+    fn cubic_square_free_containment_selects_each_original_branch() {
+        crate::initialize().unwrap();
+        let x = crate::library::formal(0).unwrap();
+        // Independent exact factorization: (3x-8)(2x-3)^2.
+        let expression = Atom::num(12) * x.clone().pow(Atom::num(3))
+            - Atom::num(68) * x.clone().pow(Atom::num(2))
+            + Atom::num(123) * x - Atom::num(72);
+        for (lower, upper, expected) in [(1.0, 2.0, 1.5), (2.5, 3.0, 8.0 / 3.0)] {
+            let (solver, problem, mut options, control) = admitted_expression(expression.clone(), lower, upper);
+            options.start[0] = (lower+upper)/2.0;
+            assert_eq!(solver.worker().solve(problem, &[0.0], &options, &control).unwrap(), [expected]);
+        }
+    }
+
+    #[test]
+    fn cubic_bracket_endpoint_neighbours_and_subnormal_progress() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let fixtures = [
+            (polynomial(vec![(-6).into(),11.into(),(-6).into(),1.into()]), Rational::zero(), Rational::from(2), 1.0),
+            (polynomial(vec![(-6).into(),11.into(),(-6).into(),1.into()]), Rational::one(), Rational::from((5,2)), 2.0),
+            (polynomial(vec![1.into(),(-4).into(),(-1).into(),4.into()]), Rational::zero(), Rational::one(), 0.25),
+            (polynomial(vec![0.into(),(-1).into(),0.into(),1.into()]), Rational::from((-1,2)), Rational::from((1,2)), 0.0),
+            (polynomial(vec![-Rational::try_from(f64::from_bits(1)).unwrap(),1.into()]), Rational::zero(), Rational::one(), f64::from_bits(1)),
+        ];
+        for (poly, a, b, expected) in fixtures {
+            let envelope = BracketEnvelope::new(&poly,&a,&b).unwrap();
+            let points = bracket_candidates(&poly,a,b,envelope.steps,&cancel,std::time::Instant::now(),Duration::from_secs(10)).unwrap();
+            assert_eq!(points[0].to_bits(), expected.to_bits());
+        }
+    }
+
+    #[test]
+    fn cubic_all_or_error_work_bytes_control_and_equal_images() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let poly = polynomial(vec![(-2).into(),0.into(),1.into()]);
+        for limits in [
+            crate::jets::EvaluationLimits { operations: 1, ..Default::default() },
+            crate::jets::EvaluationLimits { scratch_bytes: 1, ..Default::default() },
+        ] {
+            assert!(matches!(real_points(&poly,&cancel,std::time::Instant::now(),Duration::from_secs(10),limits,&mut |_| Ok(())), Err(MathError::Limit(_))));
+        }
+        assert!(matches!(real_points(&poly,&cancel,std::time::Instant::now(),Duration::ZERO,Default::default(),&mut |_| Ok(())), Err(MathError::Limit("cubic root isolation time"))));
+        cancel.store(true,Ordering::Release);
+        assert!(matches!(real_points(&poly,&cancel,std::time::Instant::now(),Duration::from_secs(10),Default::default(),&mut |_| Ok(())), Err(MathError::Cancelled)));
+        cancel.store(false,Ordering::Release);
+        let delta = Rational::from((1_i64,1_i64 << 54));
+        // Roots 1 and 1+2^-54 have the same nearest binary64 image.
+        let poly = polynomial(vec![Rational::one()+&delta,-(Rational::from(2)+delta),Rational::one()]);
+        let points = real_points(&poly,&cancel,std::time::Instant::now(),Duration::from_secs(10),Default::default(),&mut |_| Ok(())).unwrap();
+        assert_eq!(points.len(),2);
+        assert_eq!(points[0][0],1.0);
+        assert!(points[1].contains(&1.0));
+        assert!(matches!(real_points(&poly,&cancel,std::time::Instant::now(),Duration::from_secs(10),Default::default(),&mut |_| Err(MathError::Limit("test cubic reservation"))), Err(MathError::Limit("test cubic reservation"))));
+    }
+
+    #[test]
+    fn cubic_supplier_callbacks_refuse_during_exact_reduction_and_isolation() {
+        use symbolica::poly::univariate::BoundedRootIsolationError;
+        let poly = polynomial(vec![(-72).into(),123.into(),(-68).into(),12.into()]);
+        let mut stages = 0;
+        let reduced = poly.square_free_part_bounded(|step| {
+            assert!(step.operations>0 && step.bytes>0);
+            stages+=1;
+            Ok::<_,MathError>(())
+        }).unwrap();
+        assert_eq!(reduced.degree(),2);
+        assert!(stages>1);
+        let mut stages = 0;
+        let refusal = poly.square_free_part_bounded(|_| {
+            stages+=1;
+            if stages==2 { Err(MathError::Cancelled) } else { Ok(()) }
+        });
+        assert!(matches!(refusal,Err(BoundedRootIsolationError::Control(MathError::Cancelled))));
+        let mut stages = 0;
+        let refusal = reduced.isolate_real_root_intervals_square_free_bounded(|_| {
+            stages+=1;
+            if stages==3 { Err(MathError::Limit("test supplier deadline")) } else { Ok(()) }
+        });
+        assert!(matches!(refusal,Err(BoundedRootIsolationError::Control(MathError::Limit("test supplier deadline")))));
+        let roots = reduced.isolate_real_root_intervals_square_free_bounded(|_| Ok::<_,MathError>(())).unwrap();
+        // These exact rational roots follow from the authored factorization.
+        for expected in [Rational::from((3,2)),Rational::from((8,3))] {
+            assert_eq!(roots.iter().filter(|(a,b)| (a==b && a==&expected) || (a<&expected && &expected<b)).count(),1);
+        }
+    }
+
+    #[test]
+    fn cubic_unrepresentable_root_refuses_complete_enumeration() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let tiny = Rational::try_from(f64::MIN_POSITIVE).unwrap();
+        // All coefficients are finite binary64 values. The first polynomial
+        // has exact root 4/2^-1022 = 2^1024; the second additionally has root0.
+        // Returning only0 would incorrectly turn incomplete enumeration into
+        // a successful unique finite association.
+        for coefficients in [vec![(-4).into(),tiny.clone()],vec![0.into(),(-4).into(),tiny]] {
+            let poly = polynomial(coefficients);
+            assert!(matches!(real_points(&poly,&cancel,std::time::Instant::now(),Duration::from_secs(10),Default::default(),&mut |_| Ok(())), Err(MathError::Limit("finite binary64 cubic root representative"))));
         }
     }
 
