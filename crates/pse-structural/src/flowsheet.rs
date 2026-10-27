@@ -104,17 +104,6 @@ impl FlowGraph {
             }
             mul(add(mul(count, 2)?, 4)?, width)
         };
-        // A BTree node has at most eleven key/value slots and twelve child links.
-        // Charging a full node per entry includes sparsely occupied roots/splits.
-        let tree = |count: usize, width: usize| -> Result<usize, ProjectionError> {
-            if count == 0 {
-                return Ok(0);
-            }
-            mul(
-                add(count, 1)?,
-                add(mul(width, 11)?, 16 * size_of::<usize>())?,
-            )
-        };
         let mut bytes = 2 * size_of::<Self>() + size_of::<Declaration>();
         for (count, width) in [
             (nodes, size_of::<Node>()),
@@ -134,20 +123,14 @@ impl FlowGraph {
         ] {
             bytes = add(bytes, vector(count, width)?)?;
         }
-        for (count, width) in [
-            (nodes, size_of::<(SemanticId, petgraph::graph::NodeIndex)>()),
-            (
-                ports,
-                size_of::<(SemanticId, (SemanticId, &pse_kernels::Port))>(),
-            ),
-            (connections, size_of::<(SemanticId, Vec<Binding>)>()),
-            (
-                decisions,
-                size_of::<(SemanticId, Decision)>() + 2 * size_of::<SemanticId>(),
-            ),
-            (bindings, size_of::<SemanticId>()),
+        for bound in [
+            pse_model::allocation::btree_allocation_bound::<SemanticId, petgraph::graph::NodeIndex>(nodes),
+            pse_model::allocation::btree_allocation_bound::<SemanticId, (SemanticId, &pse_kernels::Port)>(ports),
+            pse_model::allocation::btree_allocation_bound::<SemanticId, Vec<Binding>>(connections),
+            pse_model::allocation::btree_allocation_bound::<SemanticId, (Decision, SemanticId, SemanticId)>(decisions),
+            pse_model::allocation::btree_allocation_bound::<SemanticId, ()>(bindings),
         ] {
-            bytes = add(bytes, tree(count, width)?)?;
+            bytes = add(bytes, bound.ok_or(ProjectionError::Limit)?)?;
         }
         // Vec::push grows each separate node-port/edge-binding vector from four.
         bytes = add(bytes, mul(nodes, 4 * size_of::<pse_kernels::Port>())?)?;
@@ -214,15 +197,7 @@ impl FlowGraph {
                 )?,
             )?;
         }
-        if !self.bindings.is_empty() {
-            bytes = add(
-                bytes,
-                mul(
-                    add(self.bindings.len(), 1)?,
-                    11 * size_of::<(SemanticId, Vec<Binding>)>() + 16 * size_of::<usize>(),
-                )?,
-            )?;
-        }
+        bytes = add(bytes, pse_model::allocation::btree_allocation_bound::<SemanticId, Vec<Binding>>(self.bindings.len()).ok_or(ProjectionError::Limit)?)?;
         for bindings in self.bindings.values() {
             bytes = add(bytes, mul(bindings.capacity(), size_of::<Binding>())?)?;
             for binding in bindings {

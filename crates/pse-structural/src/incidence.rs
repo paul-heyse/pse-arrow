@@ -4,9 +4,7 @@
 //! Checked semantic boundary around library-owned matching, DM and BTF.
 use crate::projection::{GraphLimits, ProjectionError, Scope};
 use pounce_presolve::{
-    BlockTriangularForm, DMPart, DulmageMendelsohnPartition, EqualityIncidence,
-    InequalityIncidence, ProbeView, SquareComponents, coupling::classify_block,
-    matching::hopcroft_karp,
+    EqualityIncidence, InequalityIncidence, ProbeView, coupling::classify_block,
 };
 use pse_ids::SemanticId;
 use std::{
@@ -143,7 +141,7 @@ impl StructuralAnalysis {
             .count();
         members
             .checked_mul(
-                8 * (11 * size_of::<SemanticId>() + 16 * size_of::<usize>())
+                8 * pse_model::allocation::btree_node_bytes::<SemanticId, SemanticId>()
                     + 8 * size_of::<SemanticId>(),
             )
             .and_then(|n| {
@@ -328,6 +326,7 @@ impl CaseIncidence {
                     .and_then(|edges| bytes.checked_add(edges))
             })
             .and_then(|bytes| bytes.checked_mul(2))
+            .and_then(|bytes| crate::dense::allocation_bound(rows, columns, contributions).ok().and_then(|dense| bytes.checked_add(dense)))
             .and_then(|bytes| {
                 bytes.checked_add(
                     MATCHING_STACK
@@ -546,139 +545,14 @@ impl CaseIncidence {
         if inc.eq_row_inner_idx != expected {
             return Err(ProjectionError::Invalid("library equality coverage".into()));
         }
-        let m = hopcroft_karp(&inc);
-        checkpoint()?;
+        let decomposition = crate::dense::decompose(&inc, cancel)?;
+        let crate::dense::DenseDecomposition { matching: m, partition: dm, blocks, dependencies } = decomposition;
         let invalid = || ProjectionError::Invalid("library structural result invariant".into());
-        if m.row_to_var.len() != inc.n_eq_rows()
-            || m.var_to_row.len() != inc.n_vars
-            || m.row_to_var.iter().flatten().count() != m.size
-            || m.var_to_row.iter().flatten().count() != m.size
-        {
-            return Err(invalid());
-        }
-        for (r, c) in m.row_to_var.iter().enumerate() {
-            if let Some(c) = c
-                && (*c >= inc.n_vars
-                    || m.var_to_row[*c] != Some(r)
-                    || !inc.neighbors(r).contains(c))
-            {
-                return Err(invalid());
-            }
-        }
-        let dm = DulmageMendelsohnPartition::from_matching(&inc, &m);
-        checkpoint()?;
-        if dm.row_part.len() != inc.n_eq_rows() || dm.col_part.len() != inc.n_vars {
-            return Err(invalid());
-        }
-        let validate_partition = |parts: &[DMPart], lists: [&[usize]; 3]| -> bool {
-            let mut seen = vec![false; parts.len()];
-            for (indices, part) in
-                lists
-                    .into_iter()
-                    .zip([DMPart::Over, DMPart::Square, DMPart::Under])
-            {
-                for &i in indices {
-                    if i >= seen.len() || seen[i] || parts[i] != part {
-                        return false;
-                    }
-                    seen[i] = true;
-                }
-            }
-            seen.into_iter().all(|x| x)
-        };
-        if !validate_partition(
-            &dm.row_part,
-            [&dm.over_rows, &dm.square_rows, &dm.under_rows],
-        ) || !validate_partition(
-            &dm.col_part,
-            [&dm.over_cols, &dm.square_cols, &dm.under_cols],
-        ) {
-            return Err(invalid());
-        }
-        let components = SquareComponents::of_square_part(&inc, &m, &dm);
-        let mut blocks = vec![];
-        let mut seen_r = BTreeSet::new();
-        let mut seen_c = BTreeSet::new();
-        for comp in components.components {
-            let component_rows: BTreeSet<_> = comp.eq_rows.iter().copied().collect();
-            let component_cols: BTreeSet<_> = comp.cols.iter().copied().collect();
-            if comp.eq_rows.len() != comp.cols.len()
-                || comp.eq_rows.iter().any(|&r| {
-                    r >= inc.n_eq_rows() || dm.row_part[r] != DMPart::Square || !seen_r.insert(r)
-                })
-                || comp.cols.iter().any(|&c| {
-                    c >= inc.n_vars || dm.col_part[c] != DMPart::Square || !seen_c.insert(c)
-                })
-            {
-                return Err(invalid());
-            }
-            if comp
-                .eq_rows
-                .iter()
-                .any(|&r| m.row_to_var[r].is_none_or(|c| !component_cols.contains(&c)))
-            {
-                return Err(invalid());
-            }
-            let btf = BlockTriangularForm::of_component(&inc, &m, &comp);
-            let mut br = BTreeSet::new();
-            let mut bc = BTreeSet::new();
-            let mut owners = BTreeMap::new();
-            for (i, b) in btf.blocks.iter().enumerate() {
-                if b.eq_rows.len() != b.cols.len()
-                    || b.eq_rows
-                        .iter()
-                        .any(|r| !component_rows.contains(r) || !br.insert(*r))
-                    || b.cols
-                        .iter()
-                        .any(|c| !component_cols.contains(c) || !bc.insert(*c))
-                {
-                    return Err(invalid());
-                }
-                for &c in &b.cols {
-                    owners.insert(c, i);
-                }
-            }
-            if br.len() != comp.eq_rows.len() || bc.len() != comp.cols.len() {
-                return Err(invalid());
-            }
-            for (i, b) in btf.blocks.iter().enumerate() {
-                for &r in &b.eq_rows {
-                    if inc
-                        .neighbors(r)
-                        .iter()
-                        .any(|c| owners.get(c).is_some_and(|&j| j > i))
-                    {
-                        return Err(invalid());
-                    }
-                }
-            }
-            blocks.extend(btf.blocks);
-            checkpoint()?;
-        }
-        if seen_r != dm.square_rows.iter().copied().collect()
-            || seen_c != dm.square_cols.iter().copied().collect()
-        {
-            return Err(invalid());
-        }
         // Library topological ordering with semantic tie breaks across components/blocks.
-        let mut owner = BTreeMap::new();
         let mut graph = petgraph::graph::DiGraph::<usize, ()>::new();
         let nodes: Vec<_> = (0..blocks.len()).map(|i| graph.add_node(i)).collect();
-        for (i, b) in blocks.iter().enumerate() {
-            for &c in &b.cols {
-                owner.insert(c, i);
-            }
-        }
-        for (i, b) in blocks.iter().enumerate() {
-            for &r in &b.eq_rows {
-                for c in inc.neighbors(r) {
-                    if let Some(&j) = owner.get(c)
-                        && i != j
-                    {
-                        graph.add_edge(nodes[j], nodes[i], ());
-                    }
-                }
-            }
+        for (prerequisite, dependent) in dependencies {
+            graph.add_edge(nodes[prerequisite], nodes[dependent], ());
         }
         let order = rustworkx_core::dag_algo::lexicographical_topological_sort(
             &graph,

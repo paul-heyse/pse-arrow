@@ -43,7 +43,8 @@ impl std::ops::Deref for ModelingRows {
 }
 impl pse_model::HeapUsage for ModelingRows {
     fn heap_bytes(&self) -> usize {
-        pse_model::HeapUsage::heap_bytes(&self.rows)
+        let Self { rows, lease: _, admission: _ } = self;
+        pse_model::HeapUsage::heap_bytes(rows)
     }
 }
 

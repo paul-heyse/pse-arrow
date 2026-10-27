@@ -453,8 +453,7 @@ impl CasePlan {
                 .len()
                 .checked_add(binding.contributions.len())
                 .ok_or_else(overflow)?;
-            let metadata = dimensions
-                .checked_mul(11 * size_of::<usize>() + 16 * size_of::<usize>())
+            let metadata = pse_model::allocation::btree_allocation_bound::<usize, ()>(dimensions)
                 .ok_or_else(overflow)?;
             let dependencies = binding
                 .contributions
@@ -462,12 +461,8 @@ impl CasePlan {
                 .checked_mul(
                     size_of::<ContributionDependencies>()
                         .checked_add(
-                            binding
-                                .slots
-                                .len()
-                                .checked_mul(
-                                    2 * (11 * size_of::<SemanticId>() + 16 * size_of::<usize>()),
-                                )
+                            pse_model::allocation::btree_allocation_bound::<SemanticId, ()>(binding.slots.len())
+                                .and_then(|bytes| bytes.checked_mul(2))
                                 .ok_or_else(overflow)?,
                         )
                         .ok_or_else(overflow)?,
@@ -502,7 +497,7 @@ impl CasePlan {
                 .slots
                 .len()
                 .checked_add(binding.contributions.len())
-                .and_then(|n| n.checked_mul(11 * size_of::<usize>() + 16 * size_of::<usize>()))
+                .and_then(pse_model::allocation::btree_allocation_bound::<usize, ()>)
                 .ok_or_else(overflow)?;
             bytes = bytes
                 .checked_add(scratch)
@@ -1787,11 +1782,9 @@ impl CasePlan {
                 )?,
             )?,
         )?;
-        let maps = mul(
-            count,
-            11 * (size_of::<(ContentHash, Vec<usize>, Vec<usize>, usize)>()
-                + size_of::<(usize, Arc<PreparedSupport>)>())
-                + 32 * size_of::<usize>(),
+        let maps = add(
+            pse_model::allocation::btree_allocation_bound::<(ContentHash, Vec<usize>, Vec<usize>, usize), Arc<PreparedSupport>>(count).ok_or_else(overflow)?,
+            pse_model::allocation::btree_allocation_bound::<usize, Arc<PreparedSupport>>(count).ok_or_else(overflow)?,
         )?;
         // case_patterns checks the combined contribution ceiling BEFORE either
         // push. Include Vec growth plus faer's indices/argsort/CSC/refill and zero
@@ -1812,10 +1805,7 @@ impl CasePlan {
                 mul(add(self.columns.len(), 1)?, 2 * size_of::<usize>())?,
             )?,
         )?;
-        let bodies = mul(
-            self.bodies.len(),
-            11 * size_of::<(ContentHash, Arc<PreparedBody>)>() + 16 * size_of::<usize>(),
-        )?;
+        let bodies = pse_model::allocation::btree_allocation_bound::<ContentHash, Arc<PreparedBody>>(self.bodies.len()).ok_or_else(overflow)?;
         Ok(Some(add(
             add(add(add(support_bytes, descriptors)?, maps)?, sparse)?,
             add(bodies, size_of::<Self>())?,

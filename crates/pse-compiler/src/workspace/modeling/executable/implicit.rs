@@ -295,13 +295,6 @@ pub struct ImplicitCapabilities<'a> {
     /// Attempt's admitted named accelerator registrations.
     pub accelerators: &'a pse_math::implicit::accelerators::Accelerators,
 }
-// The pinned alloc BTree nodes hold 11 key/value slots and 12 child edges.
-// Charge a full padded node per entry, including root/sparse occupancy: 16 slots
-// and 32 words cover its header/edges. This is conservative metadata admission,
-// not allocator-observed bytes; no mutable container payload is shared.
-fn implicit_node_bytes<K, V>() -> usize {
-    size_of::<[K; 16]>() + size_of::<[V; 16]>() + 32 * size_of::<usize>()
-}
 /// Compiler-issued inner demand, independent of case-specific numerical hints.
 #[derive(Clone, Debug)]
 pub struct ImplicitProgramRequest {
@@ -343,8 +336,8 @@ impl ImplicitProgramRequest {
             + self.key.2.capacity() * size_of::<usize>()
             + self.artifact.descriptor_bytes()
             + self.artifact.support.retained_bytes()
-            + implicit_node_bytes::<(ContentHash, u8, Vec<usize>, bool), Arc<CompiledBody>>()
-            + implicit_node_bytes::<usize, ()>()
+            + pse_model::allocation::btree_node_bytes::<(ContentHash, u8, Vec<usize>, bool), Arc<CompiledBody>>()
+            + pse_model::allocation::btree_node_bytes::<usize, ()>()
     }
 }
 /// One assembly's exact programs and admitted solver descriptors. Mutable native,
@@ -371,7 +364,7 @@ impl ImplicitPrograms {
                 .solvers
                 .values()
                 .map(|solver| {
-                    implicit_node_bytes::<SemanticId, Arc<dyn pse_math::implicit::InnerSolver>>()
+                    pse_model::allocation::btree_node_bytes::<SemanticId, Arc<dyn pse_math::implicit::InnerSolver>>()
                         + solver.retained_bytes()
                 })
                 .sum::<usize>()

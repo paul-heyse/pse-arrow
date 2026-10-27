@@ -382,10 +382,11 @@ impl pse_model::HeapUsage for DeclarationReferences {
                     })
                     .sum::<usize>()
         }
-        paths(&self.types)
-            + paths(&self.prefixes)
-            + self.names.capacity() * size_of::<String>()
-            + self.names.iter().map(String::capacity).sum::<usize>()
+        let Self { types, prefixes, names } = self;
+        paths(types)
+            .saturating_add(paths(prefixes))
+            .saturating_add(names.capacity().saturating_mul(size_of::<String>()))
+            .saturating_add(names.iter().fold(0usize, |bytes, name| bytes.saturating_add(name.capacity())))
     }
 }
 

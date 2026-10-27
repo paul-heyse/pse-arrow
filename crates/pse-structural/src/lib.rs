@@ -11,3 +11,6 @@ pub mod flowsheet;
 pub mod incidence;
 /// Conditional BTF initialization plans with explicit boundary inputs.
 pub mod initialization;
+
+/// Checked dense matching/DM/BTF shared by semantic and reconstruction consumers.
+pub mod dense;

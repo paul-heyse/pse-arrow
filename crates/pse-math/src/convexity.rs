@@ -699,8 +699,15 @@ impl GramCertificate {
         let cells = n
             .checked_mul(n)
             .ok_or(MathError::Limit("Gram construction extent"))?;
+        // Three sparse rational maps can coexist (input, working rows and retained
+        // factors). Their node geometry has one owner; foreign rational limbs stay
+        // in the separate exact-arithmetic allowance.
+        let trees = pse_model::allocation::btree_allocation_bound::<usize, Rational>(n)
+            .and_then(|bytes| n.checked_mul(3).and_then(|rows| rows.checked_mul(bytes)))
+            .ok_or(MathError::Limit("Gram construction extent"))?;
         cells
-            .checked_mul(4 * size_of::<(usize, Rational)>() + 256)
+            .checked_mul(4 * size_of::<(usize, Rational)>())
+            .and_then(|bytes| bytes.checked_add(trees))
             .and_then(|bytes| {
                 bytes.checked_add(n.checked_mul(
                     3 * size_of::<BTreeMap<usize, Rational>>()
