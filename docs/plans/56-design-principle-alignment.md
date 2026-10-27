@@ -63,6 +63,22 @@ replaced consumer interpretations, run their targeted controls, then reconcile t
 G acceptance and scope-end checks. Preserve construction-once artifact validity: no source,
 compiler-record, environment or image reader revalidation is requested by any audit finding.
 
+## Audit-gap closure execution — 2026-10-27
+
+The maintainer authorized implementation of the detailed CA01–CA08 execution approach after
+the completion audit and library research. The existing B/C/F/G owners retain scope and acceptance;
+the audit's historical observations below are not current closure claims. Work now covers real
+operational constructors, declared lazy associations, dual-cause source settlement under original
+clocks, actual telemetry/evidence contract adoption, exact explicit preparation selection,
+scan-free loaded CLI contracts and the actual two-publication native replacement journey.
+
+Reuse pinned thiserror/miette/Tokio, Schemars owner-local schema adapters and scalar annotations,
+msgspec typed enum keys/constraints/type inspection, and FastMCP scoped transport/lifespan owners.
+Construction-once artifact validity remains binding. There is no dependency upgrade, new reader
+validation, storage interpretation, watcher, daemon, full historical campaign or measured-benefit
+claim. The coordinator owns integration, generated publication coordination, original resource
+settlement, independent review and the affected joined qualification before closing findings.
+
 ## Target, scope and authorization
 
 **Proposed:** bring the implemented simulator and development/operator system into alignment
