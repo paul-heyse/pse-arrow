@@ -1,507 +1,258 @@
 # Efficiency-oriented design principles in the test system
 
-This is the current primary home of DTA-018 and DTA-029–DTA-048. The holistic follow-up
-revalidated their composed consumers at source `05e6a2b8a`, 2026-10-23, against AP-07/G9,
-relevant operational refinements and efficiency heuristics 1.0. Diagnoses are *Interface-checked*.
-No tests, benchmarks, profiling, timing claims or fresh host-state inventories were produced.
-
-The [integrated architectural account](architecture-and-assurance.md) explains interactions
-among assurance scope, source dependencies, physical preparation, scheduling, artifact ownership
-and recovery. The [collection README](README.md) owns the baseline, scope and dispositions.
-
-## Bounded execution follow-up — 2026-10-24
-
-The maintainer requested immediate investigation and correction of slow recent Plan52l test
-routes. This is a focused follow-up against `dee39756f` and the subsequent corrections below,
-including the root-owned preparation, fixture and generator edits; unrelated `history.txt`
-edits are excluded. It does not refresh the 2026-10-23 account's complete source baseline or
-reassess all 48 findings. Core3.4, Heuristics1.0, Test Assessment1.2 and relevant Process
-Simulator1.5 constraints remain the selected criteria. Plan52l owns implementation and
-qualification state; the following records the narrower diagnostic changes and their limits.
-
-**Interface-checked / Implemented:** selected demand was broader in preparation than in the
-actual assertion. Pure Rust selections through the default canonical-capable route prepared
-a native worker and canonical observer;
-canonical-only result inspection also prepared a native receiver and the runtime package's
-authored-science capsule. Preparation now selects workers and observers from actual effects,
-and the reviewed runtime scientific consumers have explicit owner prefixes. The real nineteen-column
-inspection fixture keeps isolated canonical storage, original Arrow metadata, exact IPC and
-protected-reader refusal/drain assertions. It no longer constructs an unused execution receiver.
-These are concrete reductions related to DTA-030/032; they do not resolve all shared scientific
-preparation or feature-closure differences. DTA-018's fresh database obligations remain valid.
-Moving the inspection body outside the production module avoids including that test-only file
-in ordinary library compilation, but does not shrink the shared unit-test binary's compilation
-closure. A static follow-up found no existing integration-target publication helper: this fixture
-uses private admitted result-ingestion cursors, acknowledgements and pool ownership. Exposing
-those solely to move the test, or constructing a second ingestion path, was not justified.
-
-**Interface-checked / Implemented:** Plan53 had already made extension preparation conditional,
-so DTA-033's older unconditional-pipeline description is not a current whole-route diagnosis.
-The remaining stale-extension path still imported and hashed an installed image before deciding
-it had to be replaced. `dee39756f` checks eligibility first and retains mandatory capture of the
-new image. Exact source, feature, artifact and loaded-image checks are retained. This does not
-establish that every repeated artifact observation in DTA-039 is redundant.
-For the direct pure/native-local route, a second full hash pass immediately preceded
-`run_rust`'s complete prepared-inventory authentication. `78b3edbc0` retains the distinct
-profile/thread-policy check and authenticates artifact bytes at the existing execution
-boundary once. Five focused controls passed, including changed bytes and invalid policy
-claims. This removes that demonstrated duplication without caching mutable artifact identity.
-
-**Interface-checked / Implemented:** aggregate generation still launched six overlapping Rust
-generator checks plus the independent installed-stub check. `701f9a17c` combines the six into
-one full generator closure and reuses its registry/Python candidate where applicable; independent
-failure diagnostics and narrow standalone recipes remain. Seventeen force-validated xtask
-codegen controls passed, including later comparison/tracking after an earlier candidate failure.
-The installed-stub invocation and physical loader's separate registry admission remain distinct
-work. This addresses the demonstrated composition cause in DTA-037, without claiming one
-registry assembly across every generator or a measured end-to-end speedup.
-
-**Interface-checked / Implemented:** every validation bundle retried unrelated historical
-resource recovery, including formatting and environment bundles. `d4371a576` removes this
-global sweep from report closeout. Current invocation teardown and report sealing remain,
-and explicit historical inspection/recovery is still available. Its focused control passed.
-This removes another amplifier associated with DTA-042/047. Explicit recovery's eligibility
-and cursor-traversal costs were not comprehensively revalidated. Existing Plan53 dispositions
-retain their stated acceptance scopes; this follow-up does not replace them or claim complete
-recovery-path qualification. No historical resource was deleted by this change.
-
-**Tested:** a real ignored-SIGTERM cancellation control now uses the existing caller deadline
-to exercise signal delivery, escalation and terminal state in a bounded two-second cleanup
-budget. Production cancellation policy is unchanged. Broader qualification and the exact
-commands/conditions are recorded in Plan52l's owning outcome. No benchmark, throughput
-comparison or complete efficiency-alignment claim follows from this bounded review.
-
-**Measured configuration / corrected invocation:** two scope-end Clippy attempts were
-interrupted by cgroup OOM kills at a 24 GiB peak, recorded by the user systemd journal on
-2026-10-24. The coordinator had explicitly selected `--resource-class compile`, overriding
-the maintainer's `PSE_BUILD_MODE=unbounded` default. This was an invocation error, not evidence
-of exhausted workstation RAM or a test timeout. The corrected compile-default probe observed
-sixteen Cargo jobs and `memory.max=max` through all seven applicable ancestor limits.
-AGENTS.md and the environment guide now explain this distinction and avoid finite outer
-wrappers around already supervised compile recipes. Explicit finite caller choices retain
-their contract; no machine policy was silently widened or replaced.
-
-## What the follow-up changes
-
-Necessary scope comes from the consumed contract. A database's installed schema, a child process's
-loaded artifact and a sealed evidence origin can establish distinct premises. Those checks cannot
-be removed merely because something else was verified earlier. Conversely, carrying the whole
-selection through every mutable membership publication, or constructing a durable fixture for a
-capability-only assertion, is a concrete mismatch between responsibility and physical work.
-
-Scheduling and budgets also interact: the Python serial group limits simultaneous receiver
-demand, while a broad scientific regex demonstrably catches some pure controls. These observations
-support different judgments. Neither universal serialization nor universal parallelization follows.
-
-DTA-041's generic overengineering verdict is withdrawn. DTA-044 is unresolved. DTA-040 no longer
-asserts false failure of historical observations, and DTA-047 preserves report-seal authentication.
-Other findings below retain a narrower demonstrated cause where the previous scope exceeded it.
-Historical timings/counts remain recoverable in Git with their original conditions; this page
-does not freshly endorse them or present source inspection as a measured speedup.
-
-## <a id="dta-018"></a>DTA-018 — A canonical fixture reconstructs a complete integration lifecycle per test
-
-**Principles:** AP-06, AP-07, DP-10, DP-19; H2, H12; companion §6, §8.
+**Interface-checked · 2026-10-27 · source `87f2eb9050ae24976956628c16e0e7376190be7a`.** This page holds
+the primary findings on preparation, build structure, artifact and evidence lifetimes, scheduling and
+recovery, judged against AP-07/G9, the relevant DP refinements and efficiency heuristics 1.0. Static
+evidence establishes repeated or unnecessary work; no elapsed time, speedup or capacity was measured.
+Byte sizes quoted below are local observations of ignored build directories, not cost measurements.
+
+The [integrated account](architecture-and-assurance.md) explains the interactions. The 2026-10-24
+bounded execution follow-up, its corrections and its measured-configuration note are preserved at the
+[prior publication](https://github.com/paul-heyse/pse-arrow/blob/cbf45ccc933b66192bd7ed5b2a77176e39d46c2e/docs/design_review/test-audit/execution-efficiency.md#bounded-execution-follow-up--2026-10-24);
+[Plan 53](../../plans/53-test-architecture-target.md#finding-dispositions) owns disposition.
+
+## <a id="dta-052"></a>DTA-052 — Prepared artifacts and test evidence are published without content reuse or a convergent lifecycle
+
+**Principles:** AP-07, DP-10, DP-19, DP-20, H12, H14, H16, H19, H25, H26, H27; companion §6, §8.
+**Status:** new, 2026-10-27; it absorbs the remaining lifetime parts of [DTA-042](#dta-042) and
+[DTA-047](#dta-047), and explains the regression in [DTA-033](#dta-033).
+
+**Claim at risk.** Immutable preparation is established once and reused while its premises hold, and
+every artifact or resource the test system creates has a reachable path to retirement once nothing
+references it (ADR-0231's "the owner also controls replacement and reclamation"; §24.1's Plan53 E
+paragraphs).
+
+**Structural cause.** The protection side of the lifecycle (publication, custody, pending/uncertain
+records, borrowers) is complete; the convergence side either does not exist or is not wired to any
+reachable step, and some publications key validity on identity that changes every time.
+
+- **Per-invocation extension generations.** Every `just py-unit`/`py-test` runs
+  `python_extension.run_stages("sync")`, whose prepare stage calls `extension_prepare` →
+  `artifact_publication.publish` unconditionally under a fresh generation. Publication copies, fsyncs,
+  hashes and imports the roughly 1.27 GB image. `stubs_prepare` compares a receipt containing the
+  generation *path*, so it misses on every publish and regenerates stubs (a second Arrow resolve and
+  `cargo run xtask python-stubs`). `artifact_publication.publish` deletes only on failure; no
+  reclaimer exists anywhere in `scripts/`. Plan 56f F05 states "The owner also controls replacement
+  and reclamation" and "Reclamation must respect attached owners", and records the package complete
+  (CA06); its reclamation half is an unmet obligation of that packet, with Plan 56 as disposition
+  owner. Locally, five distinct generations (about 5.9 GB, two of them F05's deliberate acceptance
+  generations) were retained within about three and a half hours and none was retired.
+  Identical-content republication follows from source, not from that observation.
+  Evidence-executable generations follow the same lifecycle. The generation lifecycle also serves
+  capability and agent attachment (ADR-0231), so that half is shared with the broad account's scope,
+  which decides its identity; test-owned artifacts below are primary here.
+- **Per-invocation scientific capsules.** `scripts/scientific_inputs.py::prepare_controller` writes
+  `build/scientific-inputs/<time_ns>.json` per invocation; nothing removes them (thirty files, about
+  115 MB locally).
+- **Discovery and recovery not wired.** `test_resources.py::reclaim_reports` is the only reader of
+  the `scratch-candidates`/`fixture-candidates` entries and `cleanup-cursor.json`, and has no
+  production, CLI or recipe caller since `d4371a576` removed the global sweep. `resource_store.py::{_markers, _save}`
+  still publish and fsync those entries for every passed fixture. `relocate_reports` (journaled
+  custody conversion) is reachable only from tests, while worktree removal never calls it although
+  report bytes are per checkout and authority is host-wide.
+- **Deferred cleanup stops early.** In `scripts/test_run.py::execute_selected`, post-terminal
+  cleanup runs `for resource in deferred: resources.reclaim(resource)` inside one `try`, so the
+  first failure abandons the rest, and the loop is skipped entirely whenever any deadline exists.
+
+**Consequence.** Each focused Python iteration pays a full image copy, hash and import plus stub
+regeneration even when nothing changed. Unreferenced generations, capsules and passed resources
+accumulate with no owner to converge them; every passed fixture writes discovery entries nobody reads;
+a removed worktree can leave dangling authority for retained reports. Disk space is maintainer-managed,
+so the issue is the missing lifecycle owner, not a disk guard.
+
+**Strongest legitimacy argument.** Attached readers may hold older generations (ADR-0231/RC06),
+so deletion must know who still borrows; ADR-0231 deliberately rejects inferring artifact freshness
+from source trees and build records; removing the global sweep was correct; per-resource `reclaim`,
+`list` and `resume` exist. These justify retaining *referenced* generations, constructing explicitly
+and avoiding sweeps. They do not require republishing an identical image, keying stub currency on a
+generation path, or never retiring unreferenced artifacts. Content-keyed publication at the
+constructor is compatible with ADR-0231, because it is not a read-time scan.
+
+## <a id="dta-053"></a>DTA-053 — The focused feedback loop is scoped by crate- and variant-wide build units rather than the responsibility under test
+
+**Principles:** AP-06, AP-07, DP-10, DP-17, H2, H12, H13, H27, H28; companion §8.
+**Status:** new, 2026-10-27. Structure established; magnitude suspected, not measured.
+
+**Claim at risk.** `just unit-package` gives a focused loop sized to the responsibility under test:
+"what developers and agents must instantiate to exercise a responsibility".
+
+**Structural cause.**
+
+- `pse-runtime` is one crate of about 324k lines (roughly 38% test code by heuristic parse) with
+  inline `#[cfg(test)]` modules; `pse-backend-native` (about 139k) and `pse-math` (about 90k) are
+  similar. Test selection happens at run time; the compile scope stays the crate. Under
+  `[profile.dev]` (inherited by test) workspace crates build at O2 with incremental compilation, so
+  one edited assertion pays the whole-crate front end, a large incremental session (about 0.5 GB per
+  `pse-runtime` session locally) and a full test-binary link.
+- Independent variant axes all land on that crate: force-validate on/off (ADR-0170), dev-dependency
+  test features (`pse-operations` resolves to `[default,test-support]` with dev edges), canonical and
+  native opt-ins, check versus build, rust-analyzer's separate target, and the extension profiles.
+  Roughly ten whole-crate `pse-runtime` compilations exist across ordinary routes; a source edit
+  stales all of them, and sccache does not restore incremental workspace units or cdylib links
+  (`docs/dev/build-performance.md`). `unit-native-package` accepts any feature string, so variants
+  are unbounded.
+- About 60% of `pse-runtime` tests sit in files that also hold production code, so on any route that
+  builds the lib (`test`, `check-package`, `py-sync`) a test-only edit dirties the lib unit and every
+  dependent, including the extension relink.
+
+**Consequence.** A Rust+Python iteration (`check-package` → `unit-package` → `py-sync` → correctness
+extension) compiles `pse-runtime` at least four times and links a 1.27 GB cdylib once or twice.
+
+**Strongest legitimacy argument.** ADR-0160 places crate tests in the owning crate, preserving
+private access; adding crates needs an ADR; each variant is individually justified; AP-01 does not
+require compile boundaries to follow responsibilities. The owners have decided the profile and unit
+questions: `docs/dev/build-performance.md` says the existing O2 profiles serve the daily workflows,
+and Plan 54c C04 retains workspace incremental compilation and features "unless a selected edit/build
+sequence supports a better realization", with isolated profiling triggered by an actual recurring
+binary-owned hotspot. This finding does not re-litigate those decisions. Its point is a gap in their
+evidence: the retention decision rests on edit probes over `crates/pse-compiler/src/{workspace.rs,lib.rs}`
+(`scripts/build_measurements.py`, a crate of about 39k lines), and the `pse-runtime` lib-test edit
+sequence, the one most likely to meet the stated trigger, has not been sampled. Moving inline test
+modules to sibling `#[cfg(test)] mod x;` files is available within current contracts for the third
+mechanism.
+
+**Tooling tests have no focused route either.** `scripts/setup_report.py` discovers all 181
+`scripts/tests/test_*` modules (about 95k lines) in one serial `unittest` process, and
+`scripts/affected.py` maps no `scripts/` edit to tooling tests. Hand-picking a module misses
+consumers because of the cross-imports in [DTA-051](doubles-and-coupling.md#dta-051). For the
+execution half, which doubled, the choice is a whole serial run or a guess. Confidence is moderate;
+cost was not measured.
+
+## Residuals of earlier findings
 
-**Follow-up disposition:** Reframed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
+### <a id="dta-030"></a>DTA-030 — Shared reference preparation repeats a union closure for differently scoped consumers
+
+**Refresh:** closure overstated. The reuse is a per-process `OnceLock` in
+`pse-compiler/src/authored_transfer_tests.rs::authored_fixture_workspace`, but `cargo t` is nextest
+(`.cargo/config.toml`), which runs each test in its own process. `docs/dev/validation-assessment.md`
+itself states "nextest children do not share an `Arc`". Each authored-transfer test still rebuilds
+and admits the bounded-reference closure; `process_composition_tests` still uses `fresh_workspace`
+per test. Each scientific test process also decodes the whole capsule
+(`tests/fixtures/scientific-inputs.rs::capsule`): about 4 MB of JSON encoding about 1.1 MB of raw
+bytes as integer arrays, across nineteen families, before cloning the one it needs. The plan's
+evidence shows the reuse is *correct* (refusal controls pass), not that the repeated preparation is gone.
 
-**Source anchors:** `crates/pse-operations/src/testing.rs::{resource_bridge,canonical_fixture_with_profile}`, `python/pse/tests/conftest.py::canonical_substrate`, and `scripts/test_resources.py::{register,finalize}`.
+### <a id="dta-033"></a>DTA-033 — Focused Python routes unconditionally invoke a broad extension-preparation pipeline
 
-Rust resource_bridge and canonical_fixture_with_profile, Python canonical_substrate,
-test_resources registration/drain and canonical initialize/open compose an independent database,
-schema admission, context and cleanup lifecycle per fixture. Registration starts one bridge;
-registration plus drain supplies the pair. This is a substantial preparation boundary even when
-the final assertion uses a small capability. DTA-031 identifies a concrete unnecessarily broad
-consumer; the lifecycle is legitimate where fresh durable behavior is the claim.
+**Refresh:** D03's closure is superseded by the ADR-0231 direction, with residual cost. D03's skip
+relied on freshness inference that ADR-0231 (proposed, revised under maintainer direction on
+2026-10-27) deliberately rejects; `4a6d14469` delegates incremental decisions to Cargo/Maturin and
+publishes on every explicit construction. This is not reopening that decision. The residual cost is
+republishing an identical image and path-keyed stub currency; the test
+`test_child_selection_carries_only_issued_image_and_stub_scope_stays_independent` checks stub reuse
+only without an intervening republish. Primary home: [DTA-052](#dta-052).
 
-**Corrected premises.** Schema installation, issuing-store identity and module validation are
-per database. Service configuration can change between tests; mutable source/artifact paths
-remain uncertain until captured. They are not all established invocation-wide invariants.
-The earlier assertion that these checks merely repeat an already-secured premise was too broad.
-Any smaller realization must preserve fresh-install controls, exact identity, independent
-connections, registration before effects and actual drain; no cached template or shared mutable
-database is established as equivalent by this audit.
+### <a id="dta-039"></a>DTA-039 — Broad source capture and repeated artifact verification have different validity scopes
 
-## <a id="dta-029"></a>DTA-029 — Store-test selection is coupled to a feature-dependent production-library variant
+**Refresh:** partially resolved. Scope-before-read is delivered (`validation.sources` calls
+`includes_input` before `source_stamp`). On the ordinary in-process route, `native_tests._rust_capture`
+and `run_rust` → `prepared_rust_inventory` compute the rust-product source identity three times
+(about 100 MB of tracked inputs) and hash every test binary and `ldd`-resolved library twice, with no
+process or admission boundary between the second and third passes; `observer_rust` deliberately avoids
+this. The validity bracket is the whole workspace for a one-package selection (H5), so another agent's
+edit anywhere in crates, scripts or vendored sources during the build refuses the run as "changed
+during preparation". The begin/end bracket is justified; the third pass and workspace-wide refusal
+scope are not.
 
-**Principles:** AP-02, AP-05, AP-07, DP-10; H13; companion §5, §8.
+### <a id="dta-038"></a>DTA-038 — Fixture registration rewrites selection-bearing invocation state under shared admission
 
-**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
+**Refresh:** partially resolved. Membership changes no longer rewrite the selection
+(`resource_store.py::FileStore._publish_invocation`; `_invocation_object` publishes it once by content
+hash). Each registration still serializes and digests the whole declaration and requirements about six
+times (`_invocation_view`, three `_publish_invocation` calls, `test_resources.register`'s
+`read_invocation` and `invocation_snapshot`), four inside the invocation lock that `register` takes
+while holding the service-wide `surreal_server.py::context_admission`. The members map is rewritten
+three times per registration, O(M²) bytes over an invocation of M fixtures, and each Rust fixture
+action starts a Python bridge process (`pse-operations/src/testing.rs::resource_bridge_until`).
 
-**Source anchors:** `crates/pse-operations/src/canonical_artifacts.rs::CANCEL_AFTER_ARTIFACT_APPEND_ACK`, `crates/pse-operations/src/canonical.rs::operation_failed`, and the operations/runtime Cargo manifests.
+### <a id="dta-042"></a>DTA-042 — Coarse failure retention and cleanup joins amplify later lifecycle work
 
-The canonical-tests feature deliberately prevents ordinary unit selection from needing a server.
-It also enables library behavior: canonical_artifacts' post-ack cancellation suspension and
-canonical operation_failed logging compile outside cfg(test). Cross-crate controls therefore
-exercise a particular feature variant while test selection influences the production build closure.
+**Refresh:** partially resolved. E02's joined settlement is implemented (`testing.rs::settle` with
+`tokio::join!` and `join_settlement`). The post-terminal deferred loop still aborts at the first error
+and is skipped under any deadline; that residual is part of [DTA-052](#dta-052).
 
-The hook permits a real cancellation interleaving unavailable through a trivial fake. Feature
-existence is not itself an invalid seam or proof of different unprobed scientific behavior.
-Keep the selection/build-variant coupling and identify the exercised variant; do not presume
-moving everything into another crate or removing deterministic controls preserves assurance.
+### <a id="dta-047"></a>DTA-047 — Current nondisposable reports still traverse generic reclamation machinery
 
-## <a id="dta-030"></a>DTA-030 — Shared reference preparation repeats a union closure for differently scoped consumers
+**Refresh:** partially resolved. Custody, sealing and origin authentication are retained and
+`_markers` admits only reports with scratch artifacts and verified provenance. The candidate list's
+only production consumer was removed about four hours after it was built (`f7f0ca179`, then
+`d4371a576`), leaving writes without a reader; see [DTA-052](#dta-052).
 
-**Principles:** AP-01, AP-06, AP-07, DP-10; H5, H12, H13; companion §2, §8.
+### <a id="dta-048"></a>DTA-048 — Checkpoint serialization repeats growing evidence maps and failure payloads
 
-**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
+**Refresh:** partially resolved. The compact root and selected reads hold
+(`assessment_store.py::{publish, selected}`). `validation.py::run_gates` still checkpoints about ten
+times, each re-serializing and hashing every accumulated check record and the source cut through
+`immutable()`, re-reading existing detail through `test_resources.read_report_file`, and rewriting
+`failures.json` and `test-findings.json`. Work grows with gate count times accumulated detail.
 
-**Source anchors:** `tests/fixtures/reference-source-fixture.rs`, `crates/pse-compiler/src/workspace/modeling.rs::publish_modeling_with_validation`, and `tests/support/plan14.rs`.
+### <a id="dta-044"></a>DTA-044 — The necessity of the Python canonical-owner barrier remains unestablished
 
-The shared reference-source fixture reparses its explicit union in fresh compiler workspaces,
-whose publish_modeling_with_validation checks each candidate again. High-level plan14 source
-preparation also loads a broad runtime package closure before individual selected cases. A
-dependency/admission failure outside the case's intended assertion can prevent that assertion.
-This couples focused feedback and reference dependency changes across consumers.
+**Refresh:** narrowed closure holds; `test_requirements.pytest_group` groups only `scientific-owner`
+and declared exclusions. `python/pse/tests/conftest.py::no_canonical_allocation` asserts the absence
+of a `canonical-owner` group that no longer exists, so that check cannot fail.
 
-A smaller semantically sufficient closure was not established. The indexed-process composition
-test genuinely exercises inventory, derivatives, connections and observation closure, not merely
-arbitrary counts. Narrow output does not prove narrow necessary input. Preserve authentic source,
-imports and case-specific independent assertions; quantify no preparation share. Manual closure
-maintenance and embedded-source invalidation remain separately explained by DTA-027/035/036.
+### <a id="dta-018"></a>DTA-018 — A canonical fixture reconstructs a complete integration lifecycle per test
 
-## <a id="dta-031"></a>DTA-031 — Capability-only Python tests acquire a durable fixture through a broad runtime dependency
+**Refresh:** closure established as bounded (two local Python migrations; fresh database, schema and
+drain controls retained).
 
-**Principles:** AP-01, AP-06, AP-07; H2, H5; companion §2, §8.
+### <a id="dta-029"></a>DTA-029 — Store-test selection is coupled to a feature-dependent production-library variant
 
-**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
+**Refresh:** closure established. `canonical-tests` gates only test modules; hooks sit under
+`test-support`, selected by dev dependency.
 
-**Source anchors:** `python/pse/tests/test_native_workflow.py::{runtime,test_native_capability_discovery_and_hard_cut}` and `crates/pse-py/src/workflow.rs` local runtime construction.
+### <a id="dta-031"></a>DTA-031 — Capability-only Python tests acquire a durable fixture through a broad runtime dependency
 
-`python/pse/tests/test_native_workflow.py::test_native_capability_discovery_and_hard_cut` reads
-capabilities and checks the exported surface. Its runtime fixture depends on canonical_substrate,
-so the case also creates/registers a durable fixture, its resource context and scheduling group.
-Python has a local runtime construction using Runtime::from_shared_local. The asserted capability
-responsibility itself does not consume the store, establishing unnecessary dependency activation
-for this concrete consumer.
+**Refresh:** closure established (`test_native_workflow.py::test_native_capability_discovery_and_hard_cut`
+uses an ephemeral runtime with `no_canonical_allocation`).
 
-The previous Rust footprint was too broad. Runtime::from_shared selects Durable, and
-modeling::canonical::admit_revision_authorized really records through store.edit. Such tests
-exercise recording as constructed, even where another test could choose a different assurance
-scope. Equivalent local coverage was not established for those paths. Changing parallelism or
-sharing databases first would not remove the Python case's accidental preparation dependency.
+### <a id="dta-032"></a>DTA-032 — Overlapping testing/tooling routes prepare different feature closures
 
-## <a id="dta-032"></a>DTA-032 — Overlapping testing/tooling routes prepare different feature closures
+**Refresh:** closure established for its narrow scope. Remaining variant multiplicity is
+[DTA-053](#dta-053).
 
-**Principles:** AP-07, DP-10, DP-16; H12, H13; companion §8.
+### <a id="dta-034"></a>DTA-034 — The unprepared fallback repeats Rust resolution and enumeration
 
-**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
+**Refresh:** closure established. `select.main` → `run_rust` → `ordinary_rust_capture` performs one
+build, one retained listing and one run, reusing resolve metadata as `--cargo-metadata`.
 
-**Source anchors:** `scripts/python_extension.py::{sync,develop_command}` and `Cargo.toml` / consumer Cargo feature declarations.
+### <a id="dta-035"></a>DTA-035 — Embedding shared reference documents widens compile-time change propagation
 
-Dev-unit fixtures/test-support and validated versus unvalidated Arrow closures produce distinct
-builds. In particular python_extension.sync invokes validated maturin followed by xtask without
-the force-validation feature. Thus one correctness route reaches overlapping but different
-dependency closures. Foundational edits can require preparing more than one variant.
+**Refresh:** closure established for migrated consumers; no `include_*` of `packages/reference`
+remains. Live readers are a [DTA-027](doubles-and-coupling.md#dta-027) residual.
 
-This does not contradict ADR-0122's package-selection unification guarantee, and not every
-workspace library is necessarily in every closure. Cargo retains variants; their existence is
-not repeated full recompilation on every run. Interactive unvalidated builds and private-access
-support have actual purposes. Any consolidation must retain force-validation for correctness,
-the selected interactive contract and appropriate separation of test hooks from shipped builds.
+### <a id="dta-036"></a>DTA-036 — Package-based affected-test preview does not represent scientific fixture dependencies
 
-## <a id="dta-033"></a>DTA-033 — Focused Python routes unconditionally invoke a broad extension-preparation pipeline
+**Refresh:** mechanism established. `scripts/scientific_inputs.py::affected` widens on unknown or new
+members; consumer edges remain declared rather than observed ([DTA-027](doubles-and-coupling.md#dta-027)).
 
-**Principles:** AP-07, DP-10, DP-16; H12, H14, H18; companion §8.
+### <a id="dta-037"></a>DTA-037 — The grouped codegen comparisons repeat overlapping generation work
 
-**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
+**Refresh:** closure established; the `codegen-check` group runs one aggregate plus independent checks.
 
-**Source anchors:** `scripts/python_extension.py::sync`, `scripts/python_tests.py::main`, and `python/pse/tests/conftest.py::pytest_sessionstart`.
+### <a id="dta-040"></a>DTA-040 — Aggregate snapshot qualification has a wider invalidation window than an individual observation
 
-The py-unit/py-test recipes always invoke python_extension.sync: uv preparation, maturin develop
-and stub generation. Separate downstream runner capture and pytest_sessionstart read full
-extension digests; workers
-also verify their loaded extension. Thus a narrow Python-only selection traverses this pipeline
-even when its test body and compiled sources are unchanged.
+**Refresh:** the corrected judgment holds; aggregate snapshot semantics and scoped reuse are unchanged
+(`validation_receipts.py::classify`).
 
-Unconditional invocation is not proof of Rust recompilation: Cargo may report fresh artifacts,
-uv may do little, and stubs write only changes. Maturin rewrite behavior, exact current extension
-size and elapsed cost were not revalidated. Freshness, compiled validation features and protection
-against concurrent replacement remain required; a stat-only or cached-identity shortcut has not
-been established as equivalent.
+### <a id="dta-041"></a>DTA-041 — Disposability alone does not establish that fixture recovery is overengineered
 
-## <a id="dta-034"></a>DTA-034 — The unprepared fallback repeats Rust resolution and enumeration
+Withdrawn 2026-10-23; never reused. This refresh again found concrete obligations for
+pending/uncertain protection (discovery entries precede authority, so a crash leaves an entry that
+must stay protective).
 
-**Principles:** AP-07, DP-16; H4, H12, H19; companion §8.
+### <a id="dta-043"></a>DTA-043 — Per-run test exclusion does not by itself exclude another run sharing the service
 
-**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
+**Refresh:** closure holds structurally (service-access discovery in `resource_store.py::_markers`;
+`service_borrowers.py::service_resources` refuses unresolved associations).
 
-**Source anchors:** `scripts/select.py::main`, `scripts/test_run.py::run_rust`, and `scripts/native_tests.py::{ordinary_rust_capture,_rust_capture}`.
+### <a id="dta-045"></a>DTA-045 — A broad scientific-group regex serializes demonstrably pure controls
 
-Without PSE_NATIVE_OPERATION, select.main resolves the closure and run_rust lists before normal
-nextest execution, which can repeat metadata/build fingerprint and enumeration work. That fallback
-contains a repeated preparation opportunity.
+**Refresh:** closure holds for the three named pure cases. It was achieved by narrowing name
+prefixes, which de-grouped real native modules; see [DTA-016](evidence-routes-and-execution.md#dta-016).
 
-The earlier universal ordinary-managed-route claim was wrong: select skips this initial resolve
-when the operation marker exists. observer_rust → ordinary_rust_capture → _rust_capture already
-retains metadata and binary inventory for ordinary selections, not only special native campaigns.
-Preserve validated graph/root correspondence and the exact pre-execution catalog. The fallback
-frequency and elapsed impact are unmeasured, and the managed route must not be described as lacking
-reuse that it already performs.
+### <a id="dta-046"></a>DTA-046 — Per-runtime ceilings do not establish a safe aggregate concurrent-demand envelope
 
-## <a id="dta-035"></a>DTA-035 — Embedding shared reference documents widens compile-time change propagation
-
-**Principles:** AP-01, AP-07, DP-10; H13; companion §2, §8.
-
-**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `tests/fixtures/reference-source-fixture.rs` and its compiler/runtime/conformance test consumers.
-
-The include_str inputs of tests/fixtures/reference-source-fixture.rs make reference science
-documents compiler inputs to its consumer test binaries. A data/declaration-only edit therefore
-invalidates those compiled consumers in addition to changing the scientific case. Multiple
-test consumers share that coupling, while affected-test preview does not infer these edges.
-
-Embedding also preserves exact bytes, missing-file errors and executable provenance. Runtime
-loading would require equivalent source identity and freshness; it is not automatically superior.
-Prior counts, binary sizes and rebuild timing were not refreshed. The qualitative input coupling
-is established without claiming every consumer rebuild is avoidable.
-
-## <a id="dta-036"></a>DTA-036 — Package-based affected-test preview does not represent scientific fixture dependencies
-
-**Principles:** AP-01, AP-05, AP-07, DP-10; H13; companion §8.
-
-**Follow-up disposition:** Confirmed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `scripts/affected.py::{owner,closure,main}` at the fixed audited source revision.
-
-affected.owner maps paths to Cargo package roots and closure follows manifest reverse edges,
-including dev dependencies. Shared fixture/reference paths outside those roots are unowned;
-test-only edits also propagate through package dependencies more broadly than actual test reach.
-A reference-only change receives no Rust selection even though embedded or runtime-loaded
-scientific inputs have test consumers. This makes the developer combine different dependency
-models manually when selecting checks for a scientific change.
-
-The tool explicitly reports dynamic exclusions and calls itself a dependency preview, not an
-exhaustive behavior guarantee. This is a bounded capability/change-locality shortfall in the whole
-feedback workflow, not a false report of complete coverage. Depfiles alone would not settle
-arbitrary runtime-loaded inputs either.
-
-## <a id="dta-037"></a>DTA-037 — The grouped codegen comparisons repeat overlapping generation work
-
-**Principles:** AP-07, DP-10, DP-16; H6, H12; companion §8.
-
-**Follow-up disposition:** Confirmed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `xtask/src/codegen.rs::append_physical` and generation gate selection in `scripts/validation_scope.py`.
-
-The validation generation group selects relations, physical and rust-contracts comparisons.
-In xtask/codegen, Rust relation generation already includes physical projection, rust-contracts
-narrows Rust roots, and physical calls append_physical separately. The assembled group therefore
-performs overlapping comparison work.
-
-Each gate remains useful independently, and regeneration is necessary to establish drift.
-Bootstrap's mutating phases serve another purpose. The concern is composition of those gates,
-not eliminating fresh generation checks or their separately attributable failures. No timing
-or speedup is claimed.
-
-## <a id="dta-038"></a>DTA-038 — Fixture registration rewrites selection-bearing invocation state under shared admission
-
-**Principles:** AP-07, DP-10, DP-19, DP-20; H8, H15, H23; companion §8.
-
-**Follow-up disposition:** Confirmed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `scripts/resource_store.py::FileStore.{register,invocation_edit}`, `scripts/test_resources.py::register`, and `scripts/surreal_server.py::context_admission`.
-
-FileStore.register publishes whole invocation state for pending and uncertain transitions;
-invocation_edit publishes completion. The state includes the immutable selected declaration,
-so each membership update repeatedly serializes unrelated selection data. test_resources.register
-holds context_admission and invocation/identity/resource exclusion across those publications.
-Registration work consequently grows with selection size as well as resource count, and users
-of the same service share the admission serialization boundary.
-
-Crash-safe pending publication, exact identity, terminal freeze and lifecycle visibility of
-accepted borrowers are concrete obligations. They do not establish the necessity of repeatedly
-rewriting an immutable selection, nor does this finding establish that locks or durable transitions
-can simply disappear. Queue timeout frequency and runtime share remain unmeasured.
-
-## <a id="dta-039"></a>DTA-039 — Broad source capture and repeated artifact verification have different validity scopes
-
-**Principles:** AP-07, DP-09, DP-10; H5, H18, H19; companion §8.
-
-**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `scripts/native_tests.py::{native_provenance,rust_source_identity,prepared_rust_inventory}` and `scripts/validation.py::sources`.
-
-native_provenance, fixture bindings and prepared_rust_inventory repeatedly verify full-byte
-artifacts/source. Parent preparation, admission waits, separately launched children and retained
-reuse do cross mutable-path replacement windows, so these are not all the same already-secured
-premise. Hardlinks or file metadata alone do not freeze bytes.
-
-A sharper source-visible excess is rust_source_identity: it obtains validation.sources over the
-broad source inventory before projecting rust-product. This does unnecessary pre-projection work
-for that narrower identity. Repetition elsewhere is a scoped opportunity requiring ownership and
-immutability analysis, not an established claim that most checks are redundant. Generation
-publication and verify_generation already carry/reuse some verified premises within their owner.
-No hashing time or equivalent shortcut was established.
-
-## <a id="dta-040"></a>DTA-040 — Aggregate snapshot qualification has a wider invalidation window than an individual observation
-
-**Principles:** AP-04, AP-05, DP-09, DP-22; companion §6, §8.
-
-**Follow-up disposition:** Reframed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `scripts/validation.py::run_gates` and `scripts/validation_receipts.py::{classify,reuse}`.
-
-validation.run_gates compares relevant inputs with the assessment's single starting snapshot
-after the gates. A later edit can make an earlier observation inapplicable to that aggregate
-snapshot claim. A later edit does not erase the historical execution, but its exact input
-attribution requires evidence beyond the aggregate snapshots. `scripts/validation_receipts.py::classify`
-also verifies immediately after each gate, not solely at the assessment end.
-
-The former false-failure diagnosis and implication that all work must be rerun are withdrawn.
-This is conservative qualification semantics; validation_receipts already supports scoped reuse
-and transfer. Whether the aggregate window is disproportionately broad for a particular intended
-claim remains unresolved. A different result boundary must state what final-source assurance it
-preserves, rather than silently treating historical success as current qualification.
-
-## <a id="dta-041"></a>DTA-041 — Disposability alone does not establish that fixture recovery is overengineered
-
-**Principles:** AP-07, DP-19, DP-20; H25; companion §6, §8.
-
-**Follow-up disposition:** Withdrawn, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `scripts/resource_store.py::FileStore.{register,_settle_members,ensure}`.
-
-Withdraw the established overengineering verdict. Disposable passed databases coexist with
-failed/unknown retention, durable association, late effects and cross-process server borrowers.
-FileStore.register and _settle_members explicitly handle pending/uncertain recovery; ensure checks
-a durable legacy-writer fence. UUID naming does not remove duplicate-registration or stale-writer
-exposure. One current worktree does not establish that the compatibility obligations have vanished.
-
-The earlier statement that nobody needs this state after a crash contradicted the retained
-diagnostic/safety contract. No simpler realization satisfying that complete contract was established.
-Concrete representation amplification remains in DTA-038 and failure/lifecycle coupling in
-DTA-042; neither requires dismissing recovery machinery wholesale. This identity is retained for
-lineage, not recorded as an implementation repair or permission to delete uncertain resources.
-
-## <a id="dta-042"></a>DTA-042 — Coarse failure retention and cleanup joins amplify later lifecycle work
-
-**Principles:** AP-07, DP-19, DP-20; H10, H24; companion §6, §8.
-
-**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `scripts/test_run.py::execute_selected`, `scripts/test_resources.py::{finalize,reclaim_reports,resource_status}`, and `scripts/surreal_server.py::require_borrowers_drained`.
-
-An incomplete/untrusted enclosing report keeps invocation members pinned, even when individual
-child outcomes look successful. execute_selected's deferred cleanup loop stops after its first
-exception. Bounded report sweeps coexist with an active-registry read on resource_status and
-require_borrowers_drained. An infrastructure failure can thus enlarge retained state and later
-service lifecycle inspection beyond the test body that triggered it.
-
-Conservative retention is purposeful when outcome association is unauthenticated. Explicit
-abandonment/release exists; automatic disposal of unknown state is not a required convergence
-inference. The earlier effectively-monotonic claim and memory-pressure attribution from counts
-alone are removed. Keep the demonstrated failure amplification and scan coupling, preserving
-owner/liveness/drain/reference safety and the distinction between retention and live memory demand.
-
-## <a id="dta-043"></a>DTA-043 — Per-run test exclusion does not by itself exclude another run sharing the service
-
-**Principles:** AP-05, AP-07, DP-20; H21, H23; companion §6, §8.
-
-**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `.config/agent-capacity.toml`, `.config/nextest.toml`, and `scripts/surreal_server.py::execution_resources`.
-
-Host resource classes, nextest groups and service limits have different scopes. In the selected
-unbounded build mode, two runs can share one server while each independently grants a test
-exclusive nextest width. That per-run property does not establish service-wide quiet for a
-test whose actual assertion requires it.
-
-The server has real runtime/session/memory limits, and bounded host classes can coordinate
-exclusivity. It is false to say no owner coordinates any capacity. Specific cross-run interference
-and failure attribution remain unobserved. Preserve the maintainer's unbounded mode, explicit
-overload outcomes and lifecycle fencing; align the asserted requirement with its real exclusion
-scope rather than imposing a global serial policy.
-
-## <a id="dta-044"></a>DTA-044 — The necessity of the Python canonical-owner barrier remains unestablished
-
-**Principles:** AP-07, DP-20; H22; companion §6, §8.
-
-**Follow-up disposition:** Unresolved, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `conftest.py::pytest_collection_modifyitems`, `scripts/native_tests.py::python_command`, and `python/pse/tests/conftest.py::canonical_substrate`.
-
-Root conftest groups every canonical_substrate fixture closure, and ordinary python_command
-uses loadgroup, so canonical cases are serialized within that run. Distinct databases establish
-data isolation, not independence of receiver capacity, service timing or resource-heavy bodies.
-The barrier also mitigates simultaneous demand from the large per-runtime ceilings in DTA-046.
-
-The previous confirmed unnecessary-serialization verdict was not supported by absence of a
-recorded motivation alone. No specific safely independent canonical body whose barrier is
-dispensable was established in this pass. Keep the observation and dependency question visible;
-do not remove the group or claim a parallel speedup on this evidence.
-
-## <a id="dta-045"></a>DTA-045 — A broad scientific-group regex serializes demonstrably pure controls
-
-**Principles:** AP-01, AP-07, DP-20; H22; companion §8.
-
-**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `.config/nextest.toml` scientific-group rules and pure controls in `crates/pse-backend-native/src/{kinsol,ipopt}.rs`.
-
-The nextest module regex assigns both scientific slots to pure KINSOL profile-identity controls
-and Ipopt status_scope_and_finite_infinity_are_not_conflated. These local parsing/mapping/bounds
-assertions acquire no solver pool; module location gives them an unnecessary scheduling barrier.
-
-This does not establish independence of all solver unit tests. Other cases own real native state,
-memory or threads; Clarabel controls explicitly select threaded MKL settings. Preserve those
-obligations and memory-heavy journey isolation. The actionable scope is the concrete pure controls
-and requirement assignment, not blanket parallelization of hundreds of native tests.
-
-## <a id="dta-046"></a>DTA-046 — Per-runtime ceilings do not establish a safe aggregate concurrent-demand envelope
-
-**Principles:** AP-07, DP-20; H17, H21; companion §6, §8.
-
-**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `.config/agent-capacity.toml`, `scripts/surreal_server.py::execution_resources`, and `python/pse/tests/test_native_workflow.py::runtime`.
-
-Independent Python runtime owners can each configure a 64-GiB pool; a ceiling is not an aggregate
-reservation. Their allowed simultaneous demand must be understood with observer/receiver/context
-lifetimes, rather than multiplying one body in isolation. A potential mismatch remains for
-simultaneously active consumers, not an observed OOM or unavoidable failure.
-
-Correct the earlier arithmetic: exclusive-observer has a 144-GiB observer/receiver/control role
-envelope (64/72/8 GiB), not a 64-GiB complete service allocation. Functional-store and host-light
-costs are separate. canonical-owner prevents concurrent Python canonical fixtures
-within an ordinary run, and many receiver descriptors do not start heavy work. No source proof
-established that all ceilings become live together or cannot fail explicitly before host failure.
-Assess scheduling and budgets jointly while preserving the selected operating mode.
-
-## <a id="dta-047"></a>DTA-047 — Current nondisposable reports still traverse generic reclamation machinery
-
-**Principles:** AP-01, AP-07, DP-16, DP-19; H26, H28; companion §8.
-
-**Follow-up disposition:** Reframed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `scripts/test_resources.py::{reference_report,eligible}`, `scripts/validation.py::artifact_roles`, and `scripts/validation_receipts.py::reuse`.
-
-Current validation producers declare no scratch role, so normal report-reclaim eligibility
-cannot delete their protected receipt/provenance/evidence artifacts. Generic reclaim inspection
-therefore operates on reports that are not disposable by that route, creating a bounded lifecycle
-scope question.
-
-Registration and sealing also authenticate reuse: reference_report requires a registered sealed
-origin, verifies its receipt digest and manifest, and validation_receipts.reuse consumes it.
-The earlier claim that protection guards nothing was false; dropping registration/sealing would
-discard a consumed guarantee independently of cleanup. Keep the narrower reclaim-path concern,
-with its material cost unresolved, and preserve original evidence custody and immutable references.
-
-## <a id="dta-048"></a>DTA-048 — Checkpoint serialization repeats growing evidence maps and failure payloads
-
-**Principles:** AP-07, DP-10, DP-16; H16, H26; companion §8.
-
-**Follow-up disposition:** Narrowed, source baseline `05e6a2b8a`, 2026-10-23. Diagnosis is *Interface-checked*; no test was run.
-
-**Source anchors:** `scripts/validation.py::checkpoint`, `scripts/native_tests.py::prepared_rust_inventory`, and `scripts/validation_scope.py::input_identity`.
-
-validation.checkpoint rewrites the accumulated receipt; per-gate input identities and copied
-failure detail increase that payload as a run proceeds. These repeated full serializations create
-qualitative amplification with gate count and retained detail. The exact current byte counts and
-timing were not refreshed.
-
-Native Cargo metadata and unit graphs are not merely opaque equality strings: prepared_rust_inventory
-parses package IDs, roots, suites and executable metadata and validates their correspondence.
-The old equality-only claim is removed. Any narrower representation must preserve those checks,
-crash-reviewable checkpoints, changed-input diagnosis and original-detail access through just result.
+**Refresh:** closure holds within the retained `scientific-owner` barrier; joint simultaneous demand
+remains an open question, not a finding.

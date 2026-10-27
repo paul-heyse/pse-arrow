@@ -1,209 +1,186 @@
 # Integrated test architecture and assurance
 
-**Interface-checked · 2026-10-23 · source `05e6a2b8a49f08de4e33e2e9ad64a753cbea2287`.**
-The [collection baseline](README.md#baseline-and-method) identifies the standard, excluded
-changes and evidence limits. This is the holistic follow-up's architectural account, not a
-replacement design, test qualification or implementation plan. The primary findings remain in
-their topic pages with stable identities.
+**Interface-checked · 2026-10-27 · source `87f2eb9050ae24976956628c16e0e7376190be7a`.** The
+[collection baseline](README.md#baseline-and-method) identifies the standard and evidence limits.
+This is the architectural account behind the findings, not a replacement design, test
+qualification or implementation plan. Primary findings live in the topic pages.
 
-## The test system is federated by assurance responsibility
+## The system as built
 
-The organizing distinction is the responsibility a test challenges, not its directory, runner
-or size. Crate tests exercise identity, physical admission, compilation, mathematical evaluation,
-adapter policy and result interpretation. Engine, conformance and lifecycle suites connect those
-capabilities where interaction, physical behavior or ownership is the claim. Python tests exercise
-the installed public boundary, actual durable results and downstream consumers. Parity supplies
-selected external comparisons with their own assumptions; it does not confer general equivalence.
+The test system has two halves that grew at different rates.
+
+**The assurance half** challenges product behavior. Crate tests (about 5,000 Rust test functions,
+mostly inline `#[cfg(test)]` modules, about 310k of 896k source lines in `crates/*/src`) own
+identity, admission, compilation, numerics, adapters, workflow and publication. Small workspace
+packages (`tests/conformance`, `engine`, `lifecycle`, `governance`, about 6k lines) join selected
+capabilities. `python/pse/tests` (about 300 tests) exercises the installed boundary and durable
+results; `python/pse/parity` makes four focused IDAES comparisons. The authored model library under
+`packages/reference` carries about 123 fixtures with oracle provenance, run as a set by the product
+conformance CLI.
+
+**The execution half** decides what runs, where and with what evidence. Between the 2026-10-23 audit
+and this refresh it roughly doubled: `scripts/` from about 119k to 225k lines, `scripts/tests` from
+about 63k to 125k, `xtask/src` from about 18k to 44k. It holds invocation interpretation
+(`test_invocation`), requirements and scheduling (`test_requirements`), Arrow-leaf proof
+(`arrow_validation`), preparation and generations (`python_extension`, `artifact_publication`,
+`scientific_inputs`), resource authority and custody (`resource_store`, `test_resources`), terminal
+composition (`test_run`), assessment storage (`assessment_store`, `validation`) and the shared
+`surreal_server` supervisor. Plan 53 delivered most of its targeted joins.
 
 ```mermaid
 flowchart TB
-    A[Authored models and test scenarios] --> P[Production admission and compilation]
-    P --> N[Native execution and workflow interpretation]
-    N --> R[Publication, reopening and Python consumers]
-    O[Independent analytic and external references] --> C[Case-specific scientific comparisons]
-    N --> C
-    L[Local contract tests and known-incorrect controls] --> P
-    L --> N
-    L --> R
-    E[Selection, build and fixture preparation] --> X[Execution and resource lifecycles]
-    X --> P
-    X --> N
-    X --> R
-    X --> V[Reconciled outcomes and retained evidence]
-    C --> V
+    S[Authored science and test bodies] --> A[cfg features and routes decide compilation]
+    A --> Q[Requirement tables decide demand and scheduling]
+    Q --> P[Preparation: build, capsule, extension generation]
+    P --> X[Execution under nextest, pytest, conformance CLI]
+    X --> T[Terminal composition, custody, assessment]
+    R[Reference library and generators] -. manual route only .-> X
+    H[Plans and packets] -. route and owner of drivers .-> X
 ```
 
-These arrows describe responsibilities and evidence paths; they do not imply that every local
-test starts the entire workflow or that one test must traverse all layers.
+Size is not the finding. The structural observation is that assurance meaning (which tests must run,
+under what prerequisites, with which references) is held *beside* the tests in tables, plans and
+recipes, while the execution half's investment has gone mostly into protecting what runs rather than
+establishing that what matters runs.
 
-The support structures serve different purposes. `pse-testkit` constructs actual bounded engine
-resources and has useful factory/capture consumers. `tests/support/plan14.rs` is a richer source
-package/workflow composition used by conformance and benchmarks. The lower-layer
-`tests/fixtures/reference-source-fixture.rs` intentionally substitutes synthetic data transport
-while retaining source declarations. Shared conformance is itself a product capability whose
-interpretation mechanisms have local controls. Independent expectations may legitimately repeat
-scientific relations without becoming another writable production authority.
+## Six integrated conclusions
 
-Execution has a different dependency structure: Cargo features, nextest/pytest collection,
-resource preparation, invocation association, child outcomes, terminal reconciliation, retention
-and later reuse. General host admission and server lifecycle serve more than tests. Charging
-their entire implementation to test support would conceal real consumers rather than establish
-an architectural defect.
+### 1. The scientific basis has weaker routes than the machinery around it
 
-## What the portfolio establishes that a local inspection can miss
+The product's central scientific claim, agreement of authored models with independent references,
+lives in a route outside both the test catalogues and comprehensive assessment
+([DTA-049](oracles-and-acceptance.md#dta-049)). No full pass of it is recorded. The last full run
+(2026-10-11) failed nine and left eleven of 118 fixtures inconclusive, and no owner tracks that state. Its generators bind outputs but not inputs, so
+staleness is invisible ([DTA-054](oracles-and-acceptance.md#dta-054)). Pure scientific preconditions
+are gated behind solver or store features ([DTA-050](evidence-routes-and-execution.md#dta-050)). The
+reports that Plan 53's handoff names for its pending simultaneous-controller consumer appear to hold an
+inconclusive result, subject to the identity check the plan requests
+([plan-state discovery](oracles-and-acceptance.md#dta-003)).
 
-Several plausible systemic-gap hypotheses were contradicted by complementary controls.
+Meanwhile terminal composition, custody and pending/uncertain protection received exact, tested
+treatment. Fixing one route entry would not change this balance: the reference library needs an
+owner in qualification scope and a representative slice in ordinary feedback, and its references
+need staleness signals. Strong local scientific tests (analytic, exhaustive and independent
+references; see the contrasts below) show the capability exists.
 
-**Reusing production completion is not by itself a circular oracle.**
-`modeling/assessment.rs::AssessedPoint::completion`, `workflow/numerics.rs::complete` and
-`modeling/results.rs` carry original obligations into accepted results. The acceptance helper
-`tests/support/plan14.rs::authored_success` consumes that interpretation. But the underlying
-mechanisms are challenged separately:
+### 2. Execution meaning is held beside tests, keyed by location and history
 
-- `workflow/numerics.rs::composed_acceptance_retains_incumbent_and_closure_qualifiers_and_missing_evidence`
-  supplies missing, insufficient and incomplete closure evidence and requires refusal.
-- `modeling/conformance.rs::accounting_totals_do_not_create_missing_closure_obligations` supplies
-  closed and unclosed authored cases and asserts their acceptance and exact closure-row population.
-- Compiler `workspace/modeling/tests.rs::kernel_pure_authored_tests_use_existing_math_without_runtime_or_solver`
-  includes a deliberately incorrect expectation and asserts three observations, two passes and
-  the actual/expected mismatch. Adjacent controls alter a bound value and require changed evidence.
-- Conformance controls challenge wrong fixtures, selected versus full populations, caps, uncovered
-  definitions, oracle attribution and wrong failure lineage.
+A test's prerequisites, native/store demand, exclusivity, route and owner are declared in several
+places, none at the test:
 
-That division can provide independent discrimination without every high-level test reimplementing
-the completion rule. It does not exhaustively exclude every possible case-specific omitted check.
-The residual nonlinear/variant gaps in DTA-020/021 are concrete scenarios, not grounds for a
-universal expected-check manifest.
+- module-path prefixes and hand-listed names in `test_requirements.py`, with a separate timeout
+  regex in `.config/nextest.toml` ([DTA-016](evidence-routes-and-execution.md#dta-016));
+- Python file-name sets for demand and capsule relevance ([DTA-016](evidence-routes-and-execution.md#dta-016), [DTA-023](test-execution-system.md#dta-023));
+- `cfg` features and recipe filters for activation ([DTA-050](evidence-routes-and-execution.md#dta-050));
+- the commissioning plan for driver routes and support placement ([DTA-051](doubles-and-coupling.md#dta-051));
+- crate lists, private prefixes and file lists for scientific-input demand ([DTA-027](doubles-and-coupling.md#dta-027)).
 
-**There are real cross-layer joins.**
-`tests/conformance/src/acceptance/connected_results_resource.rs` follows authored preparation,
-native execution, actual canonical result reads, cancellation and retained-buffer ownership.
-`python/pse/tests/test_scientific_boundary_adoption.py` closes the original runtime, reopens
-qualified covariance, checks an independent analytic matrix, creates a changed optimization
-revision, consumes a canonical reference downstream and rejects tampered content.
-`test_native_workflow.py` compares edited/restored inventories with independent fresh ingress
-while retaining old history. `test_canonical_results.py` checks exact reopened records, analyses,
-retirement and new occurrence identity. `tests/lifecycle/tests/result_memory_budget.rs` challenges
-detached-buffer accounting and final release. Thus neither a missing integration layer nor generic
-stale/reopened-result blindness was established.
+Each owner is locally consistent, and C02 catches some drift. But a move, rename, new module or plan
+retirement silently changes execution: de-grouped native modules run sixteen-wide, a moved Python test
+loses its classification, qualification tests run without their receipt, a property test never
+compiles, and route-less drivers are maintained without running. The classification fails open in
+Rust. Correcting one table leaves the others; the boundary needs one place where a test's assurance
+requirements are discoverable and a converse check that declared tests are executed somewhere.
 
-**Different test compositions can be legitimate.** Static adapter class/rank tests reuse the
-real policy primitives with supplied readiness; contextual tests independently exercise the
-production assessment contract. The old DTA-008 indictment is withdrawn. Likewise, dormant fault
-hooks, synthetic data bindings, an in-memory policy fixture or a real durable integration fixture
-must be judged against its particular assurance responsibility. A shared framework, all-real
-dependency policy or public-only test policy would not follow from these observations.
+### 3. Focused feedback is sized by the largest units and then re-verified
 
-## Additional integrative shortfalls and improvement opportunities
+What an agent instantiates to check one function is set by physical units unrelated to the
+responsibility:
 
-The following are wider interactions supported by the follow-up. They extend the diagnostic
-meaning and footprint of existing findings; they are not duplicate findings or selected remedies.
+- the whole 324k-line crate and up to about ten variants of it ([DTA-053](execution-efficiency.md#dta-053));
+- a workspace-wide validity bracket hashed three times, with binaries and libraries hashed twice ([DTA-039](execution-efficiency.md#dta-039));
+- a full extension generation and stub regeneration per Python iteration, even for identical content ([DTA-033](execution-efficiency.md#dta-033), [DTA-052](execution-efficiency.md#dta-052));
+- a single serial run of all tooling tests as the only route for tooling edits ([DTA-053](execution-efficiency.md#dta-053));
+- a full nineteen-family capsule decode per test process, with process-local reuse that nextest's
+  process-per-test model cancels ([DTA-030](execution-efficiency.md#dta-030)).
 
-### Scientific change reach and physical preparation use different dependency models
+The repository's working mode amplifies this. Several agents edit one checkout concurrently, so a
+workspace-wide "changed during preparation" refusal turns another agent's unrelated edit into a
+failed run. Each mechanism has a legitimate premise; together they make the focused loop pay for the
+largest scope at every stage. Merely adding parallelism multiplies the repeated work.
 
-`affected.py::owner/closure/main` maps edits through Cargo package roots and manifest dependency
-edges. A reference-only edit outside those roots has no Rust selection and is honestly reported
-as unowned/dynamic. Meanwhile `reference-source-fixture.rs::SOURCES` embeds explicit source
-lists in compiled tests, while `plan14.rs::package_documents/seed_package_on` loads a much broader
-runtime package closure. The same scientific dependency change can require manual include-list
-maintenance, invalidate several test binaries, and provide no automatic affected-test selection.
+### 4. Lifecycles are built for protection, not convergence
 
-This is a whole-feedback inconsistency across DTA-027/030/035/036. Fixing an individual include
-list, reducing one fixture or making the package preview faster would leave the other boundaries
-unchanged. The opportunity is to make consumed scientific dependencies and assurance scope
-understandable across authoring, selection and preparation. This need not become one universal
-registry, and compiler depfiles alone cannot describe arbitrary runtime-loaded data.
+Pending/uncertain protection, custody, sealing, terminal freeze and joined settlement serve real
+participants (concurrent lanes, crashes, late `Drop` effects, retained readers, service restarts);
+this refresh again rejects an "overengineered" verdict. What is missing is the other end: generations,
+capsules, discovery candidates and passed resources after an aborted deferred cleanup have no
+reachable owner that converges them ([DTA-052](execution-efficiency.md#dta-052)). Routine work also
+re-serializes and re-hashes growing state at registration and checkpoints
+([DTA-038](execution-efficiency.md#dta-038), [DTA-048](execution-efficiency.md#dta-048)).
+H25 is met for recovery obligations and missed for retirement obligations.
 
-### Broad fixture dependencies amplify failures before the intended assertion
+### 5. Production and test structure entangle at seams and wording
 
-`plan14::runtime` creates/registers a canonical fixture before broad source preparation and the
-selected scientific assertion. An unrelated admission failure in that closure can therefore stop
-the selected case after durable fixture effects. Setup failures enter Rust's failed-test channel
-(DTA-025), while incomplete enclosing evidence conservatively retains the resources (DTA-042).
-The Python capability-only case in DTA-031 demonstrates an even smaller responsibility acquiring
-the whole durable fixture and canonical-owner scheduling group through dependency alone.
+Test choreography and fixture lifetime are threaded through production fields and parameters in four
+`cfg` vocabularies, with duplicated counter channels and a shipped doc-hidden fixture drain
+([DTA-055](doubles-and-coupling.md#dta-055)). Some reuse observations depend on `Debug` substrings
+without positive controls ([DTA-009](doubles-and-coupling.md#dta-009)); typed refusal reasons cover
+only migrated distinctions ([DTA-028](doubles-and-coupling.md#dta-028)); residual-body helpers still
+diverge from production construction ([DTA-010](doubles-and-coupling.md#dta-010)); a text-replacement
+fixture adaptation can silently drop data ([DTA-027](doubles-and-coupling.md#dta-027)). The
+deterministic interleavings these seams buy are valuable; the cost is in their scattering and the
+surfaces they leave.
 
-The opportunity is responsibility-sized preparation and intelligible setup failure, considered
-together with ownership, retention and scheduling. Merely increasing parallelism can multiply
-unnecessary preparation and receiver demand; merely sharing a database can destroy isolation.
-The audit has not established an equivalent smaller closure for every authentic scientific
-composition, so DTA-030 and DTA-018 retain that uncertainty.
+### 6. Techniques are strong where used and thin at universal claims
 
-### Assurance requirements are distributed without complete composed correspondence
+Exhaustive enumeration, frozen vectors, injected-fault generators and differential oracles appear
+where the repository reached for them, and mutation, coverage and fuzz tooling are library-first
+with thin wrappers. Universal identity and pruning claims still rest on curated examples
+([DTA-056](oracles-and-acceptance.md#dta-056)); cross-process cancellation infers solver entry from
+elapsed time ([DTA-057](evidence-routes-and-execution.md#dta-057)); layer and governance descriptions
+claim more than their checks discriminate ([DTA-058](oracles-and-acceptance.md#dta-058)).
 
-Python markers declare a test category, but fixture closures determine actual infrastructure.
-Rust features select some bodies; exact names/regexes in nextest, special-fixture tables and
-qualification scopes separately reconstruct requirements. The test tool, report overlay,
-invocation catalog and child exit can each be locally meaningful while disagreeing in composition
-(DTA-012/015/016/017/022/023).
+## How the conclusions interact
 
-For a renamed/split test or a new backend control, the critical question is whether the same
-meaning reaches selection, preparation, isolation, execution and reporting. Correcting one table
-entry does not establish that correspondence across all routes. Conversely, supplementary manual
-controls are not automatically required ordinary checks, and many do have documented routes.
-The opportunity is coherent requirement ownership and explicit evidence scope; a new runner,
-test manifest or mandatory qualification campaign is not selected.
-
-### Evidence lifetime and resource lifetime have different consumers
-
-Resource registration protects active/uncertain borrowers across crashes and service lifecycle
-changes. Report sealing also authenticates the immutable origin consumed by evidence reuse.
-These guarantees remain meaningful even when current report producers declare no disposable
-scratch (DTA-047); disposability did not justify the old DTA-041 overengineering verdict.
-
-There is still demonstrated amplification: membership publications repeatedly carry the full
-immutable selection (DTA-038), broad source capture precedes a narrow identity projection
-(DTA-039), and checkpoints serialize accumulating maps and detail (DTA-048). The opportunity is
-better correspondence between changing facts, physical representation and the owner that relies
-on them. It requires preserving authentication, pending/uncertain recovery, exact association
-and reader/drain obligations, rather than deleting evidence protection as overhead.
+| If you correct… | …this remains deficient |
+|---|---|
+| The reference-library route only | Generators still bind no inputs (DTA-054); a full sweep still cannot sit in the focused loop (DTA-053); the representative slice still needs requirement and route correspondence (DTA-050) |
+| One requirement table | Python file-name sets, timeout regex, capsule demand lists and plan-held driver routes still drift (DTA-016/023/027/051) |
+| Extension republication only | Capsules, candidate entries and passed resources still accumulate without an owner (DTA-052); the workspace-wide bracket still refuses unrelated edits (DTA-039) |
+| Crate structure only | Variants, re-verification and per-process capsule decode still repeat (DTA-030/039/053) |
+| Retired drivers only | Enduring tests still import plan modules, and the next plan creates the same pattern (DTA-051) |
 
 ## Representative change and failure scenarios
 
-| Scenario inspected | Integrated judgment |
+| Scenario | Integrated judgment |
 |---|---|
-| Add/change a scientific model variant | Automatic authored fixture discovery is a strength; per-definition inventory does not distinguish every variant (DTA-021). Manual source closures, compile inputs and affected preview also disagree about change reach. |
-| Change numerical policy or a shared primitive | Shared declared engineering/historical policy is legitimate. Independent analytic mechanisms and complementary tests matter; consuming a published allowance alone does not establish its projection, and a linear derived-result example cannot distinguish nonlinear constraint curvature. |
-| Add a backend or change an implementation | Static and contextual policy controls have different legitimate roles. Actual native outcome tests and independent analytic values are strengths; scheduler/campaign requirements still need separate name-sensitive maintenance. No universal common solver fixture is required. |
-| Rename/split a test | Body semantics can stay identical while name-keyed preparation, scientific grouping or feature-absence selection changes. The full composed requirement is the relevant unit of reasoning. |
-| Repeat a focused Rust/Python check | Ordinary supervised Rust preparation already reuses its metadata/inventory; the fallback differs. Python still invokes a broad extension pipeline, though Cargo freshness is not recompilation. Feature variants and mutable-path verification have distinct premises. |
-| Setup fails, a run is cancelled, or a reader outlives it | General process admission, exact borrowing, terminal immutability and retained readers are safeguards. Setup/product outcome distinction, coarse retention and cleanup failure joins can nevertheless widen diagnosis and subsequent lifecycle work. |
+| Edit a seed package's thermodynamic method | No ordinary or assessment route runs the library's oracle comparisons, whose last full run failed; generators with hard-coded inputs still pass (DTA-049/054) |
+| Rename or split a native solver test module | Its native grouping falls to `LOCAL` without refusal in Rust; the timeout regex disagrees (DTA-016) |
+| Run `pytest` bare, as AGENTS.md permits | `worksteal` distribution ignores `xdist_group`, so `scientific-owner` cases run sixteen-wide (DTA-015) |
+| Move a canonical Python test to a new file | File-name inference drops its classification; it fails at fixture time far from the cause (DTA-016) |
+| One-line change in `pse-runtime` checked by an agent while another agent edits a script | Whole-crate rebuild per variant, triple workspace identity, and a "changed during preparation" refusal (DTA-053/039) |
+| Repeat `just py-unit` with no source change | Full image publication, import and stub regeneration; another generation retained with no retirement owner (DTA-033/052) |
+| Retire Plan 52's remaining packets | Ten telemetry drivers lose their only route; enduring tests that import them block clean deletion (DTA-051) |
+| Run the native canonical graph on an ordinary server | Four qualification tests panic for a missing receipt, reported as product failures (DTA-050) |
+| Cancel a SCIP study before branch-and-bound starts | The "stops SCIP" journey passes without discriminating native cancellation (DTA-057) |
 
-## A discovered evidence boundary, not a new automatic-reuse requirement
+## Contrasting strengths
 
-Portable component reconstruction and ordinary fresh-process science establish different claims.
-All inspected `publish_body`, `publish_unqualified_body` and `reuse_body[_current]` call sites
-are confined to `crates/pse-runtime/src/math/portable.rs`, with callers in its test modules.
-Its reconnect control explicitly publishes/reconstructs a body and manually evaluates a scalar
-Newton update; it does not run ordinary ModelingPackage preparation. Worker tests and Python
-journeys establish actual fresh-process execution and retained-result behavior. Optional worker
-probe variables have no committed driver in the inspected current scripts/recipes/workflows;
-Python comments still refer to a separately named RefuseFreshAdmission discriminator.
+These are strengths to preserve, and they are why the findings concern joins rather than test
+quality in general:
 
-History resolves the apparent missing join: commit `401f0d70a5db484063281b7618a96de736a2409a`
-deliberately removed ordinary preparation's canonical candidate/reconstruction/publication loops
-when preparation moved to held local source. Public portable APIs remain valid caller-composed
-capabilities. The current evidence must not be combined into proof that ordinary preparation
-automatically restores those products, nor interpreted as proof that result persistence is broken.
-This is a claim/support boundary and a stale-comment lead, not a new diagnosed integration defect
-or authority to restore removed effects or strict proof campaigns.
+- **Discriminating scientific oracles.** Exhaustive structural oracles
+  (`pse-structural/src/incidence_tests.rs`), adversarial qualification tests
+  (`pse-backend-native/src/quality.rs`), independent PR implicit-function and nonlinear covariance
+  oracles, analytic regression covariance, the pushdown differential oracle with its own negative
+  control, frozen identity vectors and IDAES/FeOS references with version checks.
+- **Assertions that name what failed.** Assertions are mostly typed; there are no retries in normal
+  profiles and flaky results fail; deterministic in-process interleaving hooks are scoped per task or
+  test and verify their own premise.
+- **Outcome truthfulness.** Complete-pass exit (DTA-012), typed setup failure and assertion reach
+  (DTA-025), Arrow-leaf proof on managed routes, one invocation interpretation, role correspondence
+  and the canonical guard before allocation.
+- **Recovery that handles uncertainty.** Real pending/uncertain recovery, custody, sealing and joined
+  settlement.
+- **Library-first tooling.** Mutation, coverage and fuzz tooling (cargo-mutants, cargo-llvm-cov,
+  cargo-fuzz) and insta/proptest where used. Native reproducibility settings have an owner.
 
-## Assessment limits and next use
+## Assessment limits
 
-All seven core foundations informed these judgments: responsibility separation and change locality;
-consumed contracts; composition across test layers; semantic/acceptance authority; explicit
-requirements and outcomes; local reasoning and independent evidence; and physical execution fit.
-Scientific profile obligations constrain the shared checks and independent references, especially
-PS-07/10/12/13. Other inherited scientific observations were not upgraded to comprehensive
-qualification by this representative follow-up.
-
-No distinct additional structural cause reached the finding threshold beyond the existing 48
-identities. The wider interactions above are nevertheless additional architectural conclusions:
-they show why isolated local corrections can leave the feedback and assurance system deficient.
-This is not a proof that no other shortfall exists. Large portions of the test population and
-all runtime performance remain unexamined. DTA-044's barrier necessity, simultaneous budget demand,
-smaller valid scientific closures and some case-specific oracle independence remain unresolved.
-
-A later solution review can compare coherent corrections against these interactions and preserved
-guarantees. This account selects neither a helper framework, replacement runner, priority ordering
-nor implementation package, and authorizes no repairs.
+Ten read-only contributors and the coordinator worked from source, configuration, Git history and
+ignored local build directories. Nothing was built, tested or timed. Counts of tests, gates and lines
+are approximate static parses. Large parts of the Rust and Python populations were sampled rather
+than read. The challenger review recorded in the [README](README.md#challenger-review) tested this
+account's claims; its corrections are integrated. This account selects no remedy, priority or plan
+and authorizes no repair.
