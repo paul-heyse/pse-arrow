@@ -365,16 +365,39 @@ def capture(
 
 
 def admit_import(
-    environment: Mapping[str, str], *, validated: bool = True, native: bool = False
+    environment: Mapping[str, str], *, validated: bool = True, native: bool = False,
+    profile: str | None = None,
 ) -> dict[str, object]:
     """Perform an explicitly requested import in the caller's selected environment."""
-    artifact = capture(environment, validated=validated, native=native)
+    artifact = (
+        capture(environment, validated=validated, native=native)
+        if profile is None
+        else requested_artifact(
+            environment, mode="native" if native else "dev", profile=profile,
+            validated=validated,
+        )
+    )
     subprocess.check_call(
         [str(interpreter(environment)), "-c", "import pse"],
         cwd=ROOT,
         env=execution_environment(environment, artifact),
     )
     return artifact
+
+
+def requested_artifact(
+    environment: Mapping[str, str], *, mode: Mode, profile: str, validated: bool
+) -> dict[str, object]:
+    """Select the explicit stage contract without changing the issued publication."""
+    current = currency_check(
+        environment, mode=mode, profile=profile, validated=validated
+    )
+    if current.state != "current" or current.artifact is None:
+        raise ValueError(
+            f"no compatible published extension for requested {mode}/{profile} "
+            f"(validated={validated}); {current.cause}"
+        )
+    return current.artifact.model_dump()
 
 
 def execution_environment(
@@ -815,7 +838,10 @@ def stubs_prepare(
     check: bool = False,
 ) -> StageResult:
     """Independent declaration/tool/binary/output currency for actual API stubs."""
-    artifact = capture(environment, validated=validated, native=mode == "native")
+    artifact = requested_artifact(
+        environment, mode="native" if mode == "native" else "dev",
+        profile=profile, validated=validated,
+    )
     inputs = preparation_inputs(
         "python-stubs", mode, profile, environment, validated=validated
     )
@@ -851,8 +877,9 @@ def stubs_prepare(
         return StageResult(
             stage="stubs-check" if check else "stubs", status="failed", exit_code=result
         )
-    if artifact != capture(
-        environment, validated=validated, native=mode == "native"
+    if artifact != requested_artifact(
+        environment, mode="native" if mode == "native" else "dev",
+        profile=profile, validated=validated,
     ) or inputs != preparation_inputs(
         "python-stubs", mode, profile, environment, validated=validated
     ):
@@ -929,8 +956,12 @@ def run_stages(
                 stage="admit",
                 status="admitted",
                 artifact=ExtensionArtifact.model_validate(
-                    (admit_import if operation == "admit" else capture)(
-                        environment, validated=validated, native=mode == "native"
+                    admit_import(
+                        environment, validated=validated, native=mode == "native",
+                        profile=profile,
+                    ) if operation == "admit" else requested_artifact(
+                        environment, mode="native" if mode == "native" else "dev",
+                        profile=profile, validated=validated,
                     )
                 ),
             )
