@@ -17,6 +17,11 @@ existing cadence. Every target is *Proposed*; enabling evidence is labelled wher
 | Method | Three independent read-only reassessments covering all nine groups, coordinator source/evidence checks and cross-account integration. Two new focused counterexample probes ran at `4f52fd239` and were retained at `1540fd164`. The original five review probes, three library probes and two challenges remain inherited evidence under their original conditions; they were not rerun. |
 | Premises | Accepted: this host's kernel 7.0 and systemd 255 floors (pidfd and pidfs, `cgroup.kill`, `cgroup.events`, `Delegate=yes`, the D-Bus API). Standing: SurrealDB canonical for runtime and scientific data with 16-lane parallelism and no daemon; FMA-free determinism; panic=unwind; typed errors; one Arrow family; no library or licence refused; no compromise that regresses another part. Unresolved: [U1–U3](#unresolved-premises-and-their-branches). |
 
+[Plan 57](../../plans/57-library-leverage-and-correctness.md) now owns scheduled finding
+dispositions and the proposed execution packages derived from this reassessment. Its planning
+decisions do not change the evidence or comparative judgments recorded here; consult that owner
+for current scheduling and confirmed operator directions.
+
 ## Groups
 
 | Group | Page | Opportunities |

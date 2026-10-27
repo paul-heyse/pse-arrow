@@ -7,6 +7,7 @@ topics = [
   "current-work",
   "design",
   "diagnostics",
+  "deployment",
   "libraries",
   "decisions",
   "documentation",
@@ -3671,4 +3672,234 @@ kind = "depends-on"
 [[relationships]]
 from = "docs/plans/56g-qualification-and-publication.md::package-state::G04"
 to = "docs/plans/56-design-principle-alignment.md::package-state::P01"
+kind = "depends-on"
+
+# Plan57 native tables own CBO dispositions and companion package progress.
+
+[[scope_tables]]
+path = "docs/plans/57-library-leverage-and-correctness.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding",
+  "Review scenarios",
+  "Disposition",
+  "Work owner",
+  "Required evidence or question",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(CBO-[0-9]+|FMA)'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/57a-result-data-and-prepaid-accounting.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/57b-mathematics-and-structural-preparation.md"
+name = "package-state"
+heading = "Packages and dependency order"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/57c-native-solvers-and-arithmetic.md"
+name = "package-state"
+heading = "Package state and sequencing"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/57d-sampling-and-statistical-workflows.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/57e-canonical-client-and-requests.md"
+name = "package-state"
+heading = "Packages and readiness"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/57f-execution-lifecycle-and-observation.md"
+name = "package-state"
+heading = "Packages and dependencies"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(F[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/57g-host-files-and-maintenance.md"
+name = "package-state"
+heading = "Packages and dependency readiness"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(G[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/57h-registry-identity-and-diagnostics.md"
+name = "package-state"
+heading = "Packages and current state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(H[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/57i-python-and-developer-workflows.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(I[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/57j-qualification-and-publication.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(J[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/57a-result-data-and-prepaid-accounting.md::package-state::A03"
+to = "docs/plans/57a-result-data-and-prepaid-accounting.md::package-state::A02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57a-result-data-and-prepaid-accounting.md::package-state::A05"
+to = "docs/plans/57a-result-data-and-prepaid-accounting.md::package-state::A03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57a-result-data-and-prepaid-accounting.md::package-state::A05"
+to = "docs/plans/57a-result-data-and-prepaid-accounting.md::package-state::A04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57b-mathematics-and-structural-preparation.md::package-state::B03"
+to = "docs/plans/57g-host-files-and-maintenance.md::package-state::G03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57c-native-solvers-and-arithmetic.md::package-state::C03"
+to = "docs/plans/57c-native-solvers-and-arithmetic.md::package-state::C01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57e-canonical-client-and-requests.md::package-state::E02"
+to = "docs/plans/57e-canonical-client-and-requests.md::package-state::E01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57e-canonical-client-and-requests.md::package-state::E03"
+to = "docs/plans/57e-canonical-client-and-requests.md::package-state::E02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57e-canonical-client-and-requests.md::package-state::E04"
+to = "docs/plans/57e-canonical-client-and-requests.md::package-state::E03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F04"
+to = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F04"
+to = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F05"
+to = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F05"
+to = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57g-host-files-and-maintenance.md::package-state::G04"
+to = "docs/plans/57g-host-files-and-maintenance.md::package-state::G03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57g-host-files-and-maintenance.md::package-state::G06"
+to = "docs/plans/57g-host-files-and-maintenance.md::package-state::G05"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57h-registry-identity-and-diagnostics.md::package-state::H05"
+to = "docs/plans/57h-registry-identity-and-diagnostics.md::package-state::H04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57i-python-and-developer-workflows.md::package-state::I03"
+to = "docs/plans/57i-python-and-developer-workflows.md::package-state::I01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57i-python-and-developer-workflows.md::package-state::I03"
+to = "docs/plans/57i-python-and-developer-workflows.md::package-state::I02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57i-python-and-developer-workflows.md::package-state::I03"
+to = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F05"
 kind = "depends-on"
