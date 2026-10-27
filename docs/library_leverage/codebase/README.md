@@ -10,6 +10,10 @@ it does not show that a library fits, and it is not a recommendation. Applicabil
 belongs to [library assessments](../libraries/README.md). Choosing between options belongs to
 [comparative reviews](../reviews/README.md).
 
+**Library assessment (2026-10-27).** The first [library applicability assessment](../libraries/README.md)
+covers every opportunity. Its premise corrections are recorded in place on the topic pages as dated
+"Library assessment correction" bullets.
+
 Read the [framework](../library-leverage-framework.md), the
 [base patterns](../patterns.md), the [shared vocabulary](../references/shared-language.md) and the
 [shared additional patterns](../assessment-patterns.md) alongside this account.
@@ -21,7 +25,7 @@ Read the [framework](../library-leverage-framework.md), the
 | Inspection date | 2026-10-27 |
 | Source baseline | `main` at `dbc4c94369425fd2a26355585ff98888a2da555d` |
 | Included dirty changes | None in product, tooling or test source. The working tree had uncommitted edits to three `docs/plans/` files and `history.txt`, plus untracked `docs/libraries/*.md` overviews. None of these were used as evidence. |
-| Criteria | Framework edition 0.2, base patterns edition 0.2 (`LOP-01`–`LOP-12`), [additional patterns](../assessment-patterns.md) revision 1 (`LOP-X001`–`LOP-X003`, created in this pass) |
+| Criteria | Framework edition 0.2, base patterns edition 0.2 (`LOP-01`–`LOP-12`), [additional patterns](../assessment-patterns.md) revision 1 (`LOP-X001`–`LOP-X003`, created in this pass; revision 2 added `LOP-X004`–`LOP-X010` during the library assessment) |
 | Prior accounts | None. This is the first audit. By operator instruction, prior reviews and plans were consulted only to confirm that `CBO` and `LOP-X` numbering does not collide. |
 | Method | Nine read-only subsystem passes, using static reading, `rg` and `git`. Builds, tests and probes were not run. The coordinator then spot-checked the decisive claims against source. |
 | Evidence level | Mechanisms are *Interface-checked* by static inspection at the baseline. Every value claim is *Proposed*, and nothing is *Measured*. |
@@ -196,7 +200,7 @@ change a later decision:
 | CBO-029 | Two NLP-oracle callback translators | LOP-09, LOP-02 | Proposed | [Native solvers](native-solver-integration.md#cbo-029) |
 | CBO-030 | Native session lifecycles re-expressed per adapter | LOP-08, LOP-09 | Proposed | [Native solvers](native-solver-integration.md#cbo-030) |
 | CBO-031 | Convex and conic encodings hand-synchronized per solver | LOP-02, LOP-09 | Current promise | [Native solvers](native-solver-integration.md#cbo-031) |
-| CBO-032 | KKT-point sensitivity beside fuller library sensitivity surfaces | LOP-03 | Current promise (low) | [Native solvers](native-solver-integration.md#cbo-032) |
+| CBO-032 | KKT-point sensitivity beside fuller library sensitivity surfaces | LOP-03 | Premise corrected; retirement candidate | [Native solvers](native-solver-integration.md#cbo-032) |
 | CBO-033 | No producer of sampling or experimental designs | LOP-12, LOP-03 | Proposed | [Numerical workflows](numerical-workflows.md#cbo-033) |
 | CBO-034 | Only first-order uncertainty propagation | LOP-12 | Proposed | [Numerical workflows](numerical-workflows.md#cbo-034) |
 | CBO-035 | Separate dense-algebra universes for LM and surrogate routes | LOP-09, LOP-11 | Current promise | [Numerical workflows](numerical-workflows.md#cbo-035) |

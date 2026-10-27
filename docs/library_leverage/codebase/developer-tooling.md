@@ -122,6 +122,7 @@ The following are legitimately custom:
   - Can `psutil` replace the `/proc` readers?
   - Does `surreal isready` or `export/import`, or `surrealkit` migrations, cover the
     supervisor's maintenance work?
+- **Library assessment correction (2026-10-27).** `surreal_server.py` alone mentions `systemctl` 36 times, so the earlier count was low. The placement scopes set no `Delegate=`. Since SurrealDB 3.3.0, `/health` returns 200 while the server is still starting, and the later authenticated protocol-readiness check compensates for that.
 
 <a id="cbo-049"></a>
 
@@ -157,6 +158,7 @@ The following are legitimately custom:
     `archive`/`--archive-file` and `list --message-format json` replace parts of the
     projection?
   - Does `cargo-hack` cover `cargo_feature_check.py`?
+- **Library assessment correction (2026-10-27).** nextest list JSON and `--archive-file` are already used. `cargo_feature_check.py` is the adapter that cargo-hack invokes, not a replacement for cargo-hack.
 
 <a id="cbo-050"></a>
 
@@ -194,6 +196,7 @@ The following are legitimately custom:
   - Could Python emit Arrow or Parquet straight to DataFusion, or use SQLite or DuckDB, for a
     rebuildable derived index?
   - Is SurrealDB justified for development evidence? The canonical premise covers runtime data.
+- **Library assessment correction (2026-10-27).** The Rust evidence-question path already runs on DataFusion without the SurrealDB service.
 
 <a id="cbo-051"></a>
 
@@ -219,6 +222,7 @@ The following are legitimately custom:
 - **Research questions.**
   - Does `opentelemetry-proto` already sit in the environment?
   - Would routing every consumer through `document_metadata` suffice?
+- **Library assessment correction (2026-10-27).** Front matter has one strict reader, which `adr.py` delegates to, plus two stdlib strippers, not four parsers. The earlier account missed two hand-written pieces: an HTTP/2/gRPC server in `scripts/surreal_telemetry.py` and a gRPC client in `scripts/tests/surreal_mx_check.py` ([LOP-X010](../assessment-patterns.md#lop-x010)).
 
 <a id="cbo-052"></a>
 
@@ -248,3 +252,5 @@ The following are legitimately custom:
   - Could one typed CLI framework, already the target of `cli_codegen.py`, own the script entry
     points?
   - Could just modules collapse the repeated `arrow_validation nextest` compositions?
+- **Library assessment correction (2026-10-27).** `just --dump` reports 231 recipes, not 244.
+

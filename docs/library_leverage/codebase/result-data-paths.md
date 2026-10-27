@@ -68,6 +68,7 @@ Three behaviours are deliberate domain and identity rules, not leverage targets:
   - What does arrow-ipc 59 verify before it allocates?
   - Is there an allocation cap or a message-size hook?
   - Does `get_slice_memory_size` now account for nested slices?
+- **Library assessment correction (2026-10-27).** The preflight is justified at the pinned arrow-ipc 59.3.0. `FileReaderBuilder` allocates the advertised footer length before seeking, and `StreamReader` allocates advertised body lengths and asserts on several malformed inputs; see [LOP-X009](../assessment-patterns.md#lop-x009). The footprint is wider than the preflight sites. Three production `StreamReader` decodes run without the preflight: `result_physical.rs`, `tooling/review_pack/presentation.rs`, and `portable_payload.rs` (schema only, bounded). Whether their inputs are integrity-checked first was not traced. See [arrow/ipc](../libraries/arrow/ipc.md).
 
 <a id="cbo-006"></a>
 
@@ -114,6 +115,7 @@ Three behaviours are deliberate domain and identity rules, not leverage targets:
   - Which `arrow-ord`/`arrow-select` kernels cover run partitioning and masked take without
     extra scratch?
   - Can `FieldCheckedBatch` be queried column-wise without losing field checking?
+- **Library assessment correction (2026-10-27).** `cohort_provider.rs` calls `select_original_rows` and does not repeat the loop. Arrow min/max kernels can produce different IEEE bits from the recorded `f64::min`/`max` values when a run contains NaN or both signed zeros, so the declared domain of `time` decides that substitution. See [arrow/compute](../libraries/arrow/compute.md).
 
 <a id="cbo-007"></a>
 

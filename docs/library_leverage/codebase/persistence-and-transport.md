@@ -64,6 +64,7 @@ legitimately custom:
     shutdown.
   - Could the delta shrink to a smaller extension seam?
   - Could the delta be contributed upstream?
+- **Library assessment correction (2026-10-27).** The 35,374-line patch is byte-preserving and mostly whitespace and reflow. The substantive delta is about 2.0k added SDK source lines, about 1.2k engine-API lines, and about 1.5k test lines. No SurrealDB release after 3.3.4 exists as of 2026-10-27. See [surrealdb](../libraries/surrealdb/README.md) and [LOP-X004](../assessment-patterns.md#lop-x004).
 
 <a id="cbo-010"></a>
 
@@ -100,6 +101,7 @@ legitimately custom:
     classification closure?
   - Does SurrealQL offer a parameterised transaction prelude, such as a stored function or a
     `DEFINE` construct, that keeps the guard inside one declaration?
+- **Library assessment correction (2026-10-27).** There are 84 non-test `BEGIN;` lines. Of these, 61 already call a stored `fn::` guard and 60 pass `$pse_rpc_expires_at`. Fifty-one are exactly `BEGIN; RETURN fn::…; COMMIT;`, so the textual remainder is about 20–25 multi-statement preludes. Capture-busy retries do not count toward the attempt cap, and a fourth backoff formula exists in `canonical.rs` initialization.
 
 <a id="cbo-011"></a>
 
@@ -162,6 +164,7 @@ legitimately custom:
 - **Status.** Current mechanism. Uncertain.
 - **Research questions.** Can `unnest` with ordinals, or the array lambda functions already in
   use, yield occurrence coordinates in the plan route?
+- **Library assessment correction (2026-10-27).** The plan route already builds occurrence ordinals by unnesting a `range` beside the list. DataFusion has no native ordinality. See [datafusion](../libraries/datafusion/README.md).
 
 ## Examined and not retained
 

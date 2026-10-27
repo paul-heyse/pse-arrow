@@ -33,9 +33,11 @@ ordinary implementation and API questions do not initiate this workflow.
 ## Current accounts
 
 The first broad [codebase opportunity audit](codebase/README.md) was run on 2026-10-27 at
-`dbc4c9436`. It records `CBO-001`–`CBO-052` and the first
-[additional patterns](assessment-patterns.md) (`LOP-X001`–`LOP-X003`). No library applicability
-assessment or comparative review has been run yet, and their entry pages still identify their
+`dbc4c9436`. It records `CBO-001`–`CBO-052`. The first
+[library applicability assessment](libraries/README.md), also run on 2026-10-27, covers every
+opportunity across 97 library accounts. It added [additional patterns](assessment-patterns.md)
+`LOP-X004`–`LOP-X010` (revision 2) and recorded dated premise corrections in the codebase
+account. No comparative review has been run yet, and its entry page still identifies its
 unassessed state. Record inspected baselines and limits rather than treating empty collections as
 assessed, and do not invent patterns to populate a scaffold.
 

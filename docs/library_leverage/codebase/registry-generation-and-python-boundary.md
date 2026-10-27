@@ -65,6 +65,7 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
   - Can the products be serialized deterministically into one embedded blob, for example with
     `postcard`, `rkyv`, `ciborium` or Arrow IPC for everything?
   - What does first-use construction cost?
+- **Library assessment correction (2026-10-27).** The registry product types derive no serde; only Arrow `Field` is serialized today. A blob route must first give the model a serialization contract, including deterministic ordering for Arrow `Field` metadata, which is a `HashMap`. See [postcard](../libraries/postcard/README.md) and [ciborium](../libraries/ciborium/README.md).
 
 <a id="cbo-041"></a>
 
@@ -105,6 +106,7 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
   - Can the header check live on one side only, using msgspec `tag`/`Meta` or a serde tag?
   - Can `pythonize`, or msgspec conversion from attributes, avoid the double hop where no wire
     is needed?
+- **Library assessment correction (2026-10-27).** The catalogue has 250 entries, not about 70: 155 FlatV1, 91 Native, 3 FlatV2 and 1 ValueV1. A probe of msgspec 0.21.1 found that a single tagged Struct does not require its tag, while a union of two or more tagged Structs does ([evidence](../../design_review/evidence/library-leverage-msgspec-tagged-decode-2026-10-27/README.md)). See [msgspec](../libraries/msgspec/README.md).
 
 <a id="cbo-042"></a>
 
@@ -138,6 +140,7 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
 - **Research questions.**
   - Do schemars 1.x contract modes remove the renaming pass?
   - Can a serde attribute or derive replace the hand-written header deserializer?
+- **Library assessment correction (2026-10-27).** schemars contract modes are already in use. The "~1.7k `*Output` names" are 1,782 occurrences of 483 distinct classes.
 
 <a id="cbo-043"></a>
 
@@ -175,6 +178,7 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
   - Does current `datamodel-code-generator` msgspec output meet the determinism, tagged-union
     and `StrEnum` needs?
   - Are rows needed outside the two edit documents?
+- **Library assessment correction (2026-10-27).** Tested: a msgspec `Struct` validates nothing at construction (`DocV1(name=5, count='x')` succeeds), and `msgspec.convert` accepts `nan` and `inf` into `float` fields. Decode itself refuses non-finite JSON.
 
 <a id="cbo-044"></a>
 
@@ -210,6 +214,7 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
   - Can the pyclass be the public type (with `#[pyclass(module = …)]`, introspected stubs and a
     single re-export)?
   - Are bulk getters available?
+- **Library assessment correction (2026-10-27).** The 405 forwards count is exact. The stub generator strips docstrings on purpose (`xtask/src/codegen/python_stubs/validate.rs`), although pyo3-introspection would emit them.
 
 <a id="cbo-045"></a>
 
@@ -242,6 +247,7 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
   - Could `#[derive(miette::Diagnostic)]` plus a small local derive for `TypedDiagnostic` replace
     the macro?
   - Could one leaf crate own `vocabulary!`?
+- **Library assessment correction (2026-10-27).** The two `vocabulary!` copies differ in more than `description`: the JsonSchema impl, String conversions, the `ALL` type and the serde rename route also differ. Derive sites such as `pse-operations/src/canonical.rs` already declare codes twice.
 
 <a id="cbo-046"></a>
 
@@ -267,3 +273,5 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
   - Would `minijinja` or `askama` reduce risk, or only change the syntax?
   - Is there a SurrealQL AST or builder (`surrealdb-sql`, already pinned) that could render
     statements?
+- **Library assessment correction (2026-10-27).** There are 18 placeholders, mostly integers. The riskier pieces are two post-generation textual rewrites over generated Python (`.replace("v.", "")`), and the guard-fragment and relation-id splices in `surreal_artifacts.rs`. `surrealdb-syn` already validates SurrealQL in xtask and `canonical_maintenance`.
+

@@ -74,6 +74,7 @@ serde, `FromStr` and `ALL` from one table.
     preserving the span and error quality?
   - Do any grammar tools derive both parsing and printing?
   - Can the walker and the arbitrary generator be derived from the AST?
+- **Library assessment correction (2026-10-27).** winnow already performs lexing, and both parsers share one lexer. The AST generator uses proptest strategies, not the `arbitrary` crate. Field spans are captured through a map keyed by string memory address, a further form. See [winnow](../libraries/winnow/README.md).
 
 <a id="cbo-038"></a>
 
@@ -107,6 +108,7 @@ serde, `FromStr` and `ALL` from one table.
 - **Research questions.**
   - Where would a `SemanticId`→text source map attach?
   - Can `LabeledSpan`s be derived from `SourceSpan` at the driver boundary?
+- **Library assessment correction (2026-10-27).** `SourceSpan` is the repository's own type, not miette's. The source text is available where the admission driver loads each document. See [miette](../libraries/miette/README.md).
 
 <a id="cbo-039"></a>
 
@@ -147,6 +149,7 @@ serde, `FromStr` and `ALL` from one table.
   - Which hand implementations are full-field frames, and which are selective or canonicalized?
   - Could a derive with skip and order attributes, or serde attributes on the existing framer,
     cover the selective forms?
+- **Library assessment correction (2026-10-27).** The hand implementations implement `pse_model::SemanticFrame`, whose byte layout differs from the serde `Framer`, so the serde route would change identities. There are about 59 sites in 30 files, not about 30. See [serde](../libraries/serde/README.md) and [LOP-X007](../assessment-patterns.md#lop-x007).
 
 ## Examined and not retained
 

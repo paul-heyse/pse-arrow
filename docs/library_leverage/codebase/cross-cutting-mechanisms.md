@@ -65,6 +65,7 @@ at source baseline `dbc4c9436`.
     generator cover owned structs?
   - Could DataFusion `MemoryReservation::try_grow` sized from Arrow's own functions replace the
     Arrow-shaped multipliers?
+- **Library assessment correction (2026-10-27).** The petgraph "mirror" premise is sharpened: petgraph storage is sized with `size_of` over its public types, so it tracks the real layout. The genuine hand mirrors are std `BTreeMap` node geometry and per-node workspace multipliers, which also appear in `pse-modeling/src/check/phases.rs`. FERAL LDLᵀ already uses the library's own work estimate, so the FERAL mirror is LU-only. `KINGetWorkSpace` is deprecated in SUNDIALS 7.3 and removed in 8.0. `SUNLinSol_KLUGetMemUsage` is a local addition, not upstream. Arrow's `get_slice_memory_size` does not account for nested slices, which justifies the local `visible_size`. See [faer](../libraries/faer/README.md), [feral](../libraries/feral/README.md), [sundials](../libraries/sundials/README.md), [arrow](../libraries/arrow/README.md) and [petgraph](../libraries/petgraph-and-rustworkx-core/README.md).
 
 <a id="cbo-002"></a>
 
@@ -111,6 +112,7 @@ at source baseline `dbc4c9436`.
     adequate, or is the remedy a local shared type?
   - Can Arrow batch sizes be predicted (`get_array_memory_size`, IPC message-size estimation),
     so that trial encoding is avoided?
+- **Library assessment correction (2026-10-27).** The baseline count is 32 `io::Write` plus 6 `fmt::Write` sinks outside tests. At least five of them check cancellation or expiry on each write, and three hash rather than cap. `ArrowError::IoError` keeps the original `io::Error`, so a typed `io::Error::other` plus downcast can replace the string match ([rust-std-io](../libraries/rust-std-io/README.md)).
 
 <a id="cbo-003"></a>
 
@@ -164,6 +166,7 @@ at source baseline `dbc4c9436`.
   - Can the polling `try_lock` become a blocking lock on a blocking thread?
   - Could reads go through the registered `ObjectStore`?
   - The equivalent Python tooling shape is [CBO-047](developer-tooling.md#cbo-047).
+- **Library assessment correction (2026-10-27).** Only 7 production `hard_link(` lines in 6 files remain; the other occurrences are tests, and `pse-buildinfo/src/identity.rs` has no production use. The fsync sequence is not uniform: the export path skips the directory fsync, and the capture acknowledgement publisher has no `sync_all`. See [rustix](../libraries/rustix/README.md) (`RENAME_NOREPLACE`) and [tempfile](../libraries/tempfile/README.md).
 
 <a id="cbo-004"></a>
 
@@ -216,3 +219,5 @@ at source baseline `dbc4c9436`.
   - Would a transient systemd scope or a cgroup `cgroup.kill` per child replace `/proc`
     scanning?
   - Can one local supervised-child type serve all four Rust sites?
+- **Library assessment correction (2026-10-27).** Only two of the four sites, `CompilerChild` and capture launch, prove that the whole process group drained, and they duplicate one design. `native_child` and the `worker.rs` control call kill and wait the direct child only. See [linux-cgroup-v2](../libraries/linux-cgroup-v2/README.md) and [linux-pidfd](../libraries/linux-pidfd/README.md).
+

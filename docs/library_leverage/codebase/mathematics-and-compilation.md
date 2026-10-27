@@ -77,6 +77,7 @@ The following are legitimately custom:
   - Does a later Symbolica release expose settings or abort setters, operation limits or size
     estimators?
   - Would upstream accept such hooks?
+- **Library assessment correction (2026-10-27).** Symbolica's abort truncates optimisation rather than failing: `build()` can return `Ok` with a less-optimised evaluator. The local rule that an observed abort means cancelled is therefore required. Since 3.0.1, upstream `main` has rewritten `dual.rs` and `export.rs`, so the mirrored formulas will need re-deriving at the next release. The repository moved to `symbolica-dev/symbolica`, and its unreleased `community` branch adds a thread-local `ResourceBudget` measured by RSS and wall time. That budget is not prepaid or deterministic. See [symbolica](../libraries/symbolica/README.md).
 
 <a id="cbo-022"></a>
 
@@ -118,6 +119,7 @@ The following are legitimately custom:
   - Could Salsa durability own the evaluator product for stable bodies?
   - Would a content-addressed cache crate (`cacache` or similar, fit unknown) carry the disk
     layer?
+- **Library assessment correction (2026-10-27).** Salsa's `heap_size` closures return the local `retained_bytes()`, so Salsa reports the local measure rather than running a second accounting system. The private-API footprint is four `salsa::plumbing` uses in `granular.rs` and one in `workspace.rs`; only the query-name half has a public replacement (`ingredient_debug_name`). See [salsa](../libraries/salsa/README.md) and [cacache](../libraries/cacache/README.md).
 
 <a id="cbo-023"></a>
 
@@ -156,6 +158,7 @@ The following are legitimately custom:
     closure?
   - Do rustworkx-core or petgraph provide deterministic transitive closure or reduction (for
     example `dag_to_toposorted_adjacency_list` or `tred`)?
+- **Library assessment correction (2026-10-27).** `MathPolicy::validate` already requires math workers to have at least `MATCHING_STACK`, so the recursion half of the "missing guard" may already be covered; which thread runs `prepare_contract_inner` was not traced. The compiler already uses petgraph `Bfs`, reversed `Dfs` and `toposort`, so the duplication lies in graph construction and limits. The vendored SuiteSparse already ships BTF, CXSparse and SPEX. See [suitesparse](../libraries/suitesparse/README.md) and [pounce](../libraries/pounce/README.md).
 
 <a id="cbo-024"></a>
 
@@ -221,3 +224,11 @@ The following are legitimately custom:
   - Does `symbolica::domains::matrix` or a rational linear-algebra crate offer symmetric-pivoted
     exact LDLᵀ?
   - Does a later Symbolica release relax the refiner's endpoint requirement?
+- **Library assessment correction (2026-10-27).** The "non-root endpoints" rationale is directionally right but understates the hazard. A probe of Symbolica 3.0.1 `refine_root_interval` ([evidence](../../design_review/evidence/library-leverage-symbolica-root-refinement-2026-10-27/README.md)) found:
+- A left-endpoint root panics in debug and in release returns a narrow interval with no root and no error.
+- A right-endpoint root panics in debug when p(a) > 0.
+- An interval symmetric about 0 panics with "Division by 0" in debug and release.
+- An asymmetric interval straddling a root at 0 did not return within 20 s.
+
+`isolate_real_root_intervals` can itself emit intervals whose endpoint is an adjacent exact root. The local p(a) = 0 / p(b) = 0 screen is therefore a correctness guard, not a precision one. The zero-symmetric and zero-straddling cases are not covered by that screen. Whether the isolator can emit them is unsettled, and this is worth a product-side check independent of library leverage. See [symbolica](../libraries/symbolica/README.md).
+

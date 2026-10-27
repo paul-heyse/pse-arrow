@@ -68,6 +68,7 @@ The following are legitimately custom:
   - Does it handle bounds and integer variables?
   - Is there a Sobol or scrambled-sequence crate with a stability guarantee?
   - Where should designs be authored: in Rust settings or in a Python helper?
+- **Library assessment correction (2026-10-27).** egobox-doe is not test-only in effect: production egobox-ego already runs its LHS for infill multistarts and TREGO starts, seeded from `SurrogateOptions.seed`. Multistart point identity is `semantic_point_key` over realized values, not the seed, so a platform difference changes identity honestly instead of corrupting replay. A probe found egobox-doe 0.35.1 designs bit-identical across opt-level, CPU flags and thread count on one host ([evidence](../../design_review/evidence/library-leverage-egobox-doe-determinism-2026-10-27/README.md)). See [egobox-doe](../libraries/egobox-doe/README.md) and [LOP-X006](../assessment-patterns.md#lop-x006).
 
 <a id="cbo-034"></a>
 
@@ -98,6 +99,7 @@ The following are legitimately custom:
 - **Research questions.**
   - Which consumer needs a nonlinear propagation, and at what cost budget?
   - Can a faer Cholesky plus `statrs` produce correlated draws reproducibly?
+- **Library assessment correction (2026-10-27).** faer Cholesky plus statrs is reproducible on one CPU class only: faer dispatches SIMD at runtime with FMA, and statrs and `rand_distr` use the platform libm because `num-traits/std` is unified on ([LOP-X006](../assessment-patterns.md#lop-x006)).
 
 <a id="cbo-035"></a>
 
@@ -130,6 +132,7 @@ The following are legitimately custom:
   - Is there a released LM crate on nalgebra 0.35, or a faer-based LM or trust-region method?
   - Does the LM route outperform the NLP Gauss–Newton route for the fits it is eligible for?
   - Could a bounded method lift the restriction to unbounded problems?
+- **Library assessment correction (2026-10-27).** The premise "statrs features avoid a second nalgebra" is false: `Cargo.lock` resolves nalgebra 0.33.3 through statrs because egobox-moe enables statrs' default features. nalgebra 0.35 is also a non-optional dependency of `diffsol-la`, `num-dual` and `feos`/`quantity`, so removing the LM route would remove only pse-runtime's direct use.
 
 <a id="cbo-036"></a>
 
@@ -152,6 +155,7 @@ The following are legitimately custom:
 - **Counterevidence.** This appears to be deliberate current scope. The pattern match is weak.
 - **Status.** Proposed addition.
 - **Research questions.** Does any consumer need estimated-variance fits?
+- **Library assessment correction (2026-10-27).** Estimated-σ fits are refused at fit preparation, so they cannot be prepared today.
 
 ## Examined and not retained
 

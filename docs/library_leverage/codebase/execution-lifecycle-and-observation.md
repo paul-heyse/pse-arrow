@@ -73,6 +73,7 @@ The following are legitimately custom:
   - Could OpenTelemetry synchronous instruments, or the `metrics` facade, replace atomics read by
     observable callbacks?
   - Could `MetricDeclaration` drive instrument installation directly?
+- **Library assessment correction (2026-10-27).** `pse-diagnostics` has no `tracing` dependency, so the hub working without a subscriber is a structural property, not an incidental one. See [tracing](../libraries/tracing/README.md) and [opentelemetry](../libraries/opentelemetry/README.md).
 
 <a id="cbo-014"></a>
 
@@ -110,6 +111,7 @@ The following are legitimately custom:
   - Can span extensions carry the recorder and observation handles, so that one `Span::enter`
     restores everything?
   - Does any executor or tracing facility propagate this set to foreign OS threads?
+- **Library assessment correction (2026-10-27).** The native job spawn passes through five more wrappers before `tokio::spawn`, including `inherit_activity`. There are more than 20 `task_local!` carriers. `staged.rs` passes context inside each request message to a long-lived thread, so a spawn helper alone would not cover it. Production installs a global default dispatcher, so the dispatcher carrier matters only for scoped setups. Symbolica's thread-local `CURRENT_ABORT` is a further carrier. See [tracing](../libraries/tracing/README.md).
 
 <a id="cbo-015"></a>
 
@@ -146,6 +148,7 @@ The following are legitimately custom:
     linked to a token, serve both renewal sites?
   - Could `timeout_at` or `run_until_cancelled` composed into a deadline-carrying token fold the
     repeated races?
+- **Library assessment correction (2026-10-27).** The native join wait waits on the native `Cancellation` type, signals a stop, and then keeps waiting for the thread. The admission waits instead drop the losing side, so the two need different treatment ([LOP-X005](../assessment-patterns.md#lop-x005)). Study renewal pauses the guarded work while the renewal call runs. See [tokio](../libraries/tokio/README.md).
 
 <a id="cbo-016"></a>
 
@@ -190,6 +193,7 @@ The following are legitimately custom:
   - Would `tokio::sync::Notify` on the in-process reader-drop path suffice?
   - Can `cgroup.events`, `pidfd` or systemd D-Bus state replace the `observe-primary`
     subprocess?
+- **Library assessment correction (2026-10-27).** `ResultReadDrain` already uses `TaskTracker`, and a `WakeSignal` notification type already exists. Production `forget_run_results` refuses rather than waits, so most drain polling loops are in tests. LIVE SELECT works over the Rust SDK's gRPC `Subscribe` stream; the open question is the bounded-request profile. See [surrealdb](../libraries/surrealdb/README.md) and [tokio](../libraries/tokio/README.md).
 
 <a id="cbo-017"></a>
 
@@ -223,6 +227,7 @@ The following are legitimately custom:
   - Is there a PyO3 or `pyo3-async-runtimes` pattern for signal-woken waits, such as a self-pipe
     via `signal.set_wakeup_fd` or `signal-hook`?
   - Can every loop use one helper?
+- **Library assessment correction (2026-10-27).** There are 10 `check_signals` sites with 100 ms and 20 ms intervals and differing orderings. See [cpython-signal-wakeup-fd](../libraries/cpython-signal-wakeup-fd/README.md).
 
 <a id="cbo-018"></a>
 
@@ -287,6 +292,7 @@ The following are legitimately custom:
 - **Research questions.**
   - Do `procfs` / `cgroups-rs` (Rust) and `psutil` (Python) expose the same strict semantics,
     including PSI?
+- **Library assessment correction (2026-10-27).** The footprint is larger than estimated: 8 Rust readers of `/proc/*/stat` and 4 of `/proc/self/status`. The canonical store's owner identity (boot ID, start ticks, pid namespace and cgroup) is a missed manifestation. The host runs systemd 255 and kernel 7.0. See [LOP-X008](../assessment-patterns.md#lop-x008) and [procfs](../libraries/procfs/README.md).
 
 <a id="cbo-020"></a>
 

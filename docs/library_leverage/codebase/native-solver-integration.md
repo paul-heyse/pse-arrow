@@ -73,6 +73,7 @@ The following are legitimately custom:
   - Can FERAL LU serve the tangent and square-response uses, including its condition estimate?
   - Does a newer faer expose a condition estimate or storage size?
   - Could one `SparseFactor` abstraction carry symbolic reuse and scratch admission?
+- **Library assessment correction (2026-10-27).** The square-response `matrix_norms` computes backward-error norms, not a condition estimate, so "different estimators for one Jacobian" is partly a category error. FERAL publicly exports `HagerHighamOperator` / `hager_higham_inverse_norm_1`, so one estimator could run over faer and KLU solves. See [feral](../libraries/feral/README.md).
 
 <a id="cbo-027"></a>
 
@@ -111,6 +112,7 @@ The following are legitimately custom:
   - Do Diffsol releases after 0.16.2 make `LinearSolver` fallible or expose checkpoint
     metadata?
   - Is an upstream issue or PR viable?
+- **Library assessment correction (2026-10-27).** The cited `faer/lu.rs` is the dense LU and does not panic. The `expect` panics are in `faer/sparse_lu.rs` and `suitesparse/klu.rs`. Only the reset-index setter is crate-private: the getter, `Checkpointing::new` and the Hermite interpolator are public, and the local loop exists for checkpoint limits, cancellation, the step budget and samples. The expected deletion is therefore smaller than "about 800 lines". `set_linearisation` remains infallible through Diffsol 0.18.0. Open upstream defect #419 is avoided by the local per-jump re-initialization. See [diffsol](../libraries/diffsol/README.md).
 
 <a id="cbo-028"></a>
 
@@ -149,6 +151,7 @@ The following are legitimately custom:
   - Do SUNDIALS releases after 7.1.1 fix IDAS quadrature after `IDACalcIC`?
   - Do Uno commits after `805a27ec` change QP warm start or L-BFGS handling with HiGHS?
   - Does another Uno QP route avoid materialization?
+- **Library assessment correction (2026-10-27).** The SUNDIALS revisit trigger has fired: the IDAS quadrature-initialization fix landed in 7.8.0 (commit `a7393b501`), but `sundials-sys` 0.6.2 is still the newest crate. Uno v2.9.2 (2026-10-21) changed the HiGHS QP path that the feasibility seed works around, and seven commits since the pin touch the patched files. See [sundials](../libraries/sundials/README.md) and [uno](../libraries/uno/README.md).
 
 <a id="cbo-029"></a>
 
@@ -284,3 +287,5 @@ The following are legitimately custom:
 - **Status.** Current promise. Low priority.
 - **Research questions.** Which public `pounce-sens-core` and `pounce-qp` APIs does `kkt/*`
   reconstruct?
+- **Library assessment correction (2026-10-27).** The premise that `pounce-sens-core` is used only as the backsolver contract is false. The code already uses `SensApplication` (parametric step and reduced Hessian), `IndexSchurData`, `step_along_path`, `rowlimit` and `pounce_qp::ParametricActiveSetSolver`, and the remaining library surfaces were ruled out for further discharge. This opportunity is a retirement candidate for the next audit refresh. See [pounce](../libraries/pounce/README.md).
+
