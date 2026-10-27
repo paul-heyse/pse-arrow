@@ -4,6 +4,15 @@
 use super::*;
 use crate::workflow::math;
 
+fn reserve_projection<T>(
+    values: &mut Vec<T>,
+    extent: usize,
+    operation: &'static str,
+) -> Result<(), crate::math::MathRuntimeError> {
+    values.try_reserve_exact(extent)
+        .map_err(|source| crate::math::MathRuntimeError::Allocation { operation, source })
+}
+
 /// Each selected physical integration axis retains its contract parameter's physical
 /// identity, including every distinct interval of a scheduled input.
 fn sensitivity_parameters(
@@ -703,17 +712,13 @@ impl ModelingSimulation {
             }
         }
         let mut outputs = Vec::new();
-        outputs
-            .try_reserve_exact(selected)
-            .map_err(|_| contract("live projection allocation refused"))?;
+        reserve_projection(&mut outputs, selected, "live output projection")?;
         for entry in lineage {
             encoding_checkpoint(cancel, deadline)?;
             outputs.push(entry.ok_or_else(|| contract("trajectory physical row absent"))?);
         }
         let mut modes = Vec::new();
-        modes
-            .try_reserve_exact(self.modes.len())
-            .map_err(|_| contract("live mode projection allocation refused"))?;
+        reserve_projection(&mut modes, self.modes.len(), "live mode projection")?;
         for (ordinal, mode) in self.modes.iter().enumerate() {
             encoding_checkpoint(cancel, deadline)?;
             i64::try_from(ordinal).map_err(|_| contract("live trajectory mode ordinal extent"))?;
@@ -754,6 +759,28 @@ mod sensitivity_coordinate_tests {
         assert!(sensitivity_parameters(&profile, 3, &[]).unwrap().is_empty());
         for axes in [vec![0, 0], vec![6], vec![usize::MAX]] {
             assert!(sensitivity_parameters(&profile, 3, &axes).is_err());
+        }
+    }
+}
+
+#[cfg(test)]
+mod allocation_tests {
+    use super::*;
+    #[test]
+    fn trajectory_capacity_overflow_keeps_typed_resource_cause_through_math_nesting() {
+        use pse_model::diagnostic::{BoundaryClass, DiagnosticProjection};
+        use crate::math::MathRuntimeError;
+        for operation in ["live output projection", "live mode projection"] {
+            let mut values = Vec::<f64>::new();
+            let error = reserve_projection(&mut values, usize::MAX, operation).unwrap_err();
+            assert!(std::error::Error::source(&error).unwrap().is::<std::collections::TryReserveError>());
+            assert!(matches!(&error, MathRuntimeError::Allocation { operation: actual, .. } if *actual == operation));
+            assert_eq!(error.retained_bytes().unwrap(), size_of::<MathRuntimeError>());
+            assert_eq!(crate::math::strategy::runtime_failure(&error), pse_model::generated::enums::NumericalAttemptObservation::ResourceExhausted);
+            let nested = MathRuntimeError::Math(error.into_math());
+            let diagnostic = nested.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation);
+            assert_eq!(diagnostic.class, BoundaryClass::ResourceLimit);
+            assert_eq!(diagnostic.code, pse_diagnostics::DiagnosticCode::RuntimeResourceLimit);
         }
     }
 }

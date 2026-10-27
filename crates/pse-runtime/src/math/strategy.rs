@@ -1975,12 +1975,13 @@ pub(crate) fn runtime_failure(error: &super::MathRuntimeError) -> Observation {
         }
         E::Solve(cause) => failure(cause),
         E::Cancelled => Observation::Cancelled,
-        E::Limit(_) | E::PreparationExpired => Observation::ResourceExhausted,
+        E::Allocation { .. } | E::Limit(_) | E::PreparationExpired => Observation::ResourceExhausted,
         E::Pool(_) => boundary_failure(
             error
                 .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native)
                 .class,
         ),
+        E::WorkerJoin { source, .. } => if source.is_cancelled() { Observation::Cancelled } else { Observation::Panic },
         E::Panic(_) => Observation::Panic,
         E::Infrastructure(_) | E::Internal(_) | E::Retiring => Observation::OperationalFailure,
         E::Math(cause) => boundary_failure(

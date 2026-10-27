@@ -580,6 +580,9 @@ impl CanonicalStore {
                         "reserved product blobs cannot author source revisions".into(),
                     ));
                 }
+                let deadline = crate::canonical::transport::original_deadline(
+                    crate::canonical::ACTIVATION_REQUEST_TIMEOUT,
+                );
                 let plan = plan(problem, expected, edits)?;
                 let token = match self
                     .acquire_source_stage(problem, expected, operation, &plan)
@@ -590,7 +593,10 @@ impl CanonicalStore {
                     }
                     StageOutcome::Closed(token) => token,
                 };
-                self.stage_plan(&token, &plan, edits).await?;
+                crate::canonical::transport::within_clock(
+                    deadline,
+                    self.stage_plan(&token, &plan, edits),
+                ).await?;
                 Ok(StageOutcome::Closed(token))
             })
             .await
@@ -632,63 +638,64 @@ impl CanonicalStore {
         operation: &str,
         plan: &EditPlan,
     ) -> Result<StageOutcome, CanonicalError> {
-        // Waiting never adopts or renews the active writer's generation. A dropped
-        // waiter has no authority to mutate that stage. The request deadline also
-        // bounds receipt reads and acquisition RPCs, rather than each poll alone.
-        crate::canonical::transport::within_clock(
-            crate::canonical::transport::original_deadline(REQUEST_TIMEOUT),
-            async {
-                loop {
-                    self.ensure_writes()?;
-                    if let Some(revision) = self.source_edit_receipt(operation, plan).await? {
-                        return Ok(StageOutcome::Acknowledged(revision));
-                    }
-                    match self
-                        .begin_stage_inner(
-                            problem,
-                            expected,
-                            operation,
-                            plan,
-                            STAGE_LIFETIME,
-                            StagePurpose::SourceEdit,
-                        )
-                        .await
-                    {
-                        Ok(Some(token)) => return Ok(StageOutcome::Closed(token)),
-                        Ok(None) => {
-                            if let Some(revision) =
-                                self.source_edit_receipt(operation, plan).await?
-                            {
-                                return Ok(StageOutcome::Acknowledged(revision));
-                            }
-                        }
-                        Err(error) => {
-                            // Activation may have committed between the first receipt
-                            // read and a stale-head/activated-stage acquisition refusal.
-                            match self.source_edit_receipt(operation, plan).await {
-                                Ok(Some(revision)) => {
-                                    return Ok(StageOutcome::Acknowledged(revision));
-                                }
-                                Err(CanonicalError::OperationReused) => {
-                                    return Err(CanonicalError::OperationReused);
-                                }
-                                Ok(None) if error.source_transaction_refused() => {
-                                    return Err(CanonicalError::SourceEditRefused {
-                                        problem: problem.into(),
-                                        operation: operation.into(),
-                                        source: Box::new(error),
-                                    });
-                                }
-                                _ => return Err(error),
-                            }
-                        }
-                    }
-                    self.ensure_writes()?;
-                    tokio::time::sleep(Duration::from_millis(20)).await;
+        // Carry the original minimum clock without dropping the effect owner while
+        // its failed acquisition is being settled. Each request and contention wait
+        // remains bounded by that same clock.
+        let deadline = crate::canonical::transport::original_deadline(REQUEST_TIMEOUT);
+        crate::canonical::transport::operation_scope(deadline.into_std(), async {
+            loop {
+                self.ensure_writes()?;
+                if tokio::time::Instant::now() >= deadline {
+                    return Err(CanonicalError::Timeout);
                 }
-            },
-        )
-        .await
+                if let Some(revision) = crate::canonical::transport::within_clock(
+                    deadline, self.source_edit_receipt(operation, plan),
+                ).await? {
+                    return Ok(StageOutcome::Acknowledged(revision));
+                }
+                match crate::canonical::transport::within_clock(deadline,
+                    self.begin_stage_inner(problem, expected, operation, plan,
+                        STAGE_LIFETIME, StagePurpose::SourceEdit),
+                ).await {
+                    Ok(Some(token)) => return Ok(StageOutcome::Closed(token)),
+                    Ok(None) => {
+                        if let Some(revision) = crate::canonical::transport::within_clock(
+                            deadline, self.source_edit_receipt(operation, plan),
+                        ).await? {
+                            return Ok(StageOutcome::Acknowledged(revision));
+                        }
+                    }
+                    Err(error) => {
+                        // A stale stage can race an activation. Preserve both failed
+                        // observations when the exact receipt cannot settle that race.
+                        match crate::canonical::transport::within_clock(
+                            deadline, self.source_edit_receipt(operation, plan),
+                        ).await {
+                            Ok(Some(revision)) => return Ok(StageOutcome::Acknowledged(revision)),
+                            Err(CanonicalError::OperationReused) => return Err(CanonicalError::OperationReused),
+                            Ok(None) if error.source_transaction_refused() => {
+                                return Err(CanonicalError::SourceEditRefused {
+                                    problem: problem.into(), operation: operation.into(),
+                                    source: Box::new(error),
+                                });
+                            }
+                            Err(readback) => return Err(CanonicalError::SourceEditUnsettled {
+                                problem: problem.into(), operation: operation.into(),
+                                source: Box::new(crate::canonical::settlement::unresolved(
+                                    "source-stage", operation, &plan.request, error, Some(readback),
+                                )),
+                            }),
+                            Ok(None) => return Err(error),
+                        }
+                    }
+                }
+                self.ensure_writes()?;
+                crate::canonical::transport::within_clock(deadline, async {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                    Ok(())
+                }).await?;
+            }
+        }).await
     }
 
     /// Stage two immutable physical products without cloning either retained byte owner.

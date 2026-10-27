@@ -181,6 +181,24 @@ pub enum MathRuntimeError {
         /// Typed reason the actual event allocation could not be retained.
         refusal: Arc<pse_backend_native::ProblemError>,
     },
+    /// Allocation refusal retains the allocator cause and actual producer operation.
+    #[error("math allocation refused during {operation}: {source}")]
+    Allocation {
+        /// Actual allocation owner.
+        operation: &'static str,
+        /// Original capacity or allocation refusal.
+        #[source]
+        source: std::collections::TryReserveError,
+    },
+    /// A joined compiler task failed independently of authored model input.
+    #[error("math worker failed during {operation}")]
+    WorkerJoin {
+        /// Actual worker operation.
+        operation: &'static str,
+        /// Original join failure, including its panic or cancellation identity.
+        #[source]
+        source: tokio::task::JoinError,
+    },
     /// Finite admission bound.
     #[error("math resource limit: {0}")]
     Limit(&'static str),
@@ -271,6 +289,11 @@ impl MathRuntimeError {
             Self::Panic(text) | Self::Internal(text) | Self::Infrastructure(text) => {
                 text.capacity()
             }
+            Self::Allocation { .. } => 0,
+            Self::WorkerJoin { source, .. } if source.is_cancelled() => 0,
+            Self::WorkerJoin { .. } => return Err(ProblemError::Unsupported(
+                "worker panic payload has no retained allocation contract".into(),
+            )),
             Self::Limit(_) | Self::PreparationExpired | Self::Cancelled | Self::Retiring => 0,
         };
         add(size_of::<Self>(), payload)
@@ -352,7 +375,8 @@ impl MathRuntimeError {
                 retained: e.retained_bytes(),
                 cause: pse_model::diagnostic::DiagnosticCause::new(e),
             }),
-            Self::Retiring | Self::Infrastructure(_) | Self::Internal(_) | Self::Panic(_) => {
+            Self::WorkerJoin { ref source, .. } if source.is_cancelled() => ProblemError::Cancelled,
+            Self::Allocation { .. } | Self::WorkerJoin { .. } | Self::Retiring | Self::Infrastructure(_) | Self::Internal(_) | Self::Panic(_) => {
                 self.into_retained_problem()
             }
         }
@@ -373,12 +397,12 @@ fn pool_diagnostic_code(
 }
 pse_diagnostics::impl_diagnostic! {
     MathRuntimeError,
-    code(this) { match this {Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::PreparationExpired|Self::Limit(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Pool(error)=>Some(pool_diagnostic_code(error)),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::InternalInvariant),Self::Panic(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),_=>None} },
+    code(this) { match this {Self::WorkerJoin {source,..}=>Some(if source.is_cancelled() {pse_diagnostics::DiagnosticCode::RuntimeCancelled} else {pse_diagnostics::DiagnosticCode::WorkflowPanic}),Self::Allocation {..}=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::PreparationExpired|Self::Limit(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Pool(error)=>Some(pool_diagnostic_code(error)),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::InternalInvariant),Self::Panic(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowPanic),_=>None} },
     forward(this) { match this {Self::Solve(e)=>Some(e),Self::Compile(e)=>Some(e),Self::Math(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Strategy {cause,..}|Self::StrategyTraceUnavailable {cause,..}=>Some(cause.as_ref()),_=>None} },
     help(_this) { None },related(_this) { None },source(_this) { None },
     facts(this) {
         use pse_diagnostics::{DiagnosticRule as R, DiagnosticFacts, DiagnosticObservation as O};
-        let mut facts=DiagnosticFacts { rule: match this { Self::Cancelled=>Some(R::MathCancelled), Self::Retiring|Self::PreparationExpired|Self::Limit(_)=>Some(R::MathLimit),Self::Pool(error)=>Some(match pool_diagnostic_code(error) { pse_diagnostics::DiagnosticCode::RuntimeResourceLimit=>R::MathLimit,pse_diagnostics::DiagnosticCode::InternalInvariant=>R::WorkflowInternal,_=>R::MathLibrary }), Self::Panic(_)=>Some(R::WorkflowPanic), Self::Infrastructure(_)=>Some(R::MathLibrary), Self::Internal(_)=>Some(R::WorkflowInternal), Self::Solve(_) | Self::Compile(_) | Self::Math(_) | Self::Shared(_) | Self::Strategy {..}|Self::StrategyTraceUnavailable {..}=>None },..Default::default() };
+        let mut facts=DiagnosticFacts { rule: match this { Self::WorkerJoin {source,..}=>Some(if source.is_cancelled() {R::MathCancelled} else {R::WorkflowPanic}),Self::Allocation {..}=>Some(R::MathLimit),Self::Cancelled=>Some(R::MathCancelled), Self::Retiring|Self::PreparationExpired|Self::Limit(_)=>Some(R::MathLimit),Self::Pool(error)=>Some(match pool_diagnostic_code(error) { pse_diagnostics::DiagnosticCode::RuntimeResourceLimit=>R::MathLimit,pse_diagnostics::DiagnosticCode::InternalInvariant=>R::WorkflowInternal,_=>R::MathLibrary }), Self::Panic(_)=>Some(R::WorkflowPanic), Self::Infrastructure(_)=>Some(R::MathLibrary), Self::Internal(_)=>Some(R::WorkflowInternal), Self::Solve(_) | Self::Compile(_) | Self::Math(_) | Self::Shared(_) | Self::Strategy {..}|Self::StrategyTraceUnavailable {..}=>None },..Default::default() };
         if !matches!(this,Self::Solve(_)|Self::Compile(_)|Self::Math(_)|Self::Shared(_)|Self::Strategy {..}|Self::StrategyTraceUnavailable {..}) {facts.observe("detail",O::Text(this.to_string()));}
         facts
     }
@@ -1221,7 +1245,9 @@ impl pse_model::diagnostic::DiagnosticProjection for MathRuntimeError {
                 diagnostic.causes.push(refusal.boundary_diagnostic(stage));
                 diagnostic
             }
-            Self::Pool(_)
+            Self::Allocation { .. }
+            | Self::WorkerJoin { .. }
+            | Self::Pool(_)
             | Self::Limit(_)
             | Self::PreparationExpired
             | Self::Cancelled

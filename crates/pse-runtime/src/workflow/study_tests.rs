@@ -5687,10 +5687,10 @@ async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head()
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(
-        science.revision,
-        format!("study-variant-source:{valid_key}")
-    );
+    assert_eq!(science.revision, selected.variant_operation.as_deref().unwrap());
+    let published = runtime.canonical_store().unwrap().revision(&science.revision).await.unwrap().unwrap();
+    assert_eq!(published.problem, selected.variant_problem.as_deref().unwrap());
+    assert_eq!(published.operation, selected.variant_operation.as_deref().unwrap());
     assert_eq!(package.canonical_revision().unwrap(), &base);
     let scope = runtime
         .canonical_store()

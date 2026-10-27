@@ -229,9 +229,59 @@ pub async fn conform_pure_documents(
             Ok(report)
         },
     );
+    join_compiler(task, cancel, &flag).await
+}
+
+async fn join_compiler<T>(
+    task: tokio::task::JoinHandle<Result<T, WorkflowError>>,
+    cancel: &crate::CancelSource,
+    flag: &pse_diagnostics::Cancellation,
+) -> Result<T, WorkflowError> {
     tokio::pin!(task);
     let joined = tokio::select! { value = &mut task => value, () = cancel.cancelled() => {
         flag.cancel(); task.await
     }};
-    joined.map_err(|error| contract(format!("pure compiler worker failed: {error}")))?
+    joined.map_err(|source| crate::math::MathRuntimeError::WorkerJoin {
+        operation: "pure compiler",
+        source,
+    })?
 }
+
+#[cfg(test)]
+mod compiler_join_tests {
+    use super::*;
+    #[tokio::test]
+    async fn compiler_worker_join_preserves_panic_and_cancellation_and_drains_original_worker() {
+        use pse_model::diagnostic::BoundaryClass;
+        let cancel = crate::CancelSource::new();
+        let flag = pse_diagnostics::Cancellation::new(false);
+        let task = tokio::task::spawn_blocking(|| -> Result<(), WorkflowError> {
+            panic!("private compiler panic payload")
+        });
+        let error = join_compiler(task, &cancel, &flag).await.unwrap_err();
+        let diagnostic = error.boundary_diagnostic();
+        assert_eq!(diagnostic.class, BoundaryClass::Internal);
+        assert_eq!(diagnostic.code, pse_diagnostics::DiagnosticCode::WorkflowPanic);
+        assert!(!format!("{diagnostic:?}").contains("private compiler panic payload"));
+        assert!(matches!(error, WorkflowError::Math(crate::math::MathRuntimeError::WorkerJoin { operation: "pure compiler", source }) if source.is_panic()));
+
+        let task = tokio::spawn(std::future::pending::<Result<(), WorkflowError>>());
+        task.abort();
+        let error = join_compiler(task, &cancel, &flag).await.unwrap_err();
+        assert_eq!(error.boundary_diagnostic().class, BoundaryClass::Cancelled);
+
+        let drained = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let worker_flag = flag.clone();
+        let worker_drained = drained.clone();
+        let task = tokio::task::spawn_blocking(move || {
+            while !worker_flag.is_cancelled() { std::thread::yield_now(); }
+            worker_drained.store(true, std::sync::atomic::Ordering::Release);
+            Err::<(), _>(WorkflowError::Math(crate::math::MathRuntimeError::Cancelled))
+        });
+        cancel.cancel();
+        let error = join_compiler(task, &cancel, &flag).await.unwrap_err();
+        assert_eq!(error.boundary_diagnostic().class, BoundaryClass::Cancelled);
+        assert!(drained.load(std::sync::atomic::Ordering::Acquire));
+    }
+}
+

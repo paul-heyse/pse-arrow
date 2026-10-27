@@ -45,6 +45,12 @@ pub enum MathError {
     /// Optional symbolic coefficient projection is outside finite f64 representation.
     #[error("symbolic coefficient is not representable as a finite f64")]
     CoefficientRange,
+    /// A runtime-owned mathematical state was poisoned by an earlier panic.
+    #[error("math owner {owner} is poisoned")]
+    PoisonedOwner {
+        /// Stable owner identity; the lock guard and its state are never retained.
+        owner: &'static str,
+    },
     /// Library construction or evaluation failed.
     #[error("math library: {0}")]
     Library(String),
@@ -251,7 +257,8 @@ impl MathError {
             }
             Self::Applicability(assessment) => assessment.retained_bytes(),
             Self::Validity(lineage) => size_of_val(lineage.as_ref()) + lineage.heap_bytes(),
-            Self::Domain { .. }
+            Self::PoisonedOwner { .. }
+            | Self::Domain { .. }
             | Self::OutsideRange { .. }
             | Self::Limit(_)
             | Self::Refinement { .. }
@@ -280,7 +287,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Limit(_) | Self::ByteLimit {..} | Self::SlotLimit {..} | Self::WorkLimit {..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
         Self::Scope(_) | Self::Quantity(_) | Self::Provider {..} | Self::Instance {..} | Self::Native {..} | Self::Typed {..} => None,
         Self::Contract(_) | Self::DerivativeDemand {..} => Some(pse_diagnostics::DiagnosticCode::MathContract),
-        Self::Library(_) => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
+        Self::Library(_) | Self::PoisonedOwner {..} => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::CoefficientRange => Some(pse_diagnostics::DiagnosticCode::MathCoefficientRange),
     } },
     forward(this) { match this { Self::Scope(e) => Some(e), Self::Quantity(e) => Some(e), Self::Instance {cause,..} => Some(cause.as_ref()), Self::Provider {cause,..} => Some(cause), Self::Native {cause,..} | Self::Typed {cause,..} => Some(cause.as_ref()), _ => None } },
@@ -409,6 +416,7 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
             | Self::DerivativeDemand { .. }
             | Self::CoefficientRange
             | Self::Library(_)
+            | Self::PoisonedOwner { .. }
             | Self::Evaluation { .. }
             | Self::Validity(_)
             | Self::Applicability(_)
@@ -610,7 +618,7 @@ impl pse_model::diagnostic::DiagnosticProjection for MathError {
             Self::Cancelled => d.rule = R::MathCancelled,
             Self::Contract(_) => d.rule = R::MathContract,
             Self::CoefficientRange => d.rule = R::MathCoefficientRange,
-            Self::Library(_) => d.rule = R::MathLibrary,
+            Self::Library(_) | Self::PoisonedOwner { .. } => d.rule = R::MathLibrary,
             Self::Scope(_) | Self::Quantity(_) | Self::Typed { .. } => {}
         }
         d.observations

@@ -822,6 +822,111 @@ async fn canonical_complete_read_never_retries_nonconflict_or_incomplete_protoco
     }
 }
 
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn source_stage_failed_acquisition_retains_both_causes_under_direct_and_project_clocks() {
+    use crate::canonical::{CanonicalError, Revision};
+    for project in [false, true] {
+        for pending_readback in [false, true] {
+            let mut peer = peer::start_source_stage_fault(pending_readback).await;
+            let sdk = connect(&peer).await;
+            let directory = tempfile::tempdir().unwrap();
+            std::fs::write(directory.path().join("config.json"),
+                br#"{"namespace":"namespace","database":"database","accepting_writes":true}"#).unwrap();
+            let options = crate::canonical::CanonicalOptions {
+                endpoint: format!("grpc://{}", peer.address), namespace: "namespace".into(), database: "database".into(),
+                username: "owner".into(), password: "test".into(), selection_username: "viewer".into(),
+                selection_password: "test".into(), state_path: directory.path().to_owned(), initializer_nonce: None,
+            };
+            let client = Arc::new(super::CanonicalClient::new(Arc::try_unwrap(sdk).unwrap(), Duration::from_secs(2), &options));
+            let issuing_store = Arc::new(std::sync::OnceLock::new());
+            issuing_store.set("issued-store".into()).unwrap();
+            let store = crate::canonical::CanonicalStore {
+                db: client.clone(), activation_db: client, problem_turns: Arc::default(), fixture_lifetime: None,
+                issuing_store, study_module_sha256: Arc::default(),
+                files: Arc::new(crate::canonical_files::FileSession::wire_control().unwrap()), result_read_drain: Arc::default(),
+                connection_options: options.clone(), state_path: options.state_path.clone(), database: options.database, namespace: options.namespace,
+            };
+            let problem = "original-source-problem";
+            let operation = "original-source-operation";
+            let intent = store.project_fork_intent(&crate::canonical_projects::Project {
+                key: "original-project".into(), title: "Original".into(), deleted: false, generation: 7,
+            }, "original-branch", problem, &Revision {
+                key: "original-origin".into(), problem: "origin-problem".into(), sequence: 1, parent: None,
+                operation: "original-origin".into(), request: vec![1, 2, 3].into(),
+                interpretation: crate::generated::surreal::INTERPRETATION.into(),
+            }, operation).unwrap();
+            let deadline = Instant::now() + Duration::from_millis(500);
+            let original = tokio::time::Instant::from_std(deadline);
+            let error = super::operation_scope(deadline, async {
+                // Equal nested clocks must carry authority without racing a second dropping timer.
+                super::operation_scope(deadline, async {
+                    assert_eq!(super::original_deadline(Duration::from_secs(30)), original);
+                    let result = if project { store.edit_project(&intent, &[]).await }
+                        else { store.edit(problem, None, operation, &[]).await };
+                    assert_eq!(super::original_deadline(Duration::from_secs(30)), original);
+                    result.unwrap_err()
+                }).await
+            }).await;
+            assert!(error.effect_is_unknown());
+            assert!(!error.retryable());
+            let CanonicalError::SourceEditUnsettled { problem: retained_problem, operation: retained_operation, source } = error else { panic!("lost source attribution: {error:?}") };
+            assert_eq!(retained_problem, problem);
+            assert_eq!(retained_operation, operation);
+            let CanonicalError::SettlementUnresolved { owner, operation: retained, request, source, readback } = *source else { panic!("lost dual settlement") };
+            assert_eq!(owner, "source-stage");
+            assert_eq!(retained, operation);
+            let encoded = serde_json::to_vec(&(problem, None::<&str>, Vec::<serde_json::Value>::new())).unwrap();
+            let expected_request = pse_ids::derive_hash(pse_ids::Frame::CanonicalEditV1,
+                &[crate::generated::surreal::INTERPRETATION.as_bytes(), &encoded]);
+            assert_eq!(request, expected_request.as_bytes());
+            assert!(source.effect_is_unknown());
+            assert!(!source.is_conflict());
+            assert!(!source.retryable());
+            let readback = readback.expect("independent receipt failure");
+            assert!(readback.effect_is_unknown());
+            if pending_readback {
+                // At an equal clock, the pinned SDK may publish its original typed
+                // interruption before Tokio's enclosing timeout observes expiry.
+                assert!(matches!(readback.as_ref(), CanonicalError::Timeout)
+                    || matches!(readback.as_ref(), CanonicalError::Driver(error)
+                        if error.connection_details() == Some(&surrealdb::types::ConnectionError::ConnectionFailed)), "{readback:?}");
+                assert!(Instant::now() >= deadline);
+                assert!(Instant::now() < deadline + Duration::from_secs(1));
+            } else {
+                assert!(matches!(*readback, CanonicalError::Driver(_)), "{readback:?}");
+            }
+            let mut requests = Vec::new();
+            while let Ok(query) = peer.received.try_recv() { requests.push(query); }
+            assert_eq!(requests.iter().filter(|q| q.contains("LET $stage_guard =")).count(), 1);
+            assert_eq!(requests.iter().filter(|q| q.contains("SELECT * FROM ONLY type::record('canonical_revisions', $key)")).count(), 2);
+            assert!(!requests.iter().any(|q| q.contains("canonical_staged_edits")), "no staging or activation after unresolved acquisition");
+            let mut previous_timeout = Duration::from_millis(500);
+            while let Ok((_received_at, request)) = peer.requests.try_recv() {
+                let timeout = request.context.unwrap().timeout.unwrap();
+                let timeout = Duration::new(u64::try_from(timeout.seconds).unwrap(), timeout.nanos);
+                // The protobuf timeout is a relative client budget, so server receipt
+                // time cannot be added to it without counting network transit twice.
+                assert!(timeout <= previous_timeout, "wire request renewed original budget");
+                previous_timeout = timeout;
+                let bindings = request.variables.unwrap().variables.into_iter().map(|binding| {
+                    (binding.key, Value::try_from(binding.value.unwrap()).unwrap())
+                }).collect::<std::collections::BTreeMap<_, _>>();
+                if request.query.contains("LET $stage_guard =") {
+                    assert_eq!(bindings["problem"], Value::String(problem.into()));
+                    assert_eq!(bindings["operation"], Value::String(operation.into()));
+                    assert_eq!(bindings["request_digest"], Value::String(expected_request.to_hex()));
+                } else if request.query.contains("canonical_revisions") {
+                    assert_eq!(bindings["key"], Value::String(operation.into()));
+                }
+            }
+            if pending_readback { peer.release.add_permits(1); }
+            store.db.disconnect().await.unwrap();
+            tokio::time::timeout(Duration::from_secs(2), peer.server).await.unwrap().unwrap();
+        }
+    }
+}
+
 #[tokio::test]
 async fn canonical_operation_scope_keeps_nested_minimum_clock_and_drains_issued_owner() {
     let deadline = Instant::now() + Duration::from_millis(20);

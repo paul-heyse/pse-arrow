@@ -90,7 +90,7 @@ impl Problem {
         let mut programs = self
             .product_workers
             .lock()
-            .map_err(|_| MathError::Contract("implicit product lock poisoned".into()))?;
+            .map_err(|_| MathError::PoisonedOwner { owner: "implicit product" })?;
         if let Some(program) = programs
             .iter()
             .find(|p| p.kind == kind && p.order == order && p.columns == columns)
@@ -163,13 +163,13 @@ impl Problem {
         program
             .worker
             .lock()
-            .map_err(|_| MathError::Contract("implicit product lock poisoned".into()))?
+            .map_err(|_| MathError::PoisonedOwner { owner: "implicit product" })?
             .worker
             .prepare_providers(
                 &mut *self
                     .providers
                     .lock()
-                    .map_err(|_| MathError::Contract("implicit provider lock poisoned".into()))?,
+                    .map_err(|_| MathError::PoisonedOwner { owner: "implicit provider" })?,
             )?;
         programs
             .try_reserve_exact(1)
@@ -188,7 +188,7 @@ impl Problem {
         scope.check().map_err(crate::error::scope_error)?;
         self.product_workers
             .lock()
-            .map_err(|_| MathError::Contract("implicit product lock poisoned".into()))?
+            .map_err(|_| MathError::PoisonedOwner { owner: "implicit product" })?
             .iter()
             .find(|p| p.kind == kind && p.order == order && p.columns == columns)
             .cloned()
@@ -223,7 +223,7 @@ impl Problem {
         let columns = (0..self.inputs).collect::<Vec<_>>();
         self.product_workers
             .lock()
-            .map_err(|_| MathError::Contract("implicit product lock poisoned".into()))?
+            .map_err(|_| MathError::PoisonedOwner { owner: "implicit product" })?
             .iter()
             .find(|p| {
                 p.kind == ProductKind::SelectedPartials && p.order == order && p.columns == columns
@@ -284,7 +284,7 @@ impl Problem {
             let mut demands = self
                 .prepared_demands
                 .lock()
-                .map_err(|_| MathError::Contract("implicit preparation lock poisoned".into()))?;
+                .map_err(|_| MathError::PoisonedOwner { owner: "implicit preparation" })?;
             if demands.contains(request) {
                 return Ok(());
             }
@@ -422,7 +422,7 @@ impl Problem {
         let parallel = self
             .factor
             .lock()
-            .map_err(|_| MathError::Contract("implicit factor lock poisoned".into()))?
+            .map_err(|_| MathError::PoisonedOwner { owner: "implicit factor" })?
             .parallel;
         let memory = self
             .symbolic
@@ -472,7 +472,7 @@ impl Problem {
         let mut admitted = self
             .prepared_bytes
             .lock()
-            .map_err(|_| MathError::Contract("implicit preparation lock poisoned".into()))?;
+            .map_err(|_| MathError::PoisonedOwner { owner: "implicit preparation" })?;
         if bytes > *admitted {
             crate::construction::additional(bytes - *admitted)?;
             *admitted = bytes;
@@ -559,7 +559,7 @@ impl Problem {
         let mut held = program
             .worker
             .lock()
-            .map_err(|_| MathError::Contract("implicit residual product lock poisoned".into()))?;
+            .map_err(|_| MathError::PoisonedOwner { owner: "implicit residual product" })?;
         let ResidualWorker {
             worker,
             inputs,
@@ -567,7 +567,7 @@ impl Problem {
         } = &mut *held;
         fill_selected_inputs(worker, point, parameters, inputs)?;
         let mut values = program.values.lock().map_err(|_| {
-            MathError::Contract("implicit residual product result lock poisoned".into())
+            MathError::PoisonedOwner { owner: "implicit residual product result" }
         })?;
         worker.evaluate_product_trial_into(
             inputs,
@@ -575,7 +575,7 @@ impl Problem {
             &mut *self
                 .providers
                 .lock()
-                .map_err(|_| MathError::Contract("implicit provider lock poisoned".into()))?,
+                .map_err(|_| MathError::PoisonedOwner { owner: "implicit provider" })?,
             cancel,
             &mut values,
             evaluation,
@@ -748,7 +748,7 @@ impl Problem {
         let mut scratch = self
             .product_scratch
             .lock()
-            .map_err(|_| MathError::Contract("implicit product scratch lock poisoned".into()))?;
+            .map_err(|_| MathError::PoisonedOwner { owner: "implicit product scratch" })?;
         let ProductScratch { seed, children, .. } = &mut *scratch;
         let mut coefficients = vec![0.; self.pattern.row_idx().len()];
         seed.resize(width, 0.);
@@ -757,7 +757,7 @@ impl Problem {
         let candidate = self
             .factor
             .lock()
-            .map_err(|_| MathError::Contract("implicit factor lock poisoned".into()))?
+            .map_err(|_| MathError::PoisonedOwner { owner: "implicit factor" })?
             .association
             .as_ref()
             .is_some_and(|association| {
@@ -783,7 +783,7 @@ impl Problem {
             let held = self
                 .factor
                 .lock()
-                .map_err(|_| MathError::Contract("implicit factor lock poisoned".into()))?;
+                .map_err(|_| MathError::PoisonedOwner { owner: "implicit factor" })?;
             if let Some(association) = held.association.as_ref().filter(|association| {
                 association.matches_state(premise, point, coefficients.len())
                     && association.children == *children

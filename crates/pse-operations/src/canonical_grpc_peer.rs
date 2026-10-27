@@ -16,6 +16,8 @@ pub(super) struct Peer {
     pub address: std::net::SocketAddr,
     pub received: mpsc::UnboundedReceiver<String>,
     pub methods: mpsc::UnboundedReceiver<String>,
+    #[cfg(feature = "canonical-tests")]
+    pub requests: mpsc::UnboundedReceiver<(std::time::Instant, rpc::QueryRequest)>,
     pub release: Arc<Semaphore>,
     pub server: tokio::task::JoinHandle<()>,
 }
@@ -95,29 +97,45 @@ pub(super) async fn start_generations(generations: usize) -> Peer {
     start_with_restore_delay(generations, false).await
 }
 pub(super) async fn start_with_restore_delay(generations: usize, delay: bool) -> Peer {
+    start_scripted(generations, delay, None).await
+}
+#[cfg(feature = "canonical-tests")]
+pub(super) async fn start_source_stage_fault(pending_readback: bool) -> Peer {
+    start_scripted(1, false, Some(pending_readback)).await
+}
+async fn start_scripted(generations: usize, delay: bool, source_stage_fault: Option<bool>) -> Peer {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let (sent, received) = mpsc::unbounded_channel();
     let (methods_sent, methods) = mpsc::unbounded_channel();
+    #[cfg(feature = "canonical-tests")]
+    let (requests_sent, requests) = mpsc::unbounded_channel();
     let release = Arc::new(Semaphore::new(0));
     let peer_release = release.clone();
     let barrier = Arc::new(tokio::sync::Barrier::new(2));
     let read_conflicts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let receipt_reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let server = tokio::spawn(async move {
         for generation in 0..generations {
             let (socket, _) = listener.accept().await.unwrap();
             let sent = sent.clone();
             let methods_sent = methods_sent.clone();
+            #[cfg(feature = "canonical-tests")]
+            let requests_sent = requests_sent.clone();
             let peer_release = peer_release.clone();
             let barrier = barrier.clone();
             let read_conflicts = read_conflicts.clone();
+            let receipt_reads = receipt_reads.clone();
             let service = hyper::service::service_fn(
                 move |request: http::Request<hyper::body::Incoming>| {
                     let methods_sent = methods_sent.clone();
+                    #[cfg(feature = "canonical-tests")]
+                    let requests_sent = requests_sent.clone();
                     let sent = sent.clone();
                     let release = peer_release.clone();
                     let barrier = barrier.clone();
                     let read_conflicts = read_conflicts.clone();
+                    let receipt_reads = receipt_reads.clone();
                     async move {
                         let method = request.uri().path().rsplit('/').next().unwrap().to_owned();
                         let _ = methods_sent.send(method.clone());
@@ -159,7 +177,10 @@ pub(super) async fn start_with_restore_delay(generations: usize, delay: bool) ->
                                 database: "database".into(),
                             }),
                             "Query" => {
-                                let query = rpc::QueryRequest::decode(payload).unwrap().query;
+                                let request = rpc::QueryRequest::decode(payload).unwrap();
+                                #[cfg(feature = "canonical-tests")]
+                                let _ = requests_sent.send((std::time::Instant::now(), request.clone()));
+                                let query = request.query;
                                 let _ = sent.send(query.clone());
                                 if query.contains("FIRST_READ") || query.contains("SECOND_READ") {
                                     barrier.wait().await;
@@ -167,7 +188,27 @@ pub(super) async fn start_with_restore_delay(generations: usize, delay: bool) ->
                                 if query.contains("HOLD") {
                                     release.acquire().await.unwrap().forget();
                                 }
-                                if query.contains("READ_ALWAYS_CONFLICT")
+                                let source_receipt = source_stage_fault.is_some()
+                                    && query.contains("SELECT * FROM ONLY type::record('canonical_revisions', $key)");
+                                let source_readback = source_receipt && receipt_reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst) > 0;
+                                let source_begin = source_stage_fault.is_some() && query.contains("LET $stage_guard =");
+                                if source_readback && source_stage_fault == Some(true) {
+                                    release.acquire().await.unwrap().forget();
+                                }
+                                if source_begin || source_readback {
+                                    if source_begin {
+                                        status = "10";
+                                        native_error = Some(proto::SurrealError::new(
+                                            proto::ErrorKind::Query, "source stage statement refusal",
+                                        ).with_details("Cancelled", None).encode_to_vec());
+                                    } else {
+                                        status = "14";
+                                        native_error = Some(proto::SurrealError::new(
+                                            proto::ErrorKind::Connection, "source receipt connection reply",
+                                        ).encode_to_vec());
+                                    }
+                                    Vec::new()
+                                } else if query.contains("READ_ALWAYS_CONFLICT")
                                     || (query.contains("READ_CONFLICT_TWICE")
                                         && read_conflicts
                                             .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
@@ -214,7 +255,7 @@ pub(super) async fn start_with_restore_delay(generations: usize, delay: bool) ->
                                                 "x".repeat(8192),
                                             )),
                                         }
-                                    } else if query.contains("canonical_interpretations") {
+                                    } else if source_receipt || (source_stage_fault.is_some() && query.contains("canonical_project_operations")) || query.contains("canonical_interpretations") {
                                         proto::Value {
                                             value: Some(proto::value::Value::None(
                                                 proto::NoneValue {},
@@ -415,6 +456,8 @@ pub(super) async fn start_with_restore_delay(generations: usize, delay: bool) ->
         address,
         received,
         methods,
+        #[cfg(feature = "canonical-tests")]
+        requests,
         release,
         server,
     }

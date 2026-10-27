@@ -640,7 +640,7 @@ impl Problem {
             }
             let mut held = residual_worker
                 .lock()
-                .map_err(|_| MathError::Library("implicit worker lock poisoned".into()))?;
+                .map_err(|_| MathError::PoisonedOwner { owner: "implicit worker" })?;
             let ResidualWorker {
                 worker,
                 inputs,
@@ -653,7 +653,7 @@ impl Problem {
                 &mut *self
                     .providers
                     .lock()
-                    .map_err(|_| MathError::Library("implicit provider lock poisoned".into()))?,
+                    .map_err(|_| MathError::PoisonedOwner { owner: "implicit provider" })?,
                 cancel,
                 evaluation,
             )?;
@@ -816,7 +816,7 @@ impl Problem {
             let mut held = self
                 .factor
                 .lock()
-                .map_err(|_| MathError::Contract("implicit factor lock poisoned".into()))?;
+                .map_err(|_| MathError::PoisonedOwner { owner: "implicit factor" })?;
             // Affine/native workspace use never establishes an IFT completion.
             held.association = None;
             let FactorWorkspace {
@@ -859,7 +859,7 @@ impl Problem {
         let held = self
             .factor
             .lock()
-            .map_err(|_| MathError::Contract("implicit factor lock poisoned".into()))?;
+            .map_err(|_| MathError::PoisonedOwner { owner: "implicit factor" })?;
         if held.association.as_ref().is_some_and(|association| {
             children.iter().all(|visit| visit.linearization.is_some())
                 && association.children == children
@@ -1955,7 +1955,7 @@ impl Factory {
             .source_worker
             .get_mut()
             .map_err(|_| {
-                pse_kernels::ProviderError::Terminal("implicit worker lock poisoned".into())
+                provider_error(MathError::PoisonedOwner { owner: "implicit worker" })
             })?
             .worker
             .set_scope(scope.clone());
@@ -1963,19 +1963,19 @@ impl Factory {
             .unknown_worker
             .get_mut()
             .map_err(|_| {
-                pse_kernels::ProviderError::Terminal("implicit unknown worker lock poisoned".into())
+                provider_error(MathError::PoisonedOwner { owner: "implicit unknown worker" })
             })?
             .worker
             .set_scope(scope.clone());
         {
             let providers = problem.providers.get_mut().map_err(|_| {
-                pse_kernels::ProviderError::Terminal("implicit provider lock poisoned".into())
+                provider_error(MathError::PoisonedOwner { owner: "implicit provider" })
             })?;
             problem
                 .unknown_worker
                 .get_mut()
                 .map_err(|_| {
-                    pse_kernels::ProviderError::Terminal("implicit worker lock poisoned".into())
+                    provider_error(MathError::PoisonedOwner { owner: "implicit worker" })
                 })?
                 .worker
                 .prepare_providers(providers)
@@ -2082,7 +2082,7 @@ impl Nested {
             .prepared_demands
             .lock()
             .map_err(|_| {
-                pse_kernels::ProviderError::Terminal("implicit preparation lock poisoned".into())
+                provider_error(MathError::PoisonedOwner { owner: "implicit preparation" })
             })?
             .contains(request.request())
         {
@@ -2442,6 +2442,95 @@ fn provider_values(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn poison<T>(owner: &Mutex<T>) {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = owner.lock().unwrap();
+            panic!("private poisoned state must never become an authored contract");
+        }));
+        assert!(result.is_err());
+    }
+
+    fn poison_fixture() -> (Problem, pse_kernels::ExecutionScope, Options) {
+        use crate::guarded::{PreparedBody, Stage};
+        crate::initialize().unwrap();
+        let id = SemanticId::from_bytes([121; 16]);
+        let source = PreparedBody::new(2, 3, vec![2], vec![Stage::Block {
+            expressions: vec![crate::library::formal(0).unwrap() - crate::library::formal(1).unwrap()],
+            outputs: vec![2], source: id,
+        }], DerivativeOrder::Second).unwrap();
+        let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
+        let compiled = Arc::new(source.compile(&[0], &[0, 1], DerivativeOrder::Second,
+            crate::library::Optimization::default(), crate::jets::EvaluationLimits::default(), &scope).unwrap());
+        let body = source_body_for_test(id, &source, compiled);
+        let problem = Problem::new(id, ContentHash::from_bytes([121; 32]),
+            vec![Unknown { id, lower: -10.0, upper: 10.0 }], vec![id], 1,
+            residual_bodies_for_test(body), 100).unwrap();
+        let options = Options { start: vec![1.0], variable_nominals: vec![1.0],
+            variable_tolerance: vec![1e-9], residual_tolerance: vec![1e-9],
+            iterations: 10, time_limit: Duration::from_secs(1), derivative_tolerance: 1e-10 };
+        (problem, scope, options)
+    }
+
+    #[test]
+    fn actual_poisoned_implicit_owners_keep_infrastructure_through_provider_nesting() {
+        use pse_model::diagnostic::{BoundaryClass, DiagnosticProjection};
+        use pse_diagnostics::{DiagnosticCode, DiagnosticStage};
+        for owner in ["preparation", "product", "provider", "residual", "factor", "residual-product"] {
+            let (problem, scope, options) = poison_fixture();
+            let registry = pse_quantity::standard::standard_registry().unwrap();
+            let quantity = registry.neutral_dimensionless().unwrap();
+            let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+            let spec = pse_kernels::ProviderSpec {
+                shapes: Default::default(), derivative_source: pse_kernels::DerivativeSource::Analytic,
+                id: problem.id, revision: problem.identity, data: ContentHash::from_bytes([0; 32]),
+                inputs: vec![pse_kernels::Port { id: pse_ids::named_id(problem.id, "parameter"), quantity, unit }],
+                outputs: vec![pse_kernels::Port { id: problem.id, quantity, unit }],
+                derivatives: DerivativeOrder::Second, smoothness: DerivativeOrder::Second,
+            };
+            let request = pse_kernels::PreparedProviderRequest::new(Arc::new(spec.clone()),
+                pse_kernels::ProviderRequest::all(&spec, DerivativeOrder::First)).unwrap();
+            let error = match owner {
+                "preparation" | "product" => {
+                    if owner == "preparation" { poison(&problem.prepared_demands); }
+                    else { poison(&problem.product_workers); }
+                    let mut nested = Nested { requested_output: DerivativeOrder::Second,
+                        configuration: ConfigurationWorker::new(Configuration::Fixed(problem.unknowns.clone(), options.clone()), None, None),
+                        solver: SolverWorker::new(&CountedLinear(Arc::new(std::sync::atomic::AtomicUsize::new(0)))),
+                        selection: selection::SelectionWorker::new(&Selection::default()),
+                        problem: Arc::new(problem), cancel: scope.cancellation().clone(), scope: scope.clone(),
+                        numerical: None, linearization: None };
+                    let error = pse_kernels::Provider::prepare_demand(&mut nested, &request).unwrap_err();
+                    MathError::Scope(error)
+                }
+                "provider" => { poison(&problem.providers);
+                    problem.evaluate(&[1.0], &[1.0], DerivativeOrder::Value, scope.cancellation()).unwrap_err() }
+                "residual" => { poison(&problem.source_worker);
+                    problem.evaluate(&[1.0], &[1.0], DerivativeOrder::Value, scope.cancellation()).unwrap_err() }
+                "factor" | "residual-product" => {
+                    problem.prepare_product(&request, &scope).unwrap();
+                    if owner == "factor" { poison(&problem.factor); }
+                    else { poison(&problem.complete_program(DerivativeOrder::First).unwrap().worker); }
+                    problem.demanded_derivatives(&[1.0], &[1.0], &request,
+                        pse_kernels::ProviderRuntime::default(), &options, ContentHash::from_bytes([0; 32]), &scope).unwrap_err()
+                }
+                _ => unreachable!(),
+            };
+            assert_eq!(error.boundary_diagnostic(DiagnosticStage::Evaluation).code, DiagnosticCode::RuntimeInfrastructure, "{owner}: {error}");
+            let instance = SemanticId::from_bytes([121; 16]);
+            let nested = MathError::Instance { instance,
+                checked_members: Default::default(), checked_sources: Default::default(),
+                occurrences: Default::default(), cause: Box::new(MathError::Scope(provider_error(error))) };
+            assert!(nested.retained_bytes() >= size_of::<MathError>());
+            let diagnostic = nested.boundary_diagnostic(DiagnosticStage::Evaluation);
+            assert_eq!(diagnostic.class, BoundaryClass::Infrastructure, "{owner}");
+            assert_eq!(diagnostic.code, DiagnosticCode::RuntimeInfrastructure);
+            assert!(diagnostic.sources.contains(&instance));
+            assert!(!format!("{diagnostic:?}").contains("private poisoned state"));
+        }
+        let (problem, scope, _) = poison_fixture();
+        assert!(matches!(problem.evaluate(&[], &[1.0], DerivativeOrder::Value, scope.cancellation()), Err(MathError::Contract(_))));
+    }
 
     fn verification_matrix(n: usize, entries: &[(usize, usize, f64)]) -> SparseColMat<usize, f64> {
         let indices = entries

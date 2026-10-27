@@ -2755,8 +2755,8 @@ impl ModelingPackage {
         if point.is_empty() {
             return Err(contract("variant publication requires its occurrence"));
         }
-        let problem = format!("study-variant:{point}");
-        let operation = format!("study-variant-source:{point}");
+        let problem = authority.variant_problem()?.to_owned();
+        let operation = authority.variant_operation()?.to_owned();
         let extent = self.revision.admitted.retained_bytes();
         let _owner = services
             .preparation()

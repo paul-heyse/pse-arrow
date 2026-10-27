@@ -764,8 +764,8 @@ impl CanonicalStore {
     ) -> Result<Revision, CanonicalError> {
         let activity = self.admit_activity()?;
         activity
-            .scope(within_clock(
-                original_deadline(crate::canonical::ACTIVATION_REQUEST_TIMEOUT),
+            .scope(crate::canonical::transport::operation_scope(
+                original_deadline(crate::canonical::ACTIVATION_REQUEST_TIMEOUT).into_std(),
                 async {
                     intent.validate()?;
                     if intent.issuing_store != self.issuing_store()? {

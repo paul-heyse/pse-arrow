@@ -60,6 +60,7 @@ pub fn classify(error: &ProblemError) -> Failure {
             | E::DerivativeDemand { .. }
             | E::CoefficientRange
             | E::Library(_)
+            | E::PoisonedOwner { .. }
             | E::Evaluation { .. }
             | E::Limit(_)
             | E::Refinement { .. }

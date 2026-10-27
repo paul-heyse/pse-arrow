@@ -1690,7 +1690,7 @@ impl CanonicalStore {
         activity
             .scope(async {
                 let deadline = original_deadline(ACTIVATION_REQUEST_TIMEOUT);
-                let revision = within_clock(deadline, async {
+                let revision = transport::operation_scope(deadline.into_std(), async {
                     self.ensure_writes()?;
                     let stage = match self
                         .stage_edits(problem, expected, operation, edits)

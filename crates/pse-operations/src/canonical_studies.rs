@@ -3412,8 +3412,17 @@ mod canonical_studies_server_unit {
                 .unwrap();
             let first_authority = StudyAdmissionAuthority::new(&first_scope, &first).unwrap();
             let second_authority = StudyAdmissionAuthority::new(&second_scope, &second).unwrap();
-            let first_problem = format!("study-variant:{first_key}");
-            let first_operation = format!("study-variant-source:{first_key}");
+            let first_problem = first_authority.variant_problem().unwrap().to_owned();
+            let first_operation = first_authority.variant_operation().unwrap().to_owned();
+            assert_eq!(first_scope.point().variant_problem.as_deref(), Some(first_problem.as_str()));
+            assert_eq!(first_scope.point().variant_operation.as_deref(), Some(first_operation.as_str()));
+            for missing_problem in [false, true] {
+                let mut missing = first_scope.clone();
+                if missing_problem { missing.point.variant_problem = None; }
+                else { missing.point.variant_operation = None; }
+                let authority = StudyAdmissionAuthority::new(&missing, &first).unwrap();
+                assert!(if missing_problem { authority.variant_problem() } else { authority.variant_operation() }.is_err());
+            }
             let receipt = store
                 .edit_with_study_admission(
                     &first_problem,
