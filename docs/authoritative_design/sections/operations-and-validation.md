@@ -656,28 +656,21 @@ retirement physically drains before replacement and retains individual failures.
 mutable diagnostic and crash-isolated operations retain dedicated execution. No database transaction
 spans pages, daemon, host CPU partition or persistent compiler product cache follows.
 
-Ordinary local editable dev/native preparation associates the actual Maturin Cargo child with
-selected unit-graph/artifact/compiler/build-script records, transitive source and macro inputs,
-declared/default build inputs and consumed environment/provider installation facts. Missing
-associated compiler dep-info refuses the optimized receipt. The existing preparation receipt owns
-`producing-cargo-inputs-v1`; no second freshness ledger is introduced. Unchanged witnessed file
-identities avoid repeated tree/image hashing, while changed metadata or directory membership
-rechecks content. Build-window extractor artifacts need not remain installed. Installed artifact
-bytes must match the producer, or the exact pinned Maturin RPATH transformation must replay to the
-complete installed digest. Fixed evidence executables use the same association and execute through
-the admitted file descriptor. Pre/post-import fences and subsequent reuse bind the actual loaded
-image; a new receipt cannot bless an old loaded image. Unsupported cross/custom-Maturin/PGO or
-unmanaged-provider routes retain explicit conservative preparation. These mechanisms establish
-currency and work removal, without a measured latency claim.
+**Proposed amendment (ADR-0231, maintainer-directed):** ordinary editable dev/native and fixed
+evidence-executable construction publish a completed immutable artifact generation through the
+existing preparation receipt. The build/install owner establishes validity once and publishes the
+typed descriptor only after completion. Construction or publication failure preserves the previous
+publication. Consumers attach the issued generation and check only distinct requested compatibility;
+they do not rescan source, compiler environments, Cargo records or artifact digests. Linting and
+source edits affect later construction, not the validity of the existing generation. An attached
+generation survives mutable installation-alias changes and newer publications until explicit
+replacement drains its owner. Original cursors never attach silently to a replacement.
 
-Each attachment names its checkout and interpreter. Selected launch defaults refresh through the
-existing environment owner while intentional overrides and disclosed process-owned settings retain
-their meanings. The complete exposed tool contract and selected source/route/request basis travel
-through private helper admission; unrelated source interpretation is not expanded in the child.
-Native schema compatibility is distinct from artifact currency. Existing preparation evidence,
-current supported inputs and the witnessed image loaded by a fresh worker must agree before a
-native receiver runs. Explicit preparation and reattachment do not replay work or promise an
-immutable checkout throughout execution. Source-only discovery never prepares native prerequisites.
+Each attachment names its checkout and interpreter. Environment/provider lifetime remains with
+its original owner. Serving-code edits require explicit endpoint drain/reload before edited code
+serves requests, including lazy imports; live source scanning does not establish this contract.
+No new ledger or general validation mechanism follows. Source-only discovery never prepares native
+prerequisites. Implementation and final qualification of this amendment remain with Plan56 F/G.
 Native observation activates only after the helper admits its image and retains the same process
 shutdown owner. Independent endpoint resource owners settle despite sibling teardown failures;
 retained failures and cancellation remain visible after settlement.
@@ -825,10 +818,10 @@ whole-source cut. Ordinary selected Rust execution consumes its retained actual 
 catalogue, including original tool/configuration inputs; generation aggregates invoke shared
 owners once while their independent comparison routes remain available. Python environment,
 editable extension, stubs and fresh import admission have independent responsibilities and
-supported currency premises. Reusable preparation never removes worker-side loaded-byte
-admission or fresh numerical-state checks. Declared assessment-output placement and process SDK
+supported currency premises. Owner-published artifact validity is established at construction rather than repeated by
+readers; fresh numerical-state checks retain their scientific responsibility. Declared assessment-output placement and process SDK
 selection are runtime observations rather than compiler inputs; unknown/compiler/provider
-environment controls remain bound to original preparation and actual loaded-image admission.
+environment controls belong to subsequent construction or their explicit runtime owner.
 
 Collected invocation selection and semantic requirements are immutable, digest-bound owner
 data. Compact coordination retains mutable membership and references to that data and frozen

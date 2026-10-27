@@ -1,6 +1,6 @@
 ---
 id: ADR-0231
-title: Retain admitted native read workers with producing artifact currency
+title: Retain native reads through owner-published artifact generations
 status: proposed
 date: 2026-10-26
 deciders: [paul-heyse]
@@ -11,13 +11,13 @@ review: docs/design_review/reviews/design_review_retained-native-read-currency_2
 evidence: Proposed
 supersedes: []
 superseded-by: null
-revisit: A supported producer input cannot be associated with its actual installed image, or a retained read cannot establish exact context and native drain.
-verification: Actual editable dev/native and fixed executable producing-input controls distinguish consumed/unrelated changes and raced image replacement; real retained reads exercise changed context, stale cursors, cancellation, endpoint EOF and physical drain through both dispatch routes and the foreground CLI.
+revisit: Controlled construction or publication cannot preserve a complete immutable generation, or a retained read cannot establish exact context and native drain.
+verification: Publication controls exercise successful construction, failed-publication preservation and lint-independent generation attachment; real retained reads exercise exact context, original cursors, cancellation, endpoint EOF and physical drain through both dispatch routes and the foreground CLI.
 standard: {core: '3.4', heuristics: '1.0', process-simulator: '1.5'}
 scenarios: [docs/plans/56-design-principle-alignment.md#s10]
 ---
 
-# ADR-0231: Retain admitted native read workers with producing artifact currency
+# ADR-0231: Retain native reads through owner-published artifact generations
 
 ## Context
 
@@ -29,39 +29,67 @@ Amend blueprint §21.1/§24.1 for the finite public-operation projection and ord
 
 ## Drivers
 
-A read page must not pay for unrelated source trees or lose an existing import/image witness, but equivalent wire schemas do not establish artifact currency. Operation metadata must state real prerequisites and effect eligibility once. A retained process must own its admitted native work and protections through completion even after its observer cancels. S10 and the existing currency/lifetime acceptance distinguish those obligations.
+Construction and publication have a controlled owner. Repeating the owner's source, environment,
+Cargo-record or image validation in consumers adds no assurance to that contract. An already
+published artifact remains valid when source files or incidental build logs change. A requested
+interface or execution mode can nevertheless be incompatible with a valid generation.
 
 ## Options
 
-1. Keep a fresh child and the current broad checks for each call: simple isolation, but repeats unchanged preparation and import work.
-2. Qualify actual selected producing inputs, attach them to the existing preparation receipt, and retain an eligible foreground read worker under exact context: selected because it removes repeated work while carrying existing guarantees through a real lifetime owner.
-3. Add a daemon, persistent compiler cache or universal producer authority: unselected; those responsibilities and proof scope are unnecessary here.
-
-Reuse Cargo's selected unit graph and actual compiler/build-script records with existing dependency/input readers; neither a final depfile nor artifact JSON alone proves input completeness. Preserve actual installed bytes after Maturin transformations and the worker's pre/post-import image fence. Use existing finite operation/document generation and subprocess/native settlement owners rather than another workflow language or freshness ledger.
+1. Infer artifact freshness from source trees and build records during reads: superseded by the
+   maintainer's explicit construction-driven direction; lint and unrelated builds can mutate those
+   records without changing the issued artifact.
+2. Construct and atomically publish a complete immutable generation in the existing preparation
+   owner, then attach consumers to it: selected. Cargo and Maturin retain their build duties.
+3. Add a universal producer ledger or another validation framework: unnecessary.
 
 ## Outcome
 
-An operation's responsibility-owned declaration supplies its stable identity, request/result references, receiver, defaults/bounds, effects, prerequisites and read-lifetime eligibility. Generated host projections replace their hand-maintained mirrors, retaining small typed receiver adapters.
+The operation owner continues to declare identity, request/result references, receivers,
+defaults/bounds, effects, prerequisites and read eligibility once for generated projections.
 
-An optimized ordinary currency receipt is publishable only after actual producing closure, relevant configuration/environment, interpreter/PyO3/Maturin and consumed native installation inputs are associated with the installed artifact. Keep current checks until that replacement is qualified. Unknown input classes cannot become a successful currency result; their conservative path stays explicit.
+Explicit preparation runs the trusted build/install path, records the resulting mode/profile,
+validation and compiled features, copies its image into a private generation and atomically
+publishes the typed descriptor in the existing receipt. Construction or publication failure leaves
+the preceding publication usable. Partial installation never becomes the selected generation.
+Construction establishes artifact validity once; consumers do not reproduce construction checks.
 
-An eligible read worker belongs to a foreground endpoint or explicitly admitted workload. Reuse requires unchanged admitted source, physical, provider, preparation and loaded-image context. Each bounded request retains its identity, original deadline and worker/session incarnation. Changed premises retire the worker; drain and resource/protection settlement precede replacement. Old cursors cannot silently attach to a replacement. Effectful and crash-isolated operations retain dedicated execution.
+A consumer attaches the published generation once and loads that exact immutable image.
+Distinct requested-interface/mode compatibility is checked at attachment. No source, environment,
+Cargo dep-info/stdout or binary-digest rescan is required during reads or internal handoffs.
+Mutable installation aliases and subsequent publication do not revoke an already attached image.
+Selecting a newer generation explicitly drains/replaces the worker; original cursors never rebind.
+
+Eligible workers remain foreground endpoint/workload owners with original physical/provider
+context, request identity, deadline and native drain. Python serving-code edits require explicit
+drain and reload before edited code serves operations, including lazy imports. Concurrent live
+editing is outside that controlled editing contract; source scans are not a substitute for it.
 
 ### Consequences
 
-The worker protocol needs bounded repeated requests, cancellation and shutdown, with both existing dispatch routes and the foreground CLI adopting the same contract. Reusing a worker does not retain a database transaction across pages, extend a deadline or renew scientific permission. Unrelated source edits should not invalidate the qualified producing closure; relevant membership/deletion remains an input.
+Generation storage stays with the existing preparation owner. Retention lasts through attached
+consumers; cleanup cannot remove their image/provider resources. No daemon, host partition,
+second ledger, general validation language or measured speedup follows.
 
 ### Compensating controls
 
-Bind producer observations to the actual Cargo child, installed bytes and current loaded-image identity. Preserve source/image fences, independent request decoding, native provider pins, original protections and physical drain. Pool width follows existing admission; no new host partition, background process or ledger is introduced. Unsupported routes retain conservative behavior rather than weakening guarantees.
+The constructor owns complete publication and failure settlement. External request decoding,
+scientific permission, Arrow validation, cursor/session/context identity and actual native resource
+drain retain their separate duties. They do not revalidate artifact construction. If a new failure
+exposure requires validation, model the specific gap and place it at its owner once.
 
 ### Confirmation
 
-The linked focused review assesses this design at Proposed evidence before dependent worker-retention code. F05's extractor/installed association controls precede receipt replacement; F06 actual endpoint/page/cancellation tests precede removal of per-page admission. The owning E/F/G Outcomes retain executed commands and conditions; formal ADR status is not implementation acceptance.
+The attributed focused review records the revised judgment. Plan56 F05/F06 qualification covers
+publication failures, source/lint independence, explicit replacement and retained cursor/drain
+ownership. Prior source-change and installation-alias-change refusal obligations are superseded
+by this maintainer direction, rather than claimed as current acceptance.
 
 ## Pros and cons
 
-The selected option makes preparation and read ownership local and amortizable. It also adds an explicit session protocol and requires stronger producer/context association than a stat-only shortcut. Qualification and retirement order bound that additional responsibility.
+The selected design removes redundant work and makes failure recovery explicit at the constructor.
+It requires controlled immutable publication and explicit serving-code reload, responsibilities
+already owned by preparation and endpoint lifetimes.
 
 ## More information
 
@@ -70,3 +98,5 @@ The selected option makes preparation and read ownership local and amortizable. 
 ## Status history
 
 - 2026-10-26 — Proposed after maintainer selection of RC06 and authorization to execute the remaining 56e/56f/56g scope. Formal decision status remains proposed.
+
+- 2026-10-27 — Revised under explicit maintainer direction: controlled construction/publication establishes validity once; consumer freshness inference and redundant validation are superseded. Formal status remains proposed.
