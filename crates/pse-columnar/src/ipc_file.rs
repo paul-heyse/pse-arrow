@@ -8,33 +8,17 @@ use arrow::{
     array::ArrayData, datatypes::DataType, error::ArrowError, ipc::writer::FileWriter,
     record_batch::RecordBatch,
 };
-use std::io::Write;
 
 /// Existing physical-file record batch ceiling, also used by protected readers.
 pub const MAX_BATCHES: usize = 32 * 1024;
 
-struct LimitedWriter {
-    bytes: Vec<u8>,
-    limit: usize,
+/// A visible native value-slot ceiling reached before encoding.
+#[derive(Debug, thiserror::Error)]
+#[error("native value-slot limit {limit} reached")]
+pub struct ValueLimit {
+    /// Caller-selected native value-slot bound.
+    pub limit: usize,
 }
-impl Write for LimitedWriter {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        if self
-            .bytes
-            .len()
-            .checked_add(bytes.len())
-            .is_none_or(|end| end > self.limit)
-        {
-            return Err(std::io::Error::other("sealed result file limit"));
-        }
-        self.bytes.extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
 fn invalid(message: &str) -> ArrowError {
     ArrowError::InvalidArgumentError(message.into())
 }
@@ -52,7 +36,7 @@ pub fn visible_size(
         .checked_add(data.len())
         .ok_or_else(|| invalid("field size overflow"))?;
     if *values > value_limit {
-        return Err(invalid("field value bound"));
+        return Err(ArrowError::ExternalError(Box::new(ValueLimit { limit: value_limit })));
     }
     let bitmap = if data.nulls().is_some() {
         data.len().div_ceil(8)
@@ -173,17 +157,14 @@ pub fn encode(batches: &[RecordBatch], byte_limit: usize) -> Result<Vec<u8>, Arr
     #[cfg(test)]
     WRITER_STARTS.with(|count| count.set(count.get() + 1));
     let mut writer = FileWriter::try_new(
-        LimitedWriter {
-            bytes: Vec::new(),
-            limit: byte_limit,
-        },
+        pse_ids::BoundedSink::new(Vec::new(), byte_limit),
         first.schema().as_ref(),
     )?;
     for batch in batches {
         writer.write(batch)?;
     }
     writer.finish()?;
-    Ok(writer.into_inner()?.bytes)
+    Ok(writer.into_inner()?.into_inner())
 }
 
 #[cfg(test)]

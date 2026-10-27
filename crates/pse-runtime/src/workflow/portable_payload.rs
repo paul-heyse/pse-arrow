@@ -112,8 +112,8 @@ fn invalid(reason: impl Into<String>) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::InvalidInput, reason.into())
 }
 
-/// Validate only the bounded IPC schema header, terminal marker and exact original scientific lineage.
-/// Record batches remain streamed by their consumer; this never materializes their arrays.
+/// Validate every bounded message's schema/layout/framing and exact original lineage.
+/// Metadata validation never materializes record arrays.
 pub(crate) fn validate_scientific_ipc(
     file: File,
     readable_bytes: u64,
@@ -127,41 +127,19 @@ pub(crate) fn finalized_ipc_schema(
     mut file: File,
     readable_bytes: u64,
     maximum_document_bytes: usize,
-) -> std::io::Result<datafusion::arrow::datatypes::SchemaRef> {
-    if readable_bytes < 8 {
-        return Err(invalid("short IPC stream"));
-    }
-    file.seek(SeekFrom::Start(readable_bytes - 8))?;
-    let mut end = [0_u8; 8];
-    file.read_exact(&mut end)?;
-    if end != [255, 255, 255, 255, 0, 0, 0, 0] {
-        return Err(invalid("IPC stream lacks finalized end marker"));
-    }
+) -> std::io::Result<pse_columnar::Leased<datafusion::arrow::datatypes::Schema>> {
+    let limits = pse_columnar::ipc_stream::Limits {
+        message_bytes: maximum_document_bytes.max(pse_operations::canonical_files::FILE_BYTES),
+        metadata_bytes: maximum_document_bytes,
+    };
+    let pool = pse_columnar::ipc_stream::offline_pool(limits).map_err(|e| invalid(e.to_string()))?;
     file.seek(SeekFrom::Start(0))?;
-    let mut start = [0_u8; 6];
-    file.read_exact(&mut start)?;
-    if &start == b"ARROW1" {
-        return Err(invalid("IPC file supplied as IPC stream"));
-    }
-    file.seek(SeekFrom::Start(0))?;
-    let mut header = [0_u8; 8];
-    file.read_exact(&mut header)?;
-    if header[..4] != [255, 255, 255, 255] {
-        return Err(invalid("IPC stream lacks the selected continuation format"));
-    }
-    let length = u32::from_le_bytes([header[4], header[5], header[6], header[7]]) as usize;
-    if length == 0
-        || length > maximum_document_bytes
-        || length as u64 > readable_bytes.saturating_sub(8)
-    {
-        return Err(invalid("IPC schema metadata exceeds finite read allowance"));
-    }
-    file.seek(SeekFrom::Start(0))?;
-    let stream =
-        datafusion::arrow::ipc::reader::StreamReader::try_new(file.take(length as u64 + 8), None)
-            .map_err(|e| invalid(e.to_string()))?;
-    Ok(stream.schema())
+    let stream = pse_columnar::ipc_stream::validate(
+        file, readable_bytes, limits, pool, pse_columnar::CancellationToken::new(),
+    ).map_err(|e| invalid(e.to_string()))?;
+    Ok(pse_columnar::Leased::new(stream.schema(), stream.schema_owner()))
 }
+
 pub(crate) fn validate_scientific_lineage(
     schema: &datafusion::arrow::datatypes::Schema,
     result: &PackResultSelection,

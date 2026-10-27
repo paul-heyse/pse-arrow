@@ -3745,35 +3745,14 @@ impl ReplayHorizonConstructor {
 }
 
 const EXPORT_MAX: usize = 256 * 1024 * 1024;
-/// Counting serialization admits copies without allocating a second serialized document.
-struct ExtentWriter {
-    written: usize,
-    limit: usize,
-}
-impl std::io::Write for ExtentWriter {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        let total = self
-            .written
-            .checked_add(bytes.len())
-            .filter(|total| *total <= self.limit)
-            .ok_or_else(|| {
-                std::io::Error::other("complete replay extent exceeds finite allocation")
-            })?;
-        self.written = total;
-        Ok(bytes.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
 pub(super) fn encoded_extent(
     value: &impl serde::Serialize,
     limit: usize,
 ) -> Result<usize, WorkflowError> {
-    let mut writer = ExtentWriter { written: 0, limit };
+    let mut writer = pse_ids::BoundedSink::counting(limit);
     serde_json::to_writer(&mut writer, value)
         .map_err(|error| contract(format!("replay encoding extent: {error}")))?;
-    Ok(writer.written)
+    Ok(writer.count())
 }
 pub(in crate::workflow) fn profile_extent(
     profile: &crate::math::solves::SolverProfile,

@@ -5,16 +5,13 @@ use super::*;
 use crate::tooling::review_analysis::render::{ReportOrientation, ReportSection};
 
 fn bounded_json(value: &impl Serialize) -> String {
-    let mut writer = LimitedVec {
-        bytes: Vec::new(),
-        limit: 4096,
-    };
+    let mut writer = pse_ids::BoundedSink::new(Vec::new(), 4096);
     if serde_json::to_writer(&mut writer, value).is_ok() {
-        String::from_utf8_lossy(&writer.bytes).into_owned()
+        String::from_utf8_lossy(writer.inner()).into_owned()
     } else {
         format!(
             "{} … [remaining retained value omitted from presentation]",
-            String::from_utf8_lossy(&writer.bytes)
+            String::from_utf8_lossy(writer.inner())
         )
     }
 }
@@ -209,10 +206,15 @@ pub(super) fn orientation(
         if member.readable_bytes > index.selection.maximum_document_bytes as u64 {
             section.paragraphs.push("Table preview omitted: finalized IPC exceeds the report decode allowance. Indexed raw selected table remains available.".into());
         } else {
-            let file =
-                open_contained(directory, &member.relative_path)?.take(member.readable_bytes);
-            let mut stream = datafusion::arrow::ipc::reader::StreamReader::try_new(file, None)
-                .map_err(|e| invalid(e.to_string()))?;
+            let file = open_contained(directory, &member.relative_path)?;
+            let limits = pse_columnar::ipc_stream::Limits {
+                message_bytes: index.selection.maximum_document_bytes,
+                metadata_bytes: index.selection.maximum_document_bytes,
+            };
+            let pool = pse_columnar::ipc_stream::offline_pool(limits).map_err(|e| invalid(e.to_string()))?;
+            let mut stream = pse_columnar::ipc_stream::StreamReader::try_new(
+                file, member.readable_bytes, limits, pool, CancellationToken::new(),
+            ).map_err(|e| invalid(e.to_string()))?;
             section.columns = stream
                 .schema()
                 .fields()
@@ -221,8 +223,8 @@ pub(super) fn orientation(
                 .map(|field| field.name().clone())
                 .collect();
             let mut more = false;
-            for batch in &mut stream {
-                let batch = batch.map_err(|e| invalid(e.to_string()))?;
+            while let Some(decoded) = stream.next_batch().map_err(|e| invalid(e.to_string()))? {
+                let batch = &decoded.batch;
                 for row in 0..batch.num_rows() {
                     if section.rows.len() == 20 {
                         more = true;

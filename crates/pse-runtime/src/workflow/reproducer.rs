@@ -263,21 +263,8 @@ fn allowance(value: Duration) -> Result<(), WorkflowError> {
     }
 }
 fn extent(value: &impl Serialize) -> Result<(), WorkflowError> {
-    struct Limit(usize);
-    impl std::io::Write for Limit {
-        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-            self.0 = self
-                .0
-                .checked_add(bytes.len())
-                .filter(|bytes| *bytes <= MAXIMUM_BYTES)
-                .ok_or_else(|| std::io::Error::other("reproducer exceeds finite encoded extent"))?;
-            Ok(bytes.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
-    serde_json::to_writer(Limit(0), value).map_err(|error| contract(error.to_string()))
+    serde_json::to_writer(pse_ids::BoundedSink::counting(MAXIMUM_BYTES), value)
+        .map_err(|error| contract(error.to_string()))
 }
 fn predicate(
     original: &Option<BoundaryDiagnostic>,
@@ -639,7 +626,6 @@ impl Runtime {
         source: &ReplaySourceDocument,
         cancel: &CancelSource,
     ) -> Result<super::PhysicalContext, WorkflowError> {
-        use datafusion::arrow::ipc::reader::StreamReader;
         let bytes = source
             .physical_sources
             .iter()
@@ -661,13 +647,16 @@ impl Runtime {
                 .ok_or_else(|| {
                     contract("recorded physical relation is unavailable in this registry")
                 })?;
-            let mut reader = StreamReader::try_new(std::io::Cursor::new(&physical.ipc), None)
+            let mut reader = pse_columnar::ipc_stream::StreamReader::try_new(
+                std::io::Cursor::new(&physical.ipc), physical.ipc.len() as u64,
+                pse_columnar::ipc_stream::Limits { message_bytes: MAXIMUM_BYTES, metadata_bytes: MAXIMUM_BYTES },
+                self.shared.math().pool().clone(), token.clone(),
+            )
                 .map_err(|error| contract(format!("recorded physical IPC: {error}")))?;
-            let batch = reader
-                .next()
-                .ok_or_else(|| contract("recorded physical IPC has no original batch"))?
-                .map_err(|error| contract(format!("recorded physical IPC: {error}")))?;
-            if reader.next().is_some() {
+            let decoded = reader.next_batch()
+                .map_err(|error| contract(format!("recorded physical IPC: {error}")))?
+                .ok_or_else(|| contract("recorded physical IPC has no original batch"))?;
+            if reader.next_batch().map_err(|error| contract(format!("recorded physical IPC: {error}")))?.is_some() {
                 return Err(contract(
                     "physical replay codec requires its one complete original batch",
                 ));
@@ -675,11 +664,12 @@ impl Runtime {
             let checked = pse_relations::columnar::FieldCheckedBatch::admit(
                 self.registry(),
                 spec,
-                batch,
+                decoded.batch.into_batch(),
                 &validation,
                 &token,
             )
-            .map_err(super::relation)?;
+            .map_err(super::relation)?
+            .with_export_owner(decoded.working_owner);
             if batches.insert(spec.key, checked).is_some() {
                 return Err(contract("duplicate recorded physical source"));
             }
@@ -704,6 +694,32 @@ impl Runtime {
 #[cfg(test)]
 pub(in crate::workflow) mod tests {
     use super::*;
+    #[tokio::test]
+    async fn hostile_physical_metadata_refuses_on_the_runtime_entrypoint() {
+        if std::env::var_os("PSE_RUNTIME_IPC_HOSTILE_CHILD").is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "workflow::reproducer::tests::hostile_physical_metadata_refuses_on_the_runtime_entrypoint", "--nocapture"])
+                .env("PSE_RUNTIME_IPC_HOSTILE_CHILD", "1").output().unwrap();
+            assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+            return;
+        }
+        let runtime = crate::workflow::tests::runtime();
+        let mut ipc = vec![255; 4];
+        ipc.extend_from_slice(&0x7fff_fff0_i32.to_le_bytes());
+        ipc.extend_from_slice(&[255,255,255,255,0,0,0,0]);
+        let source = ReplaySourceDocument {
+            research: None, context: None,
+            identity: pse_ids::ContentHash::from_bytes([0; 32]),
+            interpretation: String::new(), build: pse_ids::ContentHash::from_bytes([0; 32]),
+            physical_identity: pse_ids::ContentHash::from_bytes([0; 32]),
+            physical_sources: vec![super::super::replay::ReplayPhysicalSource {
+                relation: runtime.registry().relations()[0].id, ipc,
+            }], providers: vec![], objects: vec![],
+        };
+        let before = runtime.shared.math().pool().reserved();
+        assert!(runtime.reproducer_physical(&source, &CancelSource::new()).await.is_err());
+        assert_eq!(runtime.shared.math().pool().reserved(), before);
+    }
     fn deployment() -> super::super::DiagnosticRuntimeSettings {
         super::super::DiagnosticRuntimeSettings {
             memory_limit_bytes: 256 << 20,

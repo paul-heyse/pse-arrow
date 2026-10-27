@@ -1496,3 +1496,20 @@ fn stored_requirement_sources_resolve_actual_supplied_members() {
         .unwrap();
     assert!(session.seal().unwrap_err().to_string().contains("absent"));
 }
+
+#[test]
+fn finalized_portable_schema_refuses_hostile_metadata_before_stock_decode() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("hostile.arrow");
+    let mut bytes = datafusion::arrow::ipc::writer::StreamWriter::try_new(
+        Vec::new(), &datafusion::arrow::datatypes::Schema::empty(),
+    ).unwrap().into_inner().unwrap();
+    bytes.truncate(bytes.len() - 8);
+    bytes.extend_from_slice(&[255; 4]);
+    bytes.extend_from_slice(&0x7fff_fff0_i32.to_le_bytes());
+    bytes.extend_from_slice(&[255,255,255,255,0,0,0,0]);
+    std::fs::write(&path, &bytes).unwrap();
+    assert!(crate::workflow::portable_payload::finalized_ipc_schema(
+        File::open(path).unwrap(), bytes.len() as u64, 1 << 20,
+    ).is_err());
+}

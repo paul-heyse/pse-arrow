@@ -2752,18 +2752,15 @@ impl Streamer {
                 }
                 let mut ranges = std::collections::VecDeque::from([(0, events.len())]);
                 while let Some((start, end)) = ranges.pop_front() {
-                    let mut output = ProgressBuffer {
-                        bytes: Vec::new(),
-                        full: false,
-                    };
-                    output
-                        .bytes
+                    let mut bytes = Vec::new();
+                    bytes
                         .try_reserve_exact(
                             capacity
                                 .saturating_mul(PROGRESS_EVENT_BYTES)
                                 .min(RESULT_BATCH_BYTES),
                         )
                         .map_err(|_| super::ProgressWriteStage::Allocation {})?;
+                    let mut output = pse_ids::BoundedSink::new(bytes, RESULT_BATCH_BYTES);
                     match serde_json::to_writer(&mut output, &events[start..end]) {
                         Ok(()) => {
                             #[cfg(all(test, feature = "canonical-tests"))]
@@ -2778,7 +2775,7 @@ impl Streamer {
                                     "__progress",
                                     ordinal,
                                     pse_operations::canonical_execution::ResultPayload::new_owned(
-                                        output.bytes,
+                                        output.into_inner(),
                                         writer_tap
                                             ._memory
                                             .clone()
@@ -2801,12 +2798,12 @@ impl Streamer {
                                 .checked_add(1)
                                 .ok_or(super::ProgressWriteStage::Acknowledgment {})?;
                         }
-                        Err(_) if output.full && end - start > 1 => {
+                        Err(ref error) if matches!(pse_ids::sink_failure(error), Some(pse_ids::SinkFailure::LimitReached { .. })) && end - start > 1 => {
                             let middle = start + (end - start) / 2;
                             ranges.push_front((middle, end));
                             ranges.push_front((start, middle));
                         }
-                        Err(_) if output.full => {
+                        Err(ref error) if matches!(pse_ids::sink_failure(error), Some(pse_ids::SinkFailure::LimitReached { .. })) => {
                             return Err(super::ProgressWriteStage::Encoding {});
                         }
                         Err(_) => return Err(super::ProgressWriteStage::Encoding {}),
@@ -2857,26 +2854,6 @@ impl Drop for Streamer {
         // A dropped workflow still closes the owned queue; the detached writer
         // retains its admitted memory only through its bounded pending appends.
         self.tap.close();
-    }
-}
-struct ProgressBuffer {
-    bytes: Vec<u8>,
-    full: bool,
-}
-impl std::io::Write for ProgressBuffer {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        if bytes.len() > RESULT_BATCH_BYTES.saturating_sub(self.bytes.len()) {
-            self.full = true;
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "progress batch extent",
-            ));
-        }
-        self.bytes.extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
     }
 }
 pub(crate) fn decode_progress(
@@ -4016,21 +3993,6 @@ impl Operations {
 }
 
 /// Count borrowed serialization without a temporary completion tree or payload.
-struct CompletionExtent(usize);
-impl std::io::Write for CompletionExtent {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0 = self.0.checked_add(bytes.len()).ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::OutOfMemory,
-                "completion extent overflow",
-            )
-        })?;
-        Ok(bytes.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
 fn copy_original_completion<T: Serialize + Clone, U: Serialize>(
     pool: &Arc<dyn MemoryPool>,
     original: Option<&T>,
@@ -4043,10 +4005,10 @@ pub(super) fn completion_retention_owner<T: Serialize>(
     pool: &Arc<dyn MemoryPool>,
     original: &T,
 ) -> Result<Arc<pse_columnar::AllocationLease>, WorkflowError> {
-    let mut extent = CompletionExtent(0);
+    let mut extent = pse_ids::BoundedSink::counting(usize::MAX);
     serde_json::to_writer(&mut extent, original).map_err(|error| contract(error.to_string()))?;
     let bytes = extent
-        .0
+        .count()
         .checked_mul(16)
         .and_then(|n| n.checked_add(1024))
         .ok_or_else(|| contract("completion retention extent"))?;
@@ -4060,14 +4022,14 @@ fn completion_copy_owner<T: Serialize>(
     pool: &Arc<dyn MemoryPool>,
     original: &T,
 ) -> Result<Arc<pse_columnar::AllocationLease>, WorkflowError> {
-    let mut extent = CompletionExtent(0);
+    let mut extent = pse_ids::BoundedSink::counting(usize::MAX);
     serde_json::to_writer(&mut extent, original).map_err(|error| contract(error.to_string()))?;
     // Field names and the owned completion envelope are additional to the exact
     // borrowed payload count. reserve includes owned tree and encoding scratch.
     reserve(
         pool,
         extent
-            .0
+            .count()
             .checked_add(1024)
             .ok_or_else(|| contract("completion copy extent overflow"))?,
     )

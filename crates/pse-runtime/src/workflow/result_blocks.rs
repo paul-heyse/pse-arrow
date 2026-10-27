@@ -10,11 +10,9 @@ use datafusion::arrow::{
     ipc::{self, writer::StreamWriter},
     record_batch::RecordBatch,
 };
-use std::io::Write;
 
 const MAX_REPRESENTATION_BYTES: usize = pse_operations::canonical_files::FILE_BYTES;
 const MAX_FIELDS: usize = 16 * 1024;
-const MAX_DEPTH: usize = 64;
 const MAX_ROWS: usize = 32 * 1024;
 const MAX_VALUES: usize = MAX_REPRESENTATION_BYTES;
 const MAX_IPC_TABLES: usize = 128 * 1024;
@@ -36,6 +34,9 @@ pub enum ResultBlockError {
     /// Bounded transport refusal occurs before the Arrow decoder allocates.
     #[error("invalid result IPC block: {0}")]
     Invalid(&'static str),
+    /// A representation extent can be retried with a deterministic smaller prefix.
+    #[error("result IPC extent limit: {0}")]
+    LimitReached(&'static str),
     /// Arrow validation retains its concrete error.
     #[error("result IPC: {0}")]
     Arrow(#[from] datafusion::arrow::error::ArrowError),
@@ -47,23 +48,6 @@ impl pse_diagnostics::TypedDiagnostic for ResultBlockError {
     }
 }
 
-struct LimitedWriter {
-    bytes: Vec<u8>,
-    purpose: Purpose,
-}
-impl Write for LimitedWriter {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        if self.bytes.len().saturating_add(bytes.len()) > self.purpose.bytes() {
-            return Err(std::io::Error::other("result block limit"));
-        }
-        self.bytes.extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
 fn encode_block(batch: &RecordBatch, purpose: Purpose) -> Result<Vec<u8>, ResultBlockError> {
     if batch.num_rows() > MAX_ROWS || batch.num_columns() > MAX_FIELDS {
         return Err(ResultBlockError::Invalid("batch shape exceeds bound"));
@@ -71,7 +55,7 @@ fn encode_block(batch: &RecordBatch, purpose: Purpose) -> Result<Vec<u8>, Result
     // Validate schema without allowing the writer to enter unsupported variants.
     let mut fields = 0usize;
     for field in batch.schema().fields() {
-        trusted_shape(field.data_type(), 0, &mut fields)?;
+        pse_columnar::ipc_admission::trusted_shape(field.data_type(), 0, &mut fields)?;
     }
     // Schema/field/type tables and every custom-metadata entry must fit the
     // independent reader's FlatBuffer verifier before serialization allocates.
@@ -98,25 +82,21 @@ fn encode_block(batch: &RecordBatch, purpose: Purpose) -> Result<Vec<u8>, Result
             .ok_or(ResultBlockError::Invalid("array size overflow"))?;
     }
     if bytes > purpose.bytes() {
-        return Err(ResultBlockError::Invalid("batch body exceeds bound"));
+        return Err(ResultBlockError::LimitReached("batch body exceeds bound"));
     }
-    let mut writer = LimitedWriter {
-        bytes: Vec::new(),
-        purpose,
-    };
+    let mut writer = pse_ids::BoundedSink::new(Vec::new(), purpose.bytes());
     {
         let mut stream = StreamWriter::try_new(&mut writer, batch.schema().as_ref())?;
         stream.write(batch)?;
         stream.finish()?;
     }
-    Ok(writer.bytes)
+    Ok(writer.into_inner())
 }
 
 fn can_split(error: &ResultBlockError) -> bool {
-    matches!(
-        error,
-        ResultBlockError::Invalid("batch body exceeds bound" | "field value bound")
-    ) || matches!(error,ResultBlockError::Arrow(datafusion::arrow::error::ArrowError::IoError(message,_)) if message=="result block limit")
+    matches!(error, ResultBlockError::LimitReached(_))
+        || matches!(pse_ids::sink_failure(error), Some(pse_ids::SinkFailure::LimitReached { .. }))
+        || pse_ids::error_payload::<pse_columnar::ipc_file::ValueLimit>(error).is_some()
 }
 
 /// Backpressured canonical source-object ingestion with its fixed input bound.
@@ -165,70 +145,7 @@ pub(super) fn visible_size(
     data: &ArrayData,
     values: &mut usize,
 ) -> Result<usize, ResultBlockError> {
-    pse_columnar::ipc_file::visible_size(data, values, MAX_VALUES).map_err(|error| match error {
-        datafusion::arrow::error::ArrowError::InvalidArgumentError(message)
-            if message == "field value bound" =>
-        {
-            ResultBlockError::Invalid("field value bound")
-        }
-        error => ResultBlockError::Arrow(error),
-    })
-}
-
-fn trusted_shape(ty: &DataType, depth: usize, count: &mut usize) -> Result<(), ResultBlockError> {
-    *count += 1;
-    if depth > MAX_DEPTH || *count > MAX_FIELDS {
-        return Err(ResultBlockError::Invalid("schema complexity"));
-    }
-    match ty {
-        DataType::Null
-        | DataType::Boolean
-        | DataType::Int8
-        | DataType::Int16
-        | DataType::Int32
-        | DataType::Int64
-        | DataType::UInt8
-        | DataType::UInt16
-        | DataType::UInt32
-        | DataType::UInt64
-        | DataType::Float16
-        | DataType::Float32
-        | DataType::Float64
-        | DataType::Utf8
-        | DataType::LargeUtf8
-        | DataType::Binary
-        | DataType::LargeBinary
-        | DataType::Date32
-        | DataType::Date64
-        | DataType::Time32(
-            datafusion::arrow::datatypes::TimeUnit::Second
-            | datafusion::arrow::datatypes::TimeUnit::Millisecond,
-        )
-        | DataType::Time64(
-            datafusion::arrow::datatypes::TimeUnit::Microsecond
-            | datafusion::arrow::datatypes::TimeUnit::Nanosecond,
-        )
-        | DataType::Timestamp(_, _)
-        | DataType::Duration(_)
-        | DataType::Decimal32(_, _)
-        | DataType::Decimal64(_, _)
-        | DataType::Decimal128(_, _)
-        | DataType::Decimal256(_, _) => {}
-        DataType::FixedSizeBinary(n) if *n > 0 && (*n as usize) <= MAX_REPRESENTATION_BYTES => {}
-        DataType::List(child) | DataType::LargeList(child) | DataType::Map(child, _) => {
-            trusted_shape(child.data_type(), depth + 1, count)?;
-        }
-        DataType::FixedSizeList(child, n) if *n > 0 && (*n as usize) <= MAX_VALUES => {
-            trusted_shape(child.data_type(), depth + 1, count)?;
-        }
-        DataType::Struct(children) => {
-            for child in children {
-                trusted_shape(child.data_type(), depth + 1, count)?;
-            }
-        }
-        _ => return Err(ResultBlockError::Invalid("unsupported schema type")),
-    }
-    Ok(())
+    Ok(pse_columnar::ipc_file::visible_size(data, values, MAX_VALUES)?)
 }
 
 // Include conservative FlatBuffer table/offset/alignment storage before Arrow
@@ -286,215 +203,14 @@ fn writer_metadata_tables(
     Ok(())
 }
 
-pub(super) fn schema_field(
-    field: ipc::Field<'_>,
-    depth: usize,
-    count: &mut usize,
-    expected_fields: usize,
-) -> Result<(), ResultBlockError> {
-    *count += 1;
-    if depth > MAX_DEPTH
-        || *count > expected_fields
-        || field.dictionary().is_some()
-        || field.type_().is_none()
-    {
-        return Err(ResultBlockError::Invalid(
-            "schema complexity/dictionary/type",
-        ));
-    }
-    let children = field.children();
-    let child_count = children.map_or(0, |c| c.len());
-    let valid = match field.type_type() {
-        ipc::Type::Null
-        | ipc::Type::Bool
-        | ipc::Type::Utf8
-        | ipc::Type::LargeUtf8
-        | ipc::Type::Binary
-        | ipc::Type::LargeBinary => child_count == 0,
-        ipc::Type::Int => {
-            field
-                .type_as_int()
-                .is_some_and(|v| matches!(v.bitWidth(), 8 | 16 | 32 | 64))
-                && child_count == 0
-        }
-        ipc::Type::FloatingPoint => {
-            field.type_as_floating_point().is_some_and(|v| {
-                matches!(
-                    v.precision(),
-                    ipc::Precision::HALF | ipc::Precision::SINGLE | ipc::Precision::DOUBLE
-                )
-            }) && child_count == 0
-        }
-        ipc::Type::FixedSizeBinary => {
-            field.type_as_fixed_size_binary().is_some_and(|v| {
-                v.byteWidth() > 0 && (v.byteWidth() as usize) <= MAX_REPRESENTATION_BYTES
-            }) && child_count == 0
-        }
-        ipc::Type::Date => {
-            field.type_as_date().is_some_and(|v| {
-                matches!(v.unit(), ipc::DateUnit::DAY | ipc::DateUnit::MILLISECOND)
-            }) && child_count == 0
-        }
-        ipc::Type::Time => {
-            field.type_as_time().is_some_and(|v| {
-                matches!(
-                    (v.bitWidth(), v.unit()),
-                    (32, ipc::TimeUnit::SECOND | ipc::TimeUnit::MILLISECOND)
-                        | (64, ipc::TimeUnit::MICROSECOND | ipc::TimeUnit::NANOSECOND)
-                )
-            }) && child_count == 0
-        }
-        ipc::Type::Timestamp => {
-            field
-                .type_as_timestamp()
-                .is_some_and(|v| time_unit(v.unit()))
-                && child_count == 0
-        }
-        ipc::Type::Duration => {
-            field
-                .type_as_duration()
-                .is_some_and(|v| time_unit(v.unit()))
-                && child_count == 0
-        }
-        ipc::Type::Decimal => {
-            field.type_as_decimal().is_some_and(|v| {
-                matches!(v.bitWidth(), 32 | 64 | 128 | 256)
-                    && u8::try_from(v.precision()).is_ok()
-                    && i8::try_from(v.scale()).is_ok()
-            }) && child_count == 0
-        }
-        ipc::Type::List | ipc::Type::LargeList | ipc::Type::Map => child_count == 1,
-        ipc::Type::FixedSizeList => {
-            field
-                .type_as_fixed_size_list()
-                .is_some_and(|v| v.listSize() > 0 && (v.listSize() as usize) <= MAX_VALUES)
-                && child_count == 1
-        }
-        ipc::Type::Struct_ => true,
-        _ => false,
-    };
-    if !valid {
-        return Err(ResultBlockError::Invalid(
-            "invalid or unsupported schema type",
-        ));
-    }
-    if let Some(children) = children {
-        for child in children {
-            schema_field(child, depth + 1, count, expected_fields)?;
-        }
-    }
-    Ok(())
+pub(super) fn schema_field(field: ipc::Field<'_>, depth: usize, count: &mut usize, expected_fields: usize) -> Result<(), ResultBlockError> {
+    Ok(pse_columnar::ipc_admission::schema_field(field, depth, count, expected_fields)?)
 }
-fn time_unit(unit: ipc::TimeUnit) -> bool {
-    matches!(
-        unit,
-        ipc::TimeUnit::SECOND
-            | ipc::TimeUnit::MILLISECOND
-            | ipc::TimeUnit::MICROSECOND
-            | ipc::TimeUnit::NANOSECOND
-    )
+pub(super) fn layout(ty: &DataType, nodes: &[&ipc::FieldNode], buffers: &[&ipc::Buffer], node: &mut usize, buffer: &mut usize, expected: Option<usize>) -> Result<(), ResultBlockError> {
+    Ok(pse_columnar::ipc_admission::layout(ty, nodes, buffers, node, buffer, expected)?)
 }
-
-// Validate bitmap and data minima before decoder constructors (some Arrow
-// constructors assert their buffer lengths). The nested node traversal is exactly
-// the declared schema traversal; buffers cannot be borrowed from another field.
-pub(super) fn layout(
-    ty: &DataType,
-    nodes: &[&ipc::FieldNode],
-    buffers: &[&ipc::Buffer],
-    node: &mut usize,
-    buffer: &mut usize,
-    expected: Option<usize>,
-) -> Result<(), ResultBlockError> {
-    let field = nodes
-        .get(*node)
-        .ok_or(ResultBlockError::Invalid("missing layout node"))?;
-    *node += 1;
-    let n = usize::try_from(field.length())
-        .map_err(|_| ResultBlockError::Invalid("negative layout length"))?;
-    if expected.is_some_and(|v| n != v) {
-        return Err(ResultBlockError::Invalid("nested field length"));
-    }
-    if matches!(ty, DataType::Null) {
-        if field.null_count() != field.length() {
-            return Err(ResultBlockError::Invalid("null field shape"));
-        }
-        return Ok(());
-    }
-    let mut take = |minimum: usize| -> Result<(), ResultBlockError> {
-        let value = buffers
-            .get(*buffer)
-            .ok_or(ResultBlockError::Invalid("missing layout buffer"))?;
-        *buffer += 1;
-        if usize::try_from(value.length())
-            .ok()
-            .is_none_or(|len| len < minimum)
-        {
-            return Err(ResultBlockError::Invalid("short layout buffer"));
-        }
-        Ok(())
-    };
-    take(if field.null_count() > 0 {
-        n.div_ceil(8)
-    } else {
-        0
-    })?;
-    match ty {
-        DataType::Struct(children) => {
-            for child in children {
-                layout(child.data_type(), nodes, buffers, node, buffer, Some(n))?;
-            }
-        }
-        DataType::FixedSizeList(child, width) => {
-            let size = n
-                .checked_mul(*width as usize)
-                .ok_or(ResultBlockError::Invalid("list size overflow"))?;
-            if size > MAX_VALUES {
-                return Err(ResultBlockError::Invalid("list size bound"));
-            }
-            layout(child.data_type(), nodes, buffers, node, buffer, Some(size))?;
-        }
-        DataType::List(child) | DataType::Map(child, _) => {
-            take((n + 1) * 4)?;
-            layout(child.data_type(), nodes, buffers, node, buffer, None)?;
-        }
-        DataType::LargeList(child) => {
-            take((n + 1) * 8)?;
-            layout(child.data_type(), nodes, buffers, node, buffer, None)?;
-        }
-        DataType::Utf8 | DataType::Binary => {
-            take((n + 1) * 4)?;
-            take(0)?;
-        }
-        DataType::LargeUtf8 | DataType::LargeBinary => {
-            take((n + 1) * 8)?;
-            take(0)?;
-        }
-        DataType::Boolean => take(n.div_ceil(8))?,
-        DataType::FixedSizeBinary(width) => take(
-            n.checked_mul(*width as usize)
-                .ok_or(ResultBlockError::Invalid("binary size overflow"))?,
-        )?,
-        other => {
-            let width = other
-                .primitive_width()
-                .ok_or(ResultBlockError::Invalid("unsupported primitive layout"))?;
-            take(
-                n.checked_mul(width)
-                    .ok_or(ResultBlockError::Invalid("primitive size overflow"))?,
-            )?;
-        }
-    }
-    Ok(())
-}
-
-/// Validate the declared supported schema shape before native conversion.
 pub(super) fn expected_shape(expected: &Schema) -> Result<usize, ResultBlockError> {
-    let mut fields = 0;
-    for field in expected.fields() {
-        trusted_shape(field.data_type(), 0, &mut fields)?;
-    }
-    Ok(fields)
+    Ok(pse_columnar::ipc_admission::expected_shape(expected)?)
 }
 
 #[cfg(test)]
@@ -503,6 +219,28 @@ mod source_stream_unit {
     use datafusion::arrow::{array::Float64Array, datatypes::Field, ipc::reader::StreamReader};
     use std::{io::Cursor, sync::Arc};
 
+    #[test]
+    fn arrow_wrapped_limits_are_splittable_but_cancellation_and_io_are_not() {
+        use std::io::Write;
+        let mut bounded = pse_ids::BoundedSink::new(Vec::new(), 0);
+        let error = StreamWriter::try_new(&mut bounded, &Schema::empty()).err().expect("zero bound refuses schema");
+        assert!(can_split(&ResultBlockError::Arrow(error)));
+        let mut cancelled = pse_ids::BoundedSink::new(Vec::new(), 0).with_checkpoint(|| {
+            Err(std::io::Error::other(pse_diagnostics::WorkError::Cancelled))
+        });
+        let error = StreamWriter::try_new(&mut cancelled, &Schema::empty()).err().expect("checkpoint refuses schema");
+        assert!(matches!(pse_ids::error_payload::<pse_diagnostics::WorkError>(&error), Some(pse_diagnostics::WorkError::Cancelled)));
+        assert!(!can_split(&ResultBlockError::Arrow(error)));
+        #[derive(Debug)]
+        struct Broken;
+        impl Write for Broken {
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> { Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)) }
+            fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+        }
+        let mut broken = pse_ids::BoundedSink::new(Broken, 4096);
+        let error = StreamWriter::try_new(&mut broken, &Schema::empty()).err().expect("inner I/O fails");
+        assert!(!can_split(&ResultBlockError::Arrow(error)));
+    }
     #[tokio::test]
     async fn canonical_source_encoder_retains_its_bounded_stream_contract() {
         let schema = Arc::new(Schema::new(vec![Field::new(

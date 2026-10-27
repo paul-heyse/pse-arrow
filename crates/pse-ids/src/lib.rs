@@ -13,6 +13,8 @@ pub mod newtype;
 pub mod preimage;
 pub mod roles;
 pub mod scientific_replay;
+pub mod sink;
+pub use sink::{BoundedSink, SinkFailure, error_payload, sink_failure};
 pub use derive::{Frame, FramedHasher, derive_hash, derive_id, named_id};
 pub use encoding::{EncodingHasher, encoding_checksum};
 pub use error::IdError;

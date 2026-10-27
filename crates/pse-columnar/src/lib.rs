@@ -6,7 +6,9 @@ use pse_ids::{ContentHash, FramedHasher, SemanticId, canonical_f32_bits, canonic
 pub mod allocation_extent;
 pub mod contract;
 pub mod generated;
+pub mod ipc_admission;
 pub mod ipc_file;
+pub mod ipc_stream;
 pub mod native_field;
 pub mod native_value;
 pub mod owned_buffer;

@@ -2095,7 +2095,8 @@ mod result_projection_unit {
         let name = id.to_string();
         let set = result_set_key(fence.attempt(), &name);
         let key = result_batch_key(fence.attempt(), &set, 0);
-        let (payload, rows) = result_files::encode_result_prefix(table.batch(), 0, 1).unwrap();
+        let rows = 1;
+        let payload = result_files::encode_result_file(&table.batch().slice(0, rows)).unwrap();
         let _encoded = payload;
         let block = Block {
             key: key.clone(),
@@ -2364,7 +2365,8 @@ mod result_projection_unit {
         assert!(outputs.iter().all(|output| output.batch == "block"
             && output.coordinate_min == Some(0.0)
             && output.coordinate_max == Some(2.0)));
-        let (payload, count) = result_files::encode_result_prefix(table.batch(), 0, 6).unwrap();
+        let count = 6;
+        let payload = result_files::encode_result_file(&table.batch().slice(0, count)).unwrap();
         assert_eq!(count, 6);
         assert!(!payload.is_empty());
         let partial = trajectory_outputs(&table, "next", "set", 100, 2, 3).unwrap();

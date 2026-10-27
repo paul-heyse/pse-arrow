@@ -79,7 +79,7 @@ pub(super) fn check_file_batches(batches: &[RecordBatch]) -> Result<(), ResultBl
         }
     }
     if visible > MAX_FILE_BYTES {
-        return Err(ResultBlockError::Invalid("file body exceeds bound"));
+        return Err(ResultBlockError::LimitReached("file body exceeds bound"));
     }
     pse_columnar::ipc_file::preflight(batches, MAX_FILE_BYTES)?;
     Ok(())
@@ -90,33 +90,8 @@ pub fn encode_result_file(batch: &RecordBatch) -> Result<Vec<u8>, ResultBlockErr
     encode_file_batches(std::slice::from_ref(batch))
 }
 
-/// Select a contiguous useful prefix by actual complete-file size. A single
-/// large row may exceed the target, but never the hard bound.
-pub(super) fn encode_result_prefix(
-    batch: &RecordBatch,
-    start: usize,
-    count: usize,
-) -> Result<(Vec<u8>, usize), ResultBlockError> {
-    if count == 0
-        || start
-            .checked_add(count)
-            .is_none_or(|end| end > batch.num_rows())
-    {
-        return Err(ResultBlockError::Invalid("invalid file prefix"));
-    }
-    let mut rows = count;
-    loop {
-        match encode_result_file(&batch.slice(start, rows)) {
-            Ok(bytes) if bytes.len() <= TARGET_FILE_BYTES || rows == 1 => return Ok((bytes, rows)),
-            Ok(_) => rows = rows.div_ceil(2),
-            Err(error) if rows > 1 && splittable(&error) => rows = rows.div_ceil(2),
-            Err(error) => return Err(error),
-        }
-    }
-}
-
 /// Plan a useful contiguous slice without encoding an intermediate file. The
-/// final packer enforces its complete physical bound with LimitedWriter.
+/// final packer enforces its complete physical bound with the shared typed bounded sink.
 pub(super) fn result_prefix_rows(
     batch: &RecordBatch,
     start: usize,
@@ -137,7 +112,7 @@ pub(super) fn result_prefix_rows(
                 return Ok(rows);
             }
             Ok(_) if rows > 1 => rows = rows.div_ceil(2),
-            Ok(_) => return Err(invalid("file body exceeds bound")),
+            Ok(_) => return Err(ResultBlockError::LimitReached("file body exceeds bound")),
             Err(error) if rows > 1 && splittable(&error) => rows = rows.div_ceil(2),
             Err(error) => return Err(error),
         }
@@ -173,10 +148,9 @@ pub(super) fn schema_extent(schema: &SchemaRef) -> Result<usize, ResultBlockErro
         })
 }
 fn splittable(error: &ResultBlockError) -> bool {
-    matches!(
-        error,
-        ResultBlockError::Invalid("file body exceeds bound" | "field value bound")
-    ) || matches!(error, ResultBlockError::Arrow(datafusion::arrow::error::ArrowError::IoError(message, _)) if message == "sealed result file limit")
+    matches!(error, ResultBlockError::LimitReached(_))
+        || matches!(pse_ids::sink_failure(error), Some(pse_ids::SinkFailure::LimitReached { .. }))
+        || pse_ids::error_payload::<pse_columnar::ipc_file::ValueLimit>(error).is_some()
 }
 
 fn invalid(message: &'static str) -> ResultBlockError {
@@ -410,29 +384,6 @@ pub fn decode_result_file(
     }
     Ok(batch)
 }
-/// Backpressured file ingestion. Every visitor receives a completed native file;
-/// no unsealed prefix or unrelated future producer is needed for its ACK.
-pub async fn visit_result_files_async<F, Fut, E>(
-    batch: &RecordBatch,
-    mut visitor: F,
-) -> Result<(), E>
-where
-    F: FnMut(usize, usize, Vec<u8>) -> Fut,
-    Fut: Future<Output = Result<(), E>>,
-    E: From<ResultBlockError>,
-{
-    if batch.num_rows() == 0 {
-        return visitor(0, 0, encode_result_file(batch)?).await;
-    }
-    let mut start = 0;
-    while start < batch.num_rows() {
-        let (bytes, rows) = encode_result_prefix(batch, start, batch.num_rows() - start)?;
-        visitor(start, rows, bytes).await?;
-        start += rows;
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod result_files_unit {
     use super::*;
@@ -628,30 +579,4 @@ mod result_files_unit {
         assert_eq!(pool.reserved(), 0);
     }
 
-    #[test]
-    fn packing_targets_complete_file_bytes_and_refuses_an_oversized_single_row() {
-        use datafusion::arrow::array::BinaryArray;
-        let source = batch(&vec![0; 3_000_000]);
-        let (bytes, rows) = encode_result_prefix(&source, 0, source.num_rows()).unwrap();
-        assert!(rows > 32_768 && rows < source.num_rows());
-        assert!(bytes.len() <= TARGET_FILE_BYTES);
-        assert_eq!(
-            decode_result_file(&bytes, source.schema(), rows)
-                .unwrap()
-                .num_rows(),
-            rows
-        );
-        let value = vec![0u8; MAX_FILE_BYTES];
-        let array = BinaryArray::from_iter_values([value.as_slice()]);
-        let schema = Arc::new(Schema::new(vec![Field::new(
-            "large",
-            DataType::Binary,
-            false,
-        )]));
-        let source = RecordBatch::try_new(schema, vec![Arc::new(array)]).unwrap();
-        assert!(
-            encode_result_prefix(&source, 0, 1).is_err(),
-            "footer and offsets also fit the hard file bound"
-        );
-    }
 }

@@ -348,28 +348,9 @@ fn invalid(message: impl Into<String>) -> PackError {
     PackError::Contract(message.into())
 }
 fn encoded<T: Serialize>(value: &T, limit: usize) -> Result<Vec<u8>, PackError> {
-    let mut writer = LimitedVec {
-        bytes: Vec::new(),
-        limit,
-    };
+    let mut writer = pse_ids::BoundedSink::new(Vec::new(), limit);
     serde_json::to_writer(&mut writer, value).map_err(|error| invalid(error.to_string()))?;
-    Ok(writer.bytes)
-}
-struct LimitedVec {
-    bytes: Vec<u8>,
-    limit: usize,
-}
-impl Write for LimitedVec {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        if bytes.len() > self.limit.saturating_sub(self.bytes.len()) {
-            return Err(std::io::Error::other("pack document allowance exhausted"));
-        }
-        self.bytes.extend_from_slice(bytes);
-        Ok(bytes.len())
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
+    Ok(writer.into_inner())
 }
 fn valid_id(id: &str) -> bool {
     !id.is_empty()
@@ -1123,10 +1104,9 @@ impl PackSession {
                 .create_new(true)
                 .open(&staging)?;
             {
-                let mut bounded = BoundedOutput {
-                    output: &mut file,
-                    remaining: maximum,
-                };
+                let mut bounded = pse_ids::BoundedSink::new(
+                    &mut file, usize::try_from(maximum).map_err(|_| invalid("pack output extent overflow"))?,
+                ).with_checkpoint(|| self.cancel.checkpoint().map_err(std::io::Error::other));
                 let mut writer = datafusion::arrow::ipc::writer::StreamWriter::try_new(
                     &mut bounded,
                     batch.schema().as_ref(),
@@ -1723,20 +1703,3 @@ fn validate_encoding(
     Ok(())
 }
 
-struct BoundedOutput<'a> {
-    output: &'a mut File,
-    remaining: u64,
-}
-impl Write for BoundedOutput<'_> {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        if bytes.len() as u64 > self.remaining {
-            return Err(std::io::Error::other("pack output allowance exhausted"));
-        }
-        let written = self.output.write(bytes)?;
-        self.remaining -= written as u64;
-        Ok(written)
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.output.flush()
-    }
-}

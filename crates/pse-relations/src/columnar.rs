@@ -50,7 +50,7 @@ pub struct FieldCheckedBatch {
     relation_id: SemanticId,
     contract: pse_schema::resolved_contract::RelationContractHandle,
     storage: Arc<CheckedStorage>,
-    export_owner: Option<Arc<pse_columnar::AllocationLease>>,
+    export_owner: Option<Arc<dyn pse_columnar::PayloadOwner>>,
     admission: Option<LocalFieldAdmission>,
 }
 
@@ -829,7 +829,7 @@ impl FieldCheckedBatch {
     /// Retain a pre-admitted container's metadata with its checked exports.
     /// Cloning the checked batch shares its storage and this owner without allocating
     /// another column vector. The caller reserves the container before constructing it.
-    pub fn with_export_owner(mut self, owner: Arc<pse_columnar::AllocationLease>) -> Self {
+    pub fn with_export_owner<T: pse_columnar::PayloadOwner>(mut self, owner: Arc<T>) -> Self {
         self.export_owner = Some(owner);
         self
     }
