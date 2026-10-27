@@ -1,6 +1,6 @@
 ---
 title: "Plan 56b: Scientific operations and permission"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: [ADR-0227]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -13,6 +13,8 @@ doc_topics: [design, numerical-execution, validation]
 # Plan 56b: Scientific operations and permission
 
 ## Completion audit — 2026-10-27
+
+**Historical audit:** the following observations record the inspected input cut. Current repair acceptance and completion are recorded in the [audit-gap closure Outcome](#audit-gap-closure-outcome--2026-10-27); historical failures and bounded passes remain evidence.
 
 **Interface-checked:** source `57cce1756318357a5797f99e83f1ad9115661368` and accepted
 B01–B06 scope, including ordinary nested/provider/trajectory consumers. B01–B05 remain complete
@@ -45,6 +47,8 @@ passes plus affected reruns, not a new clean full invocation. Permission, replay
 service custody and physical-context results remain supported. No measured benefit is added.
 
 ## Audit-gap implementation — 2026-10-27
+
+Historical implementation checkpoint; current completion and qualification are in the closure Outcome below.
 
 The maintainer authorized CA01 closure. Actual implicit preparation/product/provider/factor poison
 constructors now carry a typed operational cause through existing attribution and diagnostic
@@ -199,7 +203,7 @@ ordinary observation events do not masquerade as registered diagnostic codes.
 | B03 | complete | 56b | Exhaustive kind-owned request/completed facts and one tagged replay constructor replace parallel projections |
 | B04 | complete | 56b | Explicit services replace whole-runtime retention in selected scientific values; binding/issuer and lifetime controls pass |
 | B05 | complete | 56b | Adapter-owned default/configured capabilities, recovery starts and concrete dynamics attribution; generated direct settings migrated |
-| B06 | in progress — CA01 | 56b | Typed consumers are delivered; actual operational producer constructors and equivalent poisoned-owner acceptance remain |
+| B06 | complete — CA01 Implemented/Tested | 56b | Actual implicit/worker/allocation producers retain operational causes and classes; audit-gap Outcome |
 
 B01's pure decision can precede the canonical cutover; persisted completion requires C03/C05.
 B03 provides early constructor/fact declarations to C before all lifecycle migrations finish.
@@ -369,3 +373,22 @@ actual local STDIO MCP session and CLI. ADR-0227 remains proposed; implementatio
 change its formal status. Enduring meaning belongs to blueprint §19.2/§19.4/§19.8/§21.1 and the
 selected qualification basis in §24.2. This companion remains in progress and is retained while the active
 coordinator and C/F/G packages consume its evidence; it authorizes no further production work.
+
+## Audit-gap closure Outcome — 2026-10-27
+
+**Implemented/Tested:** CA01 and B06 are complete at the selected local Linux boundary.
+Real implicit preparation/provider/product/factor poison failures now retain `PoisonedOwner`
+and infrastructure meaning, including the equivalent residual paths. Genuine authored contract
+failures retain their prior meaning. Runtime allocation and worker-join failures preserve their
+actual causes, resource/cancellation/internal classes and the original blocking owner through drain;
+opaque panic payload extent is refused rather than fabricated.
+
+The final `just unit-package pse-operations` selection with `-p pse-math` passed **7/7** against
+zero, including `actual_poisoned_implicit_owners` and the canonical clock/settlement controls.
+The earlier runtime compiler-join/trajectory/settings selection passed **5/5**; its expanded
+publication-future selection passed **6/6**. These populations overlap. Installed canonical
+project/knowledge/protected-result acceptance passed **3/3** after the affected native repairs.
+[56g's Outcome](56g-qualification-and-publication.md#audit-gap-closure-outcome--2026-10-27)
+owns commands, original failures, independent assessment and composed scope-end qualification.
+The evidence does not claim that every public host was independently poisoned, nor any new
+scientific, performance or whole-platform qualification. DA-039 disposition remains with Plan56.

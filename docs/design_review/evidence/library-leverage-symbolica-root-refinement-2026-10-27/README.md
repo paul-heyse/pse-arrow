@@ -37,9 +37,9 @@ four kinds of input:
   `panic = "unwind"` is set in both profiles.
 - **Host:** Linux 7.0.0-38-generic x86_64, 32 logical CPUs.
 - **Probe crate:** originally built in agent scratch outside the repository, with a separate
-  `--target-dir` kept away from the workspace target directory. Its `Cargo.toml`, `src/main.rs`
-  and raw `outputs/` are retained in [`probe/`](probe/). The lockfile and build outputs are not
-  retained.
+  `--target-dir` kept away from the workspace target directory. Its
+  [Cargo.toml](probe/Cargo.toml), [src/main.rs](probe/src/main.rs) and raw `probe/outputs/`
+  are retained. The lockfile and build outputs are not retained.
 - **Inputs:** each case calls `refine_root_interval((a, b), &tol)` once, with `tol = 2^-54` (the
   consumer's precision). The call runs inside `catch_unwind`, one case per process. The
   polynomials are built with `UnivariatePolynomial::from_coefficients(&Q, …)`:

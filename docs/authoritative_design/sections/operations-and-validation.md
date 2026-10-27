@@ -677,7 +677,7 @@ admission uses its captured loaded-wire contract without serving-source scans. O
 `capabilities_drain` handshake closes native admission and joins the original native owners before
 transport disconnect. Concurrent close observers join one retained drain; cancellation cannot release
 its charges or admit a successor early. The [Plan56f audit-gap implementation](../../plans/56f-host-agent-and-observability-contracts.md#audit-gap-implementation--2026-10-27)
-records adoption and the separately required actual two-generation acceptance.
+records adoption; its closure Outcome records completed actual two-generation native/foreground CLI acceptance.
 Native observation activates only after the helper admits its image and retains the same process
 shutdown owner. Independent endpoint resource owners settle despite sibling teardown failures;
 retained failures and cancellation remain visible after settlement.
@@ -1426,7 +1426,7 @@ product native file authority and controlled fresh activation are integrated. Th
 identified a lazy study association-prefix consumer (C01) and lost failed-readback cause in
 source-stage acquisition (C02). Authorized repairs consume retained declared associations and
 preserve both original causes as unresolved settlement under the original parent deadline.
-The source transport controls pass; joined canonical adoption remains separately accounted. Canonical 49/49,
+The source transport and affected owned-v10 lazy/canonical controls pass; their exact conditions remain with the closure Outcome. Canonical 49/49,
 final native runtime 83/83, affected installed Python/physical readers and actual STDIO MCP/CLI
 passed at the recorded scopes. A private backup contained ten inline bodies and five sealed
 instances; all 345 copied members were independently verified. Corruption refused before target
@@ -1470,9 +1470,9 @@ explicit export stage and precise SDK loss observations. The
 [completion audit](../../plans/56-design-principle-alignment.md#completion-audit--2026-10-27)
 withdrew all-series closure. Authorized repairs now adopt the telemetry sampler/bounds and evidence
 comparison enums/map keys through generated schemas and actual host consumers, honor explicit stage
-compatibility and remove automatic CLI source scans. Focused contract/host controls pass; actual
-two-generation/reload acceptance and joined qualification remain separate obligations. Passing
-controls below retain their original scope. Controlled constructors publish immutable artifact
+compatibility and remove automatic CLI source scans. The affected contract/host controls and both
+actual two-generation/reload journeys pass, with original session-family, enclosing allocation and
+kernel-scope settlement separately established. Passing controls below retain their original scope. Controlled constructors publish immutable artifact
 generations once. Supplied-only executable/MCP/CLI evidence needs no product extension or canonical
 store. Ten actual native attachment/context/CLI/cancellation/EOF/health/capture controls pass;
 mutable installation-alias replacement preserves both an attached generation and fresh attachment.
@@ -1482,15 +1482,26 @@ fixture's original lifecycle reports all contexts and kernel scopes drained and 
 retired. Native image attachment avoids image/source/build-record revalidation. Automatic CLI admission
 uses the loaded contract as described above.
 
-[56f's final Outcome](../../plans/56f-host-agent-and-observability-contracts.md#final-publication-and-acceptance-outcome--2026-10-27)
-and [56g's closeout](../../plans/56g-qualification-and-publication.md#final-selected-qualification-outcome--2026-10-27)
+[56f's closure Outcome](../../plans/56f-host-agent-and-observability-contracts.md#audit-gap-closure-outcome--2026-10-27)
+and [56g's closure Outcome](../../plans/56g-qualification-and-publication.md#audit-gap-closure-outcome--2026-10-27)
 retain source cuts, commands, failures, repairs and exclusions. Independent review found and
-resolved strict deployment selection and interrupted-publication cleanup gaps. The latest full
-hygiene attempt failed six leaves; affected type/lint/index/generation repairs pass separately,
-with default/no-default and both native Clippy selections passing against zero. Final governance passes all leaves at baseline zero and `just docs` publishes scoped search. Formal ADR-0229/0230/0231 status
-remains proposed. No 505-case campaign, full solver fleet/parity, feature powerset, release/wheels,
-remote CI, other-platform or actual desktop-host qualification, 100,000-point qualification or
-measured performance improvement follows from these selected local Linux results.
+resolved strict deployment selection, interrupted-publication cleanup, concurrent-close/successor,
+clock-wrapper destruction and inherited-charge oracle gaps. Current repair qualification includes
+142/142 affected Python controls, 7/7 final operations/math controls, 2/2 owned-v10 lazy/intent
+controls, three rebuilt canonical cases and both actual CA08 journeys. The root's original
+controller exited zero with all contexts/kernel scopes drained and positive disposable-fixture
+retirement. The old selected store and failed-run data remain preserved.
+
+The latest full hygiene attempt remains a six-leaf failure; all affected leaves were repaired and
+passed separately. Default/no-default Clippy, declared native contract/data static recipes,
+seven-leaf governance, actual post-lint/post-clean native CLI and documentation publication pass
+against zero at their recorded conditions. The native-data ENOSPC interruption, cold rerun after
+the maintainer's Cargo clean and earlier stack/refusal/oracle failures remain distinct evidence.
+No clean aggregate is inferred. All selected Plan56 packages are complete through composed local
+qualification; formal ADR-0229/0230/0231 statuses remain proposed. No 505-case campaign, full solver
+fleet/parity, global feature powerset, release/wheels, remote CI, other-platform or actual
+desktop-host qualification, 100,000-point qualification or measured performance improvement
+follows from these selected local Linux results.
 
 ### 24.3 Benchmarks
 

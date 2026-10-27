@@ -113,5 +113,6 @@ Further observations:
 - **Scope of the observation.** `egobox-doe` 0.35.2 (released 2026-10-12) has `src/`
   identical to 0.35.1 apart from line endings (diff with `--strip-trailing-cr`), so the
   observations should carry over. That was not run.
-- **Raw outputs.** The probe crate's `Cargo.toml`, `src/` and raw `out/` are retained in
-  [`probe/`](probe/). The lockfile and build outputs are not retained.
+- **Raw outputs.** The probe crate's [Cargo.toml](probe/Cargo.toml),
+  [src/main.rs](probe/src/main.rs) and raw `probe/out/` outputs are retained.
+  The lockfile and build outputs are not retained.

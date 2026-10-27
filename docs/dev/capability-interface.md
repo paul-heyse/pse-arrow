@@ -410,8 +410,8 @@ before import or publication. Explicit description reports provenance separately
 calls `capabilities_drain` before disconnecting its transport: native admission closes immediately,
 all observers join one original retained drain and a successor becomes available only after actual
 settlement. Cancellation of an observer cannot cancel or bypass that drain. An original drain failure
-remains visible to every observer. [Plan56f's audit-gap implementation](../plans/56f-host-agent-and-observability-contracts.md#audit-gap-implementation--2026-10-27)
-owns the focused adoption evidence and separately required actual two-generation acceptance.
+remains visible to every observer. [Plan56f's closure Outcome](../plans/56f-host-agent-and-observability-contracts.md#audit-gap-closure-outcome--2026-10-27)
+owns focused adoption and both actual two-generation native/foreground CLI acceptance journeys.
 Issued immutable artifacts retain construction-once validity.
 
 Captured source provenance describes the loaded definition. Local imports are recorded at that

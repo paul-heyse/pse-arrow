@@ -1,29 +1,24 @@
 # Current work and plans
 
-[Plan56: Design principle alignment](56-design-principle-alignment.md) remains **in progress**
-after its [completion audit](56-design-principle-alignment.md#completion-audit--2026-10-27) of all
-37 packages. Six delivery packages reopen for missed producer/consumer obligations (B06, C01/C02,
-F01/F05/F06), with affected G01/G02 acceptance and G04 reconciliation still outstanding.
-The coordinator retains the single disposition owner for all 45 DA identities and 24 adopted findings.
-The maintainer subsequently authorized the coordinator's
-[audit-gap execution](56-design-principle-alignment.md#audit-gap-closure-execution--2026-10-27).
-Producer/consumer repairs are integrated with focused passing controls; joined native acceptance
-and scope-end qualification remain in progress.
+[Plan56: Design principle alignment](56-design-principle-alignment.md) is **complete** for its
+selected local Linux target, including all 37 packages, the completion audit's CA01–CA08 repairs
+and the subsequently authorized remaining 56f/56g scope. The coordinator retains the single
+owner for all 45 DA dispositions and 24 adopted findings. [56g's current Outcome](56g-qualification-and-publication.md#audit-gap-closure-outcome--2026-10-27)
+records composed scientific/canonical/public acceptance, both actual two-generation native/CLI
+journeys, original-owner drain, repaired scope-end checks, independent review and publication.
+Original failures and historical source/mode-specific results remain distinct evidence.
 
-The other packages retain their selected bounded completion. Original source/mode/condition-specific
-passes, failures and exclusions remain in [56g](56g-qualification-and-publication.md).
-[56e's final activation](56e-product-deployment-and-resource-ownership.md#final-activation-outcome--2026-10-26)
-retains actual frozen-reference execution and original-owner drain. Constructor-issued immutable
-generations and core retained native context/protection/cancellation/EOF are supported. Automatic
-CLI serving-source scans have been removed and explicit stage compatibility is implemented, with
-targeted host controls passing. Actual second-generation selection/reload acceptance remains
-outstanding while the broader canonical result journey's native failure is diagnosed. Controlled construction
-and editing still establish artifact validity once; the audit requests no reader revalidation.
+Controlled construction establishes immutable artifact validity once. Explicit stages honor their
+requested contract, automatic CLI admission uses loaded wire metadata without source scans, and
+EOF/retirement joins original native owners before disconnect or successor admission. No reader
+source/image revalidation, watcher or daemon was added. The old selected store and failed fixture
+data were preserved; the successful disposable fixture retired only after positive drain.
 
-No broad campaign is running or restarted. Full scientific/fleet/parity, powerset,
+The highest-numbered series and consumed reviews remain for qualification/proposed-ADR readers;
+formal ADR statuses are unchanged. Full historical 505/scientific/fleet/parity, global powerset,
 release/distribution, remote CI, other-platform, actual desktop-host and 100,000-point qualification
-remain unclaimed; speed/memory/capacity benefits remain unmeasured. Other plans retain their independent
-scope and status.
+remain unclaimed, and speed/memory/capacity benefits remain unmeasured. No broad campaign is running.
+Other plans retain their independent scope and status.
 
 [Plan55: MCP development effectiveness](55-mcp-development-effectiveness.md) is complete for
 its selected capability/client, knowledge/evidence, native model/result, validation/editing and

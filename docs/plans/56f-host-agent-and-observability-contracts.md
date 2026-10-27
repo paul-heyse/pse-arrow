@@ -1,6 +1,6 @@
 ---
 title: "Plan 56f: Host, agent and observability contracts"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: [ADR-0227, ADR-0231]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md, docs/design_review/reviews/design_review_retained-native-read-currency_2026-10-26.md]
@@ -13,6 +13,8 @@ doc_topics: [design, diagnostics, environment, preparation]
 # Plan 56f: Host, agent and observability contracts
 
 ## Completion audit — 2026-10-27
+
+**Historical audit:** the following observations record the inspected input cut. Current repair acceptance and completion are recorded in the [audit-gap closure Outcome](#audit-gap-closure-outcome--2026-10-27); historical failures and bounded passes remain evidence.
 
 **Interface-checked:** all F01–F06 accepted scope and ordinary consumers inspected at
 `57cce1756318357a5797f99e83f1ad9115661368`, with revised ADR-0231/review acceptance.
@@ -100,10 +102,12 @@ owns the joined acceptance; no broad campaign is required by this audit.
 **Supported scope and benefits:** finite projections, typed remedy consumers, instrument-correct
 questions, precise SDK observations, immutable construction/publication, actual retained native
 context/protection/cancellation/EOF and supplied-only separation retain their recorded evidence.
-The B06 producer classification defect belongs to B06, not a separate F03 reopening. Source-scanning
-removal cannot yet be claimed universally. No speed, memory or capacity improvement was measured.
+The B06 producer classification defect belongs to B06, not a separate F03 reopening. At the audited cut, universal source-scan
+removal was not established; current adoption is recorded in the closure Outcome. No speed, memory or capacity improvement was measured.
 
 ## Audit-gap implementation — 2026-10-27
+
+Historical implementation checkpoint; current completion and qualification are in the closure Outcome below.
 
 The maintainer authorized CA04–CA08 closure. Pinned Schemars/serde declarations now own the actual
 sampler, scalar limits and finite comparison judgments. A schema-only owner adapter preserves enum
@@ -121,7 +125,7 @@ manager drain; cancelled observers and sibling failures cannot permit an early s
 Focused generated-owner, SDK-adapter, explicit-stage and host-lifetime controls pass. Independent
 review found the concurrent-close issue, which was repaired and reassessed without a remaining
 material source finding. Final regeneration, actual two-publication/cursor/CLI/EOF acceptance and
-shared scope-end checks remain pending; the package rows and DA dispositions therefore stay open.
+shared scope-end checks are complete at the conditions in the closure Outcome below.
 
 ## Target and foundations
 
@@ -341,12 +345,12 @@ F06 remains in progress until those controls and the final canonical protected-c
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| F01 | in progress — CA04/CA05 | 56f | Scoped generation and keyed metrics delivered; actual telemetry/evidence owner migrations remain |
+| F01 | complete — CA04/CA05 Implemented/Tested | 56f | Actual telemetry/evidence enums, numeric constraints and finite map keys are adopted through generated and host consumers |
 | F02 | complete at installed/native, supplied-only executable/MCP/CLI and public project journeys | 56f | Finite declarations project contracts/defaults/effects and actual prerequisites without parallel operation lists |
 | F03 | complete at typed remedy and instrument-query acceptance | 56f | Typed diagnostic remedies and instrument-correct questions preserve scope and redaction |
 | F04 | complete at SDK/filter, installed disabled bridge and selected capture acceptance | 56f | Ordinary export follows stage policy; queue-loss observations retain actual lifetime/shutdown-attempt precision |
-| F05 | in progress — CA06 | 56f | Constructor publication and strict deployment delivered; explicit stage requested mode/profile adoption remains |
-| F06 | in progress — CA07/CA08 | 56f | Core retained context/cursor/drain delivered; automatic CLI source-scan removal and actual new-generation/reload journey remain |
+| F05 | complete — CA06 Implemented/Tested | 56f | Explicit requested mode/profile/validation is enforced; constructor publication remains authoritative |
+| F06 | complete — CA07/CA08 Implemented/Tested | 56f | Scan-free loaded contracts, one original drain and actual two-generation/native/CLI ownership acceptance pass |
 
 F01/E01 share the declaration/codegen owner. F02 consumes actual A03/B01/B05 and E02 contracts,
 but its finite operation declaration can be designed early. F03 consumes B06/C02/F01. F04 proceeds
@@ -718,3 +722,37 @@ requested compatibility and live operation ownership. No new daemon, ledger, hos
 source-proof campaign was added. No speed/memory/capacity improvement is measured. Wider 505-case,
 solver fleet/parity, feature powerset, release/wheel, remote-CI, desktop-host, other-platform and
 100,000-point qualification remain unclaimed. Formal ADR statuses remain proposed.
+
+## Audit-gap closure Outcome — 2026-10-27
+
+**Implemented/Tested:** F01–F06 and CA04–CA08 are complete for the selected local Linux target.
+Actual telemetry sampler/bounds and comparison classifications/sides/correspondence/conditions/map
+keys now flow from Rust owners through Schemars and generated msgspec consumers. Host conversion
+uses those declared bounds before timeout quantization; SDK adapters preserve all six sampler
+meanings. Closed comparison vocabularies and section keys retain their schema meaning without
+closing original open status strings or changing document version 1. Explicit metadata-contract
+failure remains effective under optimized Python; no assertion or duplicated scalar vocabulary
+supplies production admission.
+
+Explicit stages enforce their requested mode/profile/validation before import or publication;
+generic installed capture retains its distinct meaning. Automatic CLI projections use the loaded
+wire contract without serving-source scans. Scoped STDIO transport and `capabilities_drain` keep
+native admission closed and original work owned through settlement before SDK disconnect.
+Concurrent manager-close observers share one original drain, retaining cancellation and sibling
+failures before successor admission. Replaced source-scan and per-observer drain interpretations
+are deleted; no reader image/source/build-log validation is restored.
+
+The final affected Python selection passed **142/142** against zero; Rust evidence-comparison
+controls passed **10/10** and the actual supplied-only executable/MCP/CLI journey passed with no
+product-extension import or canonical-store creation. Both named actual CA08 journeys passed
+**1/1** each: retained G1 cursor/pages survive actual G2 publication, known retired cursors refuse,
+fresh attachment selects G2, endpoint successor/reconnect works, and foreground EOF waits beyond
+the SDK disconnect grace while the authenticated worker is stopped. Exact session-family settlement
+and original enclosing allocation/kernel-scope drain are separately proven. An inherited parent
+charge is retained rather than mistaken for a worker-owned allocation; premature loss refuses.
+
+[56g's Outcome](56g-qualification-and-publication.md#audit-gap-closure-outcome--2026-10-27)
+owns actual command/receipt conditions, repaired source and oracle failures, final static checks,
+independent assessment and wider exclusions. No required F implementation or acceptance remains;
+optional measurement, desktop-host and unsupported-platform work is not newly selected. DA-040/043
+close in the coordinator; no speed, memory or capacity gain is measured.

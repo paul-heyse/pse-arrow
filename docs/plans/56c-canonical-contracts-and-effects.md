@@ -1,6 +1,6 @@
 ---
 title: "Plan 56c: Canonical contracts and effects"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: [ADR-0227, ADR-0228]
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -13,6 +13,8 @@ doc_topics: [design, storage, numerical-execution]
 # Plan 56c: Canonical contracts and effects
 
 ## Completion audit — 2026-10-27
+
+**Historical audit:** the following observations record the inspected input cut. Current repair acceptance and completion are recorded in the [audit-gap closure Outcome](#audit-gap-closure-outcome--2026-10-27); historical failures and bounded passes remain evidence.
 
 **Interface-checked:** source `57cce1756318357a5797f99e83f1ad9115661368`, all C01–C05
 narrative/transition obligations and their ordinary consumers. C03–C05 retain completion at the
@@ -44,6 +46,8 @@ failed readback at issue here. Their conservative unknown outcome is not an addi
 No new performance, fleet, platform or distribution claim follows.
 
 ## Audit-gap implementation — 2026-10-27
+
+Historical implementation checkpoint; current completion and qualification are in the closure Outcome below.
 
 The maintainer authorized CA02/CA03 closure. Lazy study publication now consumes retained authority
 associations rather than reconstructing prefixes. Source-stage acquisition composes the original
@@ -176,8 +180,8 @@ compatibility reader or second production path is introduced.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| C01 | in progress — CA02 | 56c | Generated meaning is delivered; lazy study-variant association construction still needs migration |
-| C02 | in progress — CA03 | 56c | Most exact settlement consumers are delivered; failed source-stage receipt readback still loses a cause |
+| C01 | complete — CA02 Implemented/Tested | 56c | Lazy variants consume retained associations; owned-v10 valid/refused candidate and base-head controls pass |
+| C02 | complete — CA03 Implemented/Tested | 56c | Both source-stage causes and unknown effect survive under original clocks; actual dual-fault and adjacent canonical controls pass |
 | C03 | complete | 56c | Selected locator plus exact completion/replay/context facts consumed by every durable read/write/lifecycle path |
 | C04 | complete | 56c | Online/offline file observations share Rust authority; Python duplicate policy retired |
 | C05 | complete | 56c | Working producers/readers installed together; fresh owned store activation and failure recovery verified |
@@ -349,3 +353,33 @@ parity/solver fleet, wheels/distribution and other platforms. Structural work re
 functional evidence are not measured speed/capacity claims. D's bulk/population/incremental work,
 E's wider roots/catalogues/profile authority, F's broader host/observability work and full-series
 G acceptance retain their owners. Other plan series are unchanged.
+
+## Audit-gap closure Outcome — 2026-10-27
+
+**Implemented/Tested:** CA02/CA03 and C01/C02 are complete at the selected local Linux boundary.
+The lazy producer consumes the retained `StudyAdmissionAuthority` problem/operation associations;
+replaced prefix reconstruction is deleted. Source deltas still apply against the exact base revision,
+while their independently declared variant destination and operation remain authoritative.
+
+Failed acquisition followed by failed receipt readback now retains both original typed causes,
+source-stage ownership, immutable operation/request and unresolved effect. Original 30-second
+acquisition and 90-second activation offers retain their enclosing minimum; no timeout drops the
+enclosing effect owner and no phase renews its original clock. Four direct/project × returned/pending
+readback cases pass in the actual controlled transport. The six clock/settlement controls passed
+again in the final **7/7** operations/math selection. Two adjacent canonical source/writer controls
+passed on an owned v10 deployment; the old configured v8 deployment was preserved.
+
+The v10 lazy control exposed deterministic invalid source membership still being treated as generic
+API input. Only immutable duplicate/overlap/membership intent checks now produce the existing typed
+scientific incompatibility refusal. They occur before mutation/publication; generic input and
+operational errors are unchanged. `lazy_study_admits_only_ready_selected_science_and_preserves_base_head`
+and `delta_intents_reject_overlap_and_wrong_existence_before_effects` passed **2/2**, retaining
+valid declared identities, the unchanged base head and a settled invalid point with no attempt/run.
+
+Native qualification also exposed excessive optional publication and clock-wrapper future storage.
+The optional child is prepaid and heap-owned only when publication is selected; the clock wrapper
+holds one pinned child with scoped polling/destruction. No stack-limit, task, deadline or scientific
+cursor change follows. Independent review found no remaining material issue; actual canonical
+acceptance passed **3/3** after rebuild. [56g's Outcome](56g-qualification-and-publication.md#audit-gap-closure-outcome--2026-10-27)
+retains the original stack/fixture/refusal failures and exact qualification limits. DA-007/033
+remain owned by the coordinator; this is structural correctness evidence, not measured memory gain.

@@ -1,6 +1,6 @@
 ---
 title: "Plan 56g: Qualification and publication"
-status: in-progress
+status: complete
 date: 2026-10-25
 adrs: []
 review_sources: [docs/design_review/audit/README.md, docs/design_review/audit/system-architecture.md]
@@ -13,6 +13,8 @@ doc_topics: [validation, design, documentation, numerical-execution, storage]
 # Plan 56g: Qualification and publication
 
 ## Completion audit — 2026-10-27
+
+**Historical audit:** the following observations record the inspected input cut. Current repair acceptance and completion are recorded in the [audit-gap closure Outcome](#audit-gap-closure-outcome--2026-10-27); historical failures and bounded passes remain evidence.
 
 **Interface-checked:** joined completion reassessed at
 `57cce1756318357a5797f99e83f1ad9115661368` against all 37 packages, narrative acceptance,
@@ -57,6 +59,8 @@ and 100,000-point qualification do not become new repair obligations.
 
 ## Audit-gap qualification checkpoint — 2026-10-27
 
+Historical execution checkpoint; the current closure Outcome below supersedes its pending state.
+
 CA01–CA07 source changes and focused owner/host checks are integrated. Final declaration generation,
 comparison and joined Python controls passed; the actual supplied-only executable/MCP/foreground
 CLI journey passed without product-extension import or canonical-store creation. Independent review
@@ -78,6 +82,18 @@ admission because the configured deployment is `pse.substrate.v8`, while the cur
 `pse.substrate.v10`. The older deployment is preserved; these controls require a separately owned
 current deployment. Neither failure is relabeled as an implementation pass or erased by earlier
 bounded evidence.
+
+The original failed fixture was subsequently authenticated, cooperatively drained and stopped;
+its data and failed-run evidence remain retained. A separately owned v10 deployment passed three
+adjacent canonical controls and exposed the deliberately invalid lazy alternative's generic-input
+classification. Its immutable pre-publication intent checks now emit the existing typed scientific
+incompatibility refusal; the affected intent/lazy canonical controls passed. The broader crash was
+independently reproduced at a Tokio worker stack guard inside the source operation clock wrapper.
+That wrapper now retains one pinned child, preserving minimum deadlines and scoped destruction
+without async input/state duplication, allocation or stack-limit changes. Six clock/settlement
+controls pass and independent source review found no material issue. The current native rebuild
+and actual canonical/two-generation acceptance remain pending; source-level correction alone does
+not close G01/G02/G04.
 
 ## Completion boundary
 
@@ -200,10 +216,10 @@ references and owning scope are satisfied; other plan series retain their obliga
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| G01 | in progress — affected CA01/CA02 acceptance | 56g | Existing scientific/installed/public results retained; unfinished producer seams require affected acceptance |
-| G02 | in progress — CA03–CA08 | 56g | Existing durable/workload/lifecycle results retained; missing consumers and actual new-generation/reload journey remain |
-| G03 | complete at recorded source cuts; future repair checks not run | 56g | Selected zero-target checks and benefit limits retained; no fresh clean aggregate claimed |
-| G04 | in progress — audit gaps require repair and reconciliation | 56g | Independent prior reviews retained; current audit corrects closure and records remaining obligations |
+| G01 | complete — Implemented/Tested at composed local scopes | 56g | Typed scientific/lazy producer acceptance and rebuilt actual canonical/public-result journeys pass |
+| G02 | complete — Implemented/Tested at composed local scopes | 56g | Durable dual-cause clocks, host/settings/evidence adoption and actual two-generation owner settlement pass |
+| G03 | complete — repaired selected leaves and manual checks pass | 56g | Failed 24-leaf hygiene aggregate retained; all six affected leaves repaired, governance/native/docs pass; benefits unmeasured |
+| G04 | complete — independent bounded reconciliation | 56g | Source and real receipt review found no remaining material CA01–CA08 gap; current owners and enduring publication reconciled |
 
 G01/G02 consume completed relevant functional scope and C05 activation; neither substitutes for
 another's subjects. G03 runs after all functional work; G04 closes the integrated evidence/authority
@@ -535,3 +551,146 @@ release/wheels/distribution, remote CI, other platforms and actual desktop-host 
 existing 100,000-point ceiling remains unqualified. The selected 10,000-point and interrupted
 1 GiB recovery evidence retain their original D source cuts. Failed attempts are not erased,
 focused controls are not summed into a full-product pass, and no old campaign was restarted.
+
+## Audit-gap closure Outcome — 2026-10-27
+
+**Implemented/Tested:** CA01–CA08 and the remaining G01–G04 scope are complete for the selected
+local Linux target. Earlier A/D/E and scientific/workload results retain their recorded source,
+mode and conditions. This is composed qualification, not a new monolithic test of all historical
+scope. No additional required F/G implementation or acceptance remains.
+
+### Functional evidence and actual native ownership
+
+All results below use baseline **zero**; overlapping selections are not summed.
+
+| Selection | Result and conditions |
+|---|---|
+| `just unit-package pse-math actual_poisoned_implicit_owners` | **1/1**, actual poisoned implicit owners and retained diagnostics |
+| Runtime compiler-worker/trajectory/settings controls | **5/5**; expanded optional publication-future selection **6/6**, overlapping retained controls |
+| Final `just unit-package pse-operations 'test(operation_scope_) \| test(source_stage_failed_acquisition) \| test(actual_poisoned_implicit_owners)' --features pse-operations/canonical-tests -p pse-math` | **7/7**, explicit Arrow validation; original clocks, scoped drop and actual four-case dual-fault transport |
+| Owned-v10 native lazy/intent selection | **2/2**, declared valid associations, settled invalid source before effects, base head retained; adjacent source/writer controls passed at their earlier cut |
+| `just unit-package xtask evidence_comparison --features evidence-tools` | **10/10**, finite comparison declarations/schema/consumer behavior |
+| Final affected 12-selection script unittest command | **142/142**; extension/preparation/CLI/coherence/native/session/adverse helpers, telemetry owner/SDK and evidence report/dispatch; `/tmp/pse-56gap-python-final.log` |
+| Actual supplied-only executable/MCP/foreground CLI | **passed**, product extension unavailable/unimported, no canonical-store creation; `build/qualification/56gap-evidence-supplied/receipt.json` |
+| Rebuilt canonical controller | **3/3** project, indexed knowledge and protected IPC/nested-result cases; independent tiny-LP value **0.5**; `build/qualification/56gap-canonical-current/receipt.json` |
+| Actual two-generation canonical journey | **1/1**, `ActualCanonicalReadAdverseTests.test_actual_publication_replacement_retains_old_cursor_then_drains_and_attaches_new_generation` |
+| Actual two-generation foreground CLI | **1/1**, `ActualNativeCliSessionTests.test_foreground_cli_two_generations_keep_successive_pages_then_eof_drains_and_reconnects`; stopped-worker EOF remains owned beyond **2.1 seconds** |
+| Post-lint and post-clean actual foreground CLI | **1/1** each, separate runs; the same issued generation remains usable without rebuild after lint activity and `cargo clean`; `/tmp/pse-56gap-native-after-lint.log`, `/tmp/pse-56gap-native-after-clean.log` |
+
+The final Python command was:
+
+```bash
+scripts/pse-env -- .venv/bin/python -m unittest \
+  scripts.tests.test_python_extension scripts.tests.test_capability_preparation \
+  scripts.tests.test_capability_cli scripts.tests.test_capability_coherence \
+  scripts.tests.test_capability_native scripts.tests.test_native_read_sessions \
+  scripts.tests.test_native_read_adverse_helpers scripts.tests.test_telemetry_config \
+  scripts.tests.test_telemetry_process.SamplerTests scripts.tests.test_owner_boundary_contracts \
+  scripts.tests.test_evidence_comparison_report scripts.tests.test_evidence_comparison_dispatch
+```
+
+The owned-v10 Rust selection used `just unit-native-package pse-runtime
+'native-solvers,canonical-tests' 'test(lazy_study_admits_only_ready_selected_science_and_preserves_base_head)
+| test(delta_intents_reject_overlap_and_wrong_existence_before_effects)'`, through
+`scripts/pse-env --native --store` with `PSE_SURREAL_STATE` selecting the owned state.
+The earlier runtime error selection used `just unit-package pse-runtime
+ 'test(compiler_worker_join_) | test(trajectory_capacity_overflow_) | test(resolved_settings)'`;
+the expanded selection added `test(source_publication_future)`.
+
+Each actual CA08 method named above ran separately under
+`scripts/pse-env --native -- .venv/bin/python -m unittest -v`, with
+`PSE_NATIVE_READ_CANONICAL_HANDOFF` selecting the original live controller handoff. The temporary
+capture runner additionally retained the original enclosing owner before unittest and verified
+its exact drain after command exit. The canonical controller command was
+`PYTHONFAULTHANDLER=1 scripts/pse-env --native -- .venv/bin/python
+/tmp/pse-56gap-canonical-current.py canonical --output build/qualification/56gap-canonical-current
+--hold-seconds 1200 --initializer build/qualification/56gap-tools/canonical-initializer`.
+The existing controller was wrapped only for preparation hold/trace reporting; no scenario was
+skipped. Its original fixture is now retired, so another execution needs a fresh owned state and
+output rather than replaying those paths.
+
+The supplied-only command followed `just evidence-build`:
+`scripts/pse-env --native= -- .venv/bin/python /tmp/pse-56gap-evidence-supplied-journey.py
+--root "$PWD" --output build/qualification/56gap-evidence-supplied --without-extension`.
+Actual post-lint and post-clean smoke used
+`scripts/pse-env --native -- .venv/bin/python -m unittest -v
+scripts.tests.test_native_read_native.ActualNativeCliSessionTests.test_foreground_cli_session_follows_actual_page_then_eof_closes_endpoint`.
+These named command/test scopes do not imply unexecuted variants passed.
+
+The rebuilt image is constructor-issued native/dev/validated generation
+`082aee4b553e4d2e9ff4a9915f4f66ba`, SHA-256
+`8ba7dad471de9899615ede060fbf7289e0117786e102a1285654e2278467314a`, with
+`force-validate,native-solvers,solver-highs`; its actual compiled API stubs passed. CA08 creates two
+real compatible publications through the existing constructor, without a new scientific cursor
+field, watcher, daemon or reader revalidation. A known retired cursor refuses on its original
+endpoint; a new endpoint's independently admitted scientific continuation is not universally invalid.
+
+Both CA08 original captures and `ca08-{canonical,cli}-owner.settled.json` under
+`build/qualification/56gap-canonical-current/` match exact original allocation/unit/invocation/group.
+Each proves allocation absence, original-record drain and original kernel-scope completion without
+fabricating a released flag. Inherited charges remain authenticated until the enclosing command
+actually drains. The root released and awaited the original controller, exit **0**;
+`lifecycle/passed.json` records `all_contexts_and_kernel_scopes_drained=true` and
+`fixture_retired=true`. Its disposable data retired positively; failed fixtures, old selected v8
+state, receipts, unrelated data and concurrent work were preserved.
+
+### Scope-end checks and original failures
+
+The current full `just hygiene` attempted **24/24** leaves and failed **six**: spelling, Ruff,
+Pyrefly, generated capability reference, default Clippy and no-default Clippy. Assessment:
+`build/assessment/20261027T063301.102548Z-hygiene-2840368-5ad1b6`. This remains a failed aggregate.
+Repairs were structural: exact binary evidence rows are not spell-corrected, private host/test
+contracts are typed consistently, generated limits remain authoritative, delayed closures bind
+explicit inputs, and clock/poison fixture types retain their actual meanings. No lint allowance,
+quality baseline or scientific fixture relaxation was introduced.
+
+**Tested:** repaired `just lint-py` has **0 findings**, `just typecheck` has **0 diagnostics**
+(seven unchanged deliberate suppressions), `just lint-typos` passes, and `just clippy` passes
+both default/no-default leaves. `just codegen` publishes all **10** schema targets and the actual
+capability reference. `just governance` passes **7/7** required leaves at
+`build/assessment/20261027T064827.876934Z-governance-1190447-cfa6b0`, including generated comparisons,
+compiled Python stubs and the one-family checks. `just lint-native-contracts` and
+`just lint-native-data` pass their declared force-validated static selections; these recipes do not
+claim execution or a new all-adapter feature matrix. `just ready` and the root's `just turn-end`
+pass. `just docs` publishes the final documentation. Its first attempt exposed two concurrent research
+probe directory links without selected attachments; concrete source links and exact retained-asset
+bundles repair publication without changing probe data or scientific claims. The owning logs use `/tmp/pse-56gap-*`.
+
+The first native-data lint was interrupted by **ENOSPC** (including allocation-release persistence),
+not a functional test failure. After the maintainer's `cargo clean`, about **211 GiB** was available,
+readiness passed, the interrupted allocation was absent and the native-data lint passed on its cold
+rerun. No additional cleanup or deletion was performed by this closure. Earlier passing receipts
+were not invalidated or promoted to a fresh aggregate by the clean.
+
+Original meaningful failures remain recorded: three old-v8 fixture admission failures; a v10 lazy
+invalid-source classification failure; local Python-stack and canonical Tokio-stack faults; and the
+first CA08 allocation-disappearance oracle timeout. Qualification corrected the future graph's
+storage, preserving prepaid optional ownership and one inline clock child with scoped destruction,
+not by raising stack limits or changing tasks/deadlines. Only immutable source-intent incompatibility
+became a typed pre-publication refusal. The CA08 helper then distinguished a legitimately retained
+borrowed parent from independently owned allocation release; premature borrowed-charge loss refuses.
+These were repaired and independently reassessed rather than hidden as passing component evidence.
+
+### Independent reconciliation, publication and limits
+
+**Interface-checked:** independent source and retained-evidence review found and resolved the
+concurrent-close/successor race, clock-wrapper destruction concern and helper's missing-parent-charge
+acceptance. Final bounded G04 reconciliation found no remaining material CA01–CA08 implementation
+or required local functional-qualification gap. That assessment did not rerun tests or initiate a
+new broad audit; G03 and current documentation completed separately at their actual owners.
+
+Blueprint revision **297** and the capability guide carry enduring current ownership, compatibility,
+loaded-contract/drain and selected qualification meaning. The coordinator alone owns CA/DA status;
+B/C/F own package detail. All 37 selected packages now complete through composed evidence.
+Highest-numbered plans and consumed reviews remain for qualification/proposed-ADR readers;
+formal ADR status remains proposed and other plan series retain their independent work.
+
+**Implemented, unmeasured:** repeated serving-source scans and duplicated consumer interpretations
+are removed where adopted; construction establishes immutable artifact validity once. No latency,
+throughput, memory or capacity improvement is measured. The new normal dependency edge uses the
+already resolved exact `pin-project-lite = 0.2.17`; no version/family moved and no new feature choice
+was introduced. The selected default/no-default and declared native static closures plus actual
+native journeys answer this change; a global feature powerset would add no selected acceptance
+question and was not launched. Full 505-case/scientific/fleet/IDAES parity, wheels/release/distribution,
+remote CI, other platforms, actual desktop-host attachment and the 100,000-point ceiling remain
+**not_run/unqualified**, as deliberately bounded by the accepted plans.
