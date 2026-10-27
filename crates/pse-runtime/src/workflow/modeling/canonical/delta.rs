@@ -164,7 +164,7 @@ impl SourceIndex {
 }
 
 /// Validate disjoint intent and existence before any publication or mutation.
-fn intentions<K: Ord + Clone>(
+fn intentions<K: Ord + Clone + std::fmt::Display>(
     existing: &BTreeSet<K>,
     additions: impl Iterator<Item = K>,
     replacements: impl Iterator<Item = K>,
@@ -178,18 +178,31 @@ fn intentions<K: Ord + Clone>(
     ] {
         for key in keys {
             if !touched.insert(key.clone()) {
-                return Err(contract(
-                    "source delta contains duplicate or overlapping intents",
-                ));
+                return Err(intent_refusal(format!(
+                    "source delta contains duplicate or overlapping intents for {key}"
+                )));
             }
             if existing.contains(&key) == (kind == "addition") {
-                return Err(contract(format!(
-                    "source delta {kind} has an incompatible parent membership"
+                return Err(intent_refusal(format!(
+                    "source delta {kind} {key} has an incompatible parent membership"
                 )));
             }
         }
     }
     Ok(touched)
+}
+
+// These checks compare immutable authored intents with their exact admitted parent,
+// before mutation. Keep this deterministic refusal distinct from generic API input
+// errors and from publication whose settlement remains unknown.
+fn intent_refusal(message: String) -> WorkflowError {
+    crate::workflow::scientific_refusal(
+        pse_model::diagnostic::BoundaryClass::Incompatible,
+        pse_diagnostics::DiagnosticStage::ModelingAdmission,
+        pse_diagnostics::DiagnosticRule::ModelingContract,
+        Vec::new(),
+        message,
+    )
 }
 
 /// Only consumed document interpretation premises can invalidate retained data
@@ -1830,14 +1843,24 @@ mod tests {
             (vec![3, 3], vec![], vec![]),
             (vec![], vec![1], vec![1]),
         ] {
-            assert!(
-                intentions(
+            let error = intentions(
                     &existing,
                     add.into_iter(),
                     replace.into_iter(),
                     remove.into_iter()
                 )
-                .is_err()
+                .unwrap_err();
+            assert!(matches!(
+                &error,
+                WorkflowError::ScientificRefusal(diagnostic)
+                    if diagnostic.class == pse_model::diagnostic::BoundaryClass::Incompatible
+            ));
+            assert_eq!(
+                crate::workflow::diagnostics::admission_disposition(&WorkflowError::Admission {
+                    effect: crate::workflow::AdmissionEffect::NoPublication,
+                    cause: Box::new(error),
+                }),
+                crate::workflow::diagnostics::AdmissionDisposition::ScientificRefusal
             );
         }
     }
