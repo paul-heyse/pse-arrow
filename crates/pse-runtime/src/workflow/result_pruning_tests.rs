@@ -312,24 +312,54 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
         .unwrap();
     let snapshot = reader.snapshot();
     let context = SessionContext::new_with_state(snapshot.session_state());
-    let batches = context
-        .read_table(snapshot.table_provider())
-        .unwrap()
-        .filter(col("value").gt(lit(1000.0)))
-        .unwrap()
-        .select_columns(&["parameter_id"])
-        .unwrap()
-        .collect()
-        .await
-        .unwrap();
+    let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+    let observed = hub.start("protected result pruning");
+    let batches = pse_diagnostics::observation::scope(Some(observed.context()), async {
+        context
+            .read_table(snapshot.table_provider())
+            .unwrap()
+            .filter(col("value").gt(lit(1000.0)))
+            .unwrap()
+            .select_columns(&["parameter_id"])
+            .unwrap()
+            .collect()
+            .await
+    })
+    .await
+    .unwrap();
+    let facts = observed
+        .reader()
+        .snapshot(std::time::Duration::from_secs(60));
+    let count = |name: &str| {
+        facts
+            .metrics
+            .iter()
+            .filter(|metric| metric.name == name)
+            .map(|metric| match &metric.cumulative {
+                pse_diagnostics::observation::Value::Count(value) => *value,
+                other => panic!("additive result counter required: {other:?}"),
+            })
+            .sum::<u64>()
+    };
+    assert_eq!(
+        count("canonical.result.pruned_batches"),
+        2,
+        "both protected blocks reached the observed pruning path"
+    );
+    assert_eq!(
+        count("canonical.result.native_decodes"),
+        0,
+        "statistics pruning must not materialize native batches"
+    );
     assert_eq!(
         batches.iter().map(|batch| batch.num_rows()).sum::<usize>(),
         0
     );
     // Even an empty pruned answer opened the protected file and verified its
-    // complete integrity/footer/schema. The final batch iterator is unconsumed.
+    // complete integrity/footer/schema. Reading the first cached block independently
+    // still reproduces its original contents; the counters above prove no prior decode.
     let decode = snapshot.decoder();
-    let inspection = MemoryConsumer::new("test:protected-pruned-iterator-inspection")
+    let inspection = MemoryConsumer::new("test:protected-pruned-block-inspection")
         .register(&runtime.shared.pool());
     inspection.try_grow(1024 * 1024).unwrap();
     {
@@ -339,8 +369,7 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
             .expect("pruning cannot bypass protected file validation");
         let next = cached
             .reader
-            .next()
-            .expect("the pruned native batch was not decoded")
+            .read_batch(0, &CancellationToken::new())
             .unwrap();
         assert_eq!(next.num_rows(), 1);
         assert_eq!(
