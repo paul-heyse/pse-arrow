@@ -8,15 +8,14 @@
 use crate::{ProblemError, solve::Execution};
 #[cfg(feature = "highs")]
 use std::sync::RwLockReadGuard;
-use std::sync::{Condvar, Mutex, RwLock, TryLockError};
+use std::sync::{RwLock, TryLockError};
 #[cfg(feature = "uno")]
 use std::sync::{
     RwLockWriteGuard,
     atomic::{AtomicUsize, Ordering},
 };
 static LIFECYCLE: RwLock<()> = RwLock::new(());
-static CHANGE: Mutex<()> = Mutex::new(());
-static RELEASED: Condvar = Condvar::new();
+static RELEASED: pse_diagnostics::WakeSignal = pse_diagnostics::WakeSignal::new();
 #[cfg(feature = "uno")]
 static WAITERS: AtomicUsize = AtomicUsize::new(0);
 #[cfg(feature = "uno")]
@@ -27,50 +26,7 @@ pub(crate) fn watch(waker: &std::task::Waker) -> pse_diagnostics::WakeWatch {
 }
 thread_local! {static ACTIVE:std::cell::Cell<bool>=const {std::cell::Cell::new(false)};}
 
-struct ReleasedWake;
-impl std::task::Wake for ReleasedWake {
-    fn wake(self: std::sync::Arc<Self>) {
-        notify();
-    }
-    fn wake_by_ref(self: &std::sync::Arc<Self>) {
-        notify();
-    }
-}
-fn stop_watches(
-    execution: &Execution,
-) -> (
-    pse_diagnostics::CancellationWatch,
-    pse_diagnostics::WakeWatch,
-) {
-    let wake = std::task::Waker::from(std::sync::Arc::new(ReleasedWake));
-    (
-        execution.cancellation_control().watch(&wake),
-        execution.abandonment.watch(&wake),
-    )
-}
-fn wait(changed: std::sync::MutexGuard<'_, ()>, execution: &Execution) -> Result<(), ProblemError> {
-    if let Some(deadline) = execution.scope()?.deadline() {
-        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-        drop(
-            RELEASED
-                .wait_timeout(changed, remaining)
-                .unwrap_or_else(std::sync::PoisonError::into_inner),
-        );
-    } else {
-        drop(
-            RELEASED
-                .wait(changed)
-                .unwrap_or_else(std::sync::PoisonError::into_inner),
-        );
-    }
-    Ok(())
-}
-fn notify() {
-    let _changed = CHANGE
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    RELEASED.notify_all();
-}
+fn notify() { RELEASED.notify(); }
 #[cfg(feature = "uno")]
 pub(crate) fn waiting() -> bool {
     WAITERS.load(Ordering::Acquire) != 0
@@ -109,41 +65,22 @@ fn read_at_transition(
             "nested HiGHS scheduler ownership".into(),
         ));
     }
-    crate::execution::pause_compute();
-    let _stop_watches = stop_watches(execution);
-    loop {
-        execution.check()?;
-        // Registration and native-guard inspection share the release condition.
-        // No release can be missed between a failed try and sleeping.
-        let changed = CHANGE
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        execution.check()?;
-        #[cfg(feature = "uno")]
-        let writer_waiting = waiting();
-        #[cfg(not(feature = "uno"))]
-        let writer_waiting = false;
-        let gate = if writer_waiting {
-            None
-        } else {
-            match LIFECYCLE.try_read() {
-                Ok(gate) => Some(gate),
-                Err(TryLockError::Poisoned(error)) => Some(error.into_inner()),
-                Err(TryLockError::WouldBlock) => None,
-            }
-        };
-        if let Some(gate) = gate {
-            drop(changed);
-            acquired();
-            if let Err(error) = crate::execution::resume_compute(execution) {
-                drop(gate);
-                notify();
-                return Err(error);
-            }
-            ACTIVE.with(|active| active.set(true));
-            return Ok(gate);
-        }
-        wait(changed, execution)?;
+    let gate = crate::execution::acquire_quiescent(&RELEASED, execution, || {
+        let gate = try_reader();
+        if gate.is_some() { acquired(); }
+        Ok(gate)
+    })?;
+    ACTIVE.with(|active| active.set(true));
+    Ok(gate)
+}
+#[cfg(feature = "highs")]
+fn try_reader() -> Option<RwLockReadGuard<'static, ()>> {
+    #[cfg(feature = "uno")]
+    if waiting() { return None; }
+    match LIFECYCLE.try_read() {
+        Ok(gate) => Some(gate),
+        Err(TryLockError::Poisoned(error)) => Some(error.into_inner()),
+        Err(TryLockError::WouldBlock) => None,
     }
 }
 /// Called after the read owner's last native model is destroyed. Another live owner
@@ -184,33 +121,18 @@ pub(crate) fn exclusive(execution: &Execution) -> Result<Exclusive, ProblemError
         ));
     }
     let _waiting = Waiting::new();
-    crate::execution::pause_compute();
-    let _stop_watches = stop_watches(execution);
-    loop {
-        execution.check()?;
-        let changed = CHANGE
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        execution.check()?;
-        let gate = match LIFECYCLE.try_write() {
+    // The Waiting guard remains live across gate/compute retries. It prevents
+    // new readers from overtaking this writer even when compute is unavailable.
+    let gate = crate::execution::acquire_quiescent(&RELEASED, execution, || {
+        Ok(match LIFECYCLE.try_write() {
             Ok(gate) => Some(gate),
             Err(TryLockError::Poisoned(error)) => Some(error.into_inner()),
             Err(TryLockError::WouldBlock) => None,
-        };
-        if let Some(gate) = gate {
-            drop(changed);
-            if let Err(error) = crate::execution::resume_compute(execution) {
-                drop(gate);
-                notify();
-                return Err(error);
-            }
-            reset();
-            ACTIVE.with(|active| active.set(true));
-            let owner = Exclusive { gate: Some(gate) };
-            return Ok(owner);
-        }
-        wait(changed, execution)?;
-    }
+        })
+    })?;
+    reset();
+    ACTIVE.with(|active| active.set(true));
+    Ok(Exclusive { gate: Some(gate) })
 }
 
 #[cfg(all(test, feature = "highs", feature = "uno"))]
@@ -256,6 +178,47 @@ mod tests {
         fn wake_by_ref(self: &Arc<Self>) {
             self.0.fetch_add(1, Ordering::AcqRel);
         }
+    }
+    #[test]
+    fn writer_releases_gate_for_compute_without_admitting_overtaking_readers() {
+        #[derive(Debug)]
+        struct Capacity { entered: mpsc::Sender<()>, proceed: mpsc::Receiver<()>, first: bool }
+        impl ComputeAdmission for Capacity {
+            fn pause(&mut self) {}
+            fn try_resume(&mut self, e: &Execution) -> Result<crate::execution::ComputeAvailability,ProblemError> {
+                e.check()?;
+                if self.first { self.first=false; Ok(crate::execution::ComputeAvailability::Unavailable) }
+                else { Ok(crate::execution::ComputeAvailability::Acquired) }
+            }
+            fn resume(&mut self,e:&Execution)->Result<(),ProblemError> {
+                e.check()?;
+                self.entered.send(()).unwrap();
+                self.proceed.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+                e.check()
+            }
+        }
+        let (entered,waiting_compute)=mpsc::channel();
+        let (proceed,resume)=mpsc::channel();
+        let (acquired,observed)=mpsc::channel();
+        let (finish,finished)=mpsc::channel();
+        let worker=std::thread::spawn(move || compute_scoped(Box::new(Capacity{entered,proceed:resume,first:true}), || {
+            let owner=exclusive(&Execution::new(Default::default(),&Controls::default())).unwrap();
+            acquired.send(()).unwrap();
+            finished.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+            drop(owner);
+        }));
+        waiting_compute.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        assert!(waiting());
+        let gate=LIFECYCLE.try_write().unwrap();
+        drop(gate); // No native gate is retained during the blocking compute wait.
+        assert!(try_reader().is_none(), "pending writer must retain preference across capacity wait");
+        proceed.send(()).unwrap();
+        observed.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        assert!(matches!(LIFECYCLE.try_read(),Err(TryLockError::WouldBlock)));
+        finish.send(()).unwrap();
+        worker.join().unwrap();
+        assert!(!waiting());
+        assert!(try_reader().is_some());
     }
     #[test]
     fn scheduler_pressure_wakes_registered_idle_owner_without_native_polling() {

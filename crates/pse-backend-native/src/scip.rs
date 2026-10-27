@@ -80,51 +80,16 @@ impl<'a> ConcurrentAdmission<'a> {
                 "nested SCIP concurrent process owner".into(),
             ));
         }
-        crate::execution::pause_compute();
-        loop {
-            let waiting = crate::execution::NativeWait::new(
-                &CONCURRENT_CHANGED,
-                execution.cancellation_control(),
-                Some(execution),
-            );
-            execution.check()?;
+        let gate = crate::execution::acquire_quiescent(&CONCURRENT_CHANGED, execution, || {
             check_concurrent_health(failed)?;
             match lock.try_lock() {
-                Ok(gate) => {
-                    // Never wait for capacity while holding the native exclusion.
-                    match crate::execution::try_resume_compute(execution) {
-                        Ok(crate::execution::ComputeAvailability::Acquired) => {
-                            CONCURRENT_ACTIVE.set(true);
-                            return Ok(Self {
-                                _gate: Some(gate),
-                                failed,
-                            });
-                        }
-                        Ok(crate::execution::ComputeAvailability::Unavailable) => {
-                            drop(gate);
-                            CONCURRENT_CHANGED.notify();
-                            // Existing compute admission owns its notifications. Do not
-                            // hold the native gate while waiting for that capacity.
-                            crate::execution::resume_compute(execution)?;
-                            crate::execution::pause_compute();
-                            continue;
-                        }
-                        Err(error) => {
-                            drop(gate);
-                            CONCURRENT_CHANGED.notify();
-                            return Err(error);
-                        }
-                    }
-                }
-                Err(TryLockError::Poisoned(_)) => {
-                    return Err(ProblemError::internal(
-                        "SCIP concurrent process owner poisoned",
-                    ));
-                }
-                Err(TryLockError::WouldBlock) => {}
+                Ok(gate) => Ok(Some(gate)),
+                Err(TryLockError::WouldBlock) => Ok(None),
+                Err(TryLockError::Poisoned(_)) => Err(ProblemError::internal("SCIP concurrent process owner poisoned")),
             }
-            waiting.wait(execution.scope()?.deadline());
-        }
+        })?;
+        CONCURRENT_ACTIVE.set(true);
+        Ok(Self { _gate: Some(gate), failed })
     }
 }
 fn check_concurrent_health(failed: &AtomicBool) -> Result<(), ProblemError> {

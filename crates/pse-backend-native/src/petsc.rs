@@ -80,36 +80,13 @@ impl Admission {
                 "nested PETSc process admission on its owning thread".into(),
             ));
         }
-        crate::execution::pause_compute();
-        let phase = loop {
-            let waiting = crate::execution::NativeWait::new(
-                &RELEASED,
-                execution.cancellation_control(),
-                Some(execution),
-            );
-            execution.check()?;
+        let phase = crate::execution::acquire_quiescent(&RELEASED, execution, || {
             match PROCESS.try_lock() {
-                Ok(guard) => match crate::execution::try_resume_compute(execution) {
-                    Ok(crate::execution::ComputeAvailability::Acquired) => break guard,
-                    Ok(crate::execution::ComputeAvailability::Unavailable) => {
-                        drop(guard);
-                        notify_release();
-                        crate::execution::resume_compute(execution)?;
-                        crate::execution::pause_compute();
-                        continue;
-                    }
-                    Err(error) => {
-                        drop(guard);
-                        notify_release();
-                        return Err(error);
-                    }
-                },
-                Err(TryLockError::WouldBlock) => waiting.wait(execution.scope()?.deadline()),
-                Err(TryLockError::Poisoned(_)) => {
-                    return Err(ProblemError::internal("PETSc process owner poisoned"));
-                }
+                Ok(guard) => Ok(Some(guard)),
+                Err(TryLockError::WouldBlock) => Ok(None),
+                Err(TryLockError::Poisoned(_)) => Err(ProblemError::internal("PETSc process owner poisoned")),
             }
-        };
+        })?;
         let owner = Self {
             phase: Some(phase),
             failed: Cell::new(false),
