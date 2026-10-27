@@ -30,3 +30,5 @@ downloaded to scratch (`dl/tryhard/tryhard-0.5.2/src/lib.rs`, `backoff_strategie
   `custom_backoff`, but capture-busy retries would consume the attempt budget, and `on_retry`
   must not be used where "no detached work after cancellation" applies.
 - **Evidence:** Interface-checked; Proposed.
+
+**Reviewer correction (2026-10-27).** There are ten retry loops with five pacing forms, not four of each; the additions are `begin_stage_inner` (no jitter), `cleanup_stage_query`, two in `canonical_retention.rs` (`yield_now`) and `acquire_source_stage` (fixed 20 ms). The `conflict()` predicate is duplicated in two modules, and three loops interleave receipt settlement between attempts, which a generic combinator does not model. The comparative review adopts neither tryhard nor backon and recommends one local retry owner under the original clock. See the [comparative review](../../reviews/execution-lifecycle-and-observation.md#cbo-010).

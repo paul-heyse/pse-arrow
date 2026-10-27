@@ -88,3 +88,5 @@ Research date 2026-10-27. Sources:
   - It would be lost to library normalisation if rendering were adopted.
 - **Unsettled premises and what would settle them:** whether a validation hop is wanted at codegen, given that maintenance activation already parses the catalog with the same crate. This is a design choice, not a library question.
 - **Evidence:** Interface-checked. Proposed.
+
+**Reviewer correction (2026-10-27).** The generated catalog is already parse-validated with `surrealdb-syn` in a unit test (`assert!(!parse_definitions(wire::SCHEMA).unwrap().is_empty())`, `canonical-maintenance` feature) as well as at maintenance activation. The `xtask` `surrealql-tools` validator is wired only into `scripts/tooling_experiments.py`. The comparative review rejects a separate syn validation hop at codegen and keeps the SurrealQL side as it is; templating changes belong to the Python emitters. See the comparative review: [SurrealQL side](../../reviews/canonical-store-transport.md#cbo-046) and [templating side](../../reviews/declarations-registry-and-python-boundary.md#cbo-046).

@@ -65,3 +65,9 @@ knowledge.
 - **Unsettled premises and what would settle them:** The OTLP/HTTP switch premise (see the
   OTLP message-decoding record and the probe request).
 - **Evidence:** Interface-checked; application Proposed.
+
+**Reviewer correction (2026-10-27).** The OTLP/HTTP switch premise is answered no and its probe is withdrawn: at tag `v3.3.4` the
+SurrealDB server builds its span exporter with `with_tonic()` and compiles `opentelemetry-otlp`
+0.31.1 without `http-proto`, and no protocol variable selects HTTP (see
+`surrealdb-server/telemetry-export-transport` in the [SurrealDB server tooling](../surrealdb/server-tooling.md)
+account). The repository already points the server at the collector's `otlp_grpc_endpoint`. Of the three options above, the OTLP/HTTP switch is therefore unavailable. The comparative review retains the hand sink as the minimal fixed peer rather than adopting `grpcio`. See the [comparative review](../../reviews/developer-tooling.md#cbo-051).

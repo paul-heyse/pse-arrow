@@ -67,7 +67,28 @@ source (`src/stubs.rs`, `src/model.rs`); pyo3-macros-backend 0.29.2 `src/pyclass
   is handled at the next check.
 - **Limits and negative results:** no wakeable form of `check_signals` (search scope: PyO3 guide
   FAQ/class pages via Context7, `Python` API docs, CHANGELOG 0.29.2→0.30.1).
-- **Evidence:** Interface-checked: PyO3 FAQ and `check_signals` docs.
+- **Evidence:** Interface-checked: PyO3 FAQ and `check_signals` docs; re-confirmed through
+  Context7 `/pyo3/pyo3` on 2026-10-27 (the FAQ and guide recommend calling `check_signals`
+  regularly; there is still no wakeable form).
+
+### pyo3/per-type-python-handle-cache
+- **Need it serves:** look up a Python class or function (for example a generated model type)
+  once per interpreter and reuse it on every boundary crossing, instead of importing it or
+  resolving it through a callback on each call.
+- **Recognizable code shapes:** `py.import("pkg.mod")?.getattr("Type")?` inside a conversion that
+  runs per value; a Python-side registry dict consulted from Rust; a generic helper that resolves
+  the target class from a type parameter at every call.
+- **Mechanisms and APIs:** `pyo3::sync::PyOnceLock::import(py, module, attr)` initializes and
+  caches an imported attribute once (`src/sync/once_lock.rs`); `PyOnceLock<Py<PyType>>` with
+  `get_or_try_init` for computed handles.
+- **Obligations discharged:** one-time, thread-safe import under the interpreter; no repeated
+  module lookup.
+- **Residual caller obligations:** one cache per target type; error mapping when the import fails.
+- **Semantic conditions:** a `static` inside a generic function is shared by every
+  monomorphization, so a per-type cache cannot be written once in a generic helper; it must be
+  emitted per type (for example by a code generator) or keyed explicitly.
+- **Version / build conditions:** present in the installed 0.29.2.
+- **Evidence:** Interface-checked: installed pyo3 0.29.2 `src/sync/once_lock.rs`.
 
 ## Current applicability
 
@@ -100,6 +121,23 @@ source (`src/stubs.rs`, `src/model.rs`); pyo3-macros-backend 0.29.2 `src/pyclass
   forwarding in the other 12 modules (only samples read); whether PyO3 0.30 stub changes
   (`__all__`, submodule re-export) are needed for a clean public-module stub.
 - **Evidence:** Interface-checked. Application Proposed.
+
+**Reviewer correction (2026-10-27).** 41 wrapper classes hold `_handle`, 6 of them
+Python-constructed (for example `Runtime`, which composes generated host-operation mixins), and
+there are 22 cross-wrapper `._handle` unwraps. `#[pyclass(subclass)]` therefore serves the
+user-constructed owners, while Rust-returned objects stay base-class instances. The comparative
+review recommends the route but requires an ADR and design review; adopting the PyO3 0.30 stub
+features would be a family-major ADR. See the [comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-044).
+
+### [CBO-041](../../../library_leverage/codebase/registry-generation-and-python-boundary.md#cbo-041) — Boundary documents transcoded through JSON, with checks in both languages
+- **Types:** pyo3/per-type-python-handle-cache.
+- **Realization:** installed 0.29.2; `PyOnceLock` is already used in `pse-py/src/{enums,identities}.rs`.
+- **Conclusion:** fits as part of a trusted Rust→Python decode: generated per-type `PyOnceLock`
+  handles resolve each document class once.
+- **Semantic gaps:** must be emitted per type by the generator, not as one generic helper.
+- **Evidence:** Interface-checked; Proposed. Recorded from the comparative review, which found that
+  Rust→Python decode re-runs the untrusted-input traversal, with a callback into Rust, on bytes
+  Rust just wrote. See the [comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-041).
 
 ### [CBO-017](../../../library_leverage/codebase/execution-lifecycle-and-observation.md#cbo-017) — Signal-aware blocking waits at the Python boundary
 - **Types:** pyo3/interruptible-detached-wait.

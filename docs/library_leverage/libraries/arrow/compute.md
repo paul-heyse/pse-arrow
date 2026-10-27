@@ -54,7 +54,13 @@ Research date 2026-10-27. Sources: installed `arrow-ord-59.3.0/src/{partition.rs
   overflow admission for `u32`; prepay arithmetic for variable-width outputs.
 - **Semantic conditions:** `FilterPredicate::selection` is `pub(crate)` at 59.3.0, so the
   predicate's internal index/slice form is not reusable as coordinates. `optimize()` materializes
-  indices or slices (allocation proportional to selected rows).
+  indices or slices (allocation proportional to selected rows). The comparison kernels that build
+  a mask (`eq`, `lt`, `gt_eq` and the others in `arrow-ord` `cmp`) also order floats by IEEE
+  totalOrder (`arrow-ord-59.3.0/src/cmp.rs` docs; `arrow-array-59.3.0/src/arithmetic.rs`
+  `total_cmp`), not by IEEE comparison: `-0.0 < 0.0` holds and NaN compares greatest, so a
+  `Scalar`-bounded window selects differently from an IEEE predicate at signed zeros and NaN
+  unless the inputs are normalized first (added 2026-10-27). `BooleanBuffer::set_slices()` yields
+  contiguous runs, so a selection that is one run can become a zero-allocation range.
 - **Version / build conditions:** 59.3.1 fixes `filter_nulls` for all/none selections (#11444);
   60.0.0 documents `FilterSelection` (#10056) and speeds up `FixedSizeBinary` filtering.
 - **Limits and negative results:** no fused "mask AND coordinate window → indices" kernel; compose
@@ -119,8 +125,26 @@ Research date 2026-10-27. Sources: installed `arrow-ord-59.3.0/src/{partition.rs
   `connected_results::select_original_rows`, so the footprint is two sites plus that shared caller.
 - **Evidence:** Interface-checked; application Proposed.
 
+**Reviewer correction (2026-10-27).** The IEEE-bit hazard applies to the comparison kernels as
+well as the extrema (see `arrow-compute/predicate-selection`), so the suggested `gt_eq`/`lt_eq`
+time window would change selection at `-0.0` versus `0.0` and for NaN; the repository's scalar
+path already compensates with a CASE normalization (`result_projection::scalar_expression`). The
+unsettled premise is answered: `time` is declared `real()` (unconstrained Float64), and NaN times
+can be stored because `f64::min`/`max` ignore NaN. The comparative review therefore keeps the same
+`f64::min`/`max` fold and uses neither Arrow extrema nor comparison kernels on `time`; it adopts
+`partition`, typed accessors and `BooleanBuffer::{count_set_bits, set_slices, set_indices_u32}`.
+`trajectory_outputs` runs per window of at most 1,024 rows, twice per window. See the
+[comparative review](../../reviews/result-data-and-prepaid-accounting.md#cbo-006).
+
 ### [CBO-007](../../../library_leverage/codebase/result-data-paths.md#cbo-007) — Dense selection outside the planner (kernel part)
 - **Types:** `arrow-compute/predicate-selection`.
 - **Conclusion:** fits with conditions for the residual row mask inside a selected dense output
   (comparison kernels with scalar bounds); output pruning itself is in `datafusion.md`.
 - **Evidence:** Interface-checked; application Proposed.
+
+**Reviewer correction (2026-10-27).** The premise "dense selection outside the planner" is
+rejected: the window-overlap decision across dense outputs already runs in generated SurrealQL
+over the coordinate projections and the `result_output_range` index. Inside a selected output,
+comparison kernels carry the totalOrder condition above. The comparative review consolidates the
+predicate semantics into one local `OutputPredicate` holding IEEE bits. See the
+[comparative review](../../reviews/result-data-and-prepaid-accounting.md#cbo-007).

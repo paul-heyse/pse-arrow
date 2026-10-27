@@ -85,11 +85,20 @@ Research date 2026-10-27. Sources:
   - Precedence is per setting, so a tool override's `test-group` applies when no
     repository override sets `test-group` for that test.
   - Paths must be absolute.
+  - **Group references only look backwards (added 2026-10-27).** A config file's overrides may
+    reference only groups defined in that file or in sources loaded before it. Sources load
+    lowest priority first (tool files, then the repository), and the known groups accumulate
+    file by file, so a tool file cannot reference repository-defined groups; the error is
+    `UnknownTestGroups`. A tool that needs group capacities must define its own `@tool:` groups,
+    which moves the capacity policy into the tool file. Source: upstream
+    `nextest-runner/src/config/core/imp.rs` (`deserialize_individual_config`) and
+    `config/core/sources.rs` on `main`, not re-read at the 0.9.146 tag.
 - **Version / build conditions:** Tool config files have been available for many releases
   (`tool_config_basic` test). The exact first version was not checked.
 - **Limits and negative results:**
   - Not every value can move to a tool file. The junit report path is a profile setting,
-    and the repository profile's value outranks a tool's.
+    and the repository profile's value outranks a tool's. No CLI or environment override for
+    `junit.path` was found in the configuration reference (Context7, 2026-10-27).
 - **Evidence:** Interface-checked (CLI help text and runner tests via Context7).
 
 ### cargo-nextest/setup-and-wrapper-scripts
@@ -196,6 +205,16 @@ Research date 2026-10-27. Sources:
     nextest groups cannot provide and the host admission layer handles. The test
     requirements module's design notes would settle intent.
 - **Evidence:** Interface-checked (docs and runner source); application Proposed.
+
+**Reviewer correction (2026-10-27).** Option (b) is weaker than stated: because a tool file
+cannot reference repository-defined groups (see the type), the group capacities would have to move
+into `@tool:pse:*` groups, which moves the policy owner. Option (a)'s static prefix overrides would
+separate scheduling from the catalogue that guards and fixtures use. The premise of "two or three
+forms" also overstates the duplication: there is one maintained declaration (`RUST_OWNERS` plus
+the pytest markers) with per-run derived outputs, through two chained per-run config copies
+(scheduling and the JUnit path). `just test`, `test-package` and the 17 preset recipes call the
+nextest wrapper directly and bypass the selected-catalogue route. The comparative review retains
+the current mechanism. See the [comparative review](../../reviews/developer-tooling.md#cbo-049).
 
 ### [CBO-052](../../../library_leverage/codebase/developer-tooling.md#cbo-052) — Several command surfaces without a shared declaration (the 17 recipes that call the nextest wrapper)
 - **Types:** `cargo-nextest/declarative-test-scheduling`, through profiles.

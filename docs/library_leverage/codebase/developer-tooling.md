@@ -69,6 +69,7 @@ The following are legitimately custom:
   - Do `filelock`, `fasteners`, `flufl.lock` or `atomicwrites` respect the fd-lifetime rules?
   - Is a shared `fsio` module sufficient?
   - The Rust analogue is [CBO-003](cross-cutting-mechanisms.md#cbo-003).
+- **Comparative review correction (2026-10-27).** `host_admission.metadata` defaults to `durable=False`; that path goes through `operation_lifetime.write_json`, which uses a PID-suffixed `O_TRUNC` temp, does not fsync and does not clean up. Residue exists: 22 zero-length `allocations.<pid>.tmp` files dated 2026-10-10 in `~/.local/state/pse-arrow/host-admission/`. The intended shared owner already exists in `scripts/host_metadata.py`. Python 3.14.8 exposes no `renameat2`, so stdlib no-clobber publication stays link plus unlink. See the [comparative review](../reviews/host-processes-and-durable-files.md#cbo-047).
 
 <a id="cbo-048"></a>
 
@@ -123,6 +124,7 @@ The following are legitimately custom:
   - Does `surreal isready` or `export/import`, or `surrealkit` migrations, cover the
     supervisor's maintenance work?
 - **Library assessment correction (2026-10-27).** `surreal_server.py` alone mentions `systemctl` 36 times, so the earlier count was low. The placement scopes set no `Delegate=`. Since SurrealDB 3.3.0, `/health` returns 200 while the server is still starting, and the later authenticated protocol-readiness check compensates for that.
+- **Comparative review correction (2026-10-27).** The premise that admission and supervision re-derive state above systemd is only partly true: the sampled paths already combine manager facts (`systemctl show`), kernel cgroup evidence and the ledger the premises require. Bootstrap admission runs under system Python, so a non-stdlib D-Bus client would create a second route. Residue exists: 24 empty allocation slices remain, 18 of 19 under `pse-allocation.slice` and 6 of 6 under `psebuild-allocation.slice`. For this deployment (single node, no `--import-file`) the authenticated protocol-readiness proof subsumes what `/ready` adds, and `/ready`'s heartbeat-staleness rule is an unmeasured false-unready risk under saturating load. SurrealKit's dependence on the edited SDK is incidental, because it runs the unbounded transport profile. See the comparative review: [non-SurrealDB parts](../reviews/host-processes-and-durable-files.md#cbo-048) and [SurrealDB parts](../reviews/canonical-store-transport.md#cbo-048).
 
 <a id="cbo-049"></a>
 
@@ -159,6 +161,7 @@ The following are legitimately custom:
     projection?
   - Does `cargo-hack` cover `cargo_feature_check.py`?
 - **Library assessment correction (2026-10-27).** nextest list JSON and `--archive-file` are already used. `cargo_feature_check.py` is the adapter that cargo-hack invokes, not a replacement for cargo-hack.
+- **Comparative review correction (2026-10-27).** "Two or three forms" should read: one maintained declaration (`RUST_OWNERS` plus the pytest markers in `test_requirements.py`) with per-run derived outputs. There are two chained per-run config copies: scheduling (`native_tests.scheduled_rust_arguments`) and the JUnit path (`test_invocation.report_configuration`, through `test_run.rust_report_command`). `just test`, `test-package` and the 17 preset recipes call `scripts.arrow_validation nextest` directly and bypass the selected-catalogue route, which `unit-package` (`select.py`) and `test_run` use. A nextest tool-config overlay cannot reference repository-defined test groups, and no override for `junit.path` was found. `cargo_feature_check.py` also composes Arrow force-validation for each unit-graph closure (`arrow_validation.compose` and `capture`), so feature unification cannot remove it. See the [comparative review](../reviews/developer-tooling.md#cbo-049).
 
 <a id="cbo-050"></a>
 
@@ -197,6 +200,7 @@ The following are legitimately custom:
     rebuildable derived index?
   - Is SurrealDB justified for development evidence? The canonical premise covers runtime data.
 - **Library assessment correction (2026-10-27).** The Rust evidence-question path already runs on DataFusion without the SurrealDB service.
+- **Comparative review correction (2026-10-27).** The registry already generates Python msgspec wire types for this pipeline (`scripts/generated/evidence_snapshot_input.py` with `EvidenceSnapshot` and `EvidenceFact`; `knowledge_query_input.py` with `KnowledgeQuery`, `KnowledgeMode` and the enums), but they have no non-test importers. `evidence_projection.py` re-declares both types as TypedDicts field for field, and `knowledge_store.py` re-declares the query fields and the `--mode` choices. The pydantic models in `workspace_domain_contracts.py` belong to the source-only query surface (ADR-0222 design), not the indexed path. Evidence has two Rust read routes, offline and indexed through `source_cut`, both feeding the same DataFusion questions. The store is an architecture contract: blueprint §24.1 "Development knowledge and source-backed changes", §3.2, and the proposed ADR-0219 and ADR-0222 (both Tested 2026-10-23). See the [comparative review](../reviews/developer-tooling.md#cbo-050).
 
 <a id="cbo-051"></a>
 
@@ -223,6 +227,7 @@ The following are legitimately custom:
   - Does `opentelemetry-proto` already sit in the environment?
   - Would routing every consumer through `document_metadata` suffice?
 - **Library assessment correction (2026-10-27).** Front matter has one strict reader, which `adr.py` delegates to, plus two stdlib strippers, not four parsers. The earlier account missed two hand-written pieces: an HTTP/2/gRPC server in `scripts/surreal_telemetry.py` and a gRPC client in `scripts/tests/surreal_mx_check.py` ([LOP-X010](../assessment-patterns.md#lop-x010)).
+- **Comparative review correction (2026-10-27).** Switching SurrealDB's exporter to OTLP/HTTP is not available. At `v3.3.4` the server builds `opentelemetry_otlp::SpanExporter::builder().with_tonic()` and compiles `opentelemetry-otlp` 0.31.1 without `http-proto`, and no protocol variable selects HTTP (read through the GitHub contents API). The hand HTTP/2 sink is therefore the minimal fixed peer, and `surreal_server.py` already points SurrealDB at the collector's `otlp_grpc_endpoint`. See the [comparative review](../reviews/developer-tooling.md#cbo-051).
 
 <a id="cbo-052"></a>
 
@@ -253,4 +258,5 @@ The following are legitimately custom:
     points?
   - Could just modules collapse the repeated `arrow_validation nextest` compositions?
 - **Library assessment correction (2026-10-27).** `just --dump` reports 231 recipes, not 244.
+- **Comparative review correction (2026-10-27).** The premise is rejected: the surfaces are layers with distinct owners. 194 of 231 recipes have one-line bodies, 100 of them Python forwards. There are 421 long-option declarations across 64 argparse scripts under 281 distinct names, and repeated names are mostly homonyms: `--state` has three or more meanings, one of them a plan lifecycle state in `document_lifecycle`, and `--native` has two or more. Recipe metadata is already derived from `just --dump` (`capabilities/entrypoints.py`). The one real restatement is covered by [CBO-050](#cbo-050). See the [comparative review](../reviews/developer-tooling.md#cbo-052).
 

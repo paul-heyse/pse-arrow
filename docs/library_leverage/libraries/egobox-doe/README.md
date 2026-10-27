@@ -99,6 +99,13 @@ Sources:
     orthogonal-array or strength-2 LHS, and no discrepancy metric.
   - There is no constraint-aware design beyond the box.
   - Panics, rather than `Result`, on a malformed `xlimits`.
+  - **Maximin cost and a small-design panic (added 2026-10-27).** `LhsKind::Maximin` and
+    `CenteredMaximin` call `_maximin_lhs(ns, centered, 5)`, which computes `pdist` over all
+    `ns` points for each candidate: O(ns²) memory and time per candidate. `Optimized` repeats
+    `pdist` in each ESE iteration. `pdist(&lhs).min().unwrap()` panics when `ns < 2`. A caller
+    therefore needs a size bound before admitting the maximin kinds, a guard for `ns ≥ 2`, and
+    Classic as the default for large designs (Interface-checked against
+    `egobox-doe-0.35.1/src/lhs.rs`).
 - **Evidence:**
   - Interface-checked: the installed source files listed above, and the rand 0.8.8
     `seq::gen_index` and `UniformFloat::sample` source.
@@ -212,6 +219,22 @@ Sources:
   - Tested: the [probe](../../../design_review/evidence/library-leverage-egobox-doe-determinism-2026-10-27/README.md).
   - The application to pse-arrow is Proposed.
 
+**Reviewer correction (2026-10-27).** The consumer set is narrower than the CBO assumed. Profile
+chains (secant predictors seeded from their predecessor) and global certification (SCIP) do not
+consume designs; multistart and surrogate preparation are Rust APIs with only test callers; Python
+`with_numerical_strategy` binds only declared-case rungs. Studies are the only live public
+consumer. A parity reference exists even though no local contract promises designs: IDAES 2.13
+parameter sweeps sample with Latin hypercube, uniform, Halton, Hammersley, CVT and custom
+methods. The comparative review recommends one seeded design producer on `normalized_sample`
+(Classic LHS by default; Centered, Maximin and Random; a local per-coordinate grid instead of
+`FullFactorial`), with a fresh `Xoshiro256Plus::seed_from_u64` per design, exact endpoint mapping
+that verifies membership and never clamps, equal-slice level mapping for discrete coordinates,
+and maximin kinds admitted only below a prepaid size bound that also charges the O(n²) `pdist`
+workspace. `egobox-doe` moves from dev to normal dependencies and a direct `rand_xoshiro =0.6.0`
+is added (already in the lock). Whether `Optimized` and seed-regenerable designs are admitted
+depends on the replay-versus-regenerate decision. See the
+[comparative review](../../reviews/numerical-workflows.md#cbo-033).
+
 ### [CBO-035](../../../library_leverage/codebase/numerical-workflows.md#cbo-035) — Separate dense-algebra universes
 - **Types:** The ndarray/rand-0.8 ecosystem condition recorded above.
 - **Realization:** Installed.
@@ -229,3 +252,9 @@ Sources:
   from that path.
 - **Evidence:** Interface-checked: `Cargo.lock` dependency edges and crates.io metadata
   for egobox-moe 0.36.2.
+
+**Reviewer correction (2026-10-27).** The lock has two ndarray lines: 0.16.1 through egobox and
+0.17.2 through `numpy` 0.29 and `rustworkx-core` 0.18.1, so removing the egobox route would not
+remove ndarray from the graph either. The comparative review retains the current routes; an
+upstream `statrs default-features = false` change in egobox-moe would drop nalgebra 0.33 only
+after a release and a family move. See the [comparative review](../../reviews/numerical-workflows.md#cbo-035).

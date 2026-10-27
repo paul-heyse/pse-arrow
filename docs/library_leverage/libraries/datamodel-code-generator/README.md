@@ -59,3 +59,5 @@ Research date 2026-10-27. Sources: Context7 `/datamodel-code-generator/datamodel
   `docs/generated` (or equivalent) schemas with the flags above twice and diff against the current
   emitter output.
 - **Evidence:** Interface-checked (docs). Application Proposed.
+
+**Reviewer correction (2026-10-27).** Ruled out here. The route would break `pse-codegen`'s pure Rust path-to-bytes property (§4.2) by invoking an external Python tool from the generator. The CBO's premise is also partly rejected: two of the 207 generated row families are public, user-constructed values (`pse.modeling.Declaration`, `FitDeclaration`), so the attrs rows (construction-validated) and the msgspec documents (decode-validated wire DTOs) are two contracts, not one meaning twice. The comparative review retains the current emitter. See the [comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-043).

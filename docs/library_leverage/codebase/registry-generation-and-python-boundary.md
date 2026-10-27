@@ -66,6 +66,7 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
     `postcard`, `rkyv`, `ciborium` or Arrow IPC for everything?
   - What does first-use construction cost?
 - **Library assessment correction (2026-10-27).** The registry product types derive no serde; only Arrow `Field` is serialized today. A blob route must first give the model a serialization contract, including deterministic ordering for Arrow `Field` metadata, which is a `HashMap`. See [postcard](../libraries/postcard/README.md) and [ciborium](../libraries/ciborium/README.md).
+- **Comparative review correction (2026-10-27).** "The same products serialized three ways" is wrong: each sub-product is encoded once, by what its type supports. Rust literals carry the hand-written model types; `standard-data.jsonl` is a deduplicated canonical-JSON pool of serde-capable leaves (Arrow `Field`, references, description `Value`s), with 4,576 lines and 6,548 `native(` decodes; IPC carries the 15 self-description batches. `HashMap` ordering is already solved on the JSON route by `pse_columnar::native_field::canonical_json` (`NativeJsonPool` in `pse-codegen/src/codegen/rust/registry.rs`), so the Field-ordering prerequisite above applies only if Field were serialized through postcard natively. `pse-codegen` re-exports `pse-schema`, which compiles `mod generated;` unconditionally. A later probe confirmed the coupling: a model field added together with its emitter breaks `just codegen` (258 × `E0063` in `standard_registry.rs`, nothing regenerated), and the only workaround found is a manual stub of the generated file. The generated module accounts for about 18 s (about 72%) of a full `pse-schema` build and is recompiled whenever its line numbers shift, while peak RSS stays under 2 GB (*Tested* and *Measured*; [evidence](../../design_review/evidence/library-leverage-registry-build-coupling-2026-10-27/README.md)). The governing proposed ADR-0210 records 304 ms versus 30 ms, fixture-bounded. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-040).
 
 <a id="cbo-041"></a>
 
@@ -107,6 +108,7 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
   - Can `pythonize`, or msgspec conversion from attributes, avoid the double hop where no wire
     is needed?
 - **Library assessment correction (2026-10-27).** The catalogue has 250 entries, not about 70: 155 FlatV1, 91 Native, 3 FlatV2 and 1 ValueV1. A probe of msgspec 0.21.1 found that a single tagged Struct does not require its tag, while a union of two or more tagged Structs does ([evidence](../../design_review/evidence/library-leverage-msgspec-tagged-decode-2026-10-27/README.md)). See [msgspec](../libraries/msgspec/README.md).
+- **Comparative review correction (2026-10-27).** The header rule has one implementation, Rust `pse_model::document::check_required_header`; Python reaches it through `_native.check_document_header` and owns only traversal and message wording. The import-time `_check_native_compatibility` (called from `pse/__init__.py`) already compares `boundary_schema_fingerprint`, and generated version fields are `Literal[N] = N`. Two real duplications remain: `pse-py/src/documents.rs` `decode_document` runs `check_required_header` and `Wire::decode_slice` then runs `check_header::<N>` again (FlatV1, FlatV2 and ValueV1), and Rust→Python decode re-runs the untrusted-input traversal, with a callback into Rust, on bytes Rust just wrote. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-041).
 
 <a id="cbo-042"></a>
 
@@ -141,6 +143,7 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
   - Do schemars 1.x contract modes remove the renaming pass?
   - Can a serde attribute or derive replace the hand-written header deserializer?
 - **Library assessment correction (2026-10-27).** schemars contract modes are already in use. The "~1.7k `*Output` names" are 1,782 occurrences of 483 distinct classes.
+- **Comparative review correction (2026-10-27).** Python does not re-derive the header field; it reads the generated `_pse_required_version_field` / `_pse_required_version` class variables. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-042).
 
 <a id="cbo-043"></a>
 
@@ -179,6 +182,7 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
     and `StrEnum` needs?
   - Are rows needed outside the two edit documents?
 - **Library assessment correction (2026-10-27).** Tested: a msgspec `Struct` validates nothing at construction (`DocV1(name=5, count='x')` succeeds), and `msgspec.convert` accepts `nan` and `inf` into `float` fields. Decode itself refuses non-finite JSON.
+- **Comparative review correction (2026-10-27).** Two of the 207 generated row families are public, user-constructed values: `pse.modeling.Declaration = AuthoredModelingDeclarationsRow` and `FitDeclaration = AuthoredFitCasesRow`. Construction-time validation is therefore a live requirement, and the attrs rows and msgspec documents are two contracts rather than one meaning twice. The datamodel-code-generator route would also break `pse-codegen`'s pure Rust path-to-bytes property (§4.2) by invoking an external Python tool. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-043).
 
 <a id="cbo-044"></a>
 
@@ -215,6 +219,7 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
     single re-export)?
   - Are bulk getters available?
 - **Library assessment correction (2026-10-27).** The 405 forwards count is exact. The stub generator strips docstrings on purpose (`xtask/src/codegen/python_stubs/validate.rs`), although pyo3-introspection would emit them.
+- **Comparative review correction (2026-10-27).** 41 wrapper classes hold `_handle`, 6 of them Python-constructed (for example `Runtime`), and there are 22 cross-wrapper `._handle` unwraps (`# noqa: SLF001`). `Runtime` is a Python class composing generated host-operation mixins, so `#[pyclass(subclass)]` works for user-constructed owners but not for Rust-returned objects, which are always base-class instances. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-044).
 
 <a id="cbo-045"></a>
 
@@ -248,6 +253,7 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
     the macro?
   - Could one leaf crate own `vocabulary!`?
 - **Library assessment correction (2026-10-27).** The two `vocabulary!` copies differ in more than `description`: the JsonSchema impl, String conversions, the `ALL` type and the serde rename route also differ. Derive sites such as `pse-operations/src/canonical.rs` already declare codes twice.
+- **Comparative review correction (2026-10-27).** The premise is inverted: `impl_diagnostic!` projects miette's `code()` from the typed `DiagnosticCode`, so it is the single authority, and the derive sites are where codes drift. `pse-operations/src/canonical.rs` has the container `#[diagnostic(code(runtime::infrastructure))]` while its typed impl maps `Codec(_)` to `ValidationInvariant`, and `pse-py/src/inspection/errors.rs` raises a message carrying miette's `[{code}]` while `report.code` carries the typed code, so the two disagree for that variant. 5 of the 10 derive files have no typed impl, and `Withheld` carries `pse::native::square_response`, which is not in the vocabulary. §23.2 permits either route, and `disposition()` is a legitimate separate projection. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-045).
 
 <a id="cbo-046"></a>
 
@@ -274,4 +280,5 @@ implements `miette::Diagnostic` plus a typed diagnostic trait. Legitimately cust
   - Is there a SurrealQL AST or builder (`surrealdb-sql`, already pinned) that could render
     statements?
 - **Library assessment correction (2026-10-27).** There are 18 placeholders, mostly integers. The riskier pieces are two post-generation textual rewrites over generated Python (`.replace("v.", "")`), and the guard-fragment and relation-id splices in `surreal_artifacts.rs`. `surrealdb-syn` already validates SurrealQL in xtask and `canonical_maintenance`.
+- **Comparative review correction (2026-10-27).** The generated SurrealQL catalog is already parse-validated with `surrealdb-syn`, in a unit test (`parse_definitions(wire::SCHEMA)`, `canonical-maintenance` feature) and at maintenance activation; the `xtask` `surrealql-tools` validator is wired only into `scripts/tooling_experiments.py`. `DEFINE PARAM` would add a second runtime representation of constants the registry owns. On the Python side the rewrites are `local.replace(&format!("s.{name}"), name)` and `.replace("v.", "")` in `codegen/python/mod.rs`, plus the `from typing import …` line surgery in `codegen/documents.rs` `python_module`. See the comparative review: [SurrealQL side](../reviews/canonical-store-transport.md#cbo-046) and [templating side](../reviews/declarations-registry-and-python-boundary.md#cbo-046).
 

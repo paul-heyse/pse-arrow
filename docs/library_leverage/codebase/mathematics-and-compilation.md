@@ -78,6 +78,7 @@ The following are legitimately custom:
     estimators?
   - Would upstream accept such hooks?
 - **Library assessment correction (2026-10-27).** Symbolica's abort truncates optimisation rather than failing: `build()` can return `Ok` with a less-optimised evaluator. The local rule that an observed abort means cancelled is therefore required. Since 3.0.1, upstream `main` has rewritten `dual.rs` and `export.rs`, so the mirrored formulas will need re-deriving at the next release. The repository moved to `symbolica-dev/symbolica`, and its unreleased `community` branch adds a thread-local `ResourceBudget` measured by RSS and wall time. That budget is not prepaid or deterministic. See [symbolica](../libraries/symbolica/README.md).
+- **Comparative review correction (2026-10-27).** The mirrors are predict-then-reconcile: `bounded_evaluator` refuses with `Contract("library Taylor expansion exceeded admitted bound")` after `vectorize`, and the compiled path refuses when `export_cpp_str` exceeds `export_bound`. Drift therefore fails loudly; the residual exposure is the transient allocation inside the call. There is no `symbolica` entry in `[workspace.metadata.pse.pins]`. See the [comparative review](../reviews/mathematics-preparation.md#cbo-021).
 
 <a id="cbo-022"></a>
 
@@ -120,6 +121,7 @@ The following are legitimately custom:
   - Would a content-addressed cache crate (`cacache` or similar, fit unknown) carry the disk
     layer?
 - **Library assessment correction (2026-10-27).** Salsa's `heap_size` closures return the local `retained_bytes()`, so Salsa reports the local measure rather than running a second accounting system. The private-API footprint is four `salsa::plumbing` uses in `granular.rs` and one in `workspace.rs`; only the query-name half has a public replacement (`ingredient_debug_name`). See [salsa](../libraries/salsa/README.md) and [cacache](../libraries/cacache/README.md).
+- **Comparative review correction (2026-10-27).** The four mechanisms are four lifetimes, each with its natural key, not parallel caches. `ScalarCache` is construction-scoped and frozen into immutable `ScalarProducts`, which is product composition. `ModelingBodyRetention` is the runtime cross-workspace cache that §14.4 requires, with an identity and physical check on every hit (`executable/grouped.rs` `semantic_body`). The disk layer is ADR-0212 (proposed; implemented and tested 2026-10-20). `state.sources`/`requests` are Salsa's input-handle registry. The `workspace.rs` plumbing use is `current_revision` (retention snapshot), which Salsa 0.28.5 exports only under `salsa::plumbing`. See the [comparative review](../reviews/mathematics-preparation.md#cbo-022).
 
 <a id="cbo-023"></a>
 
@@ -159,6 +161,7 @@ The following are legitimately custom:
   - Do rustworkx-core or petgraph provide deterministic transitive closure or reduction (for
     example `dag_to_toposorted_adjacency_list` or `tred`)?
 - **Library assessment correction (2026-10-27).** `MathPolicy::validate` already requires math workers to have at least `MATCHING_STACK`, so the recursion half of the "missing guard" may already be covered; which thread runs `prepare_contract_inner` was not traced. The compiler already uses petgraph `Bfs`, reversed `Dfs` and `toposort`, so the duplication lies in graph construction and limits. The vendored SuiteSparse already ships BTF, CXSparse and SPEX. See [suitesparse](../libraries/suitesparse/README.md) and [pounce](../libraries/pounce/README.md).
+- **Comparative review correction (2026-10-27).** The open question is answered: both guards hold transitively. The only production caller is `pse-runtime/src/math/solves/derived.rs` (`prepare_reduced_supplier` in `job_retained_scoped`); the `pse-backend-native` call sites are tests. Math jobs spawn with `.stack_size(service.policy.stack_bytes)` (`math/jobs.rs`), `MathPolicy::validate` refuses a stack below `MATCHING_STACK`, and `CaseLimits` caps a case at 100,000 scalars. The real gap is that implicit reconstruction runs no result validation, so it would mis-propagate silently if block order were wrong. See the [comparative review](../reviews/mathematics-preparation.md#cbo-023).
 
 <a id="cbo-024"></a>
 
@@ -196,6 +199,7 @@ The following are legitimately custom:
 - **Research questions.**
   - Could Symbolica's exported evaluator instruction stream serve as a common lowering source?
   - Could the pounce tape operator set be declared once?
+- **Comparative review correction (2026-10-27).** The premise is rejected: there is one project-owned factorable projection. Curvature consumes the factorable DAG directly, FBBT uses POUNCE's own format, and class evidence is atom-level by design; each consumer's per-operator rules are its own semantics, forced by exhaustive matches. The LOP-X003 citation does not fit, because no generator is involved. Side observation, not traced to a conclusion: `presolve.rs::tape` lowers constants through `Constant::value()`, which rounds to nearest rather than outward. §15.4's tolerance-expanded confirmation appears to cover infeasibility claims; whether tightened bounds are also confirmed was not checked. See the [comparative review](../reviews/mathematics-preparation.md#cbo-024).
 
 <a id="cbo-025"></a>
 
@@ -231,4 +235,6 @@ The following are legitimately custom:
 - An asymmetric interval straddling a root at 0 did not return within 20 s.
 
 `isolate_real_root_intervals` can itself emit intervals whose endpoint is an adjacent exact root. The local p(a) = 0 / p(b) = 0 screen is therefore a correctness guard, not a precision one. The zero-symmetric and zero-straddling cases are not covered by that screen. Whether the isolator can emit them is unsettled, and this is worth a product-side check independent of library leverage. See [symbolica](../libraries/symbolica/README.md).
+
+- **Comparative review correction (2026-10-27).** The open isolator question is settled, and the live hazard is a different one. `isolate_real_root_intervals` confines each interval to one closed half-line, so zero-symmetric and zero-straddling intervals are unreachable on the isolate→refine path. For repeated-root cubics, however, an isolating interval can strictly contain another root, which `refine_root_interval_until_disjoint` does not detect and the p(a)/p(b) screen does not catch. For (3x − 8)(2x − 3)² the ladder panics in debug, and in release returns `[1.5, 1.5]`: 8/3 is lost and a valid unique root is falsely refused. Over (αx − β)²(γx − δ) with integers in −12..=12 (8,556 root pairs), no interval straddled zero, 90 pairs showed containment, and 20 lost their simple root in release. The `IsolatedRoot` fallback is the common path (5,651 of the 8,556 release pairs), mostly because the binary64 agreement check fails for non-dyadic roots, so the unbounded process-global `RootCache` is populated on most solves in this family (*Tested*, [evidence](../../design_review/evidence/library-leverage-symbolica-root-containment-2026-10-27/README.md)). See the [comparative review](../reviews/mathematics-preparation.md#cbo-025).
 

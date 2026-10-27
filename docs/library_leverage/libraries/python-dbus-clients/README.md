@@ -72,6 +72,12 @@ downloaded into scratch: `dbus_fast-5.2.0/src/dbus_fast/{aio,glib}/message_bus.p
   workload as the scope's own process) with bus calls changes the process tree contract (probe P2).
 - **Evidence:** Interface-checked; application Proposed.
 
+**Reviewer correction (2026-10-27).** The stdlib-only cold-start constraint covers more than
+hooks: `pse_env.py` and `host_admission.py` run bootstrap admission under the system Python
+fallback, so a non-stdlib client in admission would create a second route rather than replace one.
+The comparative review retains the current paths, which already combine manager facts, kernel
+cgroup evidence and the ledger. See the [comparative review](../../reviews/host-processes-and-durable-files.md#cbo-048).
+
 ### [CBO-020](../../../library_leverage/codebase/execution-lifecycle-and-observation.md#cbo-020) — Primary-receiver supervision split between the Rust runtime and a Python script
 - **Types:** `python-dbus-clients/pure-python-blocking-client`
 - **Conclusion:** fits with conditions on the script side only; it does not remove the split

@@ -46,7 +46,10 @@ Sources:
 - **Semantic conditions:**
   - **Precision.** The results come from iterative or series special functions using
     std libm (`ln`, `exp`, `sqrt`). They are deterministic on one platform but not
-    guaranteed bit-identical across libms.
+    guaranteed bit-identical across libms. The special functions call the inherent
+    `f64::ln` and `f64::exp` methods directly (`statrs-0.18.0/src/function/beta.rs`), not
+    `num_traits::Float`, so `num-traits` feature unification does not change statrs results;
+    it matters only for `rand_distr` (added 2026-10-27).
   - **Panics.** Out-of-range arguments panic, which unwinds; they do not return errors.
 - **Version / build conditions:** Present in 0.18.0. Not re-verified for 0.19.1.
 - **Limits and negative results:**
@@ -122,6 +125,16 @@ Sources:
 - **Evidence:** Interface-checked: statrs sources, `fitting/covariance.rs` (`wald` uses
   `Normal::standard().inverse_cdf`), `fitting/profile.rs` (`ChiSquared::new(1.0)`) and the
   `lm_inquiry.rs` unknown-sigma test. The application is Proposed.
+
+**Reviewer correction (2026-10-27).** This is decision work, not a minor leverage step. Pyomo
+6.10.1 parmest estimates σ² = SSE/(n − l) for the `SSE` objective without measurement errors, with
+`n = self.number_exp`, which counts experiments rather than observations, so blind parity would
+encode a questionable definition. ADR-0118 (accepted), item 2, decides the declared-σ statistical
+model and lists a fit without declared deviations as a negative control; an estimated-variance
+path would supersede that clause, change fit identity and the registry, and touch four consumers.
+The comparative review retains the current route and records a bounded design for maintainer
+selection; statrs would supply only the leaf quantiles. See the
+[comparative review](../../reviews/numerical-workflows.md#cbo-036).
 
 ### [CBO-034](../../../library_leverage/codebase/numerical-workflows.md#cbo-034) — Only first-order uncertainty propagation
 - **Types:** `statrs/multivariate-normal-sampling` and `statrs/inverse-cdf-quantiles`

@@ -51,3 +51,5 @@ Research date 2026-10-27. Sources: docs.python.org/3/library/signal.html (fetche
 - **Unsettled premises and what would settle them:** whether interaction with an active asyncio loop
   (or IPython/Jupyter, which manage SIGINT) is acceptable — a small probe in each host would settle it.
 - **Evidence:** Interface-checked. Application Proposed.
+
+**Reviewer correction (2026-10-27).** The comparative review does not recommend the wakeup fd. It recommends one local `pse-py` `interrupt::wait` helper with one interval and a per-site `OnSignal::{Drain, Return}` policy, leaving cause and recovery keys at each site; PyO3 still offers no wakeable `check_signals` (re-confirmed through Context7). Sequence the helper with any change that makes the native methods public types, so it is consolidated once. See the [comparative review](../../reviews/execution-lifecycle-and-observation.md#cbo-017).

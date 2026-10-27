@@ -74,6 +74,7 @@ The following are legitimately custom:
     observable callbacks?
   - Could `MetricDeclaration` drive instrument installation directly?
 - **Library assessment correction (2026-10-27).** `pse-diagnostics` has no `tracing` dependency, so the hub working without a subscriber is a structural property, not an incidental one. See [tracing](../libraries/tracing/README.md) and [opentelemetry](../libraries/opentelemetry/README.md).
+- **Comparative review correction (2026-10-27).** The capture layer is a `tracing_subscriber::Layer`, not a hand-fed sink, so four sinks are hand-fed. "About 81 call sites" overstates the footprint: `invocation::stage` has 9 production sites, and the multi-sink boundaries concentrate in the `jobs.rs` supervisor, the `staged.rs` session path and the `pse-py` pull. `operational_metrics::NativeAttempt` is already a partial lifecycle owner, and boundary names are consumed by string in `tooling/inspection.rs` (`"native.joined"`). See the [comparative review](../reviews/execution-lifecycle-and-observation.md#cbo-013).
 
 <a id="cbo-014"></a>
 
@@ -112,6 +113,7 @@ The following are legitimately custom:
     restores everything?
   - Does any executor or tracing facility propagate this set to foreign OS threads?
 - **Library assessment correction (2026-10-27).** The native job spawn passes through five more wrappers before `tokio::spawn`, including `inherit_activity`. There are more than 20 `task_local!` carriers. `staged.rs` passes context inside each request message to a long-lived thread, so a spawn helper alone would not cover it. Production installs a global default dispatcher, so the dispatcher carrier matters only for scoped setups. Symbolica's thread-local `CURRENT_ABORT` is a further carrier. See [tracing](../libraries/tracing/README.md).
+- **Comparative review correction (2026-10-27).** Carrier subsets diverge: `window_team.rs` lanes enter no tracing dispatcher or span, `blocking_native_call` enters no observation or invocation context, and flight producers get only the observation scope. The authority carriers (`ConnectionActivity`, `PopulationScope`, `OPERATION_DEADLINE`, `ACTIVE_IO`) sit beside the attribution carriers and must not be merged with them. `workflow::inherit_runtime_activity` is a further composer of carriers. See the [comparative review](../reviews/execution-lifecycle-and-observation.md#cbo-014).
 
 <a id="cbo-015"></a>
 
@@ -149,6 +151,7 @@ The following are legitimately custom:
   - Could `timeout_at` or `run_until_cancelled` composed into a deadline-carrying token fold the
     repeated races?
 - **Library assessment correction (2026-10-27).** The native join wait waits on the native `Cancellation` type, signals a stop, and then keeps waiting for the thread. The admission waits instead drop the losing side, so the two need different treatment ([LOP-X005](../assessment-patterns.md#lop-x005)). Study renewal pauses the guarded work while the renewal call runs. See [tokio](../libraries/tokio/README.md).
+- **Comparative review correction (2026-10-27).** There are 19 production `sleep_until` races in three shapes: wake-source loops, stop-first abandon-safe races, and signal-and-drain. `math::scope_stopped` already exists but is gated on `solver-petsc`, and `staged.rs` has an inline copy. `CancelSource::join_native` is used by `staged.rs` and `workflow/run.rs`, while `jobs.rs` inlines its own variant that includes a deadline. Study renewal uses `lease / 3` and ignores the admitted `policy.heartbeat`; the two coincide only under the defaults (30 s / 10 s). See the [comparative review](../reviews/execution-lifecycle-and-observation.md#cbo-015).
 
 <a id="cbo-016"></a>
 
@@ -194,6 +197,7 @@ The following are legitimately custom:
   - Can `cgroup.events`, `pidfd` or systemd D-Bus state replace the `observe-primary`
     subprocess?
 - **Library assessment correction (2026-10-27).** `ResultReadDrain` already uses `TaskTracker`, and a `WakeSignal` notification type already exists. Production `forget_run_results` refuses rather than waits, so most drain polling loops are in tests. LIVE SELECT works over the Rust SDK's gRPC `Subscribe` stream; the open question is the bounded-request profile. See [surrealdb](../libraries/surrealdb/README.md) and [tokio](../libraries/tokio/README.md).
+- **Comparative review correction (2026-10-27).** Most `pse-operations` sleep-poll loops are inside `#[cfg(test)]` modules, and the production waits in scope are cross-process; `acquire_source_stage` has a fixed 20 ms contention wait. The bounded-profile question above is settled: the bounded gRPC engine refuses LIVE by design (`GrpcEngine::subscribe_live` returns a configuration error when bounded, after issuing the `Subscribe` RPC). Architecture §3.3 already requires a concrete qualified consumer for live subscriptions. See the comparative review: [in-process side](../reviews/execution-lifecycle-and-observation.md#cbo-016) and [store side](../reviews/canonical-store-transport.md#cbo-016).
 
 <a id="cbo-017"></a>
 
@@ -256,6 +260,7 @@ The following are legitimately custom:
 - **Research questions.**
   - Is there a supported way to await OS-thread exit, for example via pidfd on the thread ID or
     via a dedicated runtime with `thread_stack_size`?
+- **Comparative review correction (2026-10-27).** Only `jobs.rs` (per job) and `staged.rs` (per session, for the whole lane lifetime, idle included) await a join through `spawn_blocking`; `window_team.rs` and `surrogate.rs` join synchronously in `Drop`. `shutdown_native_lanes` uses the job-permit population as its drain witness. See the [comparative review](../reviews/execution-lifecycle-and-observation.md#cbo-018).
 
 <a id="cbo-019"></a>
 
@@ -293,6 +298,7 @@ The following are legitimately custom:
   - Do `procfs` / `cgroups-rs` (Rust) and `psutil` (Python) expose the same strict semantics,
     including PSI?
 - **Library assessment correction (2026-10-27).** The footprint is larger than estimated: 8 Rust readers of `/proc/*/stat` and 4 of `/proc/self/status`. The canonical store's owner identity (boot ID, start ticks, pid namespace and cgroup) is a missed manifestation. The host runs systemd 255 and kernel 7.0. See [LOP-X008](../assessment-patterns.md#lop-x008) and [procfs](../libraries/procfs/README.md).
+- **Comparative review correction (2026-10-27).** Python already has a single process-fact leaf, `process_observation.py`, used by 8 modules. `lifecycle-owner.json` carries a start-tick identity across languages: Python writes it and Rust `canonical.rs` `require_initializer` reads it. `pse-worker`'s placement walk assumes the process sits in its allocation cgroup, because it reads its own `memory.max`. Host facts are `pid_max` 4194304 and `CLK_TCK` 100, so start ticks bound to boot and PID namespace are effectively non-recyclable here. See the [comparative review](../reviews/host-processes-and-durable-files.md#cbo-019).
 
 <a id="cbo-020"></a>
 
@@ -329,3 +335,4 @@ The following are legitimately custom:
   - Could a systemd D-Bus client (`zbus` with `StartTransientUnit` and unit properties) let the
     runtime observe or own units directly?
   - Which script operations are generic supervision and which are policy?
+- **Comparative review correction (2026-10-27).** The runtime is the only consumer of `observe-primary` (repository-wide `rg`). `ensure-primary` runs once per study run, while observation spawns the script at every heartbeat. The runtime merges `Drained` and `OwnerChanged`, and maps failures to `Live`. See the [comparative review](../reviews/host-processes-and-durable-files.md#cbo-020).

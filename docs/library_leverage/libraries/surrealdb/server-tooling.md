@@ -63,6 +63,13 @@ Research date 2026-10-27. Sources:
 - **Limits and negative results:** it is not a crash-consistent physical backup of an engine's append-only log and snapshot. It does not replace a physical copy when exact storage identity, external payload inventories or fast restore are required.
 - **Evidence:** Interface-checked: the Context7 export help page. Export consistency semantics were not inspected.
 
+### surrealdb-server/telemetry-export-transport
+- **Need it serves:** receive the server's own traces or metrics in a collector.
+- **Mechanisms and APIs:** at tag `v3.3.4`, the server builds `opentelemetry_otlp::SpanExporter::builder().with_tonic()` (`surrealdb/server/src/telemetry/traces/mod.rs`) and compiles `opentelemetry-otlp` 0.31.1 with features `grpc-tonic, tls, tls-roots, trace, metrics, logs, internal-logs` and no `http-proto` (`surrealdb/server/Cargo.toml`).
+- **Semantic conditions:** server OTLP export is tonic gRPC only at 3.3.4. The standard endpoint variables are honoured, but no protocol variable can select OTLP/HTTP, so a receiver must accept OTLP over gRPC.
+- **Version / build conditions:** an HTTP/protobuf exporter would need an upstream build change; none exists at 3.3.4.
+- **Evidence:** Interface-checked: both files read through the GitHub contents API at `v3.3.4` (2026-10-27).
+
 ### surrealkit/schema-rollout
 - **Need it serves:** reconcile a declared SurrealQL schema with a live database through tracked, staged rollouts.
 - **Recognizable code shapes:** hand-written schema install and upgrade sequences; checks that the catalog matches.
@@ -122,3 +129,5 @@ Research date 2026-10-27. Sources:
   - Whether `/ready`'s heartbeat semantics behave well across suspend and resume of the host.
   - The body of `surreal_server.py` was not read beyond the readiness, protocol-readiness and backup heads, so further generic-versus-policy splits are not established.
 - **Evidence:** Interface-checked: documentation and a source skim. Proposed.
+
+**Reviewer correction (2026-10-27).** The comparative review retains the current readiness route. For this deployment (single node, no `--import-file`) the authenticated protocol-readiness proof already subsumes what `/ready` adds, and `/ready`'s heartbeat-staleness rule is a false-unready risk under saturating load (not measured). Export remains no backup. SurrealKit is built against the vendored SDK, but it runs the unbounded upstream-transport profile (it never calls `Config::bounded_requests()`), so the dependence is incidental: artifact identity and consistency, not behaviour. See the [comparative review](../../reviews/canonical-store-transport.md#cbo-048).

@@ -61,6 +61,10 @@ Research date 2026-10-27. Sources:
   - memuse, datasize and deepsize are dormant: last releases in 2024, 2023 and 2020.
 - **Limits and negative results:**
   - No inspected crate guarantees a conservative upper bound for tree or hash containers.
+  - get-size2 cannot host a conservative container policy globally (added 2026-10-27): the crate
+    owns both the trait and the std container impls, so the orphan rule blocks an application
+    from overriding the `BTreeMap` or `HashMap` impl. The only escape is a per-field `size_fn`,
+    and a field that omits it under-counts silently.
   - None provides a pre-allocation estimate for a container of n entries, although
     `STATIC_HEAP_SIZE` covers fixed-heap types.
 - **Evidence:** Interface-checked:
@@ -100,3 +104,14 @@ Research date 2026-10-27. Sources:
   - Whether the existing `heap_bytes` generator already covers the derivable share. Reading that
     generator would settle this.
 - **Evidence:** Interface-checked; Proposed.
+
+**Reviewer correction (2026-10-27).** The census differs from the count above: there are about
+771 `HeapUsage` impls in 214 files, 204 of them registry-generated; the hand-written residue is
+about 205 `fn retained_bytes` and about 465 `fn *_bytes(` outside generated code (rg counts). A
+derive for hand-written measures would have to coexist with the generator rather than add a
+second derive over registry types. Salsa consumes the local measure, so there are not two
+accounting systems. Because get-size2 cannot override its std container impls (see the type), the
+conservative B-tree policy would have to be repeated per field; the reviewers suggest instead one
+conservative B-tree extent helper beside the local trait, since the math crates use a different
+B-tree formula at each of at least four sites. The derive sub-question remains unresolved pending
+a census of the hand-written bodies. See the [comparative review](../../reviews/result-data-and-prepaid-accounting.md#cbo-001).

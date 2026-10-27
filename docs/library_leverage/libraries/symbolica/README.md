@@ -69,6 +69,11 @@ Context7 `/websites/symbolica_io` (Evaluator `get_instructions` page).
 - **Version / build conditions:** unreleased, `community` branch only; not in `main` or any
   release.
 - **Limits and negative results:** no prepaid reservation, no per-operation work count.
+- **Upstream direction (added 2026-10-27):** upstream also accepts *deterministic* resource
+  controls. PR #103 adds checked series operations with structural limits that return a
+  structured error, never a partial result, and notes that these are "not limits on total live
+  memory … work, or wall time". PR #127 (`nsolve_bracketed`) is numerical, not certified.
+  Contributor activity was checked through `gh api`.
 - **Evidence:** Interface-checked (branch source, PR #129/#130 bodies).
 
 ### symbolica/public-size-observables
@@ -151,6 +156,42 @@ Context7 `/websites/symbolica_io` (Evaluator `get_instructions` page).
     isolate→refine path; exact roots come back as degenerate intervals, and on the polynomials
     tried no zero-symmetric or zero-straddling interval was emitted.
   `IsolatedRoot::refined` is the certified route that does not share these preconditions.
+  Further conditions (added 2026-10-27; Interface-checked from 3.0.1 source unless stated):
+  - **Half-line confinement.** `isolate_real_root_intervals` (`IntegerRing` impl with
+    `isolate_real_roots_square_free` and `max_real_root_bound`) emits only intervals inside one
+    closed half-line: Vincent–Akritas–Strzeboński Möbius endpoints are b/d and a/c with
+    a, b ≥ 0 and c, d > 0, the negative pass mirrors f(−x), zero comes back as `(0, 0)`, and the
+    disjointness step only bisects. Intervals with a + b = 0 and a ≠ b, or straddling zero, are
+    therefore unreachable on the isolate→refine path.
+  - **Strict containment is not detected.** `refine_root_interval_until_disjoint`
+    (`poly/univariate/roots.rs`) tests overlap only by whether the *earlier* interval's endpoints
+    lie in the later one, at entry and in its loop condition, so an earlier interval that strictly
+    contains a later one passes as disjoint. Square-free factors arrive in increasing-multiplicity
+    order from Yun's algorithm (`poly/factor.rs` `square_free_factorization_0_char`), so
+    containment is reachable for polynomials with repeated roots. For
+    12x³ − 68x² + 123x − 72 = (3x − 8)(2x − 3)² the intervals are `(0, 4)` and `(1, 2)`, and
+    `(0, 4)` holds both 3/2 and 8/3. An interval with no sign change of the square-free part then
+    reaches `refine_root_interval`: debug panics on its sign `debug_assert`, and release converges
+    to the inner root, so a caller loses the outer root without any error. An endpoint-root screen
+    does not catch this.
+  - **Unbounded global cache.** `isolate_roots`, `isolate_real_roots` and `IsolatedRoot::refined`
+    populate `root_cache()`, a process-global `LazyLock<RootCache>` of
+    `RwLock<HashMap<Vec<coeff>, …>>` with no eviction or clear API. Retention is unbounded for a
+    caller with an unbounded population of distinct polynomials.
+  - **Absolute radius.** `IsolatedRoot::refined` takes an *absolute* radius ("Refine this root to
+    an absolute radius"), unlike the relative stop of `refine_root_interval`.
+  - **Available primitives.** `UnivariatePolynomial::{gcd, derivative, evaluate}` and exact `Div`
+    exist over Q, so the square-free part u = p / gcd(p, p′) is a two-call computation; isolating
+    and bisecting on u avoids the multiplicity ordering above.
+  - **Probe (Tested).** A sweep over (αx − β)²(γx − δ) with α, γ ∈ 1..=6 and β, δ ∈ −12..=12
+    (8,556 distinct root pairs), debug and release, reproduced `(0, 4)` and `(1, 2)` exactly. No
+    interval straddled zero; 90 pairs showed containment, all of which panicked in debug, and 20
+    lost their simple root in release (both returned points were the double root; no non-root was
+    returned). `isolate_real_roots` + `refined(2⁻⁵⁴)` alone was correct on every input. A caller
+    that rejects a refined interval whose ends round to different binary64 values falls back to
+    `IsolatedRoot` on most inputs, because the relative stop leaves an interval up to about one ulp
+    wide; the global cache is then populated on most calls
+    ([evidence](../../../design_review/evidence/library-leverage-symbolica-root-containment-2026-10-27/README.md)).
 - **Version / build conditions:** 3.0.1; `refine_root_interval` is unchanged on `main`;
   `main` commit `957c2bb` fixes "root isolation stalls" in disk separation (unreleased).
   Open PR #127 adds `solve::nsolve_bracketed` (numerical safeguarded Newton with typed termination
@@ -200,6 +241,16 @@ Context7 `/websites/symbolica_io` (Evaluator `get_instructions` page).
     source would settle this; the shape has already changed on `main`.
 - **Evidence:** Interface-checked (3.0.1 source; `main`/`community` source); application Proposed.
 
+**Reviewer correction (2026-10-27).** The mirrors are already predict-then-reconcile against the
+built product with a typed refusal: `bounded_evaluator` refuses after `vectorize` when the Taylor
+expansion exceeds its admitted bound, and the compiled path refuses when `export_cpp_str` exceeds
+its bound. Drift therefore fails loudly; the residual exposure is the transient allocation inside
+the call. The comparative review retains the mirrors and adds a `symbolica` hold in
+`[workspace.metadata.pse.pins]` naming every private coupling (there is none today). Under
+upstream contribution the order would be a per-call abort, a deterministic pre-allocation
+`vectorize` limit, then checkpoints; PR #103 shows that shape is accepted. See the
+[comparative review](../../reviews/mathematics-preparation.md#cbo-021).
+
 ### [CBO-024](../../../library_leverage/codebase/mathematics-and-compilation.md#cbo-024) — One expression lowered through several local IRs
 - **Types:** symbolica/evaluator-instruction-interchange.
 - **Realization:** export at installed 3.0.1; import and composer upgrade-route only
@@ -228,6 +279,12 @@ Context7 `/websites/symbolica_io` (Evaluator `get_instructions` page).
     This is a probe request, not authorized here.
 - **Evidence:** Interface-checked; Proposed.
 
+**Reviewer correction (2026-10-27).** The premise is rejected: there is one project-owned
+factorable projection, curvature reads it directly, FBBT uses POUNCE's own format and class
+evidence is atom-level by design. The instruction stream loses fidelity, obligations, selects and
+`abs` identity, and its optimised shape changes FBBT tightness, so the "arithmetic core" fit is
+not pursued. See the [comparative review](../../reviews/mathematics-preparation.md#cbo-024).
+
 ### [CBO-025](../../../library_leverage/codebase/mathematics-and-compilation.md#cbo-025) — Cubic-refinement fallback ladder
 - **Types:** symbolica/exact-root-isolation-and-refinement.
 - **Realization:** installed 3.0.1; `refine_root_interval` unchanged on unreleased `main`.
@@ -255,3 +312,20 @@ Context7 `/websites/symbolica_io` (Evaluator `get_instructions` page).
 - **Evidence:** Interface-checked (source); Tested — probe
   `docs/design_review/evidence/library-leverage-symbolica-root-refinement-2026-10-27/README.md`
   (conditions stated there); application to the consumer Proposed.
+
+**Reviewer correction (2026-10-27).** The statement that the ladder "relies on the isolator never
+emitting" zero-symmetric or zero-straddling intervals is superseded. Half-line confinement settles
+that question statically, and the containment probe found no such interval in 8,556 root pairs.
+The live hazard is strict containment across square-free factors (see the type): for
+(3x − 8)(2x − 3)² the ladder panics in debug, and in release returns `[1.5, 1.5]`, so 8/3 is lost
+and the consumer falsely refuses a valid unique root; 20 such losses occurred in the sweep. The
+`IsolatedRoot` fallback is the common path (5,651 of 8,556 release pairs), so the unbounded
+`RootCache` is populated on most solves in this family, which is the case against "always
+`IsolatedRoot`" (retention and absolute-radius semantics, not correctness). The comparative review
+recommends, with high priority: isolate on the square-free part u = p / gcd(p, p′) with
+`u.isolate_real_root_intervals()`; refine with a local exact bisection (derivative-side rule at
+root endpoints, per-step cancellation and time checks, stop when the ends round to the same or
+adjacent binary64, typed step cap); delete `refine_root_interval`, the p(a)/p(b) screen and the
+`IsolatedRoot` fallback; and advance the identity to `symbolica.cubic-roots.v2` (*Tested*,
+[evidence](../../../design_review/evidence/library-leverage-symbolica-root-containment-2026-10-27/README.md)). See the
+[comparative review](../../reviews/mathematics-preparation.md#cbo-025).

@@ -69,6 +69,7 @@ Three behaviours are deliberate domain and identity rules, not leverage targets:
   - Is there an allocation cap or a message-size hook?
   - Does `get_slice_memory_size` now account for nested slices?
 - **Library assessment correction (2026-10-27).** The preflight is justified at the pinned arrow-ipc 59.3.0. `FileReaderBuilder` allocates the advertised footer length before seeking, and `StreamReader` allocates advertised body lengths and asserts on several malformed inputs; see [LOP-X009](../assessment-patterns.md#lop-x009). The footprint is wider than the preflight sites. Three production `StreamReader` decodes run without the preflight: `result_physical.rs`, `tooling/review_pack/presentation.rs`, and `portable_payload.rs` (schema only, bounded). Whether their inputs are integrity-checked first was not traced. See [arrow/ipc](../libraries/arrow/ipc.md).
+- **Comparative review correction (2026-10-27).** The decode sites differ in trust. `result_physical.rs` decodes digest-verified, system-written store objects (`canonical_staging` assembly checks each block digest and the payload digest). `reproducer.rs` decodes IPC embedded in an exported replay document after checking only its continuation and end-of-stream bytes (`recorded_source_complete`), and charges `bytes×16 + 64 KiB`. A later probe and static trace showed that this route is unauthenticated before decode: a user-supplied replay document, or a project-bundle reproducer whose member digests are only self-consistent, reaches the stock `StreamReader`, where a lying schema or batch `bodyLength` aborts the process and a negative length or an out-of-body buffer span panics. `portable_payload::finalized_ipc_schema` and the review-pack preview are exposed the same way through the schema message, because `Read::take` does not bound the advertised-length pre-allocation (*Tested* for the library behaviour, *Interface-checked* for the routes; [evidence](../../design_review/evidence/library-leverage-arrow-ipc-stream-hostile-2026-10-27/README.md)). `pse-schema/src/builder/products.rs` also uses `StreamReader` (not traced; the input is presumably embedded and trusted), and the `connected_results.rs` and `lm_inquiry.rs` sites are tests. See the [comparative review](../reviews/result-data-and-prepaid-accounting.md#cbo-005).
 
 <a id="cbo-006"></a>
 
@@ -116,6 +117,7 @@ Three behaviours are deliberate domain and identity rules, not leverage targets:
     extra scratch?
   - Can `FieldCheckedBatch` be queried column-wise without losing field checking?
 - **Library assessment correction (2026-10-27).** `cohort_provider.rs` calls `select_original_rows` and does not repeat the loop. Arrow min/max kernels can produce different IEEE bits from the recorded `f64::min`/`max` values when a run contains NaN or both signed zeros, so the declared domain of `time` decides that substitution. See [arrow/compute](../libraries/arrow/compute.md).
+- **Comparative review correction (2026-10-27).** `trajectory_outputs` runs per window of at most 1,024 rows (`store_trajectory`), so contiguity is enforced per window, and it runs twice per window. The read-path extrema check uses IEEE `==` on `Option<f64>`. Stored coordinates keep their bits and SurrealQL asserts a finite projection, but NaN times can be stored, because `f64::min`/`max` ignore NaN and `time` is declared `real()` (unconstrained Float64). Arrow's comparison kernels, not only `min`/`max`, use totalOrder for floats, so a `gt_eq`/`lt_eq` time window would also change selection at `-0.0` and NaN. See the [comparative review](../reviews/result-data-and-prepaid-accounting.md#cbo-006).
 
 <a id="cbo-007"></a>
 
@@ -150,6 +152,7 @@ Three behaviours are deliberate domain and identity rules, not leverage targets:
 - **Status.** Proposed addition.
 - **Research questions.** Can `PruningPredicate` prune dense blocks from per-output statistics
   without changing refusal behaviour?
+- **Comparative review correction (2026-10-27).** The premise "dense selection outside the planner" is rejected. The window-overlap decision across dense outputs already runs in generated SurrealQL (the `canonical_result_block_outputs` query over coordinate projections, on the `result_output_range` index), not in Rust, so a DataFusion pruning route would move the selection away from its index. `pse.canonical.*` predicate metadata is encoded in `connected_results.rs` and decoded separately in `portable_payload.rs`. See the [comparative review](../reviews/result-data-and-prepaid-accounting.md#cbo-007).
 
 <a id="cbo-008"></a>
 

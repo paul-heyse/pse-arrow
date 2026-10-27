@@ -72,6 +72,28 @@ repository's supplier notes.
   `SUNAdjointCheckpointScheme` classes target explicit Runge–Kutta methods, not IDAS.
 - **Evidence:** Interface-checked: `include/idas/idas.h` at `HEAD`; CHANGELOG 7.3.0.
 
+### sundials/release-fixes-7.2-to-7.9
+- **Need it serves:** decide which release a bundled 7.1.x tree should move to, and which local
+  workarounds or reused-instance patterns each release affects.
+- **KINSOL:**
+  - 7.3: Anderson-acceleration errors are captured; damping on the first Anderson iteration was
+    fixed, except that a caller setting `KINSetDamping` and `KINSetDampingAA` to the same value
+    already avoids the defect.
+  - 7.5: fixes the Anderson-depth reinitialization regression introduced in 7.3. A caller that
+    reuses instances (session caches, restarts) should therefore move to at least 7.5, not 7.3 or
+    7.4.
+- **IDA(S):** 7.6 resets linear-solver counters on reinitialization, adds the return value
+  `IDA_TOO_CLOSE` (callers mapping return codes need a case for it) and counts constraint failures
+  separately.
+- **Shared fixes:** 7.8: CVODES, IDAS and KINSOL no longer leak after a failed `malloc`. 7.2:
+  `SUNMatScaleAddI` wrote out of bounds for unsorted indices (not reached by callers that enforce
+  canonical CSC).
+- **Build:** 7.7 namespaces the CMake option names (for example `SUNDIALS_ENABLE_KLU`); 7.9 adds
+  `SUNDIALS_ENABLE_DEPRECATED_WARNINGS`.
+- **Limits and negative results:** the visible changelog does not name `N_VSpace` or
+  `SUNMatSpace` in the 7.3 work-space deprecation.
+- **Evidence:** Interface-checked: upstream `CHANGELOG.md` at `HEAD` (2026-10-27).
+
 ## Current applicability
 
 ### [CBO-028](../../../library_leverage/codebase/native-solver-integration.md#cbo-028) — Vendored supplier numerics whose premises may have aged (SUNDIALS part)
@@ -96,6 +118,17 @@ repository's supplier notes.
 - **Unsettled premises and what would settle them:** whether the controls pass unchanged against
   7.8+ without the local hunk — probe request P2.
 - **Evidence:** Interface-checked (upstream diff and changelog); application Proposed.
+
+**Reviewer correction (2026-10-27).** The target is SUNDIALS 7.9.0, and it must be at least 7.5:
+instances are reused (the session cache, `solve_with_restarts`), so 7.3 or 7.4 would hit the
+Anderson-depth reinitialization regression (see `sundials/release-fixes-7.2-to-7.9`). `kinsol.rs`
+already sets both damping values equal, avoiding the 7.3 damping defect. The move also gains
+captured Anderson errors (7.3) and no leak after a failed `malloc` (7.8), requires mapping
+`IDA_TOO_CLOSE` and re-verifying the 11 version-coupled Rust sites. The bit-reproducibility change
+is acceptable only once native build identity frames the vendored patch content: today
+`BackendExecution::build()` returns `None` for the dynamics adapters and the KINSOL fingerprint
+frames version macros and declaration text, so a patch-only change moves no identity. The review
+makes that framing a prerequisite. See the [comparative review](../../reviews/native-solver-integration.md#cbo-028).
 
 ### [CBO-001](../../../library_leverage/codebase/cross-cutting-mechanisms.md#cbo-001) — Prepaid accounting (SUNDIALS workspace part)
 - **Types:** sundials/workspace-reporting

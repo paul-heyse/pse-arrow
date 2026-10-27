@@ -53,6 +53,7 @@ Research date 2026-10-27. Sources:
 - **Limits and negative results:**
   - Searched the reconstructed upstream SDK and engine-api sources at 3.3.4 for: per-request deadline, cumulative response allowance, admission semaphore, owned-connection join, explicit disconnect, tower layer or channel injection.
   - Only the connection-level timeout, the per-message limit and the coalescing replay log exist.
+  - There is no public custom-engine seam either (added 2026-10-27). The `surrealdb-engine-api` 3.3.4 crate docs call it an "internal interface … no stability guarantee … may change in any release, including a patch release; depend on it only if you implement an engine". In SDK 3.3.4 `Router::from_engine` is `pub(crate)` and `Connection` is sealed (`crate::conn::Sealed`). `surrealdb-rpc` 3.3.4 is likewise marked internal with no SemVer. An application that needs transport control therefore either patches the SDK or speaks the protocol crate directly (`surrealdb-protocol/generated-grpc-client`).
 - **Evidence:** Interface-checked: reconstructed upstream 3.3.4 `grpc.rs` (`context()` sets `timeout: self.query_timeout`; `connect` sets the decoding limits; `GrpcSession::record` coalesces), `opt/config.rs` and `opt/grpc.rs` (the only setter is `max_message_size`). Also the crates.io versions list and the GitHub release and branch listings.
 
 ### surrealdb-rust-sdk/grpc-live-subscription
@@ -76,6 +77,7 @@ Research date 2026-10-27. Sources:
   - Bounding the notification buffer.
 - **Semantic conditions:**
   - Delivery is at most once and tied to the session. Disconnecting loses the subscription and every notification in flight.
+    Correction (2026-10-27): this holds for SDK 3.3.4, not as a fixed protocol property. Protocol 0.13.1 reports delivery semantics per server (`LiveQueryCapabilities { delivery, resumable, multiple_subscribers, retention }`) and carries resumption in `SubscribeRequest.resume_from: LiveQueryCursor { versionstamp, sequence }`, with an error when the cursor is older than retention. SDK 3.3.4 always sends `resume_from: None`. What server 3.3.4 advertises was not inspected.
   - The live query keeps running server-side after a stream is dropped, until `kill` is called or the session ends.
   - Notifications are produced on the node that commits the write. A single-node server reaches every local session.
   - The Context7 SDK docs for JavaScript and Mojo describe live queries as WebSocket-only. The Rust 3.3.4 gRPC engine implements them through `Subscribe`, so documentation and source disagree by transport. The source is authoritative for 3.3.4.
@@ -121,9 +123,11 @@ Research date 2026-10-27. Sources:
   - Premise correction (see README): the delta's substantive source is about 3.2k changed lines, not 35k.
 - **Evidence:** Interface-checked: reconstructed upstream versus vendored source, with whitespace-insensitive numstat. Applicability to the repository is Proposed.
 
+**Reviewer correction (2026-10-27).** At HEAD the whitespace-insensitive delta is SDK `src` +2,834 / −477 (including 395 extracted wire-schema lines, the 316-line test-support module and about 60 lines of test edits) and engine-API +1,196 / −153 (including the new 643-line `request.rs`); lines run up to 530 characters, so counts understate the logic. The transport-injection seam is moot for the review's choice: because the engine SPI is internal and sealed (see the type above), the comparative review recommends moving the bounded lifecycle into a repository-owned client on `surrealdb-protocol` 0.13.1 and `surrealdb-types` 3.3.4 so that the vendored SDK and engine-API leave the workspace (see `surrealdb-protocol.md`). Under upstream contribution, only seams that shrink that client (a public protobuf-to-`Error` conversion, gRPC conformance coverage) are worth offering. See the [comparative review](../../reviews/canonical-store-transport.md#cbo-009).
+
 ### [CBO-016](../../../library_leverage/codebase/execution-lifecycle-and-observation.md#cbo-016) — Waiting by polling for state owned elsewhere (store side)
 - **Types:** `surrealdb-rust-sdk/grpc-live-subscription`. Changefeeds are covered in `surrealql-server-constructs.md`.
-- **Realization:** installed 3.3.4. The vendored bounded engine forwards `subscribe_live` through its ordinary `execute` admission path.
+- **Realization:** installed 3.3.4. The vendored bounded engine forwards `subscribe_live` through its ordinary `execute` admission path. (Corrected below: when bounded, it refuses.)
 - **Conclusion:** unsettled. The gRPC transport does implement LIVE through a `Subscribe` stream. Whether the bounded profile can carry a long-lived subscription is uncharacterized: the profile has an original-deadline clock, cumulative response allowances, `mark_completed` once the call returns and a drain on deadline.
 - **What it would discharge / what remains local:**
   - It could deliver a wake-up hint to an in-process waiter that already holds a canonical connection, such as worker discovery of claimable attempts or study inventory changes.
@@ -141,3 +145,5 @@ Research date 2026-10-27. Sources:
   - What happens to a `Subscribe` body under the vendored bounded body wrapper after the operation completes: whether it is cut at the deadline or at the allowance. A small probe would settle it (see README, probe request P1).
   - Whether the patched server's connection-bound session and admission permit stays charged while a stream is idle.
 - **Evidence:** Interface-checked: client code and protocol. Not tested. Proposed.
+
+**Reviewer correction (2026-10-27).** The bounded profile refuses LIVE by design, so probe P1 is moot. Vendored `GrpcEngine::subscribe_live` returns `Error::configuration("Bounded gRPC LIVE subscription is not an admitted canonical operation")` when `self.bounded`. The refusal comes after `ready()` and after issuing the `Subscribe` RPC, so a refused subscription still opens a server stream; refusing before the RPC would be tidier. Architecture §3.3 also requires a concrete qualified consumer for live subscriptions. The comparative review retains polling; its reopen target is a repository-owned subscription class (wake hint only, capability-gated `resume_from`, polling backstop). See the [comparative review](../../reviews/canonical-store-transport.md#cbo-016).

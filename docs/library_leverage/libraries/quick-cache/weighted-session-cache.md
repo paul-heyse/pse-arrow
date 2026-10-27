@@ -27,7 +27,10 @@ IBEX global initialization; and generic Rust pool/guard crates (`r2d2`, `deadpoo
 - **Semantic conditions:** eviction policy is CLOCK-PRO-like (hot/cold/ghost), not strict LRU.
   Weights are read at insertion. Changing the capacity of an `unsync::Cache` means rebuilding
   it (no setter was found in `unsync.rs` at 0.6.24). Eviction happens during `insert`, so
-  native frees run there unless `Lifecycle` defers them.
+  native frees run there unless `Lifecycle` defers them. A caller that must free native objects
+  outside a `RefCell` (or other) borrow therefore has to defer the evicted values through
+  `Lifecycle` request state and drop them after the borrow ends; a plain `insert` under the borrow
+  frees inside it (added 2026-10-27).
 - **Limits and negative results:** a cache does not provide admission before allocation,
   cancellation or quiescence; it owns retention only.
 - **Evidence:** Interface-checked: `unsync.rs` public functions and `Lifecycle` trait.
@@ -57,3 +60,12 @@ IBEX global initialization; and generic Rust pool/guard crates (`r2d2`, `deadpoo
   `inner_session_cache_bounded_by_bytes`).
 - **Evidence:** Interface-checked; application Proposed. Generic pool crates were screened from
   general knowledge, not source-inspected: none counts bytes or integrates cancellation.
+
+**Reviewer correction (2026-10-27).** Ruled out here for the KINSOL cache. Eviction inside
+`insert` would free native objects under the thread-local `RefCell` borrow, and the public
+documentation promises strict LRU, so the comparative review keeps the hand-written cache. This
+is a different ground from the single-flight conclusion in `quick-cache/single-flight.md`. The
+review's consolidation for this CBO is instead a `QuiescentGate` acquisition helper beside the
+already shared `NativeWait`, for the PETSc, SCIP and IBEX loops; the HiGHS scheduler gate, which
+calls blocking `resume_compute` while holding the gate, is left as an unresolved owner decision.
+See the [comparative review](../../reviews/native-solver-integration.md#cbo-030).

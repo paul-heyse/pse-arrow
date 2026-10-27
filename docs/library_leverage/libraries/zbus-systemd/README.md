@@ -64,6 +64,13 @@ date 2026-10-27. Sources: Context7 `/z-galaxy/zbus` (book `client.md`, `blocking
   `PIDFDs` on the user manager.
 - **Evidence:** Interface-checked; application Proposed.
 
+**Reviewer correction (2026-10-27).** The comparative review does not adopt zbus here. The
+supervisor script stays the single owner of unit lifecycle, and the runtime observes the handed-off
+primary in-process through the inode-bound cgroup `populated` flag plus a verified pidfd on the
+main PID, which `ensure-primary` would add to its handoff; that removes the per-heartbeat
+`observe-primary` spawn without a bus client. See the
+[comparative review](../../reviews/host-processes-and-durable-files.md#cbo-020).
+
 ### [CBO-004](../../../library_leverage/codebase/cross-cutting-mechanisms.md#cbo-004) — Child-process and process-group supervision implemented per consumer
 - **Types:** `zbus-systemd/typed-systemd-manager-client`
 - **Realization:** upgrade route as above.
@@ -77,3 +84,8 @@ date 2026-10-27. Sources: Context7 `/z-galaxy/zbus` (book `client.md`, `blocking
 - **Unsettled premises and what would settle them:** compile frequency and latency tolerance (not
   measured); whether delegation is acceptable (if yes, D-Bus is unnecessary for this CBO).
 - **Evidence:** Interface-checked; Proposed.
+
+**Reviewer correction (2026-10-27).** Ruled out here, not unsettled. A per-child transient scope
+created from Rust would have to be registered in the Python-owned host ledger to keep capacity
+release exact, whereas delegated sub-cgroups need no such registration. See the
+[comparative review](../../reviews/host-processes-and-durable-files.md#cbo-004).

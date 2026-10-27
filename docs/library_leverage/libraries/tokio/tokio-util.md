@@ -32,7 +32,10 @@ tokio-util `CHANGELOG.md` (master, fetched 2026-10-27).
 - **Version / build conditions:** no feature needed; 0.7.20 fixes a descendant-notification
   locking issue.
 - **Limits and negative results:** no deadline-carrying token; no "signal and keep awaiting"
-  combinator; no FFI-readable flag.
+  combinator; no FFI-readable flag. Folding a deadline into the token with a timer task merges the
+  stop and timeout outcomes; a compatible alternative (added 2026-10-27) is a typed stop *reason*
+  carried beside the token together with an absolute deadline, which keeps the outcomes distinct
+  without a timer task.
 - **Evidence:** Interface-checked: `cancellation_token.rs` lines for `run_until_cancelled` and
   `RunUntilCancelledFuture::poll` at 0.7.19.
 
@@ -50,6 +53,9 @@ tokio-util `CHANGELOG.md` (master, fetched 2026-10-27).
   (abort cancels an RPC midway; a token stop waits for the next check).
 - **Semantic conditions:** `TaskTracker::wait` cannot be used for "wait until the currently
   tracked tasks finish" while the tracker stays open; abort is not cooperative.
+  `TaskTracker::token()` (0.7.19) counts a non-task activity as tracked until the token is dropped,
+  so an activity that is not a spawned task (for example a continuation authority handed to other
+  code) can hold a drain open without being wrapped in a task (added 2026-10-27).
 - **Version / build conditions:** `rt` feature (declared).
 - **Limits and negative results:** no lease/heartbeat helper; no keyed task registry beyond
   `JoinMap` (`join-map` feature, not declared).
@@ -77,6 +83,13 @@ tokio-util `CHANGELOG.md` (master, fetched 2026-10-27).
   the code keeps distinct (`Cancelled` vs `admission_timeout`, and `source_owns_deadline`).
 - **Evidence:** Interface-checked; Proposed.
 
+**Reviewer correction (2026-10-27).** The comparative review adopts the compatible alternative: a
+typed `StopReason`/`StopSignal` over the existing cancel-plus-deadline pairs, with a
+`drain_on_stop` helper generalizing `join_native`; the two cancellation types stay. There are 19
+production `sleep_until` races in three shapes, and `math::scope_stopped` already exists behind
+`solver-petsc` with an inline copy in `staged.rs`. See the
+[comparative review](../../reviews/execution-lifecycle-and-observation.md#cbo-015).
+
 ### [CBO-015](../../../library_leverage/codebase/execution-lifecycle-and-observation.md#cbo-015) — One `Lease` guard for both renewal sites
 - **Types:** tokio-util/task-supervision.
 - **Conclusion:** fits with conditions — a guard holding a child `CancellationToken` (stop),
@@ -87,6 +100,15 @@ tokio-util `CHANGELOG.md` (master, fetched 2026-10-27).
 - **Semantic gaps:** current `Heartbeat::stop` waits for an in-flight renewal to finish; abort
   would not. Study renewal currently pauses work (see tokio.md).
 - **Evidence:** Interface-checked; Proposed.
+
+**Reviewer correction (2026-10-27).** The comparative review recommends one local `LeaseRenewal`
+owner at `policy.heartbeat`: study renewal uses `lease / 3` and ignores the admitted heartbeat,
+and the two coincide only under the defaults (30 s / 10 s). `TaskTracker` is not needed for a
+runtime-wide native drain here, because the job-permit population already witnesses
+completion-owned release; that is a local fact, not a library limit. If the store lifetime and
+the SDK's drain both move into the repository, `TaskTracker::token()`, `close()` and `wait()` could
+unify them. See the comparative review: [lifecycle](../../reviews/execution-lifecycle-and-observation.md#cbo-015) and
+[store transport](../../reviews/canonical-store-transport.md#cbo-009).
 
 ### [CBO-016](../../../library_leverage/codebase/execution-lifecycle-and-observation.md#cbo-016) (in-process side)
 - **Types:** tokio-util/task-supervision.

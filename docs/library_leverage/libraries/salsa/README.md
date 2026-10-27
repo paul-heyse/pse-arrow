@@ -39,7 +39,11 @@ Research date 2026-10-27. Sources:
   - Labels installed before the query runs can be keyed by `(ingredient_index, Id)`. The
     ingredient index can be learned publicly from the first event's `ingredient_debug_name`
     rather than from `fn_ingredient_`. The `Id` of the input still requires `AsId`.
-- **Version / build conditions:** 0.28.5. `plumbing` carries no compatibility promise.
+- **Version / build conditions:** 0.28.5. `plumbing` carries no compatibility promise. The
+  database revision counter `current_revision` is also exported only under `salsa::plumbing` at
+  0.28.5 (`lib.rs` plumbing re-exports), so a caller that snapshots the revision (for example to
+  date a retention decision) has a further plumbing dependency with no public replacement (added
+  2026-10-27).
 - **Limits and negative results:** there is no public "label this query", tag or user-data
   attachment on events or memos at 0.28.5 or on `master`. The search covered the `lib.rs`
   exports, `key.rs`, `event.rs`, `Database` trait methods, and the commit titles since
@@ -139,6 +143,18 @@ Research date 2026-10-27. Sources:
     (`pse-runtime/src/math/retention.rs`), which this pass did not read in depth, would settle
     this.
 - **Evidence:** Interface-checked; Proposed.
+
+**Reviewer correction (2026-10-27).** The premise of four parallel caches is rejected: the four
+layers are four lifetimes with natural keys. `ScalarCache` is construction-scoped and frozen into
+immutable `ScalarProducts`; `ModelingBodyRetention` is the runtime cross-workspace cache that
+§14.4 requires, with an identity and physical check on every hit; the disk layer is ADR-0212's
+cross-process cache; and `state.sources`/`requests` are Salsa's input-handle registry. Salsa
+persistence is ruled out by §14.4 and ADR-0164, which also answers the unsettled durability
+premise. The plumbing footprint is four `fn_ingredient_` and `AsId` uses plus `current_revision`
+in the workspace retention snapshot; the public-label route would trade a compile-time break for
+a runtime string mapping and still keep two plumbing items, so the review retains the current
+route (an upstream request for public `AsId`/`current_revision` is low value). See the
+[comparative review](../../reviews/mathematics-preparation.md#cbo-022).
 
 ### [CBO-001](../../../library_leverage/codebase/cross-cutting-mechanisms.md#cbo-001) (part) — Salsa `heap_size` beside local `allocation_bound`
 - **Types:** salsa/memo-retention-observation.

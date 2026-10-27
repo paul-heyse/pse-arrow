@@ -39,6 +39,14 @@ not re-verified here.
   kernels pidfds share an anonymous inode and `st_ino` is not an identity. `pidfd` readability
   (`POLLIN`) without `PIDFD_THREAD` means every thread of the group has exited, which is stronger
   than observing the leader's `Z` state.
+  **Namespace hazard (added 2026-10-27):** a persisted pidfs identity that another process
+  re-checks is unsafe across PID namespaces. The checker's `pidfd_open(pid)` resolves the number
+  in its own namespace and can open an unrelated process, whose inode then differs, so the check
+  wrongly concludes that the recorded process is gone. A PID-namespace check stays required
+  beside the inode ID. Where boot- and namespace-bound start ticks are already effectively
+  non-recyclable (a large `pid_max` with a coarse `CLK_TCK` still needs a full PID-space wrap
+  within one tick), the inode ID adds no guarantee as a *persisted key*; its value is as a held
+  handle for the process being acted on.
 - **Version / build conditions:** `pidfd_open` ≥ 5.3; pidfs-backed unique inode IDs on 64-bit
   kernels from the pidfs era (6.9 per kernel history, not re-verified); `PIDFD_GET_INFO` present
   in the host 7.0 UAPI (introduction version not verified here); systemd consumers ≥ 258.
@@ -104,6 +112,15 @@ not re-verified here.
   are at least eight Rust readers of `/proc/<pid>/stat` or `/proc/self/stat`, not "about six
   small parsers" overall.
 
+**Reviewer correction (2026-10-27).** The pidfs inode is not adopted as the persisted identity.
+On this host `pid_max` is 4194304 and `CLK_TCK` is 100, so the (boot, PID namespace, PID, start
+tick) identity is already effectively non-recyclable, and a persisted inode ID would add the
+namespace hazard above. The comparative review keeps that identity, uses pidfds where a process is
+acted on, and consolidates the Rust parsers on a procfs-core reader instead. Python already has a
+single leaf (`process_observation.py`, used by 8 modules), and `lifecycle-owner.json` carries the
+start-tick identity across languages (Python writes it; Rust `require_initializer` reads it). See
+the [comparative review](../../reviews/host-processes-and-durable-files.md#cbo-019).
+
 ### [CBO-004](../../../library_leverage/codebase/cross-cutting-mechanisms.md#cbo-004) — Child-process and process-group supervision implemented per consumer
 - **Types:** `linux-pidfd/spawn-into-cgroup`, `linux-pidfd/handle-based-process-identity`
 - **Realization:** host kernel 7.0, glibc 2.39; FFI through `libc` 0.2.190 or `pre_exec` with std.
@@ -123,3 +140,12 @@ not re-verified here.
 - **Unsettled premises and what would settle them:** whether every runtime process that compiles
   or launches children runs inside a delegated unit (deployment/placement owner); probe request P1.
 - **Evidence:** Interface-checked; application Proposed.
+
+**Reviewer correction (2026-10-27).** Probe P1 showed that a pre-exec write of `0` to a leaf's
+`cgroup.procs` works in a `Delegate=yes` user scope with the supervisor in the scope root, and that
+`cgroup.kill` then drains `setsid` and double-forked descendants (*Measured*; details and
+conditions under [linux-cgroup-v2](../linux-cgroup-v2/README.md)). `CLONE_INTO_CGROUP` was not
+exercised. `native_child` needs no group drain at all, since it runs the repository's own binary
+with the interpreted evaluator, and the two group-drain sites differ deliberately in failure
+policy (park versus refuse after 3 s). See the
+[comparative review](../../reviews/host-processes-and-durable-files.md#cbo-004).

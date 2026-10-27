@@ -101,6 +101,8 @@ cap-tempfile 4.0.3 as consumers showing the composition; Linux man-pages 6.19 `p
   one-line probe would settle).
 - **Evidence:** Interface-checked; application Proposed.
 
+**Reviewer correction (2026-10-27).** The repository already uses the `O_TMPFILE` + `linkat` form, in the offline helper's `anonymous_copy_file`, so three publication routes coexist (link plus unlink, `O_TMPFILE` + `linkat`, and tempfile's `persist_noclobber`). `renameat_with(NOREPLACE)` keeps the deterministic, resumable `.pending`/`.incomplete` staging and removes the two-name state; legacy two-name aliases still need their settlement paths (`settle_published_alias` and offline `reconcile`) until they are shown absent. The comparative review recommends one small publication helper on `renameat_with(.., RenameFlags::NOREPLACE)` with an explicit `Durable`/`Visible` level, replacing `hard_link` + `remove_file` at 6 sites while keeping deterministic staging and the offline `O_TMPFILE` route. See the [comparative review](../../reviews/host-processes-and-durable-files.md#cbo-003).
+
 ### [CBO-004](../../../library_leverage/codebase/cross-cutting-mechanisms.md#cbo-004) — Child-process and process-group supervision implemented per consumer
 - **Types:** `rustix/pidfd-process-handles`
 - **Realization:** installed pin 1.1.5 (already used by both group-drain sites).

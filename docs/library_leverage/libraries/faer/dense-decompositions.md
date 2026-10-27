@@ -87,6 +87,13 @@ Sources:
     settle observed variation. That probe is not authorized here.
 - **Evidence:** Interface-checked. The application is Proposed.
 
+**Reviewer correction (2026-10-27).** faer already feeds an admission *decision* (the PSD
+eigenvalue sign from `self_adjoint_evd`) and the Gauss–Newton covariance (from `svd`), so the
+existing propagation guarantee is already per CPU class; a covariance square root through faer
+would not lower it. The scalar FMA-free loops fix summation order, not portability. The
+comparative review retains first-order propagation in any case: IDAES's reference is first-order
+and §19.8 scopes propagation as first-order. See the [comparative review](../../reviews/numerical-workflows.md#cbo-034).
+
 ### [CBO-035](../../../library_leverage/codebase/numerical-workflows.md#cbo-035) — Separate dense-algebra universes
 - **Types:** `faer/dense-covariance-square-root`, used as the backend condition.
 - **Realization:** Installed.

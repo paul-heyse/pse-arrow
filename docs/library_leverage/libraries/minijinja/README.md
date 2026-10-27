@@ -80,3 +80,5 @@ crates.io API.
     one are integer constants. The exception is one single-quoted interpretation literal
     plus generated guard blocks. Integer-only substitution needs no escaper.
 - **Evidence:** Interface-checked (docs); application Proposed.
+
+**Reviewer correction (2026-10-27).** The Python rewrites the templates would address are two `.replace` rewrites of emitted Python (`local.replace(&format!("s.{name}"), name)` and `.replace("v.", "")` in `codegen/python/mod.rs`) plus the `from typing import …` line surgery in `codegen/documents.rs`. The comparative review removes them by local generator parameterization instead: emitters receive their qualifier context, the document emitter tracks the typing names it uses, and a check asserts that no `@X@` marker remains. It adopts no template engine; on the SurrealQL side it rejects `DEFINE PARAM` and keeps the placeholders, which are already parse-validated. See the [comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-046).

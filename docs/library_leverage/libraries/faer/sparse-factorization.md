@@ -35,7 +35,27 @@ was not consulted for this narrow source question.
   Cholesky/LDLᵀ and QR symbolic objects expose `len_val()` (exact factor size from symbolic
   analysis). The `operator::BiPrecond` trait (apply and transpose-apply) is a natural host for
   wrapping an LU as an inverse operator, but it ships no estimator.
+- **Structural fill bound (added 2026-10-27):** public lower-level APIs
+  (`sparse::linalg::colamd::order`, `qr::column_counts_ata`, `SymbolicLu::col_perm`) allow a
+  George–Ng structural upper bound on LU fill (the fill of the Cholesky factor of AᵀA under the
+  column order). That bound does not cover the supernodal path's relaxed-supernode padding or the
+  `try_reserve` growth, so it is not a complete storage bound; a `SymbolicLu` storage-bound API
+  would be an upstream addition.
 - **Evidence:** Interface-checked: source files above; crates.io/GitHub version listings.
+
+### faer/runtime-simd-dispatch
+- **Need it serves:** knowing whether faer's kernels meet a fused-multiply-add-free or
+  cross-CPU bit-reproducibility premise.
+- **Mechanisms:** faer 0.24.4 declares `pulp` with `features = ["x86-v3"]` unconditionally, so
+  `default-features = false` on faer does not remove it. pulp selects its V3 path at run time
+  (`Arch::new()`), and that path uses `_mm256_fmadd_pd`. Dense kernels, including the `matmul`
+  that supernodal sparse LU calls, dispatch through it.
+- **Semantic conditions:** results can differ between CPU classes with and without FMA under the
+  same build. A compile-time rule against `target-cpu=native` does not reach this route.
+- **Residual caller obligations:** record the dispatched ISA level, force scalar kernels (for
+  example by patching pulp's dispatch), or seek an upstream override; each has a cost.
+- **Evidence:** Interface-checked (faer 0.24.4 `Cargo.toml`, pulp 0.22.3 `src/x86/v3.rs`), 2026-10-27.
+  Not run on a host without FMA.
 
 ## Current applicability
 
@@ -50,9 +70,26 @@ was not consulted for this narrow source question.
   arclength tangent) are a local consolidation question; no faer facility merges them.
 - **Evidence:** Interface-checked; application Proposed.
 
+**Reviewer correction (2026-10-27).** There are three faer LU owners, not two: Diffsol `FaerLu`
+is the third. Diffsol `FaerLu` maps every faer failure to an untyped `LinearSolverError::Other`,
+which the integrator reports as numerical, so `FaerError::OutOfMemory` is misclassified, and its
+scratch is never compared with an allowance. The comparative review recommends one crate-local
+faer-LU helper for the three owners (scratch admission, `LuError`/`FaerError` classification, a
+finite-solve check and one shared `opaque_allowance(n)`) and rejects composing FERAL's estimator
+over faer. See the [comparative review](../../reviews/native-solver-integration.md#cbo-026).
+
+**Reviewer correction (2026-10-27).** faer's run-time FMA dispatch (type above) contradicts the
+"no FMA" rule the first review pass listed for these owners; the review records it as remedy-open.
+See the [comparative review](../../reviews/native-solver-integration.md#faer-kernels-and-the-fma-free-premise).
+
 ### [CBO-001](../../../library_leverage/codebase/cross-cutting-mechanisms.md#cbo-001) — Prepaid accounting (faer part)
 - **Types:** faer/sparse-lu-scratch-and-reuse
 - **Conclusion:** fits with conditions — the scratch prediction is real and already used. Factor
   storage has no prediction, so a conservative caller bound (or post-hoc observation) remains
   necessary for LU. For Cholesky/LDLᵀ/QR, `len_val()` would discharge it.
 - **Evidence:** Interface-checked; application Proposed.
+
+**Reviewer correction (2026-10-27).** The structure-blind complete bounds (n²·64, n²·32) stay
+unresolved pending a measurement; the George–Ng structural bound (see the type) is not complete,
+so a tighter bound would need an upstream `SymbolicLu` storage-bound API. See the
+[comparative review](../../reviews/native-solver-integration.md#cbo-001-native).

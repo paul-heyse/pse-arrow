@@ -45,6 +45,45 @@ cgroup directory.
   may also manage them. Not usable in environments where the process is not in a writable cgroup.
 - **Evidence:** Interface-checked: kernel cgroup-v2 documentation text quoted above; systemd v255
   delegation document; host file listing. No probe.
+- **Manager conditions (added 2026-10-27):** systemd forbids writes to the attributes of a cgroup
+  it created and did not delegate ("Never *write* to any of the attributes of a cgroup systemd
+  created for you", v255 `CGROUP_DELEGATION`), so an undelegated unit is killed through the
+  manager. `Delegate=` applies to scopes and services only. The no-internal-process guidance
+  applies inside a delegated subtree; `DelegateSubgroup=` (services, systemd ≥ 254) moves the main
+  process into a subgroup for that reason. Delegation is not self-evident from the cgroup:
+  - The `user.delegate`/`trusted.delegate` xattr (systemd ≥ 251, kernel ≥ 5.6) is applied only by
+    the *system* manager. In systemd v255 `src/core/cgroup.c`, `cgroup_xattr_apply()` returns
+    early for a non-system manager before the delegate, invocation-ID and survive xattrs, so units
+    under a user manager never carry `user.delegate` (the same guard is on `main` as of
+    2026-10-27).
+  - Kernel permission does not show it either: a user scope's directory is owned by the user
+    with or without `Delegate=yes`, so `mkdir` and `rmdir` of a leaf succeed in an undelegated
+    scope. Nothing enforces the manager's contract there.
+  - A consumer therefore needs an explicit delegation signal (its own launch arguments, or the
+    manager's `Delegate` unit property).
+- **Measured behaviour in a delegated user scope (added 2026-10-27):** kernel 7.0, systemd 255,
+  `systemd-run --user --scope -p Delegate=yes`, one run per case
+  ([probe](../../../design_review/evidence/library-leverage-delegated-cgroup-containment-2026-10-27/README.md)):
+  - With the supervisor in the scope root and `cgroup.subtree_control` empty, a controller-free
+    leaf can be created and a forked child moved into it before exec by writing `0` to
+    `leaf/cgroup.procs`; the kernel does not refuse it.
+  - `cgroup.kill` on the leaf killed the child, a `setsid` grandchild and a double-forked daemon
+    reparented to the user manager.
+  - With `POLLPRI` armed before the kill, `populated 0` arrived after about 13 ms, while the direct
+    child was still an unreaped zombie: zombies do not hold `populated`, but keep their `pids`
+    charge until reaped. `rmdir` gives `EBUSY` while populated and succeeds after the reap.
+  - Leaf usage is charged to and enforced by the scope's limits (`TasksMax`, `CPUQuota`,
+    `MemoryMax` with an OOM kill of the leaf child).
+  - With a process in the scope root, enabling `+memory` in `subtree_control` gives `EBUSY`;
+    `+pids` and `+cpu` are accepted (threaded-capable). Per-leaf memory limits are therefore
+    unavailable while the supervisor stays in the root.
+  - `systemctl --user stop` of a scope with a populated leaf killed every member and removed both
+    cgroups.
+  - A user scope without the `cpuset` controller does not enforce `AllowedCPUs=`, and a cgroup move
+    leaves the inherited CPU affinity unchanged.
+  - Not run: with the default `OOMPolicy=stop`, a leaf OOM kill would stop the whole scope,
+    supervisor included; the probe used `OOMPolicy=continue`. `CLONE_INTO_CGROUP` and fork races
+    during `cgroup.kill` were not exercised.
 
 ### linux-cgroup-v2/limit-readback
 - **Need it serves:** verify that a placement's effective memory and CPU limits admit a workload
@@ -110,6 +149,17 @@ cgroup directory.
   decision on delegating the worker scope.
 - **Evidence:** Interface-checked; application Proposed.
 
+**Reviewer correction (2026-10-27).** Probe P1 has run and the mechanism works on this host in a
+`Delegate=yes` user scope (*Measured*, see the type above). The applicability condition is to keep
+each supervisor in its scope root and put children in leaves with no controllers enabled, which
+also preserves the placement walk that reads the process's own `memory.max`. Because the user
+manager sets no `user.delegate` xattr and kernel permission does not distinguish a delegated
+scope, delegated-leaf containment must be an explicitly signalled mode; per-leaf memory limits are
+unavailable in that layout, and a leaf OOM kill under the default `OOMPolicy=stop` would stop the
+whole scope. The comparative review recommends one shared supervised-child type first and treats
+containment as the next decision, pending the maintainer's answer on bare-context support. See the
+[comparative review](../../reviews/host-processes-and-durable-files.md#cbo-004).
+
 ### [CBO-019](../../../library_leverage/codebase/execution-lifecycle-and-observation.md#cbo-019) — Linux process, cgroup and pressure facts parsed by hand in Rust and Python
 - **Types:** `linux-cgroup-v2/limit-readback`, `linux-cgroup-v2/psi-triggers`
 - **Realization:** native files; no library.
@@ -139,3 +189,11 @@ cgroup directory.
 - **Unsettled premises and what would settle them:** whether `POLLPRI` on `cgroup.events` fires
   for the user's scopes on this host (probe P1 covers it).
 - **Evidence:** Interface-checked; application Proposed.
+
+**Reviewer correction (2026-10-27).** Probe P1 settled the premise: `POLLPRI` on a leaf's
+`cgroup.events` delivered one wakeup with `populated 0` in a user scope on this host (*Measured*).
+The comparative review nevertheless retains the current admission paths, which already combine
+manager facts, inode-bound cgroup evidence and the ledger; the event wait is relevant to the
+primary-receiver observation instead
+([CBO-020](../../reviews/host-processes-and-durable-files.md#cbo-020)). See the
+[comparative review](../../reviews/host-processes-and-durable-files.md#cbo-048).

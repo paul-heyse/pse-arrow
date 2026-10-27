@@ -33,6 +33,12 @@ Research date 2026-10-27. Sources: installed `vendor/suitesparse-sys/vendor/KLU/
   refuse an allocation (KLU reports out-of-memory), but cannot attribute it to a particular
   concurrent owner without thread-local context, and they fire during, not before, factorization.
 - **Limits and negative results:** no before-allocation upper bound for `klu_factor`.
+- **Derivable complete bound (added 2026-10-27):** growth is `newlusize = memgrow·lusize + 2n + 1`
+  through `KLU_realloc`, with the old and new arrays transiently live and no dense cap
+  (`klu_kernel.c`). Because `klu_l_symbolic` exposes `nblocks`, `R`, `maxblock` and `nzoff`, a
+  caller can derive a complete bound as "dense per BTF diagonal block, plus the off-diagonal
+  entries, plus the caller-set growth parameters". For matrices with one large strongly connected
+  component (for example recycle flowsheets) that bound degenerates toward n².
 - **Evidence:** Interface-checked: `klu.h` field comments; `klu_factor.c` (lsize formula),
   `klu_kernel.c` (growth); `SuiteSparse_config.h` (malloc setters).
 
@@ -52,6 +58,13 @@ Research date 2026-10-27. Sources: installed `vendor/suitesparse-sys/vendor/KLU/
   not meet "one deployment pool identity" without thread-local plumbing.
 - **Evidence:** Interface-checked; application Proposed.
 
+**Reviewer correction (2026-10-27).** The comparative review classifies this as the
+reuse-time-exactness kind of size information: bound the first factor, then charge refreshes
+exactly. The complete first-factor bound is derivable from the symbolic BTF structure (see the
+type), but degenerates toward n² for one large strongly connected block, so the current
+structure-blind complete bounds stay unresolved pending a measurement. See the
+[comparative review](../../reviews/native-solver-integration.md#cbo-001-native).
+
 ### [CBO-026](../../../library_leverage/codebase/native-solver-integration.md#cbo-026) — Sparse factorization wrappers (KLU part)
 - **Types:** klu/symbolic-estimates-and-measured-usage
 - **Conclusion:** fits with conditions — KLU stays required by the SUNDIALS fixed-pattern
@@ -59,3 +72,11 @@ Research date 2026-10-27. Sources: installed `vendor/suitesparse-sys/vendor/KLU/
   `klu_condest` for KLU-owned factors or drive FERAL's `HagerHighamOperator` over
   `klu_l_solve`/`klu_l_tsolve` (see `feral.md`).
 - **Evidence:** Interface-checked; application Proposed.
+
+**Reviewer correction (2026-10-27).** The KLU `rcond`/`condest` use inside Diffsol is a
+refactor-acceptance policy (the bundled SUNDIALS 7.1.1 KLU setup policy), not a diagnostic
+estimator, so there is no second estimator to merge. The comparative review keeps it and rejects
+running FERAL's estimator over KLU. It also records that the raw `Klu` linear solver maps
+`KLU_OUT_OF_MEMORY` to an untyped failure that the integrator reports as numerical, which a typed
+terminal-cause latch would fix. See the comparative review: [CBO-026](../../reviews/native-solver-integration.md#cbo-026) and
+[CBO-027](../../reviews/native-solver-integration.md#cbo-027).

@@ -143,3 +143,5 @@ Research date 2026-10-27. Sources: installed source `winnow-1.0.4/src/stream/tok
     it.
   - Whether `ContextError` reproduces current "expected X" messages exactly.
 - **Evidence:** Interface-checked (installed source as above); application Proposed.
+
+**Reviewer correction (2026-10-27).** The comparative review retains the current parsers: most of the parser is context-sensitive domain logic, a combinator library only moves the cursor, and no tool derives the printer. It suggests two optional local hardenings instead (exhaustive walker arms and a generator variant witness). See the [comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-037).

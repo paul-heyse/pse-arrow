@@ -58,3 +58,9 @@ was not re-read at 4.4.1.
   OTLP/HTTP instead. If it can, neither HTTP/2 library is needed. See the probe request in
   this cluster's README.
 - **Evidence:** Interface-checked (PyPI); application Proposed.
+
+**Reviewer correction (2026-10-27).** The OTLP/HTTP switch premise is answered no and its probe is withdrawn: at tag `v3.3.4` the
+SurrealDB server builds its span exporter with `with_tonic()` and compiles `opentelemetry-otlp`
+0.31.1 without `http-proto`, and no protocol variable selects HTTP (see
+`surrealdb-server/telemetry-export-transport` in the [SurrealDB server tooling](../surrealdb/server-tooling.md)
+account). The repository already points the server at the collector's `otlp_grpc_endpoint`. The comparative review retains the hand sink as the minimal fixed peer rather than adopting `h2`. See the [comparative review](../../reviews/developer-tooling.md#cbo-051).

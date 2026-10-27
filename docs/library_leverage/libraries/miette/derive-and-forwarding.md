@@ -60,3 +60,5 @@ Research date 2026-10-27. Sources: miette-derive 7.6.0 source (`diagnostic_arg.r
   code (`DiagnosticCode` `Display`) is acceptable as the miette code everywhere (it is what the macro
   emits today).
 - **Evidence:** Interface-checked. Application Proposed.
+
+**Reviewer correction (2026-10-27).** The premise is inverted. `impl_diagnostic!` projects miette's `code()` from the typed `DiagnosticCode`, so it is already the single authority, and the derive sites are where drift arises: `pse-operations/src/canonical.rs` declares `code(runtime::infrastructure)` while its typed impl maps `Codec(_)` to `ValidationInvariant`, and the Python inspection path prints miette's `[{code}]` while `report.code` carries the typed code. 5 of the 10 derive files have no typed impl, and `Withheld` carries a code that is not in the vocabulary. The comparative review keeps the macro, makes its clauses optional, migrates the 10 derive sites onto it and gives typed codes to (or classifies) the rest; no proc-macro crate is recommended. See the [comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-045).

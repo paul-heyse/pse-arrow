@@ -65,6 +65,7 @@ legitimately custom:
   - Could the delta shrink to a smaller extension seam?
   - Could the delta be contributed upstream?
 - **Library assessment correction (2026-10-27).** The 35,374-line patch is byte-preserving and mostly whitespace and reflow. The substantive delta is about 2.0k added SDK source lines, about 1.2k engine-API lines, and about 1.5k test lines. No SurrealDB release after 3.3.4 exists as of 2026-10-27. See [surrealdb](../libraries/surrealdb/README.md) and [LOP-X004](../assessment-patterns.md#lop-x004).
+- **Comparative review correction (2026-10-27).** "`canonical_execution.rs` polls `RequestContext::was_dispatched`" refers to a test (`canonical_execution_lookup_queue_consumes_original_clock`), not production. At `3e9a2525b` the whitespace-insensitive delta is SDK `src` +2,834 / −477 (including 395 extracted wire-schema lines, the 316-line test-support module and about 60 lines of test edits) and engine-API +1,196 / −153 (including the new 643-line `request.rs`); lines run up to 530 characters, so line counts understate the logic. SurrealKit is built against the vendored SDK but runs the unbounded upstream-transport profile, so its dependence on the edit is incidental. A later probe of a minimal client on `surrealdb-protocol` 0.13.1 and `surrealdb-types` 3.3.4 reached 37/37 parity with the SDK path for the production script shapes once four SDK rules were reproduced (script trim, statement compaction, `take` conversion and error rebuild), in about 350 transcribed lines; the error rebuild depends on the `#[doc(hidden)]` `Error::from_wire` (*Measured*, one in-memory fixture run; [evidence](../../design_review/evidence/library-leverage-surrealdb-direct-client-2026-10-27/README.md)). See the [comparative review](../reviews/canonical-store-transport.md#cbo-009).
 
 <a id="cbo-010"></a>
 
@@ -102,6 +103,7 @@ legitimately custom:
   - Does SurrealQL offer a parameterised transaction prelude, such as a stored function or a
     `DEFINE` construct, that keeps the guard inside one declaration?
 - **Library assessment correction (2026-10-27).** There are 84 non-test `BEGIN;` lines. Of these, 61 already call a stored `fn::` guard and 60 pass `$pse_rpc_expires_at`. Fifty-one are exactly `BEGIN; RETURN fn::…; COMMIT;`, so the textual remainder is about 20–25 multi-statement preludes. Capture-busy retries do not count toward the attempt cap, and a fourth backoff formula exists in `canonical.rs` initialization.
+- **Comparative review correction (2026-10-27).** Retry: there are ten retry loops with five pacing forms, not four of each. The additional loops are `begin_stage_inner` (no jitter), `cleanup_stage_query`, two in `canonical_retention.rs` (`yield_now`) and `acquire_source_stage` (fixed 20 ms). The `conflict()` predicate is duplicated in two modules, and three loops (`activate_source_stage`, `admit_product`, `acquire_source_stage`) interleave receipt settlement between attempts. Preludes: the `BEGIN;` census misses most of the residue, which is composition, not guard logic. The protected-read envelope is built from `PROTECTED_BEGIN`, with 29 references, about 20 pin re-check postludes in two variants, 29 four-variable protection bind sets, 65 `num_statements().saturating_sub(2)` result-slot computations and three near-identical project-authority wrappers (`project_query`, `context_query`, `research_query`). Pure single-call scripts number 48 by the reviewer's regex, not 51. See the comparative review: [retry policy](../reviews/execution-lifecycle-and-observation.md#cbo-010) and [SurrealQL side](../reviews/canonical-store-transport.md#cbo-010).
 
 <a id="cbo-011"></a>
 
@@ -137,6 +139,7 @@ legitimately custom:
 - **Research questions.**
   - Can a library single-flight retain its producer through waiter cancellation?
   - Does `LimitStore` compose with the nested-scope re-entrancy that `SharedIo` implements?
+- **Comparative review correction (2026-10-27).** `pse-engine/src/cache_service/flight.rs` has no consumer. The "cache service" consumer does not exist; the production flights live in `MathService` and `physical_cache.rs`. See the [comparative review](../reviews/execution-lifecycle-and-observation.md#cbo-011).
 
 <a id="cbo-012"></a>
 

@@ -146,6 +146,8 @@ tokio `CHANGELOG.md` (master, fetched 2026-10-27, entries 1.54.0 and 1.54.1).
 - **Evidence:** Interface-checked (`canonical.rs` `ProtectionOwner`, `canonical_results.rs`
   `ResultReadDrain`, test loops in `canonical_result_retention.rs`, `canonical_lifecycle.rs`); Proposed.
 
+**Reviewer correction (2026-10-27).** The unsettled premise is answered: every production wait in scope is cross-process, and in-process wake types already exist where producer and waiter share a process. The comparative review retains the current waits, with one optional fix: race `wait_study_inventory`'s sleep with cancellation. See the [comparative review](../../reviews/execution-lifecycle-and-observation.md#cbo-016).
+
 ### [CBO-018](../../../library_leverage/codebase/execution-lifecycle-and-observation.md#cbo-018) — Two executor threads per native job to wait for a join
 - **Types:** tokio/fd-readiness-await; linux-pidfd/thread-exit-readiness (see linux-pidfd.md).
 - **Realization:** installed 1.53.2; `AsyncFd` needs `net`, present in the unified feature graph
@@ -156,6 +158,13 @@ tokio `CHANGELOG.md` (master, fetched 2026-10-27, entries 1.54.0 and 1.54.1).
   `spawn_blocking(join)`, panic-to-typed-error mapping, the final (non-blocking) `join()`.
 - **Semantic gaps:** must still witness all thread-exit destructors; see linux-pidfd.md.
 - **Evidence:** Interface-checked; Proposed. Probe requested (README).
+
+**Reviewer correction (2026-10-27).** Deferred rather than adopted: the review keeps
+`spawn_blocking(join)` inside one native-thread owner and swaps to `AsyncFd` readiness only if
+blocking-pool pressure is measured. The workspace tokio pin enables `rt-multi-thread`, `sync`,
+`macros`, `time`, `process` and `io-util` but not `net`, so adoption would declare `net`, which a
+process-pidfd or `cgroup.events` wait would share. See the
+[comparative review](../../reviews/execution-lifecycle-and-observation.md#cbo-018).
 
 ### [CBO-014](../../../library_leverage/codebase/execution-lifecycle-and-observation.md#cbo-014) — Execution context re-established by hand
 - **Types:** tokio/task-local-context (negative).

@@ -121,6 +121,16 @@ Research date 2026-10-27. Sources: installed `arrow-data-59.3.0/src/data.rs` (`l
   acceptable where exactness is not pinned (a policy choice).
 - **Evidence:** Interface-checked; application Proposed.
 
+**Reviewer correction (2026-10-27).** The main result-path over-admission is decode granularity,
+not width arithmetic: `ResultBlockDecode::access_block` reserves `payload_bytes×4 + schema×4 +
+64 KiB` per batch decode and the cached reader holds `payload_bytes×2 + …`, where for sealed
+placement `payload_bytes` is the whole file. With caller-owned block reads (`FileDecoder`, see
+`arrow/ipc.md`) the charge becomes the exact block span, and selection charges become an exact
+`count_set_bits`. The repository's IPC writer grant of `byte_limit × 3`, commented "IpcDataGenerator
+packs/copies the body", was derived against 58.x copying; it is still conservative at 59.x, but its
+stated derivation is stale (see `arrow-ipc/encoded-size-without-body-copy`). See the
+[comparative review](../../reviews/result-data-and-prepaid-accounting.md#cbo-001).
+
 ### [CBO-005](../../../library_leverage/codebase/result-data-paths.md#cbo-005) — sub-question "Does `get_slice_memory_size` now account for nested slices?"
 - **Conclusion:** no at 59.3.0 and not on `main` as of 2026-10-27 (children of list-like types are
   counted whole); `Struct` is correct.

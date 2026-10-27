@@ -40,6 +40,15 @@ crates.io API.
     `HashMap`/`HashSet` are not (random iteration order per process).
   - Field order is declaration order; no field names are written (renaming a field does not change
     bytes, reordering does).
+  - **Stale blobs can decode into the wrong meaning (added 2026-10-27).** Decoding is positional, so
+    if two fields of the same type are swapped in the reading type but the blob was not
+    regenerated, `from_bytes` succeeds and returns the values in each other's fields. Mitigate with
+    a shape digest in a blob header that the generator writes and the reader recomputes from the
+    same type description (both sides derived, not hand-maintained), or accept that regeneration
+    and equivalence tests own staleness.
+  - A JSON blob is not a drop-in alternative for borrowed `&'static str` fields: serde can borrow a
+    `&str` only from an unescaped JSON string, so escaped strings need `Cow` or leaking (well-known
+    serde behaviour; not re-verified here).
 - **Version / build conditions:** pure Rust, `alloc`/`use-std` features; no build script. Serde 1.x.
 - **Limits and negative results:** no schema evolution (no optional/unknown-field tolerance);
   no partial access — the whole value is decoded; does not avoid allocation of owned containers.
@@ -88,3 +97,17 @@ crates.io API.
   cluster README); whether every transitive member's serde impl avoids `deserialize_any`.
 - **Evidence:** Interface-checked (postcard 1.1.3 source; arrow-schema 59.3.0 serde derive and
   postcard tests; product struct definitions at `c2f8b485a`). Application Proposed.
+
+**Reviewer correction (2026-10-27).** The products are not "serialized three ways": each
+sub-product is encoded once, by what its type supports. The JSONL is a deduplicated canonical-JSON
+pool of serde-capable leaves (Arrow `Field`, references, description values; 4,576 lines and 6,548
+decodes), and its `HashMap` ordering is already solved by a canonical-JSON writer, so the
+Field-metadata prerequisite above applies only to members serialized through postcard natively
+(for example nested `Field` metadata inside `DataType` values). Probe P1 has run: a model field
+added together with its emitter breaks the generator's own build before regeneration (the
+generator re-exports the schema crate, which compiles the generated module unconditionally), and
+the generated module is about 72% of that crate's full build, recompiled whenever its line
+numbers shift (*Tested* and *Measured*, [evidence](../../../design_review/evidence/library-leverage-registry-build-coupling-2026-10-27/README.md)). The comparative review
+therefore recommends this route, with `Field` and description values carried as canonical-JSON
+text, IPC batches unchanged and a derived shape-digest guard, amending the proposed ADR-0210 (which
+records 304 ms versus 30 ms, fixture-bounded). See the [comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-040).

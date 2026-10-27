@@ -67,3 +67,5 @@ sys/kernel/random.rs}`; `rustix-linux-procfs-0.1.1/src/lib.rs`.
 - **Unsettled premises and what would settle them:** whether removing roughly a dozen small parsers
   justifies a dependency (comparative review; the CBO itself lists low priority).
 - **Evidence:** Interface-checked; application Proposed.
+
+**Reviewer correction (2026-10-27).** The comparative review recommends this route as a minor change: one Rust process-fact reader on procfs-core 0.18 (`default-features = false`) in `pse-diagnostics` replaces about 12 hand parsers. The start-tick identity rule is retained rather than replaced by a pidfs inode (see `linux-pidfd`), and Python already has a single leaf (`process_observation.py`, used by 8 modules), so the two-language duplication is narrower than the CBO states. `lifecycle-owner.json` carries the start-tick identity across languages, which the reader must keep byte-compatible. See the [comparative review](../../reviews/host-processes-and-durable-files.md#cbo-019).

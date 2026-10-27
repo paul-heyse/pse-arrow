@@ -62,6 +62,23 @@ Sources:
   `exp`/`log`/`sin` is not a sound substitute for certified forward interval evaluation.
 - **Evidence:** Interface-checked (doc comments in source).
 
+### numerica/rational-to-binary64-conversion
+- **Need it serves:** rounding an exact rational (a root bracket end, a coefficient) to the nearest
+  binary64.
+- **Recognizable code shapes:** `Rational::to_f64()` calls at the boundary between exact and
+  floating-point arithmetic, often followed by comparisons of the converted ends.
+- **Mechanisms and APIs:** `Rational::to_f64` in `domains/rational.rs`. When numerator and
+  denominator fit in i64 or i128 it computes `n as f64 / d as f64`.
+- **Semantic conditions:** that path rounds twice once either part exceeds 2^53, so the result is
+  not always the correctly rounded value. Two rationals that convert to the same double do not
+  certify that a value between them rounds to that double. A correctly rounded conversion needs an
+  exact method (scaled integer division with round-half-even, or an exact sign test at the
+  candidate's rounding half-way points).
+- **Version / build conditions:** 3.0.1.
+- **Evidence:** Interface-checked (source), plus a Python emulation of the code path under Rust's
+  documented round-to-nearest-even casts that misrounded 71,124 of 200,000 bisection midpoints with
+  non-dyadic denominators (comparative review, 2026-10-27). Not run against Numerica itself.
+
 ## Current applicability
 
 ### [CBO-025](../../../library_leverage/codebase/mathematics-and-compilation.md#cbo-025) — Exact rational LDLᵀ
@@ -79,6 +96,11 @@ Sources:
   - no budget or cancellation hook.
 - **Unsettled premises and what would settle them:** none material.
 - **Evidence:** Interface-checked.
+
+**Reviewer correction (2026-10-27).** The comparative review's CBO-025 target converts exactly
+rather than through `Rational::to_f64` (type above); the current cubic ladder and coefficient
+conversion use the double-rounding path. See the
+[comparative review](../../reviews/mathematics-preparation.md#cbo-025).
 
 ### [CBO-024](../../../library_leverage/codebase/mathematics-and-compilation.md#cbo-024) — Interval views (secondary)
 - **Types:** numerica/ball-enclosures.

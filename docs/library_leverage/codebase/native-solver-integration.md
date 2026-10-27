@@ -74,6 +74,7 @@ The following are legitimately custom:
   - Does a newer faer expose a condition estimate or storage size?
   - Could one `SparseFactor` abstraction carry symbolic reuse and scratch admission?
 - **Library assessment correction (2026-10-27).** The square-response `matrix_norms` computes backward-error norms, not a condition estimate, so "different estimators for one Jacobian" is partly a category error. FERAL publicly exports `HagerHighamOperator` / `hager_higham_inverse_norm_1`, so one estimator could run over faer and KLU solves. See [feral](../libraries/feral/README.md).
+- **Comparative review correction (2026-10-27).** There are three faer LU owners, not two: Diffsol `FaerLu` in `dynamics/linear.rs` is the third. The KLU `rcond`/`condest` in Diffsol is a refactor-acceptance policy (the bundled SUNDIALS 7.1.1 KLU setup policy), not a diagnostic estimator, so each question already has one estimator. The allowance formula `n²·64 + 512n + 4096` is duplicated verbatim in `square_response/actions.rs` (`SparseFactor::allowance`) and `kkt/path/arclength.rs` (`assemble`). Diffsol `FaerLu` maps every faer failure to `LinearSolverError::Other(String)`, which `integrator::native` reports as numerical, so allocation failures are misclassified; the raw `Klu` does the same with `KLU_OUT_OF_MEMORY`. See the [comparative review](../reviews/native-solver-integration.md#cbo-026).
 
 <a id="cbo-027"></a>
 
@@ -113,6 +114,7 @@ The following are legitimately custom:
     metadata?
   - Is an upstream issue or PR viable?
 - **Library assessment correction (2026-10-27).** The cited `faer/lu.rs` is the dense LU and does not panic. The `expect` panics are in `faer/sparse_lu.rs` and `suitesparse/klu.rs`. Only the reset-index setter is crate-private: the getter, `Checkpointing::new` and the Hermite interpolator are public, and the local loop exists for checkpoint limits, cancellation, the step budget and samples. The expected deletion is therefore smaller than "about 800 lines". `set_linearisation` remains infallible through Diffsol 0.18.0. Open upstream defect #419 is avoided by the local per-jump re-initialization. See [diffsol](../libraries/diffsol/README.md).
+- **Comparative review correction (2026-10-27).** The `adjoint.rs` module doc still gives the crate-private reset setter as the reason for local checkpoints. The real reasons are the limit, cancellation, budgets and samples; roots on the forward pass are refused. See the [comparative review](../reviews/native-solver-integration.md#cbo-027).
 
 <a id="cbo-028"></a>
 
@@ -152,6 +154,7 @@ The following are legitimately custom:
   - Do Uno commits after `805a27ec` change QP warm start or L-BFGS handling with HiGHS?
   - Does another Uno QP route avoid materialization?
 - **Library assessment correction (2026-10-27).** The SUNDIALS revisit trigger has fired: the IDAS quadrature-initialization fix landed in 7.8.0 (commit `a7393b501`), but `sundials-sys` 0.6.2 is still the newest crate. Uno v2.9.2 (2026-10-21) changed the HiGHS QP path that the feasibility seed works around, and seven commits since the pin touch the patched files. See [sundials](../libraries/sundials/README.md) and [uno](../libraries/uno/README.md).
+- **Comparative review correction (2026-10-27).** `kinsol.rs` already calls `KINSetDamping` and `KINSetDampingAA` with the same value, which avoids the KINSOL damping defect fixed in 7.3. Instances are reused (the session cache, `solve_with_restarts`), so a move to 7.3 or 7.4 would hit the Anderson-depth reinitialization regression fixed in 7.5; a move must reach at least 7.5. Native build identity does not frame the vendored SUNDIALS patch content: `BackendExecution::build()` returns `None` for the dynamics adapters, and the KINSOL fingerprint frames version macros and declaration text, so a patch-only change moves no identity. For Uno, v2.9.2's nonbasic bound placement acts on QP readback, while the feasibility seed addresses HiGHS 1.15.0 QP initialization, so the seed premise probably survives v2.9.2 (unconfirmed). See the [comparative review](../reviews/native-solver-integration.md#cbo-028).
 
 <a id="cbo-029"></a>
 
@@ -186,6 +189,7 @@ The following are legitimately custom:
 - **Status.** Proposed.
 - **Research questions.** Can one `pounce_nlp` TNLP implementation be exposed through Ipopt's
   C++ TNLP and the Uno C ABI?
+- **Comparative review correction (2026-10-27).** The premise is rejected: there is one translation chain. `tnlp::Adapter` (normalization and presolve facts, shared by all three solvers) feeds pounce-presolve and then either `pipeline::Transport` (`NlpOracle`) into POUNCE or the `foreign_nlp` C-ABI dispatch into the Ipopt C++ sequence and Uno. Ipopt has only the retained C++ sequence route (`ipopt.rs` re-exports `sequence::Sequence` as `Session`), and Uno's conventions are already configuration. See the [comparative review](../reviews/native-solver-integration.md#cbo-029).
 
 <a id="cbo-030"></a>
 
@@ -223,6 +227,7 @@ The following are legitimately custom:
 - **Status.** Proposed.
 - **Research questions.** This is a local "native owner" guard design question. No library lead
   is known.
+- **Comparative review correction (2026-10-27).** `NativeWait` is already shared; what remains triplicated is the acquisition loops of the PETSc, SCIP and IBEX gates. `execution::Retained` already owns adapter sessions. The HiGHS scheduler gate diverges: it calls blocking `resume_compute` while holding the gate, unlike the ADR-0176 rule stated for the other gates. See the [comparative review](../reviews/native-solver-integration.md#cbo-030).
 
 <a id="cbo-031"></a>
 
@@ -260,6 +265,7 @@ The following are legitimately custom:
   - Can POUNCE-convex and Clarabel share the standard conic form?
   - Do Clarabel or POUNCE expose refinement or equilibration options that would make
     `refinement.rs` unnecessary?
+- **Comparative review correction (2026-10-27).** The premise is rejected. The pse cone form is the hub and maps one-to-one onto Clarabel's cone types (`Power` → `PowerConeT`; upper PSD triangle). POUNCE uses one forward `Target` map for both directions, and HiGHS rays are converted once and verified once. The Clarabel refinement already reuses the solver through `update_settings` (`conic.rs` `Session::solve_once`). See the [comparative review](../reviews/native-solver-integration.md#cbo-031).
 
 <a id="cbo-032"></a>
 
@@ -288,4 +294,5 @@ The following are legitimately custom:
 - **Research questions.** Which public `pounce-sens-core` and `pounce-qp` APIs does `kkt/*`
   reconstruct?
 - **Library assessment correction (2026-10-27).** The premise that `pounce-sens-core` is used only as the backsolver contract is false. The code already uses `SensApplication` (parametric step and reduced Hessian), `IndexSchurData`, `step_along_path`, `rowlimit` and `pounce_qp::ParametricActiveSetSolver`, and the remaining library surfaces were ruled out for further discharge. This opportunity is a retirement candidate for the next audit refresh. See [pounce](../libraries/pounce/README.md).
+- **Comparative review correction (2026-10-27).** The review confirmed that the premise is false: `SensApplication`, `IndexSchurData`, `step_along_path`, `rowlimit` and `ParametricActiveSetSolver` are in use, and `refine_step_onto_bounds` is unused by the advanced step's own contract. It recommends retiring this opportunity at the next audit refresh. Fix-relax for the advanced step would be a functional change, for a functional review if wanted. See the [comparative review](../reviews/native-solver-integration.md#cbo-032).
 

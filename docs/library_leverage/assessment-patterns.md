@@ -1,8 +1,9 @@
 # Additional library-leverage patterns
 
-**Assessment output · revision 2, 2026-10-27.** Revision 1 came from the first codebase audit;
-revision 2 adds `LOP-X004`–`LOP-X010` and refines `LOP-X001`–`LOP-X003` from the first library
-applicability assessment. These are additional framings found during
+**Assessment output · revision 3, 2026-10-27.** Revision 1 came from the first codebase audit;
+revision 2 added `LOP-X004`–`LOP-X010` and refined `LOP-X001`–`LOP-X003` from the first library
+applicability assessment; revision 3 adds `LOP-X011`–`LOP-X014` and refines `LOP-X001`–`LOP-X010`
+from the first [comparative review](reviews/README.md). These are additional framings found during
 assessment. They sit alongside the [base patterns](patterns.md) (`LOP-01`–`LOP-12`, edition 0.2),
 and every stage uses them on the same footing as the base set. A pattern match is only a
 recognition aid. It is not evidence of a defect, a library fit or an obligation to adopt.
@@ -21,6 +22,10 @@ it keeps its `LOP-X` identity and records the base ID it maps to.
 | [LOP-X008](#lop-x008) | A property is proved by enumerating a recyclable namespace instead of holding an owned handle | First library assessment, 2026-10-27 |
 | [LOP-X009](#lop-x009) | A local guard compensates for a library's unsafe handling of untrusted input | First library assessment, 2026-10-27 |
 | [LOP-X010](#lop-x010) | A harness hand-builds one side of a protocol whose counterparty could change | First library assessment, 2026-10-27 |
+| [LOP-X011](#lop-x011) | A publication contract keeps interrupted work products | First comparative review, 2026-10-27 |
+| [LOP-X012](#lop-x012) | A retry's classification requires settling an uncertain effect | First comparative review, 2026-10-27 |
+| [LOP-X013](#lop-x013) | A library kernel's value semantics differ from the domain's | First comparative review, 2026-10-27 |
+| [LOP-X014](#lop-x014) | Library-held process-global retention outlives caller ownership | First comparative review, 2026-10-27 |
 
 <a id="lop-x001"></a>
 
@@ -104,6 +109,40 @@ See [CBO-001](codebase/cross-cutting-mechanisms.md#cbo-001) and
 - **Countercondition.** An RSS or wall-time budget is non-deterministic, so it can only be a
   backstop beside a deterministic prepaid refusal.
 
+**Revision 3 refinements (comparative review, 2026-10-27).**
+- **Charge granularity.** Ask whether a charge is sized from the enclosing container (file,
+  document, batch) when the library would expose the exact part extent to a caller that owned the
+  decode (block spans in a verified footer, slice lengths). A container-sized charge is
+  conservative but wastes shared capacity in proportion to the number of parts. The usual remedy
+  is a lower-level caller-owned API, not a new estimate.
+- **Stale but conservative derivations.** A mirror that over-admits after a library change gives
+  no signal. Record each residual bound's derivation and pinned version beside the number, in one
+  owner per library quantity, so that a version move revisits it.
+- **Reconciled versus unreconciled mirrors.** A prediction checked after the call against the
+  built product, through an exact public measure with a typed refusal, turns drift into a loud
+  failure; its remaining exposure is the allocation made inside the call. An unreconciled mirror
+  drifts silently. Adding reconciliation is often the cheapest improvement. A library-side limit
+  that the library checks with its own exact count *before* allocating does discharge prepayment
+  when the caller reserves the limit first and releases the excess afterwards. Splitting a grant to
+  the measured native extent after allocation is the correct use of post-hoc measurement; it never
+  replaces the prepayment.
+- **Owner-side remedies when the supplier is already carried locally.** If the project already
+  vendors or forks the supplier with admission or accounting integrations, the owner-side remedy
+  for a caller mirror is a predictor in the supplier beside the allocating code, with a
+  supplier-side test. Countercondition: in a large native delta that is periodically rebased, each
+  added predictor grows the rebase burden, and a caller-side formula re-verified on a
+  version-coupled checklist can be the better owner.
+- **Structure-blind complete bounds are not mirrors.** A dense n² charge for a sparse factor
+  mirrors nothing; it is the honest complete bound when no structural bound exists, and its cost
+  is refusing valid large sparse work. Investigate structure-derived complete bounds (dense per
+  block over a block-triangular decomposition, column counts of AᵀA for partial-pivoting LU) and
+  check they stay complete once the supplier's growth and padding policy is included.
+- *Prompting observations (Interface-checked):* an IPC decode reserving four times the whole file
+  per block; a writer grant derived against an older Arrow writer's body copy; a maintainer-owned
+  solver fork that already carries a conservative bound for its symmetric factor while the
+  unsymmetric LU bound is still mirrored by the caller. See the
+  [comparative review](reviews/result-data-and-prepaid-accounting.md#cbo-001).
+
 <a id="lop-x002"></a>
 
 ## LOP-X002 — Ambient execution context re-established at every boundary
@@ -154,6 +193,21 @@ loses attribution on one path.
 - **Subscriber dependence.** Ask which carriers are mandatory when no subscriber is installed.
   Tracing span extensions exist only when a subscriber enables the span, so they cannot carry
   context that must survive without one.
+
+**Revision 3 refinements (comparative review, 2026-10-27).**
+- **Attribution versus authority carriers.** *Attribution carriers* (observation operation,
+  recorder, tracing dispatcher and span, telemetry parent) only explain work; losing one loses
+  explanation, and propagating one by default is safe. *Authority carriers* (connection or
+  continuation activity, admission scopes, an enclosing deadline, an I/O lease chain, construction
+  or compute scopes, library abort bindings) grant admission or extend a lifetime; propagating one
+  silently changes behaviour, and some are deliberately confined to sanctioned children.
+  Investigate which kind each carrier is before collapsing them. The remedy is usually one
+  attribution context value, with authority kept explicit.
+- **Relationship matters.** Moving work to a *shared producer* must link rather than parent the
+  context, or the first waiter is credited with shared work. A useful context value offers named
+  derivations (continue, nested child, shared producer) rather than only capture and enter.
+- **Recognize** divergent carrier subsets at sibling spawn sites. See the
+  [comparative review](reviews/execution-lifecycle-and-observation.md#cbo-014).
 
 <a id="lop-x003"></a>
 
@@ -216,6 +270,21 @@ See [CBO-040](codebase/registry-generation-and-python-boundary.md#cbo-040) to
 - **Investigate: structure versus data.** Separate the compiler cost of emitted *structure* from
   cheaply embedded *data* (`include_bytes!` / `include_str!`).
 
+**Revision 3 refinements (comparative review, 2026-10-27).**
+- **Recognize bootstrap coupling:** a generator whose crate depends on the crate that compiles
+  the generator's own output, where that output *constructs* hand-written types. A model change
+  then breaks the generator's build before it can regenerate. (*Tested* in the
+  [registry build-coupling probe](../design_review/evidence/library-leverage-registry-build-coupling-2026-10-27/README.md).)
+- **Recognize:** several formats in one generated product may each carry a *different*
+  sub-product, split by type capability. Count encodings per sub-product before treating them as
+  one product encoded three times.
+- **Investigate** runtime-decoded data versus a crate split. Workspace-wide feature unification
+  can defeat feature gates.
+- **Countercondition:** named literals give compile-time staleness detection that a positional
+  binary format loses. A layout guard (a generator-computed shape digest checked on decode)
+  restores runtime detection. See the
+  [comparative review](reviews/declarations-registry-and-python-boundary.md#cbo-040).
+
 <a id="lop-x004"></a>
 
 ## LOP-X004 — A supplier's high-level client is patched although it publishes the lower layer
@@ -260,6 +329,26 @@ bounded request lifecycle beneath the SDK's engine trait, while the supplier's i
 crate exposes a generated gRPC client generic over its transport plus value conversions. See the
 [SurrealDB assessment](libraries/surrealdb/README.md) and
 [CBO-009](codebase/persistence-and-transport.md#cbo-009).
+
+**Revision 3 refinements (comparative review, 2026-10-27).**
+- **Read the supplier's own stability statements for each layer.** A wire protocol written for
+  several client implementations (normative message comments, a capability handshake, a
+  conformance suite) is a better seam than the client's internal engine SPI, even when the SPI
+  preserves the high-level API. Crate docs saying "internal", "no SemVer" or "may change in a patch
+  release" mark the latter.
+- **Check whether the patched behaviour is profile-gated.** Companion tools compiled against the
+  patched client may run the unpatched profile; their dependence on the patch is then incidental.
+- **Measure how narrow the high-level API usage is** (result shapes, builders, streaming). A
+  narrow façade makes re-owning it cheaper than keeping a patch. Pin the supplier's observable
+  result rules first: the [direct-client probe](../design_review/evidence/library-leverage-surrealdb-direct-client-2026-10-27/README.md)
+  needed exactly four of them for parity.
+- **Ask whose policy the patch encodes.** If it is the codebase's policy (deadlines, admission,
+  replay rules), an upstream seam asks the supplier to own the codebase's policy.
+- **Countercondition:** a hybrid implementing the supplier's internal SPI under its high-level
+  client shrinks the patch but binds the codebase to a layer the supplier disclaims.
+- **Lifecycle tiers split across the patch and the codebase** often mirror each other through
+  opaque owner handles; moving the lower tier into the codebase can merge them, a benefit that
+  patch-size metrics miss. See the [comparative review](reviews/canonical-store-transport.md#cbo-009).
 
 <a id="lop-x005"></a>
 
@@ -306,6 +395,16 @@ at their core sites.
 See the [tokio assessment](libraries/tokio/README.md),
 [CBO-011](codebase/persistence-and-transport.md#cbo-011) and
 [CBO-015](codebase/execution-lifecycle-and-observation.md#cbo-015).
+
+**Revision 3 refinements (comparative review, 2026-10-27).**
+- **Three wait shapes.** Stop-aware waits are (1) *wake-source loops*, where a stop is another
+  wake and the loop re-checks its predicate; (2) *abandon-safe races*, where the losing work can be
+  dropped but a ready stop must win (`select! { biased; stop … }`); (3) *signal-and-drain*, where
+  the work is retained until it exits. Classify each site before choosing a combinator. Only (2)
+  can take a library race, and only with stop-first bias.
+- **Typed stop reason.** A deadline can join cancellation as a typed stop *reason* (cancelled or
+  deadline) without folding it into the token. That keeps outcomes distinct and needs no timer
+  task. See the [comparative review](reviews/execution-lifecycle-and-observation.md#cbo-015).
 
 <a id="lop-x006"></a>
 
@@ -367,6 +466,27 @@ or a minor version bump.
 See [CBO-033](codebase/numerical-workflows.md#cbo-033) and
 [CBO-034](codebase/numerical-workflows.md#cbo-034).
 
+**Revision 3 refinements (comparative review, 2026-10-27).**
+- **Split the guarantee by role.** Randomness whose realized values are an externally visible
+  input (a design, a sample set) can be recorded and keyed by value. Randomness internal to a
+  library algorithm (infill starts, optimizer restarts) is impractical to record and is usually
+  keyed by seed plus same-host determinism. One codebase can legitimately use both contracts.
+- **Downstream ceiling.** A bit-portable stage feeding a stage that varies by CPU class (SIMD or
+  FMA dense kernels, platform-libm statistics) yields results that vary by CPU class. Portable
+  regeneration of inputs then buys shared input identity across hosts, not identical results.
+- **Recognize** scalar "FMA-free, bit-reproducible" loops whose operands come from
+  runtime-dispatched kernels, and admission decisions (PSD refusal, rank or sign tests) taken on
+  such kernels' outputs.
+- **Identity coverage of local patches.** When replay or receipt identity keys on a linked-build
+  identity, check that it covers every layer that fixes bits, including local patches to a
+  vendored supplier at an *unchanged* package version. Recognize a default "pinned crate fully
+  determines the build" hook, vendored notes saying "package versions stay unchanged", and
+  fingerprints that frame version macros but not patch content.
+- **Countercondition:** pure-software math crates whose architecture overrides replace only
+  correctly rounded operations (`sqrt`, `fma`) stay portable with those overrides. See the
+  comparative reviews of [numerical workflows](reviews/numerical-workflows.md#cbo-033) and
+  [native solver integration](reviews/native-solver-integration.md#cbo-028).
+
 <a id="lop-x007"></a>
 
 ## LOP-X007 — A library derive owns one projection of a multi-projection declaration
@@ -412,6 +532,15 @@ the library forces a second spelling of a fact the codebase already holds in typ
 See [CBO-039](codebase/authoring-and-identity.md#cbo-039),
 [CBO-042](codebase/registry-generation-and-python-boundary.md#cbo-042) and
 [CBO-045](codebase/registry-generation-and-python-boundary.md#cbo-045).
+
+**Revision 3 refinements (comparative review, 2026-10-27).**
+- **Which side is the authority?** A local projection that implements the library trait *from*
+  the typed fact may be the single authority, and the library-derive sites the drifted second
+  declaration. Then migrate the derive sites onto the local projection rather than the reverse.
+- **Forcing a per-field decision.** When a projection must make a deliberate decision per field,
+  as identity framing does, exhaustive destructuring is a zero-dependency alternative to a derive
+  whose default includes every field. See the comparative review of
+  [CBO-045 and CBO-039](reviews/declarations-registry-and-python-boundary.md#cbo-045).
 
 <a id="lop-x008"></a>
 
@@ -471,6 +600,27 @@ See [CBO-003](codebase/cross-cutting-mechanisms.md#cbo-003),
 [CBO-004](codebase/cross-cutting-mechanisms.md#cbo-004) and
 [CBO-019](codebase/execution-lifecycle-and-observation.md#cbo-019).
 
+**Revision 3 refinements (comparative review, 2026-10-27).**
+- **Countercondition: the evidence object must sit inside the owner that holds the subject's
+  resource charge.** A handle created under a different manager or ledger (a transient unit per
+  child) can satisfy containment while moving the subject outside its accounting boundary. Prefer
+  an owned sub-object of the container that is already charged.
+- **Countercondition: a persisted record checked later by another process is not a handle.** If
+  the recyclable key carries a qualifier that makes reuse non-credible on the actual host (start
+  ticks, bound to boot and namespace), migrating persisted records to a handle-derived ID adds
+  format churn without a guarantee gain. The handle belongs where the process is acted on.
+- **Countercondition:** objects created by a manager may be read freely but must be acted on
+  through the manager or through an owned, delegated sub-object. Delegation must be signalled
+  explicitly: on this host's systemd the user manager sets no `user.delegate` xattr, and directory
+  ownership lets an undelegated scope create leaves anyway
+  ([delegated cgroup probe](../design_review/evidence/library-leverage-delegated-cgroup-containment-2026-10-27/README.md)).
+- **Investigate the coarser level first.** A container handle at the unit level may already prove
+  the property, leaving only an in-process proof to improve.
+- **Look for consumers that call the effect owner's tool only to read facts** they could read
+  directly. Hand the evidence handles off with the effect's result and let the consumer observe
+  in-process; authority to act stays with the owner. See the
+  [comparative review](reviews/host-processes-and-durable-files.md#cbo-020).
+
 <a id="lop-x009"></a>
 
 ## LOP-X009 — A local guard compensates for a library's unsafe handling of untrusted input
@@ -519,6 +669,31 @@ None prompts a per-check mapping to upstream fix status.
 See the [Arrow assessment](libraries/arrow/README.md) and
 [CBO-005](codebase/result-data-paths.md#cbo-005).
 
+**Revision 3 refinements (comparative review, 2026-10-27).**
+- **Map guards to trust boundaries, in both directions.** Ask where uncertainty actually enters,
+  not which path happens to call the reader. A full preflight on digest-verified, system-written
+  bytes while import or transport paths call the stock decoder is a placement defect even when
+  every check is justified; the [hostile-stream probe](../design_review/evidence/library-leverage-arrow-ipc-stream-hostile-2026-10-27/README.md)
+  showed that such an import path can abort the process. Conversely, a guard re-run on bytes a
+  trusted producer has just emitted in the same process, after an import-time fingerprint has
+  established agreement, is assurance re-established without a trust transition. Decompose each
+  guard: which property does each check establish, and which inputs (untrusted bytes, stale
+  builds, producer bugs) can violate it? Keep any trusted fast path private so untrusted entry
+  points cannot reach it. Counterconditions: a producer in another process, build or version is not
+  trusted merely because it shares the codebase, and durable or recorded bytes are untrusted on
+  every read.
+- **Ask whether a lower-level decoder lets the guard and the allocation share one read.**
+- **Unchecked preconditions.** The hazard can be a library contract asserted only in debug
+  builds rather than hostile input. The failure then differs by build profile: a panic in debug,
+  a silent wrong result in release. Check whether the same library's companion producer can emit
+  inputs that violate the precondition (an isolator feeding a refiner), derive reachable
+  violations from source, and prefer a complete cheap precondition, or restructuring the input so
+  the violation cannot arise, over screening for observed failures
+  ([containment probe](../design_review/evidence/library-leverage-symbolica-root-containment-2026-10-27/README.md)).
+  See the comparative reviews of [CBO-005](reviews/result-data-and-prepaid-accounting.md#cbo-005),
+  [CBO-041](reviews/declarations-registry-and-python-boundary.md#cbo-041) and
+  [CBO-025](reviews/mathematics-preparation.md#cbo-025).
+
 <a id="lop-x010"></a>
 
 ## LOP-X010 — A harness hand-builds one side of a protocol whose counterparty could change
@@ -558,6 +733,186 @@ hand-written HTTP/2/gRPC server and protobuf walk, whose producer is configured 
 exporter variables. A hand gRPC client in a database test helper. See
 [CBO-051](codebase/developer-tooling.md#cbo-051).
 
+**Revision 3 refinements (comparative review, 2026-10-27).**
+- **Investigate the counterparty's build as well as its configuration surface.** Honouring
+  standard endpoint variables does not mean every standard transport is compiled in; a server
+  built with only a gRPC exporter accepts endpoint settings but cannot be switched to HTTP.
+- **Countercondition:** when the counterparty is a third-party binary, changing its protocol may
+  need an upstream change that is unavailable until released. The hand peer may then be the
+  minimal correct remedy; record its reason where readers look.
+- *Prompting observation (2026-10-27):* the SurrealDB 3.3.4 server exporter is `with_tonic()`
+  only. See the [comparative review](reviews/developer-tooling.md#cbo-051).
+
+<a id="lop-x011"></a>
+
+## LOP-X011 — A publication contract keeps interrupted work products
+
+**Articulation.** A publication step deliberately keeps a named staging artifact when it fails:
+for resume, for inspection of an acknowledged prefix, or as recovery evidence. Library helpers
+built on RAII temporary files delete staging on error or drop and choose random names. Adopting
+one silently removes a promised artifact and the key needed to resume.
+
+**Recognize.**
+- Documentation or contracts saying that interrupted staging "remains".
+- Deterministic `.partial`, `.incomplete` or `.pending` names.
+- Resume code that compares an existing prefix.
+- Failure paths that publish a prefix.
+- Recovery scanners that expect named residue.
+
+**Investigate.**
+- Is the residue promised (by the architecture or its consumers) or incidental? Who consumes it?
+- Can the library's cleanup be disabled while its publication call is still used, and what
+  remains if it is?
+- Would a lower-level primitive change only the publication step? An example is
+  `renameat2(RENAME_NOREPLACE)`.
+
+**Counterconditions.**
+- Where residue has no consumer and no resume value, RAII cleanup is a real gain.
+- Abandoned temporaries that are merely litter are a different shape, such as a writer killed
+  under a ledger lock whose next holder can remove them.
+
+**What the base patterns missed.** LOP-01 and LOP-08 recommend delegating lifecycle to a library.
+They do not flag that a library's lifecycle default can contradict a promised failure artifact.
+
+**Prompting observations (2026-10-27, Interface-checked).** An export and workbench `.incomplete`
+contract, a canonical `.pending` resume, and a review-pack partial-prefix publication; contrast a
+host-admission temporary that is only litter. See the
+[comparative review](reviews/host-processes-and-durable-files.md#cbo-003).
+
+<a id="lop-x012"></a>
+
+## LOP-X012 — A retry's classification requires settling an uncertain effect
+
+**Articulation.** A codebase retries an effectful request. Whether another attempt is permitted
+depends on more than the returned error: a lost acknowledgment, an ambiguous commit or a
+concurrent identical request must first be settled from durable evidence (a receipt, an
+idempotency record, a read of the target state). Only a *definite* refusal or conflict authorizes
+a new attempt. Generic retry combinators assume that the error alone classifies the attempt and
+that the operation is safe to call again. Here the classification is a small protocol between
+attempts.
+
+**Recognize.**
+- Retry loops that run a readback query in the error branch before deciding.
+- Comments such as "unknown outcome keeps its original identity", "never replays" or "settled by
+  the immutable receipt".
+- Error predicates named `*_refused` or `proves_*` beside `is_conflict`.
+- Retry classes that do not count against the attempt cap.
+
+**Investigate.**
+- Which errors are *definite* (safe to retry) and which are *uncertain* (settle first)?
+- Does the settlement read run under the same clock as the attempts?
+- Can the attempt step return its own classification (done, retry counted, retry uncounted), so a
+  shared owner keeps pacing, caps and attribution while the step owns settlement?
+- Does a library retry accept a step-supplied classification, or only an error predicate?
+
+**Counterconditions.**
+- Idempotent requests (reads, keyed upserts with idempotency tokens) need no settlement, and a
+  library combinator fits.
+- If the server offers request idempotency keys, the settlement read may be replaceable by
+  resubmission.
+
+**What the base patterns missed.** LOP-08 frames lifecycle delegation, LOP-09 sees the duplicated
+loops and LOP-X005 covers drop-to-cancel semantics. None names the read-before-retry protocol that
+makes a combinator-first remedy unsafe at the core sites.
+
+**Prompting observation (2026-10-27, static).** Canonical store activation and admission loops
+read an immutable operation receipt between conflict attempts. A generic retry library would place
+that readback inside its factory or skip it. See the
+[comparative review](reviews/execution-lifecycle-and-observation.md#cbo-010).
+
+<a id="lop-x013"></a>
+
+## LOP-X013 — A library kernel's value semantics differ from the domain's
+
+**Articulation.** A scalar loop that compares, orders, aggregates or tests equality is a natural
+candidate for a vectorized library kernel. The kernel may define those operations differently from
+the domain on special values: IEEE totalOrder rather than IEEE comparison, so `-0.0 < 0.0` and NaN
+is greatest; NaN-propagating rather than NaN-ignoring extrema; SQL three-valued logic rather than
+domain missingness; byte rather than collation order. The substitution compiles and passes typical
+data, then silently changes results on exactly the values the domain treats carefully. When values
+derived under one semantics are stored and later re-checked under the other, previously valid
+records start to refuse.
+
+**Recognize.**
+- Loops using `f64::min`/`max`, `>=` or `==` on floats that are candidates for Arrow, DataFusion,
+  numpy or Polars kernels.
+- Recorded extrema or statistics that a reader recomputes and compares.
+- Existing normalization expressions such as `CASE WHEN x = 0.0 OR x = -0.0 THEN 0.0`, which show
+  the codebase already met the difference elsewhere.
+- Predicates documented as "finite" or "IEEE-bit exact".
+
+**Investigate.**
+- What ordering and equality does the kernel use? Read its source or docs; names do not tell you.
+- Which special values can the domain actually produce or store? Check declared field domains and
+  store assertions.
+- Is there a recorded value computed under the old semantics that a reader re-checks?
+- Can the kernel be kept for the bulk work while the domain semantics are preserved by
+  normalization, a guard or a caller-supplied closure (for example `BooleanBuffer::collect_bool`)?
+
+**Counterconditions.**
+- If the domain excludes the special values by declaration and enforcement, the difference is moot.
+- If both the recorded and the re-checked values move to the kernel's semantics together, and no
+  stored record depends on the old ones, the substitution can be correct.
+- A deliberate change to the domain rule is a domain decision, not a leverage choice.
+
+**What the base patterns missed.** LOP-04 asks whether a collective operation preserves ordering,
+multiplicity and failure attribution, but not value semantics. LOP-03 assumes the adopted
+capability fits. LOP-X006 covers bit reproducibility across a stack, not differing definitions
+within one operation.
+
+**Prompting observations (2026-10-27, Interface-checked).** Dense trajectory extrema recorded with
+`f64::min`/`max` and re-checked by IEEE `==`; a dense time window using IEEE `>=`; `arrow-ord`
+59.3.0 comparison and `arrow-arith` extrema using totalOrder; a scalar result predicate that
+already normalizes signed zero. See the
+[comparative review](reviews/result-data-and-prepaid-accounting.md#cbo-006).
+
+<a id="lop-x014"></a>
+
+## LOP-X014 — Library-held process-global retention outlives caller ownership
+
+**Articulation.** A library keeps process-global state, such as memo caches, interning tables and
+registries. Ordinary calls populate it as a side effect, and it is never released, or only through
+an API the caller does not own. The caller's admission and lifetime model (charge before allocate,
+release with the owner, bounded retention) cannot see or bound it. In a long-lived process with an
+unbounded population of distinct inputs (sweeps, dynamics, many cases), the state grows outside
+every budget. Its contents can also influence later results, through shared enclosures or
+canonical indices.
+
+**Recognize.**
+- `static`, `LazyLock`, `OnceLock` or `thread_local!` maps in library source keyed by input values.
+- Documentation saying "cached", "global" or "process-wide".
+- Handles or indices into a global table.
+- No `clear`, `evict` or capacity API.
+- Caller code that pre-registers or chunks library entries to control growth or order, a managed
+  response to the same shape.
+
+**Investigate.**
+- Which calls populate the state?
+- Is the key population bounded by the caller's domain (a few polynomial orders) or by data
+  (parameter values)?
+- Is there a non-caching entry point, a clear or capacity API, or a scoped context object?
+- Does the cached state affect results or their order?
+- Can the caller restructure to avoid the populating calls, or confine them to a bounded
+  population?
+
+**Counterconditions.**
+- A bounded key population makes the retention a fixed cost.
+- Some global state is required for identity (symbol interning) and is better managed, for
+  example by pre-registered append-only pools, than avoided.
+- A short-lived process may tolerate it, and the cache may be the library's main performance lever.
+
+**What the base patterns missed.** LOP-08 covers lifecycles the caller coordinates, not state the
+caller cannot own. LOP-X001 covers predicting a call's cost, not retention that outlives the call.
+LOP-X002 covers context carriers, not data retention.
+
+**Prompting observation (2026-10-27, Tested).** A computer-algebra library's root cache is
+populated by root isolation and refinement with no eviction; a cubic solver's fallback keys it by
+per-parameter-point coefficients and takes that fallback on most solves
+([containment probe](../design_review/evidence/library-leverage-symbolica-root-containment-2026-10-27/README.md)),
+while collocation's use is bounded. The repository's formal-symbol pool is an existing managed
+response to the same library's global symbol registry. See the
+[comparative review](reviews/mathematics-preparation.md#cbo-025).
+
 ## Notes for base-framework maintenance
 
 These are recognition cues and counterconditions found during the library assessment. They fit
@@ -571,6 +926,23 @@ definitions.
 - **LOP-03 and LOP-11.**
   - Countercondition: adopting an upstream driver or newer release also imports its open
     defects. Check the issue tracker for the release considered.
+
+- **LOP-02 and LOP-09** (comparative review). Counter-cue: before treating several translators or
+  encodings as fragmentation, check whether they are successive layers of one chain (a semantic
+  boundary followed by an ABI dispatch), or spokes from one hub whose per-spoke table is a single
+  forward map used in both directions. Such structures rarely drift. Recognition cue: a generated
+  binding module with no non-test importers beside a hand-written structural twin in its natural
+  consumer. Countercondition for LOP-09: layered surfaces that forward arguments opaquely (a recipe
+  passing `*args` to a script) are not fragmented declarations; count only re-declared meanings.
+- **LOP-03** (comparative review). Countercondition to the per-run configuration copy cue: overlay
+  channels have reference and precedence rules (a tool config may reference only its own
+  namespaced groups and be outranked by repository profile settings). When the policy must act on
+  the repository's own declarations, a per-run copy can be the correct mechanism.
+- **LOP-12** (comparative review). Recognition cue: a parity table marks a reference subsystem
+  implemented while the reference includes a generator or helper (sweep sample generation,
+  estimated-variance statistics) that the realization lacks. Countercondition: when a library
+  would supply only leaf computations and the substance is a statistical or domain-model decision,
+  the opportunity is a product or policy choice; route it to functional review or decision work.
 
 ## Framings considered and left to the base set
 
@@ -586,3 +958,6 @@ patterns, so none was added:
   deliberately normalizes.
 - A documented revisit trigger on a local patch. This is LOP-11. Research the recorded trigger
   first.
+- A positional result convention standing in for a typed envelope (a result read at
+  `num_statements() - 2` at dozens of sites). Considered by the comparative review; LOP-02 with
+  LOP-05 frames it adequately.

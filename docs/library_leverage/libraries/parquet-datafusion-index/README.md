@@ -91,3 +91,5 @@ Research date 2026-10-27. Sources:
   - Which consumers need the index while a scientific run holds the service.
 - **Evidence:** Interface-checked (static repository inspection, PyPI); application
   Proposed.
+
+**Reviewer correction (2026-10-27).** This fit is conditional on the review's premise U3 (must the development evidence index stay on SurrealDB?). The store is an architecture contract (blueprint §24.1, §3.2, and the proposed ADR-0219 and ADR-0222), and the Rust evidence questions already run on DataFusion through two read routes (offline, and indexed through `source_cut`). The comparative review's store-independent recommendation is to make the Python adapters use the registry-generated msgspec types (`EvidenceSnapshot`, `EvidenceFact`, `KnowledgeQuery`), which today have no non-test importers, validated with `msgspec.convert` before publishing; if U3 is answered no, the store question is unresolved and leans towards retaining the current store. See the [comparative review](../../reviews/developer-tooling.md#cbo-050).

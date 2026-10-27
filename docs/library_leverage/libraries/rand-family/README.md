@@ -104,6 +104,12 @@ Sources:
 - **Limits and negative results:**
   - Only the cfg precedence was inspected.
   - The libm results were not compared across platforms here.
+- **Explicit `libm` is pure software on the common targets (added 2026-10-27).** In the `libm`
+  crate 0.2.16, the `arch` feature overrides only `sqrt` and `fma` (and `rint` on aarch64) on
+  x86-64 with SSE2 and on aarch64, all correctly rounded; `exp` uses an x87 path only on x86
+  without SSE. Explicit `libm::{exp, log}` calls are therefore pure software and bit-identical
+  across those targets, which makes the "call `libm` explicitly" route credible
+  (Interface-checked against `libm-0.2.16/src/math/arch/mod.rs` and `src/math/exp.rs`).
 - **Evidence:** Interface-checked: `num-traits-0.2.19/src/float.rs` cfg blocks,
   `rand_distr` Cargo.toml features, and the book "Portability of floats" section.
 
@@ -130,6 +136,14 @@ Sources:
   on the realized points (see CBO-033 in egobox-doe.md).
 - **Evidence:** Interface-checked. The application is Proposed.
 
+**Reviewer correction (2026-10-27).** The comparative review chooses `rand_xoshiro`
+`Xoshiro256Plus::seed_from_u64` per design, declared as a direct `=0.6.0` dependency (already in
+the lock). The unsettled premise is the repository's replay-versus-regenerate decision: existing
+point identities already key on realized values, and a seed sits in identity only for
+library-internal randomness. Under "regenerate", holds and golden hashes on the rand family are
+needed and sobol_burley is preferred for quasi-Monte Carlo designs. See the
+[comparative review](../../reviews/numerical-workflows.md#cbo-033).
+
 ### [CBO-034](../../../library_leverage/codebase/numerical-workflows.md#cbo-034) — Only first-order uncertainty propagation
 - **Types:** `rand/portable-seeded-streams` and
   `rand-distr/float-transcendental-portability`.
@@ -152,3 +166,10 @@ Sources:
   is "regenerate from seed anywhere" or "replay from recorded points". The owner of
   evidence and replay semantics settles this.
 - **Evidence:** Interface-checked. The application is Proposed.
+
+**Reviewer correction (2026-10-27).** The comparative review retains first-order propagation: the
+IDAES reference is first-order (parmest covariance with k_aug gradients), §19.8 scopes propagation
+as first-order, and no consumer has asked. If reopened, explicit `libm` calls (see the type) plus a
+local scalar factorization would be a credible portable route, but downstream results are already
+CPU-class dependent through faer, so portable draws alone would not make the outcome portable. See
+the [comparative review](../../reviews/numerical-workflows.md#cbo-034).

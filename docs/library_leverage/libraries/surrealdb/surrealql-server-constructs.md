@@ -36,7 +36,7 @@ Research date 2026-10-27. Sources:
 - **Residual caller obligations:**
   - The outer `BEGIN; … COMMIT;` text, or a single-statement implicit transaction (next type).
   - Binding per-request parameters, such as the deadline and authority identities.
-  - Statements that must sit at top level, because `BEGIN`/`COMMIT`/`CANCEL` inside a function body are accepted but have no effect.
+  - Statements that must sit at top level, because `BEGIN`/`COMMIT`/`CANCEL` inside a function body are accepted but have no effect. The same holds inside blocks: they are ignored without error (re-confirmed through Context7 `/websites/surrealdb`, 2026-10-27).
   - Variables a later statement needs are not visible after the function returns: a `LET` inside a function does not leak, so values must come back explicitly.
   - Versioning functions with the schema, for example `fn::x_v1`.
 - **Semantic conditions:**
@@ -131,7 +131,7 @@ Research date 2026-10-27. Sources:
   - `KILL` on exit.
 - **Semantic conditions:**
   - Bound to its session and connection.
-  - At most once.
+  - At most once. Correction (2026-10-27): at most once is what the Rust SDK 3.3.4 delivers, not a fixed property. Protocol 0.13.1 reports delivery, resumability and retention per server (`LiveQueryCapabilities`) and accepts a `resume_from` versionstamp cursor; see `surrealdb-rust-sdk/grpc-live-subscription`.
   - Documentation for several SDKs states the feature is WebSocket-only. The Rust 3.3.4 gRPC client implements it through `Subscribe`, so support depends on the transport and the SDK.
 - **Version / build conditions:** the server must allow live queries in its capabilities and advertise `LIVE_QUERIES` over gRPC.
 - **Limits and negative results:** it does not suit request-bounded clients without a separate subscription lifecycle. It cannot serve as an authority signal.
@@ -185,6 +185,8 @@ Research date 2026-10-27. Sources:
     - The inline-text residue is about 20–25 sites, concentrated in `canonical.rs` (`PROTECTED_BEGIN`, schema install), `canonical_selection.rs`, `canonical_staging.rs` and `canonical_files.rs`. See README.
 - **Evidence:** Interface-checked: documentation and repository source counts. Proposed.
 
+**Reviewer correction (2026-10-27).** The `BEGIN;` census misses most of the residue, which is composition rather than guard logic. The protected-read envelope is composed from `PROTECTED_BEGIN`: 29 references, about 20 pin re-check postludes in two variants, 29 four-variable protection bind sets, 65 `num_statements().saturating_sub(2)` result-slot computations and three near-identical project-authority wrappers. Pure single-call scripts number 48 by the reviewer's regex, not 51. The comparative review recommends a typed guarded-script envelope that owns framing, the explicit guard variant, the bind set and the result slot, with bodies left as raw SurrealQL; protected preludes may optionally move into `fn::pse_protection_v1::{open,confirm}` at the next schema change. It keeps explicit `BEGIN`/`COMMIT` everywhere, so probe P2 is unnecessary. See the [comparative review](../../reviews/canonical-store-transport.md#cbo-010).
+
 ### [CBO-016](../../../library_leverage/codebase/execution-lifecycle-and-observation.md#cbo-016) — Waiting by polling (store side)
 - **Types:** `surrealql/changefeed-replay` and `surrealql/live-select`.
 - **Realization:** installed server 3.3.4. The current catalog defines no changefeed or live query; a grep of generated `surreal.surql` and the Rust and Python sources found none.
@@ -205,6 +207,8 @@ Research date 2026-10-27. Sources:
 - **Unsettled premises and what would settle them:** whether the polling cost is material. The CBO states cost grows with waiters, but nothing is measured. The spawned `observe-primary` interpreter is not a store question.
 - **Evidence:** Interface-checked: documentation. Proposed.
 
+**Reviewer correction (2026-10-27).** LIVE is not unsettled: the bounded profile refuses it by design (see `surrealdb-rust-sdk.md`). Architecture §3.3 requires a concrete qualified consumer for live subscriptions, changefeeds still poll, and the cost is unmeasured, so the comparative review retains polling. See the [comparative review](../../reviews/canonical-store-transport.md#cbo-016).
+
 ### [CBO-046](../../../library_leverage/codebase/registry-generation-and-python-boundary.md#cbo-046) — SurrealQL emitted through string templates (constants)
 - **Types:** `surrealql/define-param-constants`.
 - **Realization:** installed server 3.3.4.
@@ -218,3 +222,5 @@ Research date 2026-10-27. Sources:
   - The values become runtime lookups instead of literals; planner effects are unverified.
 - **Unsettled premises and what would settle them:** whether `LIMIT $PARAM` plans identically to `LIMIT <literal>` on the hot paths. Settle with an `EXPLAIN` comparison.
 - **Evidence:** Interface-checked. Proposed.
+
+**Reviewer correction (2026-10-27).** Ruled out here. `DEFINE PARAM` would add a second runtime representation of constants that the registry owns, and the premise that the catalog is unchecked is partly false: the generated catalog is already parse-validated with `surrealdb-syn` in a unit test and at maintenance activation. See the [comparative review](../../reviews/canonical-store-transport.md#cbo-046).

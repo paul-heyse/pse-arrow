@@ -40,6 +40,12 @@ systemd NEWS (main branch, fetched 2026-10-27, entries for 254–262); Context7 
   bus (`InvocationID` is `ay`, limits are `t` with `UINT64_MAX` for infinity). systemd advises
   using `ControlGroup`/`GetUnitByControlGroup` instead of deriving names from cgroup paths.
   `Effective*` limits report "the most stringent limit systemd is aware of", not raw kernel files.
+  Manager-written cgroup xattrs differ by manager (added 2026-10-27): in v255
+  `cgroup_xattr_apply()` returns early for a non-system manager before applying
+  `user.invocation_id`, `user.delegate`/`trusted.delegate` and the survive xattr, so units of a
+  *user* manager carry none of them, while system-manager units (slices, `user@<uid>.service`) do.
+  For a user unit the invocation ID must therefore come from the manager (`InvocationID`), not
+  from the cgroup.
 - **Version / build conditions:** host 255: `PIDFDs`, `MemoryPeak`, `QueueSignalUnit` available;
   `EffectiveMemoryMax`, `KillUnitSubgroup`, pidfd inode IDs (`$MAINPIDFDID`, ≥ 258), `OOMKills`
   not available. A client compiled against newer interface descriptions fails at runtime
@@ -48,7 +54,11 @@ systemd NEWS (main branch, fetched 2026-10-27, entries for 254–262); Context7 
   application protocol (for example a database accepting connections) is not a manager fact
   unless the service uses `Type=notify` and calls `sd_notify(READY=1)`.
 - **Evidence:** Interface-checked: systemd NEWS text, v255 docs via Context7, generated
-  interface signatures. No call was made against the host manager.
+  interface signatures. No call was made against the host manager. The xattr condition is
+  Interface-checked against systemd v255 `src/core/cgroup.c` and was observed read-only on a
+  systemd 255 host (one app scope and two user services without `user.invocation_id`;
+  `user@1000.service` and the slices with it) and in a delegated-scope
+  [probe](../../../design_review/evidence/library-leverage-delegated-cgroup-containment-2026-10-27/README.md).
 
 ## Current applicability
 
@@ -73,6 +83,12 @@ systemd NEWS (main branch, fetched 2026-10-27, entries for 254–262); Context7 
   pass either); probe P2.
 - **Evidence:** Interface-checked; application Proposed.
 
+**Reviewer correction (2026-10-27).** The runtime is the only consumer of `observe-primary`, and
+`ensure-primary` runs once per study run while observation runs at every heartbeat. The comparative
+review keeps the script as the lifecycle owner and moves observation to kernel evidence (the
+cgroup `populated` flag plus a main-PID pidfd handed off by `ensure-primary`) rather than to a
+manager client. See the [comparative review](../../reviews/host-processes-and-durable-files.md#cbo-020).
+
 ### [CBO-048](../../../library_leverage/codebase/developer-tooling.md#cbo-048) — Host workload admission and service supervision rebuilt above systemd (non-SurrealDB parts)
 - **Types:** `systemd-manager-api/transient-units-and-jobs`
 - **Realization:** host 255.
@@ -93,6 +109,13 @@ systemd NEWS (main branch, fetched 2026-10-27, entries for 254–262); Context7 
   (the caller's own process becomes the scope) can be replaced by `StartTransientUnit` with
   `PIDFDs` from the launcher without changing the process tree the workloads expect (probe P2).
 - **Evidence:** Interface-checked; application Proposed.
+
+**Reviewer correction (2026-10-27).** The premise that the paths re-derive manager state is only
+partly true: the sampled paths already combine manager facts (`systemctl show`), kernel cgroup
+evidence and the ledger the premises require, and `systemd-run --scope` already contains from the
+first instruction. Bootstrap admission runs under system Python, so a non-stdlib D-Bus client
+would be a second route. The comparative review retains the current paths. See the
+[comparative review](../../reviews/host-processes-and-durable-files.md#cbo-048).
 - **Footprint correction:** `systemctl` appears far more than "about 25" times — 36 references in
   the supervisor script (through one `systemctl()` helper) plus 14 in the telemetry service, 7 in
   admission, 6 in operation lifetime and further sites in `pse_env.py`, `native_operation.py`,

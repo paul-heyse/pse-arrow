@@ -86,6 +86,8 @@ Research date 2026-10-27. Sources: installed checkout `~/.cargo/git/checkouts/po
 - **Evidence:** Interface-checked; local imports read in `kkt/{sensitivity,advance,path,activity}.rs`
   and `kkt/path/qp.rs`; application Proposed.
 
+**Reviewer correction (2026-10-27).** Confirmed: `SensApplication`, `IndexSchurData`, `step_along_path`, `rowlimit` and `ParametricActiveSetSolver` are in use, and `refine_step_onto_bounds` is unused by the advanced step's own contract. The comparative review recommends retiring the opportunity; fix-relax for the advanced step would be a functional change. See the [comparative review](../../reviews/native-solver-integration.md#cbo-032).
+
 ### [CBO-031](../../../library_leverage/codebase/native-solver-integration.md#cbo-031) — Convex and conic encodings (POUNCE part)
 - **Types:** pounce/convex-qp-and-cone-form
 - **Conclusion:** ruled out here for a shared layout. The conventions genuinely differ from

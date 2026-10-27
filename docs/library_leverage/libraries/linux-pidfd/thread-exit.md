@@ -29,6 +29,13 @@ becomes a zombie, even if the thread-group is not empty"); `rustix-1.1.5/src/pro
   thread-exit processing (C++ `thread_local`/Rust TLS destructors and pthread-key destructors run
   in the thread before the exit syscall). Whether `pthread_join` can still block briefly after
   readiness (the `CLONE_CHILD_CLEARTID` futex wake) is not established from documents.
+  Kernel ordering narrows it (added 2026-10-27, Interface-checked against v6.12
+  `kernel/exit.c`): `do_exit` calls `exit_mm()`, whose `exit_mm_release` performs the
+  clear-child-tid futex wake, before `exit_notify()`, which calls `do_notify_pidfd()` for
+  sub-threads ("wake up the PIDFD_THREAD waiters"). A join after readiness should therefore not
+  block on the tid futex; the body of `exit_mm_release` was not re-read, so this is not *Tested*.
+  The thread pidfd notifies only while the thread group still has other members
+  (`!thread_group_empty`), which always holds for a worker thread of a live process.
 - **Version / build conditions:** Linux ≥ 6.9; rustix `process` + `thread`; tokio `net`.
 - **Limits and negative results:** Linux-only; not available in older kernels; no portable
   equivalent in std or tokio.
@@ -49,3 +56,11 @@ becomes a zombie, even if the thread-group is not empty"); `rustix-1.1.5/src/pro
 - **Semantic gaps:** host-local kernel requirement (acceptable per local-over-portable stance, but a
   fallback is needed for robustness).
 - **Evidence:** Interface-checked; Proposed. Probe request in README.
+
+**Reviewer correction (2026-10-27).** The comparative review defers the swap: one local
+native-thread spawn/join owner keeps `spawn_blocking(join)` internally and moves to thread-pidfd
+readiness only if blocking-pool pressure is measured. Only two sites await a join through
+`spawn_blocking` (per job, and per session for the lane lifetime); two others join synchronously
+in `Drop`. The swap would share the pidfd readiness machinery (tokio `AsyncFd`, which needs the
+`net` feature) with any process-pidfd wait adopted for the primary-receiver observation. See the
+[comparative review](../../reviews/execution-lifecycle-and-observation.md#cbo-018).

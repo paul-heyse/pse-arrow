@@ -73,3 +73,5 @@ installed source is the realization.
   whether the supported filesystems all honour `RENAME_NOREPLACE` (the current code comment
   restricts itself to "the supported local Linux filesystem").
 - **Evidence:** Interface-checked (tempfile source); application Proposed.
+
+**Reviewer correction (2026-10-27).** Narrow "fits with conditions for the simple export/capture/pack publishers": tempfile is ruled out for export, workbench and review pack. Their `.incomplete` staging is an architecture contract (interrupted staging remains `.incomplete`), and the review pack's `fail_at` publishes partial prefixes from it; RAII deletion and random names contradict both. tempfile fits only the diagnostic publishers, which would leave two publication disciplines. `xtask/src/producer_history.rs` already uses `persist_noclobber`. The comparative review recommends one `renameat_with(NOREPLACE)` helper instead (see `rustix`). See the [comparative review](../../reviews/host-processes-and-durable-files.md#cbo-003).

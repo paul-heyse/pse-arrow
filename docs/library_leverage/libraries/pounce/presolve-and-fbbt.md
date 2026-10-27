@@ -110,6 +110,8 @@ Research date 2026-10-27. Sources:
     the thread that calls `prepare_contract_inner` would settle this.
 - **Evidence:** Interface-checked; Proposed.
 
+**Reviewer correction (2026-10-27).** The unsettled premise is answered: both guards hold transitively. The only production caller is `prepare_reduced_supplier` in `pse-runtime/src/math/solves/derived.rs`, math jobs spawn with `.stack_size(service.policy.stack_bytes)`, `MathPolicy::validate` refuses a stack below `MATCHING_STACK`, and `CaseLimits` caps a case at 100,000 scalars. The real gap is that implicit reconstruction runs no result validation. The comparative review recommends one checked dense-decomposition function in `pse-structural` (POUNCE sequence, `MATCHING_ROWS` refusal, the existing result invariants including block order, stage cancellation) reused by reconstruction. An iterative upstream `dfs` (or SuiteSparse `btf_maxtrans` behind the same kernel) matters only for growth; an iterative matcher alone would not release the stack reservations other code anchors on `MATCHING_STACK`. See the [comparative review](../../reviews/mathematics-preparation.md#cbo-023).
+
 ### [CBO-024](../../../library_leverage/codebase/mathematics-and-compilation.md#cbo-024) — FBBT operator set declared once
 - **Types:** pounce-nlp/fbbt-tape.
 - **Realization:** installed fork revision.
@@ -124,3 +126,5 @@ Research date 2026-10-27. Sources:
   rationals must be outward-rounded locally).
 - **Unsettled premises and what would settle them:** none material.
 - **Evidence:** Interface-checked.
+
+**Reviewer correction (2026-10-27).** FBBT is already POUNCE's own format, and each consumer's per-operator rules are its own semantics, so the comparative review rejects the CBO's premise and retains the current lowering. A side observation, not traced to a conclusion: `presolve.rs::tape` lowers constants through `Constant::value()`, which rounds to nearest rather than outward; §15.4's tolerance-expanded confirmation appears to cover infeasibility claims, but whether tightened bounds are also confirmed was not checked. This bears on the `f64`-constant gap above. See the [comparative review](../../reviews/mathematics-preparation.md#cbo-024).

@@ -200,7 +200,7 @@ change a later decision:
 | CBO-029 | Two NLP-oracle callback translators | LOP-09, LOP-02 | Proposed | [Native solvers](native-solver-integration.md#cbo-029) |
 | CBO-030 | Native session lifecycles re-expressed per adapter | LOP-08, LOP-09 | Proposed | [Native solvers](native-solver-integration.md#cbo-030) |
 | CBO-031 | Convex and conic encodings hand-synchronized per solver | LOP-02, LOP-09 | Current promise | [Native solvers](native-solver-integration.md#cbo-031) |
-| CBO-032 | KKT-point sensitivity beside fuller library sensitivity surfaces | LOP-03 | Premise corrected; retirement candidate | [Native solvers](native-solver-integration.md#cbo-032) |
+| CBO-032 | KKT-point sensitivity beside fuller library sensitivity surfaces | LOP-03 | Premise false (confirmed by the [comparative review](../reviews/native-solver-integration.md#cbo-032)); retire at the next audit refresh | [Native solvers](native-solver-integration.md#cbo-032) |
 | CBO-033 | No producer of sampling or experimental designs | LOP-12, LOP-03 | Proposed | [Numerical workflows](numerical-workflows.md#cbo-033) |
 | CBO-034 | Only first-order uncertainty propagation | LOP-12 | Proposed | [Numerical workflows](numerical-workflows.md#cbo-034) |
 | CBO-035 | Separate dense-algebra universes for LM and surrogate routes | LOP-09, LOP-11 | Current promise | [Numerical workflows](numerical-workflows.md#cbo-035) |

@@ -163,6 +163,14 @@ ORDINALITY, closed unmerged).
   value is consistency, not work avoided).
 - **Evidence:** Interface-checked; application Proposed.
 
+**Reviewer correction (2026-10-27).** Ruled out here, not "fits with conditions". The window-overlap
+decision across dense outputs already runs in generated SurrealQL (the
+`canonical_result_block_outputs` query over coordinate projections), which filters outputs on the
+`result_output_range` index (`result_set, output, partition, start`) before any transfer, with bit
+and finite-projection assertions on `coordinate_min`/`coordinate_max`. A DataFusion pruning route
+would move the selection away from its index. If that query or index changes, this conclusion
+must be revisited. See the [comparative review](../../reviews/result-data-and-prepaid-accounting.md#cbo-007).
+
 ### [CBO-012](../../../library_leverage/codebase/persistence-and-transport.md#cbo-012) — Imperative nested-occurrence traversal beside the plan-based route
 - **Types:** `datafusion/nested-occurrence-plans`.
 - **Realization:** installed 55.1.0.

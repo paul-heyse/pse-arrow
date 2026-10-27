@@ -104,3 +104,9 @@ Research date 2026-10-27. Sources:
     capture and observes whether the sink receives HTTP/1.1 `POST /v1/traces` would settle
     it.
 - **Evidence:** Interface-checked (installed files); application Proposed.
+
+**Reviewer correction (2026-10-27).** The OTLP/HTTP switch premise is answered no and its probe is withdrawn: at tag `v3.3.4` the
+SurrealDB server builds its span exporter with `with_tonic()` and compiles `opentelemetry-otlp`
+0.31.1 without `http-proto`, and no protocol variable selects HTTP (see
+`surrealdb-server/telemetry-export-transport` in the [SurrealDB server tooling](../surrealdb/server-tooling.md)
+account). The repository already points the server at the collector's `otlp_grpc_endpoint`. The hand HTTP/2 sink is therefore the minimal fixed peer, and the comparative review retains it, adding only a one-line reason to the module docstring; an upstream HTTP/protobuf exporter would reopen the stdlib-server option once released. See the [comparative review](../../reviews/developer-tooling.md#cbo-051).

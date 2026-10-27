@@ -97,9 +97,14 @@ routes for comparative review:
 - **Retry.** backon for conflict retries ([backon](backon/README.md)).
 - **Parsing.** winnow structural parsing over the existing tokens ([winnow](winnow/README.md)).
 - **Evidence index.** Parquet plus DataFusion for the development evidence index
-  ([parquet-datafusion-index](parquet-datafusion-index/README.md)).
+  ([parquet-datafusion-index](parquet-datafusion-index/README.md)). Correction (2026-10-27): this
+  route is conditional on the review's premise U3, whether the development evidence index must
+  stay on SurrealDB ([comparative review](../reviews/README.md#unresolved-premises-and-their-branches)).
 - **Telemetry capture.** Installed OTLP stubs, or switching the exporter to HTTP
-  ([LOP-X010](../assessment-patterns.md#lop-x010)).
+  ([LOP-X010](../assessment-patterns.md#lop-x010)). Correction (2026-10-27): the HTTP switch is
+  not available, because SurrealDB 3.3.4 exports OTLP only over tonic gRPC
+  ([surrealdb/server-tooling](surrealdb/server-tooling.md),
+  [comparative review](../reviews/developer-tooling.md#cbo-051)).
 
 **4. A lower supplier layer may remove a patch.** The supplier's own generated gRPC client is
 generic over a caller-built transport. It could host the SurrealDB lifecycle policy on public
@@ -112,6 +117,9 @@ feature unification ([LOP-X006](../assessment-patterns.md#lop-x006)). The govern
 whether reproducibility means regenerating from a seed or replaying recorded points.
 
 ## Questions for comparative review
+
+The first [comparative review](../reviews/README.md) (2026-10-27) answers these; its entry page
+and group pages hold the current judgments. The questions are kept as the assessment posed them.
 
 1. **CBO-009.** Keep the SDK delta and the mirrored layer, move to the direct protocol client, or
    contribute an upstream seam? This hinges on how much result and session handling would be
@@ -154,6 +162,14 @@ and could settle review questions:
 - FBBT bounds from exported Symbolica instructions (math).
 - `pse-schema` compile memory and the time of a first `registry()` call (boundary).
 - The OTLP HTTP exporter for the capture sink (tooling).
+
+Status update (2026-10-27), from the [comparative review](../reviews/README.md#probes): the
+delegated-cgroup and `pse-schema` compile-cost questions were probed; LIVE SELECT under the
+bounded profile is moot, because the bounded engine refuses it by design; the OTLP HTTP exporter
+question was answered from server source (no HTTP exporter at 3.3.4) and its probe withdrawn, as
+was the cargo-hack adapter probe recorded in [cargo-hack](cargo-hack/README.md). Question 12 is
+answered statically: the isolator confines intervals to one closed half-line, and the live hazard
+is strict containment across square-free factors ([symbolica](symbolica/README.md)).
 
 ## No library route found
 
@@ -250,7 +266,7 @@ Refresh entries in place:
 | [CBO-038](../codebase/authoring-and-identity.md#cbo-038) | [miette/source-rendering](miette/source-rendering.md): fits with conditions; [ariadne](ariadne/README.md): ruled out here; [codespan-reporting](codespan-reporting/README.md): ruled out here |
 | [CBO-039](../codebase/authoring-and-identity.md#cbo-039) | [serde](serde/README.md): ruled out here |
 | [CBO-040](../codebase/registry-generation-and-python-boundary.md#cbo-040) | [arrow/schema-serde-and-ipc](arrow/schema-serde-and-ipc.md): fits with conditions; [bincode](bincode/README.md): ruled out here; [ciborium](ciborium/README.md): fits with conditions; [postcard](postcard/README.md): fits with conditions; [rkyv](rkyv/README.md): ruled out here |
-| [CBO-041](../codebase/registry-generation-and-python-boundary.md#cbo-041) | [cattrs](cattrs/README.md): subsumed by msgspec convert; [msgspec](msgspec/README.md): fits with conditions; [pythonize](pythonize/README.md): fits with conditions; [schemars](schemars/README.md): not applicable |
+| [CBO-041](../codebase/registry-generation-and-python-boundary.md#cbo-041) | [cattrs](cattrs/README.md): subsumed by msgspec convert; [msgspec](msgspec/README.md): fits with conditions; [pythonize](pythonize/README.md): fits with conditions; [schemars](schemars/README.md): not applicable; [pyo3](pyo3/README.md): fits (entry added from the comparative review) |
 | [CBO-042](../codebase/registry-generation-and-python-boundary.md#cbo-042) | [schemars](schemars/README.md): ruled out here; [serde](serde/README.md): ruled out here |
 | [CBO-043](../codebase/registry-generation-and-python-boundary.md#cbo-043) | [cattrs](cattrs/README.md): fits with conditions; [datamodel-code-generator](datamodel-code-generator/README.md): unsettled; [msgspec](msgspec/README.md): fits with conditions |
 | [CBO-044](../codebase/registry-generation-and-python-boundary.md#cbo-044) | [pyo3](pyo3/README.md): fits with conditions |
@@ -296,7 +312,7 @@ Refresh entries in place:
 | [diffsol](diffsol/README.md) | `diffsol/fallible-newton-linear-solver`, `diffsol/checkpointed-adjoint` | CBO-027 |
 | [duckdb](duckdb/README.md) | `duckdb/in-place-file-query-engine` | CBO-050 |
 | [egobox-doe](egobox-doe/README.md) | `egobox-doe/seeded-space-filling-designs`, `egobox-moe/mixed-integer-design-mapping` | CBO-033, CBO-035 |
-| [faer](faer/README.md) | `faer/sparse-lu-scratch-and-reuse`, `faer/dense-covariance-square-root` | CBO-001, CBO-026, CBO-034, CBO-035 |
+| [faer](faer/README.md) | `faer/sparse-lu-scratch-and-reuse`, `faer/runtime-simd-dispatch`, `faer/dense-covariance-square-root` | CBO-001, CBO-026, CBO-034, CBO-035 |
 | [fastmcp](fastmcp/README.md) | `fastmcp/generate-cli-from-tool-schemas` | CBO-052 |
 | [feral](feral/README.md) | `feral/hager-higham-estimator-over-any-factor`, `feral/unsymmetric-sparse-lu`, `feral/symmetric-ldlt-symbolic-estimates` | CBO-001, CBO-026 |
 | [futures-util](futures-util/README.md) | `futures-util/shared-completion` | CBO-011 |
@@ -312,7 +328,7 @@ Refresh entries in place:
 | [minijinja](minijinja/README.md) | `minijinja/runtime-text-templates-strict` | CBO-046 |
 | [moka](moka/README.md) | `moka/coalesced-cache-initialization` | CBO-011 |
 | [msgspec](msgspec/README.md) | `msgspec/tagged-struct-header`, `msgspec/typed-convert-and-attrs-interop` | CBO-041, CBO-043 |
-| [numerica](numerica/README.md) | `numerica/exact-matrix-algebra`, `numerica/ball-enclosures` | CBO-024, CBO-025 |
+| [numerica](numerica/README.md) | `numerica/exact-matrix-algebra`, `numerica/ball-enclosures`, `numerica/rational-to-binary64-conversion` | CBO-024, CBO-025 |
 | [object-store](object-store/README.md) | `object-store/limit-store`, `object-store/request-concurrency-limit` | CBO-011 |
 | [opentelemetry](opentelemetry/README.md) | `opentelemetry/observable-instruments-over-owned-state`, `opentelemetry/sync-instruments-and-provider-order` | CBO-013 |
 | [opentelemetry-proto](opentelemetry-proto/README.md) | `opentelemetry-proto/otlp-message-decoding` | CBO-051 |
@@ -325,7 +341,7 @@ Refresh entries in place:
 | [procfs](procfs/README.md) | `procfs/typed-proc-readers`, `procfs/hardened-proc-open` | CBO-019 |
 | [proptest-derive](proptest-derive/README.md) | `proptest-derive/derived-ast-strategies` | CBO-037 |
 | [psutil](psutil/README.md) | `psutil/process-snapshot-and-wait` | CBO-019, CBO-048 |
-| [pyo3](pyo3/README.md) | `pyo3/pyclass-as-public-type`, `pyo3/bulk-return-crossing`, `pyo3/interruptible-detached-wait` | CBO-017, CBO-044 |
+| [pyo3](pyo3/README.md) | `pyo3/pyclass-as-public-type`, `pyo3/bulk-return-crossing`, `pyo3/interruptible-detached-wait`, `pyo3/per-type-python-handle-cache` | CBO-017, CBO-041, CBO-044 |
 | [pyo3-async-runtimes](pyo3-async-runtimes/README.md) | `pyo3-async-runtimes/asyncio-cancellation-bridge` | CBO-017 |
 | [python-dbus-clients](python-dbus-clients/README.md) | `python-dbus-clients/pure-python-blocking-client`, `python-dbus-clients/asyncio-client`, `python-dbus-clients/libsystemd-binding` | CBO-020, CBO-048 |
 | [python-file-locks](python-file-locks/README.md) | `python-file-locks/flock-with-timeout-poll`, `python-file-locks/alternatives` | CBO-047 |
@@ -351,8 +367,8 @@ Refresh entries in place:
 | [statrs](statrs/README.md) | `statrs/inverse-cdf-quantiles`, `statrs/multivariate-normal-sampling` | CBO-034, CBO-035, CBO-036 |
 | [strum](strum/README.md) | `strum/closed-vocabulary-derives` | CBO-045 |
 | [suitesparse](suitesparse/README.md) | `suitesparse/structural-permutations`, `suitesparse/spex-exact-ldl`, `klu/symbolic-estimates-and-measured-usage` | CBO-001, CBO-023, CBO-025, CBO-026 |
-| [sundials](sundials/README.md) | `sundials/idas-quadrature-history-after-calcic`, `sundials/workspace-reporting`, `sundials/adjoint-checkpoint-introspection` | CBO-001, CBO-028 |
-| [surrealdb](surrealdb/README.md) | `surrealdb-rust-sdk/grpc-request-lifecycle-controls`, `surrealdb-rust-sdk/grpc-live-subscription`, `surrealdb-protocol/generated-grpc-client`, `surrealdb-protocol/conformance-suite`, `surrealql/stored-function-transaction-guard`, `surrealql/single-statement-implicit-transaction`, `surrealql/define-param-constants`, `surrealql/changefeed-replay`, `surrealql/live-select`, `surrealql/request-time-ceiling`, `surrealdb-syn/parse-validate`, `surrealdb-sql/ast-render`, `surrealdb-server/readiness-probes`, `surrealdb-server/logical-export-import`, `surrealkit/schema-rollout` | CBO-009, CBO-010, CBO-016, CBO-046, CBO-048 |
+| [sundials](sundials/README.md) | `sundials/idas-quadrature-history-after-calcic`, `sundials/workspace-reporting`, `sundials/adjoint-checkpoint-introspection`, `sundials/release-fixes-7.2-to-7.9` | CBO-001, CBO-028 |
+| [surrealdb](surrealdb/README.md) | `surrealdb-rust-sdk/grpc-request-lifecycle-controls`, `surrealdb-rust-sdk/grpc-live-subscription`, `surrealdb-protocol/generated-grpc-client`, `surrealdb-protocol/conformance-suite`, `surrealql/stored-function-transaction-guard`, `surrealql/single-statement-implicit-transaction`, `surrealql/define-param-constants`, `surrealql/changefeed-replay`, `surrealql/live-select`, `surrealql/request-time-ceiling`, `surrealdb-syn/parse-validate`, `surrealdb-sql/ast-render`, `surrealdb-server/readiness-probes`, `surrealdb-server/logical-export-import`, `surrealdb-server/telemetry-export-transport`, `surrealkit/schema-rollout` | CBO-009, CBO-010, CBO-016, CBO-046, CBO-048 |
 | [symbolica](symbolica/README.md) | `symbolica/evaluator-cooperative-abort`, `symbolica/cooperative-resource-budget`, `symbolica/public-size-observables`, `symbolica/evaluator-instruction-interchange`, `symbolica/exact-root-isolation-and-refinement` | CBO-021, CBO-024, CBO-025 |
 | [systemd-manager-api](systemd-manager-api/README.md) | `systemd-manager-api/transient-units-and-jobs` | CBO-020, CBO-048 |
 | [tempfile](tempfile/README.md) | `tempfile/named-staging-noclobber-persist` | CBO-003 |

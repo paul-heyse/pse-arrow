@@ -84,3 +84,5 @@ because the crate is not in the lock.
   - If not, the installed combinator library covers the same parse-form ground with no new
     dependency.
 - **Evidence:** Interface-checked (docs); application Proposed.
+
+**Reviewer correction (2026-10-27).** The comparative review retains the current parsers: most of the parser is context-sensitive domain logic, a combinator library only moves the cursor, and no tool derives the printer. It suggests two optional local hardenings instead (exhaustive walker arms and a generator variant witness). Multi-error recovery is a new authoring capability that belongs to a functional-extension review, not to leverage. See the [comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-037).

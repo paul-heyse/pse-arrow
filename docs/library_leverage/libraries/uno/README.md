@@ -90,6 +90,15 @@ the repository's binding notes and patch (read; they record an earlier v2.9.1 in
   1.15.1 was not investigated.
 - **Evidence:** Interface-checked; application Proposed.
 
+**Reviewer correction (2026-10-27).** On reading the patch, v2.9.2's nonbasic bound placement acts
+on QP *readback*, while the feasibility seed addresses HiGHS 1.15.0 QP *initialization*, so the
+seed premise probably survives v2.9.2 (unconfirmed). The comparative review retains the current
+pin: the original-space acceptance already guards outcomes, and the rebase is non-mechanical and
+needs an image rebuild and requalification. Revisit at the next image rebuild, on a probe result
+or on an observed defect. Under upstream contribution, generic HiGHS subproblem-option forwarding
+would turn three of the four numerical hunks into configuration. See the
+[comparative review](../../reviews/native-solver-integration.md#cbo-028).
+
 ### [CBO-029](../../../library_leverage/codebase/native-solver-integration.md#cbo-029) — Two NLP-oracle callback translators (Uno part)
 - **Types:** uno/c-api-conventions
 - **Realization:** installed 805a27ec.
@@ -99,3 +108,8 @@ the repository's binding notes and patch (read; they record an earlier v2.9.1 in
 - **What it would discharge / what remains local:** convention translation can be configuration;
   the oracle-to-callback translator itself remains local.
 - **Evidence:** Interface-checked; application Proposed.
+
+**Reviewer correction (2026-10-27).** The CBO's "two translators" premise is rejected: there is one
+chain (`tnlp::Adapter` → pounce-presolve → either the `NlpOracle` transport into POUNCE or the
+`foreign_nlp` C-ABI dispatch into the Ipopt C++ sequence and Uno), and Uno's conventions are
+already configuration. See the [comparative review](../../reviews/native-solver-integration.md#cbo-029).

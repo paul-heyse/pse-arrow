@@ -7,6 +7,12 @@ Research date 2026-10-27. Sources: installed source `~/.cargo/git/checkouts/poun
 — `lib.rs` re-exports, `lu/{mod.rs,sparse_factor.rs,sparse_symbolic.rs,sparse_update.rs,condition.rs,sparse_solve.rs}`,
 `numeric/{condition.rs,solver.rs}`, `symbolic/mod.rs` (`SymbolicFactorization`, `WorkEstimate`).
 
+Provenance note (added 2026-10-27): the FERAL in use is the copy vendored inside a maintained
+POUNCE fork (`paul-heyse/pounce`, extending upstream `a31dab9c`), not an upstream FERAL release.
+`Solver::conservative_storage_bytes` and `with_bounded_storage_max_dimension` are fork additions
+(commit `a695be61`, documented in the fork's `source-extension.md`), so new owner bounds of that
+kind are fork changes following existing practice rather than upstream additions.
+
 ## Types
 
 ### feral/hager-higham-estimator-over-any-factor
@@ -117,6 +123,16 @@ Research date 2026-10-27. Sources: installed source `~/.cargo/git/checkouts/poun
   agree closely enough on the actual Jacobians to merge the conditioning question — probe request P3.
 - **Evidence:** Interface-checked; application Proposed.
 
+**Reviewer correction (2026-10-27).** The "one estimator per question" premise does not hold:
+each question already has one estimator. The KLU `rcond`/`condest` in Diffsol is a
+refactor-acceptance policy (the bundled SUNDIALS 7.1.1 KLU setup policy), not a diagnostic
+estimator, and `matrix_norms` answers backward error. The comparative review rejects both FERAL
+Hager–Higham over faer/KLU and a faer-to-FERAL LU swap, and recommends a crate-local faer-LU
+helper for the three faer owners (square response, arclength and Diffsol `FaerLu`), with one
+scratch-admission rule, one error classification, one finite-solve check and one shared
+`n²·64 + 512n + 4096` allowance, which is duplicated verbatim today. See the
+[comparative review](../../reviews/native-solver-integration.md#cbo-026).
+
 ### [CBO-001](../../../library_leverage/codebase/cross-cutting-mechanisms.md#cbo-001) — Prepaid accounting (FERAL part)
 - **Types:** feral/symmetric-ldlt-symbolic-estimates, feral/unsymmetric-sparse-lu
 - **Realization:** installed pin.
@@ -134,3 +150,11 @@ Research date 2026-10-27. Sources: installed source `~/.cargo/git/checkouts/poun
   bound (a supplier change, not a capability).
 - **Evidence:** Interface-checked: local `conditioning.rs` and `kinsol/block.rs` read against the
   FERAL source.
+
+**Reviewer correction (2026-10-27).** "A library route would be an upstream addition" should read
+"a fork change, following the existing practice": the LDLᵀ owner bound is itself a fork addition
+(`a695be61`), so a conservative `SparseLu` owner bound belongs in the same fork. Its single owner
+bound must not refuse ordinary supported blocks, and a cubic LU bound must not be applied to the
+whole-Jacobian diagnostic, where it would refuse work that runs today. The review also notes that
+`conditioning::jacobian_condition` runs FERAL LU with no pre-admission. See the
+[comparative review](../../reviews/native-solver-integration.md#cbo-001-native).

@@ -37,9 +37,13 @@ The first broad [codebase opportunity audit](codebase/README.md) was run on 2026
 [library applicability assessment](libraries/README.md), also run on 2026-10-27, covers every
 opportunity across 97 library accounts. It added [additional patterns](assessment-patterns.md)
 `LOP-X004`–`LOP-X010` (revision 2) and recorded dated premise corrections in the codebase
-account. No comparative review has been run yet, and its entry page still identifies its
-unassessed state. Record inspected baselines and limits rather than treating empty collections as
-assessed, and do not invent patterns to populate a scaffold.
+account. The first [comparative review](reviews/README.md), also of 2026-10-27, judges every
+live opportunity across nine group pages, backed by five probes. It recommends bounded targets,
+records retained mechanisms and rejected premises, and keeps three premises explicitly
+unresolved. It added `LOP-X011`–`LOP-X014` and refined the rest (revision 3), and its dated
+corrections are in the codebase and library accounts. Record inspected baselines and limits
+rather than treating empty collections as assessed, and do not invent patterns to populate a
+scaffold.
 
 The shared [vocabulary](references/shared-language.md) and
 [collection-writing guidance](references/collection-writing.md) support all three skills. Keep

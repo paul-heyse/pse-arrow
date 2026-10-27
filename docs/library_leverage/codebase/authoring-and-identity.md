@@ -109,6 +109,7 @@ serde, `FromStr` and `ALL` from one table.
   - Where would a `SemanticId`→text source map attach?
   - Can `LabeledSpan`s be derived from `SourceSpan` at the driver boundary?
 - **Library assessment correction (2026-10-27).** `SourceSpan` is the repository's own type, not miette's. The source text is available where the admission driver loads each document. See [miette](../libraries/miette/README.md).
+- **Comparative review correction (2026-10-27).** ADR-0224 ("original source-bearing messages remain private" on the agent interface) bounds where rendering may live: at the source-owning presentation boundary, never in the report or envelope. `AuthoringError` already projects `DiagnosticLocation {document, start, end}` in its `facts(...)`, so rendering can start from structured facts. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-038).
 
 <a id="cbo-039"></a>
 
@@ -150,6 +151,7 @@ serde, `FromStr` and `ALL` from one table.
   - Could a derive with skip and order attributes, or serde attributes on the existing framer,
     cover the selective forms?
 - **Library assessment correction (2026-10-27).** The hand implementations implement `pse_model::SemanticFrame`, whose byte layout differs from the serde `Framer`, so the serde route would change identities. There are about 59 sites in 30 files, not about 30. See [serde](../libraries/serde/README.md) and [LOP-X007](../assessment-patterns.md#lop-x007).
+- **Comparative review correction (2026-10-27).** There are 62 non-generated `fn frame(` sites: 12 primitive and collection impls in `pse-model`, about 6 `pse-codegen` emitters, and `pse-modeling/src/derived.rs`, which is already declarative through `relationships!` with its own `FrameValue` leaf layout. The actual identity-escape exposure is the roughly 20 struct frames that read `self.field` without destructuring. See the [comparative review](../reviews/declarations-registry-and-python-boundary.md#cbo-039).
 
 ## Examined and not retained
 

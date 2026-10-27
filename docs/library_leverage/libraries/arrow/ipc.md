@@ -94,6 +94,25 @@ and #11012 (open); issue #10521; `arrow-ipc/src/reader.rs` on `main` (GitHub con
   `ArrayDataBuilder::build`, `fb_to_schema`); upstream PR bodies and their regression tests (#10522
   reports `i64::MAX`, `1 << 50`, `-1` body lengths panicking or aborting before the fix). No local
   probe was run: static reading settled the allocation order (see README).
+- **Measured stream behaviour (added 2026-10-27):** a later hostile-stream probe at 59.3.0
+  (*Tested*, release profile with `panic = "unwind"`, Linux x86_64 with heuristic overcommit,
+  uncapped and under `ulimit -v`; [evidence](../../../design_review/evidence/library-leverage-arrow-ipc-stream-hostile-2026-10-27/README.md)) confirmed the
+  static reading for `StreamReader` and extended it:
+  - The pre-allocation applies to the *schema* message as well, inside `StreamReader::try_new`, so
+    a header-only read of the schema is exposed too. Wrapping the input in `Read::take` bounds
+    nothing.
+  - A `bodyLength` above what the allocator or address-space cap can satisfy aborts the process
+    (`alloc_zeroed` of exactly the advertised size, for example 1 PiB for `1 << 50`); below that,
+    the lazy allocation succeeds and the read ends in a typed I/O error. A negative `bodyLength`
+    panics on `Layout::from_size_align(usize::MAX, 64).unwrap()` without allocating. A metadata
+    length prefix near `i32::MAX` reserves about 2 GiB before reading.
+  - A buffer offset or length outside the body panics in `Buffer::slice_with_length` for every
+    reader and decoder, because they share `read_buffer`.
+  - Oversized node or batch lengths (including `-1`) are refused as typed errors by default
+    `ArrayData` validation. Surplus node and buffer entries are ignored, and their cost is bounded
+    by the metadata bytes actually supplied.
+  - Not probed: `fb_to_schema` panics on malformed schemas, compression, dictionaries, view types
+    and the skip-validation and alignment options.
 
 ### arrow-ipc/caller-owned-push-decoding
 - **Need it serves:** decode IPC while the caller owns every input-sized allocation, so admission
@@ -127,6 +146,19 @@ and #11012 (open); issue #10521; `arrow-ipc/src/reader.rs` on `main` (GitHub con
   Decoded arrays retain the caller's block buffer (zero-copy), so the reservation for the block
   covers the batch's retained memory, plus small `ArrayData` headers. `StreamDecoder` at 59.3.0
   still calls `fb_to_schema` (panics on malformed schemas) and `header_as_schema().unwrap()`.
+  Further conditions (added 2026-10-27):
+  - `StreamDecoder` never pre-allocates from `bodyLength` (*Tested* by the hostile-stream probe
+    cited above): a lying or negative length leaves the decoder waiting for body bytes, and
+    `finish()` refuses with `IpcError("Unexpected End of Stream")`. It still panics on buffer spans
+    outside the body, through the shared `read_buffer`, so a span check stays a caller obligation.
+  - Alignment: the IPC writer pads to `IpcWriteOptions` alignment (default 64), and
+    `arrow-buffer` `ALIGNMENT` is 64 on x86_64, so a block read into a fresh `MutableBuffer`
+    decodes with `with_require_alignment(true)`. Blocks sliced from one whole-file `Vec<u8>` are
+    aligned only to 8 bytes relative to its base. Upstream `arrow/examples/zero_copy_ipc.rs`
+    shows the mmap variant (Context7 listing; not in the crate tarball).
+  - `Bytes::claim` (arrow-buffer feature `pool`) replaces any reservation already attached, and
+    enabling `pool` adds a `Mutex<Option<Box<dyn MemoryReservation>>>` to every `Bytes` in the
+    family build, so a caller-owned reservation attached to its own buffer is lighter.
 - **Version / build conditions:** `FileDecoder` since PR #5249 (merged 2023-12-31); `StreamDecoder` long
   available; both present at 59.3.0 and 60.0.0 with the same signatures.
 - **Limits and negative results:** no decoder-level message verifier options; no decoder check
@@ -161,7 +193,13 @@ and #11012 (open); issue #10521; `arrow-ipc/src/reader.rs` on `main` (GitHub con
   file-format record-batch message for the same options, so per-batch sizes transfer; the schema
   message is emitted once on the first `encode`.
 - **Version / build conditions:** `StreamEncoder` is present at 59.2.0 and 59.3.0 and absent at
-  58.3.0 (installed-source check); it is not in 57/58 maintenance lines.
+  58.3.0 (installed-source check); it is not in 57/58 maintenance lines. The writers changed at
+  the same boundary (added 2026-10-27): at 59.2.0 and 59.3.0, `FileWriter::write` and the stream
+  writer emit record-batch bodies zero-copy to the sink (`IpcDataGenerator::write` →
+  `write_to_sink` with `IpcBodySink::Collect`), whereas at 58.3.0 `FileWriter::write` copied each
+  body into `EncodedData.arrow_data`. Owned allocations at 59.x are the sink itself, the metadata,
+  and re-based offsets or bit-shifted validity for sliced inputs. A writer allowance derived
+  against the 58.x copy is still conservative at 59.x, but its stated derivation is stale.
 - **Limits and negative results:** arrow-ipc 59.3.0 has no size-estimation function that avoids
   encoding (search scope: public items of installed `writer.rs`); `encoded_batch` is deprecated in
   favour of `encode`. The trial still walks every column once per attempt.
@@ -220,6 +258,29 @@ and #11012 (open); issue #10521; `arrow-ipc/src/reader.rs` on `main` (GitHub con
   maintenance backport of #10522/#10647 to 59.x is planned (none in 59.3.1/59.3.2 notes).
 - **Evidence:** Interface-checked (sources above); application Proposed.
 
+**Reviewer correction (2026-10-27).** The caller trace and the hostile-stream probe settle the
+first premise, and they correct the statement that `portable_payload.rs` is guarded for
+allocation: `StreamReader::try_new` pre-allocates the schema message's `bodyLength` even inside
+`take(length + 8)`. By site:
+- `result_physical.rs` decodes digest-verified, system-written store objects (staging assembly
+  checks each block digest and the payload digest).
+- The reproducer decodes IPC embedded in an exported replay document, which reaches the stock
+  `StreamReader` with no digest, signature or MAC; it checks only continuation and end-of-stream
+  bytes and charges `bytes×16 + 64 KiB`. A lying schema or batch `bodyLength` aborts the hosting
+  interpreter, and a negative length or out-of-body span panics. Project-bundle reproducers reach
+  the same decode after a self-consistency digest check only.
+- `portable_payload::finalized_ipc_schema` and the review-pack preview are exposed through the
+  schema message; the preview's `take` does not prevent pre-allocation.
+- `pse-schema/src/builder/products.rs` also uses `StreamReader` (not traced); the
+  `connected_results.rs` and `lm_inquiry.rs` sites are tests.
+
+The comparative review recommends one IPC admission built on `FileDecoder` / `StreamDecoder` at
+every trust boundary, with caller-reserved 64-byte-aligned block buffers attached to the existing
+allocation scope, widths taken from `arrow_data::layout`, the double read and whole-file charges
+removed, and every check 59.3.0 still needs kept (*Tested* library behaviour, *Interface-checked*
+routes; [evidence](../../../design_review/evidence/library-leverage-arrow-ipc-stream-hostile-2026-10-27/README.md)). Arrow 60 is not reachable until DataFusion
+moves to it. See the [comparative review](../../reviews/result-data-and-prepaid-accounting.md#cbo-005).
+
 ### [CBO-002](../../../library_leverage/codebase/cross-cutting-mechanisms.md#cbo-002) — Bounded and counting output sinks; trial-encode-and-halve (Arrow part)
 - **Types:** `arrow-ipc/encoded-size-without-body-copy`, `arrow-data/memory-size-functions`.
 - **Realization:** installed 59.3.0.
@@ -242,3 +303,12 @@ and #11012 (open); issue #10521; `arrow-ipc/src/reader.rs` on `main` (GitHub con
 - **Unsettled premises:** whether the trial's owned allocations (re-based offsets for sliced
   variable-width columns) need their own prepay; cost has not been measured.
 - **Evidence:** Interface-checked; application Proposed.
+
+**Reviewer correction (2026-10-27).** "Replace copy-into-`LimitedWriter`-then-halve loops"
+overstates the live footprint. Production result-file splitting is `result_prefix_rows`, which
+halves over the `batch_extent` estimate without encoding, followed by the hard bound in
+`AdmittedResultFile::encode`; `visit_blocks_async` encodes only after its estimate passes. The
+trial-encode path (`encode_result_prefix`, `visit_result_files_async`) has no production caller,
+and the `"sealed result file limit"` match is reachable only from it. The comparative review
+retains estimate-first splitting and adopts `StreamEncoder` sizing only if measurement shows
+frequent hard-bound fallbacks. See the [comparative review](../../reviews/result-data-and-prepaid-accounting.md#cbo-002).

@@ -83,3 +83,11 @@ API for serde_arrow.
   pooled JSONL) should stay JSON inside a binary blob or move to IPC schema messages — a probe could
   compare determinism and decode time.
 - **Evidence:** Interface-checked (sources above). Application Proposed.
+
+**Reviewer correction (2026-10-27).** Field-metadata ordering is already solved on the current JSON
+route by a canonical-JSON writer, so the sort prerequisite applies only where `Field` or
+`DataType` values are serialized through serde natively. The comparative review carries
+`FieldContract` values as canonical-JSON text inside the blob and keeps the fifteen IPC batches;
+nested `Field` metadata in natively serialized members must still be canonicalized, and
+`codegen-check` must show byte-identical regeneration. See the
+[comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-040).

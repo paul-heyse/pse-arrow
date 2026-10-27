@@ -69,3 +69,10 @@ oxfordcontrol/Clarabel.rs.
 - **Unsettled premises and what would settle them:** whether the local re-solve already reuses the
   solver via `update_settings` — read `conic.rs` `Session` (not inspected in depth).
 - **Evidence:** Interface-checked; application Proposed.
+
+**Reviewer correction (2026-10-27).** The unsettled premise is resolved: `conic.rs`
+`Session::solve_once` already calls `update_settings` on the retained solver. The pse cone form is
+the hub and maps one-to-one onto Clarabel's cone types (`Power` → `PowerConeT`; upper PSD
+triangle); POUNCE uses one forward map for both directions. The comparative review rejects the
+CBO's premise and retains the current encodings. See the
+[comparative review](../../reviews/native-solver-integration.md#cbo-031).

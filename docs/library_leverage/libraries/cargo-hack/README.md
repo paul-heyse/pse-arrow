@@ -48,3 +48,8 @@ premise correction rather than new capability research.
   one package and comparing resolved features would settle it. This is a probe, and it was
   not run.
 - **Evidence:** Interface-checked (local source); application Proposed.
+
+**Reviewer correction (2026-10-27).** The adapter does more than preserve feature unification: it
+also composes Arrow force-validation for each unit-graph closure (`arrow_validation.compose` and
+`capture` in `cargo_feature_check.py`). Feature unification therefore cannot make it unnecessary,
+and the probe above is withdrawn. See the [comparative review](../../reviews/developer-tooling.md#cbo-049).

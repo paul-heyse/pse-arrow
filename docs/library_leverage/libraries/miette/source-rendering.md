@@ -70,6 +70,14 @@ Research date 2026-10-27. Sources:
     includes it.
   - Under workspace feature unification, enabling a feature anywhere activates it for all
     consumers of the crate in that build.
+- **Rendering from structured facts (added 2026-10-27):** an application can render after the
+  original error value is gone. `MietteDiagnostic::{new, with_code, with_help, and_labels}`,
+  `NamedSource`, `Report::with_source_code` and `NarratableReportHandler::render_report` are all
+  available without `fancy-base` (`src/lib.rs` gates only `handler` and `highlighters`), so a
+  boundary that kept the code, message and (document, start, end) facts can rebuild a
+  `MietteDiagnostic` with labels and render it against the source it holds. On a Python
+  boundary, CPython 3.11+ `BaseException.add_note` (PEP 678) attaches such presentation-only text
+  to a raised exception without altering its structured payload.
 - **Limits and negative results:**
   - No built-in multi-file source map keyed by an arbitrary id. Each diagnostic has one
     source.
@@ -131,3 +139,11 @@ Research date 2026-10-27. Sources:
   `miette::Report` across `crates/` and `xtask/` *.rs found no use. `python/pse` has no
   source-excerpt renderer; its `_render_inspection` prints runtime inspection documents.
   Search was limited to those trees.
+
+**Reviewer correction (2026-10-27).** ADR-0224 ("original source-bearing messages remain private"
+on the agent interface) settles where rendering may live: at the source-owning presentation
+boundary, as an exception note on load failure or an explicit render call, never inside the
+report or envelope. `AuthoringError` already projects `DiagnosticLocation {document, start, end}`
+in its `facts(...)`, so the comparative review renders from those facts with `MietteDiagnostic`,
+`NamedSource` and `NarratableReportHandler` (graphical only if `fancy-base` is accepted) rather
+than adding `labels()` to the error types. See the [comparative review](../../reviews/declarations-registry-and-python-boundary.md#cbo-038).

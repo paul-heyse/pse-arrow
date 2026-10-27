@@ -69,6 +69,7 @@ The following are legitimately custom:
   - Is there a Sobol or scrambled-sequence crate with a stability guarantee?
   - Where should designs be authored: in Rust settings or in a Python helper?
 - **Library assessment correction (2026-10-27).** egobox-doe is not test-only in effect: production egobox-ego already runs its LHS for infill multistarts and TREGO starts, seeded from `SurrogateOptions.seed`. Multistart point identity is `semantic_point_key` over realized values, not the seed, so a platform difference changes identity honestly instead of corrupting replay. A probe found egobox-doe 0.35.1 designs bit-identical across opt-level, CPU flags and thread count on one host ([evidence](../../design_review/evidence/library-leverage-egobox-doe-determinism-2026-10-27/README.md)). See [egobox-doe](../libraries/egobox-doe/README.md) and [LOP-X006](../assessment-patterns.md#lop-x006).
+- **Comparative review correction (2026-10-27).** Profile chains and global checks do not consume designs: profile chains are secant predictors seeded from their predecessor, and global certification belongs to SCIP. Multistart (`MathService::prepare_multistart`) and surrogate (`MathService::prepare_surrogate`) are Rust APIs with only test callers at `3e9a2525b`, and Python `with_numerical_strategy` binds only declared-case rungs, so studies are the only live public consumer. No pse-arrow contract promises design generation, but the parity reference for the *Implemented* "Parameter sweeps" row provides it: IDAES 2.13 `parameter_sweep.py` `set_sampling_method` with pysmo Latin hypercube, uniform, Halton, Hammersley, CVT and custom sampling. IDAES convergence evaluation (`convergence_base.py`) samples truncated normals and records the points in a JSON baseline. See the [comparative review](../reviews/numerical-workflows.md#cbo-033).
 
 <a id="cbo-034"></a>
 
@@ -100,6 +101,7 @@ The following are legitimately custom:
   - Which consumer needs a nonlinear propagation, and at what cost budget?
   - Can a faer Cholesky plus `statrs` produce correlated draws reproducibly?
 - **Library assessment correction (2026-10-27).** faer Cholesky plus statrs is reproducible on one CPU class only: faer dispatches SIMD at runtime with FMA, and statrs and `rand_distr` use the platform libm because `num-traits/std` is unified on ([LOP-X006](../assessment-patterns.md#lop-x006)).
+- **Comparative review correction (2026-10-27).** IDAES `apps/uncertainty_propagation/uncertainties.py` is first-order (parmest covariance with k_aug gradients), so parity does not exceed the current capability, and §19.8 scopes propagation explicitly as first-order. See the [comparative review](../reviews/numerical-workflows.md#cbo-034).
 
 <a id="cbo-035"></a>
 
@@ -133,6 +135,7 @@ The following are legitimately custom:
   - Does the LM route outperform the NLP Gauss–Newton route for the fits it is eligible for?
   - Could a bounded method lift the restriction to unbounded problems?
 - **Library assessment correction (2026-10-27).** The premise "statrs features avoid a second nalgebra" is false: `Cargo.lock` resolves nalgebra 0.33.3 through statrs because egobox-moe enables statrs' default features. nalgebra 0.35 is also a non-optional dependency of `diffsol-la`, `num-dual` and `feos`/`quantity`, so removing the LM route would remove only pse-runtime's direct use.
+- **Comparative review correction (2026-10-27).** nalgebra 0.35 also reaches the graph through `feos-core`, `feos`, `quantity` and `xtask`. The lock has two ndarray lines: 0.16.1 through egobox and 0.17.2 through `numpy` 0.29 and `rustworkx-core` 0.18.1. `lm_inquiry.rs` is `#[cfg(all(test, feature = "solver-ipopt"))]`, so production nalgebra use is `oracle/residual.rs` alone, and removing the LM route removes no family. See the [comparative review](../reviews/numerical-workflows.md#cbo-035).
 
 <a id="cbo-036"></a>
 
@@ -156,6 +159,7 @@ The following are legitimately custom:
 - **Status.** Proposed addition.
 - **Research questions.** Does any consumer need estimated-variance fits?
 - **Library assessment correction (2026-10-27).** Estimated-σ fits are refused at fit preparation, so they cannot be prepared today.
+- **Comparative review correction (2026-10-27).** Pyomo 6.10.1 parmest estimates σ² = SSE/(n − l) for the `SSE` objective without measurement errors, with `n = self.number_exp`, which `_count_total_experiments` computes from unique data points, so several outputs at one data point count once. ADR-0118 (accepted), item 2, decides the declared-σ statistical model, and a fit without declared deviations is one of its negative controls, so an estimated-variance path would supersede that clause. See the [comparative review](../reviews/numerical-workflows.md#cbo-036).
 
 ## Examined and not retained
 
@@ -165,5 +169,12 @@ The following are legitimately custom:
   cancellation checkpoints. faer's blocked kernels reorder sums. The matrices are
   parameter-count sized. The opportunity would need a deterministic sequential reduction mode,
   and none is known.
+  - **Comparative review correction (2026-10-27).** The scalar loops guarantee summation order
+    but not portability, because their inputs come from faer kernels with runtime SIMD and FMA
+    dispatch: the Gauss–Newton covariance from faer `svd` in `workflow/fitting/oracle.rs`, and
+    PSD admission's eigenvalue decision from faer `self_adjoint_evd` in
+    `workflow/uncertainty/psd.rs`. End-to-end propagation is deterministic per CPU class
+    ([LOP-X006](../assessment-patterns.md#lop-x006)). See the
+    [comparative review](../reviews/numerical-workflows.md#group-summary).
 - **Source reduction.** `workflow/reduction.rs` implements a ddmin-style loop. Its anchors,
   spans, protected bytes and evidence leasing dominate, and no fitting library is known.

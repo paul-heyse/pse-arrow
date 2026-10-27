@@ -56,3 +56,5 @@ poll loop; `adjust` signature `FnMut(&E, Option<Duration>) -> Option<Duration>`)
   bounded only by the clock) — this determines whether a library counter fits at all.
 - **Evidence:** Interface-checked (backon source; repo `transport.rs`, `canonical.rs`,
   `canonical_staging.rs` loops); Proposed.
+
+**Reviewer correction (2026-10-27).** There are ten retry loops with five pacing forms, not four of each; the additions are `begin_stage_inner` (no jitter), `cleanup_stage_query`, two in `canonical_retention.rs` (`yield_now`) and `acquire_source_stage` (fixed 20 ms). The `conflict()` predicate is duplicated in two modules, and three loops interleave receipt settlement between attempts, which a generic combinator does not model. The comparative review does not adopt backon: once the named policies keep today's caps and pacings, the library would contribute only the loop. It recommends one local `retry_conflicts(policy, operation, step -> Attempt::{Done, Conflict, Busy})` owner under the original clock, with one predicate replacing the duplicates. See the [comparative review](../../reviews/execution-lifecycle-and-observation.md#cbo-010).
