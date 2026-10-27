@@ -8,7 +8,7 @@ maintains this living collection. It consumes [codebase opportunities](../codeba
 [library applicability assessments](../libraries/README.md), and can investigate deeper or challenge
 their premises. Read the [framework](../library-leverage-framework.md),
 [base patterns](../patterns.md) and [writing guidance](../references/collection-writing.md).
-Use additional patterns from the shared output `../assessment-patterns.md` when present.
+Use the shared [additional patterns](../assessment-patterns.md) on the same footing as base patterns.
 
 The first review identifies its consumed publication revisions, actual source/library realizations,
 date, governing criteria and material limits. Summarize the recommended choices and interactions

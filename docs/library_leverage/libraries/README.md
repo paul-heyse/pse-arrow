@@ -7,8 +7,8 @@ The [library assessment skill](https://github.com/paul-heyse/pse-arrow/blob/main
 maintains this collection, starting from identified [codebase opportunities](../codebase/README.md).
 Read the [framework](../library-leverage-framework.md), [base patterns](../patterns.md),
 [shared vocabulary](../references/shared-language.md) and
-[writing guidance](../references/collection-writing.md). Use additional patterns from the shared
-output `../assessment-patterns.md` when present, on the same footing as base patterns.
+[writing guidance](../references/collection-writing.md). Use the shared
+[additional patterns](../assessment-patterns.md) on the same footing as base patterns.
 
 The first assessment records its opportunity/source baselines, researched library realizations,
 dates and coverage limits. Create a directory for each library when its research supplies useful

@@ -32,12 +32,12 @@ ordinary implementation and API questions do not initiate this workflow.
 
 ## Current accounts
 
-No opportunity audit, library applicability assessment or comparative review has been run by
-installing the workflow. The three collection folders and their README entry points exist and
-explicitly identify their unassessed state. Author topic documents and record inspected baselines
-when the first real assessment supplies content. Create `assessment-patterns.md` with its first useful
-addition; do not invent patterns to populate a scaffold. Record inspected baselines and limits
-rather than treating empty collections as assessed.
+The first broad [codebase opportunity audit](codebase/README.md) was run on 2026-10-27 at
+`dbc4c9436`. It records `CBO-001`–`CBO-052` and the first
+[additional patterns](assessment-patterns.md) (`LOP-X001`–`LOP-X003`). No library applicability
+assessment or comparative review has been run yet, and their entry pages still identify their
+unassessed state. Record inspected baselines and limits rather than treating empty collections as
+assessed, and do not invent patterns to populate a scaffold.
 
 The shared [vocabulary](references/shared-language.md) and
 [collection-writing guidance](references/collection-writing.md) support all three skills. Keep
