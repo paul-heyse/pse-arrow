@@ -1034,7 +1034,12 @@ class ProducerDeploymentTests(unittest.TestCase):
         ) -> str:
             self.assertTrue(text)
             if command[0] == str(self.root / ".venv/bin/python"):
-                return json.dumps({"binary": env["_PSE_NATIVE_PUBLISHED_IMAGE"] if env else "", "features": ["force-validate", "native-solvers"]})
+                return json.dumps(
+                    {
+                        "binary": env["_PSE_NATIVE_PUBLISHED_IMAGE"] if env else "",
+                        "features": ["force-validate", "native-solvers"],
+                    }
+                )
             return actual_check_output(command, text=True, cwd=cwd, env=env)
 
         # The fixture tests byte-exact installation replay on actual ELF files.
@@ -1045,7 +1050,9 @@ class ProducerDeploymentTests(unittest.TestCase):
             patch.object(deployment, "verify_artifact"),
         ):
             self.actual_bind(self.root, self.output, self.environment)
-            published = deployment.artifact_publication.read(self.output / "python-publication.json")
+            published = deployment.artifact_publication.read(
+                self.output / "python-publication.json"
+            )
             assert published is not None
             copied = Path(published.artifact.binary)
             self.assertEqual(copied.read_bytes(), installed.read_bytes())
@@ -1108,7 +1115,10 @@ class ProducerDeploymentTests(unittest.TestCase):
             environment["PSE_PYTHON_DEPLOYMENT_ATTESTATION"],
             str(self.output / "python-attestation.json"),
         )
-        self.assertEqual(environment["_PSE_NATIVE_PUBLICATION"], str(self.output / "python-publication.json"))
+        self.assertEqual(
+            environment["_PSE_NATIVE_PUBLICATION"],
+            str(self.output / "python-publication.json"),
+        )
         self.assertEqual(
             environment, deployment.deployment_environment(self.root, Path("evidence"))
         )

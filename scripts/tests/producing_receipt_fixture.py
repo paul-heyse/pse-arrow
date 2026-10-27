@@ -16,7 +16,11 @@ if TYPE_CHECKING:
 def executable(root: Path, tool: Path) -> artifact_publication.Publication:
     return artifact_publication.publish(
         python_extension.stage_receipt("evidence-executable", os.environ, root=root),
-        kind="evidence-executable", source=tool, mode="dev", profile="dev",
-        validated=True, interpreter=str(python_extension.interpreter(os.environ).absolute()),
+        kind="evidence-executable",
+        source=tool,
+        mode="dev",
+        profile="dev",
+        validated=True,
+        interpreter=str(python_extension.interpreter(os.environ).absolute()),
         features=lambda _candidate: ["force-validate", "evidence-tools"],
     )

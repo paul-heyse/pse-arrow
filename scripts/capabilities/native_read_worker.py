@@ -128,6 +128,21 @@ def _admit_image(current: python_extension.ExtensionCurrency) -> LoadedReadImage
     return image
 
 
+def _attached_image(
+    binding: native_contracts.Binding, image: LoadedReadImage | None
+) -> LoadedReadImage:
+    if image is None:
+        return _admit_image(_currency(binding))
+    requirement = binding.extension_requirement
+    if requirement is None:
+        raise ReadImageChangedError("native read lacks its owned prerequisite")
+    image.require(
+        native=requirement.mode == "native_correctness",
+        validated=requirement.validated,
+    )
+    return image
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[2]
     startup = _startup()
@@ -146,15 +161,7 @@ def main() -> int:
                 retired = False
                 try:
                     binding = _verify(startup, request, root)
-                    if image is None:
-                        image = _admit_image(_currency(binding))
-                    requirement = binding.extension_requirement
-                    if requirement is None:
-                        raise ReadImageChangedError("native read lacks its owned prerequisite")
-                    image.require(
-                        native=requirement.mode == "native_correctness",
-                        validated=requirement.validated,
-                    )
+                    image = _attached_image(binding, image)
                     bound_context = image.context_identity(request.context)
                     if context is None:
                         context = NativeReadContext(bound_context)

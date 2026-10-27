@@ -317,7 +317,9 @@ async def controls(output: Path) -> dict[str, object]:
             nonlocal attempts
             attempts += 1
             if attempts == 2:
-                tool.description = original_description + " Changed live contract."
+                tool.description = (
+                    original_description or ""
+                ) + " Changed live contract."
 
         sandbox.next_policy = composition.Policy(
             eligible=composition.ELIGIBLE | {"inquiry_yield_reader"},
@@ -331,7 +333,9 @@ async def controls(output: Path) -> dict[str, object]:
         )
         try:
             answer = mapping(
-                await composition.read_value(client, composition.EXECUTE, {"code": code})
+                await composition.read_value(
+                    client, composition.EXECUTE, {"code": code}
+                )
             )
             require(
                 answer["complete"] is False and answer["examined_dispatches"] == 2,
@@ -341,7 +345,9 @@ async def controls(output: Path) -> dict[str, object]:
             require(
                 status["restart_required"] is True
                 and "exposed-tool-contract:" + target
-                in sequence(status["changed_serving_sources"], "changed serving sources"),
+                in sequence(
+                    status["changed_serving_sources"], "changed serving sources"
+                ),
                 "canonical dispatch did not identify changed live contract",
             )
             cases["changed_callback_contract"] = {

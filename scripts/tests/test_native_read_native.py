@@ -319,7 +319,9 @@ class ActualNativeAdverseTests(unittest.IsolatedAsyncioTestCase):
                 )
                 result = await client.call_tool("native_model_declarations", selected)
                 self.assertFalse(result.is_error)
-                self.assertEqual(payload(result.structured_content)["outcome"], "observed")
+                self.assertEqual(
+                    payload(result.structured_content)["outcome"], "observed"
+                )
                 self.assertFalse(session.retired)
                 self.assertIsNone(process.returncode)
                 self.assertEqual(len(owned_sessions(lifetime)), 1)

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Dispatch uses loaded contracts; explicit status can inspect source provenance."""
-# ruff: noqa: PT009, PT027 -- stdlib host controls
+# ruff: noqa: PT009 -- stdlib host controls
 
 from __future__ import annotations
 
@@ -105,11 +105,14 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
     async def test_dispatch_and_require_do_not_scan_sources(self) -> None:
         self.dependency.unlink()
         self.common.write_text("# Controlled editing requires explicit drain/reload\n")
-        with patch.object(self.sources, "check", side_effect=AssertionError("source scan")):
+        with patch.object(
+            self.sources, "check", side_effect=AssertionError("source scan")
+        ):
             self.interface.require("first")
             result = await self.client.call_tool("first", {})
         self.assertEqual(result.structured_content, {"count": 3})
         changed = self.interface.status("first")["changed_serving_sources"]
+        assert isinstance(changed, list)
         self.assertIn("scripts/dependency.py", changed)
         self.assertIn("scripts/capabilities/server.py", changed)
 
@@ -151,8 +154,12 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
         fresh = Sources(self.root, self.sources.sources)
         self.assertFalse(fresh.check(fresh.sources))
 
-    async def test_install_uses_constructed_provenance_without_second_scan(self) -> None:
-        with patch.object(self.sources, "check", side_effect=AssertionError("source scan")):
+    async def test_install_uses_constructed_provenance_without_second_scan(
+        self,
+    ) -> None:
+        with patch.object(
+            self.sources, "check", side_effect=AssertionError("source scan")
+        ):
             interface = install(FastMCP("loaded"), self.sources, self.catalogue)
         self.assertEqual(interface.revision, self.interface.revision)
 
@@ -162,7 +169,6 @@ class CoherenceTests(unittest.IsolatedAsyncioTestCase):
         copied = Sources(self.root, self.sources.sources)
         self.assertEqual(copied.revision, original)
         self.assertEqual(copied.check(copied.sources), ())
-
 
 
 if __name__ == "__main__":

@@ -190,40 +190,79 @@ def bind_python_artifact(
     built = producer_receipts.receipt_artifact(receipt, "python")
     original = Path(str(built["path"]))
     verify_artifact(root, path, original, environment)
-    messages = [json.loads(line) for line in str(evidence["stdout"]).splitlines() if line.startswith("{")]
+    messages = [
+        json.loads(line)
+        for line in str(evidence["stdout"]).splitlines()
+        if line.startswith("{")
+    ]
 
     def bind_candidate(candidate: Path) -> list[str]:
-        selected = {**environment, "_PSE_NATIVE_PUBLISHED_IMAGE": str(candidate.absolute())}
+        selected = {
+            **environment,
+            "_PSE_NATIVE_PUBLISHED_IMAGE": str(candidate.absolute()),
+        }
         program = (
             "import json,sys,pse; from pse._build import compiled_features; "
             "print(json.dumps({'binary':sys.modules['pse._native'].__file__,'features':compiled_features()}))"
         )
-        observed = json.loads(subprocess.check_output(
-            [str(root / ".venv/bin/python"), "-c", program], cwd=root, env=selected, text=True
-        ))
-        if not isinstance(observed, dict) or observed.get("binary") != str(candidate.absolute()):
-            raise ValueError("strict constructor imported a different extension candidate")
+        observed = json.loads(
+            subprocess.check_output(
+                [str(root / ".venv/bin/python"), "-c", program],
+                cwd=root,
+                env=selected,
+                text=True,
+            )
+        )
+        if not isinstance(observed, dict) or observed.get("binary") != str(
+            candidate.absolute()
+        ):
+            raise ValueError(
+                "strict constructor imported a different extension candidate"
+            )
         features = observed.get("features")
-        if not isinstance(features, list) or any(not isinstance(item, str) for item in features) or not {"force-validate", "native-solvers"} <= set(features):
-            raise ValueError("strict Python deployment lacks actual native correctness features")
+        if (
+            not isinstance(features, list)
+            or any(not isinstance(item, str) for item in features)
+            or not {"force-validate", "native-solvers"} <= set(features)
+        ):
+            raise ValueError(
+                "strict Python deployment lacks actual native correctness features"
+            )
         installed = producer_receipts.file_observation(candidate)
-        transformation = installed_artifact.associate(original, candidate, str(built["sha256"]), str(installed["sha256"]), messages, environment=environment)
+        transformation = installed_artifact.associate(
+            original,
+            candidate,
+            str(built["sha256"]),
+            str(installed["sha256"]),
+            messages,
+            environment=environment,
+        )
         association = receipt["deployment"]
         if not isinstance(association, dict):
             raise TypeError("Python deployment association absent")
         association["artifact"] = installed
         path.write_text(json.dumps(receipt, indent=2) + "\n")
         verify_artifact(root, path, candidate, environment)
-        producer_cargo.write_new(output / "python-installation.json", {
-            "version": 1, "raw_artifact": built, "installed_artifact": installed,
-            "transformation": transformation,
-        })
+        producer_cargo.write_new(
+            output / "python-installation.json",
+            {
+                "version": 1,
+                "raw_artifact": built,
+                "installed_artifact": installed,
+                "transformation": transformation,
+            },
+        )
         return features
 
     artifact_publication.publish(
-        output / "python-publication.json", kind="extension", source=aliases[0],
-        mode="native", profile="producer", validated=True,
-        interpreter=str(root / ".venv/bin/python"), features=bind_candidate,
+        output / "python-publication.json",
+        kind="extension",
+        source=aliases[0],
+        mode="native",
+        profile="producer",
+        validated=True,
+        interpreter=str(root / ".venv/bin/python"),
+        features=bind_candidate,
     )
 
 

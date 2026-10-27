@@ -150,4 +150,3 @@ class Sources:
                     if digest != self.sources[path].digest:
                         self.changed.add(path)
             return tuple(sorted(self.changed.intersection(paths)))
-

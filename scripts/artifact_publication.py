@@ -22,7 +22,9 @@ Profile = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")]
 
 
 class PublicationContract(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True, frozen=True, validate_default=True)
+    model_config = ConfigDict(
+        extra="forbid", strict=True, frozen=True, validate_default=True
+    )
 
 
 class Artifact(PublicationContract):
@@ -108,8 +110,7 @@ def publish(
             output.flush()
             os.fsync(output.fileno())
         replace_attempted = True
-        os.replace(temporary, receipt)
-        return publication
+        temporary.replace(receipt)
     except BaseException as failure:
         failures: list[BaseException] = [failure]
         if temporary is not None:
@@ -123,5 +124,9 @@ def publish(
             except BaseException as cleanup:
                 failures.append(cleanup)
         if len(failures) > 1:
-            raise BaseExceptionGroup("artifact construction and cleanup failed", failures) from None
+            raise BaseExceptionGroup(
+                "artifact construction and cleanup failed", failures
+            ) from None
         raise
+    else:
+        return publication

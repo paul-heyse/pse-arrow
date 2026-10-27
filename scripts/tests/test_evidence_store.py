@@ -221,9 +221,7 @@ class EvidenceStoreTests(unittest.TestCase):
             patch.object(evidence_store.subprocess, "run") as run,
             self.assertRaisesRegex(ValueError, "listener ownership"),
         ):
-            evidence_store.run_native(
-                self.state, ["init"], deadline=self.deadline
-            )
+            evidence_store.run_native(self.state, ["init"], deadline=self.deadline)
         run.assert_not_called()
 
     def test_missing_publication_does_not_initialize_or_start_service(self) -> None:

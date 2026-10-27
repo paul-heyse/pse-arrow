@@ -5,11 +5,8 @@
 
 from __future__ import annotations
 
-import hashlib
 import io
 import json
-import os
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -22,12 +19,7 @@ from unittest.mock import patch
 from scripts import (
     arrow_validation,
     artifact_publication,
-    native_cache,
-    native_operation,
-    native_tests,
-    operation_lifetime,
     python_extension,
-    scientific_inputs,
 )
 from scripts.tests.test_arrow_validation import Cargo, graph, package, unit
 
@@ -100,7 +92,6 @@ class PythonExtensionTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "foreign"):
                     python_extension.diagnostic_identity(selected, {})
 
-
     def test_stage_composition_has_independent_operations_and_preserves_failures(
         self,
     ) -> None:
@@ -115,7 +106,11 @@ class PythonExtensionTests(unittest.TestCase):
         ):
             events = []
             with self.subTest(operation=operation):
-                self.enterContext(patch.object(python_extension.subprocess, "check_call", return_value=0))
+                self.enterContext(
+                    patch.object(
+                        python_extension.subprocess, "check_call", return_value=0
+                    )
+                )
                 for name in stages:
                     self.enterContext(
                         patch.object(
@@ -286,8 +281,6 @@ class PythonExtensionTests(unittest.TestCase):
                 )
 
 
-
-
 class PublicationPreparationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
@@ -295,19 +288,44 @@ class PublicationPreparationTests(unittest.TestCase):
         self.alias = self.root / "python/pse/_native.abi3.so"
         self.alias.parent.mkdir(parents=True)
         self.alias.write_bytes(b"completed installed image")
-        (self.root / "pyproject.toml").write_text('[tool.maturin]\nbindings="pyo3"\nmanifest-path="crates/pse-py/Cargo.toml"\n')
-        self.environment = {"UV_PROJECT_ENVIRONMENT": str(self.root / ".venv"), "VIRTUAL_ENV": str(self.root / ".venv")}
-        self.enterContext(patch.object(python_extension, "validated_maturin_command", side_effect=lambda command, *_args: list(command)))
-        self.enterContext(patch.object(arrow_validation, "resolve", side_effect=lambda command, **_kwargs: SimpleNamespace(command=list(command))))
+        (self.root / "pyproject.toml").write_text(
+            '[tool.maturin]\nbindings="pyo3"\nmanifest-path="crates/pse-py/Cargo.toml"\n'
+        )
+        self.environment = {
+            "UV_PROJECT_ENVIRONMENT": str(self.root / ".venv"),
+            "VIRTUAL_ENV": str(self.root / ".venv"),
+        }
+        self.enterContext(
+            patch.object(
+                python_extension,
+                "validated_maturin_command",
+                side_effect=lambda command, *_args: list(command),
+            )
+        )
+        self.enterContext(
+            patch.object(
+                arrow_validation,
+                "resolve",
+                side_effect=lambda command, **_kwargs: SimpleNamespace(
+                    command=list(command)
+                ),
+            )
+        )
 
     def prepare(self, *, profile: str = "release") -> python_extension.StageResult:
         with (
             patch.object(python_extension.subprocess, "call", return_value=0),
-            patch.object(python_extension, "_capture_candidate_features", return_value=["force-validate"]),
+            patch.object(
+                python_extension,
+                "_capture_candidate_features",
+                return_value=["force-validate"],
+            ),
         ):
             return python_extension.extension_prepare("dev", profile, self.environment)
 
-    def test_explicit_preparation_publishes_candidate_and_cargo_owns_rebuild_choice(self) -> None:
+    def test_explicit_preparation_publishes_candidate_and_cargo_owns_rebuild_choice(
+        self,
+    ) -> None:
         first = self.prepare()
         second = self.prepare()
         self.assertEqual(first.status, "prepared")
@@ -315,70 +333,160 @@ class PublicationPreparationTests(unittest.TestCase):
         self.assertNotEqual(first.artifact, second.artifact)
         self.assertIsNotNone(first.artifact)
         assert first.artifact is not None
-        self.assertEqual(Path(first.artifact.binary).read_bytes(), b"completed installed image")
+        self.assertEqual(
+            Path(first.artifact.binary).read_bytes(), b"completed installed image"
+        )
         publication = python_extension.read_publication("extension", self.environment)
         assert publication is not None
         self.assertEqual(publication.artifact, second.artifact)
 
-    def test_publication_selection_ignores_source_alias_and_compiler_environment_changes(self) -> None:
+    def test_publication_selection_ignores_source_alias_and_compiler_environment_changes(
+        self,
+    ) -> None:
         prepared = self.prepare()
         assert prepared.artifact is not None
         self.alias.unlink()
         (self.root / "changed.rs").write_text("new source for a future explicit build")
-        with patch.object(python_extension.subprocess, "check_output", side_effect=AssertionError("consumer import")):
-            actual = python_extension.currency_check_installed({**self.environment, "RUSTFLAGS": "later build flags"}, mode="dev")
+        with patch.object(
+            python_extension.subprocess,
+            "check_output",
+            side_effect=AssertionError("consumer import"),
+        ):
+            actual = python_extension.currency_check_installed(
+                {**self.environment, "RUSTFLAGS": "later build flags"}, mode="dev"
+            )
             self.assertEqual(actual.state, "current")
             self.assertEqual(actual.artifact, prepared.artifact)
             self.assertEqual(actual.profile, "release")
-            self.assertEqual(python_extension.capture(self.environment), prepared.artifact.model_dump())
-        self.assertEqual(python_extension.currency_check(self.environment, mode="native", profile="release").state, "unsupported")
-        self.assertEqual(python_extension.currency_check(self.environment, mode="dev", profile="other").state, "unsupported")
+            self.assertEqual(
+                python_extension.capture(self.environment),
+                prepared.artifact.model_dump(),
+            )
+        self.assertEqual(
+            python_extension.currency_check(
+                self.environment, mode="native", profile="release"
+            ).state,
+            "unsupported",
+        )
+        self.assertEqual(
+            python_extension.currency_check(
+                self.environment, mode="dev", profile="other"
+            ).state,
+            "unsupported",
+        )
 
     def test_failed_install_does_not_touch_previous_publication(self) -> None:
         self.prepare()
         path = python_extension.stage_receipt("extension", self.environment)
         previous = path.read_bytes()
-        with patch.object(python_extension.subprocess, "call", return_value=17), patch.object(artifact_publication, "publish") as publish:
-            failed = python_extension.extension_prepare("dev", "release", self.environment)
+        with (
+            patch.object(python_extension.subprocess, "call", return_value=17),
+            patch.object(artifact_publication, "publish") as publish,
+        ):
+            failed = python_extension.extension_prepare(
+                "dev", "release", self.environment
+            )
         self.assertEqual(failed.exit_code, 17)
         publish.assert_not_called()
         self.assertEqual(path.read_bytes(), previous)
 
-    def test_candidate_probe_loads_exact_image_once_and_checks_requested_contract(self) -> None:
+    def test_candidate_probe_loads_exact_image_once_and_checks_requested_contract(
+        self,
+    ) -> None:
         candidate = self.root / "private/_native.abi3.so"
-        report = {"prefix": str(self.root / ".venv"), "package": str(self.root / "python/pse/__init__.py"), "native": str(candidate), "features": ["force-validate"]}
-        with patch.object(python_extension.subprocess, "check_output", return_value=json.dumps(report)) as probe:
-            self.assertEqual(python_extension._capture_candidate_features(self.environment, candidate, validated=True, native=False), ["force-validate"])
+        report: dict[str, object] = {
+            "prefix": str(self.root / ".venv"),
+            "package": str(self.root / "python/pse/__init__.py"),
+            "native": str(candidate),
+            "features": ["force-validate"],
+        }
+        with patch.object(
+            python_extension.subprocess, "check_output", return_value=json.dumps(report)
+        ) as probe:
+            self.assertEqual(
+                python_extension._capture_candidate_features(  # noqa: SLF001 -- exercise the constructor probe
+                    self.environment, candidate, validated=True, native=False
+                ),
+                ["force-validate"],
+            )
         self.assertEqual(probe.call_count, 1)
-        self.assertEqual(probe.call_args.kwargs["env"]["_PSE_NATIVE_PUBLISHED_IMAGE"], str(candidate))
-        for features in ([], ["force-validate", "force-validate"], ["force-validate", {}], ["force-validate", "native-solvers"]):
+        self.assertEqual(
+            probe.call_args.kwargs["env"]["_PSE_NATIVE_PUBLISHED_IMAGE"], str(candidate)
+        )
+        for features in (
+            [],
+            ["force-validate", "force-validate"],
+            ["force-validate", {}],
+            ["force-validate", "native-solvers"],
+        ):
             report["features"] = features
-            with self.subTest(features=features), patch.object(python_extension.subprocess, "check_output", return_value=json.dumps(report)), self.assertRaises(ValueError):
-                python_extension._capture_candidate_features(self.environment, candidate, validated=True, native=False)
+            with (
+                self.subTest(features=features),
+                patch.object(
+                    python_extension.subprocess,
+                    "check_output",
+                    return_value=json.dumps(report),
+                ),
+                self.assertRaises(ValueError),
+            ):
+                python_extension._capture_candidate_features(  # noqa: SLF001 -- exercise the constructor probe
+                    self.environment, candidate, validated=True, native=False
+                )
 
-    def test_explicit_import_observation_uses_issued_image_without_rehashing(self) -> None:
+    def test_explicit_import_observation_uses_issued_image_without_rehashing(
+        self,
+    ) -> None:
         prepared = self.prepare()
         assert prepared.artifact is not None
-        with patch.object(python_extension.subprocess, "check_call", return_value=0) as imported:
-            result = python_extension.run_stages("admit", "dev", "release", self.environment)
+        with patch.object(
+            python_extension.subprocess, "check_call", return_value=0
+        ) as imported:
+            result = python_extension.run_stages(
+                "admit", "dev", "release", self.environment
+            )
         self.assertEqual(result.stages[0].artifact, prepared.artifact)
         self.assertEqual(imported.call_count, 1)
-        self.assertEqual(imported.call_args.kwargs["env"]["_PSE_NATIVE_PUBLISHED_IMAGE"], prepared.artifact.binary)
+        self.assertEqual(
+            imported.call_args.kwargs["env"]["_PSE_NATIVE_PUBLISHED_IMAGE"],
+            prepared.artifact.binary,
+        )
 
-    def test_ordinary_sync_uses_new_publication_instead_of_inherited_strict_selection(self) -> None:
+    def test_ordinary_sync_uses_new_publication_instead_of_inherited_strict_selection(
+        self,
+    ) -> None:
         strict_path = self.root / "strict/python-publication.json"
         strict = artifact_publication.publish(
-            strict_path, kind="extension", source=self.alias, mode="native",
-            profile="producer", validated=True,
+            strict_path,
+            kind="extension",
+            source=self.alias,
+            mode="native",
+            profile="producer",
+            validated=True,
             interpreter=str(python_extension.interpreter(self.environment)),
             features=lambda _candidate: ["force-validate", "native-solvers"],
         )
         environment = {**self.environment, "_PSE_NATIVE_PUBLICATION": str(strict_path)}
         with (
-            patch.object(python_extension, "environment_ensure", return_value=python_extension.StageResult(stage="environment", status="reused")),
+            patch.object(
+                python_extension,
+                "environment_ensure",
+                return_value=python_extension.StageResult(
+                    stage="environment", status="reused"
+                ),
+            ),
             patch.object(python_extension.subprocess, "call", return_value=0),
-            patch.object(python_extension, "_capture_candidate_features", return_value=["force-validate"]),
-            patch.object(python_extension, "stubs_prepare", return_value=python_extension.StageResult(stage="stubs", status="prepared")) as stubs,
+            patch.object(
+                python_extension,
+                "_capture_candidate_features",
+                return_value=["force-validate"],
+            ),
+            patch.object(
+                python_extension,
+                "stubs_prepare",
+                return_value=python_extension.StageResult(
+                    stage="stubs", status="prepared"
+                ),
+            ) as stubs,
         ):
             result = python_extension.run_stages("sync", "dev", "release", environment)
         ordinary = python_extension.read_publication("extension", self.environment)
@@ -386,20 +494,50 @@ class PublicationPreparationTests(unittest.TestCase):
         self.assertEqual(result.stages[-1].artifact, ordinary.artifact)
         self.assertNotEqual(ordinary.generation, strict.generation)
         self.assertNotIn("_PSE_NATIVE_PUBLICATION", stubs.call_args.args[2])
-        self.assertEqual(python_extension.read_publication("extension", environment), strict)
+        self.assertEqual(
+            python_extension.read_publication("extension", environment), strict
+        )
         self.assertEqual(environment["_PSE_NATIVE_PUBLICATION"], str(strict_path))
 
-    def test_child_selection_carries_only_issued_image_and_stub_scope_stays_independent(self) -> None:
+    def test_child_selection_carries_only_issued_image_and_stub_scope_stays_independent(
+        self,
+    ) -> None:
         prepared = self.prepare()
         assert prepared.artifact is not None
-        selected = python_extension.execution_environment(self.environment, prepared.artifact.model_dump())
-        self.assertEqual(selected["_PSE_NATIVE_PUBLISHED_IMAGE"], prepared.artifact.binary)
+        selected = python_extension.execution_environment(
+            self.environment, prepared.artifact.model_dump()
+        )
+        self.assertEqual(
+            selected["_PSE_NATIVE_PUBLISHED_IMAGE"], prepared.artifact.binary
+        )
         self.assertNotIn("PSE_NATIVE_EXPECTED_SHA256", selected)
-        with patch.object(python_extension, "preparation_inputs", return_value={"stub_inputs": "independent"}), patch.object(python_extension.subprocess, "call", return_value=0) as generator:
-            self.assertEqual(python_extension.stubs_prepare("dev", "release", self.environment).status, "prepared")
-            self.assertEqual(python_extension.stubs_prepare("dev", "release", self.environment).status, "reused")
+        with (
+            patch.object(
+                python_extension,
+                "preparation_inputs",
+                return_value={"stub_inputs": "independent"},
+            ),
+            patch.object(
+                python_extension.subprocess, "call", return_value=0
+            ) as generator,
+        ):
+            self.assertEqual(
+                python_extension.stubs_prepare(
+                    "dev", "release", self.environment
+                ).status,
+                "prepared",
+            )
+            self.assertEqual(
+                python_extension.stubs_prepare(
+                    "dev", "release", self.environment
+                ).status,
+                "reused",
+            )
         self.assertEqual(generator.call_count, 1)
-        self.assertEqual(generator.call_args.kwargs["env"]["_PSE_NATIVE_PUBLISHED_IMAGE"], prepared.artifact.binary)
+        self.assertEqual(
+            generator.call_args.kwargs["env"]["_PSE_NATIVE_PUBLISHED_IMAGE"],
+            prepared.artifact.binary,
+        )
 
 
 class InstallerGraphTests(unittest.TestCase):

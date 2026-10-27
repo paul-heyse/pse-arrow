@@ -53,7 +53,9 @@ class LoadedReadImage:
     def attach(self) -> None:
         """Select the exact issued path before the package's native import gate."""
         if "pse._native" in sys.modules:
-            raise ReadImageChangedError("native image already belongs to another attachment")
+            raise ReadImageChangedError(
+                "native image already belongs to another attachment"
+            )
         os.environ["_PSE_NATIVE_PUBLISHED_IMAGE"] = self.artifact.binary
         try:
             __import__("pse")
@@ -63,7 +65,9 @@ class LoadedReadImage:
     def require(self, *, native: bool, validated: bool) -> None:
         """Compare live request requirements with this in-memory attachment."""
         if (native and self.mode != "native") or (validated and not self.validated):
-            raise ReadImageChangedError("requested read needs a different artifact contract")
+            raise ReadImageChangedError(
+                "requested read needs a different artifact contract"
+            )
 
     def context_identity(self, supplied_context: str) -> str:
         return hashlib.sha256(

@@ -135,7 +135,9 @@ class OwnershipTests(unittest.TestCase):
 
 
 class LoadedRecipeTests(unittest.IsolatedAsyncioTestCase):
-    async def test_loaded_recipe_dispatch_does_not_scan_source_before_fixed_worker_launch(self) -> None:
+    async def test_loaded_recipe_dispatch_does_not_scan_source_before_fixed_worker_launch(
+        self,
+    ) -> None:
         runtime = server.build(ROOT)
         cut = Sources(ROOT, runtime.interface.sources.sources)
         endpoint = FastMCP("actual-recipe-fence")
@@ -145,7 +147,12 @@ class LoadedRecipeTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("justfile", interface.operations["native_contract_schema"])
         with (
             patch.object(cut, "check", side_effect=AssertionError("source scan")),
-            patch.object(process, "run_worker", new_callable=AsyncMock, return_value={"outcome": "observed"}) as launch,
+            patch.object(
+                process,
+                "run_worker",
+                new_callable=AsyncMock,
+                return_value={"outcome": "observed"},
+            ) as launch,
         ):
             async with Client(endpoint) as client:
                 result = await client.call_tool(

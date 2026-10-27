@@ -34,18 +34,14 @@ class KnowledgeStoreTests(unittest.TestCase):
             "subjects": [{"label": "x" * 17000}],
         }
 
-        def read(
-            _state: Path, arguments: list[str], *, deadline: float
-        ) -> dict:
+        def read(_state: Path, arguments: list[str], *, deadline: float) -> dict:
             self.assertGreater(deadline, 0)
             self.assertEqual(arguments[0], "knowledge-query")
             self.assertEqual(json.loads(Path(arguments[2]).read_bytes()), request)
             return original
 
         with patch.object(knowledge_store, "native", side_effect=read):
-            result = knowledge_store.indexed(
-                request, state=Path("/selected")
-            )
+            result = knowledge_store.indexed(request, state=Path("/selected"))
         self.assertIs(result["document"], original)
         self.assertEqual(result["source_observations"], [])
         self.assertEqual(result["document"]["subjects"][0]["label"], "x" * 17000)
@@ -58,9 +54,7 @@ class KnowledgeStoreTests(unittest.TestCase):
                 knowledge_store, "corpus", side_effect=AssertionError("fallback")
             ),
         ):
-            result = knowledge_store.indexed(
-                {"version": 1}, state=Path("/state")
-            )
+            result = knowledge_store.indexed({"version": 1}, state=Path("/state"))
         self.assertEqual(result, refusal)
 
     def test_source_only_corpus_and_selected_later_range_survive_index_loss(

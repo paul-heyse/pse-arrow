@@ -15,14 +15,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from scripts import build_observation
 from scripts import producer_cargo as observer
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 
 class ProducerCargoTests(unittest.TestCase):
@@ -81,11 +76,6 @@ class ProducerCargoTests(unittest.TestCase):
         raw = b'{"actual":"fixture protected index"}'
         (closure / "index.json").write_bytes(raw)
         (closure / "COMPLETE").write_text(hashlib.sha256(raw).hexdigest())
-
-
-
-
-
 
     def test_target_guard_remains_charged_until_actual_writer_descendant_exits(
         self,

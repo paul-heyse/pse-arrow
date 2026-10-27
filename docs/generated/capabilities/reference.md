@@ -6,7 +6,7 @@ Derived from the complete composed endpoint, before attachment visibility. Hidde
 
 Regenerate with `just codegen`; compare without writes with `just codegen-check`. Authored workflow rationale remains with the linked source owners.
 
-Catalogue content revision: `6e9570ea0f2a5e4b483be21c5d388b70b0f45524bb106f88ace28dcb4ea4259e`.
+Catalogue content revision: `375c81cef6c14839ca880f0df5a4fb489f733697d1d5624c419d959a1609b2aa`.
 
 ## Domains
 
@@ -2784,6 +2784,30 @@ Exact callable component key: `tool:capability_explain@`. The following is the r
   "name": "capability_explain",
   "outputSchema": {
     "$defs": {
+      "Artifact": {
+        "additionalProperties": false,
+        "description": "Identity and compiled features recorded once by the constructor.",
+        "properties": {
+          "binary": {
+            "type": "string"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "binary",
+          "sha256",
+          "features"
+        ],
+        "type": "object"
+      },
       "CapabilityReadiness": {
         "additionalProperties": false,
         "properties": {
@@ -2802,7 +2826,7 @@ Exact callable component key: `tool:capability_explain@`. The following is the r
           "imported_artifact": {
             "anyOf": [
               {
-                "$ref": "#/$defs/ExtensionArtifact"
+                "$ref": "#/$defs/Artifact"
               },
               {
                 "type": "null"
@@ -2881,68 +2905,14 @@ Exact callable component key: `tool:capability_explain@`. The following is the r
         ],
         "type": "object"
       },
-      "ExtensionArtifact": {
-        "additionalProperties": false,
-        "description": "Host-observed imported artifact identity, not a scientific package schema.",
-        "properties": {
-          "binary": {
-            "type": "string"
-          },
-          "features": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "sha256": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "binary",
-          "sha256",
-          "features"
-        ],
-        "type": "object"
-      },
       "ExtensionCurrency": {
         "additionalProperties": false,
-        "description": "Redacted admission-time correspondence, separate from import compatibility.",
+        "description": "Issued artifact compatibility, without source or image revalidation.",
         "properties": {
           "artifact": {
             "anyOf": [
               {
-                "$ref": "#/$defs/ExtensionArtifact"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "artifact_stamp": {
-            "anyOf": [
-              {
-                "maxItems": 5,
-                "minItems": 5,
-                "prefixItems": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "integer"
-                  }
-                ],
-                "type": "array"
+                "$ref": "#/$defs/Artifact"
               },
               {
                 "type": "null"
@@ -2952,14 +2922,9 @@ Exact callable component key: `tool:capability_explain@`. The following is the r
           },
           "cause": {
             "enum": [
-              "matching-inputs-and-artifact",
-              "missing-preparation-evidence",
-              "unsupported-preparation-evidence",
-              "unsupported-inputs-or-providers",
-              "inputs-unavailable",
-              "inputs-changed",
-              "import-unavailable",
-              "artifact-changed",
+              "published-compatible-artifact",
+              "missing-publication",
+              "incompatible-publication",
               "not-selected",
               "check-unavailable"
             ],
@@ -2968,10 +2933,10 @@ Exact callable component key: `tool:capability_explain@`. The following is the r
           "checkout": {
             "type": "string"
           },
-          "input_changes": {
+          "generation": {
             "anyOf": [
               {
-                "$ref": "#/$defs/ExtensionInputChanges"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -3006,21 +2971,9 @@ Exact callable component key: `tool:capability_explain@`. The following is the r
           "remedy": {
             "type": "string"
           },
-          "source_basis": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
           "state": {
             "enum": [
               "current",
-              "stale",
               "unknown",
               "unsupported"
             ],
@@ -3039,51 +2992,6 @@ Exact callable component key: `tool:capability_explain@`. The following is the r
           "validated",
           "cause",
           "remedy"
-        ],
-        "type": "object"
-      },
-      "ExtensionInputChanges": {
-        "additionalProperties": false,
-        "description": "Bounded input KEY names only; no recorded values or value digests.",
-        "properties": {
-          "complete": {
-            "type": "boolean"
-          },
-          "configuration_keys": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 32,
-            "type": "array"
-          },
-          "environment_keys": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 32,
-            "type": "array"
-          },
-          "sections": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 16,
-            "type": "array"
-          },
-          "source_keys": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 32,
-            "type": "array"
-          }
-        },
-        "required": [
-          "sections",
-          "complete"
         ],
         "type": "object"
       },
@@ -3193,7 +3101,7 @@ Exact callable component key: `tool:capability_explain@`. The following is the r
           "artifact": {
             "anyOf": [
               {
-                "$ref": "#/$defs/ExtensionArtifact"
+                "$ref": "#/$defs/Artifact"
               },
               {
                 "type": "null"
@@ -3202,8 +3110,11 @@ Exact callable component key: `tool:capability_explain@`. The following is the r
             "default": null
           },
           "currency": {
-            "const": "unknown",
             "default": "unknown",
+            "enum": [
+              "published",
+              "unknown"
+            ],
             "type": "string"
           },
           "mode": {
@@ -3343,7 +3254,7 @@ Exposure: **tool**. Owner: `scripts/capabilities/readiness.py`. Declaration sour
 
 ```json
 {
-  "description": "Inspect one exact capability's declared requirements and existing preparation receipts without compiler probes, imports, service connections, builds or publication. Receipt presence records prior preparation; current currency, import compatibility, service availability and operation qualification remain unknown until separately observed.",
+  "description": "Inspect one exact capability's declared requirements and existing preparation receipts without compiler probes, imports, service connections, builds or publication. A published generation records completed construction; import compatibility, service availability and operation qualification remain separate observations.",
   "domain": "environment",
   "effects": "Read declared requirements and existing owner receipt metadata only.",
   "exposure": "tool",
@@ -3389,7 +3300,7 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
     "openWorldHint": false,
     "readOnlyHint": true
   },
-  "description": "Inspect one exact capability's declared requirements and existing preparation receipts without compiler probes, imports, service connections, builds or publication. Receipt presence records prior preparation; current currency, import compatibility, service availability and operation qualification remain unknown until separately observed.",
+  "description": "Inspect one exact capability's declared requirements and existing preparation receipts without compiler probes, imports, service connections, builds or publication. A published generation records completed construction; import compatibility, service availability and operation qualification remain separate observations.",
   "inputSchema": {
     "additionalProperties": false,
     "properties": {
@@ -3406,9 +3317,9 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
   "name": "capability_readiness",
   "outputSchema": {
     "$defs": {
-      "ExtensionArtifact": {
+      "Artifact": {
         "additionalProperties": false,
-        "description": "Host-observed imported artifact identity, not a scientific package schema.",
+        "description": "Identity and compiled features recorded once by the constructor.",
         "properties": {
           "binary": {
             "type": "string"
@@ -3432,42 +3343,12 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
       },
       "ExtensionCurrency": {
         "additionalProperties": false,
-        "description": "Redacted admission-time correspondence, separate from import compatibility.",
+        "description": "Issued artifact compatibility, without source or image revalidation.",
         "properties": {
           "artifact": {
             "anyOf": [
               {
-                "$ref": "#/$defs/ExtensionArtifact"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "artifact_stamp": {
-            "anyOf": [
-              {
-                "maxItems": 5,
-                "minItems": 5,
-                "prefixItems": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "integer"
-                  }
-                ],
-                "type": "array"
+                "$ref": "#/$defs/Artifact"
               },
               {
                 "type": "null"
@@ -3477,14 +3358,9 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
           },
           "cause": {
             "enum": [
-              "matching-inputs-and-artifact",
-              "missing-preparation-evidence",
-              "unsupported-preparation-evidence",
-              "unsupported-inputs-or-providers",
-              "inputs-unavailable",
-              "inputs-changed",
-              "import-unavailable",
-              "artifact-changed",
+              "published-compatible-artifact",
+              "missing-publication",
+              "incompatible-publication",
               "not-selected",
               "check-unavailable"
             ],
@@ -3493,10 +3369,10 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
           "checkout": {
             "type": "string"
           },
-          "input_changes": {
+          "generation": {
             "anyOf": [
               {
-                "$ref": "#/$defs/ExtensionInputChanges"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -3531,21 +3407,9 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
           "remedy": {
             "type": "string"
           },
-          "source_basis": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
           "state": {
             "enum": [
               "current",
-              "stale",
               "unknown",
               "unsupported"
             ],
@@ -3564,51 +3428,6 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
           "validated",
           "cause",
           "remedy"
-        ],
-        "type": "object"
-      },
-      "ExtensionInputChanges": {
-        "additionalProperties": false,
-        "description": "Bounded input KEY names only; no recorded values or value digests.",
-        "properties": {
-          "complete": {
-            "type": "boolean"
-          },
-          "configuration_keys": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 32,
-            "type": "array"
-          },
-          "environment_keys": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 32,
-            "type": "array"
-          },
-          "sections": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 16,
-            "type": "array"
-          },
-          "source_keys": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 32,
-            "type": "array"
-          }
-        },
-        "required": [
-          "sections",
-          "complete"
         ],
         "type": "object"
       },
@@ -3717,7 +3536,7 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
           "artifact": {
             "anyOf": [
               {
-                "$ref": "#/$defs/ExtensionArtifact"
+                "$ref": "#/$defs/Artifact"
               },
               {
                 "type": "null"
@@ -3726,8 +3545,11 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
             "default": null
           },
           "currency": {
-            "const": "unknown",
             "default": "unknown",
+            "enum": [
+              "published",
+              "unknown"
+            ],
             "type": "string"
           },
           "mode": {
@@ -3806,7 +3628,7 @@ Exact callable component key: `tool:capability_readiness@`. The following is the
       "imported_artifact": {
         "anyOf": [
           {
-            "$ref": "#/$defs/ExtensionArtifact"
+            "$ref": "#/$defs/Artifact"
           },
           {
             "type": "null"
@@ -4043,9 +3865,9 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
   "name": "capability_readiness_check",
   "outputSchema": {
     "$defs": {
-      "ExtensionArtifact": {
+      "Artifact": {
         "additionalProperties": false,
-        "description": "Host-observed imported artifact identity, not a scientific package schema.",
+        "description": "Identity and compiled features recorded once by the constructor.",
         "properties": {
           "binary": {
             "type": "string"
@@ -4069,42 +3891,12 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
       },
       "ExtensionCurrency": {
         "additionalProperties": false,
-        "description": "Redacted admission-time correspondence, separate from import compatibility.",
+        "description": "Issued artifact compatibility, without source or image revalidation.",
         "properties": {
           "artifact": {
             "anyOf": [
               {
-                "$ref": "#/$defs/ExtensionArtifact"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
-          "artifact_stamp": {
-            "anyOf": [
-              {
-                "maxItems": 5,
-                "minItems": 5,
-                "prefixItems": [
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "integer"
-                  },
-                  {
-                    "type": "integer"
-                  }
-                ],
-                "type": "array"
+                "$ref": "#/$defs/Artifact"
               },
               {
                 "type": "null"
@@ -4114,14 +3906,9 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
           },
           "cause": {
             "enum": [
-              "matching-inputs-and-artifact",
-              "missing-preparation-evidence",
-              "unsupported-preparation-evidence",
-              "unsupported-inputs-or-providers",
-              "inputs-unavailable",
-              "inputs-changed",
-              "import-unavailable",
-              "artifact-changed",
+              "published-compatible-artifact",
+              "missing-publication",
+              "incompatible-publication",
               "not-selected",
               "check-unavailable"
             ],
@@ -4130,10 +3917,10 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
           "checkout": {
             "type": "string"
           },
-          "input_changes": {
+          "generation": {
             "anyOf": [
               {
-                "$ref": "#/$defs/ExtensionInputChanges"
+                "type": "string"
               },
               {
                 "type": "null"
@@ -4168,21 +3955,9 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
           "remedy": {
             "type": "string"
           },
-          "source_basis": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null
-          },
           "state": {
             "enum": [
               "current",
-              "stale",
               "unknown",
               "unsupported"
             ],
@@ -4201,51 +3976,6 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
           "validated",
           "cause",
           "remedy"
-        ],
-        "type": "object"
-      },
-      "ExtensionInputChanges": {
-        "additionalProperties": false,
-        "description": "Bounded input KEY names only; no recorded values or value digests.",
-        "properties": {
-          "complete": {
-            "type": "boolean"
-          },
-          "configuration_keys": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 32,
-            "type": "array"
-          },
-          "environment_keys": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 32,
-            "type": "array"
-          },
-          "sections": {
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 16,
-            "type": "array"
-          },
-          "source_keys": {
-            "default": [],
-            "items": {
-              "type": "string"
-            },
-            "maxItems": 32,
-            "type": "array"
-          }
-        },
-        "required": [
-          "sections",
-          "complete"
         ],
         "type": "object"
       },
@@ -4354,7 +4084,7 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
           "artifact": {
             "anyOf": [
               {
-                "$ref": "#/$defs/ExtensionArtifact"
+                "$ref": "#/$defs/Artifact"
               },
               {
                 "type": "null"
@@ -4363,8 +4093,11 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
             "default": null
           },
           "currency": {
-            "const": "unknown",
             "default": "unknown",
+            "enum": [
+              "published",
+              "unknown"
+            ],
             "type": "string"
           },
           "mode": {
@@ -4443,7 +4176,7 @@ Exact callable component key: `tool:capability_readiness_check@`. The following 
       "imported_artifact": {
         "anyOf": [
           {
-            "$ref": "#/$defs/ExtensionArtifact"
+            "$ref": "#/$defs/Artifact"
           },
           {
             "type": "null"
@@ -76917,9 +76650,9 @@ Exact callable component key: `tool:python_extension_dev_stage@`. The following 
   "name": "python_extension_dev_stage",
   "outputSchema": {
     "$defs": {
-      "ExtensionArtifact": {
+      "Artifact": {
         "additionalProperties": false,
-        "description": "Host-observed imported artifact identity, not a scientific package schema.",
+        "description": "Identity and compiled features recorded once by the constructor.",
         "properties": {
           "binary": {
             "type": "string"
@@ -76947,7 +76680,7 @@ Exact callable component key: `tool:python_extension_dev_stage@`. The following 
           "artifact": {
             "anyOf": [
               {
-                "$ref": "#/$defs/ExtensionArtifact"
+                "$ref": "#/$defs/Artifact"
               },
               {
                 "type": "null"
@@ -77168,9 +76901,9 @@ Exact callable component key: `tool:python_extension_native_stage@`. The followi
   "name": "python_extension_native_stage",
   "outputSchema": {
     "$defs": {
-      "ExtensionArtifact": {
+      "Artifact": {
         "additionalProperties": false,
-        "description": "Host-observed imported artifact identity, not a scientific package schema.",
+        "description": "Identity and compiled features recorded once by the constructor.",
         "properties": {
           "binary": {
             "type": "string"
@@ -77198,7 +76931,7 @@ Exact callable component key: `tool:python_extension_native_stage@`. The followi
           "artifact": {
             "anyOf": [
               {
-                "$ref": "#/$defs/ExtensionArtifact"
+                "$ref": "#/$defs/Artifact"
               },
               {
                 "type": "null"

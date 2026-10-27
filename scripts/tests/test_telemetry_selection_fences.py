@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Loaded contracts serve direct, projected and fixed reads without source scans."""
-# ruff: noqa: PT009, PT027
+# ruff: noqa: PT009
 
 from __future__ import annotations
 
@@ -63,7 +63,9 @@ class ActualTelemetryContractTests(unittest.IsolatedAsyncioTestCase):
                     (await client.call_tool("read_resource", {"uri": uri})).is_error
                 )
                 owner.reset_mock()
-                with patch.object(cut, "check", side_effect=AssertionError("source scan")):
+                with patch.object(
+                    cut, "check", side_effect=AssertionError("source scan")
+                ):
                     direct = await client.call_tool(
                         "telemetry_selection_read", arguments, raise_on_error=False
                     )

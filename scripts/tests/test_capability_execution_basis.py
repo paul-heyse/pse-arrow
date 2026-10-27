@@ -69,9 +69,11 @@ class AdmissionTests(unittest.TestCase):
         with patch.dict(os.environ, supplied):
             with self.assertRaises(basis.AdmissionRefusedError):
                 basis.verify(self.root / "other", "host", "archive", self.document)
-            with patch.object(basis, "route_revision", return_value="changed"):
-                with self.assertRaises(basis.AdmissionRefusedError):
-                    basis.verify(self.root, "host", "archive", self.document)
+            with (
+                patch.object(basis, "route_revision", return_value="changed"),
+                self.assertRaises(basis.AdmissionRefusedError),
+            ):
+                basis.verify(self.root, "host", "archive", self.document)
 
     def test_original_construction_retains_source_import_provenance(self) -> None:
         files = {

@@ -19,11 +19,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from scripts import (
+    artifact_publication,
     evidence_detail,
     evidence_projection,
     evidence_sources,
     host_admission,
-    artifact_publication,
     python_extension,
     resource_store,
     surreal_server,
@@ -66,12 +66,33 @@ def build() -> int:
 
     environment = compiler_environment(os.environ)
     environment.pop("_PSE_NATIVE_PUBLISHED_IMAGE", None)
-    command = arrow_validation.resolve([
-        "cargo", "build", "-p", "xtask", "--bin", "pse-evidence",
-        "--no-default-features", "--features", "evidence-tools", "--locked",
-        "--message-format", "json-render-diagnostics",
-    ], run=lambda selected: python_extension.capture_build_graph(selected, environment)).command
-    completed = subprocess.run(command, cwd=ROOT, env=environment, stdout=subprocess.PIPE, text=True, check=False)
+    command = arrow_validation.resolve(
+        [
+            "cargo",
+            "build",
+            "-p",
+            "xtask",
+            "--bin",
+            "pse-evidence",
+            "--no-default-features",
+            "--features",
+            "evidence-tools",
+            "--locked",
+            "--message-format",
+            "json-render-diagnostics",
+        ],
+        run=lambda selected: python_extension.capture_build_graph(
+            selected, environment
+        ),
+    ).command
+    completed = subprocess.run(
+        command,
+        cwd=ROOT,
+        env=environment,
+        stdout=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
     if completed.returncode:
         return completed.returncode
     artifacts = []
@@ -79,18 +100,30 @@ def build() -> int:
         if not line.startswith("{"):
             continue
         message = json.loads(line)
-        if message.get("reason") == "compiler-artifact" and message.get("target", {}).get("name") == "pse-evidence" and message.get("executable"):
+        if (
+            message.get("reason") == "compiler-artifact"
+            and message.get("target", {}).get("name") == "pse-evidence"
+            and message.get("executable")
+        ):
             artifacts.append(message)
     if len(artifacts) != 1:
-        raise ExecutableCurrencyError("build must supply one actual evidence executable")
+        raise ExecutableCurrencyError(
+            "build must supply one actual evidence executable"
+        )
     artifact = artifacts[0]
     features = artifact.get("features")
-    if not isinstance(features, list) or any(not isinstance(item, str) for item in features):
+    if not isinstance(features, list) or any(
+        not isinstance(item, str) for item in features
+    ):
         raise ExecutableCurrencyError("build lacks actual evidence feature facts")
     artifact_publication.publish(
         python_extension.stage_receipt("evidence-executable", environment, root=ROOT),
-        kind="evidence-executable", source=Path(artifact["executable"]), mode="dev", profile="dev",
-        validated=True, interpreter=str(python_extension.interpreter(environment).absolute()),
+        kind="evidence-executable",
+        source=Path(artifact["executable"]),
+        mode="dev",
+        profile="dev",
+        validated=True,
+        interpreter=str(python_extension.interpreter(environment).absolute()),
         features=lambda _candidate: features,
     )
     return 0
@@ -99,9 +132,13 @@ def build() -> int:
 @contextlib.contextmanager
 def admitted_executable() -> Generator[tuple[str, int]]:
     """Execute the immutable generation issued by the fixed tool's constructor."""
-    publication = python_extension.read_publication("evidence-executable", os.environ, root=ROOT)
+    publication = python_extension.read_publication(
+        "evidence-executable", os.environ, root=ROOT
+    )
     if publication is None or publication.kind != "evidence-executable":
-        raise ExecutableCurrencyError("Evidence tool unpublished; explicitly run just evidence-build")
+        raise ExecutableCurrencyError(
+            "Evidence tool unpublished; explicitly run just evidence-build"
+        )
     descriptor = os.open(publication.artifact.binary, os.O_RDONLY | os.O_CLOEXEC)
     try:
         yield f"/proc/self/fd/{descriptor}", descriptor
@@ -590,7 +627,7 @@ def main(argv: list[str] | None = None) -> int:
                 resource_store.publish(source, snapshot)
                 return run_native(
                     state,
-                        ["import", "--input", str(source)],
+                    ["import", "--input", str(source)],
                     deadline=deadline,
                 )
         if args.command in {"query", "generations"}:

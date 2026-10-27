@@ -27,7 +27,8 @@ def _load_published_image() -> None:
         return
     spec = importlib.util.spec_from_file_location("pse._native", image)
     if spec is None or spec.loader is None:
-        raise ImportError("published native image has no extension loader")
+        message = "published native image has no extension loader"
+        raise ImportError(message)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     try:
@@ -39,7 +40,10 @@ def _load_published_image() -> None:
 
 _load_published_image()
 
-from pse import _native, contracts
+from pse import (  # noqa: E402 -- select the issued image before the sole typed native import
+    _native,
+    contracts,
+)
 
 _check_document_header = _native.check_document_header
 

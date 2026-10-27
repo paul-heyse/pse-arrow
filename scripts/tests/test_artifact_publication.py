@@ -23,8 +23,14 @@ class ArtifactPublicationTests(unittest.TestCase):
 
     def publish(self) -> artifact_publication.Publication:
         return artifact_publication.publish(
-            self.receipt, kind="extension", source=self.source, mode="dev", profile="dev",
-            validated=True, interpreter="/selected/python", features=lambda _candidate: ["force-validate"],
+            self.receipt,
+            kind="extension",
+            source=self.source,
+            mode="dev",
+            profile="dev",
+            validated=True,
+            interpreter="/selected/python",
+            features=lambda _candidate: ["force-validate"],
         )
 
     def test_copy_precedes_single_candidate_probe_and_atomic_publication(self) -> None:
@@ -38,8 +44,14 @@ class ArtifactPublicationTests(unittest.TestCase):
             return ["force-validate"]
 
         result = artifact_publication.publish(
-            self.receipt, kind="extension", source=self.source, mode="dev", profile="release",
-            validated=True, interpreter="/selected/python", features=describe,
+            self.receipt,
+            kind="extension",
+            source=self.source,
+            mode="dev",
+            profile="release",
+            validated=True,
+            interpreter="/selected/python",
+            features=describe,
         )
         self.assertEqual(probes, [Path(result.artifact.binary)])
         self.assertEqual(artifact_publication.read(self.receipt), result)
@@ -50,15 +62,25 @@ class ArtifactPublicationTests(unittest.TestCase):
         self.source.write_bytes(b"later build alias")
         (self.root / "lint-stdout").write_text("independent Cargo control output")
         with (
-            patch.object(artifact_publication.hashlib, "sha256", side_effect=AssertionError("consumer digest")),
+            patch.object(
+                artifact_publication.hashlib,
+                "sha256",
+                side_effect=AssertionError("consumer digest"),
+            ),
             patch.object(Path, "stat", side_effect=AssertionError("consumer stat")),
         ):
             self.assertEqual(artifact_publication.read(self.receipt), first)
-        self.assertEqual(Path(first.artifact.binary).read_bytes(), b"first completed image")
+        self.assertEqual(
+            Path(first.artifact.binary).read_bytes(), b"first completed image"
+        )
         second = self.publish()
         self.assertNotEqual(first.generation, second.generation)
-        self.assertEqual(Path(second.artifact.binary).read_bytes(), b"later build alias")
-        self.assertEqual(Path(first.artifact.binary).read_bytes(), b"first completed image")
+        self.assertEqual(
+            Path(second.artifact.binary).read_bytes(), b"later build alias"
+        )
+        self.assertEqual(
+            Path(first.artifact.binary).read_bytes(), b"first completed image"
+        )
 
     def test_partial_copy_failure_settles_only_new_candidate(self) -> None:
         first = self.publish()
@@ -68,45 +90,81 @@ class ArtifactPublicationTests(unittest.TestCase):
         actual_open = Path.open
 
         class BrokenReader(io.BytesIO):
-            def read(self, size: int = -1) -> bytes:
+            def read(self, size: int | None = -1, /) -> bytes:
                 if self.tell():
                     raise OSError("copy interrupted")
                 return super().read(size)
 
-        def open_file(path: Path, *args: object, **kwargs: object) -> object:
-            return BrokenReader(raw) if path == self.source else actual_open(path, *args, **kwargs)
+        def open_file(path: Path, mode: str = "r", buffering: int = -1) -> object:
+            return (
+                BrokenReader(raw)
+                if path == self.source
+                else actual_open(path, mode, buffering=buffering)
+            )
 
-        with patch.object(Path, "open", open_file), self.assertRaisesRegex(OSError, "copy interrupted"):
+        with (
+            patch.object(Path, "open", open_file),
+            self.assertRaisesRegex(OSError, "copy interrupted"),
+        ):
             self.publish()
         self.assertEqual(self.receipt.read_bytes(), previous)
-        self.assertEqual(list((self.receipt.parent / "extension.generations").iterdir()), [Path(first.artifact.binary).parent])
+        self.assertEqual(
+            list((self.receipt.parent / "extension.generations").iterdir()),
+            [Path(first.artifact.binary).parent],
+        )
 
     def test_probe_and_descriptor_failures_preserve_previous_publication(self) -> None:
         first = self.publish()
         previous = self.receipt.read_bytes()
         for failure_stage in ("probe", "serialize", "replace"):
             with self.subTest(stage=failure_stage):
-                if failure_stage == "probe":
-                    def describe(_candidate: Path) -> list[str]:
+
+                def describe(_candidate: Path, stage: str = failure_stage) -> list[str]:
+                    if stage == "probe":
                         raise ValueError("probe failed")
-                    scope = patch.object(artifact_publication.os, "replace", wraps=artifact_publication.os.replace)
+                    return ["force-validate"]
+
+                if failure_stage == "probe":
+                    scope = patch.object(
+                        artifact_publication.os,
+                        "replace",
+                        wraps=artifact_publication.os.replace,
+                    )
                 elif failure_stage == "serialize":
-                    describe = lambda _candidate: ["force-validate"]
-                    scope = patch.object(artifact_publication.Publication, "model_dump_json", side_effect=ValueError("serialize failed"))
+                    scope = patch.object(
+                        artifact_publication.Publication,
+                        "model_dump_json",
+                        side_effect=ValueError("serialize failed"),
+                    )
                 else:
-                    describe = lambda _candidate: ["force-validate"]
-                    scope = patch.object(artifact_publication.os, "replace", side_effect=ValueError("replace failed"))
+                    scope = patch.object(
+                        artifact_publication.os,
+                        "replace",
+                        side_effect=ValueError("replace failed"),
+                    )
                 with scope, self.assertRaises(ValueError):
                     artifact_publication.publish(
-                        self.receipt, kind="extension", source=self.source, mode="dev", profile="dev",
-                        validated=True, interpreter="/selected/python", features=describe,
+                        self.receipt,
+                        kind="extension",
+                        source=self.source,
+                        mode="dev",
+                        profile="dev",
+                        validated=True,
+                        interpreter="/selected/python",
+                        features=describe,
                     )
                 self.assertEqual(self.receipt.read_bytes(), previous)
-                generations = list((self.receipt.parent / "extension.generations").iterdir())
+                generations = list(
+                    (self.receipt.parent / "extension.generations").iterdir()
+                )
                 self.assertIn(Path(first.artifact.binary).parent, generations)
-                self.assertEqual(len(generations), 2 if failure_stage == "replace" else 1)
+                self.assertEqual(
+                    len(generations), 2 if failure_stage == "replace" else 1
+                )
 
-    def test_replace_then_interrupt_retains_both_possible_issued_generations(self) -> None:
+    def test_replace_then_interrupt_retains_both_possible_issued_generations(
+        self,
+    ) -> None:
         first = self.publish()
         actual_replace = artifact_publication.os.replace
 
@@ -114,13 +172,20 @@ class ArtifactPublicationTests(unittest.TestCase):
             actual_replace(source, target)
             raise KeyboardInterrupt("publication replaced before interruption")
 
-        with patch.object(artifact_publication.os, "replace", side_effect=interrupted), self.assertRaises(KeyboardInterrupt):
+        with (
+            patch.object(artifact_publication.os, "replace", side_effect=interrupted),
+            self.assertRaises(KeyboardInterrupt),
+        ):
             self.publish()
         selected = artifact_publication.read(self.receipt)
         assert selected is not None
         self.assertNotEqual(selected.generation, first.generation)
-        self.assertEqual(Path(selected.artifact.binary).read_bytes(), b"first completed image")
-        self.assertEqual(Path(first.artifact.binary).read_bytes(), b"first completed image")
+        self.assertEqual(
+            Path(selected.artifact.binary).read_bytes(), b"first completed image"
+        )
+        self.assertEqual(
+            Path(first.artifact.binary).read_bytes(), b"first completed image"
+        )
 
     def test_cleanup_failure_retains_the_original_construction_failure(self) -> None:
         first = self.publish()
@@ -130,10 +195,19 @@ class ArtifactPublicationTests(unittest.TestCase):
         def describe(_candidate: Path) -> list[str]:
             raise original
 
-        with patch.object(artifact_publication.shutil, "rmtree", side_effect=cleanup), self.assertRaises(ExceptionGroup) as raised:
+        with (
+            patch.object(artifact_publication.shutil, "rmtree", side_effect=cleanup),
+            self.assertRaises(ExceptionGroup) as raised,
+        ):
             artifact_publication.publish(
-                self.receipt, kind="extension", source=self.source, mode="dev", profile="dev",
-                validated=True, interpreter="/selected/python", features=describe,
+                self.receipt,
+                kind="extension",
+                source=self.source,
+                mode="dev",
+                profile="dev",
+                validated=True,
+                interpreter="/selected/python",
+                features=describe,
             )
         self.assertEqual(raised.exception.exceptions, (original, cleanup))
         self.assertEqual(artifact_publication.read(self.receipt), first)

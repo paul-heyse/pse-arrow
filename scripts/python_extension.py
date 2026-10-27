@@ -7,17 +7,15 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 import shlex
 import shutil
 import subprocess
 import sys
-import tempfile
 import tomllib
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -314,11 +312,18 @@ def _capture_candidate_features(
         "'features': compiled_features()}))\n"
     )
     try:
-        imported = json.loads(subprocess.check_output(
-            [str(interpreter(environment)), "-c", program], cwd=ROOT, env=selected, text=True
-        ))
+        imported = json.loads(
+            subprocess.check_output(
+                [str(interpreter(environment)), "-c", program],
+                cwd=ROOT,
+                env=selected,
+                text=True,
+            )
+        )
     except (subprocess.CalledProcessError, json.JSONDecodeError) as error:
-        raise ValueError("cannot inspect the constructed extension candidate") from error
+        raise ValueError(
+            "cannot inspect the constructed extension candidate"
+        ) from error
     if not isinstance(imported, dict):
         raise TypeError("invalid constructed extension report")
     if (
@@ -326,14 +331,22 @@ def _capture_candidate_features(
         or imported.get("package") != str(ROOT / "python/pse/__init__.py")
         or imported.get("native") != str(candidate.absolute())
     ):
-        raise ValueError("constructed extension loaded a different image or interpreter")
+        raise ValueError(
+            "constructed extension loaded a different image or interpreter"
+        )
     features = imported.get("features")
-    if not isinstance(features, list) or any(not isinstance(item, str) for item in features) or len(features) != len(set(features)):
+    if (
+        not isinstance(features, list)
+        or any(not isinstance(item, str) for item in features)
+        or len(features) != len(set(features))
+    ):
         raise ValueError("invalid constructed extension feature flags")
     if validated and "force-validate" not in features:
         raise ValueError("Python correctness requires a force-validated extension")
     if native != ("native-solvers" in features):
-        raise ValueError("constructed extension mode does not match native solver features")
+        raise ValueError(
+            "constructed extension mode does not match native solver features"
+        )
     return features
 
 
@@ -345,7 +358,9 @@ def capture(
     mode: Mode = "native" if native else publication.mode if publication else "dev"
     current = currency_check_installed(environment, mode=mode, validated=validated)
     if current.state != "current" or current.artifact is None:
-        raise ValueError("no compatible published extension; explicitly prepare the requested contract")
+        raise ValueError(
+            "no compatible published extension; explicitly prepare the requested contract"
+        )
     return current.artifact.model_dump()
 
 
@@ -702,7 +717,9 @@ def currency_check(
         {
             **base,
             "state": "current" if compatible else "unsupported",
-            "cause": "published-compatible-artifact" if compatible else "incompatible-publication",
+            "cause": "published-compatible-artifact"
+            if compatible
+            else "incompatible-publication",
             "receipt_recorded": True,
             "generation": publication.generation,
             "artifact": publication.artifact,
@@ -725,7 +742,9 @@ def currency_check_installed(
             cause="missing-publication",
             remedy="Explicitly prepare a compatible extension contract, then restart or reattach.",
         )
-    return currency_check(environment, mode=mode, profile=publication.profile, validated=validated)
+    return currency_check(
+        environment, mode=mode, profile=publication.profile, validated=validated
+    )
 
 
 def publish_receipt(path: Path, value: dict[str, object]) -> None:
@@ -743,7 +762,9 @@ def extension_prepare(
         raise ValueError("extension mode must be dev or native")
     selected = dict(environment)
     selected.pop("_PSE_NATIVE_PUBLISHED_IMAGE", None)
-    command = develop_command(ROOT, mode, profile, environment=selected, validated=validated)
+    command = develop_command(
+        ROOT, mode, profile, environment=selected, validated=validated
+    )
     maturin_cargo_command(command, ROOT)
     if validated:
         command = validated_maturin_command(command, selected)
@@ -767,8 +788,11 @@ def extension_prepare(
         ),
     )
     return StageResult(
-        stage="prepare", status="prepared", artifact=publication.artifact,
-        receipt=str(path), published=True,
+        stage="prepare",
+        status="prepared",
+        artifact=publication.artifact,
+        receipt=str(path),
+        published=True,
     )
 
 
@@ -820,7 +844,9 @@ def stubs_prepare(
     command = arrow_validation.resolve(
         command, run=lambda selected: capture_build_graph(selected, environment)
     ).command
-    result = subprocess.call(command, cwd=ROOT, env=execution_environment(environment, artifact))
+    result = subprocess.call(
+        command, cwd=ROOT, env=execution_environment(environment, artifact)
+    )
     if result:
         return StageResult(
             stage="stubs-check" if check else "stubs", status="failed", exit_code=result

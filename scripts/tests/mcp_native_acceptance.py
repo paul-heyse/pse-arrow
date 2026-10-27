@@ -533,9 +533,7 @@ async def canonical_reads(recorder: Recorder, state: Path, hold_seconds: int) ->
                     "artifact_id": "generated_artifact:python/pse/_native.pyi",
                     "limit": 1,
                 }
-                direct = knowledge_store.indexed(
-                    query, state=state, root=ROOT
-                )
+                direct = knowledge_store.indexed(query, state=state, root=ROOT)
                 page = await recorder.invoke(
                     client, "knowledge_query", {"request": query, "state": str(state)}
                 )

@@ -349,7 +349,9 @@ class PreparationWorkerTests(unittest.TestCase):
         stages = []
         with (
             patch.object(
-                python_extension, "admit_import", side_effect=ValueError("private failure")
+                python_extension,
+                "admit_import",
+                side_effect=ValueError("private failure"),
             ) as capture,
             patch.object(python_extension, "run_stages") as prepare,
         ):

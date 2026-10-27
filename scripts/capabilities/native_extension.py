@@ -61,11 +61,15 @@ def selected_extension(
     if requirement_mode == "native_correctness":
         mode = "native"
     if mode is None or profile is None:
-        published = python_extension.read_publication("extension", environment, root=root)
+        published = python_extension.read_publication(
+            "extension", environment, root=root
+        )
         if published is None:
             raise ExtensionSelectionError("missing_published_generation")
         if requirement_mode == "native_correctness" and published.mode != "native":
-            raise ExtensionSelectionError("publication_incompatible_with_requested_mode")
+            raise ExtensionSelectionError(
+                "publication_incompatible_with_requested_mode"
+            )
         if mode is None:
             mode = published.mode
         if profile is None:

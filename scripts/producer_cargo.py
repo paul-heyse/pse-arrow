@@ -29,6 +29,8 @@ if str(ROOT) not in sys.path:
 CAPTURE = "PSE_PRODUCER_CARGO_CAPTURE"
 PYTHON = "PSE_PRODUCER_CARGO_PYTHON"
 PREPARATION_GUARD_FD = "PSE_PRODUCER_PREPARATION_GUARD_FD"
+
+
 def preparation_child_fds(environment: Mapping[str, str]) -> tuple[int, ...]:
     """Retain the target-local owner's lock through actual writer descendants."""
     value = environment.get(PREPARATION_GUARD_FD)

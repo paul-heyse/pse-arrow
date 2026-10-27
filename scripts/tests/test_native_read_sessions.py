@@ -19,10 +19,10 @@ from unittest.mock import patch
 from scripts.capabilities import execution_basis
 from scripts.capabilities.native_read_protocol import (
     MAXIMUM_REQUEST_FRAME_BYTES,
+    SESSION_ENVIRONMENT,
     ReadRequest,
     ReadResponse,
     SessionAdmission,
-    SESSION_ENVIRONMENT,
     SessionProtocolError,
     decode,
     encoded,
@@ -164,23 +164,39 @@ class ProtocolTests(unittest.TestCase):
                 admitted = original.admission.model_copy(
                     update={
                         "definition": original.admission.definition.model_copy(
-                            update={"checkout": str(root), "sources": {"missing.py": "captured"}}
+                            update={
+                                "checkout": str(root),
+                                "sources": {"missing.py": "captured"},
+                            }
                         ),
                         "route_revision": execution_basis.route_revision("native-read"),
                     }
                 )
-                with patch("scripts.capabilities.source_basis.Sources.__init__", side_effect=AssertionError("source scan")):
+                with patch(
+                    "scripts.capabilities.source_basis.Sources.__init__",
+                    side_effect=AssertionError("source scan"),
+                ):
                     execution_basis.verify_handoff(
-                        root, "native-read", original.operation, original.original_document(), admitted
+                        root,
+                        "native-read",
+                        original.operation,
+                        original.original_document(),
+                        admitted,
                     )
                     with self.assertRaises(execution_basis.AdmissionRefusedError):
                         execution_basis.verify_handoff(
-                            root, "native-read", original.operation, b"different request", admitted
+                            root,
+                            "native-read",
+                            original.operation,
+                            b"different request",
+                            admitted,
                         )
 
 
 class SessionStartupTests(unittest.IsolatedAsyncioTestCase):
-    async def test_startup_publishes_captured_definition_without_rescanning(self) -> None:
+    async def test_startup_publishes_captured_definition_without_rescanning(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             original = request()
@@ -190,7 +206,7 @@ class SessionStartupTests(unittest.IsolatedAsyncioTestCase):
             handoff = original.admission.model_copy(update={"definition": definition})
             observed = []
 
-            async def spawn(*command: str, **options: object) -> object:
+            async def spawn(*_command: str, **options: object) -> object:
                 environment = options["env"]
                 assert isinstance(environment, dict)
                 path = Path(environment[SESSION_ENVIRONMENT])
@@ -199,9 +215,18 @@ class SessionStartupTests(unittest.IsolatedAsyncioTestCase):
 
             session = ReadSession(root, "context")
             with (
-                patch("scripts.capabilities.native_read_sessions.selected_worker_environment", return_value=[]),
-                patch("scripts.capabilities.native_read_sessions.asyncio.create_subprocess_exec", side_effect=spawn),
-                patch("scripts.capabilities.source_basis.Sources.__init__", side_effect=AssertionError("source scan")),
+                patch(
+                    "scripts.capabilities.native_read_sessions.selected_worker_environment",
+                    return_value=[],
+                ),
+                patch(
+                    "scripts.capabilities.native_read_sessions.asyncio.create_subprocess_exec",
+                    side_effect=spawn,
+                ),
+                patch(
+                    "scripts.capabilities.source_basis.Sources.__init__",
+                    side_effect=AssertionError("source scan"),
+                ),
             ):
                 try:
                     await session._start(handoff)  # noqa: SLF001 -- exercise the construction boundary

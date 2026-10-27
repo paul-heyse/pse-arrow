@@ -437,12 +437,13 @@ def execute(
         activate_native,
     )
 
-    if (
-        os.environ.get("PSE_CAPABILITY_ADMISSION") or context is not None
-    ) and (context is None or not context.interface_compatible):
-        if JSON_OBJECT.validate_json(
-            codec.encode_json(pse.host_operation_catalogue())
-        ) != host.native_catalogue():
+    if (os.environ.get("PSE_CAPABILITY_ADMISSION") or context is not None) and (
+        context is None or not context.interface_compatible
+    ):
+        if (
+            JSON_OBJECT.validate_json(codec.encode_json(pse.host_operation_catalogue()))
+            != host.native_catalogue()
+        ):
             return {
                 "outcome": "stale_interface",
                 "code": "pse.native.operation_catalogue_mismatch",
