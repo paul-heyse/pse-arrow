@@ -29,6 +29,11 @@
 mod provider_link {
     include!(concat!(env!("OUT_DIR"), "/provider-link.rs"));
 }
+#[cfg(any(feature = "kinsol", feature = "idas"))]
+mod sundials_profile;
+#[cfg(test)]
+#[path = "../build-source.rs"]
+mod build_source;
 pub mod assembled;
 #[cfg(test)]
 #[path = "../build-link.rs"]

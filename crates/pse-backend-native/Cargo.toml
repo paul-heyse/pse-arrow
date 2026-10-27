@@ -99,7 +99,10 @@ scip-sys = { workspace = true, optional = true }
 toml.workspace = true
 cc.workspace = true
 pkg-config.workspace = true
+sha2.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 allocation-counter.workspace = true
+sha2.workspace = true
 pse-quantity = { workspace = true, features = ["fixtures"] }

@@ -24,6 +24,8 @@ use std::process::Command;
 #[path = "build-link.rs"]
 mod build_link;
 mod build_receipt;
+#[path = "build-source.rs"]
+mod build_source;
 
 const MKL: &str = "mkl-dynamic-lp64-gomp";
 
@@ -31,6 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=build-link.rs");
     println!("cargo:rerun-if-changed=build_receipt.rs");
+    println!("cargo:rerun-if-changed=build-source.rs");
     let isolation = env::var_os("CARGO_FEATURE_ROOT_ISOLATION").is_some();
     if isolation {
         println!("cargo:rerun-if-env-changed=PSE_ROOT_ISOLATION_DIR");
@@ -99,27 +102,48 @@ fn main() -> Result<(), Box<dyn Error>> {
         &out.join("pounce-source.txt"),
         format!("{git}@{revision}").as_bytes(),
     )?;
-    kinsol_profile(&out, &workspace_manifest)?;
+    let root = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").ok_or("CARGO_MANIFEST_DIR unset")?).join("../..");
+    supplier_sources(&out, &root, &workspace_manifest)?;
+    kinsol_profile(&out)?;
     Ok(())
 }
 
-/// Capture only the selected bundled-SUNDIALS/KLU profile. The environment's native
-/// admission owns provider qualification; this copies its existing receipt, without
-/// substituting Ipopt's unrelated solver image or scanning dependency source trees.
-fn kinsol_profile(out: &Path, workspace: &toml::Value) -> Result<(), Box<dyn Error>> {
-    let dependencies = &workspace["workspace"]["dependencies"];
-    let mut source = String::new();
-    for name in ["sundials-sys", "suitesparse_sys"] {
-        source.push_str(name);
-        source.push('=');
-        source.push_str(&dependencies[name].to_string());
-        source.push('\n');
+/// Embed only consumed suppliers. The dependency itself reports the final SUNDIALS
+/// source selection, including an external-header failure's bundled fallback.
+fn supplier_sources(out: &Path, root: &Path, workspace: &toml::Value) -> Result<(), Box<dyn Error>> {
+    let selected = env::var_os("CARGO_FEATURE_KINSOL").is_some() || env::var_os("CARGO_FEATURE_IDAS").is_some();
+    let source = if selected {
+        let actual = PathBuf::from(env::var_os("DEP_SUNDIALS_SOURCE_ROOT").ok_or("missing selected SUNDIALS wrapper source")?).canonicalize()?;
+        if actual != root.join("vendor/sundials-sys").canonicalize()? {
+            return Err("selected SUNDIALS wrapper has no checked maintained-source receipt".into());
+        }
+        println!("cargo:rerun-if-env-changed=PSE_SUNDIALS_PROVIDER_RECEIPT");
+        let receipt = env::var_os("PSE_SUNDIALS_PROVIDER_RECEIPT").map(PathBuf::from);
+        build_source::selected_sundials(root, &env::var("DEP_SUNDIALS_SOURCE_KIND")?, receipt.as_deref())?
+    } else { String::new() };
+    build_receipt::write_if_changed(&out.join("sundials-source.txt"), source.as_bytes())?;
+    // Diffsol is consumed by the pure callback/linearization contracts as well as
+    // the linked dynamics adapter. Its maintained changes must never be invisible.
+    let mut diffsol = String::new();
+    for name in ["diffsol", "diffsol-la"] {
+        let declared = workspace["workspace"]["dependencies"][name]["path"].as_str().ok_or("selected Diffsol source has no maintained path")?;
+        if root.join(declared).canonicalize()? != root.join("vendor").join(name).canonicalize()? {
+            return Err("selected Diffsol source has no checked maintained-source receipt".into());
+        }
     }
-    build_receipt::write_if_changed(&out.join("kinsol-source.txt"), source.as_bytes())?;
+    for name in ["diffsol", "diffsol-la", "diffsol-nl"] {
+        diffsol.push_str(&build_source::authenticated(root, name)?);
+        diffsol.push('\n');
+    }
+    diffsol.push_str(&workspace["workspace"]["dependencies"]["diffsol"].to_string());
+    build_receipt::write_if_changed(&out.join("diffsol-source.txt"), diffsol.as_bytes())?;
+    Ok(())
+}
+
+/// Capture the admitted KLU provider whenever SUNDIALS consumes it, including IDAS-only.
+fn kinsol_profile(out: &Path) -> Result<(), Box<dyn Error>> {
     let output = out.join("kinsol-klu-provider.json");
-    if env::var_os("CARGO_FEATURE_KINSOL").is_none() {
-        // The declaration is provenance in every profile; provider observations
-        // are inputs only when this profile consumes KINSOL.
+    if env::var_os("CARGO_FEATURE_KINSOL").is_none() && env::var_os("CARGO_FEATURE_IDAS").is_none() {
         build_receipt::write_if_changed(&output, b"")?;
         return Ok(());
     }

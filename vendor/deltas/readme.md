@@ -20,6 +20,8 @@ the archive. The wrapper bundles SUNDIALS 7.1.1; its version is distinct from th
 | `diffsol` | `diffsol` | `0.16.2` | `4b324c954a5178683516e35e06051f02e3e2471d22b8175d9a01b274bd81269d` | `dc30fee49e692c65577b11a1181bfca62f5ebf42` | `crates/diffsol` | https://github.com/martinjrobins/diffsol |
 | `diffsol-la` | `diffsol-la` | `0.1.1` | `0fd836b0b52b6459b1e16c4ebfe267599b39c07a2eb638426a4e72a279a4e384` | `dc30fee49e692c65577b11a1181bfca62f5ebf42` | `crates/diffsol-la` | https://github.com/martinjrobins/diffsol |
 | `diffsol-nl` | `diffsol-nl` | `0.1.1` | `6b24ab3f56ff94c563ab85e7897ba57f884617d0dc83a081028d28ec800213a1` | `dc30fee49e692c65577b11a1181bfca62f5ebf42` | `crates/diffsol-nl` | https://github.com/martinjrobins/diffsol |
+| `faer` | `faer` | `0.24.4` | `5ab6df3dd147fe8d702a288b95bcd8fcc499ab572fc80da6828f60cd4d524d67` | `0539947ffb757a739d7e703a7d2fa0c792a909c1` | `faer` | https://github.com/sarah-quinones/faer-rs |
+| `faer-traits` | `faer-traits` | `0.24.0` | `b87d23ed7ab1f26c0cba0e5b9e061a796fbb7dc170fa8bee6970055a1308bb0f` | `8dfcceee8eb3d81231366acc9d3f157ac5e7057a` | `faer-traits` | https://github.com/sarah-quinones/faer-rs |
 | `surrealdb` | `surrealdb` | `3.3.4` | `c045d1519c7f0b7a15eb1f0b53bda772e95b4a50de3000b30ac2dcfebaa891dd` | `1ac2b1dba7cd177621a4cf5d507caebeb2414395` | `surrealdb` | https://github.com/surrealdb/surrealdb |
 | `surrealdb-engine-api` | `surrealdb-engine-api` | `3.3.4` | `604b176c1ead986bb77da66f8d8e22f634d203e8cae8b23b3ca9afbf6144c954` | `1ac2b1dba7cd177621a4cf5d507caebeb2414395` | `surrealdb/engine-api` | https://github.com/surrealdb/surrealdb |
 
@@ -130,6 +132,18 @@ Run the full comparison above. Never regenerate from a working directory walk th
 capture `target/`, caches or other untracked build artifacts. This maintenance step affects
 only the provenance delta; any intentional implementation change requires its own functional
 qualification.
+
+For the build-authenticated native suppliers, run
+`scripts/pse-env -- .venv/bin/python scripts/supplier_source.py <directory> ...` after an
+intentional source edit. This implements that reconstruction procedure and publishes the
+complete delta plus its derived `<directory>.source.json` receipt only after independently
+reapplying the delta to the checksum-verified archive and comparing every path, byte and mode.
+The receipt is derived evidence; this page remains the published baseline owner and the delta
+the complete maintained change. The native build helper checks the selected source tree and
+delta against that receipt and embeds its digest. Same-version source edits with stale receipts
+refuse at build time; loaded artifacts do not scan source during service. Cargo watches the
+selected source directory, delta and receipt. External SUNDIALS selection instead requires its
+selected provider receipt; an unused bundled delta cannot stand in for the external provider.
 
 Tested 2026-10-26: the reconstruction command above matched all seven trees exactly, including
 all additions, whitespace and file modes, against the pinned archive digests. The failure

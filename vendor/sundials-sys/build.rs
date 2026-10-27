@@ -109,6 +109,7 @@ impl bindgen::callbacks::ParseCallbacks for CargoInputs {
 /// Build the Sundials code vendor with sundials-sys.
 fn build_vendor_sundials(klu: &Library) -> (Library, &'static str) {
     println!("cargo:rerun-if-changed=vendor");
+    println!("cargo:source_kind=bundled");
     // SundialsSetupConfig.cmake exports CI metadata or a CMake timestamp through
     // public SUN_JOB_* macros. CMake's timestamp also consumes epoch/timezone.
     for name in ["CI_JOB_ID", "CI_JOB_STARTED_AT", "SOURCE_DATE_EPOCH", "TZ"] {
@@ -262,6 +263,7 @@ fn get_sundials_version_major(bindings: impl AsRef<Path>) -> Option<u32> {
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:source_root={}", env::var("CARGO_MANIFEST_DIR").expect("Cargo source root"));
     println!("cargo:rerun-if-changed=wrapper.h");
     // Cargo supplies DEP_* from the selected links dependency, not the caller's
     // environment. Its build metadata invalidates us; do not emit env watches.
@@ -284,6 +286,7 @@ fn main() {
     if cfg!(any(feature = "build_libraries", target_family = "wasm")) {
         (sundials, library_type) = build_vendor_sundials(&klu);
     } else {
+        println!("cargo:source_kind=external");
         println!("cargo:rerun-if-env-changed=SUNDIALS_INCLUDE_DIR");
         println!("cargo:rerun-if-env-changed=SUNDIALS_LIBRARY_DIR");
         sundials.inc = env::var("SUNDIALS_INCLUDE_DIR").ok();

@@ -1,0 +1,280 @@
+{
+  "archive_sha256": "0fd836b0b52b6459b1e16c4ebfe267599b39c07a2eb638426a4e72a279a4e384",
+  "delta_sha256": "63607aa1fe4b07f180cdff40287b361a879354b494e3631234dc82a78a55aa5d",
+  "files": {
+    ".cargo_vcs_info.json": {
+      "mode": "100644",
+      "sha256": "e25480a4426fde149efd9ecec402fb773f1f6d00a5b7479e1f4c5e93dc2e8f80"
+    },
+    "CHANGELOG.md": {
+      "mode": "100644",
+      "sha256": "17f8bc7587b58e86b71758d6b3f0081affd69caf69acf7a3712daffddb141005"
+    },
+    "Cargo.lock": {
+      "mode": "100644",
+      "sha256": "532f3345016ce17467ef3fb2e121b17f642dd0135341912c16423a07a1b3003d"
+    },
+    "Cargo.toml": {
+      "mode": "100644",
+      "sha256": "5d1e21774903d4a787a984e226fc1c636bfdefa9902cbeb8c7e03e04e80d7cff"
+    },
+    "Cargo.toml.orig": {
+      "mode": "100644",
+      "sha256": "260ebd82481d67079b7b7ed331e2ea720d25e1dfeb483081b97f34ef6e98a189"
+    },
+    "README.md": {
+      "mode": "100644",
+      "sha256": "3022b81c3c3548e9e4cd851fe951f95750b3bf34035eaaa3778dc8f7859bfbd3"
+    },
+    "build.rs": {
+      "mode": "100644",
+      "sha256": "cf10da9e0cd21eefb3cfee9bd7779eff0a038fb5bf2ba991106d2de94b75e821"
+    },
+    "src/context/cuda.rs": {
+      "mode": "100644",
+      "sha256": "dd18823e08bee4440d329652ed19ddc54fdfe48ce01532971fa95a453d864f36"
+    },
+    "src/context/faer.rs": {
+      "mode": "100644",
+      "sha256": "46d67c7aa5563900f14f2e08d113ebecf136de2b73e0cea67bbd2d00cda0216d"
+    },
+    "src/context/mod.rs": {
+      "mode": "100644",
+      "sha256": "37f2df8d68819cec629b3faa26328c4d84fa960b409b551e738ec79ab3eb9294"
+    },
+    "src/context/nalgebra.rs": {
+      "mode": "100644",
+      "sha256": "f144e18b1b3758fedb56d6e5b8c4cca2dcdafdb04aff54790ef50ab9b2faba72"
+    },
+    "src/cuda_kernels/all.cu": {
+      "mode": "100644",
+      "sha256": "014815dfd026f76064e158076499f01b79c284ed44ee424a85ddd0fc889e92a4"
+    },
+    "src/cuda_kernels/cuda_kernels_common.h": {
+      "mode": "100644",
+      "sha256": "895ffe56d26ad25af7e4f2c75304499465bfd2d6a3eb99dae05de97395a94fe8"
+    },
+    "src/cuda_kernels/mat_from_diagonal.cu": {
+      "mode": "100644",
+      "sha256": "1c3b9de53d7e51e919635ee1e49eb05b0f083d876292035bd9dce7b3774feccd"
+    },
+    "src/cuda_kernels/mat_get_diagonal.cu": {
+      "mode": "100644",
+      "sha256": "7d05318d032c60b337d67a58eefc8eebfa8f390fd51f48e03c5354918090c0cf"
+    },
+    "src/cuda_kernels/mat_scale_add_assign.cu": {
+      "mode": "100644",
+      "sha256": "9fd41821ac9a9040700f0828f219a6f59450ea6bd728b99c57e077eead023afa"
+    },
+    "src/cuda_kernels/mat_set_column.cu": {
+      "mode": "100644",
+      "sha256": "083a245c9b3f88f5c609ace170e0201c23738fb4ad29ef4b1d41b36c4fc38df7"
+    },
+    "src/cuda_kernels/mat_set_data_with_indices.cu": {
+      "mode": "100644",
+      "sha256": "ec2d3e3d6971edb395e2c60ae7c9733af1f0b09db59930b5e5caab4963fe835d"
+    },
+    "src/cuda_kernels/vec_add.cu": {
+      "mode": "100644",
+      "sha256": "d0e19b769fc24cec2ae920b4665875b66fd020916b31734b9e5db54d18c0a645"
+    },
+    "src/cuda_kernels/vec_add_assign.cu": {
+      "mode": "100644",
+      "sha256": "5977cbda27a2dc867d2b6cc76e843dace2cf22ef025859832ffeb31aba7666d5"
+    },
+    "src/cuda_kernels/vec_assign_at_indices.cu": {
+      "mode": "100644",
+      "sha256": "f3f80d679cbd3e4d1b38c40527a0dca517bea16ea050ca87c81118a2c41fe21b"
+    },
+    "src/cuda_kernels/vec_axpy.cu": {
+      "mode": "100644",
+      "sha256": "8de0d5af6bdd973acf5aab41cf0d30e02ccdce9d486dad3ba6c57623051e67fb"
+    },
+    "src/cuda_kernels/vec_axpy_offset.cu": {
+      "mode": "100644",
+      "sha256": "e6a43982d04c7eb0a68710eb58d8d6695b842a98b45ca7654c3ba9252f9fd479"
+    },
+    "src/cuda_kernels/vec_batched_axpy.cu": {
+      "mode": "100644",
+      "sha256": "fd965d41b69ba7449c0f10808e7cc1c080f0b007395a75951ac8fab66b8e9c21"
+    },
+    "src/cuda_kernels/vec_copy.cu": {
+      "mode": "100644",
+      "sha256": "89574426517cfaca2ab22949b460636f8c4f5503dd301e7054c5a0b1b55cf3e5"
+    },
+    "src/cuda_kernels/vec_copy_from_indices.cu": {
+      "mode": "100644",
+      "sha256": "90ac7b9ce776c36d17b80ca685dc398e31179bf525559400a553502e6fe8edf8"
+    },
+    "src/cuda_kernels/vec_div_assign.cu": {
+      "mode": "100644",
+      "sha256": "67321a6dbe15f5a5402ccdd50188659f913a71532e6ad04cccce93cd04312edc"
+    },
+    "src/cuda_kernels/vec_fill.cu": {
+      "mode": "100644",
+      "sha256": "01ca12358490f135507d7a473b436da34ff269a227c2e77fba4d8d648540a324"
+    },
+    "src/cuda_kernels/vec_gather.cu": {
+      "mode": "100644",
+      "sha256": "8d6fdc69552039cb16f101ccfadeeaf4ceacb8cd7a93919bc92f77fe717438b0"
+    },
+    "src/cuda_kernels/vec_mul_assign.cu": {
+      "mode": "100644",
+      "sha256": "1aff3021d6395e9c6528093a04f7874cf4e18178b14ae0c589854a99e5581937"
+    },
+    "src/cuda_kernels/vec_mul_assign_scalar.cu": {
+      "mode": "100644",
+      "sha256": "8da211bc9517d0ffb1474d56e9e9325081683e8570d3efaf3a55bb71ebee6c56"
+    },
+    "src/cuda_kernels/vec_mul_scalar.cu": {
+      "mode": "100644",
+      "sha256": "9c27558f1641f1ba7606644302bfa3c434017f4465bb8b4f9928d52c32dedd6f"
+    },
+    "src/cuda_kernels/vec_norm.cu": {
+      "mode": "100644",
+      "sha256": "76860767a0e71e013d483e00b9e204af9bcc4117cb09f18cc4bdc5998962e35d"
+    },
+    "src/cuda_kernels/vec_norm_lk.cu": {
+      "mode": "100644",
+      "sha256": "4b3ab299fafd8b87dd4a39d38389b0a65cbde0dc8f33f2ad83a9239c7847a0d5"
+    },
+    "src/cuda_kernels/vec_root_finding.cu": {
+      "mode": "100644",
+      "sha256": "6a01c29a8add36abfc56bb60fd7e6200d1219493865dfc1e877e88eeed5094ea"
+    },
+    "src/cuda_kernels/vec_scatter.cu": {
+      "mode": "100644",
+      "sha256": "137ba0b91c1cde0b08794e2e4bf444ee346ec298a676b5171fc5d995e950ecb1"
+    },
+    "src/cuda_kernels/vec_squared_norm.cu": {
+      "mode": "100644",
+      "sha256": "45ba88b0c01a7b2292dae65dd68ee85538c28c54ab090330ef6f4deaf248bced"
+    },
+    "src/cuda_kernels/vec_sub.cu": {
+      "mode": "100644",
+      "sha256": "6eecd2fd5ac8f3cb6a22757c550b8f25dd38a01c55bf6115929f2b3044adf638"
+    },
+    "src/cuda_kernels/vec_sub_assign.cu": {
+      "mode": "100644",
+      "sha256": "96b7af696716ec4543f8c79047d4443199bd0d4604f9a4ef54e8c1fb3aa7950d"
+    },
+    "src/error.rs": {
+      "mode": "100644",
+      "sha256": "6e8751bf8f520df12d9f655af75d81783fb30b2d38c8a0c40fe1af948205feac"
+    },
+    "src/lib.rs": {
+      "mode": "100644",
+      "sha256": "2699f4177741b543c9291970f7ce9fa1d6e83d4b63de202f36025ede0c201b81"
+    },
+    "src/linear_op.rs": {
+      "mode": "100644",
+      "sha256": "95bbb29874a33429bea1f44e8395794d2eb13c3cf39dc13325dece87fcf35500"
+    },
+    "src/linear_solver/cuda/lu.rs": {
+      "mode": "100644",
+      "sha256": "5441e880069ac928aedca34cc7bb054128d076e10a5c5729e0bc205d15c5c0d0"
+    },
+    "src/linear_solver/cuda/mod.rs": {
+      "mode": "100644",
+      "sha256": "b228f7f4a4e45e844ca7848fc6bb0a617f667f2f948457caaa471e273001ae04"
+    },
+    "src/linear_solver/faer/lu.rs": {
+      "mode": "100644",
+      "sha256": "915fb04c142a16a3ec5e9534988cc05c7b1850c8969b1e7ffcd06709ef8db416"
+    },
+    "src/linear_solver/faer/mod.rs": {
+      "mode": "100644",
+      "sha256": "ff412caab6ee5948ed74f5395dc3fe1a8c12d0e6f0813d91f18d556c57abb6f0"
+    },
+    "src/linear_solver/faer/sparse_lu.rs": {
+      "mode": "100644",
+      "sha256": "d3e1af30b3d8b8824a0a022ab662d8aad2171b2d97fba8e31675098d7d75801a"
+    },
+    "src/linear_solver/mod.rs": {
+      "mode": "100644",
+      "sha256": "3254f7768cea7fa363e959e6d58f689d965ed86206f88b69d6d5521b523c58c4"
+    },
+    "src/linear_solver/nalgebra/lu.rs": {
+      "mode": "100644",
+      "sha256": "00e30586149e1d196c7476e48adc5371627b546f9f504833e7d9504b201bdcf2"
+    },
+    "src/linear_solver/nalgebra/mod.rs": {
+      "mode": "100644",
+      "sha256": "b228f7f4a4e45e844ca7848fc6bb0a617f667f2f948457caaa471e273001ae04"
+    },
+    "src/linear_solver/suitesparse/klu.rs": {
+      "mode": "100644",
+      "sha256": "e60a9ecf995f057281d239c28db619ceb5bb12522880b1824f9a255e35da0b9f"
+    },
+    "src/linear_solver/suitesparse/mod.rs": {
+      "mode": "100644",
+      "sha256": "75bafcce57e5abe4fcdb2684fb46429f6e90505a7db33776508149f169fc2ed3"
+    },
+    "src/matrix/cuda.rs": {
+      "mode": "100644",
+      "sha256": "5e72c3bfe2d06bfe06d88cb9896a001d482171281ad74bc569e51b18f98a1028"
+    },
+    "src/matrix/default_solver.rs": {
+      "mode": "100644",
+      "sha256": "62b7b9609802074a554a099006f9a02dd26b66f41621d27605eb1658ab40addf"
+    },
+    "src/matrix/dense_faer_serial.rs": {
+      "mode": "100644",
+      "sha256": "1e463968d578a952941aa30e1f2cce684ba75eca454caf763398da150afd4530"
+    },
+    "src/matrix/dense_nalgebra_serial.rs": {
+      "mode": "100644",
+      "sha256": "bcf61dfe9735e23ade19c96a3e35fbe156862b56f816eb4dfe22c7b5be667735"
+    },
+    "src/matrix/extract_block.rs": {
+      "mode": "100644",
+      "sha256": "7a530b49b2ae01708847aa5921e901ee129927b88152a424ac4a51268e8582ca"
+    },
+    "src/matrix/mod.rs": {
+      "mode": "100644",
+      "sha256": "07cadf0f494b0c1c05ce25d4ed4f32da8c48d04f06f69b452946c9c6c7697e3b"
+    },
+    "src/matrix/sparse_faer.rs": {
+      "mode": "100644",
+      "sha256": "9dae7684b640ec49e7fbbb1c79b642b4f383062a9c465673ba02588b80303ae6"
+    },
+    "src/matrix/sparsity.rs": {
+      "mode": "100644",
+      "sha256": "0c840652190e7a820be82f8b82ca8d5e8d54e8ccf8ea36e0dfe89fb02039076e"
+    },
+    "src/matrix/utils.rs": {
+      "mode": "100644",
+      "sha256": "e8e1490eeb5221ddc995f36d06886c1aa25b053a0a921bf2b3f41b4a9a928d07"
+    },
+    "src/scalar/cuda.rs": {
+      "mode": "100644",
+      "sha256": "69a490b86f628df664ac40b259b98df3afdab078e426ec8f38f45a433fe36f93"
+    },
+    "src/scalar/mod.rs": {
+      "mode": "100644",
+      "sha256": "69050db9aa5c1365c86816601f82a87d6e0ad0840c9a16aacf3a4d75f2ce9c76"
+    },
+    "src/vector/cuda.rs": {
+      "mode": "100644",
+      "sha256": "e3e6ea3c0499444c1eaa1338893ccf761da435ef62023ebefceb38a75c867b7c"
+    },
+    "src/vector/faer_serial.rs": {
+      "mode": "100644",
+      "sha256": "a5c990c3adf1b19a60d08314311f8d15ba5ff37513fad869484c7d6b7afe34e1"
+    },
+    "src/vector/mod.rs": {
+      "mode": "100644",
+      "sha256": "c6e5dc010eb7750821efce2cc7b56af58d4767844befdd87d844c9a544f582f6"
+    },
+    "src/vector/nalgebra_serial.rs": {
+      "mode": "100644",
+      "sha256": "6799d0b8b03ce44550f3057a86a42bccbd84bf8238d28760a190b1843f9ce75d"
+    },
+    "src/vector/utils.rs": {
+      "mode": "100644",
+      "sha256": "fd58e2b1bffb43b72cb1fa915cd45fa9916ab5203ac05c88068a5d102e567f02"
+    }
+  },
+  "package": "diffsol-la",
+  "version": "0.1.1"
+}

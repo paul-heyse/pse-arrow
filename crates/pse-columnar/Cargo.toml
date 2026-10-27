@@ -27,6 +27,8 @@ arrow-cast = { workspace = true, optional = true }
 arrow-array.workspace = true
 arrow-schema.workspace = true
 arrow-buffer.workspace = true
+arrow-data.workspace = true
+flatbuffers.workspace = true
 bytes.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -40,6 +42,7 @@ futures-util.workspace = true
 force-validate = [
   "arrow/force_validate",
   "arrow-array/force_validate",
+  "arrow-data/force_validate",
   "dep:arrow-cast",
   "arrow-cast/force_validate",
 ]

@@ -1,0 +1,60 @@
+{
+  "archive_sha256": "6b24ab3f56ff94c563ab85e7897ba57f884617d0dc83a081028d28ec800213a1",
+  "delta_sha256": "83f4314fde6473113aa04caff00d4469fa45936ef4ee5398ea57e8851acc35b0",
+  "files": {
+    ".cargo_vcs_info.json": {
+      "mode": "100644",
+      "sha256": "b8c141d2283ded1a65164ca691dc57ba75d41262896732a61920dca2378f40e2"
+    },
+    "CHANGELOG.md": {
+      "mode": "100644",
+      "sha256": "b90d10356d7f2726e1292d30fa2eab72fe0002800b579bfa263ca0eb03b993a6"
+    },
+    "Cargo.lock": {
+      "mode": "100644",
+      "sha256": "d4f9baa29aba471bfc1fe74dea5e735ea140a9840dfcd705014f483c36a1a94e"
+    },
+    "Cargo.toml": {
+      "mode": "100644",
+      "sha256": "a413462834e19eac1dc1bc9fe0e0677c6e8d8705b7cafa16418a1a09a175f9f2"
+    },
+    "Cargo.toml.orig": {
+      "mode": "100644",
+      "sha256": "41896b03b4cf1387d693a030c2e4b4226803b38522119ac19f55153108fab836"
+    },
+    "README.md": {
+      "mode": "100644",
+      "sha256": "84014a6859ae0d208157090528cf00b4104acbeff9d87c3eb3ed1258defd00f5"
+    },
+    "src/convergence.rs": {
+      "mode": "100644",
+      "sha256": "8ffd6f475f73c45ed6a7c7b1c54352bbaa4a3e66aa71ecd6e17efe1c9267ebfd"
+    },
+    "src/error.rs": {
+      "mode": "100644",
+      "sha256": "cca5b7823d1d758907a478b02439e3001fd96869f3258d180dc9a23fd9c97824"
+    },
+    "src/lib.rs": {
+      "mode": "100644",
+      "sha256": "c0f50d57f31ac819ad22faaa0dcec7d0b2289f29e05b2dc8723d061a71c6ad32"
+    },
+    "src/line_search.rs": {
+      "mode": "100644",
+      "sha256": "b5a48934d8a2c42ce54cd27e15b8a72ca5d90a8e19a0e6fb53b6a64ca06dc987"
+    },
+    "src/newton.rs": {
+      "mode": "100644",
+      "sha256": "ac783150213d611559ce3a040e239818724607aa8d2e33a2544377d4cd499bef"
+    },
+    "src/nonlinear_op.rs": {
+      "mode": "100644",
+      "sha256": "a1d22e38d360ddbd6ed009e8f706557872502455814524b7d661c8bc39edaa1b"
+    },
+    "src/nonlinear_solver.rs": {
+      "mode": "100644",
+      "sha256": "e2825f1d43b7e118644c21eee7b4500945813ae5c493ec3e1aee1cdaf9e845b8"
+    }
+  },
+  "package": "diffsol-nl",
+  "version": "0.1.1"
+}

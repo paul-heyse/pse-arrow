@@ -31,6 +31,7 @@ hashbrown.workspace = true
 schemars.workspace = true
 gmp-mpfr-sys.workspace = true
 pse-model.workspace = true
+pse-structural.workspace = true
 symbolica.workspace = true
 faer.workspace = true
 root1d.workspace = true

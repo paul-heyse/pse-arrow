@@ -13,10 +13,10 @@ index 84e403cec66d368a612fb75ed9b43df49c22691d..67f0d6cad6e067ad6211e1178017dc36
  
  [build-dependencies.bindgen]
 diff --git a/build.rs b/build.rs
-index ac1fc936b1fccab44351b33ee18cf51f944403cb..9a492275d1009515a77b7d5ad27b58eaaf0a0848 100644
+index ac1fc936b1fccab44351b33ee18cf51f944403cb..b577c05a3f7278f70d83079fa2d302603615df6b 100644
 --- a/build.rs
 +++ b/build.rs
-@@ -71,10 +71,53 @@ struct Library {
+@@ -71,10 +71,54 @@ struct Library {
      inc: Option<String>,
      /// Location of the library.
      lib: Option<String>,
@@ -58,6 +58,7 @@ index ac1fc936b1fccab44351b33ee18cf51f944403cb..9a492275d1009515a77b7d5ad27b58ea
  /// Build the Sundials code vendor with sundials-sys.
  fn build_vendor_sundials(klu: &Library) -> (Library, &'static str) {
 +    println!("cargo:rerun-if-changed=vendor");
++    println!("cargo:source_kind=bundled");
 +    // SundialsSetupConfig.cmake exports CI metadata or a CMake timestamp through
 +    // public SUN_JOB_* macros. CMake's timestamp also consumes epoch/timezone.
 +    for name in ["CI_JOB_ID", "CI_JOB_STARTED_AT", "SOURCE_DATE_EPOCH", "TZ"] {
@@ -70,7 +71,7 @@ index ac1fc936b1fccab44351b33ee18cf51f944403cb..9a492275d1009515a77b7d5ad27b58ea
      macro_rules! feature {
          ($s:tt) => {
              if cfg!(feature = $s) {
-@@ -120,12 +163,22 @@ fn build_vendor_sundials(klu: &Library) -> (Library, &'static str) {
+@@ -120,12 +164,22 @@ fn build_vendor_sundials(klu: &Library) -> (Library, &'static str) {
      let dst = config.build();
      let dst_disp = dst.display();
      let lib_loc = Some(format!("{}/lib", dst_disp));
@@ -97,7 +98,7 @@ index ac1fc936b1fccab44351b33ee18cf51f944403cb..9a492275d1009515a77b7d5ad27b58ea
      macro_rules! define {
          ($a:tt, $b:tt) => {
              format!(
-@@ -136,7 +189,11 @@ fn generate_bindings(inc_dirs: &[Option<String>]) -> Result<Bindings, BindgenErr
+@@ -136,7 +190,11 @@ fn generate_bindings(inc_dirs: &[Option<String>]) -> Result<Bindings, BindgenErr
          };
      }
  
@@ -110,7 +111,7 @@ index ac1fc936b1fccab44351b33ee18cf51f944403cb..9a492275d1009515a77b7d5ad27b58ea
      for dir in inc_dirs {
          if let Some(dir) = dir {
              builder = builder.clang_arg(format!("-I{}", dir))
-@@ -154,11 +211,23 @@ fn generate_bindings(inc_dirs: &[Option<String>]) -> Result<Bindings, BindgenErr
+@@ -154,11 +212,23 @@ fn generate_bindings(inc_dirs: &[Option<String>]) -> Result<Bindings, BindgenErr
              define!("nvecopenmp", OPENMP),
              define!("nvecpthreads", PTHREADS),
          ])
@@ -134,7 +135,7 @@ index ac1fc936b1fccab44351b33ee18cf51f944403cb..9a492275d1009515a77b7d5ad27b58ea
  fn get_sundials_version_major(bindings: impl AsRef<Path>) -> Option<u32> {
      let b = File::open(bindings).expect("Couldn't read file bindings.rs!");
      let mut b = BufReader::new(b).bytes();
-@@ -192,19 +261,36 @@ fn get_sundials_version_major(bindings: impl AsRef<Path>) -> Option<u32> {
+@@ -192,19 +262,38 @@ fn get_sundials_version_major(bindings: impl AsRef<Path>) -> Option<u32> {
  }
  
  fn main() {
@@ -142,6 +143,7 @@ index ac1fc936b1fccab44351b33ee18cf51f944403cb..9a492275d1009515a77b7d5ad27b58ea
 -    let klu_inc = env::var("DEP_SUITESPARSE_SUITESPARSE_INCLUDE").ok();
 -    let klu_lib = env::var("DEP_SUITESPARSE_SUITESPARSE_LIB").ok();
 +    println!("cargo:rerun-if-changed=build.rs");
++    println!("cargo:source_root={}", env::var("CARGO_MANIFEST_DIR").expect("Cargo source root"));
 +    println!("cargo:rerun-if-changed=wrapper.h");
 +    // Cargo supplies DEP_* from the selected links dependency, not the caller's
 +    // environment. Its build metadata invalidates us; do not emit env watches.
@@ -166,6 +168,7 @@ index ac1fc936b1fccab44351b33ee18cf51f944403cb..9a492275d1009515a77b7d5ad27b58ea
      if cfg!(any(feature = "build_libraries", target_family = "wasm")) {
          (sundials, library_type) = build_vendor_sundials(&klu);
      } else {
++        println!("cargo:source_kind=external");
 +        println!("cargo:rerun-if-env-changed=SUNDIALS_INCLUDE_DIR");
 +        println!("cargo:rerun-if-env-changed=SUNDIALS_LIBRARY_DIR");
          sundials.inc = env::var("SUNDIALS_INCLUDE_DIR").ok();
@@ -176,7 +179,7 @@ index ac1fc936b1fccab44351b33ee18cf51f944403cb..9a492275d1009515a77b7d5ad27b58ea
      }
  
      if sundials.lib.is_none() && sundials.inc.is_none() {
-@@ -224,8 +310,11 @@ fn main() {
+@@ -224,8 +313,11 @@ fn main() {
          .join("bindings.rs");
      let mut build_vendor = true;
      let mut sundials_version_major = 0;
@@ -190,7 +193,7 @@ index ac1fc936b1fccab44351b33ee18cf51f944403cb..9a492275d1009515a77b7d5ad27b58ea
              .expect("Couldn't write file bindings.rs!");
          if let Some(v) = get_sundials_version_major(&bindings_rs) {
              if v >= 6 {
-@@ -239,9 +328,11 @@ fn main() {
+@@ -239,9 +331,11 @@ fn main() {
      }
      if build_vendor {
          (sundials, library_type) = build_vendor_sundials(&klu);

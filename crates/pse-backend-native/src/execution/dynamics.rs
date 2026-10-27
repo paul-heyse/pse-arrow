@@ -64,6 +64,11 @@ fn trajectory(backend: Backend) -> ProblemError {
     ))
 }
 impl BackendExecution for Diffsol {
+    fn build(&self) -> Option<pse_ids::ContentHash> {
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NativeBuildV1);
+        h.str("diffsol-profile.v1").str(include_str!(concat!(env!("OUT_DIR"), "/diffsol-source.txt")));
+        Some(h.finish_hash())
+    }
     fn backend(&self) -> Backend {
         Backend::Diffsol
     }
@@ -84,6 +89,12 @@ impl BackendExecution for Diffsol {
     }
 }
 impl BackendExecution for Idas {
+    fn build(&self) -> Option<pse_ids::ContentHash> {
+        #[cfg(feature = "idas")]
+        { crate::sundials_profile::build() }
+        #[cfg(not(feature = "idas"))]
+        { None }
+    }
     fn backend(&self) -> Backend {
         Backend::Idas
     }
