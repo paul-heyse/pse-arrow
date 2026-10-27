@@ -40,6 +40,26 @@ class ExecutableCurrencyError(ValueError):
     """The fixed executable has no matching preparation/image witness."""
 
 
+def execution_environment(environment: Mapping[str, str]) -> dict[str, str]:
+    """Keep the pure executable independent of inherited native loader paths."""
+    selected = dict(environment)
+    selected.pop("LD_LIBRARY_PATH", None)
+    return selected
+
+
+def compiler_environment(environment: Mapping[str, str]) -> dict[str, str]:
+    """Normalize compiler defaults without re-evaluating the caller's local shell."""
+    from scripts import pse_env  # noqa: PLC0415 -- existing compiler environment owner
+
+    # The outer boundary owns local-file evaluation. Its selections remain in the
+    # caller; admission must not launch a shell to reconstruct them on every read.
+    return execution_environment(
+        python_extension.bind_interpreter(
+            pse_env.compose(python_extension.ROOT, environment, local={})
+        )
+    )
+
+
 def compiler_paths(environment: Mapping[str, str]) -> list[Path]:
     """Preparation-only compiler/configuration selection for the fixed tool route."""
     from scripts import native_tests, producer_cargo, validation_scope  # noqa: PLC0415
@@ -87,7 +107,7 @@ def build() -> int:
     """Explicitly prepare the fixed evidence executable and its producing receipt."""
     from scripts import arrow_validation, producer_cargo  # noqa: PLC0415
 
-    environment = python_extension.bind_interpreter(os.environ)
+    environment = compiler_environment(os.environ)
     # The extractor is a preparation tool. Reads never enter this build route.
     code, observer = python_extension.prepare_extractor(environment)
     if code:
@@ -166,10 +186,6 @@ def build() -> int:
         selection["files"] = sorted(
             set(producing_currency.string_list(selection.get("files"))) | set(before)
         )
-        selection["environment"] = sorted(
-            set(producing_currency.string_list(selection.get("environment")))
-            | set(python_extension.PRODUCING_ENVIRONMENT)
-        )
         selection.update(invocation=invocation, generations={})
         selection = producing_currency.retained_selection(selection)
         inputs = python_extension.producing_inputs(
@@ -215,7 +231,7 @@ def admitted_executable(tool: Path) -> Generator[tuple[str, int]]:
         raise ExecutableCurrencyError(
             "Evidence tool unavailable; explicitly run just evidence-build"
         )
-    environment = python_extension.bind_interpreter(os.environ)
+    environment = compiler_environment(os.environ)
     receipt = python_extension.read_receipt(
         python_extension.stage_receipt("evidence-executable", environment, root=ROOT)
     )
@@ -409,7 +425,7 @@ def run_native(
         ]
         environment = {
             key: value
-            for key, value in os.environ.items()
+            for key, value in execution_environment(os.environ).items()
             if key not in {"SURREAL_USER", "SURREAL_PASS"}
         }
         environment.update(
@@ -592,7 +608,7 @@ def run_offline(
         )
     environment = {
         key: value
-        for key, value in os.environ.items()
+        for key, value in execution_environment(os.environ).items()
         if key
         not in {
             "SURREAL_USER",

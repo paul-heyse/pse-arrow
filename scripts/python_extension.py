@@ -116,6 +116,24 @@ PRODUCING_ENVIRONMENT = (
     "PSE_LLVM_PREFIX",
     "SCCACHE_CONF",
 )
+# The fixed pure evidence target has no solver/provider or optional bindgen/CMake
+# composition. These are supplemental inputs only for extension/native preparation;
+# actual Cargo-declared reads below remain authoritative for every target.
+# LD_LIBRARY_PATH remains a tracked compiler selector; the evidence owner instead
+# prevents its consumption by removing it from both compiler and executable envs.
+EVIDENCE_RUNTIME_ENVIRONMENT = frozenset(
+    {
+        "IPOPT_DIR",
+        "SCIPOPTDIR",
+        "UNO_DIR",
+        "PETSC_DIR",
+        "SUITESPARSE_INCLUDE_DIR",
+        "SUITESPARSE_LIBRARY_DIR",
+        "PSE_KLU_PROVIDER_RECEIPT",
+        "PSE_ROOT_ISOLATION_DIR",
+        "PSE_NATIVE_COMPILER_CACHE",
+    }
+)
 PRODUCING_CARGO_SELECTOR = re.compile(
     r"CARGO_TARGET_[A-Z0-9_]+_(?:LINKER|RUSTFLAGS|RUSTDOCFLAGS)"
     r"|CARGO_PROFILE_[A-Z0-9_]+_(?:BUILD_OVERRIDE_)?(?:CODEGEN_UNITS|DEBUG|DEBUG_ASSERTIONS|INCREMENTAL|LTO|OVERFLOW_CHECKS|OPT_LEVEL|PANIC|RPATH|SPLIT_DEBUGINFO|STRIP)"
@@ -1193,13 +1211,20 @@ def producing_inputs(
             admitted = native_operation.remembered("prefix:" + prefix)
             if admitted != expected.get("admission"):
                 return None
-    names = set(producing_currency.string_list(selection.get("environment"))) | set(
-        PRODUCING_ENVIRONMENT
+    supplemental = set(PRODUCING_ENVIRONMENT)
+    prefixes = PRODUCING_ENVIRONMENT_PREFIXES
+    if stage == "evidence-executable":
+        supplemental.difference_update(EVIDENCE_RUNTIME_ENVIRONMENT)
+        prefixes = tuple(
+            prefix for prefix in prefixes if prefix not in {"BINDGEN_", "CMAKE_"}
+        )
+    names = (
+        set(producing_currency.string_list(selection.get("environment"))) | supplemental
     )
     names.update(
         name
         for name in environment
-        if name.startswith(PRODUCING_ENVIRONMENT_PREFIXES)
+        if name.startswith(prefixes)
         or PRODUCING_CARGO_SELECTOR.fullmatch(name) is not None
     )
     observed = PRODUCING_WITNESS.inputs(

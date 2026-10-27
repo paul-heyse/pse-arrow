@@ -8,20 +8,26 @@ import hashlib
 import os
 from typing import TYPE_CHECKING
 
-from scripts import python_extension
+from scripts import evidence_store, python_extension
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
-def executable(root: Path, tool: Path, *, files: tuple[Path, ...] = ()) -> None:
-    environment = python_extension.bind_interpreter(os.environ)
+def executable(
+    root: Path,
+    tool: Path,
+    *,
+    files: tuple[Path, ...] = (),
+    consumed_environment: tuple[str, ...] = (),
+) -> None:
+    environment = evidence_store.compiler_environment(os.environ)
     selection: dict[str, object] = {
         "version": 1,
         "scope": "ordinary-cargo-inputs",
         "files": [str(path) for path in files],
         "directories": [],
-        "environment": [],
+        "environment": list(consumed_environment),
         "generations": {},
     }
     inputs = python_extension.producing_inputs(
