@@ -45,22 +45,22 @@ pub fn offline_pool(limits: Limits) -> Result<Arc<dyn MemoryPool>, CanonError> {
 fn invalid(message: &'static str) -> CanonError {
     ArrowError::InvalidArgumentError(message.into()).into()
 }
-fn add(a: usize, b: usize) -> Result<usize, CanonError> {
+pub(crate) fn add(a: usize, b: usize) -> Result<usize, CanonError> {
     a.checked_add(b).ok_or_else(|| invalid("IPC allocation extent overflow"))
 }
-fn mul(a: usize, b: usize) -> Result<usize, CanonError> {
+pub(crate) fn mul(a: usize, b: usize) -> Result<usize, CanonError> {
     a.checked_mul(b).ok_or_else(|| invalid("IPC allocation extent overflow"))
 }
-fn rounded(n: usize) -> Result<usize, CanonError> {
+pub(crate) fn rounded(n: usize) -> Result<usize, CanonError> {
     Ok(add(n, 63)? / 64 * 64)
 }
-fn reserve(pool: &Arc<dyn MemoryPool>, bytes: usize) -> Result<MemoryReservation, CanonError> {
+pub(crate) fn reserve(pool: &Arc<dyn MemoryPool>, bytes: usize) -> Result<MemoryReservation, CanonError> {
     let reservation = MemoryConsumer::new("ipc:complete-message").register(pool);
     reservation.try_grow(bytes)?;
     Ok(reservation)
 }
 fn io(error: std::io::Error) -> CanonError { ArrowError::from(error).into() }
-fn options(bytes: usize) -> flatbuffers::VerifierOptions {
+pub(crate) fn options(bytes: usize) -> flatbuffers::VerifierOptions {
     flatbuffers::VerifierOptions { max_depth: 256, max_tables: MAX_TABLES,
         max_apparent_size: bytes, ..Default::default() }
 }
@@ -110,7 +110,6 @@ pub struct StreamReader<R> {
     schema_owner: Arc<AllocationLease>,
     decoder: Option<StreamDecoder>,
     decoder_continuation: bool,
-    scope: AllocationScope,
     batches: usize,
     ended: bool,
 }
@@ -137,7 +136,7 @@ fn metadata_extent(entries: Option<flatbuffers::Vector<'_, flatbuffers::Forwards
     }
     Ok(bytes)
 }
-fn schema_extent(schema: ipc::Schema<'_>) -> Result<(usize, usize), CanonError> {
+pub(crate) fn schema_extent(schema: ipc::Schema<'_>) -> Result<(usize, usize), CanonError> {
     if schema.endianness() != ipc::Endianness::Little { return Err(invalid("IPC schema endianness")); }
     let fields = schema.fields().ok_or_else(|| invalid("IPC schema fields absent"))?;
     let mut count = 0;
@@ -181,7 +180,7 @@ impl<R: Read + Seek> StreamReader<R> {
             schema: Arc::new(arrow::datatypes::Schema::empty()), schema_owner: AllocationLease::new(placeholder),
             decoder: decode.then(|| StreamDecoder::new().with_require_alignment(true)),
             decoder_continuation: false,
-            scope: AllocationScope::default(), batches: 0, ended: false };
+            batches: 0, ended: false };
         let frame = reader.frame()?.ok_or_else(|| invalid("IPC schema message absent"))?;
         let message = frame.message()?;
         let schema = message.header_as_schema().ok_or_else(|| invalid("IPC schema must be first"))?;
@@ -277,7 +276,8 @@ impl<R: Read + Seek> StreamReader<R> {
         let copies = alignment_copies(batch, self.schema.as_ref(), body.as_slice())?;
         frame.grant.try_grow(copies)?;
         self.cancel.checkpoint()?;
-        let body = self.scope.attach_buffer(body.into(), frame.grant.split(rounded(frame.body)?))?;
+        let scope = AllocationScope::default();
+        let body = scope.attach_buffer(body.into(), frame.grant.split(rounded(frame.body)?))?;
         let decoder = self.decoder.take().ok_or_else(|| invalid("IPC decoder absent"))?;
         self.decoder = Some(decoder.with_require_alignment(copies == 0));
         let decoder = self.decoder.as_mut().ok_or_else(|| invalid("IPC decoder absent"))?;
@@ -297,10 +297,12 @@ impl<R: Read + Seek> StreamReader<R> {
         if decoded.is_none() { decoded = decoder.decode(&mut body)?; }
         let decoded = decoded.ok_or_else(|| invalid("IPC complete batch absent"))?;
         if !body.is_empty() { return Err(invalid("IPC unconsumed complete body")); }
-        let batch = self.scope.attach_borrowed_reserved(decoded, &frame.grant)?;
-        Ok(Some(StreamBatch { batch, working_owner: Arc::new(StreamOwnership {
+        let batch = scope.attach_borrowed_reserved(decoded, &frame.grant)?;
+        let working_owner = Arc::new(StreamOwnership {
             _schema: self.schema_owner.clone(), _working: AllocationLease::new(frame.grant),
-        }) }))
+        });
+        let batch = batch.with_payload_owner(working_owner.clone(), &self.cancel)?;
+        Ok(Some(StreamBatch { batch, working_owner }))
     }
     /// Decode one fully preflighted message. Call until `None` to establish EOS.
     /// # Errors
@@ -325,7 +327,7 @@ pub fn validate<R: Read + Seek>(input: R, bytes: u64, limits: Limits, pool: Arc<
     Ok(stream)
 }
 
-fn validate_record(batch: ipc::RecordBatch<'_>, schema: &arrow::datatypes::Schema, fields: usize, body: usize) -> Result<(), CanonError> {
+pub(crate) fn validate_record(batch: ipc::RecordBatch<'_>, schema: &arrow::datatypes::Schema, fields: usize, body: usize) -> Result<(), CanonError> {
     if batch.compression().is_some() || batch.variadicBufferCounts().is_some() {
         return Err(invalid("IPC compression/variadic buffers refused"));
     }
@@ -359,7 +361,7 @@ fn validate_record(batch: ipc::RecordBatch<'_>, schema: &arrow::datatypes::Schem
     Ok(())
 }
 
-fn alignment_copies(batch: ipc::RecordBatch<'_>, schema: &arrow::datatypes::Schema, body: &[u8]) -> Result<usize, CanonError> {
+pub(crate) fn alignment_copies(batch: ipc::RecordBatch<'_>, schema: &arrow::datatypes::Schema, body: &[u8]) -> Result<usize, CanonError> {
     fn field(ty: &DataType, buffers: &[&ipc::Buffer], index: &mut usize, body: &[u8]) -> Result<usize, CanonError> {
         if matches!(ty, DataType::Null) { return Ok(0); }
         let layout = arrow_data::layout(ty);

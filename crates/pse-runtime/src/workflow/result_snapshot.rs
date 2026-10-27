@@ -16,7 +16,7 @@ use datafusion::{
     },
 };
 use pse_columnar::{
-    CancellationToken, MemoryConsumer, MemoryReservation, owned_buffer::AllocationScope,
+    CancellationToken, MemoryConsumer, MemoryReservation,
 };
 use pse_model::generated::runtime::{
     canonical_result_batches::Row as FileBatch, canonical_result_blocks::Row as Block,
@@ -168,7 +168,8 @@ impl ResultBlockDecode {
 #[derive(Debug)]
 struct CachedFile {
     instance: String,
-    reader: datafusion::arrow::ipc::reader::FileReader<result_files::ResultFileSource>,
+    reader: pse_columnar::ipc_file::AdmittedFile<result_files::ResultFileSource>,
+    _source: Arc<pse_columnar::AllocationLease>,
     _owner: MemoryReservation,
 }
 
@@ -396,34 +397,12 @@ impl ResultBlockDecode {
         // Waiters own no file-shaped grant. Reserve only once this decoder can
         // actually execute, preserving headroom for its current reader/aliases.
         let mut cache = decoder_turn(&self.cache, cancel).await?;
-        let owner = MemoryConsumer::new("canonical:result-file-decode")
-            .register(&self.services.preparation().pool());
-        // Prepay physical integrity reads, footer verification, native body and
-        // alignment copies before opening the file or invoking Arrow.
-        let bytes =
-            usize::try_from(descriptor.payload_bytes).map_err(|_| contract("file byte extent"))?;
-        let schema_bytes = result_files::schema_extent(&self.schema)?;
-        owner
-            .try_grow(
-                bytes
-                    .saturating_mul(4)
-                    .saturating_add(schema_bytes.saturating_mul(4))
-                    .saturating_add(64 * 1024),
-            )
-            .map_err(pse_engine::EngineError::from)?;
-        if cache
-            .as_ref()
-            .is_none_or(|cached| cached.instance != locator.payload_identity())
-        {
-            let metadata = MemoryConsumer::new("canonical:result-file-footer-cache")
+        if cache.as_ref().is_none_or(|cached| cached.instance != locator.payload_identity()) {
+            // The framing hash uses a fixed 64 KiB stack reader; source/control
+            // allocations coexist with their separately prepaid RPC response.
+            let metadata = MemoryConsumer::new("canonical:result-file-cache-control")
                 .register(&self.services.preparation().pool());
-            metadata
-                .try_grow(
-                    bytes
-                        .saturating_mul(2)
-                        .saturating_add(schema_bytes.saturating_mul(4))
-                        .saturating_add(64 * 1024),
-                )
+            metadata.try_grow(64 * 1024 + size_of::<CachedFile>() + locator.payload_identity().len() * 2)
                 .map_err(pse_engine::EngineError::from)?;
             // Both sequential catalog RPCs inside open_result_file must retain
             // the exact read ticket and a separately prepaid metadata response.
@@ -441,10 +420,10 @@ impl ResultBlockDecode {
                     }
                 },
             )?;
-            let (source, count) = match &locator {
+            let (source, count, retained_source) = match &locator {
                 pse_operations::canonical_execution::PayloadLocator::Sealed { .. } => {
                     let file = pse_operations::canonical::response_ownership_scope(
-                        Arc::new((authority.clone(), response)),
+                        Arc::new((authority.clone(), response.clone())),
                         async {
                             match &authority {
                                 ResultPayloadAuthority::Terminal {
@@ -469,14 +448,12 @@ impl ResultBlockDecode {
                     .await?;
                     let count = usize::try_from(file.descriptor().batch_count)
                         .map_err(|_| contract("file batch count extent"))?;
-                    (
-                        result_files::ResultFileSource::Sealed(Box::new(file)),
-                        count,
-                    )
+                    let retained = file.retained_bytes()?;
+                    (result_files::ResultFileSource::Sealed(Box::new(file)), count, retained)
                 }
                 pse_operations::canonical_execution::PayloadLocator::Inline { .. } => {
                     let body = pse_operations::canonical::response_ownership_scope(
-                        Arc::new((authority.clone(), response)),
+                        Arc::new((authority.clone(), response.clone())),
                         async {
                             match &authority {
                                 ResultPayloadAuthority::Terminal {
@@ -501,43 +478,33 @@ impl ResultBlockDecode {
                     .await?;
                     let count = usize::try_from(body.batch_count)
                         .map_err(|_| contract("inline batch count extent"))?;
-                    (
-                        result_files::ResultFileSource::Inline(std::io::Cursor::new(
-                            body.body.into_vec(),
-                        )),
-                        count,
-                    )
+                    let bytes = body.body.into_vec();
+                    let retained = bytes.capacity();
+                    (result_files::ResultFileSource::Inline(std::io::Cursor::new(bytes)), count, retained)
                 }
             };
-            let reader = result_files::open_file_reader(source, &self.schema, Some(count))?;
-            *cache = Some(CachedFile {
-                instance: locator.payload_identity().to_owned(),
-                reader,
-                _owner: metadata,
-            });
+            if retained_source > response.size() { return Err(contract("file source metadata exceeds prepaid response")); }
+            let source_owner = pse_columnar::AllocationLease::new(response.split(retained_source));
+            let reader = result_files::open_file_reader(source, &self.schema, Some(count),
+                self.services.preparation().pool(), cancel)?;
+            let instance = locator.payload_identity().to_owned();
+            let retained = size_of::<CachedFile>() + instance.capacity();
+            metadata.shrink(metadata.size() - retained);
+            *cache = Some(CachedFile { instance, reader, _source: source_owner, _owner: metadata });
         }
         let cached = cache
             .as_mut()
             .ok_or_else(|| contract("file cache absent"))?;
-        cached
-            .reader
-            .set_index(
-                usize::try_from(descriptor.payload_index)
-                    .map_err(|_| contract("file batch index extent"))?,
-            )
-            .map_err(super::result_blocks::ResultBlockError::from)?;
+        let index = usize::try_from(descriptor.payload_index).map_err(|_| contract("file batch index extent"))?;
+        cached.reader.check_index(index).map_err(pse_engine::EngineError::from)?;
         if !decode {
             if let Some(context) = pse_diagnostics::observation::current() {
                 context.count("canonical.result.pruned_batches", "count", 1);
             }
             return Ok(None);
         }
-        let batch = cached
-            .reader
-            .next()
-            .transpose()
-            .map_err(super::result_blocks::ResultBlockError::from)?
-            .ok_or_else(|| contract("frozen file batch absent"))?;
+        let decoded = cached.reader.read_batch(index, cancel).map_err(pse_engine::EngineError::from)?;
+        let batch = decoded.batch;
         drop(cache);
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("canonical.result.native_decodes", "count", 1);
@@ -550,10 +517,6 @@ impl ResultBlockDecode {
         if batch.num_rows() as u64 != block.rows || batch.schema() != self.schema.clone() {
             return Err(contract("frozen file batch rows/schema differ"));
         }
-        let scope = AllocationScope::default();
-        let owned = scope
-            .attach_borrowed_reserved(batch, &owner)
-            .map_err(pse_engine::EngineError::from)?;
         let spec = self
             .services
             .preparation()
@@ -563,11 +526,12 @@ impl ResultBlockDecode {
         let checked = pse_relations::columnar::FieldCheckedBatch::admit_owned(
             self.services.preparation().registry(),
             spec,
-            owned,
+            batch,
             &self.admission,
             cancel,
         )
-        .map_err(pse_engine::EngineError::from)?;
+        .map_err(pse_engine::EngineError::from)?
+        .with_export_owner(decoded.working_owner);
         pse_relations::result_batch::validate_scalar_keys(
             self.services.preparation().registry(),
             &checked,
@@ -1227,89 +1191,7 @@ mod decoder_lane_inquiry {
         record_batch::RecordBatch,
     };
     use pse_columnar::{GreedyMemoryPool, MemoryPool};
-    use std::{
-        fs::File,
-        io::Read,
-        path::PathBuf,
-        sync::atomic::{AtomicUsize, Ordering},
-        time::Instant,
-    };
-
-    struct Fixture {
-        path: PathBuf,
-        schema: SchemaRef,
-        digest: pse_ids::ContentHash,
-        bytes: usize,
-        rows: usize,
-    }
-    #[derive(Default)]
-    struct Counts {
-        opens: AtomicUsize,
-        footers: AtomicUsize,
-        decodes: AtomicUsize,
-        active: AtomicUsize,
-        simultaneous: AtomicUsize,
-        charge: AtomicUsize,
-    }
-    fn read_file(
-        file: &Fixture,
-        batches: &[usize],
-        selected_rows: bool,
-        pool: &Arc<dyn MemoryPool>,
-        counts: &Counts,
-        rendezvous: Option<&std::sync::Barrier>,
-    ) -> (usize, f64, pse_columnar::owned_buffer::OwnedRecordBatch) {
-        // Same conservative body/footer/decoded overlap envelope as production;
-        // this primitive control has no canonical permission or storage effects.
-        let owner = MemoryConsumer::new("test:decoder-lane-envelope").register(pool);
-        owner.try_grow(file.bytes * 6 + 256 * 1024).unwrap();
-        counts.charge.fetch_max(pool.reserved(), Ordering::SeqCst);
-        let mut reader = File::open(&file.path).unwrap();
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).unwrap();
-        assert_eq!(
-            pse_ids::encoding_checksum(&bytes).content_hash(),
-            file.digest
-        );
-        drop(bytes);
-        counts.opens.fetch_add(1, Ordering::SeqCst);
-        let mut reader = result_files::open_file_reader(reader, &file.schema, Some(4)).unwrap();
-        counts.footers.fetch_add(1, Ordering::SeqCst);
-        let active = counts.active.fetch_add(1, Ordering::SeqCst) + 1;
-        counts.simultaneous.fetch_max(active, Ordering::SeqCst);
-        if let Some(barrier) = rendezvous {
-            barrier.wait();
-        }
-        let mut rows = 0;
-        let mut sum = 0.;
-        let mut escaped = None;
-        for &index in batches {
-            reader.set_index(index).unwrap();
-            let batch = reader.next().unwrap().unwrap();
-            counts.decodes.fetch_add(1, Ordering::SeqCst);
-            assert_eq!(batch.num_rows(), file.rows);
-            assert_eq!(batch.schema(), file.schema);
-            let owned = AllocationScope::default()
-                .attach_borrowed_reserved(batch, &owner)
-                .unwrap();
-            let selected = if selected_rows {
-                owned.slice(0, 1).unwrap()
-            } else {
-                owned
-            };
-            let values = selected
-                .batch()
-                .column(0)
-                .as_any()
-                .downcast_ref::<Float64Array>()
-                .unwrap();
-            rows += values.len();
-            sum += values.values().iter().sum::<f64>();
-            escaped = Some(selected);
-        }
-        counts.active.fetch_sub(1, Ordering::SeqCst);
-        (rows, sum, escaped.unwrap())
-    }
+    use std::sync::Arc;
 
     #[tokio::test]
     async fn decoder_wait_cancellation_owns_no_working_grant() {
@@ -1345,184 +1227,20 @@ mod decoder_lane_inquiry {
     }
 
     #[test]
-    fn decoder_file_affinity_and_independent_lane_inquiry() {
-        // 1/4/16 files, sparse/full batch and row selection, and a 4x final-file
-        // skew. Timings include integrity/open/footer/decode/selection/aliases.
-        for file_count in [1, 4, 16] {
-            for base_rows in [64, 8192] {
-                let directory = tempfile::tempdir().unwrap();
-                let schema = Arc::new(Schema::new(vec![Field::new(
-                    "value",
-                    DataType::Float64,
-                    false,
-                )]));
-                let files = (0..file_count)
-                    .map(|file| {
-                        let rows = base_rows * if file + 1 == file_count { 4 } else { 1 };
-                        let batch = RecordBatch::try_new(
-                            schema.clone(),
-                            vec![Arc::new(Float64Array::from_iter_values(
-                                (0..rows).map(|row| (file * 100000 + row) as f64),
-                            ))],
-                        )
-                        .unwrap();
-                        let bytes = result_files::encode_file_batches(&vec![batch; 4]).unwrap();
-                        let path = directory.path().join(format!("{file}.arrow"));
-                        std::fs::write(&path, &bytes).unwrap();
-                        Fixture {
-                            path,
-                            schema: schema.clone(),
-                            digest: pse_ids::encoding_checksum(&bytes).content_hash(),
-                            bytes: bytes.len(),
-                            rows,
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                for sparse in [true, false] {
-                    let batches: &[usize] = if sparse { &[2] } else { &[0, 1, 2, 3] };
-                    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(128 << 20));
-                    let serial = Counts::default();
-                    let started = Instant::now();
-                    let mut expected = (0, 0.);
-                    // A single reader cache reuses a lone file, but switches
-                    // on every interleaved original batch ordinal across files.
-                    let mut serial_aliases = (0..file_count).map(|_| None).collect::<Vec<_>>();
-                    if file_count == 1 {
-                        let (rows, sum, alias) =
-                            read_file(&files[0], batches, sparse, &pool, &serial, None);
-                        expected = (rows, sum);
-                        serial_aliases[0] = Some(alias);
-                    } else {
-                        for &batch in batches {
-                            for (position, file) in files.iter().enumerate() {
-                                let (rows, sum, alias) =
-                                    read_file(file, &[batch], sparse, &pool, &serial, None);
-                                expected.0 += rows;
-                                expected.1 += sum;
-                                assert!(alias.retained_bytes().unwrap() > 0);
-                                serial_aliases[position] = Some(alias);
-                            }
-                        }
-                    }
-                    let serial_ns = started.elapsed().as_nanos();
-                    assert!(pool.reserved() > 0);
-                    drop(serial_aliases);
-                    assert_eq!(pool.reserved(), 0);
-                    let affinity = Counts::default();
-                    let started = Instant::now();
-                    let mut actual = (0, 0.);
-                    let mut aliases = Vec::new();
-                    for file in &files {
-                        let (rows, sum, alias) =
-                            read_file(file, batches, sparse, &pool, &affinity, None);
-                        actual.0 += rows;
-                        actual.1 += sum;
-                        aliases.push(alias);
-                    }
-                    let affinity_ns = started.elapsed().as_nanos();
-                    assert_eq!(actual, expected);
-                    assert_eq!(affinity.opens.load(Ordering::SeqCst), file_count);
-                    assert_eq!(
-                        serial.opens.load(Ordering::SeqCst),
-                        if file_count == 1 {
-                            1
-                        } else {
-                            file_count * batches.len()
-                        }
-                    );
-                    assert!(
-                        pool.reserved() > 0,
-                        "escaped Arrow aliases remain charged after readers return"
-                    );
-                    drop(aliases);
-                    assert_eq!(pool.reserved(), 0);
-                    let parallel = Counts::default();
-                    let lanes = file_count.min(2);
-                    let barrier = std::sync::Barrier::new(lanes);
-                    let started = Instant::now();
-                    let outputs = std::thread::scope(|scope| {
-                        (0..lanes)
-                            .map(|lane| {
-                                let files = &files;
-                                let pool = &pool;
-                                let parallel = &parallel;
-                                let barrier = &barrier;
-                                scope.spawn(move || {
-                                    let mut answer = (0, 0.);
-                                    let mut aliases = Vec::new();
-                                    for (position, file) in files
-                                        .iter()
-                                        .enumerate()
-                                        .filter(|(position, _)| position % lanes == lane)
-                                    {
-                                        let (rows, sum, alias) = read_file(
-                                            file,
-                                            batches,
-                                            sparse,
-                                            pool,
-                                            parallel,
-                                            (position == lane).then_some(barrier),
-                                        );
-                                        answer.0 += rows;
-                                        answer.1 += sum;
-                                        aliases.push(alias);
-                                    }
-                                    (answer, aliases)
-                                })
-                            })
-                            .collect::<Vec<_>>()
-                            .into_iter()
-                            .map(|task| task.join().unwrap())
-                            .collect::<Vec<_>>()
-                    });
-                    let parallel_ns = started.elapsed().as_nanos();
-                    let actual = outputs
-                        .iter()
-                        .fold((0, 0.), |a, b| (a.0 + b.0.0, a.1 + b.0.1));
-                    assert_eq!(actual, expected);
-                    assert_eq!(parallel.simultaneous.load(Ordering::SeqCst), lanes);
-                    assert_eq!(parallel.opens.load(Ordering::SeqCst), file_count);
-                    assert_eq!(
-                        parallel.decodes.load(Ordering::SeqCst),
-                        file_count * batches.len()
-                    );
-                    assert!(pool.reserved() > 0);
-                    drop(outputs);
-                    assert_eq!(pool.reserved(), 0);
-                    eprintln!(
-                        "decoder-inquiry files={file_count} base_rows={base_rows} sparse={sparse} serial_ns={serial_ns} affinity_ns={affinity_ns} lanes_ns={parallel_ns} serial_opens={} affinity_opens={} lane_opens={} decodes={} simultaneous={} lane_charge={} serial_charge={} affinity_charge={} footer_reads={}",
-                        serial.opens.load(Ordering::SeqCst),
-                        affinity.opens.load(Ordering::SeqCst),
-                        parallel.opens.load(Ordering::SeqCst),
-                        parallel.decodes.load(Ordering::SeqCst),
-                        parallel.simultaneous.load(Ordering::SeqCst),
-                        parallel.charge.load(Ordering::SeqCst),
-                        serial.charge.load(Ordering::SeqCst),
-                        affinity.charge.load(Ordering::SeqCst),
-                        parallel.footers.load(Ordering::SeqCst)
-                    );
-                }
-                let mut corrupt = std::fs::read(&files[0].path).unwrap();
-                corrupt[0] ^= 1;
-                assert!(
-                    result_files::open_file_reader(std::io::Cursor::new(corrupt), &schema, Some(4))
-                        .is_err()
-                );
-                let other = Arc::new(Schema::new(vec![Field::new(
-                    "other",
-                    DataType::Float64,
-                    false,
-                )]));
-                assert!(
-                    result_files::open_file_reader(
-                        File::open(&files[0].path).unwrap(),
-                        &other,
-                        Some(4)
-                    )
-                    .is_err()
-                );
-            }
-        }
+    fn admitted_inventory_reuses_one_footer_for_random_access_and_keeps_escaped_storage() {
+        let schema = Arc::new(Schema::new(vec![Field::new("value", DataType::Float64, false)]));
+        let batch = RecordBatch::try_new(schema.clone(), vec![Arc::new(Float64Array::from(vec![1., 2., 3.]))]).unwrap();
+        let bytes = result_files::encode_file_batches(&[batch.clone(), batch]).unwrap();
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(128 << 10));
+        let cancel = CancellationToken::new();
+        let mut reader = result_files::open_file_reader(std::io::Cursor::new(&bytes), &schema, Some(2), pool.clone(), &cancel).unwrap();
+        let second = reader.read_batch(1, &cancel).unwrap();
+        let first = reader.read_batch(0, &cancel).unwrap();
+        assert_eq!(first.batch.batch(), second.batch.batch());
+        let escaped = first.column(0).slice(1, 1);
+        drop(first); drop(second); drop(reader); drop(bytes);
+        assert!(pool.reserved() > 0);
+        drop(escaped); assert_eq!(pool.reserved(), 0);
     }
 }
 

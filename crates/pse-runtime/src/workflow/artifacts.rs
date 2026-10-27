@@ -344,13 +344,6 @@ impl ScientificArtifact {
         ordinal: u64,
         cancel: CancellationToken,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let owner = Arc::new(
-            MemoryConsumer::new("canonical:scientific-artifact-read")
-                .register(&self.runtime.shared.pool()),
-        );
-        owner
-            .try_grow(4 * super::result_files::MAX_FILE_BYTES)
-            .map_err(pse_engine::EngineError::from)?;
         let response = super::connected_results::response_owner(
             &self.runtime,
             "canonical:artifact-block-selection-response",
@@ -376,7 +369,7 @@ impl ScientificArtifact {
             MetadataResponse::Header,
         )?;
         let block = pse_operations::canonical::response_ownership_scope(
-            Arc::new((response, owner.clone(), read_owner)),
+            Arc::new((response.clone(), read_owner)),
             read.block(ordinal),
         )
         .await?;
@@ -391,15 +384,18 @@ impl ScientificArtifact {
             block.payload.as_slice(),
             schema,
             usize::try_from(block.rows).map_err(|_| contract("artifact row extent"))?,
+            self.runtime.shared.pool(), &cancel,
         )?;
-        let batch = pse_relations::columnar::FieldCheckedBatch::admit(
+        let decoded_owner = batch.working_owner;
+        let batch = pse_relations::columnar::FieldCheckedBatch::admit_owned(
             self.runtime.registry(),
             spec,
-            batch,
+            batch.batch,
             &self.runtime.validation_context(),
             &cancel,
         )
-        .map_err(pse_engine::EngineError::from)?;
+        .map_err(pse_engine::EngineError::from)?
+        .with_export_owner(decoded_owner);
         let retained = batch
             .retained(&self.runtime.shared.pool(), &cancel)
             .map_err(super::relation)?;

@@ -7,7 +7,7 @@
 use datafusion::arrow::{
     array::ArrayData,
     datatypes::{DataType, Schema},
-    ipc::{self, writer::StreamWriter},
+    ipc::writer::StreamWriter,
     record_batch::RecordBatch,
 };
 
@@ -37,6 +37,9 @@ pub enum ResultBlockError {
     /// A representation extent can be retried with a deterministic smaller prefix.
     #[error("result IPC extent limit: {0}")]
     LimitReached(&'static str),
+    /// Columnar admission retains cancellation/resource/representation causes.
+    #[error("result IPC admission: {0}")]
+    Columnar(#[from] pse_columnar::CanonError),
     /// Arrow validation retains its concrete error.
     #[error("result IPC: {0}")]
     Arrow(#[from] datafusion::arrow::error::ArrowError),
@@ -203,12 +206,6 @@ fn writer_metadata_tables(
     Ok(())
 }
 
-pub(super) fn schema_field(field: ipc::Field<'_>, depth: usize, count: &mut usize, expected_fields: usize) -> Result<(), ResultBlockError> {
-    Ok(pse_columnar::ipc_admission::schema_field(field, depth, count, expected_fields)?)
-}
-pub(super) fn layout(ty: &DataType, nodes: &[&ipc::FieldNode], buffers: &[&ipc::Buffer], node: &mut usize, buffer: &mut usize, expected: Option<usize>) -> Result<(), ResultBlockError> {
-    Ok(pse_columnar::ipc_admission::layout(ty, nodes, buffers, node, buffer, expected)?)
-}
 pub(super) fn expected_shape(expected: &Schema) -> Result<usize, ResultBlockError> {
     Ok(pse_columnar::ipc_admission::expected_shape(expected)?)
 }

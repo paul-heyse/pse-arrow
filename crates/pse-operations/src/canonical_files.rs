@@ -220,6 +220,20 @@ impl ProtectedFile {
     pub fn descriptor(&self) -> &FileDescriptor {
         &self.descriptor
     }
+    /// Retained source-control storage, excluding the already shared read owner
+    /// and file contents. Transfer this extent from the pre-admitted response;
+    /// measuring it does not authorize a post-allocation acquisition.
+    /// # Errors
+    /// An unrepresentable metadata extent.
+    pub fn retained_bytes(&self) -> Result<usize, CanonicalError> {
+        let Self { file: _, descriptor, _owner: _, process } = self;
+        let FileDescriptor { instance, digest, bytes: _, encoding, batch_count: _, schema, interpretation } = descriptor;
+        let ProcessIdentity { boot, pid_namespace, pid: _, start, invocation, unit, group, group_inode: _ } = process;
+        [instance, digest, encoding, schema, interpretation, boot, pid_namespace, start]
+            .into_iter().chain([invocation.as_ref(), unit.as_ref(), group.as_ref()].into_iter().flatten())
+            .try_fold(size_of::<Self>(), |bytes, value| bytes.checked_add(value.capacity())
+                .ok_or_else(|| configuration("protected file metadata extent overflow")))
+    }
 }
 impl Read for ProtectedFile {
     fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {

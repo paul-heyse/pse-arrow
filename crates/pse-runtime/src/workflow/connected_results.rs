@@ -2399,7 +2399,7 @@ mod result_admission_unit {
         )
         .unwrap();
         let bytes = result_files::encode_result_file(&raw).unwrap();
-        let decoded = result_files::decode_result_file(&bytes, schema, 1).unwrap();
+        let decoded = result_files::decode_result_file(&bytes, schema, 1, runtime.shared.pool(), &CancellationToken::new()).unwrap();
         let cancel = CancellationToken::new();
         assert!(
             !stale_contract

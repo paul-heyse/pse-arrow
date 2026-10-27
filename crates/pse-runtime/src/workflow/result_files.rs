@@ -7,10 +7,6 @@
 use super::result_blocks::{self, ResultBlockError};
 use datafusion::arrow::{
     datatypes::SchemaRef,
-    ipc::{
-        self,
-        reader::{FileReader, FileReaderBuilder},
-    },
     record_batch::RecordBatch,
 };
 use std::io::{Cursor, Read, Seek, SeekFrom};
@@ -42,7 +38,6 @@ impl Seek for ResultFileSource {
 pub const TARGET_FILE_BYTES: usize = pse_operations::canonical_files::FILE_TARGET_BYTES;
 /// Every complete file, including its footer, fits this bound.
 pub const MAX_FILE_BYTES: usize = pse_operations::canonical_files::FILE_BYTES;
-const MAX_TABLES: usize = 128 * 1024;
 const MAX_BATCHES: usize = pse_columnar::ipc_file::MAX_BATCHES;
 #[cfg(test)]
 std::thread_local! {
@@ -130,23 +125,6 @@ pub(super) fn batch_extent(batch: &RecordBatch) -> Result<usize, ResultBlockErro
         })
 }
 
-pub(super) fn schema_extent(schema: &SchemaRef) -> Result<usize, ResultBlockError> {
-    let fields = schema.fields().iter().try_fold(0usize, |bytes, field| {
-        bytes
-            .checked_add(field.size())
-            .ok_or_else(|| invalid("file schema size overflow"))
-    })?;
-    schema
-        .metadata()
-        .iter()
-        .try_fold(fields, |bytes, (key, value)| {
-            bytes
-                .checked_add(key.capacity())
-                .and_then(|bytes| bytes.checked_add(value.capacity()))
-                .and_then(|bytes| bytes.checked_add(128))
-                .ok_or_else(|| invalid("file schema metadata overflow"))
-        })
-}
 fn splittable(error: &ResultBlockError) -> bool {
     matches!(error, ResultBlockError::LimitReached(_))
         || matches!(pse_ids::sink_failure(error), Some(pse_ids::SinkFailure::LimitReached { .. }))
@@ -156,213 +134,17 @@ fn splittable(error: &ResultBlockError) -> bool {
 fn invalid(message: &'static str) -> ResultBlockError {
     ResultBlockError::Invalid(message)
 }
-fn read_range<R: Read + Seek>(
-    reader: &mut R,
-    start: u64,
-    bytes: usize,
-) -> Result<Vec<u8>, ResultBlockError> {
-    reader
-        .seek(SeekFrom::Start(start))
-        .map_err(datafusion::arrow::error::ArrowError::from)?;
-    let mut buffer = vec![0; bytes];
-    reader
-        .read_exact(&mut buffer)
-        .map_err(datafusion::arrow::error::ArrowError::from)?;
-    Ok(buffer)
-}
-fn options() -> flatbuffers::VerifierOptions {
-    flatbuffers::VerifierOptions {
-        max_depth: 256,
-        max_tables: MAX_TABLES,
-        max_apparent_size: MAX_FILE_BYTES,
-        ..Default::default()
-    }
-}
-
-/// Check actual file/footer/record extents before FileReader's allocations.
-/// In particular a corrupt final footer-length word cannot allocate gigabytes.
-fn preflight<R: Read + Seek>(
-    reader: &mut R,
-    expected: &SchemaRef,
-) -> Result<usize, ResultBlockError> {
+/// One columnar-owned admitted footer/schema/block inventory, with no stock
+/// FileReader or second footer read. Registry equality is selected by this caller.
+pub(super) fn open_file_reader<R: Read + Seek>(
+    reader: R, expected: &SchemaRef, count: Option<usize>,
+    pool: std::sync::Arc<dyn pse_columnar::MemoryPool>, cancel: &pse_columnar::CancellationToken,
+) -> Result<pse_columnar::ipc_file::AdmittedFile<R>, ResultBlockError> {
     #[cfg(test)]
     PREFLIGHT_CALLS.with(|count| count.set(count.get() + 1));
-    let bytes = reader
-        .seek(SeekFrom::End(0))
-        .map_err(datafusion::arrow::error::ArrowError::from)?;
-    if !(18..=MAX_FILE_BYTES as u64).contains(&bytes) {
-        return Err(invalid("file byte bound"));
-    }
-    if read_range(reader, 0, 8)?.as_slice() != b"ARROW1\0\0" {
-        return Err(invalid("file header"));
-    }
-    let tail = read_range(reader, bytes - 10, 10)?;
-    if &tail[4..] != b"ARROW1" {
-        return Err(invalid("file footer magic"));
-    }
-    let length = i32::from_le_bytes(tail[..4].try_into().map_err(|_| invalid("footer length"))?);
-    let length = usize::try_from(length).map_err(|_| invalid("negative footer length"))?;
-    if length > bytes as usize - 18 {
-        return Err(invalid("footer outside actual file"));
-    }
-    let footer_start = bytes - 10 - length as u64;
-    let footer_bytes = read_range(reader, footer_start, length)?;
-    let footer = ipc::root_as_footer_with_opts(&options(), &footer_bytes)
-        .map_err(|_| invalid("invalid file footer"))?;
-    if let Some(metadata) = footer.custom_metadata() {
-        for item in metadata {
-            if item.key().is_none() || item.value().is_none() {
-                return Err(invalid("incomplete file custom metadata"));
-            }
-        }
-    }
-    if footer.version() != ipc::MetadataVersion::V5
-        || footer
-            .dictionaries()
-            .is_some_and(|entries| !entries.is_empty())
-    {
-        return Err(invalid("file version/dictionaries"));
-    }
-    let schema = footer
-        .schema()
-        .ok_or_else(|| invalid("file schema absent"))?;
-    let shape = result_blocks::expected_shape(expected.as_ref())?;
-    let fields = schema
-        .fields()
-        .ok_or_else(|| invalid("file schema fields absent"))?;
-    if schema.endianness() != ipc::Endianness::Little || fields.len() != expected.fields().len() {
-        return Err(invalid("file schema shape/endianness"));
-    }
-    let mut count = 0;
-    for field in fields {
-        result_blocks::schema_field(field, 0, &mut count, shape)?;
-    }
-    if count != shape || ipc::convert::fb_to_schema(schema) != **expected {
-        return Err(invalid("registry schema mismatch"));
-    }
-    let blocks = footer
-        .recordBatches()
-        .ok_or_else(|| invalid("file batch inventory absent"))?;
-    if blocks.is_empty() || blocks.len() > MAX_BATCHES {
-        return Err(invalid("file batch count bound"));
-    }
-    let mut last_end = 8u64;
-    for block in blocks {
-        let offset =
-            u64::try_from(block.offset()).map_err(|_| invalid("negative file block offset"))?;
-        let metadata = usize::try_from(block.metaDataLength())
-            .map_err(|_| invalid("negative file metadata length"))?;
-        let body =
-            u64::try_from(block.bodyLength()).map_err(|_| invalid("negative file body length"))?;
-        let end = offset
-            .checked_add(metadata as u64)
-            .and_then(|end| end.checked_add(body))
-            .ok_or_else(|| invalid("file block overflow"))?;
-        if offset < last_end
-            || metadata < 8
-            || end > footer_start
-            || metadata % 8 != 0
-            || body % 8 != 0
-        {
-            return Err(invalid("file block span/overlap"));
-        }
-        last_end = end;
-        let metadata_bytes = read_range(reader, offset, metadata)?;
-        if metadata_bytes[..4] != [255; 4] {
-            return Err(invalid("file block continuation"));
-        }
-        let message_length = i32::from_le_bytes(
-            metadata_bytes[4..8]
-                .try_into()
-                .map_err(|_| invalid("file metadata length"))?,
-        );
-        if usize::try_from(message_length).ok() != Some(metadata - 8) {
-            return Err(invalid("file metadata extent"));
-        }
-        let message = ipc::root_as_message_with_opts(&options(), &metadata_bytes[8..])
-            .map_err(|_| invalid("invalid file record metadata"))?;
-        if message.version() != ipc::MetadataVersion::V5
-            || u64::try_from(message.bodyLength()).ok() != Some(body)
-        {
-            return Err(invalid("file record version/body"));
-        }
-        let batch = message
-            .header_as_record_batch()
-            .ok_or_else(|| invalid("file record required"))?;
-        if batch.compression().is_some() || batch.variadicBufferCounts().is_some() {
-            return Err(invalid("compression/variadic buffers refused"));
-        }
-        let rows =
-            usize::try_from(batch.length()).map_err(|_| invalid("negative file row count"))?;
-        let nodes = batch
-            .nodes()
-            .ok_or_else(|| invalid("file field nodes absent"))?;
-        let buffers = batch
-            .buffers()
-            .ok_or_else(|| invalid("file buffers absent"))?;
-        if nodes.len() != shape || buffers.len() > shape * 3 {
-            return Err(invalid("file node/buffer shape"));
-        }
-        let mut values = 0usize;
-        for node in nodes {
-            let n = usize::try_from(node.length())
-                .map_err(|_| invalid("negative file field length"))?;
-            let nulls = usize::try_from(node.null_count())
-                .map_err(|_| invalid("negative file null count"))?;
-            values = values
-                .checked_add(n)
-                .ok_or_else(|| invalid("file field size overflow"))?;
-            if values > MAX_FILE_BYTES || nulls > n {
-                return Err(invalid("file field value bound"));
-            }
-        }
-        let mut previous = 0;
-        for buffer in buffers {
-            let start = u64::try_from(buffer.offset())
-                .map_err(|_| invalid("negative file buffer offset"))?;
-            let length = u64::try_from(buffer.length())
-                .map_err(|_| invalid("negative file buffer length"))?;
-            let end = start
-                .checked_add(length)
-                .ok_or_else(|| invalid("file buffer overflow"))?;
-            if start < previous || end > body {
-                return Err(invalid("file buffer span/overlap"));
-            }
-            previous = end;
-        }
-        let nodes = nodes.iter().collect::<Vec<_>>();
-        let buffers = buffers.iter().collect::<Vec<_>>();
-        let (mut node, mut buffer) = (0, 0);
-        for field in expected.fields() {
-            result_blocks::layout(
-                field.data_type(),
-                &nodes,
-                &buffers,
-                &mut node,
-                &mut buffer,
-                Some(rows),
-            )?;
-        }
-        if node != nodes.len() || buffer != buffers.len() {
-            return Err(invalid("extra file layout nodes/buffers"));
-        }
-    }
-    Ok(blocks.len())
-}
-
-pub(super) fn open_file_reader<R: Read + Seek>(
-    mut reader: R,
-    expected: &SchemaRef,
-    count: Option<usize>,
-) -> Result<FileReader<R>, ResultBlockError> {
-    let actual = preflight(&mut reader, expected)?;
-    if count.is_some_and(|count| count != actual) {
-        return Err(invalid("sealed file batch count differs"));
-    }
-    Ok(FileReaderBuilder::new()
-        .with_max_footer_fb_tables(MAX_TABLES)
-        .with_max_footer_fb_depth(256)
-        .build(reader)?)
+    let file = pse_columnar::ipc_file::AdmittedFile::open(reader, expected.clone(), MAX_FILE_BYTES, pool, cancel)?;
+    if count.is_some_and(|count| count != file.len()) { return Err(invalid("sealed file batch count differs")); }
+    Ok(file)
 }
 
 /// Decode a completed standalone file member with the exact declared schema.
@@ -370,15 +152,14 @@ pub fn decode_result_file(
     bytes: &[u8],
     expected: SchemaRef,
     rows: usize,
-) -> Result<RecordBatch, ResultBlockError> {
+    pool: std::sync::Arc<dyn pse_columnar::MemoryPool>,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<pse_columnar::ipc_file::DecodedFileBatch, ResultBlockError> {
     if let Some(context) = pse_diagnostics::observation::current() {
         context.count("canonical.result.standalone_decodes", "count", 1);
     }
-    let mut reader = open_file_reader(Cursor::new(bytes), &expected, Some(1))?;
-    let batch = reader
-        .next()
-        .transpose()?
-        .ok_or_else(|| invalid("file batch absent"))?;
+    let mut reader = open_file_reader(Cursor::new(bytes), &expected, Some(1), pool, cancel)?;
+    let batch = reader.read_batch(0, cancel)?;
     if batch.num_rows() != rows || batch.schema() != expected {
         return Err(invalid("file batch rows/schema differ"));
     }
@@ -393,6 +174,15 @@ mod result_files_unit {
     };
     use std::{collections::HashMap, sync::Arc};
 
+    fn fixture_pool() -> Arc<dyn pse_columnar::MemoryPool> {
+        Arc::new(pse_columnar::GreedyMemoryPool::new(512 << 20))
+    }
+    fn open_file_reader<R: Read + Seek>(reader: R, schema: &SchemaRef, count: Option<usize>) -> Result<pse_columnar::ipc_file::AdmittedFile<R>, ResultBlockError> {
+        super::open_file_reader(reader, schema, count, fixture_pool(), &pse_columnar::CancellationToken::new())
+    }
+    fn decode_result_file(bytes: &[u8], schema: SchemaRef, rows: usize) -> Result<pse_columnar::ipc_file::DecodedFileBatch, ResultBlockError> {
+        super::decode_result_file(bytes, schema, rows, fixture_pool(), &pse_columnar::CancellationToken::new())
+    }
     fn batch(bits: &[u64]) -> RecordBatch {
         let schema = Arc::new(Schema::new_with_metadata(
             vec![
@@ -420,8 +210,7 @@ mod result_files_unit {
         for (index, expected) in [first, second].iter().enumerate() {
             let mut reader =
                 open_file_reader(Cursor::new(&bytes), &expected.schema(), Some(2)).unwrap();
-            reader.set_index(index).unwrap();
-            let actual = reader.next().unwrap().unwrap();
+            let actual = reader.read_batch(index, &pse_columnar::CancellationToken::new()).unwrap();
             assert_eq!(actual.num_rows(), expected.num_rows());
             assert_eq!(actual.schema(), expected.schema());
             let actual = actual
@@ -447,9 +236,9 @@ mod result_files_unit {
                     .collect::<Vec<_>>()
             );
         }
-        let mut reader =
+        let reader =
             open_file_reader(Cursor::new(&bytes), &batch(&[]).schema(), Some(2)).unwrap();
-        assert!(reader.set_index(2).is_err());
+        assert!(reader.check_index(2).is_err());
     }
 
     #[test]
@@ -526,10 +315,8 @@ mod result_files_unit {
         let length = bytes.len();
         bytes[length - 10..length - 6].copy_from_slice(&i32::MAX.to_le_bytes());
         let mut reader = Observed(Cursor::new(bytes), 0);
-        assert!(matches!(
-            preflight(&mut reader, &source.schema()),
-            Err(ResultBlockError::Invalid("footer outside actual file"))
-        ));
+        let error = open_file_reader(&mut reader, &source.schema(), None).err().expect("corrupt footer refused");
+        assert!(error.to_string().contains("footer outside actual file"));
         assert_eq!(reader.1, 10);
     }
 
@@ -553,20 +340,13 @@ mod result_files_unit {
 
     #[test]
     fn copied_native_file_arrays_retain_actual_allocation_after_reader_and_scope_drop() {
-        use pse_columnar::{MemoryConsumer, MemoryPool, owned_buffer::AllocationScope};
+        use pse_columnar::MemoryPool;
         let source = batch(&[0, 1 << 63, 0x7ff8_0000_0000_0042]);
         let bytes = encode_result_file(&source).unwrap();
         let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
-        let grant = MemoryConsumer::new("file:test-owned-decode").register(&pool);
-        grant.try_grow(bytes.len() * 4 + 64 * 1024).unwrap();
-        let decoded = decode_result_file(&bytes, source.schema(), 3).unwrap();
-        let scope = AllocationScope::default();
-        let owned = scope.attach_borrowed_reserved(decoded, &grant).unwrap();
-        let batch = owned.into_batch();
+        let batch = super::decode_result_file(&bytes, source.schema(), 3, pool.clone(), &pse_columnar::CancellationToken::new()).unwrap();
         let escaped = batch.column(0).slice(1, 2);
         drop(batch);
-        drop(scope);
-        drop(grant);
         drop(bytes);
         assert!(
             pool.reserved() > 0,

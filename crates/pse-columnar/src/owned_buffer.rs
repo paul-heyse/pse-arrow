@@ -116,6 +116,29 @@ pub struct OwnedRecordBatch {
 }
 
 impl OwnedRecordBatch {
+    /// Retain pre-admitted schema/control storage through escaped array buffers.
+    /// The caller covers this metadata-only rebuild before invoking it. Existing
+    /// native backing owners and the allocation scope remain unchanged.
+    /// # Errors
+    /// Cancellation or invalid representation.
+    pub fn with_payload_owner(
+        mut self,
+        owner: Arc<dyn crate::PayloadOwner>,
+        cancel: &CancellationToken,
+    ) -> Result<Self, CanonError> {
+        // Bufferless arrays cannot carry an escaped buffer. Their typed batch
+        // wrapper retains the control owner instead.
+        if self.batch.columns().iter().any(|array| {
+            fn has_buffer(data: &ArrayData) -> bool {
+                !data.buffers().is_empty() || data.nulls().is_some()
+                    || data.child_data().iter().any(has_buffer)
+            }
+            has_buffer(&array.to_data())
+        }) {
+            self.batch = retain_payload(&self.batch, owner, cancel)?;
+        }
+        Ok(self)
+    }
     /// Rename native fields without changing their arrays or allocation owners.
     /// This carries allocation evidence only, not semantic field admission.
     /// # Errors
