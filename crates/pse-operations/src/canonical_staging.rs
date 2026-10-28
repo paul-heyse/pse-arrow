@@ -33,6 +33,7 @@ pub(crate) const IDENTITY_BYTES: usize = 4096;
 const RETRIES: usize = 8;
 // Sixteen independent source writers may contend on the same immutable version.
 // Enlarge only the definite rollback budget, within the original request clock.
+#[cfg(test)]
 const MUTATION_CONFLICT_ATTEMPTS: usize = 32;
 const STAGE_LIFETIME: Duration = Duration::from_secs(300);
 // Four small edits, each with at most sixteen bounded references and 64 KiB
@@ -379,14 +380,7 @@ fn plan(
 }
 
 fn conflict(error: &CanonicalError) -> bool {
-    matches!(error, CanonicalError::Driver(error) if matches!(error.query_details(), Some(QueryError::TransactionConflict)))
-}
-
-// Only acknowledged transaction conflicts authorize another mutation attempt.
-// Unknown transmission/commit outcomes keep their original identity for readback;
-// an absent acknowledgment does not establish that the first write cannot commit.
-fn retryable_stage(error: &CanonicalError) -> bool {
-    conflict(error)
+    error.is_conflict()
 }
 
 async fn retry_stage_mutation<F, Q>(
@@ -403,22 +397,15 @@ where
     // retry can acquire new write authority after the caller has cancelled.
     let deadline = crate::canonical::transport::original_deadline(timeout);
     let result = crate::canonical::transport::within_clock(deadline, async {
-        let mut attempt = 0;
-        loop {
-            match submit().await {
-                Err(error) if conflict(&error) && attempt + 1 < MUTATION_CONFLICT_ATTEMPTS => {
-                    let jitter = u64::from(uuid::Uuid::new_v4().as_bytes()[0] % 64);
-                    tokio::time::sleep(Duration::from_millis((10_u64 << attempt.min(4)) + jitter))
-                        .await;
-                    attempt += 1;
-                }
-                result => {
-                    return result.map_err(|error| {
-                        error.exhaust_conflict(operation, MUTATION_CONFLICT_ATTEMPTS as u32)
-                    });
-                }
-            }
-        }
+        crate::transport::retry::retry_conflicts(
+            crate::transport::retry::RetryPolicy::StageMutation,
+            operation,
+            || {
+                let request = submit();
+                async move { crate::transport::retry::Attempt::settled(request.await) }
+            },
+        ).await
+
     })
     .await;
     if let Err(error) = &result {
@@ -937,9 +924,12 @@ impl CanonicalStore {
                 if operation.len() > IDENTITY_BYTES {
                     return Err(CanonicalError::PayloadLimit);
                 }
-                let mut attempt = 0;
-                loop {
-                    self.ensure_writes()?;
+                let mut response = crate::transport::retry::retry_conflicts(
+                    crate::transport::retry::RetryPolicy::BeginStage,
+                    "canonical_staging::begin_stage_inner",
+                    || async {
+                        let result = async {
+                            self.ensure_writes()?;
                     let result = self
                         .staging_query(
                             problem,
@@ -961,19 +951,15 @@ impl CanonicalStore {
                                 .bind(("lifetime", lifetime_micros)),
                         )
                         .await;
-                    match result {
-                        Err(error) if retryable_stage(&error) && attempt + 1 < RETRIES => {
-                            tokio::time::sleep(Duration::from_millis(10 << attempt.min(4))).await;
-                            attempt += 1;
-                        }
-                        Err(error) => {
-                            operation_failed("canonical_staging::begin_stage_inner", &error);
-                            return Err(error.exhaust_conflict(
-                                "canonical_staging::begin_stage_inner",
-                                RETRIES as u32,
-                            ));
-                        }
-                        Ok(mut response) => {
+                            result
+                        }.await;
+                        crate::transport::retry::Attempt::settled(result)
+                    },
+                ).await.map_err(|error| {
+                    operation_failed("canonical_staging::begin_stage_inner", &error);
+                    error
+                })?;
+
                             let row = response
                                 .take::<Option<Object>>(
                                     response.num_statements().saturating_sub(2),
@@ -1008,9 +994,6 @@ impl CanonicalStore {
                                 request_digest: plan.request_digest.clone(),
                                 lifetime_micros,
                             }));
-                        }
-                    }
-                }
             },
         )
         .await

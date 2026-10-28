@@ -1275,28 +1275,23 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         let deadline = original_deadline(REQUEST_TIMEOUT);
-        let mut build = build;
         within_clock(deadline, async {
-            let mut attempt=0;
-            loop {
-                let result = self.problem_turns.run(
-                    problem, effect, deadline, async { bounded_query(build()?).await },
-                ).await;
-                #[cfg(all(test, feature = "canonical-tests"))]
-                if matches!(&result,Err(CanonicalError::Driver(error)) if matches!(error.query_details(),Some(surrealdb::types::QueryError::TransactionConflict))) { pacing_observation::conflict(problem); }
-                if result.as_ref().err().is_some_and(CanonicalError::is_capture_busy) {
-                    conflict_backoff(4).await;
-                    continue;
-                }
-                if result.as_ref().err().is_some_and(CanonicalError::is_conflict)
-                    && attempt + 1 < GUARDED_ATTEMPTS {
-                    conflict_backoff(attempt).await;
-                    attempt+=1;
-                    continue;
-                }
-                if let Err(error) = &result { operation_failed(operation, error); }
-                return result.map_err(|error| error.exhaust_conflict(operation, GUARDED_ATTEMPTS));
-            }
+            let result = crate::transport::retry::retry_with_state(
+                crate::transport::retry::RetryPolicy::Guarded,
+                operation,
+                build,
+                |mut build| async move {
+                    let result = self.problem_turns.run(
+                        problem, effect, deadline, async { bounded_query(build()?).await },
+                    ).await;
+                    #[cfg(all(test, feature = "canonical-tests"))]
+                    if result.as_ref().err().is_some_and(CanonicalError::is_conflict) { pacing_observation::conflict(problem); }
+                    (build, crate::transport::retry::Attempt::settled(result))
+                },
+            ).await;
+            if let Err(error) = &result { operation_failed(operation, error); }
+            result
+
         }).await
             }).await
     }
@@ -1418,41 +1413,35 @@ impl CanonicalStore {
             .scope(async { self.initialize_with(|| self.submit_initialization()).await })
             .await
     }
-    async fn initialize_with<F, Q>(&self, mut submit: F) -> Result<(), CanonicalError>
+    async fn initialize_with<F, Q>(&self, submit: F) -> Result<(), CanonicalError>
     where
         F: FnMut() -> Q,
         Q: Future<Output = Result<surrealdb::IndexedResults, CanonicalError>>,
     {
         within_clock(original_deadline(ACTIVATION_REQUEST_TIMEOUT), async {
-            let mut attempt = 0_u32;
-            loop {
-                self.ensure_writes()?;
-                if !self.initialization_required().await? {
-                    return self.open().await;
-                }
-                // Only an acknowledged transaction rejection allows a fresh complete
-                // installation decision. Lost responses and cancellation stay uncertain.
-                self.provision_context().await?;
-                match submit().await.and_then(complete_response) {
-                    Err(CanonicalError::Driver(error))
-                        if matches!(
-                            error.query_details(),
-                            Some(surrealdb::types::QueryError::TransactionConflict)
-                        ) && attempt < 7 =>
-                    {
-                        // Desynchronize independent databases sharing physical history.
-                        let jitter = u64::from(uuid::Uuid::new_v4().as_bytes()[0] % 16);
-                        tokio::time::sleep(std::time::Duration::from_millis(
-                            (1 << attempt) + jitter,
-                        ))
-                        .await;
-                        attempt += 1;
-                    }
-                    Err(error) => return Err(error.exhaust_conflict("canonical::initialize", 8)),
-                    // Readback failure after an acknowledged commit never replays DDL.
-                    Ok(_) => return self.open().await,
-                }
-            }
+            crate::transport::retry::retry_with_state(
+                crate::transport::retry::RetryPolicy::Initialization,
+                "canonical::initialize",
+                submit,
+                |mut submit| async move {
+                    use crate::transport::retry::Attempt;
+                    let preflight = async {
+                        self.ensure_writes()?;
+                        if !self.initialization_required().await? { return Ok(false); }
+                        self.provision_context().await?;
+                        Ok(true)
+                    }.await;
+                    let outcome = match preflight {
+                        Ok(true) => Attempt::settled(submit().await.and_then(complete_response).map(|_| ())),
+                        Ok(false) => Attempt::Done(Ok(())),
+                        Err(error) => Attempt::Done(Err(error)),
+                    };
+                    (submit, outcome)
+                },
+            ).await?;
+            // An acknowledged installation is never retried because readback failed.
+            self.open().await
+
         })
         .await
     }

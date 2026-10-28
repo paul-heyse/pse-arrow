@@ -56,6 +56,35 @@ fn query_frames(value: proto::Value, complete: bool) -> Vec<u8> {
     }
     bytes
 }
+fn multiple_error_frames() -> Vec<u8> {
+    let mut bytes = frame(rpc::QueryResponse {
+        frame: Some(rpc::query_response::Frame::Begin(rpc::QueryBegin {
+            query_id: Some(proto::Uuid::from_uuid(uuid::Uuid::new_v4())),
+            statement_count: 3,
+        })),
+    });
+    // Arrival order differs from statement order; cancellation precedes both
+    // substantive failures in the statement inventory.
+    for (index, message, details) in [
+        (2, "second substantive", "TransactionConflict"),
+        (0, "not executed", "NotExecuted"),
+        (1, "first substantive", "TransactionConflict"),
+    ] {
+        bytes.extend(frame(rpc::QueryResponse {
+            frame: Some(rpc::query_response::Frame::Batch(rpc::QueryBatchFrame {
+                query_index: index,
+                kind: rpc::QueryResponseKind::Single as i32,
+                error: Some(proto::SurrealError::new(proto::ErrorKind::Query, message).with_details(details, None)),
+                ..Default::default()
+            })),
+        }));
+    }
+    bytes.extend(frame(rpc::QueryResponse {
+        frame: Some(rpc::query_response::Frame::End(rpc::QueryEnd { result_count: 3, ..Default::default() })),
+    }));
+    bytes
+}
+
 fn generated_block_page() -> proto::Value {
     let rows = (0..64_u64)
         .map(|ordinal| {
@@ -222,6 +251,8 @@ async fn start_scripted(generations: usize, delay: bool, source_stage_fault: Opt
                                         );
                                     }
                                     Vec::new()
+                                } else if query.contains("MULTIPLE_STATEMENT_ERRORS") {
+                                    multiple_error_frames()
                                 } else if query.contains("READ_ALWAYS_CONFLICT")
                                     || (query.contains("READ_CONFLICT_TWICE")
                                         && read_conflicts

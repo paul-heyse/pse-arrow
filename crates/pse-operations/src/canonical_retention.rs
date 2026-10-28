@@ -11,7 +11,7 @@ use crate::{
     generated::surreal as wire,
 };
 use pse_model::generated::runtime::canonical_revisions::Row as Revision;
-use surrealdb::types::{Object, QueryError};
+use surrealdb::types::Object;
 
 /// An explicit durable owner of an immutable revision selection.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -83,11 +83,6 @@ pub struct ReclamationPage {
 }
 
 const PAGE: usize = 64;
-const RETRIES: usize = 8;
-
-fn conflict(error: &CanonicalError) -> bool {
-    matches!(error, CanonicalError::Driver(error) if matches!(error.query_details(), Some(QueryError::TransactionConflict)))
-}
 
 /// Cleanup failure is observed independently of the already returned mutation
 /// acknowledgment. No fresh budget or detached task is created after commitment.
@@ -132,10 +127,11 @@ impl CanonicalStore {
                                     .into(),
                             ));
                         }
-                        let mut attempt = 0;
-                        loop {
-                            self.ensure_writes()?;
-                            let result = bounded_query(
+                        crate::transport::retry::retry_conflicts(
+                            crate::transport::retry::RetryPolicy::Retention,
+                            "canonical_retention",
+                            || {
+                                let query = self.ensure_writes().map(|()| bounded_query(
                                 self.db
                                     .query(RETAIN)
                                     .bind(("problem", revision.problem.clone()))
@@ -145,21 +141,17 @@ impl CanonicalStore {
                                     .bind(("owner", owner.parts().1.to_owned()))
                                     .bind(("interpretation", wire::INTERPRETATION)),
                             )
-                            .await
-                            .map(|_| ());
-                            match result {
-                                Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
-                                    tokio::task::yield_now().await;
-                                    attempt += 1;
+
+                            );
+                                async move {
+                                    let result = match query {
+                                        Ok(query) => query.await.map(|_| ()),
+                                        Err(error) => Err(error),
+                                    };
+                                    crate::transport::retry::Attempt::settled(result)
                                 }
-                                other => {
-                                    return other.map_err(|error| {
-                                        error
-                                            .exhaust_conflict("canonical_retention", RETRIES as u32)
-                                    });
-                                }
-                            }
-                        }
+                            },
+                        ).await
                     },
                 )
                 .await
@@ -198,10 +190,11 @@ impl CanonicalStore {
                             "lifecycle roots are released only by their owning retirement".into(),
                         ));
                     }
-                    let mut attempt = 0;
-                    loop {
-                        self.ensure_writes()?;
-                        let result = bounded_query(
+                    crate::transport::retry::retry_conflicts(
+                            crate::transport::retry::RetryPolicy::Retention,
+                            "canonical_retention",
+                            || {
+                                let query = self.ensure_writes().map(|()| bounded_query(
                             self.db
                                 .query(DROP_ROOT)
                                 .bind(("problem", revision.problem.clone()))
@@ -210,21 +203,17 @@ impl CanonicalStore {
                                 .bind(("owner_kind", owner.parts().0))
                                 .bind(("owner", owner.parts().1.to_owned())),
                         )
-                        .await
-                        .map(|_| ());
-                        match result {
-                            Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
-                                tokio::task::yield_now().await;
-                                attempt += 1;
-                            }
-                            Ok(()) => return Ok(()),
-                            Err(error) => {
-                                return Err(
-                                    error.exhaust_conflict("canonical_retention", RETRIES as u32)
-                                );
-                            }
-                        }
-                    }
+
+                        );
+                                async move {
+                                    let result = match query {
+                                        Ok(query) => query.await.map(|_| ()),
+                                        Err(error) => Err(error),
+                                    };
+                                    crate::transport::retry::Attempt::settled(result)
+                                }
+                            },
+                        ).await
                 })
                 .await?;
                 self.reclaim_source_after_commit(&revision.problem, deadline)

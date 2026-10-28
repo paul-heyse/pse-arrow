@@ -5,6 +5,8 @@
 //! These operations accept a caller's future; they expose no canonical store or raw client.
 use crate::canonical::CanonicalError;
 use std::{pin::Pin, time::Duration};
+#[path = "transport_retry.rs"]
+pub(crate) mod retry;
 #[path = "transport_lifetime.rs"]
 pub mod lifetime;
 /// Existing per-request ceiling; an enclosing operation may only shorten it.
@@ -148,26 +150,23 @@ where
     Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
 {
     within_clock(original_deadline(REQUEST_TIMEOUT), async {
-        let mut attempt=0;
-            loop {
-            let result=bounded_query(build()?).await;
-            #[cfg(all(test, feature = "canonical-tests"))]
-            if matches!(&result,Err(CanonicalError::Driver(error)) if matches!(error.query_details(),Some(surrealdb::types::QueryError::TransactionConflict))) { crate::canonical::pacing_observation::conflict(operation); }
-            match result {
-                Err(error) if error.is_capture_busy() => {conflict_backoff(4).await;}
-                Err(error) if error.is_conflict() && attempt + 1 < GUARDED_ATTEMPTS =>
-                {
-                    conflict_backoff(attempt).await;
-                    attempt+=1;
+        let result = retry::retry_conflicts(retry::RetryPolicy::Guarded, operation, || {
+            let query = build();
+            async move {
+                let result = match query {
+                    Ok(query) => bounded_query(query).await,
+                    Err(error) => Err(error),
+                };
+                #[cfg(all(test, feature = "canonical-tests"))]
+                if result.as_ref().err().is_some_and(CanonicalError::is_conflict) {
+                    crate::canonical::pacing_observation::conflict(operation);
                 }
-                result => {
-                    if let Err(error) = &result {
-                        operation_failed(operation, error);
-                    }
-                    return result.map_err(|error| error.exhaust_conflict(operation, GUARDED_ATTEMPTS));
-                }
+                retry::Attempt::settled(result)
             }
-        }
+        }).await;
+        if let Err(error) = &result { operation_failed(operation, error); }
+        result
+
     })
     .await
 }
@@ -198,7 +197,8 @@ pub(crate) async fn conflict_backoff(attempt: u32) {
 pub(crate) fn checked(
     mut response: surrealdb::IndexedResults,
 ) -> Result<surrealdb::IndexedResults, CanonicalError> {
-    let errors = response.take_errors().into_values().collect::<Vec<_>>();
+    let errors = response.take_errors().into_iter().collect::<std::collections::BTreeMap<_, _>>();
+    let errors = errors.into_values().collect::<Vec<_>>();
     if !errors.is_empty() {
         let substantive = errors.iter().position(|error| {
             !matches!(

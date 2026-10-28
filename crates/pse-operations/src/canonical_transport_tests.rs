@@ -1304,3 +1304,21 @@ fn canonical_metric_keys_bind_producer_and_copied_populations_without_position()
     assert_eq!(saturated.builders, u64::MAX);
     assert_eq!(saturated.server_duration_nanos, 23);
 }
+
+#[tokio::test]
+async fn complete_response_selects_lowest_substantive_statement_not_frame_or_hash_order() {
+    let peer = peer::start().await;
+    let db = connect(&peer).await;
+    for _ in 0..16 {
+        let response = db.query("RETURN 'MULTIPLE_STATEMENT_ERRORS';")
+            .request_context(context()).await.unwrap();
+        let error = crate::transport::complete_response(response).unwrap_err();
+        let crate::canonical::CanonicalError::Driver(error) = error else {
+            panic!("expected original typed statement error");
+        };
+        assert!(error.to_string().contains("first substantive"));
+        assert!(matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)));
+    }
+    db.disconnect().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), peer.server).await.unwrap().unwrap();
+}
