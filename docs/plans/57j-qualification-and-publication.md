@@ -470,3 +470,12 @@ Their affected runtime/benchmark acceptance remains pending. The trace acceptanc
 expects the sole canonical client's span while retaining actual cross-process ancestry and sibling
 checks. Remaining native, worker, development-store and Python journeys, and scope-end checks are
 still pending. The full feature-matrix/no-default campaign remains deferred to series end.
+
+Twenty selected linked runtime cases now pass, including the portable-body fixture migrations,
+actual fresh-client reconstruction, cancellation/heartbeat settlement and both managed
+sixteen-owner study controls. The two explicit worker journeys then failed before scientific
+launch: receiver status looked for storage-owned process metadata inside the receiver directory.
+The bounded projection fix reads that record through the authenticated storage owner while
+retaining receiver-local slots/resources/placement; its filesystem-backed regression passes.
+Both failed worker resources are drained and their data remains retained. Actual worker rerun,
+development-store/Python/trace acceptance and scope-end checks remain open.

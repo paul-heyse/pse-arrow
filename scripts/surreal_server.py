@@ -4940,7 +4940,9 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
     listener_owned = observed.listener_owned
     telemetry_identity = None
     if listener_owned:
-        process = read_json(state / "server-process.json")
+        # Receiver contexts borrow this listener; only its storage owner records
+        # the actual server process incarnation. Worker placement stays local.
+        process = read_json(service_directory(state) / "server-process.json")
         telemetry_identity = process.get("telemetry_service_instance_id")
     return {
         "state": str(state),

@@ -85,6 +85,75 @@ def record(value: object) -> dict[str, object]:
     return value
 
 
+class ReceiverStatusTests(unittest.TestCase):
+    def test_receiver_status_reads_storage_process_and_keeps_receiver_placement(
+        self,
+    ) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.state = Path(temporary.name)
+        config = {
+            "instance_id": "original storage",
+            "port": 12345,
+            "endpoint": "grpc://127.0.0.1:12345",
+            "resources": {"native_workers": 1},
+            "server": {},
+            "admission": "open",
+            "interpretation": server.SUBSTRATE_INTERPRETATION,
+            "accepting_writes": True,
+        }
+        server.write_json(self.state / "config.json", config)
+        receiver = self.state / ".receivers" / "generation" / "canonical_test_status"
+        receiver.mkdir(parents=True)
+        allocation = {**server.object_mapping(config["resources"]), "native_workers": 2}
+        child = {
+            **config,
+            "service_state": str(self.state),
+            "database": "canonical_test_status",
+            "resources": allocation,
+        }
+        server.write_json(receiver / "config.json", child)
+        server.write_json(
+            self.state / "server-process.json",
+            {
+                "instance_id": config["instance_id"],
+                "telemetry_service_instance_id": "2" * 32,
+            },
+        )
+        placement = {"owner": "actual receiver placement"}
+        server.write_json(receiver / "execution-placement.json", placement)
+        self.assertFalse((receiver / "server-process.json").exists())
+        with patch.object(
+            server,
+            "service_readiness",
+            return_value=readiness_fixture(server.Readiness.READY),
+        ) as readiness:
+            status = server.public_status(receiver, child)
+        readiness.assert_called_once_with(receiver, child)
+        self.assertEqual(status["telemetry_service_instance_id"], "2" * 32)
+        self.assertEqual(status["state"], str(receiver))
+        self.assertEqual(status["resources"], allocation)
+        self.assertEqual(status["execution_placement"], placement)
+        self.assertEqual(status["unit"], server.unit_name(self.state))
+        self.assertEqual(
+            status["worker_units"],
+            [server.worker_unit(receiver, slot) for slot in range(2)],
+        )
+        self.assertFalse((receiver / "server-process.json").exists())
+        # Readiness cannot fabricate an incarnation if its actual owner's record
+        # disappears. A receiver does not become a second metadata source.
+        (self.state / "server-process.json").unlink()
+        with (
+            patch.object(
+                server,
+                "service_readiness",
+                return_value=readiness_fixture(server.Readiness.READY),
+            ),
+            self.assertRaises(FileNotFoundError),
+        ):
+            server.public_status(receiver, child)
+
+
 class FixtureFileOwnerRecoveryTests(unittest.TestCase):
     def test_unassociated_codec_fixture_requires_all_actual_contexts_drained(
         self,
