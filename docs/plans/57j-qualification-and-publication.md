@@ -556,6 +556,22 @@ rescanning or rehashing admitted program images. Twelve selected native selectio
 controls and four Python routing/measurement-command controls pass. Actual worker and managed
 sixteen-owner reruns remain pending; these local controls do not establish their acceptance.
 
+The dedicated managed retry selected both original identities and reached primary readiness,
+then both workers overflowed a Tokio worker thread before any native entry was recorded. This
+is distinct from the earlier main-thread Streamer construction failure. An exact owned-worker
+debugger capture locates the new fault at protection-acquisition submission through nested
+activity/response-custody wrappers. The debugger detached, the worker and watcher ended, and all
+three failed database resources recovered positive drain while retaining data. The correction
+must preserve inherited authority and drop context without multiplying the inline future state;
+managed execution and the remaining assembled acceptance stay open.
+
+Both inheritance wrappers now retain one inline pinned child and preserve capture-before-spawn,
+scoped poll/destruction, ambient unpolled destruction, absent-context behavior and immediate
+captured-owner release on completion. No new allocation or protection/deadline policy is added.
+Forty-one selected custody, physical-lifetime and actual protection controls pass. The first build
+stopped on two macro-signature spelling errors; the corrected build reported one unnecessary
+qualification, subsequently removed. Current-worker rebuild and actual managed rerun remain next.
+
 ## First control slice implementation checkpoint — 2026-10-28
 
 The async control/import split, typed source-generated requests, issuer-bound commands,

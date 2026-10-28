@@ -1754,3 +1754,189 @@ async fn grpc_malformed_batch_and_unsupported_live_close_generation_without_repl
             .unwrap();
     }
 }
+
+struct ResponseScopeProbe {
+    expected: std::sync::Weak<datafusion_execution::memory_pool::MemoryReservation>,
+    observations: Arc<std::sync::Mutex<Vec<Option<bool>>>>,
+    behavior: u8,
+}
+impl ResponseScopeProbe {
+    fn observe(&self) {
+        let expected = self
+            .expected
+            .upgrade()
+            .expect("original allocation remains retained during child destruction");
+        assert_eq!(expected.size(), 16);
+        let expected = super::ResponseAllocation::from(expected);
+        self.observations
+            .lock()
+            .unwrap()
+            .push(super::current_response_owner().map(|owner| owner.same_owner(&expected)));
+    }
+}
+impl Future for ResponseScopeProbe {
+    type Output = ();
+    fn poll(self: std::pin::Pin<&mut Self>, _: &mut std::task::Context<'_>) -> std::task::Poll<()> {
+        self.observe();
+        match self.behavior {
+            0 => std::task::Poll::Ready(()),
+            1 => std::task::Poll::Pending,
+            _ => panic!("controlled response child poll panic"),
+        }
+    }
+}
+impl Drop for ResponseScopeProbe {
+    fn drop(&mut self) {
+        self.observe();
+    }
+}
+fn response_scope_grant() -> Arc<datafusion_execution::memory_pool::MemoryReservation> {
+    use datafusion_execution::memory_pool::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(16));
+    let grant = MemoryConsumer::new("test:inherited-response").register(&pool);
+    grant.try_grow(16).unwrap();
+    Arc::new(grant)
+}
+
+#[tokio::test]
+async fn inherited_response_captures_original_grant_before_spawn_and_drops_ready_child_in_scope() {
+    let grant = response_scope_grant();
+    let weak = Arc::downgrade(&grant);
+    let observations = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let child = super::RESPONSE_OWNER.sync_scope(grant.into(), || {
+        super::inherit_response_ownership(ResponseScopeProbe {
+            expected: weak.clone(),
+            observations: observations.clone(),
+            behavior: 0,
+        })
+    });
+    assert!(weak.upgrade().is_some());
+    tokio::spawn(child).await.unwrap();
+    assert_eq!(*observations.lock().unwrap(), vec![Some(true), Some(true)]);
+    assert!(
+        weak.upgrade().is_none(),
+        "completed child releases original allocation"
+    );
+    assert!(super::current_response_owner().is_none());
+}
+
+#[test]
+fn inherited_response_pending_repoll_and_cancel_drop_restore_original_grant() {
+    let grant = response_scope_grant();
+    let weak = Arc::downgrade(&grant);
+    let ambient = super::ResponseAllocation::from(response_scope_grant());
+    let observations = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mut child = Box::pin(super::RESPONSE_OWNER.sync_scope(grant.into(), || {
+        super::inherit_response_ownership(ResponseScopeProbe {
+            expected: weak.clone(),
+            observations: observations.clone(),
+            behavior: 1,
+        })
+    }));
+    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+    assert!(child.as_mut().poll(&mut cx).is_pending());
+    super::RESPONSE_OWNER.sync_scope(ambient.clone(), || {
+        assert!(child.as_mut().poll(&mut cx).is_pending());
+        assert!(
+            super::current_response_owner()
+                .unwrap()
+                .same_owner(&ambient)
+        );
+        drop(child);
+        assert!(
+            super::current_response_owner()
+                .unwrap()
+                .same_owner(&ambient)
+        );
+    });
+    assert_eq!(*observations.lock().unwrap(), vec![Some(true); 3]);
+    assert!(weak.upgrade().is_none());
+    assert!(super::current_response_owner().is_none());
+}
+
+#[test]
+fn inherited_response_panic_drop_is_scoped_but_unpolled_and_uncaptured_are_ambient() {
+    let ambient = super::ResponseAllocation::from(response_scope_grant());
+    for (behavior, polled, captured, expected) in [
+        (2, true, true, vec![Some(true), Some(true)]),
+        (1, false, true, vec![Some(false)]),
+        (0, true, false, vec![Some(false), Some(false)]),
+    ] {
+        let grant = response_scope_grant();
+        let weak = Arc::downgrade(&grant);
+        let observations = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let probe = ResponseScopeProbe {
+            expected: weak.clone(),
+            observations: observations.clone(),
+            behavior,
+        };
+        let mut child = Box::pin(if captured {
+            super::RESPONSE_OWNER.sync_scope(grant.clone().into(), || {
+                super::inherit_response_ownership(probe)
+            })
+        } else {
+            super::inherit_response_ownership(probe)
+        });
+        // The uncaptured control keeps its unrelated expected allocation externally.
+        let retained = if captured { None } else { Some(grant.clone()) };
+        drop(grant);
+        super::RESPONSE_OWNER.sync_scope(ambient.clone(), || {
+            if polled {
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+                    child.as_mut().poll(&mut cx)
+                }));
+                assert_eq!(result.is_err(), behavior == 2);
+            }
+            assert!(
+                super::current_response_owner()
+                    .unwrap()
+                    .same_owner(&ambient)
+            );
+            drop(child);
+        });
+        drop(retained);
+        assert_eq!(*observations.lock().unwrap(), expected);
+        assert!(weak.upgrade().is_none());
+    }
+    assert!(super::current_response_owner().is_none());
+}
+
+#[test]
+fn inherited_response_ready_releases_grant_before_completed_wrapper_is_dropped() {
+    let grant = response_scope_grant();
+    let weak = Arc::downgrade(&grant);
+    let observations = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mut child = Box::pin(super::RESPONSE_OWNER.sync_scope(grant.into(), || {
+        super::inherit_response_ownership(ResponseScopeProbe {
+            expected: weak.clone(),
+            observations: observations.clone(),
+            behavior: 0,
+        })
+    }));
+    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+    assert!(child.as_mut().poll(&mut cx).is_ready());
+    assert_eq!(*observations.lock().unwrap(), vec![Some(true), Some(true)]);
+    assert!(weak.upgrade().is_none());
+    assert!(super::current_response_owner().is_none());
+    drop(child);
+    assert_eq!(
+        observations.lock().unwrap().len(),
+        2,
+        "completed child is destroyed exactly once"
+    );
+}
+
+#[test]
+fn inherited_response_retains_one_inline_child_without_async_state_duplication() {
+    let payload = [0_u8; 64 * 1024];
+    let child = async move {
+        std::future::pending::<()>().await;
+        std::hint::black_box(payload)
+    };
+    let bytes = size_of_val(&child);
+    let child = super::inherit_response_ownership(child);
+    assert!(size_of_val(&child) <= bytes + 4 * size_of::<usize>());
+    let child = crate::canonical::inherit_activity(child);
+    assert!(size_of_val(&child) <= bytes + 8 * size_of::<usize>());
+}

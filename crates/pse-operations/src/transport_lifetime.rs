@@ -4,6 +4,7 @@
 //! Caller admission, admitted continuation and the actual client pair's teardown.
 
 use crate::canonical::CanonicalError;
+use std::pin::Pin;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
@@ -104,11 +105,62 @@ impl ConnectionActivity {
 /// task locals; an unrelated caller without an activity acquires no authority here.
 pub fn inherit_activity<F: Future>(future: F) -> impl Future<Output = F::Output> {
     let activity = CONTINUATION.try_with(Clone::clone).ok();
-    async move {
-        match activity {
-            Some(activity) => activity.scope(future).await,
-            None => future.await,
+    InheritedActivity {
+        activity,
+        entered: false,
+        future: Some(future),
+    }
+}
+
+pin_project_lite::pin_project! {
+    // Retain one inline child rather than an async argument plus awaited state.
+    struct InheritedActivity<F> {
+        // Ordinary unpolled destruction also releases the child before its owner.
+        #[pin]
+        future: Option<F>,
+        activity: Option<ConnectionActivity>,
+        entered: bool,
+    }
+
+    impl<F> PinnedDrop for InheritedActivity<F> {
+        fn drop(this: Pin<&mut Self>) {
+            let mut this = this.project();
+            if *this.entered && let Some(activity) = this.activity.as_ref() {
+                activity.sync_scope(|| this.future.set(None));
+            }
+            // Before polling, the old async wrapper had not entered its scope.
         }
+    }
+}
+
+impl<F: Future> Future for InheritedActivity<F> {
+    type Output = F::Output;
+
+    fn poll(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        let mut this = self.project();
+        *this.entered = true;
+        let mut poll = || {
+            let Some(future) = this.future.as_mut().as_pin_mut() else {
+                return std::task::Poll::Pending;
+            };
+            let result = future.poll(cx);
+            if result.is_ready() {
+                this.future.set(None);
+            }
+            result
+        };
+        let result = match this.activity.as_ref() {
+            Some(activity) => activity.sync_scope(poll),
+            None => poll(),
+        };
+        if result.is_ready() {
+            // A completed TaskLocalFuture released its captured value as well.
+            drop(this.activity.take());
+        }
+        result
     }
 }
 
@@ -433,6 +485,184 @@ impl PhysicalLifetime {
 mod tests {
     use super::*;
     use std::sync::atomic::AtomicUsize;
+
+    struct ActivityProbe {
+        expected: ConnectionAccess,
+        observations: Arc<Mutex<Vec<Option<bool>>>>,
+        behavior: u8,
+    }
+    impl Future for ActivityProbe {
+        type Output = ();
+        fn poll(self: Pin<&mut Self>, _: &mut std::task::Context<'_>) -> std::task::Poll<()> {
+            self.observe();
+            match self.behavior {
+                0 => std::task::Poll::Ready(()),
+                1 => std::task::Poll::Pending,
+                _ => panic!("controlled child poll panic"),
+            }
+        }
+    }
+    impl ActivityProbe {
+        fn observe(&self) {
+            self.observations.lock().unwrap().push(
+                CONTINUATION
+                    .try_with(|activity| Arc::ptr_eq(&activity.0.physical, &self.expected.physical))
+                    .ok(),
+            );
+            if CONTINUATION
+                .try_with(|activity| Arc::ptr_eq(&activity.0.physical, &self.expected.physical))
+                .unwrap_or(false)
+            {
+                assert!(
+                    self.expected.admit().is_ok(),
+                    "captured continuation remains real authority"
+                );
+            }
+        }
+    }
+    impl Drop for ActivityProbe {
+        fn drop(&mut self) {
+            self.observe();
+        }
+    }
+
+    #[tokio::test]
+    async fn inherited_activity_captures_before_spawn_and_drops_ready_child_in_scope() {
+        let caller = ConnectionAccess::default();
+        let activity = caller.admit().unwrap();
+        let observations = Arc::new(Mutex::new(Vec::new()));
+        let child = activity.sync_scope(|| {
+            inherit_activity(ActivityProbe {
+                expected: caller.clone(),
+                observations: observations.clone(),
+                behavior: 0,
+            })
+        });
+        caller.close_caller();
+        drop(activity);
+        assert_eq!(caller.physical.state.lock().unwrap().activities, 1);
+        tokio::spawn(child).await.unwrap();
+        assert_eq!(*observations.lock().unwrap(), vec![Some(true), Some(true)]);
+        assert_eq!(caller.physical.state.lock().unwrap().activities, 0);
+        assert!(CONTINUATION.try_with(|_| ()).is_err());
+        assert!(matches!(caller.admit(), Err(CanonicalError::CallerClosed)));
+    }
+
+    #[test]
+    fn inherited_activity_pending_repoll_and_cancel_drop_restore_captured_authority() {
+        let caller = ConnectionAccess::default();
+        let activity = caller.admit().unwrap();
+        let ambient = ConnectionAccess::default().admit().unwrap();
+        let observations = Arc::new(Mutex::new(Vec::new()));
+        let mut child = Box::pin(activity.sync_scope(|| {
+            inherit_activity(ActivityProbe {
+                expected: caller.clone(),
+                observations: observations.clone(),
+                behavior: 1,
+            })
+        }));
+        caller.close_caller();
+        drop(activity);
+        let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+        assert!(child.as_mut().poll(&mut cx).is_pending());
+        ambient.sync_scope(|| {
+            assert!(child.as_mut().poll(&mut cx).is_pending());
+            assert!(
+                CONTINUATION
+                    .try_with(|value| Arc::ptr_eq(&value.0, &ambient.0))
+                    .unwrap()
+            );
+            drop(child);
+            assert!(
+                CONTINUATION
+                    .try_with(|value| Arc::ptr_eq(&value.0, &ambient.0))
+                    .unwrap()
+            );
+        });
+        assert_eq!(*observations.lock().unwrap(), vec![Some(true); 3]);
+        assert_eq!(caller.physical.state.lock().unwrap().activities, 0);
+        assert!(CONTINUATION.try_with(|_| ()).is_err());
+    }
+
+    #[test]
+    fn inherited_activity_panic_drop_is_scoped_but_unpolled_and_uncaptured_are_ambient() {
+        let caller = ConnectionAccess::default();
+        let activity = caller.admit().unwrap();
+        let ambient = ConnectionAccess::default().admit().unwrap();
+        for (behavior, polled, captured, expected) in [
+            (2, true, true, vec![Some(true), Some(true)]),
+            (1, false, true, vec![Some(false)]),
+            (0, true, false, vec![Some(false), Some(false)]),
+        ] {
+            let observations = Arc::new(Mutex::new(Vec::new()));
+            let probe = ActivityProbe {
+                expected: caller.clone(),
+                observations: observations.clone(),
+                behavior,
+            };
+            let mut child = Box::pin(if captured {
+                activity.sync_scope(|| inherit_activity(probe))
+            } else {
+                inherit_activity(probe)
+            });
+            ambient.sync_scope(|| {
+                if polled {
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+                        child.as_mut().poll(&mut cx)
+                    }));
+                    assert_eq!(result.is_err(), behavior == 2);
+                }
+                assert!(
+                    CONTINUATION
+                        .try_with(|value| Arc::ptr_eq(&value.0, &ambient.0))
+                        .unwrap()
+                );
+                drop(child);
+            });
+            assert_eq!(*observations.lock().unwrap(), expected);
+        }
+        assert!(CONTINUATION.try_with(|_| ()).is_err());
+    }
+
+    #[test]
+    fn inherited_activity_ready_releases_authority_before_completed_wrapper_is_dropped() {
+        let caller = ConnectionAccess::default();
+        let activity = caller.admit().unwrap();
+        let observations = Arc::new(Mutex::new(Vec::new()));
+        let mut child = Box::pin(activity.sync_scope(|| {
+            inherit_activity(ActivityProbe {
+                expected: caller.clone(),
+                observations: observations.clone(),
+                behavior: 0,
+            })
+        }));
+        caller.close_caller();
+        drop(activity);
+        let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+        assert!(child.as_mut().poll(&mut cx).is_ready());
+        assert_eq!(*observations.lock().unwrap(), vec![Some(true), Some(true)]);
+        assert_eq!(caller.physical.state.lock().unwrap().activities, 0);
+        assert!(matches!(caller.admit(), Err(CanonicalError::CallerClosed)));
+        assert!(CONTINUATION.try_with(|_| ()).is_err());
+        drop(child);
+        assert_eq!(
+            observations.lock().unwrap().len(),
+            2,
+            "completed child is destroyed exactly once"
+        );
+    }
+
+    #[test]
+    fn inherited_activity_retains_one_inline_child_without_async_state_duplication() {
+        let payload = [0_u8; 64 * 1024];
+        let child = async move {
+            std::future::pending::<()>().await;
+            std::hint::black_box(payload)
+        };
+        let bytes = size_of_val(&child);
+        assert!(size_of_val(&inherit_activity(child)) <= bytes + 4 * size_of::<usize>());
+    }
 
     #[tokio::test]
     async fn caller_aliases_close_together_but_continuation_and_independent_caller_survive() {

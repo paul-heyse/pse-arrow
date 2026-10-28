@@ -8,6 +8,7 @@ use crate::transport::client::{Client, RequestContext, ResponseAllocation, Retai
 pub(crate) use crate::transport::{operation_scope, original_deadline, within_clock};
 use std::{
     borrow::Cow,
+    pin::Pin,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -100,11 +101,63 @@ pub(crate) fn current_response_owner() -> Option<ResponseAllocation> {
 
 pub(crate) fn inherit_response_ownership<F: Future>(future: F) -> impl Future<Output = F::Output> {
     let owner = RESPONSE_OWNER.try_with(Clone::clone).ok();
-    async move {
-        match owner {
-            Some(owner) => RESPONSE_OWNER.scope(owner, future).await,
-            None => future.await,
+    InheritedResponseOwnership {
+        owner,
+        entered: false,
+        future: Some(future),
+    }
+}
+
+pin_project_lite::pin_project! {
+    // Retain the original actual reservation and one inline child. No new grant
+    // or async argument/await-state copy is introduced while crossing spawn.
+    struct InheritedResponseOwnership<F> {
+        // Ordinary unpolled destruction also releases the child before its owner.
+        #[pin]
+        future: Option<F>,
+        owner: Option<ResponseAllocation>,
+        entered: bool,
+    }
+
+    impl<F> PinnedDrop for InheritedResponseOwnership<F> {
+        fn drop(this: Pin<&mut Self>) {
+            let mut this = this.project();
+            if *this.entered && let Some(owner) = this.owner.as_ref() {
+                RESPONSE_OWNER.sync_scope(owner.clone(), || this.future.set(None));
+            }
+            // Unpolled children still drop in the ambient submitting context.
         }
+    }
+}
+
+impl<F: Future> Future for InheritedResponseOwnership<F> {
+    type Output = F::Output;
+
+    fn poll(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        let mut this = self.project();
+        *this.entered = true;
+        let mut poll = || {
+            let Some(future) = this.future.as_mut().as_pin_mut() else {
+                return std::task::Poll::Pending;
+            };
+            let result = future.poll(cx);
+            if result.is_ready() {
+                this.future.set(None);
+            }
+            result
+        };
+        let result = match this.owner.as_ref() {
+            Some(owner) => RESPONSE_OWNER.sync_scope(owner.clone(), poll),
+            None => poll(),
+        };
+        if result.is_ready() {
+            // A completed TaskLocalFuture released its captured value as well.
+            drop(this.owner.take());
+        }
+        result
     }
 }
 
