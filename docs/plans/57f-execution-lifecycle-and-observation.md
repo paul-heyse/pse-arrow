@@ -347,3 +347,12 @@ joins actual exit, and nested streams retain the original gate through body cons
 The distinct metadata/payload reservation control passes without merging the two grants.
 Actual CPython and canonical/native assembled journeys remain pending; no replaced wrapper or
 compatibility implementation was retained to supply this evidence.
+
+
+The actual correctness-extension signal controls now pass: capture and command waits preserve
+the original exception/cause and their different stop policies, and the direct CPython pending
+flag refuses a native stream pull before consumption. Both local generated-design cases also
+pass. The first Python attempt stopped before collection on a root-owned shared temporary path;
+a private run directory avoids that unrelated path. Two fixture failures then correctly refused
+missing spill directories; creating those owned directories repaired the fixtures without changing
+production admission. Canonical issued-effect/recovery and taskdump journeys remain pending.

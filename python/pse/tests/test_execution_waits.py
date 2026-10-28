@@ -39,6 +39,7 @@ if mode == "capture":
     from pse.tests.test_diagnostics import observed_runtime
     from pse.contracts import documents
     from pse.contracts.enums import CaptureKind
+    (Path(output) / "spill").mkdir()
     settings = pse.EngineSettings(
         memory_limit_bytes=64 << 30, threads=2, target_partitions=1,
         spill_dir=str(Path(output) / "spill"), max_spill_bytes=1 << 30, batch_size=7,
@@ -221,6 +222,7 @@ try:
         raise AssertionError("pending C signal was not delivered")
     assert control.probe_count() == 1
     assert control.last_error() is False
+    (Path(sys.argv[1]) / "spill").mkdir()
     settings = pse.EngineSettings(
         memory_limit_bytes=64 << 30, threads=2, target_partitions=1,
         spill_dir=str(Path(sys.argv[1]) / "spill"),
