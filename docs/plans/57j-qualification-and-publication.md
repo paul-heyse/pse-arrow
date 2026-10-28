@@ -660,3 +660,13 @@ Both paths now consume that contract through one shared factor; three targeted p
 default and explicit-override controls pass. The reference profile remains valid and host
 CPU/job policy is unchanged. Current worker products and the original selected cancellation
 case must establish whether this also resolves the observed permit exhaustion.
+
+The corrected-width retry still failed before assignment (0 passed, 1 failed, 9 excluded);
+its independent fixture also stopped and drained. It exposed another admission mismatch:
+one internally issued cold artifact batch used CPU/flight width without the declared native
+job population. That collector now respects all three allowances while preserving inherited
+one-owner preparation and immediate cache hits. Three selected construction/borrow/drain
+controls pass, including six distinct real products with two native jobs and a saturated
+population cache-hit witness. This bounds one internal batch; it adds no queue/retry policy
+or claim that concurrent independent cold batches cannot refuse. The original worker and
+retained-data component still require current-artifact acceptance.

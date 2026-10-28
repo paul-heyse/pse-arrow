@@ -231,11 +231,15 @@ impl MathService {
         // A resident session lends one exclusive population owner to its
         // dependent preparation. Issuing concurrent cold producers under that
         // same loan would refuse before admission; top-level independent
-        // preparation retains the ordinary bounded parallel width.
+        // preparation also respects the declared pending native population.
+        // Ready cache hits return before admission and do not wait for a ticket.
         if super::PopulationScope::capture().belongs_to(self) {
             1
         } else {
-            self.cores.min(self.policy.flights).max(1)
+            self.cores
+                .min(self.policy.flights)
+                .min(self.policy.jobs)
+                .max(1)
         }
     }
     async fn artifact_until(
@@ -550,6 +554,110 @@ impl CacheComponent for MathService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test(flavor = "current_thread")]
+    async fn cold_artifact_batch_respects_population_and_hot_hits_need_no_ticket() {
+        use futures_util::FutureExt;
+        let pool: Arc<dyn datafusion::execution::memory_pool::MemoryPool> = Arc::new(
+            datafusion::execution::memory_pool::FairSpillPool::new(512 << 20),
+        );
+        let native = pse_engine::cache_service::NativeCacheService::new(
+            pse_engine::cache_service::CacheBudget::disabled(1024),
+            &pool,
+        )
+        .unwrap();
+        let policy = super::super::MathPolicy {
+            jobs: 2,
+            foreign_bytes: 1 << 20,
+            worker_bytes: 16 << 20,
+            workspace_bytes: 32 << 20,
+            artifact_bytes: 64 << 20,
+            ..Default::default()
+        };
+        let service = MathService::new(
+            pool,
+            Arc::new(pse_engine::resources::ReleaseNotifyingSemaphore::new(8)),
+            8,
+            policy,
+            &native,
+        );
+        let mut preparations = Vec::new();
+        let mut requests = Vec::new();
+        for index in 0..6 {
+            let source = format!(
+                "package p {{def Root {{param p:Scalar=1;var x:Scalar;eq a:x*p=={};annotation start x(1);}}}}",
+                index + 1
+            );
+            let (preparation, _, _) =
+                super::super::tests::component_fixture_source(&service, &source);
+            requests.push(preparation.compiled().artifacts[0].clone());
+            preparations.push(preparation);
+        }
+        let unique = requests
+            .iter()
+            .map(|request| request.key())
+            .collect::<std::collections::BTreeSet<_>>();
+        assert!(
+            unique.len() > service.policy.jobs,
+            "the batch must contain distinct cold products beyond its population"
+        );
+        assert_eq!(service.entries.len(), 0);
+        let cpu = service.cpu.clone().acquire_many_owned(8).await.unwrap();
+        let driver = crate::CancelSource::new();
+        let child = driver.clone();
+        let worker = service.clone();
+        let selected = requests.clone();
+        let constructing =
+            tokio::spawn(async move { worker.prepare_artifacts(selected.iter(), &child).await });
+        let observed = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while service.jobs.available_permits() != 0 && !constructing.is_finished() {
+                tokio::task::yield_now().await;
+            }
+            // Allow every initially issued producer to reach admission while all
+            // CPU permits remain held. An over-wide cold batch fails here.
+            for _ in 0..8 {
+                tokio::task::yield_now().await;
+            }
+            !constructing.is_finished()
+                && service.jobs.available_permits() == 0
+                && service.flights.active() == service.policy.jobs
+        })
+        .await
+        .unwrap_or(false);
+        if !observed {
+            driver.cancel();
+        }
+        // Always release the gate and join issued producers before asserting,
+        // including when the former over-wide implementation returns an error.
+        drop(cpu);
+        let products = constructing.await.unwrap();
+        assert!(
+            observed,
+            "actual pending cold producers must fit the native population"
+        );
+        let products = products.unwrap();
+        assert_eq!(products.len(), requests.len());
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        let sessions = (0..service.policy.jobs)
+            .map(|_| service.open_session().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(service.jobs.available_permits(), 0);
+        let cached = service
+            .prepare_artifacts(requests.iter(), &crate::CancelSource::new())
+            .now_or_never();
+        for session in sessions {
+            session.close().await;
+        }
+        let cached = cached
+            .expect("ready cache hits do not await native population")
+            .unwrap();
+        assert!(
+            products
+                .iter()
+                .zip(cached.iter())
+                .all(|(cold, hot)| Arc::ptr_eq(cold, hot))
+        );
+    }
+
     #[tokio::test(flavor = "current_thread")]
     async fn large_rational_scalar_foreign_capacity_survives_eviction_until_last_worker() {
         let (service, _cache) = super::super::tests::service_with_policy(

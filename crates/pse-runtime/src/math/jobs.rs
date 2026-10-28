@@ -1904,7 +1904,11 @@ mod construction_tests {
             .unwrap();
         assert_eq!(
             service.artifact_width(),
-            service.cores.min(service.policy.flights).max(1)
+            service
+                .cores
+                .min(service.policy.flights)
+                .min(service.policy.jobs)
+                .max(1)
         );
         let borrowed = service.clone();
         let answer = sessions[0]

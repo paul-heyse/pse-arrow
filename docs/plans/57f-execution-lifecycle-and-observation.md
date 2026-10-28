@@ -413,3 +413,11 @@ publication ownership. Explicit bounded overrides remain available; workstation 
 memory policy is unchanged. Three selected profile/width/override controls pass. Plan57j owns
 the original worker retry and retained-data handoff; these controls do not complete F or the
 paused broader D–F campaign.
+
+The retry showed a second independent preparation issue: top-level artifact batches used
+CPU/flight concurrency without their native-job allowance. The existing collector now also
+respects that population, with no new queue, retry or global cache-flight limit. Three
+targeted real-product/borrow/drain controls pass, including cold products beyond the job
+count and cache delivery under occupied resident tickets. Independent competing batches
+retain existing admission/refusal semantics. J's original worker case remains the required
+joined confirmation; broader mixed-study and sixteen-owner acceptance stays paused.
