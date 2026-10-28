@@ -423,3 +423,13 @@ runtime request-span export have passing bounded evidence. Generation and format
 and its actual compiled API stubs have been produced and admitted; environment readiness passes. The first formatter attempt exposed whitespace left
 by removed query-builder calls; those lines were corrected. Assembled canonical and actual
 interpreter journeys, scope-end hygiene/manual checks and enduring publication remain open.
+
+
+Two native operator attempts exposed an independent host condition: systemd failed to install
+inotify watches, leaving already-empty scopes active until the original drain clock refused.
+The first attempt also had three fixture compile errors; the corrected Cargo build completed,
+but both outer attempts returned 125. Original scope identities/inodes subsequently prove ended
+kernel lifetimes and their allocation charges are absent. Raising runtime watches from 524288 to
+1048576 repaired the documented watch-exhaustion condition; an identical fresh native probe now
+settles normally. Instances remain 1024, original timeouts/drain checks are unchanged, and no
+unrelated process or store was touched. These observations do not rewrite either failed attempt.

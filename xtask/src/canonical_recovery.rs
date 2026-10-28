@@ -180,13 +180,12 @@ pub(crate) async fn seed_backup_scale(state: &Path) -> Result<BackupScaleReceipt
     for ordinal in 0..BACKUP_SCALE_BYTES / BACKUP_SCALE_BODY_BYTES as u64 {
         // Renew the original still-live fence. This API refuses expiry or cancellation.
         store.renew_attempt(&fence, lifetime).await?;
-        let owner = Arc::new(
-            pse_columnar::MemoryConsumer::new("control:backup-scale-body").register(&pool),
-        );
+        let owner = pse_columnar::MemoryConsumer::new("control:backup-scale-body").register(&pool);
         owner.try_grow(
             2 * BACKUP_SCALE_BODY_BYTES
                 + pse_operations::canonical_execution::EXECUTION_METADATA_BYTES,
         )?;
+        let owner = pse_columnar::AllocationLease::new(owner);
         let payload = ResultPayload::new_owned(
             vec![backup_scale_byte(ordinal); BACKUP_SCALE_BODY_BYTES],
             owner,
@@ -203,12 +202,12 @@ pub(crate) async fn seed_backup_scale(state: &Path) -> Result<BackupScaleReceipt
             .await?;
     }
     store.renew_attempt(&fence, lifetime).await?;
-    let owner =
-        Arc::new(pse_columnar::MemoryConsumer::new("control:backup-scale-inline").register(&pool));
+    let owner = pse_columnar::MemoryConsumer::new("control:backup-scale-inline").register(&pool);
     owner.try_grow(
         2 * BACKUP_SCALE_INLINE.len()
             + pse_operations::canonical_execution::EXECUTION_METADATA_BYTES,
     )?;
+    let owner = pse_columnar::AllocationLease::new(owner);
     store
         .append_result_batch(
             &fence,
@@ -912,10 +911,9 @@ pub(crate) async fn seed_signal_results(state: &Path) -> Result<serde_json::Valu
     let set = result_set_key(fence.attempt(), &name);
     let mut files = Vec::new();
     for ordinal in 0..2_u64 {
-        let owner = Arc::new(
-            pse_columnar::MemoryConsumer::new("control:signal-result-file").register(&pool),
-        );
+        let owner = pse_columnar::MemoryConsumer::new("control:signal-result-file").register(&pool);
         owner.try_grow(4 * pse_operations::canonical_files::FILE_BYTES)?;
+        let owner = pse_columnar::AllocationLease::new(owner);
         let mut builder = solve_metrics::Builder::with_registry(&registry, 1, &validation)?;
         builder.push(solve_metrics::Row {
             run_id,

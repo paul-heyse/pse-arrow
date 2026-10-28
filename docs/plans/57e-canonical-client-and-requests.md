@@ -383,3 +383,12 @@ output-owner refusal and logical-codec-identity controls also pass. SDK trees, t
 deltas, obsolete reconstruction exceptions and license annotations have been retired together;
 current developer routes point to the canonical owner. Historical review inputs remain in Git.
 Actual canonical application/worker/xtask journeys and current Python acceptance remain pending.
+
+
+Scope-end consumer preparation found three recovery-fixture constructors still passing the old
+reservation carrier. They now consume the same charged reservation into the existing typed
+allocation lease, preserving its original extent and sealed-file custody. Current module
+preparation also exposed native RPC features reaching the workspace-unified WASI value closure.
+RPC activation now lives on the native operations dependency edge; the actual production WASI
+module builds again, without changing workspace unification or module capabilities. Native
+operators and selected application journeys require the current post-correction build.

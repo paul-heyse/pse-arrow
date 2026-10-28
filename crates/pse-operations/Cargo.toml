@@ -72,13 +72,17 @@ http-body-util.workspace = true
 futures-util.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true
-tonic.workspace = true
 tower-service.workspace = true
 surrealdb-types.workspace = true
-surrealdb-protocol.workspace = true
 opentelemetry.workspace = true
 opentelemetry_sdk.workspace = true
 tracing-opentelemetry.workspace = true
+
+# Native RPC transport must not activate sockets in the workspace-unified WASI
+# study module's shared protocol/value closure.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+tonic.workspace = true
+surrealdb-protocol = { workspace = true, features = ["rpc"] }
 
 [dev-dependencies]
 tracing-subscriber.workspace = true
