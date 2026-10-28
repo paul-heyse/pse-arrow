@@ -1093,10 +1093,136 @@ pub(crate) fn inherit_runtime_activity<F: Future>(future: F) -> impl Future<Outp
         None => futures_util::future::Either::Right(context.instrument(future)),
     }
 }
+
+// Drop the actual boxed state before its grant, including unpolled or completed work.
+pub(crate) struct PrepaidRuntimeActivity<T> {
+    future: futures_util::future::BoxFuture<'static, T>,
+    _owner: Arc<pse_columnar::AllocationLease>,
+    _retained: Option<Arc<pse_columnar::AllocationLease>>,
+}
+impl<T> std::fmt::Debug for PrepaidRuntimeActivity<T> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PrepaidRuntimeActivity")
+            .finish_non_exhaustive()
+    }
+}
+impl<T> Future for PrepaidRuntimeActivity<T> {
+    type Output = T;
+    fn poll(
+        self: std::pin::Pin<&mut Self>,
+        context: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<T> {
+        worker::poll_worker_action(self.get_mut().future.as_mut(), context)
+    }
+}
+
+/// Prepay state before construction, then inherit runtime activity through a thin handle.
+#[inline(never)]
+pub(crate) fn prepaid_runtime_activity<F, Fut>(
+    pool: &Arc<dyn datafusion::execution::memory_pool::MemoryPool>,
+    retained: Option<Arc<pse_columnar::AllocationLease>>,
+    factory: F,
+) -> Result<PrepaidRuntimeActivity<Fut::Output>, EngineError>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future + Send + 'static,
+    Fut::Output: Send + 'static,
+{
+    let reservation =
+        datafusion::execution::memory_pool::MemoryConsumer::new("runtime:inherited-future")
+            .register(pool);
+    reservation
+        .try_grow(size_of::<Fut>())
+        .map_err(EngineError::from)?;
+    // A large inline future must not travel through each generic scope wrapper.
+    let future = inherit_runtime_activity(worker::boxed_worker_action(factory));
+    reservation
+        .try_grow(size_of_val(&future))
+        .map_err(EngineError::from)?;
+    Ok(PrepaidRuntimeActivity {
+        future: Box::pin(future),
+        _owner: pse_columnar::AllocationLease::new(reservation),
+        _retained: retained,
+    })
+}
 #[cfg(test)]
 mod local_caller_tests {
     use super::*;
     use std::time::Duration;
+
+    #[test]
+    fn prepaid_inherited_future_refuses_before_factory_construction() {
+        let pool: Arc<dyn datafusion::execution::memory_pool::MemoryPool> =
+            Arc::new(datafusion::execution::memory_pool::GreedyMemoryPool::new(1));
+        let constructed = std::sync::atomic::AtomicBool::new(false);
+        let payload = [0u8; 64 * 1024];
+        let result = prepaid_runtime_activity(&pool, None, || {
+            constructed.store(true, std::sync::atomic::Ordering::Release);
+            async move { std::hint::black_box(payload) }
+        });
+        assert!(result.is_err());
+        assert!(!constructed.load(std::sync::atomic::Ordering::Acquire));
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn prepaid_inherited_future_retains_grant_through_ready_and_child_destruction() {
+        struct Witness {
+            pool: Arc<dyn datafusion::execution::memory_pool::MemoryPool>,
+            retained: std::sync::Weak<pse_columnar::AllocationLease>,
+            destroyed: Arc<std::sync::atomic::AtomicBool>,
+        }
+        impl Drop for Witness {
+            fn drop(&mut self) {
+                assert!(self.pool.reserved() >= 64 * 1024);
+                assert!(self.retained.upgrade().is_some());
+                self.destroyed
+                    .store(true, std::sync::atomic::Ordering::Release);
+            }
+        }
+        for (poll, ready) in [(false, false), (true, false), (true, true)] {
+            let pool: Arc<dyn datafusion::execution::memory_pool::MemoryPool> = Arc::new(
+                datafusion::execution::memory_pool::GreedyMemoryPool::new(1 << 20),
+            );
+            let destroyed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let reservation = datafusion::execution::memory_pool::MemoryConsumer::new(
+                "retained producer storage",
+            )
+            .register(&pool);
+            reservation.try_grow(8192).unwrap();
+            let retained = pse_columnar::AllocationLease::new(reservation);
+            let retained_witness = Arc::downgrade(&retained);
+            let witness = Witness {
+                pool: pool.clone(),
+                retained: retained_witness.clone(),
+                destroyed: destroyed.clone(),
+            };
+            let payload = [0u8; 64 * 1024];
+            let mut future = prepaid_runtime_activity(&pool, Some(retained), move || async move {
+                if !ready {
+                    std::future::pending::<()>().await;
+                }
+                std::hint::black_box(payload);
+                drop(witness);
+                7
+            })
+            .unwrap();
+            assert!(pool.reserved() >= 64 * 1024);
+            if poll {
+                let mut context = std::task::Context::from_waker(std::task::Waker::noop());
+                let result = std::pin::Pin::new(&mut future).poll(&mut context);
+                assert_eq!(result.is_ready(), ready);
+            }
+            assert_eq!(destroyed.load(std::sync::atomic::Ordering::Acquire), ready);
+            assert!(pool.reserved() >= 64 * 1024);
+            drop(future);
+            assert!(destroyed.load(std::sync::atomic::Ordering::Acquire));
+            assert_eq!(pool.reserved(), 0);
+            assert!(retained_witness.upgrade().is_none());
+        }
+    }
+
     #[test]
     fn fixture_snapshot_refuses_open_or_active_callers_and_allows_closed_empty() {
         let runtime = tests::runtime();
@@ -1141,9 +1267,12 @@ mod local_caller_tests {
                     reason = "construct under the lane context, then poll after leaving it to test captured inheritance"
                 )]
                 let inherited = crate::observation::scope(Some(lane.context()), async {
-                    inherit_runtime_activity(async {
+                    let pool: Arc<dyn datafusion::execution::memory_pool::MemoryPool> = Arc::new(
+                        datafusion::execution::memory_pool::GreedyMemoryPool::new(1 << 20),
+                    );
+                    prepaid_runtime_activity(&pool, None, || async {
                         pse_diagnostics::observation::current().unwrap().id()
-                    })
+                    }).unwrap()
                 })
                 .await;
                 assert_eq!(

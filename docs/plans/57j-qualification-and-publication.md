@@ -472,10 +472,26 @@ checks. Remaining native, worker, development-store and Python journeys, and sco
 still pending. The full feature-matrix/no-default campaign remains deferred to series end.
 
 Twenty selected linked runtime cases now pass, including the portable-body fixture migrations,
-actual fresh-client reconstruction, cancellation/heartbeat settlement and both managed
-sixteen-owner study controls. The two explicit worker journeys then failed before scientific
+actual fresh-client reconstruction and cancellation/heartbeat settlement. The default Nextest
+filter excluded both managed-primary sixteen-owner cases; the earlier checkpoint overstated
+that coverage. A separate ordinary selection of those two identities refused before execution
+because its filtered selection was empty. They require the dedicated managed-primary observer
+route and remain unqualified. The two explicit worker journeys then failed before scientific
 launch: receiver status looked for storage-owned process metadata inside the receiver directory.
 The bounded projection fix reads that record through the authenticated storage owner while
 retaining receiver-local slots/resources/placement; its filesystem-backed regression passes.
 Both failed worker resources are drained and their data remains retained. Actual worker rerun,
 development-store/Python/trace acceptance and scope-end checks remain open.
+
+Receiver status now passes in the actual worker route, exposing a separate main-stack overflow.
+A bounded debugger attached only to a fresh, authenticated owned worker and caught construction
+of the progress Streamer future through `inherit_runtime_activity`; it detached and the original
+worker was reaped. This was a diagnostic failure, not acceptance. The correction retains original
+task/activity ownership and prepays future storage before constructing its boxed body, so generic
+wrappers receive a thin handle. Original stack settings, progress/refusal/flush policies and
+renewal timing remain unchanged. Ten focused storage-custody, inherited-context, refusal, dirty-writer
+and terminal-flush controls pass. Three unnecessary type qualifications were then simplified;
+the pure allocation-helper rebuild completes without diagnostics. The dedicated managed-primary
+route initially refused before effects because integration had relinked that helper with native
+libraries; its separate pure build restores the required bootstrap artifact. Actual original
+worker and dedicated managed-primary acceptance remain open; no enclosing D–F completion is claimed.

@@ -2792,50 +2792,58 @@ impl Streamer {
         let writer_gate = export_gate.clone();
         let writer_acknowledgments = acknowledgments.clone();
         let writer_fence = fence.clone();
-        let task = tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
-            let fence = writer_fence;
-            while fence.get().is_none() {
-                tokio::select! {_=signal.notified()=>{},event=receiver.recv()=>{if event.is_some(){return Err(super::ProgressWriteStage::Claim {});}return Ok(());}}
-            }
-            let fence = fence
-                .get()
-                .ok_or(super::ProgressWriteStage::Claim {})?
-                .clone();
-            let mut ordinal = 0_u64;
-            while let Some(event) = receiver.recv().await {
-                let mut events = Vec::with_capacity(capacity);
-                events.push(event);
-                let deadline = std::time::Instant::now()
-                    .checked_add(operations.policy.flush)
-                    .ok_or(super::ProgressWriteStage::Encoding {})?;
-                while events.len() < capacity {
-                    let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-                    let limit = capacity - events.len();
-                    match tokio::time::timeout(remaining, receiver.recv_many(&mut events, limit))
-                        .await
-                    {
-                        Ok(0) | Err(_) => break,
-                        Ok(_) => {}
-                    }
+        let writer_pool = operations.pool.clone();
+        let writer = crate::workflow::prepaid_runtime_activity(
+            &writer_pool,
+            tap._memory.clone(),
+            move || async move {
+                let fence = writer_fence;
+                while fence.get().is_none() {
+                    tokio::select! {_=signal.notified()=>{},event=receiver.recv()=>{if event.is_some(){return Err(super::ProgressWriteStage::Claim {});}return Ok(());}}
                 }
-                let mut ranges = std::collections::VecDeque::from([(0, events.len())]);
-                while let Some((start, end)) = ranges.pop_front() {
-                    let mut bytes = Vec::new();
-                    bytes
-                        .try_reserve_exact(
-                            capacity
-                                .saturating_mul(PROGRESS_EVENT_BYTES)
-                                .min(RESULT_BATCH_BYTES),
+                let fence = fence
+                    .get()
+                    .ok_or(super::ProgressWriteStage::Claim {})?
+                    .clone();
+                let mut ordinal = 0_u64;
+                while let Some(event) = receiver.recv().await {
+                    let mut events = Vec::with_capacity(capacity);
+                    events.push(event);
+                    let deadline = std::time::Instant::now()
+                        .checked_add(operations.policy.flush)
+                        .ok_or(super::ProgressWriteStage::Encoding {})?;
+                    while events.len() < capacity {
+                        let remaining =
+                            deadline.saturating_duration_since(std::time::Instant::now());
+                        let limit = capacity - events.len();
+                        match tokio::time::timeout(
+                            remaining,
+                            receiver.recv_many(&mut events, limit),
                         )
-                        .map_err(|_| super::ProgressWriteStage::Allocation {})?;
-                    let mut output = pse_ids::BoundedSink::new(bytes, RESULT_BATCH_BYTES);
-                    match serde_json::to_writer(&mut output, &events[start..end]) {
-                        Ok(()) => {
-                            #[cfg(all(test, feature = "canonical-tests"))]
-                            FinishExportGate::at(&writer_gate, FinishExportPhase::Progress)
-                                .await
-                                .map_err(|_| super::ProgressWriteStage::Publication {})?;
-                            let acknowledged = operations
+                        .await
+                        {
+                            Ok(0) | Err(_) => break,
+                            Ok(_) => {}
+                        }
+                    }
+                    let mut ranges = std::collections::VecDeque::from([(0, events.len())]);
+                    while let Some((start, end)) = ranges.pop_front() {
+                        let mut bytes = Vec::new();
+                        bytes
+                            .try_reserve_exact(
+                                capacity
+                                    .saturating_mul(PROGRESS_EVENT_BYTES)
+                                    .min(RESULT_BATCH_BYTES),
+                            )
+                            .map_err(|_| super::ProgressWriteStage::Allocation {})?;
+                        let mut output = pse_ids::BoundedSink::new(bytes, RESULT_BATCH_BYTES);
+                        match serde_json::to_writer(&mut output, &events[start..end]) {
+                            Ok(()) => {
+                                #[cfg(all(test, feature = "canonical-tests"))]
+                                FinishExportGate::at(&writer_gate, FinishExportPhase::Progress)
+                                    .await
+                                    .map_err(|_| super::ProgressWriteStage::Publication {})?;
+                                let acknowledged = operations
                                 .store
                                 .append_result_batch(
                                     &fence,
@@ -2854,42 +2862,56 @@ impl Streamer {
                                 )
                                 .await
                                 .map_err(|_| super::ProgressWriteStage::CanonicalAppend {})?;
-                            if acknowledged.row_count != (end - start) as u64 {
-                                return Err(super::ProgressWriteStage::Acknowledgment {});
+                                if acknowledged.row_count != (end - start) as u64 {
+                                    return Err(super::ProgressWriteStage::Acknowledgment {});
+                                }
+                                let rows = acknowledged.row_count;
+                                writer_acknowledgments
+                                    .append(&fence, acknowledged)
+                                    .map_err(|_| super::ProgressWriteStage::Acknowledgment {})?;
+                                let _ = writer_tap.count(&writer_tap.acknowledged, rows);
+                                ordinal = ordinal
+                                    .checked_add(1)
+                                    .ok_or(super::ProgressWriteStage::Acknowledgment {})?;
                             }
-                            let rows = acknowledged.row_count;
-                            writer_acknowledgments
-                                .append(&fence, acknowledged)
-                                .map_err(|_| super::ProgressWriteStage::Acknowledgment {})?;
-                            let _ = writer_tap.count(&writer_tap.acknowledged, rows);
-                            ordinal = ordinal
-                                .checked_add(1)
-                                .ok_or(super::ProgressWriteStage::Acknowledgment {})?;
+                            Err(ref error)
+                                if matches!(
+                                    pse_ids::sink_failure(error),
+                                    Some(pse_ids::SinkFailure::LimitReached { .. })
+                                ) && end - start > 1 =>
+                            {
+                                let middle = start + (end - start) / 2;
+                                ranges.push_front((middle, end));
+                                ranges.push_front((start, middle));
+                            }
+                            Err(ref error)
+                                if matches!(
+                                    pse_ids::sink_failure(error),
+                                    Some(pse_ids::SinkFailure::LimitReached { .. })
+                                ) =>
+                            {
+                                return Err(super::ProgressWriteStage::Encoding {});
+                            }
+                            Err(_) => return Err(super::ProgressWriteStage::Encoding {}),
                         }
-                        Err(ref error)
-                            if matches!(
-                                pse_ids::sink_failure(error),
-                                Some(pse_ids::SinkFailure::LimitReached { .. })
-                            ) && end - start > 1 =>
-                        {
-                            let middle = start + (end - start) / 2;
-                            ranges.push_front((middle, end));
-                            ranges.push_front((start, middle));
-                        }
-                        Err(ref error)
-                            if matches!(
-                                pse_ids::sink_failure(error),
-                                Some(pse_ids::SinkFailure::LimitReached { .. })
-                            ) =>
-                        {
-                            return Err(super::ProgressWriteStage::Encoding {});
-                        }
-                        Err(_) => return Err(super::ProgressWriteStage::Encoding {}),
                     }
                 }
-            }
-            Ok(())
-        }));
+                Ok(())
+            },
+        );
+        let Ok(writer) = writer else {
+            return Self {
+                tap: Arc::new(Tap::new(None, None)),
+                ready,
+                task: None,
+                outcome: super::ProgressWriterOutcome::MemoryRefused,
+                acknowledgments,
+                fence,
+                #[cfg(all(test, feature = "canonical-tests"))]
+                export_gate,
+            };
+        };
+        let task = tokio::spawn(writer);
         Self {
             tap,
             ready,
