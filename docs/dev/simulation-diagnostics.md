@@ -18,7 +18,7 @@ source surface; they do not establish assembled or all-context qualification.
 Optional shared telemetry adds coarse owner spans and selected typed diagnostic logs through
 the [native Collector/OpenObserve service](agent-environment.md#optional-native-telemetry).
 Ordinary Rust export selects spans with the exact `pse.owner.stage` metadata field and the
-exact `pse.canonical.request` span at `pse_operations::canonical_client::owned`. A matching
+exact `pse.canonical.request` span at `pse_operations::transport::client::owned`. A matching
 name prefix does not export arbitrary inner spans or events. Explicit finite capture retains
 its separate inner-event scope, bounds and loss accounting; ordinary telemetry does not
 replace that evidence.

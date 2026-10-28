@@ -163,7 +163,7 @@ retain unavailable, unsupported, lost, sampled, expired and unknown observations
 Owner-keyed metric instruments retain declared population, unit, monotonicity and histogram bucket
 meaning through producer, schema and query. Gauge-rate and non-histogram percentile questions,
 invalid buckets and unsupported native exemplars refuse before querying. Ordinary span export
-selects the explicit `pse.owner.stage` marker and exact SDK request span; finite inner capture is
+selects the explicit `pse.owner.stage` marker and exact canonical request span; finite inner capture is
 separate. Rust SDK 0.33.1 internal diagnostics expose first-drop observation during processor life
 and a cumulative drop count at the SDK shutdown attempt, before its control-send/wait. That count
 does not establish successful shutdown, queue drain, export or ingestion. Failed shutdown remains
@@ -183,6 +183,33 @@ executor census. Queue depth excludes worker-local queues, worker busy time is n
 and nested future poll/idle durations are not exclusive execution intervals. Executor exports are
 gauges over the current registered population; selected-future counters are process cumulative.
 Absent or refused observation sources are not zero work or failed scientific admission.
+
+Copied `ExecutionContext` transfers observation, invocation recorder, tracing dispatcher/span,
+W3C parent and available runtime handle across task/thread boundaries. It grants no execution,
+connection, byte, population, deadline or cancellation authority. Continuations retain their
+context; nested operations derive explicit children. Independent shared producers use a linked
+relationship without borrowing the first waiter's recorder or scientific lifetime. Absent
+attribution remains absent. An owner classifies completion; entering attribution alone cannot
+report scientific success.
+
+Owner-typed lifecycle boundaries feed the observation hub, operational counts, optional tracing
+and bounded invocation recorder independently. Job, native-session, Python-pull and window-team
+populations remain distinct: observing a session or pull cannot increment native-job counts.
+Sampling or absent subscribers does not remove owner state, and unavailable observation is not
+zero work. Fine boundaries do not consume the recorder's 64 interval slots; only declared
+intervals such as actual inclusive native-worker execution do, with its existing name bound.
+These intervals are not exclusive CPU measurements.
+
+Dedicated native jobs and sessions retain one OS-thread join owner through success, stop and
+panic, including TLS/foreign destruction before the owner's joined notification. Caller-future
+drop leaves the supervisor/join running. Neutral stop reasons carry cancellation/deadline intent
+without depending on Tokio. Abandon-safe readiness races prefer an already-ready stop; issued
+work drains the same retained future under its independent supervisor. Renewal uses the admitted
+heartbeat with skipped missed ticks: durable execution preserves its immediate first renewal,
+while a newly admitted study first renews after one heartbeat. Stop joins an in-flight renewal;
+a renewal failure requests stop without proving scientific completion or releasing authority.
+The neutral shared-flight and I/O-gate owners remain; the unused engine-specific flight wrapper
+is removed. Sharing a producer never transfers a waiter's connection or allocation grant.
 
 Native operational, preparation/reuse and canonical-query populations come from their performing
 owners, including attempts/admissions/dispatch/join, shared producers/waiters, retained reuse and
@@ -218,11 +245,13 @@ original-generation recovery and existing retention/credentials preserved. Colle
 and actual database OTLP metrics share the selected pipeline; database launch identity distinguishes
 restart incarnations. Native OSS scheduled watches observe selected queue/export/storage conditions,
 with local delivery/history and explicit missing/stale/disabled states. Reads neither start services
-nor schedule intervention. Native results remain authoritative. The pinned SDK carries request-local
-W3C context across its dispatcher and transport tasks into authenticated gRPC metadata. Its narrow
-native-host span selection includes the SDK lifecycle target; response/decode lifetime and dispatch
-uncertainty retain their original owners. Actual Python/FastMCP→Rust→SDK→server→Surrealism parentage
-is supported for selected operations, including concurrent siblings with independent parents.
+nor schedule intervention. Native results remain authoritative. The canonical client captures
+request-local W3C context before spawning its performer and carries it across dispatcher and
+transport tasks into authenticated gRPC metadata. Its narrow native-host span selection uses
+the client-owned request target; response/decode lifetime and dispatch uncertainty retain their
+original owners. Python/FastMCP→Rust→client→server→Surrealism is the current propagation route,
+including independently attributed concurrent siblings; historical SDK-route qualification
+retains its original scope in §24.2.
 This continuity remains separate from metric delivery and service identity. Finite capture is retained;
 its bounds, restoration and evidence consumers are not replaced by ordinary export. The selected
 architecture does not claim exactly-once delivery or an atomic cross-signal source cut.
@@ -395,7 +424,7 @@ An absent original-space feasibility assessment is an explicit refusal distinct 
 > realization refusal `modeling.realization` (Plan 22 M3 and M4, implemented);
 > [ADR-0103](../../adr/0103-variable-domain-facet.md) — the recorded bound tightening
 > `modeling.domain.tightened` and the conflicting-bound refusal (Plan 22 M2a, implemented);
-> [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed; authorized implementation) — canonical SDK, codec, completion and lifecycle failures retain typed causes and exact operation identity.
+> [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed; authorized implementation) — canonical client, codec, completion and lifecycle failures retain typed causes and exact operation identity.
 
 > Supplement: [ADR-0148](../../adr/0148-studies-diagnostics-and-admitted-bindings.md)
 > (proposed; maintainer-authorized Plan 25f implementation).
@@ -565,7 +594,7 @@ exhaustion → `Limit` (`Memory`); invalid or panic → `Internal`; every other 
 (`pse-math::MathError::Native`) carries `solve.solver_error` and keeps its typed native
 cause, which the workflow classifies together with the block identity.
 
-**Canonical store failures.** `pse_operations::canonical::CanonicalError` retains typed SDK and codec causes, interpretation mismatch, reused operation identity, payload limits, quiesced admission, deadline expiry and missing statement completion. A transport success alone cannot establish absence, write success or a complete exported stream. Native SDK statement results and application result shape are checked before those conclusions.
+**Canonical store failures.** `pse_operations::canonical::CanonicalError` retains typed protocol/client and codec causes, interpretation mismatch, reused operation identity, payload limits, quiesced admission, deadline expiry and missing statement completion. A transport success alone cannot establish absence, write success or a complete exported stream. Complete native statement results and application result shape are checked before those conclusions.
 
 Generated guarded refusals have one declared code/class owner. Decoding first
 requires native `is_thrown()` and then an exact known prefix; unknown codes, ordinary

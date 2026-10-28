@@ -800,7 +800,7 @@ produce their own receipt. Accepted Plan45 RC06 (proposed ADR-0187 amendment) se
 bounded deterministic groups within each relation: at most four original blocks and
 twice the canonical per-block payload bound. Immutable block order/length determines
 groups; memory pressure refuses rather than changing them. Prepaid payload/header
-ownership is distinct from the existing encoder/SDK scratch and spool reader. The
+ownership is distinct from the existing encoder/transport scratch and spool reader. The
 grouped-v2 producer namespace binds this policy, content identity and first/end original
 ordinals without reinterpreting earlier per-block records or changing payload/scientific
 identity. Existing source planning/staging/CAS and immutable request receipts settle
@@ -1175,6 +1175,32 @@ confer future storage permission. Old terminal records are never upgraded by inf
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). `pse-operations` owns the bounded authenticated gRPC client and typed guarded operations; ADR-0214 selects its persistent MX integration. Native science stays outside database transactions.
 
+The single canonical client uses supplier protocol, value and typed-error crates directly.
+It owns the consumed query-result interface and existing signin, selection, reconnect and
+close behavior; no production SDK or parallel client path remains. One bounded frame assembler
+requires complete statement framing, QueryEnd and trailers before publishing indexed results.
+Statement cardinality, batch ordering and typed Option/Vec/Value extraction preserve consumed
+semantics. A substantive statement failure takes deterministic precedence over dependent
+not-executed/cancelled statements. Unsolicited LIVE and malformed framing fail closed; no live
+subscription lifetime is inferred. Borrowed wire inspection checks cumulative bytes, depth,
+occurrences, containers and string/blob limits before owned value or error conversion.
+
+Typed request context carries the original clock/cancellation and already-issued custody.
+Connection activity, exact protected selections and actual retained read/capture guards are
+non-byte lifetime owners. Actual response memory reservations and scientific allocation leases
+are separate allocation grants. Nested scopes retain both sets of owners; an attribution
+carrier, arbitrary opaque holder or borrowed guard does not supply either authority. Caller
+abandonment leaves admitted work with an independent performer and its actual custody.
+
+Guarded scripts declare their envelope explicitly: protected read with its exact pin/ticket
+postlude, protected admission, project authority, staging/cleanup fence or deadline-only.
+The shared emitter owns transaction framing and typed returned-result coordinates. It evaluates
+the business result before the postlude, rechecks the selected live authority before commit,
+and returns the retained value through its typed slot. Admission does not acquire a read
+postlude accidentally. Envelope bindings and the original server-clock pair are sealed against
+business-bind replacement before dispatch. Ordinary single native functions keep their own
+explicit authority; SQL text never determines an envelope by inference.
+
 One original monotonic operation clock covers admission, queueing, reconnect, dispatch
 and complete response handling. Definite conflicts may retry the guarded decision within
 that clock; unknown writes settle by original immutable identity. Expired undispatched
@@ -1183,6 +1209,27 @@ transport drain; socket closure does not prove server abort or native drain. Tra
 expiry and live-authority fences precede the final return. UTC and statement timeouts
 do not promise durable commit before the caller's deadline. Complete bounded pages retain
 statement completion, exact coordinates and accounted decoded/escaped ownership.
+
+Every connection generation owns its actual HTTP/2 socket task, dispatcher and Hyper child
+tasks in one sealed task group, established before handshake. Closing seals spawn admission;
+its retained performer aborts/joins the complete group and observes task/future destruction
+before publishing local drain. A close waiter dropping does not drop that performer. Restore
+and bootstrap acknowledgments retain their generation and original request clock through the
+same physical completion tier. Generation/session closure has one performer, including detach.
+
+Known response acknowledgment and physical outbound drain are distinct. The request may deliver
+its known result while retaining its application permit, active population and actual byte/read
+custody until the outbound tier settles. The typed body buffer records the required I/O flush
+frontier when bytes advance into the transport; only successful underlying flush or complete
+task-group join discharges that custody. Last source-buffer drop does not prove that a copied
+suffix or chained HTTP/2 buffer drained. Original deadline expiry closes/joins the generation;
+it does not issue a fresh per-request timeout or turn a known ACK into an unknown effect.
+Local transport drain still supplies no proof of remote transaction abort or native-science join.
+
+Complete guarded-decision retry is shared, with owner-supplied effect classification and exact
+readback. Typed definite conflicts spend the finite conflict allowance; known pre-effect busy
+pacing does not. Cancellable backoff retains the original expiry and attempt attribution.
+Unknown dispatched effects settle the original immutable receipt rather than replaying science.
 
 Explicit pre-database catalog creation uses a fresh unselected administrative connection.
 SurrealDB 3.3 plans even built-in clock calls at database context level, so initial

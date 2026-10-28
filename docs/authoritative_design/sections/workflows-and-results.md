@@ -862,6 +862,16 @@ latency or general graph algorithms; §24.2 records the selected evidence.
 
 ### 19.3 Studies and reuse
 
+**Implemented:** local design generation produces ordinary physical point overlays through
+the existing modeling admission owner. Explicit finite ranges or finite authored bounds,
+registered unit conversion, discrete-domain levels and checked work/storage admission precede
+generation. Grid, random and selected Latin-hypercube algorithms retain complete ordered realized
+points, including equal occurrences, with separate producer attribution. A seed identifies
+the submitted construction input; it is not a promise of bit-portable regeneration. Recorded
+realized values and admitted binding identities govern later replay. Generated overlays enter
+the same explicit study points and numerical starts as authored overlays; generation grants no
+new solver, continuation, statistical or scientific permission.
+
 > Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed):
 > bounded installation, compact outcomes and gated immutable capture are implemented; Plan56d
 > owns their selected local qualification, including the complete public 10,000-point journey.
@@ -1063,7 +1073,7 @@ not invent a failed/cancelled scientific terminal, renew the original caller clo
 restart execution. A transient/unknown observation continues waiting conservatively.
 An owner mismatch ends this wait but is not evidence that the old owner drained and
 never authorizes resource release. Healthy cancellation still joins the actual terminal
-inventory and issued SDK/native suffix. Refusing a bounded supervisor response stops
+inventory and issued transport/native suffix. Refusing a bounded supervisor response stops
 and reaps its issued control child before returning.
 
 Source-backed durable packages retain exact authored documents; an in-memory package without
@@ -1464,6 +1474,14 @@ only, and robust optimization is not implemented.
 
 ## 21. The Python boundary
 
+`ModelingPackage.generate_design` returns a local owning `GeneratedDesign`, with no store
+effect. Its explicit bounded `export()` creates an independent generated document containing
+the realized overlays and attribution; the native handle and conversion retain their actual
+allocation owners through copying. Exported overlays can form an ordinary `LocalStudy`.
+Explicit `Runtime.record_study` publishes the retained scientific inputs and yields a recorded
+definition replayable by another runtime after the generating handles close (§19.3). Export
+alone neither records a study nor promises portable seed regeneration.
+
 > Decision: [ADR-0190](../../adr/0190-own-local-studies-before-recording.md) (proposed; maintainer-authorized Plan 41c target).
 
 > Decision: [ADR-0188](../../adr/0188-consumed-runtime-settings.md) (proposed; maintainer-authorized Plan38f target).
@@ -1747,6 +1765,18 @@ terminal result. Repeated waits never rerun a solver. A run handle supervises on
 sequence ([§19.2](#section-19-2)); a single solve is a one-step sequence on its own native
 session.
 
+Synchronous waits share completion-first polling while retaining each consumer's signal
+policy and existing 100 ms or 20 ms interval. Waiting releases the interpreter; the first
+signal remains the original exception. Native pull waits request cancellation and join the
+original pull, retaining its cause. Canonical blocking waits request cancellation, finish
+the same issued future and perform the final signal check, attaching any actual acknowledged
+analysis/artifact recovery identity before raising. Capture joins request recording stop and
+wait without cancelling scientific work. Launched-command waits request command cancellation
+and preserve their immediate signal-return policy. Task-dump waits return the signal without
+cancelling the issued observer ticket. Controlled `next_batch` prechecks signals before issuing
+a pull, so an already pending signal leaves the stream unconsumed. This does not replace
+`wait_async` or install process-global signal handlers.
+
 > Decision: ADR-0169 (proposed; maintainer-authorized Plan 33 implementation).
 
 Python result `tables()` discovers relation names from immutable inventory without encoding
@@ -1757,14 +1787,14 @@ Scientific and metadata tables cross as one-consumption `TableStream` objects ex
 `__arrow_c_stream__`, never as parallel row objects or materialized on both sides. The capsule
 protocol, not `pyarrow`, is the contract
 ([ADR-0024](../../adr/0024-pyo3-arrow-over-arrow-pyarrow.md)). Result readers hold their exact
-strong snapshot ticket for future chunks. Metadata allowances follow finite header, selection, page and output-page layouts, enforced before SDK owned-value decoding; they are separate from file payload and Arrow decode grants. Validated metadata transfers only when its response owner is unique; live SDK suffixes retain the full original grant. Snapshot aliases share inventory and read charges. Protected cleanup retains its metadata and a separately bounded release-response allowance through acknowledgment, socket drain or explicit recovery. Dispatched metadata and file-open responses retain
+strong snapshot ticket for future chunks. Metadata allowances follow finite header, selection, page and output-page layouts, enforced before owned-value decoding; they are separate from file payload and Arrow decode grants. Validated metadata transfers only when its response owner is unique; live transport suffixes retain the full original grant. Snapshot aliases share inventory and read charges. Protected cleanup retains its metadata and a separately bounded release-response allowance through acknowledgment, socket drain or explicit recovery. Dispatched metadata and file-open responses retain
 that original ticket and their own prepaid decode allowance through native transport drain,
 even after cancellation discards the caller. Source/creation selections retain their separate
 finite-clock rules. Fully decoded copied arrays retain accounted allocation owners after reader
 or parent-wrapper drop. `close` releases unread work while live arrays remain valid; `cancel`
 makes further consumption fail with a cancellation diagnostic. Python signal handling cancels
 without taking the producer lock and joins the exact native pull before returning the original
-exception; that join alone is not late SDK-response drain. Requested-schema casts are refused.
+exception; that join alone is not late transport-response drain. Requested-schema casts are refused.
 `TableStream.extension_report` compares a consumer's schema field by field as retained,
 storage-only, metadata-lost or mismatched (`python/pse/_transfer.py`); capsule export
 does not prove the consumer registered the extension types.

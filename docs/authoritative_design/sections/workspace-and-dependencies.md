@@ -214,7 +214,9 @@ reaches Arrow, DataFusion, Delta or Tokio. The columnar crates (`pse-columnar`,
 expression APIs. `pse-engine` adds sessions. `pse-rules` builds on the
 engine. `pse-vocabulary` sits beneath `pse-schema` and `pse-model`, so the registry and the
 generated model share one type per platform vocabulary without either ceiling giving way.
-`pse-operations` uses the remote SDK and generated plain-value contracts, without an embedded database engine or a columnar payload decoder. Semantic and numerical roots remain independent of it.
+`pse-operations` owns one bounded remote client over `surrealdb-protocol` and
+`surrealdb-types`, with generated plain-value contracts, without an embedded database
+engine or a columnar payload decoder. Semantic and numerical roots remain independent of it.
 `pse-admission` joins source/physical domain admission with the bound engine, without
 scientific compilation or canonical storage. `pse-runtime` joins scientific/native
 execution with the canonical substrate. It owns compilation, native attempts, durable
@@ -260,6 +262,8 @@ units, identity, schemas or canonical encoding merely because it is present.
 | Arrow, Parquet | columnar crates, engine, runtime | Checked columnar data, extension types, IPC and FFI transport | Physical layout safety is not semantic validity ([§4.6](schema-and-relations.md#section-4-6)) |
 | DataFusion | `pse-engine`, `pse-rules`, `pse-relations`, actual runtime boundary consumers | Relational admission, expression/optimizer APIs, invariant queries and inspection | Not a mathematical evaluator ([§3.3.1](#section-3-3-1)) |
 | SurrealDB, SurrealQL, SurrealMX (selected ADR-0214 target) | `pse-operations`, supervised server tooling | Canonical graph/relational records, indexed bounded queries and guarded structural transactions; persistent local server | Registry and Rust scientific owners retain meaning. Server-side functions do not decide numerical eligibility; ISO GQL, live subscriptions and edge inlining need a concrete qualified consumer. |
+| `surrealdb-protocol`, `surrealdb-types`, tonic, Hyper | `pse-operations` | Supplier protocol/value/error types and HTTP/2 transport beneath the single canonical client | PSE owns original clocks, typed request custody, finite decoding, guarded decisions and actual transport drain (§20.6). Native RPC features stay outside the WASI study-module closure. The production SDK tree and its client-specific patches are removed; SurrealKit alone uses the released SDK as a tooling supplier. |
+| egobox-doe, rand_xoshiro | `pse-runtime` | Admitted local random and Latin-hypercube design construction with a fresh seeded generator | Recorded realized points govern replay; PSE retains physical/discrete mapping, checked grid order and byte/work admission (§19.3). |
 | schemars, nutype | owners of Rust-owned documents; `pse-model` | JSON Schemas of boundary documents; validated single-value settings | The serde type is the document's authority ([§21.5](workflows-and-results.md#section-21-5)) |
 | typed-index-collections, enum-map | `pse-math`, `pse-backend-native`, `pse-kernels` | One index type per coordinate space; enum-indexed storage | FFI and faer interiors keep `usize`/`i32`, converted at the adapter |
 | Symbolica/Numerica | `pse-math` | Algebra, normalization, differentiation, multi-output evaluators and jets | Starts after physical typing and domain obligations; derived artifacts only |

@@ -299,7 +299,8 @@ If an empty owned scope stays active and its user-manager journal reports inotif
 `ENOSPC`, check `fs.inotify.max_user_watches` and `fs.inotify.max_user_instances`.
 This is watch exhaustion, distinct from free disk space. On this workstation the
 maintainer raised the runtime limits to 524288 watches and 1024 instances during
-Plan37 qualification. Preserve exact drain requirements; increasing a cleanup timeout
+Plan37 qualification. During Plan57 qualification, renewed watch exhaustion required
+1048576 runtime watches; instances remained 1024. Preserve exact drain requirements; increasing a cleanup timeout
 cannot restore missing manager notifications. These runtime settings reset on reboot.
 
 ## Builds in one checkout
@@ -820,7 +821,7 @@ Scientific join/reap/deadline semantics remain unchanged. Detailed continuity co
 backend retention are separate from a healthy service or successful SDK shutdown.
 
 Ordinary Rust trace export selects spans declaring the exact `pse.owner.stage` metadata field,
-plus the exact `pse.canonical.request` span from `pse_operations::canonical_client::owned`.
+plus the exact `pse.canonical.request` span from `pse_operations::transport::client::owned`.
 Name prefixes do not select arbitrary inner spans or tracing events. Explicit finite diagnostic
 capture retains its own broader inner-event contract; this ordinary-export filter does not
 change that capture's scope.
