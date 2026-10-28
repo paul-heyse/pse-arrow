@@ -1,5 +1,14 @@
 # Design standard and reviews
 
+The [study execution and database-boundary review](reviews/design_review_study-execution-and-database-boundary_2026-10-28.md)
+assesses the Plan57d–f footprint and broader database-facing application alternative.
+It judges the current caller boundary **Revise** and proposes a coherent hybrid:
+typed durable commands/reads without mandatory scientific-runtime construction,
+optional local preparation, and independently supervised native execution.
+Its scoped production/test refresh and library research preserve corrected historical
+premises and open assembled acceptance. This recommendation does not amend plans,
+accept rule changes or establish a performance improvement.
+
 The [core principles](design_principles/core/design-principles.md) organize review around
 seven architectural foundations, including supported-workload execution fit through G9. Use them
 together with [Heuristics for Efficient Architecture](design_principles/core/efficient-architecture-heuristics.md)

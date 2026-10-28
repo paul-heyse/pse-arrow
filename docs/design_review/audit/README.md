@@ -181,7 +181,9 @@ of absence. No challenge was resolved by product mutation or a qualification cla
 | [DA-044](execution-fit.md#da-044) | Retained; remedy narrowed | Fixed verifier clock and repeated passes; safe recovery, not mandatory self-thaw or excluded durability |
 | [DA-045](execution-fit.md#da-045) | New diagnosis of unchanged code | Executable closure/export retains all selected source encodings before copying |
 
-DA-001–DA-045 are allocated. Retired IDs are never reused; the next available identity is DA-046.
+The historical whole-account population allocates DA-001–DA-045. Subsequent allocations
+and the next available identity are recorded in the scoped refresh above. Retired IDs
+are never reused.
 DA-038 owns the missed covariance-permission diagnosis. DA-010 stays resolved for its narrower
 content-authentication/external-origin/PSD correction; this distinction prevents duplicate homes.
 
