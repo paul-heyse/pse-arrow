@@ -561,9 +561,10 @@ impl NativeCaptureSession {
             .or_else(|| state.completed.clone())
     }
     fn join(&self, py: Python<'_>) -> PyResult<DocumentValue<CaptureDocument>> {
-        let mut signal = None;
-        loop {
-            let result = py.detach(|| {
+        let waited = crate::wait::wait(py, Duration::from_millis(20), |_| false,
+            crate::wait::SignalAction::Drain,
+            |interval| {
+                let result = (|| {
                 let mut state = self.state();
                 if state.worker_failed {
                     return Some(Err(pse_runtime::observation_detail::CaptureError::Worker));
@@ -585,23 +586,16 @@ impl NativeCaptureSession {
                 }
                 state.completed = Some(completed);
                 Some(result)
-            });
-            if let Some(result) = result {
-                return match signal {
-                    Some(error) => Err(error),
-                    None => result
-                        .map(DocumentValue)
-                        .map_err(|error| errors::diagnostic(py, &error)),
-                };
-            }
-            py.detach(|| std::thread::sleep(Duration::from_millis(20)));
-            if signal.is_none()
-                && let Err(error) = py.check_signals()
-            {
-                self.request_stop();
-                signal = Some(error);
-            }
-        }
+                })();
+                match result {
+                    Some(value) => std::task::Poll::Ready(value),
+                    None => { std::thread::sleep(interval); std::task::Poll::Pending }
+                }
+            }, || self.request_stop(),
+        );
+        if let Some(signal) = waited.signal { return Err(signal); }
+        waited.value.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("capture wait lost outcome"))?
+            .map(DocumentValue).map_err(|error| errors::diagnostic(py, &error))
     }
 }
 #[pymethods]
@@ -674,20 +668,19 @@ impl NativeLaunchedCommand {
             .map_err(|error| errors::diagnostic(py, &error))
     }
     fn wait(&self, py: Python<'_>) -> PyResult<i32> {
-        loop {
-            let result = py
-                .detach(|| self.command().wait_ready(Duration::from_millis(20)))
-                .map_err(|error| errors::diagnostic(py, &error))?;
-            if let Some(status) = result {
-                return Ok(status);
-            }
-            // An explicit Python interrupt cancels the command owner, never via capture stop.
-            if let Err(signal) = py.check_signals() {
-                let _ = py.detach(|| self.command().cancel());
-                return Err(signal);
-            }
-        }
+        let waited = crate::wait::wait(py, Duration::from_millis(20), |_| false,
+            crate::wait::SignalAction::Return,
+            |interval| match self.command().wait_ready(interval) {
+                Ok(Some(status)) => std::task::Poll::Ready(Ok(status)),
+                Ok(None) => std::task::Poll::Pending,
+                Err(error) => std::task::Poll::Ready(Err(error)),
+            }, || { let _ = py.detach(|| self.command().cancel()); },
+        );
+        if let Some(signal) = waited.signal { return Err(signal); }
+        waited.value.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("command wait lost outcome"))?
+            .map_err(|error| errors::diagnostic(py, &error))
     }
+
     fn cancel(&self, py: Python<'_>) -> PyResult<i32> {
         py.detach(|| self.command().cancel())
             .map_err(|error| errors::diagnostic(py, &error))

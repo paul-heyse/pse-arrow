@@ -28,12 +28,12 @@ impl PythonPullLifecycle {
     }
     /// Report cooperative stop while the performing pull remains owned.
     pub fn stop_requested(&self) {
-        if let Some(context) = &self.observation { context.boolean("python.native_pull.stop_requested", true); }
+        if let Some(context) = &self.observation { context.boolean(LifecycleBoundary::StopRequested.python_pull_key(), true); }
         crate::tooling::telemetry::lifecycle(&self.span, "native.cancel.requested", "python.native_pull");
     }
     /// The pull has actually joined, including native/TLS destruction.
     pub fn drain_settled(&self) {
-        if let Some(context) = &self.observation { context.boolean("python.native_pull.joined", true); }
+        if let Some(context) = &self.observation { context.boolean(LifecycleBoundary::Joined.python_pull_key(), true); }
         crate::tooling::telemetry::lifecycle(&self.span, "native.drain.settled", "python.native_pull");
     }
 }
@@ -56,7 +56,7 @@ mod tests {
         assert_eq!(after.native_attempts, before.native_attempts);
         let snapshot = operation.reader().snapshot(std::time::Duration::from_secs(60));
         assert!(snapshot.metrics.iter().any(|metric| metric.name == LifecycleBoundary::Joined.native_session_key() && metric.latest == Value::Boolean(true)));
-        assert!(snapshot.metrics.iter().any(|metric| metric.name == "python.native_pull.joined" && metric.latest == Value::Boolean(true)));
+        assert!(snapshot.metrics.iter().any(|metric| metric.name == LifecycleBoundary::Joined.python_pull_key() && metric.latest == Value::Boolean(true)));
         assert!(!snapshot.metrics.iter().any(|metric| metric.name == LifecycleBoundary::Joined.native_job_key()));
     }
 }

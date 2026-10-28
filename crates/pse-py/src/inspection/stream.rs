@@ -136,7 +136,7 @@ impl TableStream {
     /// This route and capsule export consume the same stream exactly once.
     #[pyo3(signature = () -> "object | None")]
     fn next_batch<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyAny>>> {
-        py.check_signals()?;
+        crate::wait::precheck(py)?;
         if tokio::runtime::Handle::try_current().is_ok() {
             return Err(errors::diagnostic(
                 py,

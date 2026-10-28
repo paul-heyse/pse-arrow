@@ -31,6 +31,7 @@ mod identities;
 mod inspection;
 mod telemetry;
 mod workflow;
+mod wait;
 
 /// Captured build provenance projected from its Rust-owned document.
 #[pyfunction]

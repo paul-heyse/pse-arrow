@@ -182,12 +182,12 @@ Only the table below owns package progress. The coordinator owns aggregate oppor
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| F01 | pending | Plan57f | Relationship-aware attribution used at the enumerated runtime boundaries. |
-| F02 | pending | Plan57f | Typed stop/drain and joined renewal mechanisms replace reviewed repetitions. |
-| F03 | pending | Plan57f | Owner-typed lifecycle vocabulary and all four independent sinks preserve populations. |
-| F04 | pending | Plan57f | Jobs/session native thread owners migrate without weakening join custody. |
-| F05 | pending | Plan57f | Synchronous Python policies share mechanics and preserve acknowledgement identity. |
-| F06 | pending | Plan57f | Neutral flight behavior is retained; unused wrapper is deleted and handoff complete. |
+| F01 | in-progress | Plan57f | Relationship-aware attribution used at the enumerated runtime boundaries. |
+| F02 | in-progress | Plan57f | Typed stop/drain and joined renewal mechanisms replace reviewed repetitions. |
+| F03 | in-progress | Plan57f | Owner-typed lifecycle vocabulary and all four independent sinks preserve populations. |
+| F04 | in-progress | Plan57f | Jobs/session native thread owners migrate without weakening join custody. |
+| F05 | in-progress | Plan57f | Synchronous Python policies share mechanics and preserve acknowledgement identity. |
+| F06 | in-progress | Plan57f | Neutral flight behavior is retained; unused wrapper is deleted and handoff complete. |
 
 <a id="f01"></a>
 
@@ -317,3 +317,19 @@ conversational execution approach. Work starts from clean `6d13fc986`. The exist
 package owners retain status and acceptance; 57j owns selected assembled qualification.
 Full powerset/no-default validation remains deferred to series end. No upstream contact,
 data reset or formal ADR status change is authorized.
+
+### Current implementation checkpoint — ownership and interpreter controls
+
+The runtime attribution, neutral stop/drain, owner-specific lifecycle populations, native join
+owner and unused flight-wrapper deletion are integrated. Focused Rust controls have exercised
+these mechanisms; linked scientific and assembled canonical/Python acceptance is still pending.
+The six interpreter policies now share mechanics while preserving their original intervals,
+stop actions, acknowledgement attachment and completion order.
+
+The extension is a Python-linked `cdylib` without a Rust library test harness. Its pure polling
+policy therefore has a standalone test target using the exact production policy module; its four
+ordering/drain controls have passed. Actual interpreter behavior remains separately exercised by
+the correctness-extension tests. An isolated test-only C caller arms CPython's pending signal flag
+and calls the real native `next_batch` without intervening Python bytecode, so the planned precheck
+control can establish that no reader is consumed. Its dispatch smoke control passed; the actual
+stream control awaits the rebuilt extension. No production testing hook was introduced.

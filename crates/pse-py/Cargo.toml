@@ -25,6 +25,8 @@ crate-type = ["cdylib"]
 # A cdylib built with pyo3's `extension-module` deliberately leaves the CPython symbols
 # undefined, so a test/doctest/bench harness for this target cannot link. The Python-side
 # tests live in `python/pse/tests`; Rust logic lives in pse-runtime, which is tested.
+# The standalone std-only wait_policy test target includes its exact production source
+# and never links this cdylib or CPython symbols.
 test = false
 doctest = false
 bench = false

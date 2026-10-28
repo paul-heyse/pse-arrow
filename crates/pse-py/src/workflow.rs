@@ -473,47 +473,34 @@ pub(crate) fn blocking_native_call<T: Send>(
     work: impl FnOnce() -> Result<T, pse_engine::EngineError> + Send,
     cancel: impl Fn(),
 ) -> PyResult<T> {
-    py.check_signals()?;
+    crate::wait::precheck(py)?;
     let telemetry = crate::telemetry::ingress(py, "python.native_pull");
-    let telemetry_dispatch = tracing::dispatcher::get_default(Clone::clone);
+    let context = pse_runtime::ExecutionContext::capture();
+    let lifecycle = pse_runtime::execution_lifecycle::PythonPullLifecycle::new(telemetry.clone());
     std::thread::scope(|scope| {
         let native_telemetry = telemetry.clone();
-        let (sender, mut receiver) = std::sync::mpsc::sync_channel(1);
+        let (sender, receiver) = std::sync::mpsc::sync_channel(1);
         let worker = std::thread::Builder::new()
             .name("pse-python-pull".into())
             .spawn_scoped(scope, move || {
-                let _dispatch = tracing::dispatcher::set_default(&telemetry_dispatch);
+                let _context = context.enter();
                 let _telemetry = native_telemetry.entered();
                 let _ = sender.send(work());
             })
             .map_err(|error| pyo3::exceptions::PyRuntimeError::new_err(error.to_string()))?;
-        let mut signal = None;
-        let value = loop {
-            let receiving = &mut receiver;
-            let ready = py.detach(move || receiving.recv_timeout(Duration::from_millis(100)));
-            match ready {
-                Ok(value) => break Some(value),
-                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break None,
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
-            }
-            if signal.is_none()
-                && let Err(error) = py.check_signals()
-            {
-                pse_runtime::tooling::telemetry::lifecycle(
-                    &telemetry,
-                    "native.cancel.requested",
-                    "python.native_pull",
-                );
-                cancel();
-                signal = Some(error);
-            }
-        };
-        let joined = py.detach(|| worker.join());
-        pse_runtime::tooling::telemetry::lifecycle(
-            &telemetry,
-            "native.drain.settled",
-            "python.native_pull",
+        let waited = crate::wait::wait(py, Duration::from_millis(100), |_| false,
+            crate::wait::SignalAction::Drain,
+            move |_| match receiver.recv_timeout(Duration::from_millis(100)) {
+                Ok(value) => std::task::Poll::Ready(Some(value)),
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => std::task::Poll::Ready(None),
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => std::task::Poll::Pending,
+            },
+            || { lifecycle.stop_requested(); cancel(); },
         );
+        let mut signal = waited.signal;
+        let value = waited.value.flatten();
+        let joined = py.detach(|| worker.join());
+        lifecycle.drain_settled();
         if signal.is_none()
             && let Err(error) = py.check_signals()
         {
@@ -595,23 +582,16 @@ fn blocking_on_with_interrupted_value<
     }
     let telemetry = crate::telemetry::ingress(py, "python.workflow");
     let mut future = Box::pin(tracing::Instrument::instrument(future, telemetry.clone()));
-    let mut signal: Option<PyErr> = None;
-    loop {
-        let ready = py.detach(|| {
-            executor.block_on(async {
-                tokio::time::timeout(Duration::from_millis(100), &mut future).await
-            })
-        });
-        if let Ok(value) = ready {
-            // Observe a signal that arrived during the final (possibly first)
-            // poll before Python can discard the acknowledged result on return.
-            if signal.is_none()
-                && let Err(error) = py.check_signals()
-            {
-                cancel();
-                signal = Some(error);
-            }
-            return match signal {
+    let waited = crate::wait::wait(py, Duration::from_millis(100), |_| true,
+        crate::wait::SignalAction::Drain,
+        |interval| match executor.block_on(async { tokio::time::timeout(interval, &mut future).await }) {
+            Ok(value) => std::task::Poll::Ready(value),
+            Err(_) => std::task::Poll::Pending,
+        }, cancel,
+    );
+    let signal = waited.signal;
+    let value = waited.value.ok_or_else(|| invalid(py, "retained workflow wait lost completion"))?;
+    match signal {
                 Some(e) => {
                     use errors::ReportSource;
                     match &value {
@@ -658,14 +638,6 @@ fn blocking_on_with_interrupted_value<
                     Err(e)
                 }
                 None => value.map_err(|e| errors::diagnostic(py, &e)),
-            };
-        }
-        if signal.is_none()
-            && let Err(e) = py.check_signals()
-        {
-            cancel();
-            signal = Some(e);
-        }
     }
 }
 /// Borrow the shared scientific deployment budget, services and executor.
@@ -1049,7 +1021,7 @@ impl NativeRuntime {
         request: documents::DocumentInput<pse_runtime::tooling::taskdump::TaskDumpRequest>,
     ) -> PyResult<documents::DocumentValue<pse_runtime::tooling::taskdump::TaskDumpDocument>> {
         // A signal already pending must not issue a cooperative target request.
-        py.check_signals()?;
+        crate::wait::precheck(py)?;
         let allowance = request.0.wait;
         let deadline = std::time::Instant::now() + allowance;
         let ticket = {
@@ -1081,25 +1053,30 @@ impl NativeRuntime {
             *active = Some(Arc::clone(&ticket));
             ticket
         };
-        loop {
-            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-            if remaining.is_zero() {
-                let mut result = ticket
-                    .snapshot()
-                    .map_err(|error| errors::diagnostic(py, &error))?;
-                result.observer_wait_expired = result.target_state == "pending";
-                return Ok(documents::DocumentValue(result));
-            }
-            let result = py
-                .detach(|| ticket.wait(remaining.min(Duration::from_millis(100))))
-                .map_err(|error| errors::diagnostic(py, &error))?;
-            // An interrupted observer leaves its issued ticket with the actual owner.
-            py.check_signals()?;
-            if result.target_state != "pending" {
-                return Ok(documents::DocumentValue(result));
-            }
-        }
+        let waited = crate::wait::wait(py, Duration::from_millis(100),
+            |result: &Result<(_, bool), _>| result.as_ref().is_ok_and(|(_, check)| *check),
+            crate::wait::SignalAction::Return,
+            |interval| {
+                let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+                if remaining.is_zero() {
+                    return std::task::Poll::Ready(ticket.snapshot().map(|mut result| {
+                        result.observer_wait_expired = result.target_state == "pending";
+                        (result, false)
+                    }));
+                }
+                match ticket.wait(remaining.min(interval)) {
+                    Err(error) => std::task::Poll::Ready(Err(error)),
+                    Ok(result) if result.target_state != "pending" => std::task::Poll::Ready(Ok((result, true))),
+                    Ok(_) => std::task::Poll::Pending,
+                }
+            }, || {},
+        );
+        if let Some(signal) = waited.signal { return Err(signal); }
+        let (result, _) = waited.value.ok_or_else(|| invalid(py, "observer wait lost outcome"))?
+            .map_err(|error| errors::diagnostic(py, &error))?;
+        Ok(documents::DocumentValue(result))
     }
+
     /// Copy issued-request state; never issues, re-polls or cancels target tasks.
     fn task_dump_status(
         &self,
