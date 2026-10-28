@@ -244,6 +244,32 @@ async def check(args: argparse.Namespace, blocker: NativeBlocker) -> dict[str, o
         assert refusal_reason == "control_command_identity_reused"
         assert (await owner.reconcile(reconcile)).receipt == receipt
         checks.append("changed-intent-refusal-preserves-original")
+        for spelling, label in (
+            (str(uuid.uuid4()).upper(), "uuid"),
+            ("2026-10-28T12:34:56.123456+05:30", "datetime"),
+            ("OpaqueTable:Fixture" + uuid.uuid4().hex, "record-id"),
+        ):
+            opaque = ControlCancelRequest(
+                document_version=1,
+                issuing_store=args.issuing_store,
+                operation_id=spelling,
+                study=spelling,
+            )
+            exact = await owner.cancel_study(opaque)
+            assert exact.operation_id == spelling
+            assert exact.study == spelling
+            assert exact.status == "refused"
+            assert not exact.cancelled
+            assert await owner.cancel_study(opaque) == exact
+            observed = await owner.reconcile(
+                ControlReconcileRequest(
+                    document_version=1,
+                    issuing_store=args.issuing_store,
+                    operation_id=spelling,
+                )
+            )
+            assert observed.receipt == exact
+            checks.append("actual-opaque-" + label + "-identity-exact-replay")
         # Test-only raw requests challenge authorization outside the constrained API.
         # The actual issued marker exists (independently witnessed by provisioning),
         # so empty read/write results cannot be explained by a missing record.
@@ -252,6 +278,56 @@ async def check(args: argparse.Namespace, blocker: NativeBlocker) -> dict[str, o
         token = owner._token  # noqa: SLF001 -- fixture token used solely for direct-API denial controls
 
         import msgspec  # noqa: PLC0415 -- encode the actual generated positive request before corruption
+
+        for corruption in ("utf8", "json"):
+            malformed_operation = uuid.uuid4().hex
+            unissued = ControlCancelRequest(
+                document_version=1,
+                issuing_store=args.issuing_store,
+                operation_id=malformed_operation,
+                study=absent,
+            )
+            valid_body = msgspec.json.encode(
+                {
+                    "expires_at": time.time_ns() // 1000 + 30_000_000,
+                    "issuing_store": args.issuing_store,
+                    "request": unissued,
+                }
+            )
+            malformed_body = (
+                valid_body.replace(absent.encode(), b"\xff", 1)
+                if corruption == "utf8"
+                else valid_body[:-1]
+            )
+            with anyio.fail_after(30):
+                async with httpx2.AsyncClient(
+                    trust_env=False, follow_redirects=False
+                ) as raw:
+                    async with raw.stream(
+                        "POST",
+                        f"{args.endpoint}/api/{args.namespace}/{args.database}/pse/control/v1/cancel",
+                        content=malformed_body,
+                        headers={
+                            "Authorization": "Bearer " + str(token),
+                            "Content-Type": "application/json",
+                            "Accept-Encoding": "identity",
+                        },
+                    ) as response:
+                        body = bytearray()
+                        async for chunk in response.aiter_raw():
+                            assert len(body) + len(chunk) <= maximum_response_bytes
+                            body.extend(chunk)
+                        assert response.status_code == 500
+                        assert body
+            absent_receipt = await owner.reconcile(
+                ControlReconcileRequest(
+                    document_version=1,
+                    issuing_store=args.issuing_store,
+                    operation_id=malformed_operation,
+                )
+            )
+            assert absent_receipt.receipt is None
+            checks.append("actual-malformed-" + corruption + "-refusal-no-receipt")
 
         invalid_cursor = json.loads(msgspec.json.encode(valid_cursor))
         invalid_cursor["cursor"]["unexpected"] = True
@@ -397,16 +473,38 @@ async def check(args: argparse.Namespace, blocker: NativeBlocker) -> dict[str, o
         assert (await owner.reconcile(unobserved)).receipt is None
         checks.append("missing-receipt-remains-unobserved")
 
+    denied_operation = uuid.uuid4().hex
+    denied_cancel = ControlCancelRequest(
+        document_version=1,
+        issuing_store=args.issuing_store,
+        operation_id=denied_operation,
+        study=absent,
+    )
+    denied_reconcile = ControlReconcileRequest(
+        document_version=1,
+        issuing_store=args.issuing_store,
+        operation_id=denied_operation,
+    )
     async with client() as viewer:
         await viewer.sign_in(viewer_key, viewer_password)
         assert not (await viewer.study_workbench_page(browse)).headers
         try:
-            await viewer.cancel_study(cancel)
-        except ControlError:
+            await viewer.cancel_study(denied_cancel)
+        except ControlRefusedError:
             pass
         else:
             raise AssertionError("Browse-only actor acquired cancellation authority")
-        checks.append("actual-browse-only-actor-denial")
+        try:
+            await viewer.reconcile(denied_reconcile)
+        except ControlRefusedError:
+            pass
+        else:
+            raise AssertionError("Browse-only actor acquired reconciliation authority")
+        checks.append("actual-browse-only-cancel-and-reconcile-authority-denial")
+    async with client() as witness:
+        await witness.sign_in(key, password)
+        assert (await witness.reconcile(denied_reconcile)).receipt is None
+        checks.append("actual-refused-actor-command-remains-unobserved")
 
     # Challenge endpoint authentication itself, rather than only the client's local token check.
     import httpx2  # noqa: PLC0415 -- test-only deliberately unauthenticated protocol request

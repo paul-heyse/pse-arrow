@@ -631,3 +631,24 @@ normalization initially emitted an unsupported inner Rust attribute, causing nat
 to fail before execution. The corrected source places the formatting directive on the
 containing wire-schema module and regenerates the canonical output. Affected native builds
 must succeed before their functional evidence can be claimed.
+
+Actual authenticated public browsing then exposed a distinct wire defect: the stock API
+JSON middleware promotes UUID-like strings to database UUID values, rejecting the correct
+text issuer. Exact source rules out the alternative nested-function permission hypothesis;
+`/signin` already uses a strict decoder. The selected APIs now cap raw bytes and use the
+library's strict UTF-8/JSON conversion through one private helper. Eight actual isolated
+server checks establish exact UUID/date/record/nested string preservation, malformed-input
+refusal and rollback; the legacy promotion was independently reproduced. Known actor-grant
+denial now returns 403 before parsing or mutation. Regenerated catalog and current native
+products must run the strengthened public replay/negative controls, original worker cancel/
+drain and retained-data consumer before first-slice completion can be claimed.
+
+The final owned functional fixture passed HTTP transaction controls (5), strict JSON controls
+(8), catalog/positive receipt tests (3) and the native-loading-unavailable public client
+journey (22). The selected original worker case then failed before assignment with
+`runtime::resource_limit: math resource limit: native jobs` (0 passed, 1 failed, 9 excluded).
+It establishes no native entry or cancellation behavior. Its owner stopped storage and
+positively drained all contexts, retaining the fixture and original result. The Python
+retained-data component did not run. Diagnose the actual frozen native-job allowance and
+its performing owners before another selected worker attempt; do not weaken the test or
+substitute a broader campaign for that missing acceptance.

@@ -238,10 +238,13 @@ boundaries contain unwinds.
 
 > Decision: [ADR-0232](../../adr/0232-native-independent-durable-control.md) (proposed).
 
-**Proposed:** public async control uses bounded HTTPX2 raw streaming and AnyIO original-deadline
+**Implemented:** selected browse/cancel/reconcile control uses bounded HTTPX2 raw streaming
+and AnyIO original-deadline
 scopes against constrained canonical API endpoints; typed Rust-owned declarations remain the
 contract authority. HTTP phase timeouts do not establish a total deadline. Cancellation must
 settle local response/client resources without claiming remote rollback or a native drain bound.
+A failed body or pool cleanup retains its owner and error; a provider closed flag or no-op
+retry does not establish completion.
 
 
 > Decision: [ADR-0082](../../adr/0082-library-owned-process-mathematics.md),

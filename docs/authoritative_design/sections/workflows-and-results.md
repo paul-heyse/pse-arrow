@@ -1476,7 +1476,7 @@ only, and robust optimization is not implemented.
 
 > Decision: [ADR-0232](../../adr/0232-native-independent-durable-control.md) (proposed; maintainer-authorized Plan57k/L first slice).
 
-**Proposed:** async durable browse/cancel/reconcile consumes connection/actor configuration
+**Implemented:** async durable browse/cancel/reconcile consumes connection/actor configuration
 and finite control policy independently of scientific Runtime construction or native loading.
 The existing distribution remains; scientific/private entry points retain actual native
 compatibility and Arrow initialization at the scientific gate. Source-only imports do not

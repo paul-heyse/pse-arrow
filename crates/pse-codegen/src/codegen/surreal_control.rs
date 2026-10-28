@@ -11,11 +11,18 @@ DEFINE ACCESS pse_control ON DATABASE TYPE RECORD
 
 // These functions are callable by privileged internal owners and by the API's
 // permission-limited handler. Ordinary record users cannot call them directly.
-DEFINE FUNCTION fn::pse_control_v1::actor($grant:string) -> string {
-    IF $auth=NONE OR $auth.id=NONE OR record::tb($auth.id)!='canonical_control_actors' { THROW 'PSE_REFUSAL:control_actor_refused'; };
+DEFINE FUNCTION fn::pse_control_v1::actor($grant:string) -> option<string> {
+    IF $auth=NONE OR $auth.id=NONE OR record::tb($auth.id)!='canonical_control_actors' { RETURN NONE; };
     LET $actor=SELECT * FROM ONLY $auth.id;
-    IF $actor=NONE OR !$actor.enabled OR ($grant='browse' AND !$actor.browse) OR ($grant='cancel' AND !$actor.cancel) OR $grant NOT IN ['browse','cancel'] { THROW 'PSE_REFUSAL:control_actor_refused'; };
+    IF $actor=NONE OR !$actor.enabled OR ($grant='browse' AND !$actor.browse) OR ($grant='cancel' AND !$actor.cancel) OR $grant NOT IN ['browse','cancel'] { RETURN NONE; };
     RETURN <string>$actor.id;
+} PERMISSIONS NONE;
+// The legacy API JSON parser promotes UUID/date/record-looking JSON strings.
+// Decode the declared JSON wire with the library's RFC 8259 parser instead;
+// bytes-to-string casting rejects invalid UTF-8 before decoding.
+DEFINE FUNCTION fn::pse_control_v1::json($request:object) -> object {
+    IF $request.headers['content-type']!='application/json' OR !type::is_bytes($request.body) { THROW 'PSE_REFUSAL:control_request_invalid'; };
+    RETURN encoding::json::decode(<string>$request.body);
 } PERMISSIONS NONE;
 DEFINE FUNCTION fn::pse_control_v1::expiry($body:object) -> int {
     IF array::sort(object::keys($body))!=['expires_at','issuing_store','request'] OR !type::is_int($body.expires_at) OR !type::is_object($body.request) { THROW 'PSE_REFUSAL:control_request_invalid'; };
@@ -70,14 +77,14 @@ DEFINE FUNCTION fn::pse_control_v1::browse($expiry:int,$request:object) -> objec
 } PERMISSIONS NONE;
 DEFINE API '/pse/control/v1/browse' FOR post
     PERMISSIONS WHERE $auth!=NONE
-    MIDDLEWARE api::req::max_body(65536),api::req::body('json'),api::res::body('json')
-    THEN { fn::pse_control_v1::actor('browse'); LET $expiry=fn::pse_control_v1::expiry($request.body); RETURN {status:200,body:fn::pse_control_v1::browse($expiry,$request.body.request)}; };
+    MIDDLEWARE api::req::max_body(65536),api::res::body('json')
+    THEN { LET $actor=fn::pse_control_v1::actor('browse'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); RETURN {status:200,body:fn::pse_control_v1::browse($expiry,$body.request)}; };
 DEFINE API '/pse/control/v1/cancel' FOR post
     PERMISSIONS WHERE $auth!=NONE
-    MIDDLEWARE api::req::max_body(65536),api::req::body('json'),api::res::body('json')
-    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); LET $expiry=fn::pse_control_v1::expiry($request.body); LET $reply=fn::pse_control_v1::cancel($expiry,$actor,$request.body.request); RETURN {status:IF $reply.status=NONE {409} ELSE {200},body:$reply}; };
+    MIDDLEWARE api::req::max_body(65536),api::res::body('json')
+    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); LET $reply=fn::pse_control_v1::cancel($expiry,$actor,$body.request); RETURN {status:IF $reply.status=NONE {409} ELSE {200},body:$reply}; };
 DEFINE API '/pse/control/v1/reconcile' FOR post
     PERMISSIONS WHERE $auth!=NONE
-    MIDDLEWARE api::req::max_body(65536),api::req::body('json'),api::res::body('json')
-    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); LET $expiry=fn::pse_control_v1::expiry($request.body); RETURN {status:200,body:fn::pse_control_v1::reconcile($expiry,$actor,$request.body.request)}; };
+    MIDDLEWARE api::req::max_body(65536),api::res::body('json')
+    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); RETURN {status:200,body:fn::pse_control_v1::reconcile($expiry,$actor,$body.request)}; };
 "#;

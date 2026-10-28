@@ -305,6 +305,9 @@ explicit administrative operation of `pse-canonical-init --issue-control-actor P
 installs schema implicitly. The private version-1 request supplies key/password and explicit
 browse/cancel grants. Its safe report supplies actor identity and the original issuing-store.
 The applicable catalog and selected server integration must be activated before use.
+The endpoint requires `Content-Type: application/json`; the client supplies it. Ingress
+preserves opaque JSON strings exactly rather than applying the database's legacy UUID/date/
+record coercions. Known actor grant denial returns 403 before a command effect.
 
 ```python
 from pse.control import ControlClient, ControlUnresolvedError

@@ -591,7 +591,7 @@ mod tests {
     }
     #[test]
     fn control_api_catalog_comparison_retains_permissions_middleware_and_signin() {
-        let endpoint = "DEFINE API '/pse/control/v1/probe' FOR post PERMISSIONS WHERE $auth!=NONE MIDDLEWARE api::req::max_body(65536),api::req::body('json'),api::res::body('json') THEN {RETURN {status:200,body:true};};";
+        let endpoint = "DEFINE API '/pse/control/v1/probe' FOR post PERMISSIONS WHERE $auth!=NONE MIDDLEWARE api::req::max_body(65536),api::res::body('json') THEN {LET $body=fn::pse_control_v1::json($request); RETURN {status:200,body:$body};};";
         let expected = parse_definitions(endpoint).unwrap();
         assert!(
             compare(
@@ -614,6 +614,28 @@ mod tests {
             compare(
                 &expected,
                 &parse_definitions(&endpoint.replace(",api::res::body('json')", "")).unwrap()
+            )
+            .is_err()
+        );
+        assert!(
+            compare(
+                &expected,
+                &parse_definitions(
+                    &endpoint.replace("fn::pse_control_v1::json($request)", "$request.body")
+                )
+                .unwrap()
+            )
+            .is_err()
+        );
+        let decoder = "DEFINE FUNCTION fn::pse_control_v1::json($request:object) -> object { IF $request.headers['content-type']!='application/json' OR !type::is_bytes($request.body) { THROW 'PSE_REFUSAL:control_request_invalid'; }; RETURN encoding::json::decode(<string>$request.body); } PERMISSIONS NONE;";
+        assert!(
+            compare(
+                &parse_definitions(decoder).unwrap(),
+                &parse_definitions(&decoder.replace(
+                    "encoding::json::decode(<string>$request.body)",
+                    "$request.body"
+                ))
+                .unwrap()
             )
             .is_err()
         );

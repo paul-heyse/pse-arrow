@@ -949,13 +949,21 @@ qualification or policy. Generated contracts remain declarations, never inferred
 
 > Decision: [ADR-0232](../../adr/0232-native-independent-durable-control.md) (proposed).
 
-**Proposed:** constrained DEFINE API ingress authenticates record actors and enforces explicit
+**Implemented:** selected constrained DEFINE API ingress authenticates record actors and enforces explicit
 control grants before state or receipt access, including direct-function protection. Native
 workers retain the useful gRPC owner. Stable cancellation commands bind full immutable intent
 and outcome to an unambiguous issuing-store/actor/operation tuple; compact receipts survive
 study retirement for the database lifetime. Restore selects a distinct issuer. Missing receipt
 is unobserved, never evidence of rollback or permission to issue a new effect. Cancellation
 records stop intent; actual native/task/process drain remains with its performing owner.
+
+The selected application JSON preserves opaque strings exactly. A raw-byte cap precedes
+strict UTF-8 and library-owned JSON decoding; the API legacy decoder must not promote text
+identities into UUID/date/record values. Known actor-grant denial returns 403 before parsing
+or mutation. The selected server integration rolls back ordinary API evaluation/conversion
+errors, including refusal of explicit commit after such an error; intentionally returned
+responses retain normal transaction semantics. Delivery uncertainty still requires original
+receipt reconciliation and supplies no automatic replay right.
 
 
 > Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),

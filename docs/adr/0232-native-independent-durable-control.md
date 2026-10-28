@@ -75,6 +75,16 @@ and refuses explicit caller commit through api::invoke. Intentional returned res
 including typed 409 refusal, retain their normal transaction behavior. This is a required
 local source patch, tested against the exact selected backend; no upstream publication follows.
 
+### Exact JSON text at ingress
+
+The selected APIs cap raw bytes, require `application/json`, decode UTF-8 strictly and use
+the library's `encoding::json::decode` before applying generated document semantics. The
+stock API JSON middleware uses a legacy decoder that promotes UUID-, date- and record-like
+strings into database values; that changes opaque command identities and selections. A
+private shared decoder preserves ordinary JSON strings, including nested values. It adds
+no JSON parser or supplier patch. Actor grants are checked first; known grant denial returns
+403 before decoding or mutation, while unexpected post-write errors retain rollback behavior.
+
 ### Consequences
 
 The package initializer, generated contract/identity helpers and codec must stop eagerly

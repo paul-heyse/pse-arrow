@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 301
+revision: 302
 date: 2026-10-28
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 302 | 2026-10-28 | Publish implemented async control/import separation, strict opaque JSON text, actor-scoped receipts and explicit unsettled HTTP cleanup (§3.3/§20.6/§21). | Maintainer-authorized Plan57k/L; PSE_DESIGN_EDIT=1. Public control and rollback checks passed; native-worker/retained-data joined acceptance remains with Plan57j. No ADR status change. |
 | 301 | 2026-10-28 | Publish Proposed native-independent durable control, actor-scoped exact cancellation receipts and constrained async HTTP ingress (§3.3/§20.6/§21). | ADR-0232 scoped target review; maintainer-authorized Plan57k/L; .design-edit, no ADR status or behavioral acceptance change. |
 | 300 | 2026-10-28 | Publish implemented bounded realized-point producers (§19.3/§21), the single protocol/types canonical client with typed custody and physical task/flush drain (§3.3/§20.6), and copied attribution, owner lifecycle/join and six Python wait policies (§23.1/§21.1). | Maintainer-authorized Plan57 D–F implementation; PSE_DESIGN_EDIT=1. Existing contracts, no ADR status or rule change; selected assembled qualification remains open with Plan57j. |
 | 299 | 2026-10-27 | Publish selected Plan57 A–C functional acceptance and original lifetime settlement in §24.2; retain broader inquiries and incomplete feature coverage. | Maintainer-authorized closeout; PSE_DESIGN_EDIT=1. Full matrix/no-default validation deferred to series end at the maintainer's request; no ADR status change or global qualification claim. |
