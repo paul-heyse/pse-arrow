@@ -432,16 +432,25 @@ class CaseMeasurementTests(unittest.TestCase):
         )
 
     def test_managed_command_registers_exact_profile_and_worker(self) -> None:
+        reference = {"fixture": "exact reference allocation"}
+        controller = {
+            "supervisor_executable": "/storage/python",
+            "supervisor_script": "/storage/controller.py",
+        }
         receiver = {
-            "supervisor_executable": "/python",
-            "supervisor_script": "/supervisor.py",
+            "supervisor_executable": "/receiver/python",
+            "supervisor_script": "/receiver/supervisor.py",
             "worker_executable": "/selected/worker",
         }
-        config = {"resources": surreal_server.reference_resources()}
+        config = {"resources": reference}
         with (
             patch.dict(case_measure.os.environ, {"PSE_SURREAL_STATE": str(self.root)}),
+            patch.object(surreal_server, "reference_resources", return_value=reference),
             patch.object(surreal_server, "config_for", return_value=config),
             patch.object(surreal_server, "checked_primary", return_value=receiver),
+            patch.object(
+                surreal_server, "admitted_service_controller", return_value=controller
+            ) as control,
         ):
             command = case_measure.process_command(
                 "/benchmark", "--test", {"adapter": "managed-durable"}
@@ -449,6 +458,8 @@ class CaseMeasurementTests(unittest.TestCase):
             self.assertEqual(
                 command[command.index("--execution-profile") + 1], "reference"
             )
+            self.assertEqual(command[:2], ["/storage/python", "/storage/controller.py"])
+            control.assert_called_once_with(self.root.resolve(), config)
             self.assertEqual(
                 case_measure.managed_fixture_environment(
                     {"adapter": "managed-durable"}
@@ -462,14 +473,21 @@ class CaseMeasurementTests(unittest.TestCase):
     def test_managed_execution_keeps_reference_allocation_requirement(self) -> None:
         with (
             patch.dict(case_measure.os.environ, {"PSE_SURREAL_STATE": str(self.root)}),
+            patch.object(
+                surreal_server,
+                "reference_resources",
+                return_value={"fixture": "reference"},
+            ),
             patch.object(surreal_server, "config_for", return_value={"resources": {}}),
             patch.object(surreal_server, "checked_primary") as receiver,
+            patch.object(surreal_server, "admitted_service_controller") as control,
             self.assertRaisesRegex(ValueError, "reference allocation"),
         ):
             case_measure.process_command(
                 "/benchmark", "--bench", {"adapter": "managed-durable"}
             )
         receiver.assert_not_called()
+        control.assert_not_called()
 
 
 if __name__ == "__main__":

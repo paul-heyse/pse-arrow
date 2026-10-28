@@ -158,7 +158,7 @@ class ManagedStudyFixture:
                 for limit in limits
             ), "public Python caller must retain the four GiB observer placement"
             self.database = msgspec.convert(config["database"], type=str)
-            receiver = msgspec.convert(config["primary_receiver"], type=dict[str, str])
+            controller = server.admitted_service_controller(self.state, config)
             self._handoff_prior_observer()
             self.controls_resource = test_resources.register(
                 {
@@ -182,8 +182,8 @@ class ManagedStudyFixture:
             self.primary_attempted = True
             output = subprocess.run(
                 [
-                    receiver["supervisor_executable"],
-                    receiver["supervisor_script"],
+                    controller["supervisor_executable"],
+                    controller["supervisor_script"],
                     "ensure-primary",
                     "--state",
                     str(self.state),

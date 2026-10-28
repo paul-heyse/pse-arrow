@@ -35,6 +35,122 @@ SPEC.loader.exec_module(FIXTURE)
 
 
 @pytest.mark.unit
+class ServiceControllerRoutingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.owner = Path(temporary.name)
+        self.state = self.owner / ".receivers" / "context" / "isolated"
+        self.state.mkdir(mode=0o700, parents=True)
+        self.generation = self.owner / ".generations" / ("b" * 64)
+        self.script = self.generation / "scripts" / "surreal_server.py"
+        for directory in (
+            self.owner / ".generations",
+            self.generation,
+            self.script.parent,
+        ):
+            directory.mkdir(mode=0o700)
+        # No script-content hash is evaluated by this reader. These are the
+        # construction owner's retained declaration and exact selected role.
+        FIXTURE._write_private(self.script, "admitted storage entry point")
+        self.controller = {
+            "supervisor_executable": sys.executable,
+            "supervisor_script": str(self.script),
+            "supervisor_sha256": "2" * 64,
+        }
+        self.config = {"service_supervisor": self.controller}
+        self.receiver = {
+            "service_state": str(self.owner),
+            "service_supervisor": self.controller,
+            "primary_receiver": {
+                "supervisor_script": str(
+                    self.owner
+                    / ".generations"
+                    / ("c" * 64)
+                    / "scripts/surreal_server.py"
+                ),
+                "worker_executable": "/independent/admitted-worker",
+            },
+        }
+        FIXTURE._write_private(self.state / "config.json", self.receiver)
+        self.manifest = {
+            "version": 2,
+            "identity": "b" * 64,
+            "files": {"scripts/surreal_server.py": "2" * 64},
+        }
+        FIXTURE._write_private(self.generation / "generation.json", self.manifest)
+
+    def test_distinct_receiver_uses_actual_service_controller_without_source_rehash(
+        self,
+    ) -> None:
+        # Only the three controller strings participate in this projection.
+        # Legitimate execution/producer metadata belongs to its separate role.
+        self.config["service_supervisor"] = {
+            **self.controller,
+            "worker_metadata": {"producer": "structured"},
+        }
+        self.receiver["service_supervisor"] = {
+            **self.controller,
+            "producer_metadata": {"context": "independent"},
+        }
+        with (
+            patch.object(
+                FIXTURE.server, "config_for", return_value=self.config
+            ) as config,
+            patch.object(
+                FIXTURE.server,
+                "verify_generation",
+                side_effect=AssertionError("source rescan"),
+            ),
+            patch.object(
+                FIXTURE.server,
+                "file_digest",
+                side_effect=AssertionError("program rehash"),
+            ),
+        ):
+            selected = FIXTURE.server.admitted_service_controller(
+                self.state, self.receiver
+            )
+        self.assertEqual(selected, self.controller)
+        self.assertNotEqual(
+            selected["supervisor_script"],
+            self.receiver["primary_receiver"]["supervisor_script"],
+        )
+        config.assert_called_once_with(self.owner)
+        self.assertEqual(
+            self.receiver["primary_receiver"]["worker_executable"],
+            "/independent/admitted-worker",
+        )
+
+    def test_changed_foreign_or_missing_controller_refuses(self) -> None:
+        for reason in ("missing", "foreign", "receiver", "manifest"):
+            controller = self.controller.copy()
+            receiver = self.receiver.copy()
+            config = self.config.copy()
+            manifest = self.manifest.copy()
+            if reason == "missing":
+                config = {}
+            elif reason == "foreign":
+                controller["supervisor_script"] = str(self.owner / "foreign.py")
+                receiver["service_supervisor"] = controller
+                config["service_supervisor"] = controller
+            elif reason == "receiver":
+                receiver["service_supervisor"] = {
+                    **controller,
+                    "supervisor_script": "/foreign.py",
+                }
+            else:
+                manifest["identity"] = "d" * 64
+            FIXTURE._write_private(self.generation / "generation.json", manifest)
+            with (
+                self.subTest(reason=reason),
+                patch.object(FIXTURE.server, "config_for", return_value=config),
+                self.assertRaises(FIXTURE.server.SupervisorError),
+            ):
+                FIXTURE.server.admitted_service_controller(self.state, receiver)
+
+
+@pytest.mark.unit
 class ManagedStudyControlTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()

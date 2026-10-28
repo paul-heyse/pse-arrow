@@ -495,3 +495,20 @@ the pure allocation-helper rebuild completes without diagnostics. The dedicated 
 route initially refused before effects because integration had relinked that helper with native
 libraries; its separate pure build restores the required bootstrap artifact. Actual original
 worker and dedicated managed-primary acceptance remain open; no enclosing D–F completion is claimed.
+
+The private service subsequently quiesced, drained, stopped, readmitted the current immutable
+artifacts and restarted with unchanged instance/namespace/database/payload identity. Both managed
+cases were selected and still refused before native execution: fresh receivers legitimately have
+a distinct admitted native environment, so their script path differs from the storage controller.
+Manifest comparison isolates the environment difference to the library-search path. Production
+and fixture control calls had projected the receiver program for storage-owned `ensure-primary`
+and `observe-primary` operations. A private typed projection of the original admitted storage
+controller now owns this correction; exact script-path guards and receiver execution ownership
+remain in force. Further artifact readmission is not a substitute for correcting that routing.
+
+The storage-controller projection now serves Rust worker admission/observation, managed Rust and
+Python fixtures, and the measurement observer command. It consumes the original admitted binding
+and bounded generation metadata, preserving distinct receiver execution environments without
+rescanning or rehashing admitted program images. Twelve selected native selection/prepaid-future
+controls and four Python routing/measurement-command controls pass. Actual worker and managed
+sixteen-owner reruns remain pending; these local controls do not establish their acceptance.

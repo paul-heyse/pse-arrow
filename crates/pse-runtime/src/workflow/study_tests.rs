@@ -3581,7 +3581,7 @@ impl ManagedStudyFixture {
             runtime.shared.budget().memory_limit_bytes.get() <= profile.observer_memory_bytes
                 && profile.observer_memory_bytes <= 4 << 30
         );
-        let receiver = selected.receiver().unwrap();
+        let controller = selected.controller().unwrap();
         let nonce: pse_ids::SemanticId = pse_operations::mint_id();
         let nonce = nonce.to_string();
         let directory = state.join(format!("native-entry-qualification-{nonce}"));
@@ -3621,8 +3621,8 @@ impl ManagedStudyFixture {
         }
         let output = tokio::time::timeout(
             Duration::from_secs(45),
-            tokio::process::Command::new(&receiver.supervisor_executable)
-                .arg(&receiver.supervisor_script)
+            tokio::process::Command::new(&controller.supervisor_executable)
+                .arg(&controller.supervisor_script)
                 .arg("ensure-primary")
                 .arg("--state")
                 .arg(&state)

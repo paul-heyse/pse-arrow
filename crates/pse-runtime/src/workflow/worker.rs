@@ -253,10 +253,10 @@ impl ManagedPrimary {
     pub(super) async fn observe(&self) -> Result<PrimaryObservation, WorkflowError> {
         // The startup-selected immutable supervisor observes the original lifetime,
         // even if the next native selection changes. No worker bytes are reopened.
-        let (receiver, _) = self.selected.managed_primary()?;
-        let mut command = tokio::process::Command::new(&receiver.supervisor_executable);
+        let controller = self.selected.controller()?;
+        let mut command = tokio::process::Command::new(&controller.supervisor_executable);
         command
-            .arg(&receiver.supervisor_script)
+            .arg(&controller.supervisor_script)
             .arg("observe-primary")
             .arg("--state")
             .arg(self.selected.receiver_state())
@@ -1658,7 +1658,8 @@ impl Runtime {
         }
         let store = operations(self)?.store();
         let selected = super::NativeExecutionSelection::from_store(store)?;
-        let (receiver, profile) = selected.managed_primary()?;
+        let (_, profile) = selected.managed_primary()?;
+        let controller = selected.controller()?;
         if self.shared.budget().memory_limit_bytes.get() > profile.observer_memory_bytes {
             return Err(contract(
                 "durable observer pool exceeds its managed observer allocation",
@@ -1667,9 +1668,9 @@ impl Runtime {
         if cancel.token().is_cancelled() {
             return Err(crate::math::MathRuntimeError::Cancelled.into());
         }
-        let mut command = tokio::process::Command::new(&receiver.supervisor_executable);
+        let mut command = tokio::process::Command::new(&controller.supervisor_executable);
         command
-            .arg(&receiver.supervisor_script)
+            .arg(&controller.supervisor_script)
             .arg("ensure-primary")
             .arg("--state")
             .arg(selected.receiver_state())

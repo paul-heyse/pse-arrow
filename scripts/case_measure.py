@@ -177,12 +177,12 @@ def process_command(binary: str, mode: str, workload: dict) -> list[str]:
     config = surreal_server.config_for(state)
     if config["resources"] != surreal_server.reference_resources():
         raise ValueError("managed measurement requires the exact reference allocation")
-    receiver = surreal_server.checked_primary(config)
-    # The receiving supervisor checks placement, interpreter/worker bytes and
-    # actual readiness; package.study then uses its production ensure-primary.
+    controller = surreal_server.admitted_service_controller(state, config)
+    # The storage controller owns observer placement/admission; the receiver
+    # retains its distinct execution program/environment for actual science.
     return [
-        receiver["supervisor_executable"],
-        receiver["supervisor_script"],
+        controller["supervisor_executable"],
+        controller["supervisor_script"],
         "observer",
         "--state",
         str(state),

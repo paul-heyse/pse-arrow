@@ -1928,6 +1928,74 @@ def admitted_runtime_server(
     return surreal_source.admitted_runtime_receipt(receipt, directory)
 
 
+def admitted_service_controller(
+    state: Path, receiver_config: Mapping[str, object]
+) -> dict[str, str]:
+    """Project the admitted storage control role, independently of receiver execution."""
+
+    def binding(value: object) -> dict[str, str]:
+        fields = object_mapping(value)
+        selected: dict[str, str] = {}
+        for name in ("supervisor_executable", "supervisor_script", "supervisor_sha256"):
+            item = fields.get(name)
+            if not isinstance(item, str) or not item:
+                raise SupervisorError("Storage controller binding is incomplete")
+            selected[name] = item
+        return selected
+
+    owner = service_directory(state)
+    controller = binding(config_for(owner).get("service_supervisor"))
+    if binding(receiver_config.get("service_supervisor")) != controller:
+        raise SupervisorError(
+            "Receiver storage-controller binding differs from its service"
+        )
+    script = Path(controller["supervisor_script"])
+    generation = script.parent.parent
+    identity = generation.name
+    if (
+        not Path(controller["supervisor_executable"]).is_absolute()
+        or not script.is_absolute()
+        or script.name != "surreal_server.py"
+        or script.parent.name != "scripts"
+        or generation.parent != owner / ".generations"
+        or not re.fullmatch(r"[a-f0-9]{64}", identity)
+        or not re.fullmatch(r"[a-f0-9]{64}", controller["supervisor_sha256"])
+    ):
+        raise SupervisorError("Storage controller is outside its admitted generation")
+    for directory in (owner, owner / ".generations", generation, script.parent):
+        observed = directory.lstat()
+        if (
+            not stat.S_ISDIR(observed.st_mode)
+            or observed.st_uid != os.getuid()
+            or observed.st_mode & 0o077
+        ):
+            raise SupervisorError(
+                "Storage controller generation is not private and owned"
+            )
+    observed = script.lstat()
+    if not stat.S_ISREG(observed.st_mode) or observed.st_uid != os.getuid():
+        raise SupervisorError(
+            "Storage controller is not its admitted regular entry point"
+        )
+    # The construction owner admitted the closure. Readers use bounded metadata,
+    # without rescanning sources or hashing another admitted program image.
+    raw = private_record_bytes(
+        generation / "generation.json",
+        getattr(_STARTUP, "deadline", None),
+        maximum_bytes=256 * 1024,
+    )
+    admitted = object_mapping(json.loads(raw))
+    files = object_mapping(admitted.get("files"))
+    if (
+        type(admitted.get("version")) is not int
+        or admitted.get("version") not in (1, 2)
+        or admitted.get("identity") != identity
+        or files.get("scripts/surreal_server.py") != controller["supervisor_sha256"]
+    ):
+        raise SupervisorError("Storage controller differs from its admitted generation")
+    return controller
+
+
 def config_for(state: Path, *, deadline: float | None = None) -> dict[str, object]:
     if (
         any(path.is_symlink() for path in (state, *state.parents))
