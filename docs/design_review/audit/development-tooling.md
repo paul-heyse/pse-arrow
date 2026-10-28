@@ -27,6 +27,112 @@ changed since `cbf45ccc9`.
 this engagement's re-readings and corrections. Earlier exact counts and measurements were not
 renewed by republication.
 
+## Scoped T01 host-foundation refresh — 2026-10-28
+
+**Interface-checked:** the host/bootstrap, service/borrower and compiler-cache findings below
+were re-read against source `50f07ea6fe757db362e4e9c1ec0c11e04545d75c`. Its product source
+remains at the improvement review's `bd1c4891e` basis. The commit publishing this refresh is
+separate. No concurrent production edits or user-supplied untracked research files are part of
+this audited source. Core 3.4, efficiency heuristics 1.0, process-simulator 1.5, test-assessment
+1.2 and the current binding apply. This supplies the bounded diagnostic basis for T01's
+combined-focus solution review; it does not renew the whole-system or separate test account.
+
+Inspected paths are `scripts/pse-env`, `pse_env.py`, `bootstrap.sh`, `setup-env`,
+`host_admission.py`, `native_operation.py`, `operation_lifetime.py`, `systemd_environment.py`,
+`execution_profiles.py`, `surreal_server.py`, `service_borrowers.py`, `resource_store.py`,
+`test_resources.py`, `build_environment.py`, `compiler_cache.py`, `sccache`, `activity.py`,
+`activity_watch.py` and `telemetry_service.py`; adjacent `.envrc`, justfile, capacity/build
+configuration, xtask dependencies and native diagnostics were read for their consumed seams.
+No tests, builds, service actions, process launches or performance measurements ran. Test bodies,
+all retained evidence workflows and the full capability/import graph were not refreshed.
+
+### Current diagnostic synthesis
+
+The implemented host still has a Python-owned environment/launch boundary with mutually
+consuming admission, supervisor, native-operation and lifetime owners. A new native executable
+alone would not remove that ownership: recipes, direnv and direct script imports consume it.
+The cold-start problem is concrete: `scripts/pse-env` executes checkout/system Python;
+`.envrc` directly executes `scripts/pse_env.py --print`; `scripts/sccache` executes the venv
+compiler-cache owner. `xtask/Cargo.toml` unconditionally depends on Arrow/schema/codegen
+owners, so an empty default feature list is not an independent cold-host construction closure.
+These observations support DA-037's composition diagnosis; they do not establish a measured
+startup penalty or prove Python itself caused prior scientific failures.
+
+The native `pse-diagnostics::ProcessReader` already supplies boot/start/namespace identity.
+`SupervisedChild` owns pidfd-verified process-group completion and explicitly excludes
+setsid-escaping descendants from its group proof. The shared diagnostic crate has no
+Arrow/DataFusion dependency in its manifest. These are material strengths: the gap is not
+absence of native physical observations. Manager job outcome, process-group completion,
+cgroup descendant drain and borrowed-service authority remain different facts; replacing them
+with one universal alive/dead answer would erase useful distinctions.
+
+### DA-036 — Narrow the old profile-authority diagnosis
+
+The earlier literal and conformance-to-production claims are **not renewed** at this baseline.
+`surreal_server::execution_resources` delegates to `execution_profiles::profile`,
+`reference_resources` selects that owner, and `setup` obtains `default_allocation` rather than
+the earlier 49152/32768 literals. `scripts/execution_profiles.py` declares itself a transport
+whose Rust deployment operator owns materialization/relational rules. The capacity declaration
+now explicitly describes production profiles as upstream of conformance. This is contrary
+evidence to the old authority direction, not a new naming convention to ignore.
+
+The host still selects declared finite profiles and a separate unbounded ordinary-build mode;
+that distinction is deliberate policy, not itself a defect. The prior exact worker path,
+constants and site counts below retain their historical basis and must not drive current
+repairs without revalidation. This refresh does not certify every finite-profile consumer or
+claim full DA-036 closure; its narrower conclusion is that the stated legacy production-profile
+and setup-default manifestations have changed. The remaining question for T01 is which actual
+finite scientific/reference constraints its native host consumes, rather than reproducing the
+old profile inventory merely to preserve assertions.
+
+### DA-037 — Host composition and repeated custody remain; borrower wording changes
+
+`pse_env.py` still imports build environment, host admission, native operation, operation
+lifetime and the database supervisor. `surreal_server.py` imports those owners back and retains
+its direct-script `sys.modules` alias. Native operation also consumes immutable supervisor
+selection. This is direct evidence of the composition cause; the old strongly connected
+component size and module-reach census were not recomputed.
+
+The current `surreal_server::require_borrowers_drained` consumes
+`service_borrowers::obligations`, backed by `resource_store::FileStore`. Its present shape is
+not the old direct `test_resources` query. Test-resource code and supervisor still consume
+service association/lifetime state, so shared borrower authority remains an integration seam;
+this refresh does not equate all of its persisted metadata with unnecessary duplication.
+`test_resources.py` also mixes host ownership with report/artifact custody. Moving the host
+boundary requires separating those actual responsibilities; retaining useful evidence readers
+does not justify preserving a second host controller.
+
+Service realization remains owner-specific: telemetry binds invocation/process/cgroup identity,
+while compiler cache, database and workload owners each establish their own service/launch
+contracts. Distinct visibility or restart semantics can justify distinct policy. The gap is
+repeated physical observation and cyclic access to ownership decisions, not a requirement to
+merge every service's lifecycle or publication semantics.
+
+One newly revalidated manifestation is `compiler_cache::supervised_compile`: it rechecks cache
+service identity before and after invocation, polls its pidfd while the client runs, and refuses
+when that service dies. `build_environment::configure` selects the Python wrapper for ordinary
+managed cache use. That means cache lifetime is a separate success premise around the native
+compiler client. The operator has selected a different target premise, but this audit records
+what currently runs; it does not relabel the existing watcher as removed. Cache/tool failures,
+actual compiler child containment and uncertainty about its descendants remain concrete facts.
+No per-build time saving or frequency of cache-loss failure was measured.
+
+`activity.py` and `activity_watch.py` currently import `build_observation`; the passive
+ownership path and bespoke build-stage/freshness observation are therefore coupled at their
+consumer. Retiring build observation must account for those callers while preserving meaningful
+host/process/refusal diagnosis. Scientific calculation/progress observation is a distinct
+retained responsibility, not evidence that these build fields must survive.
+
+### Scope retained elsewhere
+
+DA-043's full per-call currency, loaded-extension and capability claims were not re-audited in
+this host slice; their earlier counts and findings retain the dates stated below. Fixture test
+selection, terminal outcomes and oracle independence remain in the separate test account under
+its own baseline, especially DTA-050/055/058. This refresh inspected the production borrower/host
+seam, not the entire test architecture. Scientific algorithms and numerical validity are outside
+this inspection. The [Plan58 coordinator](../../plans/58-rust-owned-system.md) owns scheduled
+dispositions and implementation status; this account selects no new remediation or acceptance.
+
 ## The layer in brief
 
 The tooling is a second system of comparable weight. At `b5bdac9da` it has:

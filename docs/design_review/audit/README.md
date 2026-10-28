@@ -1,5 +1,16 @@
 # Design principle audit
 
+## Scoped host-foundation refresh — 2026-10-28
+
+The [development-tooling supplement](development-tooling.md#scoped-t01-host-foundation-refresh--2026-10-28)
+re-reads source `50f07ea6fe757db362e4e9c1ec0c11e04545d75c` for Plan58 T01's host/bootstrap,
+service/borrower and compiler-cache boundaries. It preserves DA-036/037 identities, corrects
+older profile/default and direct-test-borrower premises, and retains the observed Python
+composition/per-compiler custody cause. No new ID is allocated. Earlier counts, the
+whole-system account, DA-043's full capability footprint and the separate test account are not
+renewed. No tests, builds, services or measurements ran. The publishing revision is separate
+from this inspected source baseline; the coordinator owns selected work and status.
+
 ## Scoped execution and database refresh — 2026-10-28
 
 The [scoped account](study-execution-and-database-boundary.md) inspects `64a217de2`
