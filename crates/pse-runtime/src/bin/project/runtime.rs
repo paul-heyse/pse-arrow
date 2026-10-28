@@ -212,12 +212,15 @@ pub(crate) async fn run(
     let request: Request = super::project_tools::read_json(&args.request)?;
     let _version = request.version;
     if let Action::StudyWorkbench { request: browse } = &request.action {
-        let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(args.memory_limit_bytes));
-        let response=pse_columnar::MemoryConsumer::new("project:study-workbench-response").register(&pool);
+        let pool: Arc<dyn pse_columnar::MemoryPool> =
+            Arc::new(pse_columnar::GreedyMemoryPool::new(args.memory_limit_bytes));
+        let response =
+            pse_columnar::MemoryConsumer::new("project:study-workbench-response").register(&pool);
         response.try_grow(pse_operations::canonical::MetadataResponse::Page.allocation_bytes())?;
-        return pse_operations::canonical::response_ownership_scope(Arc::new(response),async {
+        return pse_operations::canonical::response_ownership_scope(Arc::new(response), async {
             value(store.control_study_workbench_page(browse.clone()).await?)
-        }).await;
+        })
+        .await;
     }
     let budget = settings(&args)?;
     let shared = SharedRuntime::build(budget)?;

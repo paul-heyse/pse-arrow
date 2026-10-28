@@ -7,17 +7,32 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
-from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import TYPE_CHECKING
 
 import anyio
+import httpcore2
 import httpx2
 import msgspec
 import pytest
+from httpcore2._async.connection_pool import AsyncPoolRequest, PoolByteStream
+from httpx2._transports.default import AsyncResponseStream
 
+import pse.control as control
+from pse.contracts.documents import (
+    ControlBrowseRequest,
+    ControlCancelRequest,
+    ControlReconcileRequest,
+    StudyWorkbenchFilter,
+)
+from pse.control import (
+    ControlClient,
+    ControlError,
+    ControlRefusedError,
+    ControlUnresolvedError,
+)
 
 if TYPE_CHECKING:
-    from pse.control import ControlClient
+    from collections.abc import AsyncIterator, Awaitable, Callable
 
 
 @pytest.mark.unit
@@ -37,7 +52,10 @@ from pse.contracts.documents import ControlCancelRequest
 assert 'pse._native' not in sys.modules
 assert 'pse._build' not in sys.modules
 assert 'pyarrow' not in sys.modules
-assert ControlCancelRequest(document_version=1, operation_id='original', issuing_store='issuer', study='study').study == 'study'
+request = ControlCancelRequest(
+    document_version=1, operation_id='original', issuing_store='issuer', study='study'
+)
+assert request.study == 'study'
 try:
     pse.Runtime
 except AssertionError:
@@ -49,11 +67,16 @@ else:
 
 
 def _client() -> ControlClient:
-    from pse.control import ControlClient
 
     return ControlClient(
-        "http://127.0.0.1:8000", "pse", "canonical", "record-token",
-        issuing_store="issuer", timeout=0.1, maximum_request_bytes=4096, maximum_response_bytes=4096,
+        "http://127.0.0.1:8000",
+        "pse",
+        "canonical",
+        "record-token",
+        issuing_store="issuer",
+        timeout=0.1,
+        maximum_request_bytes=4096,
+        maximum_response_bytes=4096,
     )
 
 
@@ -63,35 +86,68 @@ def _transport(
 ) -> None:
     constructor = httpx2.AsyncClient
 
-    def create(*, timeout: float, trust_env: bool, follow_redirects: bool) -> httpx2.AsyncClient:
+    def create(
+        *, timeout: float, trust_env: bool, follow_redirects: bool
+    ) -> httpx2.AsyncClient:
         assert trust_env is False
         assert follow_redirects is False
-        return constructor(transport=httpx2.MockTransport(handler), timeout=timeout, trust_env=trust_env, follow_redirects=follow_redirects)
+        return constructor(
+            transport=httpx2.MockTransport(handler),
+            timeout=timeout,
+            trust_env=trust_env,
+            follow_redirects=follow_redirects,
+        )
 
     monkeypatch.setattr(httpx2, "AsyncClient", create)
 
 
 @pytest.mark.unit
-def test_control_browse_exact_integer_conversion(monkeypatch: pytest.MonkeyPatch) -> None:
-    from pse.contracts.documents import ControlBrowseRequest, StudyWorkbenchFilter
+def test_control_browse_exact_integer_conversion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
 
     async def handler(request: httpx2.Request) -> httpx2.Response:
         assert request.url.path.endswith("/browse")
         assert request.headers["accept-encoding"] == "identity"
         body = msgspec.json.decode(request.content, type=dict[str, msgspec.Raw])
         assert msgspec.json.decode(body["expires_at"], type=int) > 0
-        row = dict(study="study", run="run", problem="problem", source="source",
-                   physical_revision=None, physical_identity=None, context=None,
-                   point_count="18446744073709551615", generation="9007199254740993",
-                   active=True, cancelled=False, terminal=False, result_attempt=None, outcome=None)
-        return httpx2.Response(200, stream=httpx2.ByteStream(msgspec.json.encode(dict(document_version=1, headers=[row], next=None))))
+        row = {
+            "study": "study",
+            "run": "run",
+            "problem": "problem",
+            "source": "source",
+            "physical_revision": None,
+            "physical_identity": None,
+            "context": None,
+            "point_count": "18446744073709551615",
+            "generation": "9007199254740993",
+            "active": True,
+            "cancelled": False,
+            "terminal": False,
+            "result_attempt": None,
+            "outcome": None,
+        }
+        return httpx2.Response(
+            200,
+            stream=httpx2.ByteStream(
+                msgspec.json.encode(
+                    {"document_version": 1, "headers": [row], "next": None}
+                )
+            ),
+        )
 
     _transport(monkeypatch, handler)
 
     async def run() -> None:
         async with _client() as client:
-            page = await client.study_workbench_page(ControlBrowseRequest(
-                document_version=1, filter=StudyWorkbenchFilter(), maximum=1, cursor=None))
+            page = await client.study_workbench_page(
+                ControlBrowseRequest(
+                    document_version=1,
+                    filter=StudyWorkbenchFilter(),
+                    maximum=1,
+                    cursor=None,
+                )
+            )
             assert page.headers[0].generation == 9007199254740993
             assert page.headers[0].point_count == (1 << 64) - 1
 
@@ -103,8 +159,6 @@ def test_control_browse_exact_integer_conversion(monkeypatch: pytest.MonkeyPatch
 def test_control_uncertain_cancel_retains_identity_and_closes(
     monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
-    from pse.control import ControlUnresolved
-    from pse.contracts.documents import ControlCancelRequest
 
     closed: list[bool] = []
 
@@ -130,9 +184,15 @@ def test_control_uncertain_cancel_retains_identity_and_closes(
 
     async def run() -> None:
         async with _client() as client:
-            with pytest.raises(ControlUnresolved) as outcome:
-                await client.cancel_study(ControlCancelRequest(
-                    document_version=1, issuing_store="issuer", operation_id="original-command", study="study"))
+            with pytest.raises(ControlUnresolvedError) as outcome:
+                await client.cancel_study(
+                    ControlCancelRequest(
+                        document_version=1,
+                        issuing_store="issuer",
+                        operation_id="original-command",
+                        study="study",
+                    )
+                )
             assert outcome.value.operation_id == "original-command"
         assert closed
 
@@ -140,48 +200,64 @@ def test_control_uncertain_cancel_retains_identity_and_closes(
 
 
 @pytest.mark.unit
-def test_control_reconciliation_absence_issues_no_cancel(monkeypatch: pytest.MonkeyPatch) -> None:
-    from pse.contracts.documents import ControlReconcileRequest
+def test_control_reconciliation_absence_issues_no_cancel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
 
     calls: list[str] = []
 
     async def handler(request: httpx2.Request) -> httpx2.Response:
         calls.append(request.url.path)
-        return httpx2.Response(200, stream=httpx2.ByteStream(b'{"document_version":1,"receipt":null}'))
+        return httpx2.Response(
+            200, stream=httpx2.ByteStream(b'{"document_version":1,"receipt":null}')
+        )
 
     _transport(monkeypatch, handler)
 
     async def run() -> None:
         async with _client() as client:
-            result = await client.reconcile(ControlReconcileRequest(document_version=1, issuing_store="issuer", operation_id="original"))
+            result = await client.reconcile(
+                ControlReconcileRequest(
+                    document_version=1, issuing_store="issuer", operation_id="original"
+                )
+            )
             assert result.receipt is None
-        assert len(calls) == 1 and calls[0].endswith("/reconcile")
+        assert len(calls) == 1
+        assert calls[0].endswith("/reconcile")
 
     anyio.run(run)
 
 
 @pytest.mark.unit
-def test_control_original_issuer_refuses_before_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
-    from pse.control import ControlError
-    from pse.contracts.documents import ControlCancelRequest
+def test_control_original_issuer_refuses_before_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
 
     async def handler(_request: httpx2.Request) -> httpx2.Response:
-        raise AssertionError("Foreign issuing store reached dispatch")
+        message = "Foreign issuing store reached dispatch"
+        raise AssertionError(message)
 
     _transport(monkeypatch, handler)
 
     async def run() -> None:
         async with _client() as client:
             with pytest.raises(ControlError, match="issuing store"):
-                await client.cancel_study(ControlCancelRequest(
-                    document_version=1, issuing_store="restored-issuer", operation_id="original", study="study"))
+                await client.cancel_study(
+                    ControlCancelRequest(
+                        document_version=1,
+                        issuing_store="restored-issuer",
+                        operation_id="original",
+                        study="study",
+                    )
+                )
 
     anyio.run(run)
 
 
 @pytest.mark.unit
-def test_control_external_cancellation_closes_and_preserves_identity(monkeypatch: pytest.MonkeyPatch) -> None:
-    from pse.contracts.documents import ControlCancelRequest
+def test_control_external_cancellation_closes_and_preserves_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
 
     closed: list[bool] = []
     errors: list[BaseException] = []
@@ -203,8 +279,14 @@ def test_control_external_cancellation_closes_and_preserves_identity(monkeypatch
         async with _client() as client:
             with anyio.move_on_after(0.02) as stop:
                 try:
-                    await client.cancel_study(ControlCancelRequest(
-                        document_version=1, issuing_store="issuer", operation_id="retained", study="study"))
+                    await client.cancel_study(
+                        ControlCancelRequest(
+                            document_version=1,
+                            issuing_store="issuer",
+                            operation_id="retained",
+                            study="study",
+                        )
+                    )
                 except anyio.get_cancelled_exc_class() as error:
                     errors.append(error)
                     raise
@@ -216,9 +298,9 @@ def test_control_external_cancellation_closes_and_preserves_identity(monkeypatch
 
 
 @pytest.mark.unit
-def test_control_close_waits_for_actual_response_cleanup(monkeypatch: pytest.MonkeyPatch) -> None:
-    from pse.control import ControlError
-    from pse.contracts.documents import ControlReconcileRequest
+def test_control_close_waits_for_actual_response_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
 
     closed: list[bool] = []
 
@@ -239,7 +321,9 @@ def test_control_close_waits_for_actual_response_cleanup(monkeypatch: pytest.Mon
 
         _transport(monkeypatch, handler)
         client = await _client().__aenter__()
-        request = ControlReconcileRequest(document_version=1, issuing_store="issuer", operation_id="original")
+        request = ControlReconcileRequest(
+            document_version=1, issuing_store="issuer", operation_id="original"
+        )
 
         async def request_task() -> None:
             await client.reconcile(request)
@@ -264,24 +348,39 @@ def test_control_close_waits_for_actual_response_cleanup(monkeypatch: pytest.Mon
 
 
 @pytest.mark.unit
-def test_control_signin_uses_bounded_owned_transport(monkeypatch: pytest.MonkeyPatch) -> None:
-    from pse.contracts.documents import ControlReconcileRequest
+def test_control_signin_uses_bounded_owned_transport(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
 
     async def handler(request: httpx2.Request) -> httpx2.Response:
         if request.url.path == "/signin":
             assert "authorization" not in request.headers
             body = msgspec.json.decode(request.content, type=dict[str, str])
-            assert body == {"NS": "pse", "DB": "canonical", "AC": "pse_control", "actor": "reader", "password": "private-password"}
-            return httpx2.Response(200, stream=httpx2.ByteStream(b'{"token":"new-record-token"}'))
+            assert body == {
+                "NS": "pse",
+                "DB": "canonical",
+                "AC": "pse_control",
+                "actor": "reader",
+                "password": "private-password",
+            }
+            return httpx2.Response(
+                200, stream=httpx2.ByteStream(b'{"token":"new-record-token"}')
+            )
         assert request.headers["authorization"] == "Bearer new-record-token"
-        return httpx2.Response(200, stream=httpx2.ByteStream(b'{"document_version":1,"receipt":null}'))
+        return httpx2.Response(
+            200, stream=httpx2.ByteStream(b'{"document_version":1,"receipt":null}')
+        )
 
     _transport(monkeypatch, handler)
 
     async def run() -> None:
         async with _client() as client:
             await client.sign_in("reader", "private-password")
-            await client.reconcile(ControlReconcileRequest(document_version=1, issuing_store="issuer", operation_id="original"))
+            await client.reconcile(
+                ControlReconcileRequest(
+                    document_version=1, issuing_store="issuer", operation_id="original"
+                )
+            )
 
     anyio.run(run)
 
@@ -291,46 +390,67 @@ def test_control_signin_uses_bounded_owned_transport(monkeypatch: pytest.MonkeyP
 def test_control_explicit_identity_refusal_is_bound_to_original_command(
     monkeypatch: pytest.MonkeyPatch, foreign: bool
 ) -> None:
-    from pse.control import ControlRefused, ControlUnresolved
-    from pse.contracts.documents import ControlCancelRequest
 
     async def handler(_request: httpx2.Request) -> httpx2.Response:
-        body = msgspec.json.encode({
-            "document_version": 1,
-            "issuing_store": "foreign" if foreign else "issuer",
-            "operation_id": "original",
-            "reason": "control_command_identity_reused",
-        })
+        body = msgspec.json.encode(
+            {
+                "document_version": 1,
+                "issuing_store": "foreign" if foreign else "issuer",
+                "operation_id": "original",
+                "reason": "control_command_identity_reused",
+            }
+        )
         return httpx2.Response(409, stream=httpx2.ByteStream(body))
 
     _transport(monkeypatch, handler)
 
     async def run() -> None:
         async with _client() as client:
-            with pytest.raises(ControlUnresolved if foreign else ControlRefused):
-                await client.cancel_study(ControlCancelRequest(
-                    document_version=1, issuing_store="issuer", operation_id="original", study="changed"))
+            expected = ControlUnresolvedError if foreign else ControlRefusedError
+            with pytest.raises(expected):
+                await client.cancel_study(
+                    ControlCancelRequest(
+                        document_version=1,
+                        issuing_store="issuer",
+                        operation_id="original",
+                        study="changed",
+                    )
+                )
 
     anyio.run(run)
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("target", ["browse", "cancel", "reconcile", "nested_receipt", "refusal"])
+@pytest.mark.parametrize(
+    "target", ["browse", "cancel", "reconcile", "nested_receipt", "refusal"]
+)
 @pytest.mark.parametrize("version", [None, 2, True])
 def test_control_requires_explicit_generated_version_headers(
     monkeypatch: pytest.MonkeyPatch, target: str, version: int | bool | None
 ) -> None:
-    from pse.control import ControlError, ControlUnresolved
-    from pse.contracts.documents import ControlBrowseRequest, ControlCancelRequest, ControlReconcileRequest, StudyWorkbenchFilter
 
-    receipt = dict(document_version=1, issuing_store="issuer", operation_id="original", study="study",
-                   status="accepted", already_concluded=False, cancelled=True, generation="1", reason=None)
+    receipt = {
+        "document_version": 1,
+        "issuing_store": "issuer",
+        "operation_id": "original",
+        "study": "study",
+        "status": "accepted",
+        "already_concluded": False,
+        "cancelled": True,
+        "generation": "1",
+        "reason": None,
+    }
     if target == "browse":
-        document = dict(document_version=1, headers=[], next=None)
+        document = {"document_version": 1, "headers": [], "next": None}
     elif target in {"reconcile", "nested_receipt"}:
-        document = dict(document_version=1, receipt=receipt)
+        document = {"document_version": 1, "receipt": receipt}
     elif target == "refusal":
-        document = dict(document_version=1, issuing_store="issuer", operation_id="original", reason="control_command_identity_reused")
+        document = {
+            "document_version": 1,
+            "issuing_store": "issuer",
+            "operation_id": "original",
+            "reason": "control_command_identity_reused",
+        }
     else:
         document = receipt
     changed = receipt if target == "nested_receipt" else document
@@ -340,28 +460,51 @@ def test_control_requires_explicit_generated_version_headers(
         changed["document_version"] = version
 
     async def handler(_request: httpx2.Request) -> httpx2.Response:
-        return httpx2.Response(409 if target == "refusal" else 200,
-                               stream=httpx2.ByteStream(msgspec.json.encode(document)))
+        return httpx2.Response(
+            409 if target == "refusal" else 200,
+            stream=httpx2.ByteStream(msgspec.json.encode(document)),
+        )
 
     _transport(monkeypatch, handler)
 
     async def run() -> None:
         async with _client() as client:
-            expected = ControlUnresolved if target in {"cancel", "refusal"} else ControlError
-            with pytest.raises(expected):
+            expected = (
+                ControlUnresolvedError
+                if target in {"cancel", "refusal"}
+                else ControlError
+            )
+
+            async def invoke() -> None:
                 if target == "browse":
-                    await client.study_workbench_page(ControlBrowseRequest(filter=StudyWorkbenchFilter(), maximum=1))
+                    await client.study_workbench_page(
+                        ControlBrowseRequest(filter=StudyWorkbenchFilter(), maximum=1)
+                    )
                 elif target in {"reconcile", "nested_receipt"}:
-                    await client.reconcile(ControlReconcileRequest(issuing_store="issuer", operation_id="original"))
+                    await client.reconcile(
+                        ControlReconcileRequest(
+                            issuing_store="issuer", operation_id="original"
+                        )
+                    )
                 else:
-                    await client.cancel_study(ControlCancelRequest(issuing_store="issuer", operation_id="original", study="study"))
+                    await client.cancel_study(
+                        ControlCancelRequest(
+                            issuing_store="issuer",
+                            operation_id="original",
+                            study="study",
+                        )
+                    )
+
+            with pytest.raises(expected):
+                await invoke()
 
     anyio.run(run)
 
 
 @pytest.mark.unit
-def test_control_close_waiter_retains_its_failed_round_during_retry(monkeypatch: pytest.MonkeyPatch) -> None:
-    import pse.control as control
+def test_control_close_waiter_retains_its_failed_round_during_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
 
     async def run() -> None:
         first_entered, release_first = anyio.Event(), anyio.Event()
@@ -450,12 +593,13 @@ def test_control_close_waiter_retains_its_failed_round_during_retry(monkeypatch:
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("mode", ["malformed", "external_cancel", "delivered", "delivered_during_error_handler"])
+@pytest.mark.parametrize(
+    "mode",
+    ["malformed", "external_cancel", "delivered", "delivered_during_error_handler"],
+)
 def test_control_response_close_failure_preserves_outcome_and_owner(
     monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
-    from pse.control import ControlUnresolved
-    from pse.contracts.documents import ControlCancelRequest
 
     async def run() -> None:
         cleanup = RuntimeError("response stream close failed")
@@ -469,9 +613,19 @@ def test_control_response_close_failure_preserves_outcome_and_owner(
                 elif mode == "malformed":
                     yield b"broken"
                 else:
-                    yield msgspec.json.encode(dict(document_version=1, issuing_store="issuer", operation_id="retained",
-                                                  study="study", status="accepted", already_concluded=False,
-                                                  cancelled=True, generation="1", reason=None))
+                    yield msgspec.json.encode(
+                        {
+                            "document_version": 1,
+                            "issuing_store": "issuer",
+                            "operation_id": "retained",
+                            "study": "study",
+                            "status": "accepted",
+                            "already_concluded": False,
+                            "cancelled": True,
+                            "generation": "1",
+                            "reason": None,
+                        }
+                    )
 
             async def aclose(self) -> None:
                 nonlocal close_calls
@@ -484,7 +638,9 @@ def test_control_response_close_failure_preserves_outcome_and_owner(
 
         _transport(monkeypatch, handler)
         client = await _client().__aenter__()
-        request = ControlCancelRequest(issuing_store="issuer", operation_id="retained", study="study")
+        request = ControlCancelRequest(
+            issuing_store="issuer", operation_id="retained", study="study"
+        )
         errors: list[BaseException] = []
         if mode == "external_cancel":
             with anyio.move_on_after(0.02) as stop:
@@ -492,19 +648,27 @@ def test_control_response_close_failure_preserves_outcome_and_owner(
                     await client.cancel_study(request)
                 except anyio.get_cancelled_exc_class() as error:
                     errors.append(error)
-                    assert error.__cause__ is cleanup
-                    assert "retained" in str(getattr(error, "__notes__", []))
                     raise
             assert stop.cancelled_caught
+            assert errors[0].__cause__ is cleanup
+            assert "retained" in str(getattr(errors[0], "__notes__", []))
         else:
-            with pytest.raises(ControlUnresolved) as outcome:
+
+            def unrelated_error() -> None:
+                message = "unrelated caller error"
+                raise ValueError(message)
+
+            async def invoke() -> None:
                 if mode == "delivered_during_error_handler":
                     try:
-                        raise ValueError("unrelated caller error")
+                        unrelated_error()
                     except ValueError:
                         await client.cancel_study(request)
                 else:
                     await client.cancel_study(request)
+
+            with pytest.raises(ControlUnresolvedError) as outcome:
+                await invoke()
             assert outcome.value.operation_id == "retained"
             errors.append(outcome.value)
             assert outcome.value.__cause__ is not None
@@ -523,9 +687,12 @@ def test_control_response_close_failure_preserves_outcome_and_owner(
 
 
 @pytest.mark.unit
-def test_control_failed_pool_close_cannot_be_settled_by_library_noop(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_control_failed_pool_close_cannot_be_settled_by_library_noop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def handler(_request: httpx2.Request) -> httpx2.Response:
-        raise AssertionError("No request is needed")
+        message = "No request is needed"
+        raise AssertionError(message)
 
     async def run() -> None:
         _transport(monkeypatch, handler)
@@ -544,7 +711,8 @@ def test_control_failed_pool_close_cannot_be_settled_by_library_noop(monkeypatch
         with pytest.raises(BaseExceptionGroup) as first:
             await client.close()
         assert first.value.exceptions == (failure,)
-        assert client._http is not None and client._http.is_closed
+        assert client._http is not None
+        assert client._http.is_closed
         with pytest.raises(BaseExceptionGroup) as retry:
             await client.close()
         assert retry.value.exceptions == (failure,)
@@ -555,12 +723,9 @@ def test_control_failed_pool_close_cannot_be_settled_by_library_noop(monkeypatch
 
 
 @pytest.mark.unit
-def test_control_actual_provider_body_close_noop_keeps_unsettled_owner(monkeypatch: pytest.MonkeyPatch) -> None:
-    import httpcore2
-    from httpcore2._async.connection_pool import AsyncPoolRequest, PoolByteStream
-    from httpx2._transports.default import AsyncResponseStream
-    from pse.control import ControlUnresolved
-    from pse.contracts.documents import ControlCancelRequest
+def test_control_actual_provider_body_close_noop_keeps_unsettled_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
 
     async def run() -> None:
         calls = 0
@@ -576,7 +741,9 @@ def test_control_actual_provider_body_close_noop_keeps_unsettled_owner(monkeypat
                 raise failure
 
         pool = httpcore2.AsyncConnectionPool()
-        pool_request = AsyncPoolRequest(httpcore2.Request("GET", "http://example.invalid"))
+        pool_request = AsyncPoolRequest(
+            httpcore2.Request("GET", "http://example.invalid")
+        )
         pool._requests.append(pool_request)
         provider = PoolByteStream(Body(), pool_request, pool)
 
@@ -585,8 +752,12 @@ def test_control_actual_provider_body_close_noop_keeps_unsettled_owner(monkeypat
 
         _transport(monkeypatch, handler)
         client = await _client().__aenter__()
-        with pytest.raises(ControlUnresolved) as outcome:
-            await client.cancel_study(ControlCancelRequest(issuing_store="issuer", operation_id="retained", study="study"))
+        with pytest.raises(ControlUnresolvedError) as outcome:
+            await client.cancel_study(
+                ControlCancelRequest(
+                    issuing_store="issuer", operation_id="retained", study="study"
+                )
+            )
         assert outcome.value.operation_id == "retained"
         assert calls == 1
         assert len(client._pending_responses) == 1

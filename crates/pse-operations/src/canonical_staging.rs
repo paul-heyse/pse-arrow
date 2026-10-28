@@ -931,51 +931,46 @@ impl CanonicalStore {
                     || async {
                         let result = async {
                             self.ensure_writes()?;
-                            let result = self
-                                .staging_query(
-                                    problem,
-                                    self.db
-                                        .script(
-                                            GuardedScript::new(Envelope::StageAcquisition(
-                                                StageAcquisition {
-                                                    problem: &ProblemKey::from(problem),
-                                                    operation: &OperationKey::from(operation),
-                                                    expected: expected
-                                                        .map(RevisionKey::from)
-                                                        .as_ref(),
-                                                    request_digest: &plan.request_digest,
-                                                    lifetime,
-                                                },
-                                            ))
-                                            .returning::<Option<Object>>(
-                                                BEGIN_STAGE,
-                                                "$pse_rpc_result",
-                                            )?,
-                                        )
-                                        .bind((
-                                            "product_stage",
-                                            matches!(purpose, StagePurpose::Product),
+                            self.staging_query(
+                                problem,
+                                self.db
+                                    .script(
+                                        GuardedScript::new(Envelope::StageAcquisition(
+                                            StageAcquisition {
+                                                problem: &ProblemKey::from(problem),
+                                                operation: &OperationKey::from(operation),
+                                                expected: expected.map(RevisionKey::from).as_ref(),
+                                                request_digest: &plan.request_digest,
+                                                lifetime,
+                                            },
                                         ))
-                                        .bind((
-                                            "exclusive_stage",
-                                            matches!(
-                                                purpose,
-                                                StagePurpose::SourceEdit | StagePurpose::Product
-                                            ),
-                                        ))
-                                        .bind(("edit_count", uint(plan.changes.len())?)),
-                                )
-                                .await;
-                            result
+                                        .returning::<Option<Object>>(
+                                            BEGIN_STAGE,
+                                            "$pse_rpc_result",
+                                        )?,
+                                    )
+                                    .bind((
+                                        "product_stage",
+                                        matches!(purpose, StagePurpose::Product),
+                                    ))
+                                    .bind((
+                                        "exclusive_stage",
+                                        matches!(
+                                            purpose,
+                                            StagePurpose::SourceEdit | StagePurpose::Product
+                                        ),
+                                    ))
+                                    .bind(("edit_count", uint(plan.changes.len())?)),
+                            )
+                            .await
                         }
                         .await;
                         crate::transport::retry::Attempt::settled(result)
                     },
                 )
                 .await
-                .map_err(|error| {
-                    operation_failed("canonical_staging::begin_stage_inner", &error);
-                    error
+                .inspect_err(|error| {
+                    operation_failed("canonical_staging::begin_stage_inner", error);
                 })?;
 
                 let row = ResultSlot::<Option<Object>>::returned()
@@ -998,7 +993,7 @@ impl CanonicalStore {
                     );
                 };
                 let row = wire::decode_canonical_stages(stage)?;
-                return Ok(Some(ClosedStage {
+                Ok(Some(ClosedStage {
                     problem: problem.into(),
                     expected: expected.map(str::to_owned),
                     operation: operation.into(),
@@ -1006,7 +1001,7 @@ impl CanonicalStore {
                     request: plan.request.clone(),
                     request_digest: plan.request_digest.clone(),
                     lifetime_micros,
-                }));
+                }))
             },
         )
         .await
@@ -1475,9 +1470,7 @@ impl CanonicalStore {
     ) -> Result<Vec<Object>, CanonicalError> {
         // Inputs are only store-issued bounded manifests/block keys. Membership
         // validation is shared by the whole group, under one exact protection.
-        let sql = format!(
-            "LET $members = SELECT VALUE version FROM canonical_memberships WHERE problem = $problem AND version IN $versions AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nIF array::len(array::distinct($members)) != array::len($versions) {{ THROW 'PSE_REFUSAL:selected_grouped_membership_unavailable'; }};\nLET $pse_rpc_result = SELECT * FROM $keys.map(|$key| type::record($table, $key)) TIMEOUT $pse_rpc_timeout;"
-        );
+        let sql = "LET $members = SELECT VALUE version FROM canonical_memberships WHERE problem = $problem AND version IN $versions AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nIF array::len(array::distinct($members)) != array::len($versions) { THROW 'PSE_REFUSAL:selected_grouped_membership_unavailable'; };\nLET $pse_rpc_result = SELECT * FROM $keys.map(|$key| type::record($table, $key)) TIMEOUT $pse_rpc_timeout;".to_owned();
         let mut response = self
             .protected_query(
                 &selection.revision().problem,
@@ -1499,7 +1492,7 @@ impl CanonicalStore {
                 },
             )
             .await?;
-        Ok(ResultSlot::<Vec<Object>>::returned().take(&mut response)?)
+        ResultSlot::<Vec<Object>>::returned().take(&mut response)
     }
 
     pub(crate) async fn validate_product_candidate(
@@ -1678,9 +1671,7 @@ impl CanonicalStore {
             let selection = selection.ok_or_else(|| {
                 CanonicalError::Configuration("product read requires protection".into())
             })?;
-            let sql = format!(
-                "LET $saved=SELECT * FROM ONLY type::record('canonical_product_associations',$product.key);\nLET $root=SELECT * FROM ONLY type::record('canonical_roots',$product.key) FOR UPDATE;\nIF $saved=NONE OR $saved.key!=$product.key OR $saved.issuing_store!=$product.issuing_store OR $saved.problem!=$problem OR $saved.problem!=$product.problem OR $saved.revision!=$product.revision OR $saved.payload!=$product.payload OR $saved.dependencies!=$product.dependencies OR $saved.request!=$product.request OR $saved.content!=$product.content OR $saved.receipt!=$product.receipt OR $saved.descriptor!=$product.descriptor OR $saved.producer!=$product.producer OR $saved.interpretation!=$product.interpretation OR $root=NONE OR $root.problem!=$saved.problem OR $root.revision!=$saved.revision OR $root.owner_kind!='product' OR $root.owner!=$saved.key OR $version NOT IN [$saved.content,$saved.receipt] {{ THROW 'PSE_REFUSAL:product_physical_authorization_unavailable'; }};\nLET $pse_rpc_result=SELECT * FROM ONLY type::record($table,$key) TIMEOUT $pse_rpc_timeout;"
-            );
+            let sql = "LET $saved=SELECT * FROM ONLY type::record('canonical_product_associations',$product.key);\nLET $root=SELECT * FROM ONLY type::record('canonical_roots',$product.key) FOR UPDATE;\nIF $saved=NONE OR $saved.key!=$product.key OR $saved.issuing_store!=$product.issuing_store OR $saved.problem!=$problem OR $saved.problem!=$product.problem OR $saved.revision!=$product.revision OR $saved.payload!=$product.payload OR $saved.dependencies!=$product.dependencies OR $saved.request!=$product.request OR $saved.content!=$product.content OR $saved.receipt!=$product.receipt OR $saved.descriptor!=$product.descriptor OR $saved.producer!=$product.producer OR $saved.interpretation!=$product.interpretation OR $root=NONE OR $root.problem!=$saved.problem OR $root.revision!=$saved.revision OR $root.owner_kind!='product' OR $root.owner!=$saved.key OR $version NOT IN [$saved.content,$saved.receipt] { THROW 'PSE_REFUSAL:product_physical_authorization_unavailable'; };\nLET $pse_rpc_result=SELECT * FROM ONLY type::record($table,$key) TIMEOUT $pse_rpc_timeout;".to_owned();
             let mut response = self
                 .protected_query(
                     &selection.revision().problem,
@@ -1708,13 +1699,13 @@ impl CanonicalStore {
                     },
                 )
                 .await?;
-            return Ok(ResultSlot::<Option<Object>>::returned().take(&mut response)?);
+            return ResultSlot::<Option<Object>>::returned().take(&mut response);
         }
         if let Some(selection) = selection {
             let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_staging::authorized_record", || Ok(self.db.script(GuardedScript::new(Envelope::ProtectedRead{selection,recheck:Recheck::Pin}).returning::<Option<Object>>("LET $members = SELECT key FROM canonical_memberships WHERE problem = $problem AND version = $version AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) LIMIT 1;\nLET $row = IF array::len($members) = 0 { RETURN NONE; } ELSE { RETURN SELECT * FROM ONLY type::record($table, $key); };","$row")?)
 
                 .bind(("version", version.to_owned())).bind(("table", table.to_owned())).bind(("key", key.to_owned())))).await?;
-            Ok(ResultSlot::<Option<Object>>::returned().take(&mut response)?)
+            ResultSlot::<Option<Object>>::returned().take(&mut response)
         } else {
             Ok(request(self.db.select((table, key))).await?)
         }
@@ -2030,9 +2021,7 @@ impl CanonicalStore {
                 return Ok(page);
             }
         }
-        let query = format!(
-            "LET $all_remaining = SELECT key, scope, version FROM canonical_staged_edits WHERE stage = $operation LIMIT 65;\nLET $remaining = $all_remaining.filter(|$child| {{ LET $protected = SELECT key FROM canonical_product_associations WHERE (content = $child.version OR receipt = $child.version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1; $child.scope NOT IN ['pse.body-content.v1','pse.selection-receipt.v1'] OR array::len($protected) = 0 }});\nIF $eligible AND array::len($all_remaining) = 0 {{ UPDATE type::record('canonical_stages', $operation) SET cleanup_complete = true; }};\nLET $pse_rpc_result = {{pending:array::len($remaining) != 0}};"
-        );
+        let query = "LET $all_remaining = SELECT key, scope, version FROM canonical_staged_edits WHERE stage = $operation LIMIT 65;\nLET $remaining = $all_remaining.filter(|$child| { LET $protected = SELECT key FROM canonical_product_associations WHERE (content = $child.version OR receipt = $child.version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1; $child.scope NOT IN ['pse.body-content.v1','pse.selection-receipt.v1'] OR array::len($protected) = 0 });\nIF $eligible AND array::len($all_remaining) = 0 { UPDATE type::record('canonical_stages', $operation) SET cleanup_complete = true; };\nLET $pse_rpc_result = {pending:array::len($remaining) != 0};".to_owned();
         let mut decision = self
             .cleanup_stage_query(problem, &operation, &query, None,CleanupFence::BeforeBody)
             .await?
@@ -2068,7 +2057,7 @@ impl CanonicalStore {
                     || async {
                         let result = async {
                             self.ensure_writes()?;
-                            let result = bounded_query(
+                            bounded_query(
                                 self.db
                                     .script(
                                         GuardedScript::new(Envelope::StageCleanup(StageCleanup {
@@ -2080,19 +2069,17 @@ impl CanonicalStore {
                                     )
                                     .bind(("child_key", child.map(str::to_owned))),
                             )
-                            .await;
-                            result
+                            .await
                         }
                         .await;
                         crate::transport::retry::Attempt::settled(result)
                     },
                 )
                 .await
-                .map_err(|error| {
-                    operation_failed("canonical_staging::cleanup_stage_query", &error);
-                    error
+                .inspect_err(|error| {
+                    operation_failed("canonical_staging::cleanup_stage_query", error);
                 })?;
-                Ok(ResultSlot::<Option<Object>>::returned().take(&mut response)?)
+                ResultSlot::<Option<Object>>::returned().take(&mut response)
             },
         )
         .await

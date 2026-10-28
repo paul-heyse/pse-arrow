@@ -42,6 +42,18 @@ Any new HTTP/WS/API ingress must be integrated into the authenticated existing d
 readiness/stop/backup and exact owner cleanup routes, not added as an untracked server. J uses
 actual partial-startup and drain scenarios. This amendment schedules integration, not host changes.
 
+The first K/L qualification exposed two concrete G03/G04 follow-ups. A native integration
+build can replace the mutable allocation helper with a native-linked binary before a pure
+storage closure freezes it; qualification recovered by explicitly building the pure helper
+with `just deployment-build`. Assess exact helper selection at closure construction rather
+than widening the storage environment. Also, direct maintenance-listener drain can enter
+`stop` and recursively remove its own marker, making the outer unlink fail after physical
+settlement. Keep normal `stop` as the composed teardown owner for the selected K/L fixtures;
+G's remaining lifecycle work must reconcile the direct API's ownership. The failed fixture
+was recovered through existing dead-owner/reset/stop APIs and independently witnessed drained;
+no ownership guard or retained database was deleted. These observations schedule G inquiry,
+not a claim that its general lifecycle scope is repaired.
+
 
 ## Foundation assessment
 

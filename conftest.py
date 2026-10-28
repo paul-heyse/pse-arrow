@@ -104,8 +104,6 @@ def _require_native_libraries() -> None:
             return
 
 
-
-
 def pytest_addoption(parser: pytest.Parser) -> None:
     """Register the explicit suite opt-ins.
 

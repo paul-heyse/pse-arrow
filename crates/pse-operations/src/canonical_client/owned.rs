@@ -486,7 +486,7 @@ impl Service<http::Request<tonic::body::Body>> for OwnedHttp2 {
                 if driver.closed() {
                     return Poll::Ready(Err(refused("gRPC connection closed")));
                 }
-                sender.poll_ready(cx).map_err(|e| BoxError::from(e))
+                sender.poll_ready(cx).map_err(BoxError::from)
             }
         }
     }

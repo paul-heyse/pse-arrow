@@ -19,6 +19,10 @@ import os
 import sys
 from typing import TYPE_CHECKING
 
+from pse import __version__ as _package_version
+from pse.contracts.documents import SCHEMA_SET_FINGERPRINT
+from pse.contracts.extension_types import register_all
+
 
 def _load_published_image() -> None:
     """Load the construction owner's selected immutable image at this sole gate."""
@@ -45,7 +49,7 @@ from pse import (  # noqa: E402 -- select the issued image before the sole typed
     contracts,
 )
 
-_check_document_header = _native.check_document_header
+check_document_header = _native.check_document_header
 
 if TYPE_CHECKING:
     from pse.contracts.documents import BuildInfo
@@ -144,7 +148,9 @@ def native_version() -> str:
     return _native.__version__
 
 
-def _check_native_compatibility(package_version: str | None, schema_fingerprint: str) -> None:
+def _check_native_compatibility(
+    package_version: str | None, schema_fingerprint: str
+) -> None:
     """Check the compiled version and generated declaration identity without a scan."""
     if package_version is not None and package_version != native_version():
         message = "pse package and native extension versions differ; run just py-sync"
@@ -205,9 +211,5 @@ _host_operation_catalogue = _native.host_operation_catalogue
 
 
 # Actual scientific imports, including private consumers, cross this sole native gate.
-from pse import __version__ as _package_version  # noqa: E402 -- verify after the gate is fully defined
-from pse.contracts.documents import SCHEMA_SET_FINGERPRINT as _schema_fingerprint  # noqa: E402
-from pse.contracts.extension_types import register_all as _register_extensions  # noqa: E402
-
-_check_native_compatibility(_package_version, _schema_fingerprint)
-_register_extensions()
+_check_native_compatibility(_package_version, SCHEMA_SET_FINGERPRINT)
+register_all()

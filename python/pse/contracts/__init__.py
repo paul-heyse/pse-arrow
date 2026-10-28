@@ -5,12 +5,14 @@
 
 from importlib import import_module
 
+
 def __getattr__(name: str) -> object:
     if name not in ("EXTENSION_NAMES", "register_all"):
         raise AttributeError(name)
     value = getattr(import_module("pse.contracts.extension_types"), name)
     globals()[name] = value
     return value
+
 
 __all__ = ["EXTENSION_NAMES", "REGISTRY_FINGERPRINT", "register_all"]
 

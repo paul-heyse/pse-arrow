@@ -65,7 +65,7 @@ Surrealism 0.6.4 provides `sql`, `sql_with_vars`, `run` and module KV through ho
 imports. Its [host implementation](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealdb/core/src/surrealism/host.rs)
 parses expressions with narrowed capabilities and inherits the parent transaction.
 It does not expose ordinary SDK transaction/session handles. Current study module query,
-function, network and KV restrictions are deliberate manifest selections. Writeable
+function, network and KV restrictions are deliberate manifest selections. Writable
 exports and bounded host expressions are eligible comparisons, not proven replacements.
 Module KV is volatile, runtime-scoped state outside record transactions; aliases sharing
 an artifact within one database can share a runtime. Network effects do not roll back

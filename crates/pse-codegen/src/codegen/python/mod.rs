@@ -165,7 +165,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         &mut tree,
         "__init__",
         &format!(
-            "\"\"\"Contracts generated from the sole registry declaration.\"\"\"\n\nfrom importlib import import_module\n\ndef __getattr__(name: str) -> object:\n    if name not in (\"EXTENSION_NAMES\", \"register_all\"):\n        raise AttributeError(name)\n    value = getattr(import_module(\"pse.contracts.extension_types\"), name)\n    globals()[name] = value\n    return value\n\n__all__ = [\"EXTENSION_NAMES\", \"REGISTRY_FINGERPRINT\", \"register_all\"]\n\nREGISTRY_FINGERPRINT = {:?}\n",
+            "\"\"\"Contracts generated from the sole registry declaration.\"\"\"\n\nfrom importlib import import_module\n\n\ndef __getattr__(name: str) -> object:\n    if name not in (\"EXTENSION_NAMES\", \"register_all\"):\n        raise AttributeError(name)\n    value = getattr(import_module(\"pse.contracts.extension_types\"), name)\n    globals()[name] = value\n    return value\n\n\n__all__ = [\"EXTENSION_NAMES\", \"REGISTRY_FINGERPRINT\", \"register_all\"]\n\nREGISTRY_FINGERPRINT = {:?}\n",
             reg.fingerprint().to_prefixed()
         ),
     );

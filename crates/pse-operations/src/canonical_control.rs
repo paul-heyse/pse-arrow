@@ -109,7 +109,12 @@ pub struct ControlCancelRequest {
 impl ControlCancelRequest {
     /// Issue a fresh retained command identity; callers keep this value across uncertain delivery.
     pub fn issue(issuing_store: String, study: String) -> Self {
-        Self {document_version:Default::default(),issuing_store,study,operation_id:uuid::Uuid::new_v4().to_string()}
+        Self {
+            document_version: Default::default(),
+            issuing_store,
+            study,
+            operation_id: uuid::Uuid::new_v4().to_string(),
+        }
     }
 }
 /// Read the original cancellation decision without issuing another effect.
@@ -124,7 +129,9 @@ pub struct ControlReconcileRequest {
     pub operation_id: String,
 }
 /// Persisted command disposition, distinct from an unresolved transport outcome.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum ControlCommandStatus {
     /// The command was accepted, including an already concluded no-op.
@@ -197,8 +204,8 @@ impl crate::canonical::CanonicalStore {
         browse: bool,
         cancel: bool,
     ) -> Result<ControlActorIssue, crate::canonical::CanonicalError> {
-        use crate::canonical::{CanonicalError, REQUEST_TIMEOUT, protected_query};
         use crate::canonical::transport::{original_deadline, within_clock};
+        use crate::canonical::{CanonicalError, REQUEST_TIMEOUT, protected_query};
         if key.is_empty() || key.len() > 128 || password.len() < 16 || password.len() > 4096 {
             return Err(CanonicalError::PayloadLimit);
         }
@@ -222,23 +229,45 @@ impl crate::canonical::CanonicalStore {
     ) -> Result<StudyWorkbenchPage, crate::canonical::CanonicalError> {
         use crate::canonical::CanonicalError;
         let issuer = self.issuing_store()?.to_owned();
-        if request.cursor.as_ref().is_some_and(|cursor| cursor.issuing_store != issuer || cursor.filter != request.filter || cursor.after.is_empty() || cursor.after.len()>4096) {
-            return Err(CanonicalError::Configuration("workbench cursor identity, predicates or extent are invalid".into()));
+        if request.cursor.as_ref().is_some_and(|cursor| {
+            cursor.issuing_store != issuer
+                || cursor.filter != request.filter
+                || cursor.after.is_empty()
+                || cursor.after.len() > 4096
+        }) {
+            return Err(CanonicalError::Configuration(
+                "workbench cursor identity, predicates or extent are invalid".into(),
+            ));
         }
-        let page = self.select_study_workbench(&request.filter,request.cursor.as_ref().map(|cursor|cursor.after.as_str()),request.maximum).await?;
+        let page = self
+            .select_study_workbench(
+                &request.filter,
+                request.cursor.as_ref().map(|cursor| cursor.after.as_str()),
+                request.maximum,
+            )
+            .await?;
         let next = if page.has_more {
-            page.headers.last().map(|header|StudyWorkbenchCursor {issuing_store:issuer,filter:request.filter,after:header.study.clone()})
-        } else {None};
-        Ok(StudyWorkbenchPage {headers:page.headers,next})
+            page.headers.last().map(|header| StudyWorkbenchCursor {
+                issuing_store: issuer,
+                filter: request.filter,
+                after: header.study.clone(),
+            })
+        } else {
+            None
+        };
+        Ok(StudyWorkbenchPage {
+            headers: page.headers,
+            next,
+        })
     }
     /// Observe one native command receipt; missing does not authorize replay.
     pub async fn reconcile_study_cancel(
         &self,
         request: &ControlReconcileRequest,
     ) -> Result<ControlReconcileResponse, crate::canonical::CanonicalError> {
+        use crate::canonical::transport::{original_deadline, within_clock};
         use crate::canonical::{CanonicalError, REQUEST_TIMEOUT, protected_query};
-        use crate::canonical::transport::{original_deadline,within_clock};
-        let activity=self.admit_activity()?;
+        let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
             let mut reply=protected_query("canonical_control::reconcile",||Ok(self.db.query("RETURN encoding::json::encode(fn::pse_control_v1::reconcile($pse_rpc_expires_at,'native-system',{document_version:1,issuing_store:$issuing_store,operation_id:$operation_id}));").bind(("issuing_store",request.issuing_store.clone())).bind(("operation_id",request.operation_id.clone())))).await?;
             let encoded:Option<String>=reply.take(0)?;
@@ -250,35 +279,56 @@ impl crate::canonical::CanonicalStore {
     pub(crate) async fn finish_control_cancel(
         &self,
         request: &ControlCancelRequest,
-        response: Result<ControlCommandReceipt,crate::canonical::CanonicalError>,
-    ) -> Result<ControlCommandReceipt,crate::canonical::CanonicalError> {
-        use crate::canonical::{CanonicalError,REQUEST_TIMEOUT};
-        use crate::canonical::transport::{original_deadline,within_clock};
-        within_clock(original_deadline(REQUEST_TIMEOUT),async {
-            let intent=serde_json::to_vec(request).map_err(|error|CanonicalError::Configuration(error.to_string()))?;
+        response: Result<ControlCommandReceipt, crate::canonical::CanonicalError>,
+    ) -> Result<ControlCommandReceipt, crate::canonical::CanonicalError> {
+        use crate::canonical::transport::{original_deadline, within_clock};
+        use crate::canonical::{CanonicalError, REQUEST_TIMEOUT};
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let intent = serde_json::to_vec(request)
+                .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
             crate::canonical::settlement::settle_exact(
                 "control-study-cancel",
                 &request.operation_id,
                 &intent,
                 response,
-                async {Ok(self.reconcile_study_cancel(&ControlReconcileRequest {document_version:Default::default(),issuing_store:request.issuing_store.clone(),operation_id:request.operation_id.clone()}).await?.receipt)},
-                |receipt|receipt.issuing_store==request.issuing_store && receipt.operation_id==request.operation_id && receipt.study==request.study,
+                async {
+                    Ok(self
+                        .reconcile_study_cancel(&ControlReconcileRequest {
+                            document_version: Default::default(),
+                            issuing_store: request.issuing_store.clone(),
+                            operation_id: request.operation_id.clone(),
+                        })
+                        .await?
+                        .receipt)
+                },
+                |receipt| {
+                    receipt.issuing_store == request.issuing_store
+                        && receipt.operation_id == request.operation_id
+                        && receipt.study == request.study
+                },
                 CanonicalError::source_transaction_refused,
-            ).await
-        }).await
+            )
+            .await
+        })
+        .await
     }
     /// Issue one privileged native cancellation using the same recorded command owner.
     pub async fn cancel_study_command(
         &self,
         request: &ControlCancelRequest,
     ) -> Result<ControlCommandReceipt, crate::canonical::CanonicalError> {
-        use crate::canonical::{CanonicalError, REQUEST_TIMEOUT, protected_query};
         use crate::canonical::transport::{original_deadline, within_clock};
-        if request.operation_id.is_empty() || request.operation_id.len()>128 || request.study.is_empty() || request.study.len()>4096 || request.issuing_store.len()>4096 {
+        use crate::canonical::{CanonicalError, REQUEST_TIMEOUT, protected_query};
+        if request.operation_id.is_empty()
+            || request.operation_id.len() > 128
+            || request.study.is_empty()
+            || request.study.len() > 4096
+            || request.issuing_store.len() > 4096
+        {
             return Err(CanonicalError::PayloadLimit);
         }
         self.ensure_writes()?;
-        let activity=self.admit_activity()?;
+        let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
             let response=async {
                 let mut reply=protected_query("canonical_control::cancel",||Ok(self.db.query("RETURN encoding::json::encode(fn::pse_control_v1::cancel($pse_rpc_expires_at,'native-system',{document_version:1,issuing_store:$issuing_store,operation_id:$operation_id,study:$study}));").bind(("issuing_store",request.issuing_store.clone())).bind(("operation_id",request.operation_id.clone())).bind(("study",request.study.clone())))).await?;

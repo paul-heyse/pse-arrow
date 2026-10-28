@@ -3,7 +3,7 @@
 """Process systems engineering with independent durable-control imports.
 
 Scientific exports load their qualified native image when first consumed. Importing
-``pse.control`` or its generated documents neither loads that image nor prepares science.
+``pse.control`` or its documents neither loads that image nor prepares science.
 """
 
 import importlib
@@ -11,7 +11,149 @@ import importlib.metadata
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pse._scientific import *  # noqa: F403 -- the explicit scientific export owner supplies static types
+    from pse._scientific import (
+        SCHEMA_SET_FINGERPRINT as SCHEMA_SET_FINGERPRINT,
+    )
+    from pse._scientific import (
+        AdjointSettings,
+        Analysis,
+        AnalysisControls,
+        ArtifactOwnerKind,
+        ArtifactSettlement,
+        BackendSettings,
+        BlockSolveOverride,
+        BuildInfo,
+        CacheReport,
+        CacheSettings,
+        CaptureSession,
+        ClarabelSettings,
+        CompactStudyResult,
+        Completion,
+        CompositionRequest,
+        ConformanceControls,
+        ConicRequest,
+        DiagnosticAnnotationDocument,
+        DiagnosticCauseDocument,
+        DiagnosticContextDocument,
+        DiagnosticNoteDocument,
+        DiagnosticReport,
+        Diagnostics,
+        DiagnosticSamplesControls,
+        DiagnosticSpanDocument,
+        DiffsolSettings,
+        EffortPolicy,
+        EligibilityDocument,
+        EngineSettings,
+        FieldTransfer,
+        FitExecutionDocument,
+        FitProfileDocument,
+        FlowConnectionDocument,
+        FlowGraphDocument,
+        FlowSelectionDocument,
+        FrozenStudyCohort,
+        GeneratedDesign,
+        HighsSettings,
+        IdasSettings,
+        IncumbentDocument,
+        IneligibleDocument,
+        InitializationDocument,
+        InitializationOverrides,
+        InspectionError,
+        IpoptSettings,
+        JacobianDiagnosticControls,
+        KinsolSettings,
+        KnowledgeControls,
+        LazyStudyDefinition,
+        LinearDiagnosticControls,
+        LiveSimulationCursor,
+        LiveSimulationEvent,
+        LocalStudy,
+        ModelingConformance,
+        ModelingDiagnosticPolicy,
+        ModelingDiagnostics,
+        ModelingDiagnosticSamples,
+        ModelingDiagnosticSettings,
+        ModelingElasticAttempt,
+        ModelingInitialization,
+        ModelingInitializationAttempt,
+        ModelingInspection,
+        ModelingInspectionRequest,
+        ModelingKnowledge,
+        ModelingLimits,
+        ModelingNativeAnalysis,
+        ModelingNonlinearExplanation,
+        ModelingNonlinearPolicy,
+        ModelingPackage,
+        ModelingResult,
+        ModelingTrajectory,
+        NativeAttempt,
+        NativeStrategyAttempt,
+        NumericalStrategy,
+        NumericalStrategyDocument,
+        OperationObservations,
+        PetscSettings,
+        PhysicalContext,
+        PhysicalFitRequest,
+        PounceSettings,
+        PreparedFlow,
+        PreparedOperation,
+        PreparedStrategy,
+        ProgressEventDocument,
+        ProgressMetricDocument,
+        ProgressStream,
+        ProjectBundle,
+        PureConformanceControls,
+        RecycleRequest,
+        RecycleRestartRequest,
+        ResourceConsumer,
+        ResourceReport,
+        ResultReclamationPage,
+        RouteDocument,
+        RunControls,
+        RunHandle,
+        RunResult,
+        Runtime,
+        ScientificArtifact,
+        ScientificArtifactKind,
+        ScientificReplay,
+        ScipSettings,
+        SelectedStudyVariant,
+        SimulationSettings,
+        SolveControls,
+        SolverCapability,
+        SolveSettings,
+        SourceChoice,
+        SourceLocation,
+        StoredResult,
+        StrategyResult,
+        StudyCancel,
+        StudyHandle,
+        StudyInputs,
+        StudyInputsExplicit,
+        StudyInputsLazy,
+        StudyKpiAnalysis,
+        StudyObserver,
+        StudyPointStatus,
+        StudyReport,
+        StudyResults,
+        StudyRunControls,
+        StudyStatus,
+        StudyVariants,
+        StudyWaitControls,
+        TableName,
+        TableStream,
+        TearSelectionDocument,
+        WarmStartSnapshot,
+        build_info,
+        host_operation_catalogue,
+        registry_table,
+    )
+    from pse._scientific import (
+        extension_types as extension_types,
+    )
+    from pse._scientific import (
+        native_version as native_version,
+    )
 
 __all__ = [
     "AdjointSettings",
@@ -157,8 +299,12 @@ except importlib.metadata.PackageNotFoundError:
 
 def __getattr__(name: str) -> object:
     """Resolve declared scientific exports without intercepting submodule imports."""
-    if (name not in __all__ and name not in ('SCHEMA_SET_FINGERPRINT', 'extension_types', 'native_version')) or name == "__version__":
-        raise AttributeError(f"module 'pse' has no attribute {name!r}")
+    if (
+        name not in __all__
+        and name not in ("SCHEMA_SET_FINGERPRINT", "extension_types", "native_version")
+    ) or name == "__version__":
+        message = f"module 'pse' has no attribute {name!r}"
+        raise AttributeError(message)
     value = getattr(importlib.import_module("pse._scientific"), name)
     globals()[name] = value
     return value

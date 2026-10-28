@@ -7,6 +7,7 @@ import builtins as b
 import math
 from collections.abc import Callable, Hashable, Mapping
 from datetime import UTC, datetime
+from importlib import import_module
 from typing import Never, Protocol, Self, TypeVar, runtime_checkable
 
 import attrs
@@ -32,14 +33,10 @@ class SemanticId(bytes):
 
     @classmethod
     def from_hex(cls, value: str) -> Self:
-        from pse._build import semantic_id_from_hex  # noqa: PLC0415 -- explicit identity text conversion consumes the native parser
-
-        return cls(semantic_id_from_hex(value))
+        return cls(import_module("pse._build").semantic_id_from_hex(value))
 
     def to_hex(self) -> str:
-        from pse._build import semantic_id_to_hex  # noqa: PLC0415 -- explicit identity text conversion consumes the native parser
-
-        return semantic_id_to_hex(self)
+        return import_module("pse._build").semantic_id_to_hex(self)
 
 
 class ContentHash(bytes):
@@ -52,14 +49,10 @@ class ContentHash(bytes):
 
     @classmethod
     def from_prefixed(cls, value: str) -> Self:
-        from pse._build import content_hash_from_prefixed  # noqa: PLC0415 -- explicit identity text conversion consumes the native parser
-
-        return cls(content_hash_from_prefixed(value))
+        return cls(import_module("pse._build").content_hash_from_prefixed(value))
 
     def to_prefixed(self) -> str:
-        from pse._build import content_hash_to_prefixed  # noqa: PLC0415 -- explicit identity text conversion consumes the native parser
-
-        return content_hash_to_prefixed(self)
+        return import_module("pse._build").content_hash_to_prefixed(self)
 
 
 _DocumentT = TypeVar("_DocumentT")

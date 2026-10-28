@@ -16,8 +16,9 @@ doc_topics: [current-work, design, storage, libraries, validation]
 **Proposed:** make durable commands and compact reads usable without constructing a
 scientific runtime or loading its Python extension. This develops review R01/DA-046;
 the [coordinator](57-library-leverage-and-correctness.md#database-boundary-review-integration)
-owns disposition and confirmed rule directions. Plan creation is authorized; production
-execution remains paused pending reconciliation of this target.
+owns disposition and confirmed rule directions. The first browse/cancel/reconcile slice
+below is authorized and implemented; its joined qualification is in progress. Remaining
+K scope retains the recorded execution boundary.
 
 Consume the [principal review](../design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md),
 its production/test accounts and [research basis](../design_review/evidence/study-execution-and-database-boundary.md).
@@ -132,8 +133,10 @@ before replacing any file protocol. Actual Python/native data consumer qualifica
 
 ## Verification and handoff
 
-**Interface-checked:** source/research contracts above. **Proposed:** K01–K05; no new client,
-SDK pin or behavioral qualification exists through this document. Review scenarios S01/S03/S04/
+**Interface-checked:** source/research contracts above. **Implemented:** the authorized
+browse/cancel/reconcile slice below, using HTTPX2 2.16.0 and AnyIO 4.15.1. Remaining K
+scope is **Proposed**. Current acceptance is owned by 57j's first-control-slice checkpoint;
+focused controls do not establish the whole K target. Review scenarios S01/S03/S04/
 S05/S06 apply. Targeted tests distinguish absence of native loading from renamed construction,
 and permission refusal from setup failure. Joined acceptance must browse/cancel in a fresh
 Python process, submit through the same durable protocol, execute on an independently supervised

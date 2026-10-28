@@ -98,18 +98,41 @@ fn connection_matches(
 
 /// Compare the owned implicit JWT policy, not secret bytes hidden by server INFO.
 /// Other access kinds/algorithms remain exact; signin/token tests qualify deployed keys.
-fn normalize_control_access(input: &str, access: &mut surrealdb_sql::statements::define::DefineAccessStatement) -> Result<(),CanonicalError> {
-    use surrealdb_sql::{AccessType,Algorithm,Literal,access_type::JwtAccessVerify};
-    if access.name.to_sql()!="pse_control" {return Ok(());}
-    let AccessType::Record(record)=&mut access.access_type else {return Err(invalid("control access must retain record authentication"));};
-    let JwtAccessVerify::Key(verify)=&mut record.jwt.verify else {return Err(invalid("control access must retain server-managed HS512"));};
-    let Some(issue)=&mut record.jwt.issue else {return Err(invalid("control access issuer missing"));};
-    if verify.alg!=Algorithm::Hs512 || issue.alg!=Algorithm::Hs512 || verify.key!=issue.key {return Err(invalid("control access JWT policy differs"));}
-    let Expr::Literal(Literal::String(key))=&verify.key else {return Err(invalid("control access key is not server managed"));};
-    let key=key.as_str();
-    if key!="[REDACTED]" && (key.len()!=128 || !key.bytes().all(|byte|byte.is_ascii_alphanumeric()) || input.contains(key)) {return Err(invalid("explicit control access key requires a separate policy decision"));}
-    verify.key=Expr::Literal(Literal::String("[server-managed]".into()));
-    issue.key=verify.key.clone();
+fn normalize_control_access(
+    input: &str,
+    access: &mut surrealdb_sql::statements::define::DefineAccessStatement,
+) -> Result<(), CanonicalError> {
+    use surrealdb_sql::{AccessType, Algorithm, Literal, access_type::JwtAccessVerify};
+    if access.name.to_sql() != "pse_control" {
+        return Ok(());
+    }
+    let AccessType::Record(record) = &mut access.access_type else {
+        return Err(invalid("control access must retain record authentication"));
+    };
+    let JwtAccessVerify::Key(verify) = &mut record.jwt.verify else {
+        return Err(invalid("control access must retain server-managed HS512"));
+    };
+    let Some(issue) = &mut record.jwt.issue else {
+        return Err(invalid("control access issuer missing"));
+    };
+    if verify.alg != Algorithm::Hs512 || issue.alg != Algorithm::Hs512 || verify.key != issue.key {
+        return Err(invalid("control access JWT policy differs"));
+    }
+    let Expr::Literal(Literal::String(key)) = &verify.key else {
+        return Err(invalid("control access key is not server managed"));
+    };
+    let key = key.as_str();
+    if key != "[REDACTED]"
+        && (key.len() != 128
+            || !key.bytes().all(|byte| byte.is_ascii_alphanumeric())
+            || input.contains(key))
+    {
+        return Err(invalid(
+            "explicit control access key requires a separate policy decision",
+        ));
+    }
+    verify.key = Expr::Literal(Literal::String("[server-managed]".into()));
+    issue.key = verify.key.clone();
     Ok(())
 }
 
@@ -149,13 +172,13 @@ fn parse_definitions(input: &str) -> Result<Definitions, CanonicalError> {
                 )
             }
             DefineStatement::Api(api) => {
-                api.kind=DefineKind::Default;
-                ("api".into(),String::new(),api.path.to_sql())
+                api.kind = DefineKind::Default;
+                ("api".into(), String::new(), api.path.to_sql())
             }
             DefineStatement::Access(access) => {
-                access.kind=DefineKind::Default;
-                normalize_control_access(input,access)?;
-                ("access".into(),String::new(),access.name.to_sql())
+                access.kind = DefineKind::Default;
+                normalize_control_access(input, access)?;
+                ("access".into(), String::new(), access.name.to_sql())
             }
             DefineStatement::Function(function) => {
                 function.kind = DefineKind::Default;
@@ -358,12 +381,20 @@ impl CanonicalStore {
                         .map(|(name, value)| (name.clone(), value.clone()))
                         .collect();
                     append_catalog(&mut observed, &managed_functions)?;
-                    let apis = catalog_map(&info,"apis")?;
-                    let accesses = catalog_map(&info,"accesses")?;
-                    let managed_apis: Object = apis.iter().filter(|(name,_)|name.starts_with("/pse/")).map(|(name,value)|(name.clone(),value.clone())).collect();
-                    let managed_accesses: Object = accesses.iter().filter(|(name,_)|name.starts_with("pse_")).map(|(name,value)|(name.clone(),value.clone())).collect();
-                    append_catalog(&mut observed,&managed_apis)?;
-                    append_catalog(&mut observed,&managed_accesses)?;
+                    let apis = catalog_map(&info, "apis")?;
+                    let accesses = catalog_map(&info, "accesses")?;
+                    let managed_apis: Object = apis
+                        .iter()
+                        .filter(|(name, _)| name.starts_with("/pse/"))
+                        .map(|(name, value)| (name.clone(), value.clone()))
+                        .collect();
+                    let managed_accesses: Object = accesses
+                        .iter()
+                        .filter(|(name, _)| name.starts_with("pse_"))
+                        .map(|(name, value)| (name.clone(), value.clone()))
+                        .collect();
+                    append_catalog(&mut observed, &managed_apis)?;
+                    append_catalog(&mut observed, &managed_accesses)?;
                     for name in managed_tables.keys() {
                         if !name
                             .bytes()
@@ -560,19 +591,49 @@ mod tests {
     }
     #[test]
     fn control_api_catalog_comparison_retains_permissions_middleware_and_signin() {
-        let endpoint="DEFINE API '/pse/control/v1/probe' FOR post PERMISSIONS WHERE $auth!=NONE MIDDLEWARE api::req::max_body(65536),api::req::body('json'),api::res::body('json') THEN {RETURN {status:200,body:true};};";
-        let expected=parse_definitions(endpoint).unwrap();
-        assert!(compare(&expected,&parse_definitions(&endpoint.replace("PERMISSIONS WHERE $auth!=NONE","PERMISSIONS FULL")).unwrap()).is_err());
-        assert!(compare(&expected,&parse_definitions(&endpoint.replace("65536","131072")).unwrap()).is_err());
-        assert!(compare(&expected,&parse_definitions(&endpoint.replace(",api::res::body('json')","")).unwrap()).is_err());
-        let access="DEFINE ACCESS pse_control ON DATABASE TYPE RECORD SIGNIN (SELECT * FROM canonical_control_actors WHERE key=$actor AND enabled=true AND crypto::argon2::compare(password,$password)) DURATION FOR TOKEN 1h,FOR SESSION 1h;";
-        let expected=parse_definitions(access).unwrap();
-        compare(&expected,&parse_definitions(access).unwrap()).unwrap();
-        let info=access.replace(" DURATION", " WITH JWT ALGORITHM HS512 KEY '[REDACTED]' WITH ISSUER KEY '[REDACTED]' DURATION");
-        compare(&expected,&parse_definitions(&info).unwrap()).unwrap();
-        assert!(parse_definitions(&info.replace("HS512","HS256")).is_err());
-        assert!(parse_definitions(&info.replace("[REDACTED]","caller-chosen-secret")).is_err());
-        assert!(compare(&expected,&parse_definitions(&access.replace("enabled=true","enabled=false")).unwrap()).is_err());
+        let endpoint = "DEFINE API '/pse/control/v1/probe' FOR post PERMISSIONS WHERE $auth!=NONE MIDDLEWARE api::req::max_body(65536),api::req::body('json'),api::res::body('json') THEN {RETURN {status:200,body:true};};";
+        let expected = parse_definitions(endpoint).unwrap();
+        assert!(
+            compare(
+                &expected,
+                &parse_definitions(
+                    &endpoint.replace("PERMISSIONS WHERE $auth!=NONE", "PERMISSIONS FULL")
+                )
+                .unwrap()
+            )
+            .is_err()
+        );
+        assert!(
+            compare(
+                &expected,
+                &parse_definitions(&endpoint.replace("65536", "131072")).unwrap()
+            )
+            .is_err()
+        );
+        assert!(
+            compare(
+                &expected,
+                &parse_definitions(&endpoint.replace(",api::res::body('json')", "")).unwrap()
+            )
+            .is_err()
+        );
+        let access = "DEFINE ACCESS pse_control ON DATABASE TYPE RECORD SIGNIN (SELECT * FROM canonical_control_actors WHERE key=$actor AND enabled=true AND crypto::argon2::compare(password,$password)) DURATION FOR TOKEN 1h,FOR SESSION 1h;";
+        let expected = parse_definitions(access).unwrap();
+        compare(&expected, &parse_definitions(access).unwrap()).unwrap();
+        let info = access.replace(
+            " DURATION",
+            " WITH JWT ALGORITHM HS512 KEY '[REDACTED]' WITH ISSUER KEY '[REDACTED]' DURATION",
+        );
+        compare(&expected, &parse_definitions(&info).unwrap()).unwrap();
+        assert!(parse_definitions(&info.replace("HS512", "HS256")).is_err());
+        assert!(parse_definitions(&info.replace("[REDACTED]", "caller-chosen-secret")).is_err());
+        assert!(
+            compare(
+                &expected,
+                &parse_definitions(&access.replace("enabled=true", "enabled=false")).unwrap()
+            )
+            .is_err()
+        );
         assert!(!parse_definitions(wire::SCHEMA).unwrap().is_empty());
     }
     #[test]

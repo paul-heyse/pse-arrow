@@ -195,7 +195,9 @@ def owned_fixture(
             )
 
 
-def query(state: Path, text: str) -> list[dict[str, object]]:
+def query(
+    state: Path, text: str, *, database: str | None = None
+) -> list[dict[str, object]]:
     config = server.config_for(state)
     credentials = server.read_json(state / "credentials.json")
     token = base64.b64encode(
@@ -208,7 +210,7 @@ def query(state: Path, text: str) -> list[dict[str, object]]:
             "Authorization": f"Basic {token}",
             "Accept": "application/json",
             "surreal-ns": str(config["namespace"]),
-            "surreal-db": str(config["database"]),
+            "surreal-db": str(config["database"] if database is None else database),
         },
     )
     with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 -- literal authenticated loopback endpoint; config_for validates port

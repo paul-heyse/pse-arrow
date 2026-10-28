@@ -6,8 +6,7 @@ from __future__ import annotations
 
 import math
 import time
-from collections.abc import Callable
-from typing import TypeVar
+from typing import TYPE_CHECKING, Self, TypeVar
 from urllib.parse import quote, urlsplit
 
 import anyio
@@ -16,7 +15,6 @@ import msgspec
 import msgspec.inspect
 
 from pse.codec import _check_version_headers
-
 from pse.contracts.documents import (
     ControlBrowseRequest,
     ControlBrowseResponse,
@@ -28,6 +26,9 @@ from pse.contracts.documents import (
     StudyWorkbenchPageOutput,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 _T = TypeVar("_T")
 _Wire = TypeVar("_Wire")
 
@@ -36,14 +37,15 @@ class ControlError(Exception):
     """A local contract or delivered control-protocol failure."""
 
 
-class ControlRefused(ControlError):
+class ControlRefusedError(ControlError):
     """The endpoint definitively refused access before a command effect."""
 
 
-class ControlUnresolved(ControlError):
+class ControlUnresolvedError(ControlError):
     """A cancellation may have committed; reconcile this original identity."""
 
     def __init__(self, operation_id: str) -> None:
+        """Retain the immutable command identity for reconciliation."""
         self.operation_id = operation_id
         super().__init__(f"Cancellation outcome unresolved; reconcile {operation_id!r}")
 
@@ -51,7 +53,8 @@ class ControlUnresolved(ControlError):
 def _extent(value: object, remaining: int) -> int:
     """Conservatively admit declared request JSON before allocating its encoding."""
     if remaining < 0:
-        raise ControlError("Control request exceeds its byte allowance")
+        message = "Control request exceeds its byte allowance"
+        raise ControlError(message)
     if value is None or isinstance(value, bool):
         size = 5
     elif isinstance(value, str):
@@ -59,7 +62,8 @@ def _extent(value: object, remaining: int) -> int:
         size = 6 * len(value) + 2
     elif isinstance(value, int):
         if not 0 <= value <= (1 << 64) - 1:
-            raise ControlError("Control integer is outside u64")
+            message = "Control integer is outside u64"
+            raise ControlError(message)
         size = 20
     elif isinstance(value, dict):
         remaining -= 2
@@ -74,9 +78,11 @@ def _extent(value: object, remaining: int) -> int:
             remaining = _extent(getattr(value, name), remaining)
         return _extent(None, remaining)
     else:
-        raise ControlError("Unsupported control request value")
+        message = "Unsupported control request value"
+        raise ControlError(message)
     if size > remaining:
-        raise ControlError("Control request exceeds its byte allowance")
+        message = "Control request exceeds its byte allowance"
+        raise ControlError(message)
     return remaining - size
 
 
@@ -88,17 +94,22 @@ def _uint(value: str) -> int:
         or len(value) > 20
         or (len(value) > 1 and value.startswith("0"))
     ):
-        raise ControlError("Noncanonical control integer encoding")
+        message = "Noncanonical control integer encoding"
+        raise ControlError(message)
     number = int(value)
     if number > (1 << 64) - 1:
-        raise ControlError("Control integer is outside u64")
+        message = "Control integer is outside u64"
+        raise ControlError(message)
     return number
 
 
 def _decode_response(content: bytearray, result_type: type[_Wire]) -> _Wire:
     # Generated metadata keeps required presence distinct from constructor defaults.
     _check_version_headers(
-        msgspec.Raw(content), msgspec.inspect.type_info(result_type), "$", native_header=False
+        msgspec.Raw(content),
+        msgspec.inspect.type_info(result_type),
+        "$",
+        native_header=False,
     )
     return msgspec.json.decode(content, type=result_type)
 
@@ -128,6 +139,7 @@ class ControlClient:
         maximum_request_bytes: int,
         maximum_response_bytes: int,
     ) -> None:
+        """Select the original issuer, bounded transport, and local database."""
         parts = urlsplit(endpoint)
         if (
             parts.scheme != "http"
@@ -139,21 +151,30 @@ class ControlClient:
             or parts.query
             or parts.fragment
         ):
-            raise ValueError("Control requires the selected HTTP loopback endpoint")
+            message = "Control requires the selected HTTP loopback endpoint"
+            raise ValueError(message)
         if (
             isinstance(timeout, bool)
             or not isinstance(timeout, (int, float))
             or not math.isfinite(timeout)
             or timeout <= 0
         ):
-            raise ValueError("Control timeout must be positive and finite")
+            message = "Control timeout must be positive and finite"
+            raise ValueError(message)
         for extent in (maximum_request_bytes, maximum_response_bytes):
             if type(extent) is not int or extent <= 0:
-                raise ValueError("Control byte allowances must be positive integers")
-        if not namespace or not database or (token is not None and (not token or any(c.isspace() for c in token))):
-            raise ValueError("Control database selection and bearer token are required")
+                message = "Control byte allowances must be positive integers"
+                raise ValueError(message)
+        if (
+            not namespace
+            or not database
+            or (token is not None and (not token or any(c.isspace() for c in token)))
+        ):
+            message = "Control database selection and bearer token are required"
+            raise ValueError(message)
         if not issuing_store or len(issuing_store) > 4096:
-            raise ValueError("Original issuing-store identity is required")
+            message = "Original issuing-store identity is required"
+            raise ValueError(message)
         self._issuing_store = issuing_store
         self._endpoint = endpoint.rstrip("/")
         self._namespace = namespace
@@ -178,9 +199,11 @@ class ControlClient:
         self._pending_responses: dict[httpx2.Response, BaseException | None] = {}
         self._pool_close_error: BaseException | None = None
 
-    async def __aenter__(self) -> ControlClient:
+    async def __aenter__(self) -> Self:
+        """Open this client owned transport and admission lifetime."""
         if self._http is not None:
-            raise ControlError("Control client is already open")
+            message = "Control client is already open"
+            raise ControlError(message)
         self._closing = False
         self._idle = anyio.Event()
         self._idle.set()
@@ -191,9 +214,11 @@ class ControlClient:
         return self
 
     async def __aexit__(self, *_exception: object) -> None:
+        """Seal admission and await owned cleanup."""
         await self.close()
 
     async def close(self) -> None:
+        """Settle this close round, retaining owners after unproved cleanup."""
         with anyio.CancelScope(shield=True):
             previous = self._close_round
             if previous is not None and not previous.completed.is_set():
@@ -215,7 +240,9 @@ class ControlClient:
                 # before awaited cleanup. A retry's no-op is no settlement proof.
                 # Retain each failed owner and its original failure explicitly.
                 errors.extend(
-                    error if error is not None else ControlError("Response cleanup remains unsettled")
+                    error
+                    if error is not None
+                    else ControlError("Response cleanup remains unsettled")
                     for error in self._pending_responses.values()
                 )
                 # HTTPX marks CLOSED before awaiting its transport. A later
@@ -230,8 +257,7 @@ class ControlClient:
                         errors.append(error)
                     else:
                         self._pool_close_error = None
-                if errors:
-                    raise BaseExceptionGroup("Control lifetime cleanup failed", errors)
+                self._require_settled(errors)
                 self._http = None
             except BaseException as error:
                 current.error = error
@@ -239,10 +265,19 @@ class ControlClient:
             finally:
                 current.completed.set()
 
+    @staticmethod
+    def _require_settled(errors: list[BaseException]) -> None:
+        if errors:
+            message = "Control lifetime cleanup failed"
+            raise BaseExceptionGroup(message, errors)
+
     async def _request(
         self,
         operation: str,
-        request: ControlBrowseRequest | ControlCancelRequest | ControlReconcileRequest | dict[str, str],
+        request: ControlBrowseRequest
+        | ControlCancelRequest
+        | ControlReconcileRequest
+        | dict[str, str],
         result_type: type[_Wire],
         convert: Callable[[_Wire], _T],
         mutation_id: str | None = None,
@@ -250,16 +285,24 @@ class ControlClient:
         deadline = anyio.current_time() + self._timeout
         expiry = time.time_ns() // 1000 + int(self._timeout * 1_000_000)
         if self._http is None or self._closing:
-            raise ControlError("Control client is not open for admission")
-        if isinstance(request, (ControlCancelRequest, ControlReconcileRequest)) and request.issuing_store != self._issuing_store:
-            raise ControlError("Command issuing store differs from this client")
+            message = "Control client is not open for admission"
+            raise ControlError(message)
+        if (
+            isinstance(request, (ControlCancelRequest, ControlReconcileRequest))
+            and request.issuing_store != self._issuing_store
+        ):
+            message = "Command issuing store differs from this client"
+            raise ControlError(message)
         if operation != "signin" and self._token is None:
-            raise ControlRefused("Control requires a record-actor bearer token")
+            message = "Control requires a record-actor bearer token"
+            raise ControlRefusedError(message)
         if self._active == 0:
             self._idle = anyio.Event()
         self._active += 1
         try:
-            return await self._perform(operation, request, result_type, convert, deadline, expiry, mutation_id)
+            return await self._perform(
+                operation, request, result_type, convert, deadline, expiry, mutation_id
+            )
         finally:
             self._active -= 1
             if self._active == 0 and self._idle is not None:
@@ -268,7 +311,10 @@ class ControlClient:
     async def _perform(
         self,
         operation: str,
-        request: ControlBrowseRequest | ControlCancelRequest | ControlReconcileRequest | dict[str, str],
+        request: ControlBrowseRequest
+        | ControlCancelRequest
+        | ControlReconcileRequest
+        | dict[str, str],
         result_type: type[_Wire],
         convert: Callable[[_Wire], _T],
         deadline: float,
@@ -277,17 +323,27 @@ class ControlClient:
     ) -> _T:
         client = self._http
         if client is None:
-            raise ControlError("Control client must be used as an async context manager")
-        payload = request if operation == "signin" else {
-            "issuing_store": self._issuing_store, "expires_at": expiry, "request": request,
-        }
+            message = "Control client must be used as an async context manager"
+            raise ControlError(message)
+        payload = (
+            request
+            if operation == "signin"
+            else {
+                "issuing_store": self._issuing_store,
+                "expires_at": expiry,
+                "request": request,
+            }
+        )
         _extent(payload, self._request_bytes)
-        # Struct constructors do not validate: round through field values before dispatch.
+        # Struct constructors do not validate; check fields before dispatch.
         if isinstance(request, msgspec.Struct):
-            msgspec.convert(msgspec.structs.asdict(request), type=type(request), strict=True)
+            msgspec.convert(
+                msgspec.structs.asdict(request), type=type(request), strict=True
+            )
         body = msgspec.json.encode(payload)
         if len(body) > self._request_bytes:
-            raise ControlError("Control request exceeds its byte allowance")
+            message = "Control request exceeds its byte allowance"
+            raise ControlError(message)
         issued = False
         response: httpx2.Response | None = None
         primary: BaseException | None = None
@@ -295,60 +351,43 @@ class ControlClient:
             with anyio.fail_after(max(0, deadline - anyio.current_time())):
                 await anyio.lowlevel.checkpoint()
                 issued = True
-                headers = {"Accept-Encoding": "identity", "Content-Type": "application/json"}
+                headers = {
+                    "Accept-Encoding": "identity",
+                    "Content-Type": "application/json",
+                }
                 if operation != "signin":
                     headers["Authorization"] = "Bearer " + str(self._token)
                 outgoing = client.build_request(
                     "POST",
-                    self._endpoint + "/signin" if operation == "signin" else self._base + operation,
+                    self._endpoint + "/signin"
+                    if operation == "signin"
+                    else self._base + operation,
                     content=body,
                     headers=headers,
                 )
                 response = await client.send(outgoing, stream=True)
                 self._pending_responses[response] = None
-                if not isinstance(response.stream, httpx2.AsyncByteStream):
-                    raise ControlError("Control response is not an async raw stream")
-                if response.status_code in (401, 403):
-                    raise ControlRefused("Control actor is not authorized")
-                if response.status_code not in (200, 409):
-                    raise ControlError(f"Control endpoint returned HTTP {response.status_code}")
-                if response.headers.get("content-encoding", "identity").lower() != "identity":
-                    raise ControlError("Encoded control responses are not admitted")
-                length = response.headers.get("content-length")
-                if length is not None and (
-                    not length.isascii() or not length.isdecimal() or len(length) > 20 or int(length) > self._response_bytes
-                ):
-                    raise ControlError("Control response exceeds its byte allowance")
-                content = bytearray()
-                async for chunk in response.stream:
-                    if len(chunk) > self._response_bytes - len(content):
-                        raise ControlError("Control response exceeds its byte allowance")
-                    content.extend(chunk)
-                if response.status_code == 409:
-                    refusal = _decode_response(content, ControlCommandRefusal)
-                    if (
-                        mutation_id is None
-                        or refusal.issuing_store != self._issuing_store
-                        or refusal.operation_id != mutation_id
-                        or refusal.reason != "control_command_identity_reused"
-                    ):
-                        raise ControlError("Unrecognized control refusal")
-                    raise ControlRefused(refusal.reason)
-                value = convert(_decode_response(content, result_type))
-                if anyio.current_time() >= deadline:
-                    raise TimeoutError("Control original deadline elapsed")
-                return value
+                return await self._read_response(
+                    response, result_type, convert, deadline, mutation_id
+                )
         except anyio.get_cancelled_exc_class() as error:
             primary = error
             if issued and mutation_id is not None:
-                error.add_note(f"Cancellation delivery unresolved; reconcile {mutation_id!r}")
+                error.add_note(
+                    f"Cancellation delivery unresolved; reconcile {mutation_id!r}"
+                )
             raise
-        except ControlRefused as error:
+        except ControlRefusedError as error:
             primary = error
             raise
-        except (httpx2.HTTPError, TimeoutError, msgspec.DecodeError, ControlError) as error:
+        except (
+            httpx2.HTTPError,
+            TimeoutError,
+            msgspec.DecodeError,
+            ControlError,
+        ) as error:
             if issued and mutation_id is not None:
-                primary = ControlUnresolved(mutation_id)
+                primary = ControlUnresolvedError(mutation_id)
             else:
                 primary = ControlError("Control delivery failed")
             raise primary from error
@@ -362,48 +401,122 @@ class ControlClient:
                         await response.aclose()
                     except BaseException as cleanup:
                         self._pending_responses[response] = cleanup
-                        identity = f"; original operation {mutation_id!r}" if mutation_id is not None else ""
+                        identity = (
+                            f"; original operation {mutation_id!r}"
+                            if mutation_id is not None
+                            else ""
+                        )
                         if primary is not None:
                             primary.add_note("Response cleanup also failed" + identity)
                             if primary.__cause__ is not None:
                                 cleanup = BaseExceptionGroup(
-                                    "Control delivery and cleanup causes", [primary.__cause__, cleanup]
+                                    "Control delivery and cleanup causes",
+                                    [primary.__cause__, cleanup],
                                 )
                             raise primary from cleanup
                         if issued and mutation_id is not None:
-                            raise ControlUnresolved(mutation_id) from cleanup
-                        raise ControlError("Control response cleanup failed") from cleanup
+                            raise ControlUnresolvedError(mutation_id) from cleanup
+                        message = "Control response cleanup failed"
+                        raise ControlError(message) from cleanup
                     else:
                         del self._pending_responses[response]
 
+    async def _read_response(
+        self,
+        response: httpx2.Response,
+        result_type: type[_Wire],
+        convert: Callable[[_Wire], _T],
+        deadline: float,
+        mutation_id: str | None,
+    ) -> _T:
+        if not isinstance(response.stream, httpx2.AsyncByteStream):
+            message = "Control response is not an async raw stream"
+            raise ControlError(message)
+        if response.status_code in (401, 403):
+            message = "Control actor is not authorized"
+            raise ControlRefusedError(message)
+        if response.status_code not in (200, 409):
+            message = f"Control endpoint returned HTTP {response.status_code}"
+            raise ControlError(message)
+        if response.headers.get("content-encoding", "identity").lower() != "identity":
+            message = "Encoded control responses are not admitted"
+            raise ControlError(message)
+        length = response.headers.get("content-length")
+        if length is not None and (
+            not length.isascii()
+            or not length.isdecimal()
+            or len(length) > 20
+            or int(length) > self._response_bytes
+        ):
+            message = "Control response exceeds its byte allowance"
+            raise ControlError(message)
+        content = bytearray()
+        async for chunk in response.stream:
+            if len(chunk) > self._response_bytes - len(content):
+                message = "Control response exceeds its byte allowance"
+                raise ControlError(message)
+            content.extend(chunk)
+        if response.status_code == 409:
+            refusal = _decode_response(content, ControlCommandRefusal)
+            if (
+                mutation_id is None
+                or refusal.issuing_store != self._issuing_store
+                or refusal.operation_id != mutation_id
+                or refusal.reason != "control_command_identity_reused"
+            ):
+                message = "Unrecognized control refusal"
+                raise ControlError(message)
+            raise ControlRefusedError(refusal.reason)
+        value = convert(_decode_response(content, result_type))
+        if anyio.current_time() >= deadline:
+            message = "Control original deadline elapsed"
+            raise TimeoutError(message)
+        return value
+
     async def sign_in(self, actor: str, password: str) -> None:
-        """Authenticate a provisioned record actor through the same bounded HTTP owner."""
+        """Authenticate a provisioned record actor through the bounded owner."""
         if self._active:
-            raise ControlError("Authentication cannot replace active sibling credentials")
+            message = "Authentication cannot replace active sibling credentials"
+            raise ControlError(message)
         if not actor or not password:
-            raise ValueError("Control record-actor credentials are required")
+            message = "Control record-actor credentials are required"
+            raise ValueError(message)
 
         def token(raw: msgspec.Raw) -> str:
             fields = msgspec.json.decode(raw, type=dict[str, msgspec.Raw])
             encoded = fields.get("token")
             if encoded is None:
-                raise ControlError("Authentication response omitted its bearer token")
+                message = "Authentication response omitted its bearer token"
+                raise ControlError(message)
             value = msgspec.json.decode(encoded, type=str)
             if not value or any(c.isspace() for c in value):
-                raise ControlError("Authentication returned an invalid bearer token")
+                message = "Authentication returned an invalid bearer token"
+                raise ControlError(message)
             return value
 
-        value = await self._request("signin", {
-            "NS": self._namespace, "DB": self._database, "AC": "pse_control",
-            "actor": actor, "password": password,
-        }, msgspec.Raw, token)
+        value = await self._request(
+            "signin",
+            {
+                "NS": self._namespace,
+                "DB": self._database,
+                "AC": "pse_control",
+                "actor": actor,
+                "password": password,
+            },
+            msgspec.Raw,
+            token,
+        )
         self._token = value
 
-    async def study_workbench_page(self, request: ControlBrowseRequest) -> StudyWorkbenchPageOutput:
+    async def study_workbench_page(
+        self, request: ControlBrowseRequest
+    ) -> StudyWorkbenchPageOutput:
         """Read compact live headers; this acquires no scientific payload reader."""
+
         def convert(page: ControlBrowseResponse) -> StudyWorkbenchPageOutput:
             if len(page.headers) > request.maximum:
-                raise ControlError("Control page exceeds its requested row count")
+                message = "Control page exceeds its requested row count"
+                raise ControlError(message)
             value = msgspec.structs.asdict(page)
             headers = []
             for row in page.headers:
@@ -418,25 +531,43 @@ class ControlClient:
 
         return await self._request("browse", request, ControlBrowseResponse, convert)
 
-    async def cancel_study(self, request: ControlCancelRequest) -> ControlCommandReceipt:
-        """Issue one original cancellation; an unresolved error retains its operation ID."""
+    async def cancel_study(
+        self, request: ControlCancelRequest
+    ) -> ControlCommandReceipt:
+        """Issue one cancellation, retaining its identity if unresolved."""
+
         def convert(receipt: ControlCommandReceipt) -> ControlCommandReceipt:
-            if receipt.issuing_store != request.issuing_store or receipt.operation_id != request.operation_id or receipt.study != request.study:
-                raise ControlUnresolved(request.operation_id)
+            if (
+                receipt.issuing_store != request.issuing_store
+                or receipt.operation_id != request.operation_id
+                or receipt.study != request.study
+            ):
+                raise ControlUnresolvedError(request.operation_id)
             if receipt.generation is not None:
                 _uint(receipt.generation)
             return receipt
 
-        return await self._request("cancel", request, ControlCommandReceipt, convert, request.operation_id)
+        return await self._request(
+            "cancel", request, ControlCommandReceipt, convert, request.operation_id
+        )
 
-    async def reconcile(self, request: ControlReconcileRequest) -> ControlReconcileResponse:
-        """Read the original receipt; absence never grants permission to retry a mutation."""
+    async def reconcile(
+        self, request: ControlReconcileRequest
+    ) -> ControlReconcileResponse:
+        """Read the original receipt; absence never permits mutation replay."""
+
         def convert(result: ControlReconcileResponse) -> ControlReconcileResponse:
             if result.receipt is not None:
-                if result.receipt.issuing_store != request.issuing_store or result.receipt.operation_id != request.operation_id:
-                    raise ControlError("Reconciliation returned another operation")
+                if (
+                    result.receipt.issuing_store != request.issuing_store
+                    or result.receipt.operation_id != request.operation_id
+                ):
+                    message = "Reconciliation returned another operation"
+                    raise ControlError(message)
                 if result.receipt.generation is not None:
                     _uint(result.receipt.generation)
             return result
 
-        return await self._request("reconcile", request, ControlReconcileResponse, convert)
+        return await self._request(
+            "reconcile", request, ControlReconcileResponse, convert
+        )

@@ -34,6 +34,7 @@ pub use surreal::relations as native_relations;
 mod surreal_analyses;
 mod surreal_artifacts;
 mod surreal_contexts;
+mod surreal_control;
 mod surreal_execution;
 mod surreal_files;
 mod surreal_history;
@@ -43,7 +44,6 @@ mod surreal_project_imports;
 mod surreal_projects;
 mod surreal_research;
 mod surreal_retention;
-mod surreal_control;
 mod surreal_studies;
 mod surreal_study_workbench;
 

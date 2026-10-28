@@ -8,7 +8,9 @@ pub use pse_operations::canonical_study_workbench::{
 };
 use std::sync::Arc;
 
-pub use pse_operations::canonical_control::{StudyWorkbenchCursor, StudyWorkbenchPage, StudyWorkbenchRequest};
+pub use pse_operations::canonical_control::{
+    StudyWorkbenchCursor, StudyWorkbenchPage, StudyWorkbenchRequest,
+};
 /// One complete bounded population selected before any analytical payload work.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]

@@ -602,6 +602,24 @@ The reviewed Python boundary corrections now pass 35 source-only cases, includin
 HTTPX2/HTTPcore2 close-state behavior; failed body or pool cleanup remains explicitly
 unsettled and cannot become success on a provider no-op retry. The exact patched server
 release builds successfully with api-failure-rollback.patch; upstream transactional
-regressions and actual effective-server HTTP qualification remain pending. A direct private
+regressions and actual effective-server HTTP qualification were still pending at that checkpoint. A direct private
 scientific import still validates/loads the current native artifact and registers Arrow,
 with force-validation active and the deleted native browse method absent.
+
+The current immutable server subsequently passed both upstream API rollback regressions
+and actual HTTP controls for committed explicit 200/409 responses and rolled-back writes
+on an ordinary handler error. The first actual HTTP attempt had exposed missing JSON
+response middleware; the generator now installs it on every selected endpoint. Native
+worker and public-client acceptance remain pending, with their original setup failures
+retained. Pure preparation followed by native observer execution was correctly refused
+for changing the prepared environment; the combined functional fixture must prepare and
+execute under the same native environment while freezing a pure storage helper.
+
+Scope-end validation found Rust style and Python lint/type corrections. Its first bundle
+was interrupted by ENOSPC during generation-check compilation and evidence publication;
+that run is incomplete, not a pass. The maintainer then ran cargo clean, removing target
+products and restoring space. Both owned clippy processes were settled, and the failed
+hygiene allocation was positively released through its original kernel owner. Finish the
+source corrections before rebuilding required products, then run the joined control,
+worker and Python consumer journeys and the unfinished/failing scope-end checks. Surviving
+fixture data, selected immutable server, sources and earlier evidence remain preserved.

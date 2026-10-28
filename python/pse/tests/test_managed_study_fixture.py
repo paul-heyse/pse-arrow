@@ -58,8 +58,8 @@ class ServiceControllerRoutingTests(unittest.TestCase):
             "supervisor_script": str(self.script),
             "supervisor_sha256": "2" * 64,
         }
-        self.config = {"service_supervisor": self.controller}
-        self.receiver = {
+        self.config: dict[str, object] = {"service_supervisor": self.controller}
+        self.receiver: dict[str, object] = {
             "service_state": str(self.owner),
             "service_supervisor": self.controller,
             "primary_receiver": {
@@ -111,16 +111,12 @@ class ServiceControllerRoutingTests(unittest.TestCase):
             selected = FIXTURE.server.admitted_service_controller(
                 self.state, self.receiver
             )
-        self.assertEqual(selected, self.controller)
-        self.assertNotEqual(
-            selected["supervisor_script"],
-            self.receiver["primary_receiver"]["supervisor_script"],
-        )
+        assert selected == self.controller
+        primary = self.receiver["primary_receiver"]
+        assert isinstance(primary, dict)
+        assert selected["supervisor_script"] != primary["supervisor_script"]
         config.assert_called_once_with(self.owner)
-        self.assertEqual(
-            self.receiver["primary_receiver"]["worker_executable"],
-            "/independent/admitted-worker",
-        )
+        assert primary["worker_executable"] == "/independent/admitted-worker"
 
     def test_changed_foreign_or_missing_controller_refuses(self) -> None:
         for reason in ("missing", "foreign", "receiver", "manifest"):
@@ -145,7 +141,7 @@ class ServiceControllerRoutingTests(unittest.TestCase):
             with (
                 self.subTest(reason=reason),
                 patch.object(FIXTURE.server, "config_for", return_value=config),
-                self.assertRaises(FIXTURE.server.SupervisorError),
+                pytest.raises(FIXTURE.server.SupervisorError),
             ):
                 FIXTURE.server.admitted_service_controller(self.state, receiver)
 

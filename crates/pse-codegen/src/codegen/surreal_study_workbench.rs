@@ -1,9 +1,29 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bounded complete cohort capture shares the selector's one native snapshot.
-pub(super) fn append(registry: &pse_schema::Registry, ddl: &mut String) -> Result<(), pse_schema::SchemaError> {
-    let enumeration=registry.enums().iter().find(|value|value.name=="CanonicalTerminalOutcome").ok_or_else(||pse_schema::SchemaError::Codegen {language:"surreal",reason:"canonical terminal outcome vocabulary absent".into()})?;
-    let outcomes=serde_json::to_string(&enumeration.members.iter().map(|member|member.name).collect::<Vec<_>>()).map_err(|error|pse_schema::SchemaError::Codegen {language:"surreal",reason:error.to_string()})?;
+pub(super) fn append(
+    registry: &pse_schema::Registry,
+    ddl: &mut String,
+) -> Result<(), pse_schema::SchemaError> {
+    let enumeration = registry
+        .enums()
+        .iter()
+        .find(|value| value.name == "CanonicalTerminalOutcome")
+        .ok_or_else(|| pse_schema::SchemaError::Codegen {
+            language: "surreal",
+            reason: "canonical terminal outcome vocabulary absent".into(),
+        })?;
+    let outcomes = serde_json::to_string(
+        &enumeration
+            .members
+            .iter()
+            .map(|member| member.name)
+            .collect::<Vec<_>>(),
+    )
+    .map_err(|error| pse_schema::SchemaError::Codegen {
+        language: "surreal",
+        reason: error.to_string(),
+    })?;
     ddl.push_str(&r#"
 // One selector supplies live browsing and frozen capture; all predicates are
 // values in the original database snapshot, never caller-authored SQL.

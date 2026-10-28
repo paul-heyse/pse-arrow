@@ -1505,32 +1505,70 @@ async fn cross_process_cancel_stops_scip() {
     let handle = long_scip_study(&shared, &local, Duration::from_secs(120), 1).await;
     let store = local.canonical_store().unwrap();
     let study = handle.study_id().to_string();
-    let generation = store.canonical_study(&study).await.unwrap().unwrap().generation;
+    let generation = store
+        .canonical_study(&study)
+        .await
+        .unwrap()
+        .unwrap()
+        .generation;
     let operation = uuid::Uuid::new_v4().to_string();
     let actor_key = format!("worker-control-{}", uuid::Uuid::new_v4().simple());
     let password = uuid::Uuid::new_v4().to_string();
-    let issued = store.issue_control_actor(&actor_key, &password, true, true).await.unwrap();
+    let issued = store
+        .issue_control_actor(&actor_key, &password, true, true)
+        .await
+        .unwrap();
     let mut actor = tempfile::NamedTempFile::new().unwrap();
-    std::io::Write::write_all(&mut actor, &serde_json::to_vec(&serde_json::json!({
-        "key": actor_key, "password": password,
-    })).unwrap()).unwrap();
-    let receiver_state = managed.selected.as_ref().unwrap().receiver_state().to_path_buf();
-    let config: serde_json::Value = serde_json::from_slice(
-        &std::fs::read(receiver_state.join("config.json")).unwrap(),
-    ).unwrap();
+    std::io::Write::write_all(
+        &mut actor,
+        &serde_json::to_vec(&serde_json::json!({
+            "key": actor_key, "password": password,
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let receiver_state = managed
+        .selected
+        .as_ref()
+        .unwrap()
+        .receiver_state()
+        .to_path_buf();
+    let config: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(receiver_state.join("config.json")).unwrap())
+            .unwrap();
     let endpoint = format!("http://127.0.0.1:{}", config["port"].as_u64().unwrap());
     let mut control = std::process::Command::new(python());
-    control.current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
-        .args(["-m", "scripts.tests.control_worker_cancel", "--endpoint", &endpoint,
-            "--namespace", store.namespace(), "--database", store.database(),
-            "--issuing-store", &issued.issuing_store, "--operation", &operation,
-            "--study", &study, "--actor"])
+    control
+        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
+        .args([
+            "-m",
+            "scripts.tests.control_worker_cancel",
+            "--endpoint",
+            &endpoint,
+            "--namespace",
+            store.namespace(),
+            "--database",
+            store.database(),
+            "--issuing-store",
+            &issued.issuing_store,
+            "--operation",
+            &operation,
+            "--study",
+            &study,
+            "--actor",
+        ])
         .arg(actor.path());
     let mut worker = managed.spawn("worker-cancelled", 30);
     let (run, attempt) = wait_study_assignment(&local, &handle, &mut worker).await;
     let requested = tokio::time::Instant::now();
-    let reply = tokio::task::spawn_blocking(move || control.output().unwrap()).await.unwrap();
-    assert!(reply.status.success(), "{}", String::from_utf8_lossy(&reply.stderr));
+    let reply = tokio::task::spawn_blocking(move || control.output().unwrap())
+        .await
+        .unwrap();
+    assert!(
+        reply.status.success(),
+        "{}",
+        String::from_utf8_lossy(&reply.stderr)
+    );
     let receipt: pse_operations::canonical_control::ControlCommandReceipt =
         serde_json::from_slice(&reply.stdout).unwrap();
     assert_eq!(receipt.issuing_store, issued.issuing_store);
@@ -1546,7 +1584,15 @@ async fn cross_process_cancel_stops_scip() {
     assert_eq!(status.state, StudyState::Concluded);
     assert!(status.cancelled);
     assert_eq!(status.points[0].state, StudyPointState::Cancelled);
-    assert_eq!(store.canonical_study(&study).await.unwrap().unwrap().generation, generation + 1);
+    assert_eq!(
+        store
+            .canonical_study(&study)
+            .await
+            .unwrap()
+            .unwrap()
+            .generation,
+        generation + 1
+    );
     assert_eq!(
         operations
             .store()
@@ -1562,13 +1608,20 @@ async fn cross_process_cancel_stops_scip() {
     // Assignment alone is not native entry. The frozen original attempt must
     // contain an actual SCIP callback. This does not establish its ordering
     // relative to the HTTP cancellation request.
-    let mut events = local.progress(&run, &attempt, pse_columnar::CancellationToken::new())
-        .await.unwrap();
+    let mut events = local
+        .progress(&run, &attempt, pse_columnar::CancellationToken::new())
+        .await
+        .unwrap();
     let mut saw_native = false;
     while let Some(page) = events.next_page().await.unwrap() {
-        saw_native |= page.iter().any(|event| event.phase == "scip.incumbent" && event.incumbent.is_some());
+        saw_native |= page
+            .iter()
+            .any(|event| event.phase == "scip.incumbent" && event.incumbent.is_some());
     }
-    assert!(saw_native, "cancelled attempt must retain an actual SCIP callback");
+    assert!(
+        saw_native,
+        "cancelled attempt must retain an actual SCIP callback"
+    );
     assert!(supervisor_python("from scripts import surreal_server as s; import os,pathlib; p=pathlib.Path(os.environ['PSE_SURREAL_STATE']); s.workers_drained(p,s.config_for(p))")
         .env("PSE_SURREAL_STATE", &receiver_state).status().unwrap().success());
     drop(events);

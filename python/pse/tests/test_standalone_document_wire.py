@@ -6,7 +6,7 @@ import msgspec
 import pytest
 
 import pse
-from pse import codec
+from pse import codec, diagnostics
 from pse.contracts import documents
 
 
@@ -162,9 +162,7 @@ def test_standalone_current_operation_can_be_projected_and_promoted_explicitly()
         codec.document_builtins(body), documents.OperationId
     )
     assert promoted == original
-    assert (
-        pse.diagnostics.operation_text(promoted) == "00000000000000010000000000000002:3"
-    )
+    assert diagnostics.operation_text(promoted) == "00000000000000010000000000000002:3"
     with pytest.raises(msgspec.ValidationError, match="version"):
         codec.decode_json(codec.encode_json(body), documents.OperationId)
 

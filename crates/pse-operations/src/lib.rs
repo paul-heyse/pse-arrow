@@ -12,6 +12,7 @@ mod canonical_capability_tests;
 pub mod canonical_capture_results;
 pub mod canonical_codec;
 pub mod canonical_contexts;
+pub mod canonical_control;
 pub mod canonical_execution;
 pub mod canonical_explanations;
 pub mod canonical_files;
@@ -25,7 +26,6 @@ pub mod canonical_results;
 pub mod canonical_retention;
 pub mod canonical_selection;
 pub mod canonical_staging;
-pub mod canonical_control;
 pub mod canonical_studies;
 pub mod canonical_study_workbench;
 /// Shared deployment identity and strict owner projections.

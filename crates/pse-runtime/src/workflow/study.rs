@@ -2381,13 +2381,27 @@ impl StudyHandle {
                     .ok_or(WorkflowError::RecordingUnavailable)?
                     .store();
                 let key = self.study_id.to_string();
-                let command = pse_operations::canonical_control::ControlCancelRequest::issue(store.issuing_store()?.to_owned(),key);
+                let command = pse_operations::canonical_control::ControlCancelRequest::issue(
+                    store.issuing_store()?.to_owned(),
+                    key,
+                );
                 let receipt = store.cancel_study_command(&command).await?;
-                if receipt.status != pse_operations::canonical_control::ControlCommandStatus::Accepted {
+                if receipt.status
+                    != pse_operations::canonical_control::ControlCommandStatus::Accepted
+                {
                     return Err(contract("canonical study absent"));
                 }
-                let generation=receipt.generation.as_deref().ok_or_else(||contract("cancel receipt generation absent"))?.parse::<u64>().map_err(|_|contract("cancel receipt generation invalid"))?;
-                Ok(StudyCancel {study_id:self.study_id,generation,already_concluded:receipt.already_concluded})
+                let generation = receipt
+                    .generation
+                    .as_deref()
+                    .ok_or_else(|| contract("cancel receipt generation absent"))?
+                    .parse::<u64>()
+                    .map_err(|_| contract("cancel receipt generation invalid"))?;
+                Ok(StudyCancel {
+                    study_id: self.study_id,
+                    generation,
+                    already_concluded: receipt.already_concluded,
+                })
             })
             .await
     }

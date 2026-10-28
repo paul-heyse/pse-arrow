@@ -349,13 +349,12 @@ impl UndispatchedPayloadDrain {
 }
 impl Drop for UndispatchedPayloadDrain {
     fn drop(&mut self) {
-        if let Some(context) = &self.context {
-            if context.dispatch_state() == DispatchState::NotDispatched
-                && !context.0.enqueued.load(Ordering::Acquire)
-            {
-                context.release_payload_after_drain();
-                context.release_lifetime_after_drain();
-            }
+        if let Some(context) = &self.context
+            && context.dispatch_state() == DispatchState::NotDispatched
+            && !context.0.enqueued.load(Ordering::Acquire)
+        {
+            context.release_payload_after_drain();
+            context.release_lifetime_after_drain();
         }
     }
 }

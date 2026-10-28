@@ -307,7 +307,7 @@ browse/cancel grants. Its safe report supplies actor identity and the original i
 The applicable catalog and selected server integration must be activated before use.
 
 ```python
-from pse.control import ControlClient, ControlUnresolved
+from pse.control import ControlClient, ControlUnresolvedError
 from pse.contracts.documents import (
     ControlBrowseRequest, ControlCancelRequest, ControlReconcileRequest,
     StudyWorkbenchFilter,
@@ -326,7 +326,7 @@ async def inspect_and_cancel(endpoint, namespace, database, issuer, actor, passw
         ))
         try:
             receipt = await client.cancel_study(command)
-        except ControlUnresolved:
+        except ControlUnresolvedError:
             observed = await client.reconcile(ControlReconcileRequest(
                 document_version=1, issuing_store=command.issuing_store,
                 operation_id=command.operation_id,

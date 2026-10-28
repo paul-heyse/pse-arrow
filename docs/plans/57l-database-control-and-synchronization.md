@@ -129,7 +129,9 @@ affected routes. Do not retain parallel production schedulers or dual-write migr
 
 ## Verification and checkpoint
 
-**Interface-checked:** research/source capability contracts. **Proposed:** all packages.
+**Interface-checked:** research/source capability contracts. **Implemented:** the authorized
+actor/receipt and browse/cancel/reconcile slice below; joined qualification remains with
+57j's first-control-slice checkpoint. Remaining L scope is **Proposed**.
 Review S02–S06 guide future acceptance: concurrent actor/revision conflicts, exact repeated
 command versus reused identity, lost acknowledgement, restart and stale fences, cancellation
 before/after dispatch, dropped notifications, reconnect, lease expiry, database unavailability,
@@ -141,8 +143,8 @@ An added study composition should extend shared policy; replacing a worker shoul
 receipts; growing result detail should change demand-shaped data access rather than require
 the scientific root for headers. These scenarios motivate the boundaries without adding new
 scientific methods. J owns joined qualification, independent reconciliation, decision/architecture
-publication and benefit selection. Retain the current pause and stopped resources until a
-separately authorized execution approach reconciles the changed baseline and consumers.
+publication and benefit selection. Wider D–F qualification retains its pause and stopped
+resources; the separately authorized first control slice below does not reopen that campaign.
 
 ## Authorized first control slice — 2026-10-28
 

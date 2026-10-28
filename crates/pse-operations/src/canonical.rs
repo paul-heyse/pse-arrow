@@ -2280,10 +2280,10 @@ impl CanonicalStore {
                     self.db
                         .script(GuardedScript::new(Envelope::ProtectedAdmission{selection})
                             .returning::<Value>(ADMIT_PRODUCT,"$rpc_result")?)
-                        .bind(("product", wire::encode_canonical_product_associations(&association)?))
-                        .bind(("descriptor", wire::encode_canonical_product_descriptors(&descriptor)?))
-                        .bind(("content", wire::encode_canonical_body_contents(&content)?))
-                        .bind(("receipt", wire::encode_canonical_selection_receipts(&selection_receipt)?))
+                        .bind(("product", wire::encode_canonical_product_associations(association)?))
+                        .bind(("descriptor", wire::encode_canonical_product_descriptors(descriptor)?))
+                        .bind(("content", wire::encode_canonical_body_contents(content)?))
+                        .bind(("receipt", wire::encode_canonical_selection_receipts(selection_receipt)?))
                         .bind(("operation", stage.operation.clone()))
                         .bind((
                             "generation",
@@ -2295,9 +2295,9 @@ impl CanonicalStore {
                 .and_then(checked);
             match result {
                 Ok(mut response) => {
-                    return Ok(crate::canonical_codec::decode_string(
+                    Ok(crate::canonical_codec::decode_string(
                         ResultSlot::<Value>::returned().take(&mut response)?,
-                    )?);
+                    )?)
                 }
                 Err(error) => {
                     if error.is_capture_busy() { return Err(error); }
@@ -2313,7 +2313,7 @@ impl CanonicalStore {
                     }
                     let error = error.exhaust_conflict("canonical::admit_product", GUARDED_ATTEMPTS);
                     operation_failed("canonical::admit_product", &error);
-                    return Err(error);
+                    Err(error)
                 }
             }
                 }.await;
