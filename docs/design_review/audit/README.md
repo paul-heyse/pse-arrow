@@ -1,5 +1,17 @@
 # Design principle audit
 
+## Scoped execution and database refresh — 2026-10-28
+
+The [scoped account](study-execution-and-database-boundary.md) inspects `64a217de2`
+plus current operations inherited-response/activity corrections and controls. It does
+not renew the whole-system baseline below. It allocates
+[DA-046](study-execution-and-database-boundary.md#da-046) for metadata access's scientific
+composition dependency and [DA-047](study-execution-and-database-boundary.md#da-047) for
+differing poll/destruction attribution. The next available identity is DA-048.
+Named DA-033/034/035/042 premises are corrected at current sites; other manifestations
+are not silently closed. No tests, builds, services or measurements ran. The separate
+test account and owning plans retain their own qualification boundaries.
+
 This is the living diagnostic account of alignment gaps in the implemented simulator and its
 development tooling. Start with the [integrated system account](system-architecture.md), then
 follow its improvement questions to the primary findings below.

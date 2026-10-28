@@ -1,5 +1,14 @@
 # Test code design principle audit
 
+## Scoped refresh: study execution and database boundary
+
+The [2026-10-28 scoped account](study-execution-and-database-boundary.md) examines
+`64a217de2` plus current operations inline-child corrections/tests and the concurrent
+Plan57j checkpoint. It reconciles selected fixture/route/custody/worker evidence and
+the proposed Python/database boundary, without replacing the whole-account baseline
+below. Existing DTA-050/055/058 retain primary ownership; no new ID is allocated.
+The refresh ran no tests, builds or services and makes no Plan57 completion claim.
+
 This is the living diagnostic account for test architecture, evidence and shared support.
 Start with the [integrated architectural account](architecture-and-assurance.md): it describes the
 system as built, six integrated conclusions, their interactions and contrasting strengths. Topic pages
