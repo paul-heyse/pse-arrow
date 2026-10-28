@@ -48,10 +48,10 @@ classifiers = [
 ]
 # Exact (ADR-0165); uv.lock holds the rest. Adding a dependency here needs no ADR.
 dependencies = [
-  "pyarrow==25.0.1",
+  "pyarrow==26.0.0",
   "attrs==26.1.0",
-  "cattrs==26.2.0",
-  "msgspec==0.21.1",
+  "cattrs==26.2.1",
+  "msgspec==0.22.0",
   "referencing==0.37.0",
   "httpx2==2.16.0",
   "anyio==4.15.1",
