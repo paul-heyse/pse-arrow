@@ -1,16 +1,22 @@
 ---
 title: "Plan 57a: Result data and prepaid accounting"
-status: complete
+status: superseded
 date: 2026-10-27
 adrs: [ADR-0055]
 review_sources: [docs/library_leverage/reviews/result-data-and-prepaid-accounting.md]
 scenario_sources: [docs/library_leverage/reviews/result-data-and-prepaid-accounting.md]
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
-doc_topics: [current-work, libraries, storage, numerical-execution, validation]
+doc_topics: [ libraries, storage, numerical-execution, validation]
 ---
 
 # Plan 57a: Result data and prepaid accounting
+
+> **Superseded on 2026-10-28 by [Plan58](58-rust-owned-system.md).**
+> This document retains historical implementation, decisions and evidence only. Its open
+> packages and future-tense instructions authorize no further execution. No scope transfers
+> automatically, and supersession is not completion or a passing qualification result.
+
 
 ## Purpose and baseline
 

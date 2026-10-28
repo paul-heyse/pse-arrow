@@ -1,16 +1,22 @@
 ---
 title: "Plan 57: Library leverage and correctness"
-status: in-progress
+status: superseded
 date: 2026-10-27
 adrs: [ADR-0055, ADR-0082, ADR-0108, ADR-0118, ADR-0210]
 review_sources: [docs/library_leverage/reviews/README.md, docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md]
 scenario_sources: [docs/library_leverage/reviews/README.md]
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
-doc_topics: [current-work, libraries, design, numerical-execution, storage, diagnostics, validation]
+doc_topics: [ libraries, design, numerical-execution, storage, diagnostics, validation]
 ---
 
 # Plan 57: Library leverage and correctness
+
+> **Superseded on 2026-10-28 by [Plan58](58-rust-owned-system.md).**
+> This document retains historical implementation, decisions and evidence only. Its open
+> packages and future-tense instructions authorize no further execution. No scope transfers
+> automatically, and supersession is not completion or a passing qualification result.
+
 
 ## Database boundary review integration
 

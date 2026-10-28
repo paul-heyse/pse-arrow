@@ -1,15 +1,21 @@
 ---
 title: "Plan57k: Durable control and Python boundary"
-status: in-progress
+status: superseded
 date: 2026-10-28
 adrs: [ADR-0232]
 review_sources: [docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md]
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
-doc_topics: [current-work, design, storage, libraries, validation]
+doc_topics: [ design, storage, libraries, validation]
 ---
 
 # Plan57k: Durable control and Python boundary
+
+> **Superseded on 2026-10-28 by [Plan58](58-rust-owned-system.md).**
+> This document retains historical implementation, decisions and evidence only. Its open
+> packages and future-tense instructions authorize no further execution. No scope transfers
+> automatically, and supersession is not completion or a passing qualification result.
+
 
 ## Purpose, baseline and foundation assessment
 

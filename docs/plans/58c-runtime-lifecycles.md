@@ -1,0 +1,162 @@
+---
+title: Rust runtime lifecycles
+status: draft
+date: 2026-10-28
+adrs: []
+doc_role: plan
+doc_owner: docs/plans/58-rust-owned-system.md
+doc_topics: [current-work, architecture, libraries, validation]
+review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md]
+---
+
+# Rust runtime lifecycles
+
+This supporting plan develops O06 of the [Rust-owned functional
+review](../functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md) under [Plan58](58-rust-owned-system.md). It is
+new target-oriented scope replacing Plan57's frontend-shaped lifecycle decomposition. All packages are planned. Planning does not
+authorize implementation, resume interrupted qualification or attribute existing native failures to Python.
+
+## Target and foundation assessment
+
+Retain existing Tokio 1.53.2, tokio-util 0.7.19, Futures and Rayon composition, original native-job admission and actual OS-thread joins
+as the foundation. Async tasks own polling/I/O and service coordination; Futures compose scoped operation work; native compute and
+library teams retain their current scientific/native supervisors. `math/joined_pool.rs` explicitly drops the Rayon pool and joins every
+retained worker, including partial construction. `native_thread.rs` and `math.rs` retain actual native custody. A canceled future,
+finished task or dropped pool is insufficient evidence that a started foreign call and its destruction ended.
+
+[B](58b-bootstrap-and-host-control.md) owns the proposed deliberate Tokio move to exact 1.53.3 for zbus 6.1 backend compatibility after
+source/resolution checks; C depends on the lifecycle contract, not preservation of the old patch pin. Migrate and test affected runtime
+consumers together.
+
+The key distinctions are observing, requesting scientific stop, joining native execution, publishing durable results, draining delivery
+and physically releasing resources. Existing `workflow/worker.rs`, `operation_preparation.rs`, `math/{joined_pool,native_child}.rs` and
+`execution_lifecycle.rs` are the relevant foundations; do not merge their distinct authority into one generic lifecycle state.
+Observation metrics are facts about those owners and never grants of release or durable success. Python-specific pull/wait ownership
+retires with its actual consumers. Deferred optional PyO3 bindings do not require implementing another interpreter wait bridge in this
+series.
+
+A local run owns its execution according to the native API contract; a durable accepted study can outlive an observer. Stopping either
+is an explicit operation policy, not a transport side effect. Shared preparation has producer/waiter ownership: one canceled waiter
+cannot destroy a useful shared producer or transfer another caller's active permission. Result custody survives output retention,
+delivery clones and reader close until its real allocation/owner lifetime ends.
+
+Use `CancellationToken` for cooperative notification and `JoinSet`/`FuturesUnordered` where callers need task results. Consider
+`TaskTracker` for a high-volume async population requiring destruction completion without accumulating task results. Its `close()`
+permits `wait()` to complete only when the tracker is also empty; it does **not** stop registration. The application owner must seal new
+admission atomically with its shutdown policy before declaring population drain complete. This contract is documented by [tokio-util
+0.7.19](https://docs.rs/tokio-util/0.7.19/tokio_util/task/struct.TaskTracker.html). Dropping the tracker does not abort tasks, and
+tracked async destruction does not replace native joins.
+
+Compare tokio-graceful-shutdown 0.20.0 only for genuine long-lived subsystem roots that need common hierarchical stop/error routing.
+`Toplevel`, `SubsystemBuilder`, `NestedSubsystem::join` and `ErrorAction` are candidates to consolidate such root coordination; no new
+dependency is selected by this draft. [The library overview](../libraries/tokio-graceful-shutdown.md) identifies useful mechanisms and
+limits; C01 verifies exact source/API contracts. Per-case/per-connection subsystem objects and replacement of native joins are outside
+the comparison. Preserve ordinary native composition whenever the candidate adds more lifecycle machinery than it removes.
+
+Core 3.4 and process-simulator 1.5 constrain lifecycle/scientific ownership; the coordinator's
+[T01](58-rust-owned-system.md#t01)/[T02](58-rust-owned-system.md#t02) shared contract and ADR/formal-review work precede incompatible
+API/governance changes. Host boot/PID/unit identity and physical containment belong to the host plan; durable transitions belong to the
+control plan; selective result and delivery custody belong to the results plan.
+
+## Package state
+
+| Package | Status | Owner | Completion |
+| --- | --- | --- | --- |
+| [C01](#c01) Settle lifecycle composition | planned | Runtime integrator | Exact-source root comparison decided and shared contracts accepted |
+| [C02](#c02) Native operation ownership | planned | Runtime/math owner | Observer/stop/join behavior implemented and targeted tests pass |
+| [C03](#c03) Shared preparation and worker admission | planned | Runtime worker owner | Producer/waiter and nested admission behavior integrated |
+| [C04](#c04) Service-root shutdown and host handoff | planned | Runtime/host integrators | Admission sealed, failures retained and actual owned work drained |
+| [C05](#c05) Publication and delivery settlement | planned | Runtime/control/results integrators | Native completion, durable publication and output release remain distinct |
+| [C06](#c06) Consumer cutover and qualification handoff | planned | Runtime integrator | Replaced wrappers deleted and H scenarios ready |
+
+<a id="c01"></a>
+## C01 — Decide the smallest sufficient composition
+
+Consume T01/T02's early shared-contract and consumer scope, then settle ownership for local operation, durable worker, shared
+preparation, output reader and process-root populations. Contracts name admission authority, cancellation source, result/error owner and
+actual completion witness; they need not create one new type per distinction. Compare existing tokens/tasks/native joins with
+tokio-graceful-shutdown 0.20.0 for a named long-lived worker/service root only. Inspect exact APIs, child-start behavior,
+subtree/shallow completion, panic/error routing, timeout/abort and propagation to ordinary tasks. Context7 resolution did not identify
+that crate and the direct hosted 0.20 Toplevel page was unavailable during authoring; this is an unresolved candidate, not absence
+proof.
+
+Exit with either native primitives retained or a concrete root-only adoption and its removed coordination code. Source analysis can
+decide suitability; an unresolved shutdown premise needs one small falsifying lifecycle experiment during execution. A timeout must
+remain an incomplete drain outcome when blocking work remains, under either choice. Do not add a restart framework, global scheduler,
+protocol task model or generic library-independent lifecycle abstraction. Coordinate the outcome with host/control/results consumers and
+required decision approval before dependent implementation. Routine task-local organization remains implementation judgment.
+
+<a id="c02"></a>
+## C02 — Implement native operation ownership and truthful completion
+
+After C01's contract is approved, integrate it into `PreparedOperation::start`, `RunHandle` and the math supervisor. Native callers can
+observe, request stop and await original completion without Python. Distinguish observer detachment from an operation's selected
+stop-on-owner-close behavior; retain ownership when a caller drops its response future. A started blocking call remains charged and
+joined through callback failure, destruction and OS exit. Propagate original clocks, operation identity and typed causes; do not
+recreate numerical iteration or change solver stop semantics. When one cleanup fails, attempt every independent owned drain and retain
+individual failures before returning the original/combined error. Uncertain destruction cannot authorize replacement work. Targeted unit
+tests exercise cancellation before start, during execution, delayed destruction, failed callback and partial native-team construction.
+Delete superseded frontend wait orchestration only with migrated consumers; the underlying native join implementation remains
+authoritative.
+
+<a id="c03"></a>
+## C03 — Compose shared preparation and worker admission correctly
+
+Consume C02 and A's preparation/study contract. Keep the existing scoped Futures/native worker route, sharing immutable preparation only
+while full identity and validity match. Producer lifetime, waiting caller lifetime, cached payload lifetime and active compute admission
+remain distinct. Remove Python/source-currency work whose only consumer has retired; retain real input/environment compatibility checks
+at the scientific/native admission boundary rather than on every read. For studies, preserve the selected workstation allocation and
+useful concurrency. Bound queued and in-flight cases using existing policy while reserving required nested native populations before
+dispatch. Cold multi-case batches, retained idle lanes and publication must not consume all parent capacity and then wait for
+unavailable child capacity. Do not fix this by new CPU/RAM caps or global serial execution. Carry a real allowance to the original
+execution owner instead of dropping authority at a wrapper boundary. Targeted tests cover canceled single/shared waiters, cold
+concurrent cases, retained-to-fresh fallback and failed construction without leaked permits/populations. Remove replaced admission
+wrappers and their obsolete tests once these consumers use the owner.
+
+<a id="c04"></a>
+## C04 — Join service roots and hand physical ownership to the host owner
+
+Consume C01's root decision, C03 worker admission and [B03](58b-bootstrap-and-host-control.md#b03)'s implemented identity/release slice.
+Stop new root admission before canceling/draining existing work; `TaskTracker::close` alone is not that seal. When results matter,
+actively drain `JoinSet`/Futures completions rather than accumulate them. If C01 adopts TGS, use it only around the named long-lived
+roots; child tokens and ordinary tracked tasks handle frequent work, and original native joins still establish compute exit. Worker
+service stop must not erase accepted durable intent; actual attempt policy decides completion or recoverable interruption. Process child
+cleanup retains original boot/PID/start/unit attribution, borrowed-child constraints and physical release witness through the host
+owner, even if the database is unavailable. Root deadline or forced task abort reports unfinished cleanup where appropriate. Targeted
+tests race admission against shutdown, fail one sibling while another drains, stop idle and busy roots, and keep a blocked native child
+owned after async timeout. Delete superseded root coordinators and process-release duplication only after host/runtime consumers migrate
+together.
+
+<a id="c05"></a>
+## C05 — Preserve publication and result-delivery lifetimes
+
+Consume C02 plus implemented [D02](58d-canonical-control-and-connectivity.md#d02) durable receipt and
+[E03](58e-retained-data-and-delivery.md#e03) protected-result delivery slices. A scientific terminal result is distinct from successful
+durable publication, acknowledgement, response delivery and physical output release. Reconcile uncertain publication under original
+identity; never rerun a completed scientific effect merely because a client lost its response. Cancellation of a reader or protocol
+connection stops observation/delivery according to its policy, without canceling unrelated durable work or releasing buffers still
+retained by another consumer. Reuse protected snapshots and charged allocation custody through clones/slices and transport drains. No
+generic all-purpose settlement receipt is introduced. Optional RMCP, if selected elsewhere, uses these same semantics; endpoint close
+cannot stand for domain/native drain. Targeted tests cover late delivery, reader close with retained output, publication failure after
+native completion, lost acknowledgement and abandoned delivery while another reader remains live. Delete frontend-only settlement
+files/bridges whose last consumer retires, keeping original owners.
+
+<a id="c06"></a>
+## C06 — Cut over callers and hand off assembled lifecycle qualification
+
+Move native APIs, workers, host roots, result readers and any selected adapter to C02–C05 contracts as each becomes usable. Delete
+interpreter-specific wait/pull orchestration and obsolete lifecycle metrics/tests with their retired consumers; optional future bindings
+must supply their own bounded contract and tests. Retain attribution, native callback, stack/admission and physical release failure
+obligations even when they occurred through the removed interface. Coordinate source and test edits on shared runtime/host/results files
+rather than treating this document as an isolated edit boundary.
+
+## Verification and current checkpoint
+
+**Proposed:** changed native owners use `just check-package <pkg>` and targeted `just unit-package <pkg> <filter>`; actual Arrow
+correctness closures carry force-validation. Meaningful controls must distinguish early cancellation from real native exit, admission
+closure from tracker emptiness, and native success from publication/delivery success. H owns the assembled concurrent-study
+stop/reconcile, failure during cleanup and retained-output journeys, then scope-end integration/component/solver checks through
+[H](58h-qualification-and-publication.md), `just hygiene` and manual checks. No performance claim follows from fewer wrappers. All
+production implementation, probes, tests and builds are **not_run** in this planning task. Zero remains the execution failure baseline;
+no prior interrupted run supplies new acceptance credit. C completion requires migrated consumers, immediate replacement deletions and
+the coordinator's H evidence, not merely a successful cancellation request.

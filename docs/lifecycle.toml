@@ -3674,28 +3674,39 @@ from = "docs/plans/56g-qualification-and-publication.md::package-state::G04"
 to = "docs/plans/56-design-principle-alignment.md::package-state::P01"
 kind = "depends-on"
 
-# Plan57 native tables own CBO dispositions and companion package progress.
+# Plan58 owns newly selected opportunities and native package progress.
 
 [[scope_tables]]
-path = "docs/plans/57-library-leverage-and-correctness.md"
-name = "finding-dispositions"
-heading = "Finding dispositions"
+path = "docs/plans/58-rust-owned-system.md"
+name = "opportunity-dispositions"
+heading = "Opportunity dispositions"
 headers = [
-  "Finding",
-  "Review scenarios",
+  "Opportunity",
   "Disposition",
   "Work owner",
-  "Required evidence or question",
+  "Required evidence or trigger",
 ]
 kind = "finding"
 id_column = 0
-id_pattern = '^(CBO-[0-9]+|FMA|Boundary R[0-9]+ / DA-[0-9]+)'
+id_pattern = '^(O[0-9]+)'
 status_profile = "finding"
-status_column = 2
-owner_column = 3
+status_column = 1
+owner_column = 2
 
 [[scope_tables]]
-path = "docs/plans/57a-result-data-and-prepaid-accounting.md"
+path = "docs/plans/58-rust-owned-system.md"
+name = "package-state"
+heading = "Foundation state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(T[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/58a-native-product-and-scientific-workflows.md"
 name = "package-state"
 heading = "Package state"
 headers = ["Package", "Status", "Owner", "Completion"]
@@ -3707,9 +3718,9 @@ status_column = 1
 owner_column = 2
 
 [[scope_tables]]
-path = "docs/plans/57b-mathematics-and-structural-preparation.md"
+path = "docs/plans/58b-bootstrap-and-host-control.md"
 name = "package-state"
-heading = "Packages and dependency order"
+heading = "Package state"
 headers = ["Package", "Status", "Owner", "Completion"]
 kind = "packet"
 id_column = 0
@@ -3719,9 +3730,9 @@ status_column = 1
 owner_column = 2
 
 [[scope_tables]]
-path = "docs/plans/57c-native-solvers-and-arithmetic.md"
+path = "docs/plans/58c-runtime-lifecycles.md"
 name = "package-state"
-heading = "Package state and sequencing"
+heading = "Package state"
 headers = ["Package", "Status", "Owner", "Completion"]
 kind = "packet"
 id_column = 0
@@ -3731,7 +3742,7 @@ status_column = 1
 owner_column = 2
 
 [[scope_tables]]
-path = "docs/plans/57d-sampling-and-statistical-workflows.md"
+path = "docs/plans/58d-canonical-control-and-connectivity.md"
 name = "package-state"
 heading = "Package state"
 headers = ["Package", "Status", "Owner", "Completion"]
@@ -3743,9 +3754,9 @@ status_column = 1
 owner_column = 2
 
 [[scope_tables]]
-path = "docs/plans/57e-canonical-client-and-requests.md"
+path = "docs/plans/58e-retained-data-and-delivery.md"
 name = "package-state"
-heading = "Packages and readiness"
+heading = "Package state"
 headers = ["Package", "Status", "Owner", "Completion"]
 kind = "packet"
 id_column = 0
@@ -3755,9 +3766,9 @@ status_column = 1
 owner_column = 2
 
 [[scope_tables]]
-path = "docs/plans/57f-execution-lifecycle-and-observation.md"
+path = "docs/plans/58f-development-and-assurance.md"
 name = "package-state"
-heading = "Packages and dependencies"
+heading = "Package state"
 headers = ["Package", "Status", "Owner", "Completion"]
 kind = "packet"
 id_column = 0
@@ -3767,9 +3778,9 @@ status_column = 1
 owner_column = 2
 
 [[scope_tables]]
-path = "docs/plans/57g-host-files-and-maintenance.md"
+path = "docs/plans/58g-boundary-retirement-and-optional-consumers.md"
 name = "package-state"
-heading = "Packages and dependency readiness"
+heading = "Package state"
 headers = ["Package", "Status", "Owner", "Completion"]
 kind = "packet"
 id_column = 0
@@ -3779,9 +3790,9 @@ status_column = 1
 owner_column = 2
 
 [[scope_tables]]
-path = "docs/plans/57h-registry-identity-and-diagnostics.md"
+path = "docs/plans/58h-qualification-and-publication.md"
 name = "package-state"
-heading = "Packages and current state"
+heading = "Package state"
 headers = ["Package", "Status", "Owner", "Completion"]
 kind = "packet"
 id_column = 0
@@ -3790,175 +3801,37 @@ status_profile = "packet"
 status_column = 1
 owner_column = 2
 
-[[scope_tables]]
-path = "docs/plans/57i-python-and-developer-workflows.md"
-name = "package-state"
-heading = "Package state"
-headers = ["Package", "Status", "Owner", "Completion"]
-kind = "packet"
-id_column = 0
-id_pattern = '^(I[0-9]+)'
-status_profile = "packet"
-status_column = 1
-owner_column = 2
-
-[[scope_tables]]
-path = "docs/plans/57j-qualification-and-publication.md"
-name = "package-state"
-heading = "Package state"
-headers = ["Package", "Status", "Owner", "Completion"]
-kind = "packet"
-id_column = 0
-id_pattern = '^(J[0-9]+)'
-status_profile = "packet"
-status_column = 1
-owner_column = 2
-
 [[relationships]]
-from = "docs/plans/57a-result-data-and-prepaid-accounting.md::package-state::A03"
-to = "docs/plans/57a-result-data-and-prepaid-accounting.md::package-state::A02"
+from = "docs/plans/58a-native-product-and-scientific-workflows.md::package-state::A01"
+to = "docs/plans/58-rust-owned-system.md::package-state::T02"
 kind = "depends-on"
 
 [[relationships]]
-from = "docs/plans/57a-result-data-and-prepaid-accounting.md::package-state::A05"
-to = "docs/plans/57a-result-data-and-prepaid-accounting.md::package-state::A03"
+from = "docs/plans/58b-bootstrap-and-host-control.md::package-state::B01"
+to = "docs/plans/58-rust-owned-system.md::package-state::T02"
 kind = "depends-on"
 
 [[relationships]]
-from = "docs/plans/57a-result-data-and-prepaid-accounting.md::package-state::A05"
-to = "docs/plans/57a-result-data-and-prepaid-accounting.md::package-state::A04"
+from = "docs/plans/58c-runtime-lifecycles.md::package-state::C01"
+to = "docs/plans/58-rust-owned-system.md::package-state::T02"
 kind = "depends-on"
 
 [[relationships]]
-from = "docs/plans/57b-mathematics-and-structural-preparation.md::package-state::B03"
-to = "docs/plans/57g-host-files-and-maintenance.md::package-state::G03"
+from = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D01"
+to = "docs/plans/58-rust-owned-system.md::package-state::T02"
 kind = "depends-on"
 
 [[relationships]]
-from = "docs/plans/57c-native-solvers-and-arithmetic.md::package-state::C03"
-to = "docs/plans/57c-native-solvers-and-arithmetic.md::package-state::C01"
+from = "docs/plans/58e-retained-data-and-delivery.md::package-state::E01"
+to = "docs/plans/58-rust-owned-system.md::package-state::T02"
 kind = "depends-on"
 
 [[relationships]]
-from = "docs/plans/57e-canonical-client-and-requests.md::package-state::E02"
-to = "docs/plans/57e-canonical-client-and-requests.md::package-state::E01"
+from = "docs/plans/58f-development-and-assurance.md::package-state::F01"
+to = "docs/plans/58-rust-owned-system.md::package-state::T02"
 kind = "depends-on"
 
 [[relationships]]
-from = "docs/plans/57e-canonical-client-and-requests.md::package-state::E03"
-to = "docs/plans/57e-canonical-client-and-requests.md::package-state::E02"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57e-canonical-client-and-requests.md::package-state::E04"
-to = "docs/plans/57e-canonical-client-and-requests.md::package-state::E03"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F04"
-to = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F01"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F04"
-to = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F03"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F05"
-to = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F01"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F05"
-to = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F03"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57g-host-files-and-maintenance.md::package-state::G04"
-to = "docs/plans/57g-host-files-and-maintenance.md::package-state::G03"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57g-host-files-and-maintenance.md::package-state::G06"
-to = "docs/plans/57g-host-files-and-maintenance.md::package-state::G05"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57h-registry-identity-and-diagnostics.md::package-state::H05"
-to = "docs/plans/57h-registry-identity-and-diagnostics.md::package-state::H04"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57i-python-and-developer-workflows.md::package-state::I03"
-to = "docs/plans/57i-python-and-developer-workflows.md::package-state::I01"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57i-python-and-developer-workflows.md::package-state::I03"
-to = "docs/plans/57i-python-and-developer-workflows.md::package-state::I02"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57i-python-and-developer-workflows.md::package-state::I03"
-to = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F05"
-kind = "depends-on"
-
-[[scope_tables]]
-path = "docs/plans/57k-durable-control-and-python-boundary.md"
-name = "package-state"
-heading = "Package state"
-headers = ["Package", "Status", "Owner", "Completion"]
-kind = "packet"
-id_column = 0
-id_pattern = '^(K[0-9]+)'
-status_profile = "packet"
-status_column = 1
-owner_column = 2
-
-[[scope_tables]]
-path = "docs/plans/57l-database-control-and-synchronization.md"
-name = "package-state"
-heading = "Package state"
-headers = ["Package", "Status", "Owner", "Completion"]
-kind = "packet"
-id_column = 0
-id_pattern = '^(L[0-9]+)'
-status_profile = "packet"
-status_column = 1
-owner_column = 2
-
-[[relationships]]
-from = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K02"
-to = "docs/plans/57l-database-control-and-synchronization.md::package-state::L01"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K03"
-to = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K02"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K03"
-to = "docs/plans/57l-database-control-and-synchronization.md::package-state::L02"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K04"
-to = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K03"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K05"
-to = "docs/plans/57l-database-control-and-synchronization.md::package-state::L04"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57l-database-control-and-synchronization.md::package-state::L02"
-to = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K02"
-kind = "depends-on"
-
-[[relationships]]
-from = "docs/plans/57l-database-control-and-synchronization.md::package-state::L05"
-to = "docs/plans/57l-database-control-and-synchronization.md::package-state::L02"
+from = "docs/plans/58g-boundary-retirement-and-optional-consumers.md::package-state::G01"
+to = "docs/plans/58-rust-owned-system.md::package-state::T02"
 kind = "depends-on"

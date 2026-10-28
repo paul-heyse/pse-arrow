@@ -6,7 +6,9 @@ Python bindings, and retirement of the Python MCP stack. It recommends independe
 native APIs/product CLIs and a separate developer CLI, with no-MCP as a valid target and
 reduced RMCP as a conditional adapter. End-to-end Rust-library overview research, focused
 primary-source checks and independent assessment inform the proposed opportunities. It changes
-no existing plan, decision, implementation or qualification status; Plan57 remains paused.
+no implementation or qualification status. Subsequent operator directions are owned by
+[Plan58](../plans/58-rust-owned-system.md): CLIs are optional, PyO3 implementation is deferred,
+and Plan57 is entirely superseded without automatic package transfer.
 
 The [MCP development-effectiveness review](mcp-development-effectiveness-2026-10-25.md)
 assesses the completed interface as a foundation for further Codex-driven development. Its

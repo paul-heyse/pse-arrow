@@ -1,5 +1,11 @@
 # Rust-owned execution, interfaces and development workflows
 
+> Subsequent planning disposition: [Plan58](../plans/58-rust-owned-system.md) entirely
+> supersedes Plan57. The operator later made CLIs optional, retained RMCP as conditional
+> and deferred PyO3 implementation. This review's CLI recommendation and Plan57-amendment
+> table remain the original proposals, not current scope or authority.
+
+
 ## Recommendation and evidence boundary
 
 **Proposed:** make Rust the complete first-party application and operational owner. Deliver useful product and developer operations directly through Rust APIs and executables. Retire the Python FastMCP stack rather than require feature parity; consider a smaller RMCP adapter only after the native interfaces stand alone. Make any Python package an optional consumer, with coarse PyO3 bindings selected for an actual interaction need. Keep independent Python scientific references outside the first-party execution closure.

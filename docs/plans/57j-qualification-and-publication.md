@@ -1,16 +1,22 @@
 ---
 title: "Plan 57j: Qualification and publication"
-status: in-progress
+status: superseded
 date: 2026-10-27
 adrs: []
 review_sources: [docs/library_leverage/reviews/README.md, docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md]
 scenario_sources: [docs/library_leverage/reviews/README.md]
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
-doc_topics: [current-work, validation, documentation, libraries, numerical-execution, storage]
+doc_topics: [ validation, documentation, libraries, numerical-execution, storage]
 ---
 
 # Plan 57j: Qualification and publication
+
+> **Superseded on 2026-10-28 by [Plan58](58-rust-owned-system.md).**
+> This document retains historical implementation, decisions and evidence only. Its open
+> packages and future-tense instructions authorize no further execution. No scope transfers
+> automatically, and supersession is not completion or a passing qualification result.
+
 
 ## Database-boundary review acceptance amendment
 

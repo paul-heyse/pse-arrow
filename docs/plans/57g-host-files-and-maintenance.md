@@ -1,10 +1,10 @@
 ---
 title: "Plan57g: Host files, process evidence and maintenance"
-status: draft
+status: superseded
 date: 2026-10-27
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
-doc_topics: [current-work, libraries, environment, storage, design, validation]
+doc_topics: [ libraries, environment, storage, design, validation]
 review_sources:
   - docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md
   - docs/library_leverage/reviews/host-processes-and-durable-files.md
@@ -13,6 +13,12 @@ review_sources:
 ---
 
 # Plan57g: Host files, process evidence and maintenance
+
+> **Superseded on 2026-10-28 by [Plan58](58-rust-owned-system.md).**
+> This document retains historical implementation, decisions and evidence only. Its open
+> packages and future-tense instructions authorize no further execution. No scope transfers
+> automatically, and supersession is not completion or a passing qualification result.
+
 
 This companion develops publication (CBO-003), shared child supervision (004), process facts
 (019), primary observation (020), Python ledger discipline (047) and maintenance output inquiry

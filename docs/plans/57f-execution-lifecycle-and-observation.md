@@ -1,10 +1,10 @@
 ---
 title: "Plan57f: Execution lifecycle and observation"
-status: in-progress
+status: superseded
 date: 2026-10-27
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
-doc_topics: [current-work, libraries, design, diagnostics, validation]
+doc_topics: [ libraries, design, diagnostics, validation]
 review_sources:
   - docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md
   - docs/library_leverage/reviews/execution-lifecycle-and-observation.md
@@ -13,6 +13,12 @@ review_sources:
 ---
 
 # Plan57f: Execution lifecycle and observation
+
+> **Superseded on 2026-10-28 by [Plan58](58-rust-owned-system.md).**
+> This document retains historical implementation, decisions and evidence only. Its open
+> packages and future-tense instructions authorize no further execution. No scope transfers
+> automatically, and supersession is not completion or a passing qualification result.
+
 
 This companion supplies common attribution, stop/drain, renewal, lifecycle, native-thread and
 synchronous Python-wait mechanisms for CBO-013–018, while preserving the neutral single-flight

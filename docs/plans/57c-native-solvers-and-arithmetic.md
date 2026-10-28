@@ -1,15 +1,21 @@
 ---
 title: "Plan 57c: Native solvers and arithmetic"
-status: complete
+status: superseded
 date: 2026-10-27
 adrs: []
 review_sources: [docs/library_leverage/reviews/native-solver-integration.md, docs/library_leverage/reviews/result-data-and-prepaid-accounting.md, docs/library_leverage/reviews/numerical-workflows.md]
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
-doc_topics: [current-work, design, libraries, numerical-execution, environment, validation]
+doc_topics: [ design, libraries, numerical-execution, environment, validation]
 ---
 
 # Plan 57c: Native solvers and arithmetic
+
+> **Superseded on 2026-10-28 by [Plan58](58-rust-owned-system.md).**
+> This document retains historical implementation, decisions and evidence only. Its open
+> packages and future-tense instructions authorize no further execution. No scope transfers
+> automatically, and supersession is not completion or a passing qualification result.
+
 
 ## Target, baseline and decision boundaries
 

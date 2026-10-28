@@ -1,10 +1,10 @@
 ---
 title: "Plan57e: Canonical client and guarded requests"
-status: in-progress
+status: superseded
 date: 2026-10-27
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
-doc_topics: [current-work, libraries, storage, design, validation]
+doc_topics: [ libraries, storage, design, validation]
 review_sources:
   - docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md
   - docs/library_leverage/reviews/canonical-store-transport.md
@@ -13,6 +13,12 @@ review_sources:
 ---
 
 # Plan57e: Canonical client and guarded requests
+
+> **Superseded on 2026-10-28 by [Plan58](58-rust-owned-system.md).**
+> This document retains historical implementation, decisions and evidence only. Its open
+> packages and future-tense instructions authorize no further execution. No scope transfers
+> automatically, and supersession is not completion or a passing qualification result.
+
 
 This companion develops CBO-009 and the whole CBO-010: both conflict retry and guarded-script
 composition. The [coordinator](57-library-leverage-and-correctness.md) owns selection,
