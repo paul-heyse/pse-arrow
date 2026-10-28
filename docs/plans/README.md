@@ -10,8 +10,11 @@ Expanded 58d delivers minimal native migration infrastructure; exhaustive persis
 recovery qualification is a later release obligation before non-regenerable/shared operational data.
 Integrated replacements retire Python mechanisms, bespoke build observation and redundant fixture
 guards. Scientific calculation observation and independent reference assurance remain.
-This publication authorizes planning only. Production implementation and qualification remain
-paused, with no service or campaign restarted.
+The maintainer has authorized T01/T02 and 58b execution with necessary C/D/F prerequisite slices.
+The [coordinator checkpoint](58-rust-owned-system.md#execution-checkpoint--2026-10-28) and
+[58b checkpoint](58b-bootstrap-and-host-control.md#execution-checkpoint--2026-10-28) own current
+implementation and remaining acceptance. Other series scope and broad qualification remain
+unselected; no historical campaign was restarted.
 
 Plan57 and its companions are superseded historical evidence, temporarily retained for existing
 ADR, architecture and review readers. Their old package tables are no longer active lifecycle

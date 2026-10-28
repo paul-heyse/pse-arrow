@@ -166,7 +166,7 @@ Delete replaced code/callers/tests/fixtures as soon as targeted replacement evid
 
 **Proposed:** target, packages and conditional branches. **Interface-checked:** functional review research, focused source/foundation assessment and lifecycle library source contracts. No product implementation, dependency bump, test, native build or service was run to author these plans. Documentation integrity/publication checks are reported separately from product qualification. Quantitative speed/memory/robustness benefits remain unmeasured.
 
-At authoring all execution packages started planned; T01/T02 foundation delivery is recorded below, while B and other runtime packages retain their own current state; optional deferred delivery does not block the native core. The first executable scope is T01/T02 and the shared contract/cold-start design slices of A/B/C/D/E, followed by the smallest original native workflow with its actual host/control/data consumers. Production execution remains paused until separately authorized. Improvement recommendations I01–I14 are now
+At authoring all execution packages started planned; T01/T02 foundation delivery is recorded below, while B and other runtime packages retain their own current state; optional deferred delivery does not block the native core. The first executable scope is T01/T02 and the shared contract/cold-start design slices of A/B/C/D/E, followed by the smallest original native workflow with its actual host/control/data consumers. Production execution was paused at authoring; the maintainer subsequently authorized T01/T02 and B01–B05 as recorded in the execution checkpoint below. Other implementation and broad qualification remain separately selectable. Improvement recommendations I01–I14 are now
 scheduled in this coordinator and their companion packages. No new companion is needed: expanded
 58d keeps canonical transition/schema/admission reasoning together. First execution remains
 T01/T02, including D05's bounded migration/drain decision, then independent cold-start/host and
@@ -214,3 +214,8 @@ cut is accepted. Unfinished F features may remain unavailable with no acceptance
 cannot keep the Python controller as a fallback. Existing non-host report/artifact functions
 remain only after removing their old-host dependencies. Plans53/54 keep historical evidence
 and unrelated work; changed fixture and cache-continuity assumptions route through ADR-0233.
+
+B01's independent native host/seed is now delivered; 58b owns focused component evidence and
+B02/B03 partial state. B04/B05 and unselected companion scope remain open. The first integrated
+consumer cutover still must replace real callers and delete the Python owner; primitives do
+not establish that outcome. Shared status remains here and in 58b, not in a second execution ledger.

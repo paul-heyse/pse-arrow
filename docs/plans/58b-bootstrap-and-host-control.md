@@ -144,9 +144,9 @@ a universal publication protocol.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| [B01](#b01) | planned | 58b | Reviewed root and independent seed |
-| [B02](#b02) | planned | 58b | Typed user-manager and kernel observation |
-| [B03](#b03) | planned | 58b | Environment/admission/launch callers migrated |
+| [B01](#b01) | done | 58b | Reviewed root and independent seed |
+| [B02](#b02) | in progress | 58b | Typed user-manager and kernel observation |
+| [B03](#b03) | in progress | 58b | Environment/admission/launch callers migrated |
 | [B04](#b04) | planned | 58b | Service/compiler consumers integrated |
 | [B05](#b05) | planned | 58b | Cold-start and host journey acceptance |
 
@@ -215,3 +215,61 @@ journeys to the coordinator's H scope-end qualification, after all functional sc
 [H](58h-qualification-and-publication.md) owns integration, hygiene and manual checks; no build, test or host mutation was run
 to author this document. Closure updates the environment/architecture owners through the
 decision route and records supported host/API limits. No speed or reliability gain is measured.
+
+## Execution checkpoint — 2026-10-28
+
+T01/T02 are established under proposed ADR-0233 and the scoped combined formal review;
+formal ADR status is unchanged. B01 delivers `pse-host` and explicit `scripts/bootstrap-host`
+installation to `target/host-tools/pse-host`. Construction bypasses retiring Python compiler
+wrappers, refuses unsupported target overrides and atomically publishes only a completed
+executable. Missing/stale tooling never triggers a rebuild from help/read paths.
+
+B02 has a native service-performing prototype: authenticated user-manager PID/UID and kernel
+view, exact original intent/job correlation, retained unit reference, invocation/process facts,
+original cgroup descriptor and explicit stop/drain. Manager namespace/root links are unreadable
+for this non-dumpable user manager: the supported view proof instead requires singleton kernel
+PID coordinates, unchanged raw start ticks, matching root cgroup2 mount/device and exact
+manager/proc cgroup mapping. Unsupported views refuse. Cgroup removal uses authenticated
+original-view evidence rather than assuming directory link-count behavior.
+
+Mutation is supported only for freshly created private units with one controller. Unique
+private intents, held manager references and `Restart=no` exclude internally supported unit
+replacement. Observed drift refuses. The manager has no atomic StopUnit-if-InvocationID API;
+concurrent external same-UID restart/reconfiguration is unsupported, not proven safe. Borrowed
+existing units are observation-only. Independent implementation advice accepts this bounded
+prototype premise; it does not close B02's broader fault/consumer obligations.
+
+B03 currently delivers a native environment component and explicit personal activation, not
+the production caller cutover. It preserves OS-string mappings, precedence, explicit empties,
+selected native compiler inputs and deferred/redacted personal values. Explain does not source
+personal code; export explicitly activates. Derived private paths can use typed child mappings;
+shell rendering refuses disclosure. Existing pse-env, direnv, recipes and first-party Python
+host owners remain current pending their integrated migration/deletion. No Python fallback was
+added to the new native owner. Foreground stdio, broader scope/service observation and complete
+consumer/fixture retirement remain open. B04 and B05 remain planned; the working D readiness
+and native cache/compiler consumer slices have not been delivered by these primitives.
+
+Initial compile failures exposed zbus6 builder API differences. Actual host tests then exposed
+removed-cgroup handling and non-dumpable manager-view premises; those corrections retain
+refusal on genuine uncertainty. A subsequent fast-exit run exposed job-result versus child-exit
+attribution. Correlated job results now remain separate from native exit; subscription is established once per shared manager connection. The concurrent regression retains each outcome and settles all siblings. Earlier failed tests receive no
+acceptance credit; only the current scoped results establish their named behavior. All owned
+failed fixture records were authenticated and retired without touching existing store data.
+
+**Implemented:** B01 host package/seed, bounded B02 private-service capabilities and B03
+native environment primitives. **Tested:** `scripts/pse-env -- cargo test --locked -p pse-host
+--lib --test bootstrap -- --test-threads=16` passed 23 library and five bootstrap tests,
+zero failures/ignored/warnings against baseline zero. The library set includes 16 concurrent
+fast-failing private service invocations, actual escaped-descendant drain and original exits.
+The actual seed/help also ran with Python absent from PATH, no virtualenv and inherited
+Python wrappers injected; a missing `ld.mold` fixture alias was corrected before that pass.
+Installed CLI returned original exit7 and SIGTERM143 with independent empty/inactive readback.
+Normal/build dependency inspection found none of Arrow/DataFusion, math/runtime, DB,
+product schema/codegen or PyO3. `just ready` and `just turn-end` passed against zero.
+These are focused component results, not B02–B05 completion or series qualification.
+
+Next work is B02's remaining uncertainty/reuse/creation-cancellation cases and B03's foreground
+I/O/caller-death containment, native activation policy and real caller/configuration migration.
+Native D schema-ready/write-admission and F compiler-cache consumers remain necessary for B04.
+No existing canonical store was restarted/reset. No broader scientific/native matrix, hygiene
+or performance campaign ran. Quantitative benefits remain unmeasured.

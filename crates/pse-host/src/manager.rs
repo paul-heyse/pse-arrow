@@ -1,0 +1,1014 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! User-manager operations with original unit and opened-cgroup ownership.
+//!
+//! Mutating capabilities cover freshly created private units with this controller as the
+//! sole manager mutator. Concurrent external restart/reconfiguration is unsupported: systemd
+//! has no atomic StopUnit-if-InvocationID operation. Arbitrary existing units are read-only.
+use crate::HostError;
+use futures_util::StreamExt;
+use pse_diagnostics::process_facts::{ProcessIdentity, ProcessRead, ProcessReader};
+use serde::Serialize;
+use std::{
+    fs::File,
+    io::{self, Read},
+    os::unix::fs::MetadataExt,
+    path::{Component, Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
+use zbus::{Connection, OwnedVariant, Variant, proxy::CacheProperties};
+use zbus_systemd::systemd1::{ManagerProxy, ScopeProxy, ServiceProxy, UnitProxy};
+
+static NEXT: AtomicU64 = AtomicU64::new(0);
+const DESTINATION: &str = "org.freedesktop.systemd1";
+
+/// Original intent, generated before the effect and retained for uncertain replies.
+#[derive(Clone, Debug, Serialize)]
+pub struct LaunchIntent {
+    /// Unique unit name; not by itself permission to stop it.
+    unit: String,
+    /// Exact submitted description nonce.
+    description: String,
+}
+impl LaunchIntent {
+    /// Original unique unit name, without construction authority.
+    pub fn unit(&self) -> &str {
+        &self.unit
+    }
+    /// Create a checkout-independent original launch identity without opening the manager.
+    pub fn fresh() -> Result<Self, HostError> {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|error| HostError::Ownership(error.to_string()))?
+            .as_nanos();
+        let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
+        let nonce = format!("{}-{now:x}-{sequence:x}", std::process::id());
+        Ok(Self {
+            unit: format!("pse-host-{nonce}.service"),
+            description: format!("pse-host original {nonce}"),
+        })
+    }
+}
+
+/// Complete native service request. The executable is passed directly, without shell parsing.
+#[derive(Clone, Debug)]
+pub struct ServiceSpec {
+    /// Original intent generated before dispatch.
+    pub intent: LaunchIntent,
+    /// Absolute executable path.
+    pub executable: PathBuf,
+    /// Arguments excluding argv[0].
+    pub arguments: Vec<String>,
+    /// Child environment assignments, already selected by the environment owner.
+    pub environment: Vec<String>,
+}
+
+/// Observation only. Unknown properties are errors, never empty-success facts.
+#[derive(Clone, Debug, Serialize)]
+pub struct UnitObservation {
+    /// Original name.
+    pub unit: String,
+    /// Manager incarnation's invocation identity.
+    pub invocation: Vec<u8>,
+    /// Actual manager active state.
+    pub active_state: String,
+    /// Actual manager sub-state.
+    pub sub_state: String,
+    /// Main process as observed, zero when absent.
+    pub main_pid: u32,
+    /// waitid-style original termination kind.
+    pub exit_code: i32,
+    /// Original exit status or signal according to exit_code.
+    pub exit_status: i32,
+    /// Manager-selected cgroup path.
+    pub control_group: String,
+}
+impl UnitObservation {
+    /// Original foreground status, only when the manager reports its main process ended.
+    pub fn completed_status(&self) -> Option<i32> {
+        if self.main_pid != 0
+            || !(matches!(self.active_state.as_str(), "inactive" | "failed")
+                || (self.active_state == "active" && self.sub_state == "exited"))
+        {
+            return None;
+        }
+        match self.exit_code {
+            1 => Some(self.exit_status),
+            2 | 3 => Some(128 + self.exit_status),
+            _ => None,
+        }
+    }
+}
+
+/// A user-manager connection bound to the observed daemon owner and boot.
+#[derive(Clone, Debug)]
+pub struct HostManager {
+    connection: Connection,
+    owner: String,
+    boot: String,
+    manager_process: ProcessIdentity,
+    cgroup_namespace: PathBuf,
+    pid_namespace: String,
+    manager_group: String,
+    mount_device: String,
+    cgroup_root: (u64, u64),
+}
+impl HostManager {
+    /// Connect only to a user/session bus, or its explicitly selected address.
+    pub async fn connect_user(address: Option<&str>) -> Result<Self, HostError> {
+        tokio::time::timeout(Duration::from_secs(5), Self::connect_user_inner(address))
+            .await
+            .map_err(|_| HostError::Deadline("user-manager connection and identity".into()))?
+    }
+    async fn connect_user_inner(address: Option<&str>) -> Result<Self, HostError> {
+        let connection = match address {
+            Some(address) => zbus::connection::Builder::address(address).build().await?,
+            None => Connection::session().await?,
+        };
+        let bus = zbus::fdo::DBusProxy::new(&connection).await?;
+        let owner = bus
+            .get_name_owner(DESTINATION.try_into()?)
+            .await
+            .map_err(zbus::Error::from)?
+            .to_string();
+        let manager_pid = bus
+            .get_connection_unix_process_id(owner.as_str().try_into()?)
+            .await
+            .map_err(zbus::Error::from)?;
+        let manager_uid = bus
+            .get_connection_unix_user(owner.as_str().try_into()?)
+            .await
+            .map_err(zbus::Error::from)?;
+        if manager_pid == 1 || manager_uid != rustix::process::geteuid().as_raw() {
+            return Err(HostError::Ownership(
+                "selected bus owner is not this user's manager".into(),
+            ));
+        }
+        let reader = ProcessReader::default();
+        let observer_namespace = match reader.observer_namespace() {
+            ProcessRead::Present(namespace) => namespace,
+            _ => {
+                return Err(HostError::Ownership(
+                    "observer PID namespace unavailable".into(),
+                ));
+            }
+        };
+        let boot = std::fs::read_to_string("/proc/sys/kernel/random/boot_id")?
+            .trim()
+            .to_owned();
+        let manager_process = manager_process(manager_pid, &observer_namespace, &boot)?;
+        let mount_device = cgroup_mount(&std::fs::read_to_string("/proc/self/mountinfo")?)?;
+        let other_device = cgroup_mount(&std::fs::read_to_string(format!(
+            "/proc/{manager_pid}/mountinfo"
+        ))?)?;
+        if mount_device != other_device {
+            return Err(HostError::Ownership(
+                "manager cgroup mount device differs".into(),
+            ));
+        }
+        let manager = ManagerProxy::builder(&connection)
+            .destination(owner.as_str())
+            .build()
+            .await?;
+        let manager_scope = manager.get_unit_by_pid(manager_pid).await?;
+        let scope = ScopeProxy::builder(&connection)
+            .destination(owner.as_str())
+            .path(manager_scope)
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await?;
+        let manager_group = scope.control_group().await?;
+        // Subscribe belongs to the bus connection, shared by concurrent owners.
+        // Per-launch signal streams are still installed before each effect.
+        manager.subscribe().await?;
+        if manager_group != process_group(manager_pid)? {
+            return Err(HostError::Ownership(
+                "manager cgroup coordinates differ".into(),
+            ));
+        }
+        let cgroup_namespace = std::fs::read_link("/proc/thread-self/ns/cgroup")?;
+        let root = File::open("/sys/fs/cgroup")?;
+        if rustix::fs::fstatfs(&root).map_err(io::Error::from)?.f_type != 0x6367_7270 {
+            return Err(HostError::Ownership(
+                "host cgroup root is not cgroup-v2".into(),
+            ));
+        }
+        let meta = root.metadata()?;
+        if mount_device
+            != format!(
+                "{}:{}",
+                rustix::fs::major(meta.dev()),
+                rustix::fs::minor(meta.dev())
+            )
+        {
+            return Err(HostError::Ownership(
+                "actual cgroup root device differs from mount metadata".into(),
+            ));
+        }
+        let boot = manager_process.boot_id.clone();
+        let pid_namespace = observer_namespace;
+        let result = Self {
+            connection,
+            owner,
+            boot,
+            manager_process,
+            cgroup_namespace,
+            pid_namespace,
+            manager_group,
+            mount_device,
+            cgroup_root: (meta.dev(), meta.ino()),
+        };
+        result.validate_view()?;
+        Ok(result)
+    }
+    fn validate_view(&self) -> Result<(), HostError> {
+        if std::fs::read_link("/proc/thread-self/ns/cgroup")? != self.cgroup_namespace {
+            return Err(HostError::Ownership(
+                "observer cgroup namespace changed".into(),
+            ));
+        }
+        let meta = std::fs::metadata("/sys/fs/cgroup")?;
+        if (meta.dev(), meta.ino()) != self.cgroup_root
+            || cgroup_mount(&std::fs::read_to_string("/proc/self/mountinfo")?)? != self.mount_device
+            || cgroup_mount(&std::fs::read_to_string(format!(
+                "/proc/{}/mountinfo",
+                self.manager_process.pid
+            ))?)?
+                != self.mount_device
+            || process_group(self.manager_process.pid)? != self.manager_group
+        {
+            return Err(HostError::Ownership(
+                "manager/observer cgroup mount views changed".into(),
+            ));
+        }
+        if manager_process(self.manager_process.pid, &self.pid_namespace, &self.boot)?
+            != self.manager_process
+        {
+            return Err(HostError::Ownership(
+                "user-manager process identity changed".into(),
+            ));
+        }
+        Ok(())
+    }
+    async fn manager(&self) -> Result<ManagerProxy<'_>, HostError> {
+        Ok(ManagerProxy::builder(&self.connection)
+            .destination(self.owner.as_str())
+            .build()
+            .await?)
+    }
+    async fn unit(&self, name: &str) -> Result<UnitProxy<'_>, HostError> {
+        let path = self.manager().await?.get_unit(name.to_owned()).await?;
+        Ok(UnitProxy::builder(&self.connection)
+            .destination(self.owner.as_str())
+            .path(path)
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await?)
+    }
+    /// Obtain an observation-only handle. No stop permission is granted by a name.
+    pub fn borrow(&self, name: impl Into<String>) -> BorrowedUnit {
+        BorrowedUnit {
+            manager: self.clone(),
+            name: name.into(),
+        }
+    }
+    /// Observe current authoritative manager facts without workload admission.
+    pub async fn observe(&self, name: &str) -> Result<UnitObservation, HostError> {
+        tokio::time::timeout(Duration::from_secs(5), self.observe_inner(name))
+            .await
+            .map_err(|_| HostError::Deadline("user-manager observation".into()))?
+    }
+    async fn observe_inner(&self, name: &str) -> Result<UnitObservation, HostError> {
+        self.validate_view()?;
+        if std::fs::read_to_string("/proc/sys/kernel/random/boot_id")?.trim() != self.boot {
+            return Err(HostError::Ownership("kernel boot changed".into()));
+        }
+        let unit = self.unit(name).await?;
+        let service = ServiceProxy::builder(&self.connection)
+            .destination(self.owner.as_str())
+            .path(unit.inner().path().to_owned())
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await?;
+        let invocation = unit.invocation_id().await?;
+        let observation = UnitObservation {
+            unit: name.to_owned(),
+            active_state: unit.active_state().await?,
+            sub_state: unit.sub_state().await?,
+            main_pid: service.main_pid().await?,
+            exit_code: service.exec_main_code().await?,
+            exit_status: service.exec_main_status().await?,
+            control_group: service.control_group().await?,
+            invocation: invocation.clone(),
+        };
+        if unit.invocation_id().await? != invocation {
+            return Err(HostError::Ownership(
+                "unit changed during observation".into(),
+            ));
+        }
+        Ok(observation)
+    }
+    /// Start a new native service, binding its identity before returning a performing capability.
+    pub async fn start_service(
+        &self,
+        spec: &ServiceSpec,
+        deadline: Instant,
+    ) -> Result<OwnedUnit, HostError> {
+        if Instant::now() >= deadline {
+            return Err(HostError::Deadline(
+                "launch deadline already expired; not submitted".into(),
+            ));
+        }
+        tokio::time::timeout_at(deadline.into(), self.start_service_inner(spec, deadline))
+            .await
+            .map_err(|_| HostError::UnknownLaunch {
+                unit: spec.intent.unit.clone(),
+                detail: "absolute launch deadline".into(),
+            })?
+    }
+    async fn start_service_inner(
+        &self,
+        spec: &ServiceSpec,
+        deadline: Instant,
+    ) -> Result<OwnedUnit, HostError> {
+        self.validate_view()?;
+        if !spec.executable.is_absolute() {
+            return Err(HostError::Ownership(
+                "service executable must be absolute".into(),
+            ));
+        }
+        let executable = spec
+            .executable
+            .to_str()
+            .ok_or_else(|| HostError::Ownership("D-Bus executable path must be UTF-8".into()))?;
+        let mut argv = vec![executable.to_owned()];
+        argv.extend(spec.arguments.iter().cloned());
+        let manager = self.manager().await?;
+        let mut removed = manager.receive_job_removed().await?;
+        let properties = vec![
+            property("AddRef", true)?,
+            property("Description", spec.intent.description.clone())?,
+            property("Type", "exec".to_owned())?,
+            property("KillMode", "control-group".to_owned())?,
+            property("Restart", "no".to_owned())?,
+            property("RemainAfterExit", true)?,
+            property("CollectMode", "inactive-or-failed".to_owned())?,
+            property("ExecStart", vec![(executable.to_owned(), argv, false)])?,
+            property("Environment", spec.environment.clone())?,
+        ];
+        let job = match tokio::time::timeout_at(
+            deadline.into(),
+            manager.start_transient_unit(
+                spec.intent.unit.clone(),
+                "fail".into(),
+                properties,
+                vec![],
+            ),
+        )
+        .await
+        {
+            Ok(Ok(job)) => job,
+            result => {
+                return Err(HostError::UnknownLaunch {
+                    unit: spec.intent.unit.clone(),
+                    detail: format!("{result:?}"),
+                });
+            }
+        };
+        let job_result = loop {
+            let signal = tokio::time::timeout_at(deadline.into(), removed.next())
+                .await
+                .map_err(|_| HostError::UnknownLaunch {
+                    unit: spec.intent.unit.clone(),
+                    detail: "job outcome deadline".into(),
+                })?
+                .ok_or_else(|| HostError::UnknownLaunch {
+                    unit: spec.intent.unit.clone(),
+                    detail: "job signal stream closed".into(),
+                })?;
+            let args = signal.args()?;
+            if args.job() == &job {
+                if args.unit() != &spec.intent.unit {
+                    return Err(HostError::UnknownLaunch {
+                        unit: spec.intent.unit.clone(),
+                        detail: "correlated job names a different unit".into(),
+                    });
+                }
+                // Management-job failure can race a successfully execed child
+                // that already exited nonzero. It neither erases native outcome
+                // nor removes responsibility to settle the original unit.
+                break args.result().to_owned();
+            }
+        };
+        let mut owned =
+            self.reconcile_inner(&spec.intent)
+                .await
+                .map_err(|error| HostError::UnknownLaunch {
+                    unit: spec.intent.unit.clone(),
+                    detail: format!("job result {job_result}; {error}"),
+                })?;
+        owned.launch_job_result = Some(job_result);
+        Ok(owned)
+    }
+    /// Recover only the exact original acknowledged/uncertain intent, without repeating launch.
+    pub async fn reconcile(
+        &self,
+        intent: &LaunchIntent,
+        deadline: Instant,
+    ) -> Result<OwnedUnit, HostError> {
+        tokio::time::timeout_at(deadline.into(), self.reconcile_inner(intent))
+            .await
+            .map_err(|_| HostError::UnknownLaunch {
+                unit: intent.unit.clone(),
+                detail: "absolute reconciliation deadline".into(),
+            })?
+    }
+    async fn reconcile_inner(&self, intent: &LaunchIntent) -> Result<OwnedUnit, HostError> {
+        let unit = self.unit(&intent.unit).await?;
+        if unit.description().await? != intent.description {
+            return Err(HostError::Ownership(
+                "original launch description differs".into(),
+            ));
+        }
+        let observation = self.observe(&intent.unit).await?;
+        if observation.invocation.len() != 16
+            || observation.invocation.iter().all(|byte| *byte == 0)
+        {
+            return Err(HostError::Ownership(
+                "unit invocation identity absent".into(),
+            ));
+        }
+        self.manager().await?.ref_unit(intent.unit.clone()).await?;
+        let process = if observation.main_pid == 0 {
+            None
+        } else {
+            match ProcessReader::default().process(observation.main_pid) {
+                ProcessRead::Present(facts) if facts.identity.boot_id == self.boot => {
+                    Some(facts.identity)
+                }
+                _ => {
+                    return Err(HostError::Ownership(
+                        "original main process identity unavailable".into(),
+                    ));
+                }
+            }
+        };
+        let group = match Group::open(
+            &observation.control_group,
+            observation.completed_status().is_some(),
+        ) {
+            Ok(group) => group,
+            Err(error) => {
+                if let Err(cleanup) = self.manager().await?.unref_unit(intent.unit.clone()).await {
+                    return Err(HostError::Ownership(format!(
+                        "{error}; unit reference cleanup: {cleanup}"
+                    )));
+                }
+                return Err(error);
+            }
+        };
+        Ok(OwnedUnit {
+            manager: self.clone(),
+            intent: intent.clone(),
+            invocation: observation.invocation,
+            process,
+            group,
+            launch_job_result: None,
+            released: false,
+        })
+    }
+}
+
+fn singleton_pid(status: &str, expected: u32) -> Result<(), HostError> {
+    let rows: Vec<_> = status
+        .lines()
+        .filter_map(|line| line.strip_prefix("NSpid:"))
+        .collect();
+    let [row] = rows.as_slice() else {
+        return Err(HostError::Ownership(
+            "manager PID namespace fact absent/duplicated".into(),
+        ));
+    };
+    let fields: Vec<_> = row.split_whitespace().collect();
+    if fields.len() != 1 || fields[0].parse::<u32>().ok() != Some(expected) {
+        return Err(HostError::Ownership(
+            "manager PID view differs or is nested".into(),
+        ));
+    }
+    Ok(())
+}
+fn manager_process(pid: u32, namespace: &str, boot: &str) -> Result<ProcessIdentity, HostError> {
+    let reader = ProcessReader::default();
+    let before = match reader.stat(pid) {
+        ProcessRead::Present(stat) => stat.start_ticks,
+        _ => {
+            return Err(HostError::Ownership(
+                "manager process stat unavailable".into(),
+            ));
+        }
+    };
+    singleton_pid(
+        &std::fs::read_to_string(format!("/proc/{pid}/status"))?,
+        pid,
+    )?;
+    let after = match reader.stat(pid) {
+        ProcessRead::Present(stat) => stat.start_ticks,
+        _ => {
+            return Err(HostError::Ownership(
+                "manager process stat changed/unavailable".into(),
+            ));
+        }
+    };
+    if before != after {
+        return Err(HostError::Ownership("manager PID identity changed".into()));
+    }
+    Ok(ProcessIdentity {
+        boot_id: boot.to_owned(),
+        pid_namespace: namespace.to_owned(),
+        pid,
+        start_ticks: before,
+    })
+}
+fn cgroup_mount(contents: &str) -> Result<String, HostError> {
+    let mut devices = Vec::new();
+    for line in contents.lines() {
+        let Some((before, after)) = line.split_once(" - ") else {
+            continue;
+        };
+        let fields: Vec<_> = before.split_whitespace().collect();
+        if fields.get(4) == Some(&"/sys/fs/cgroup") {
+            if fields.get(3) != Some(&"/") || after.split_whitespace().next() != Some("cgroup2") {
+                return Err(HostError::Ownership(
+                    "cgroup mount is not the unified hierarchy root".into(),
+                ));
+            }
+            if let Some(device) = fields.get(2) {
+                devices.push((*device).to_owned());
+            }
+        }
+    }
+    match devices.as_slice() {
+        [device] => Ok(device.clone()),
+        _ => Err(HostError::Ownership(
+            "unambiguous cgroup-v2 mount unavailable".into(),
+        )),
+    }
+}
+fn process_group(pid: u32) -> Result<String, HostError> {
+    let text = std::fs::read_to_string(format!("/proc/{pid}/cgroup"))?;
+    let groups: Vec<_> = text
+        .lines()
+        .filter_map(|line| line.strip_prefix("0::"))
+        .collect();
+    match groups.as_slice() {
+        [group] if group.starts_with('/') => Ok((*group).to_owned()),
+        _ => Err(HostError::Ownership(
+            "manager unified group unavailable".into(),
+        )),
+    }
+}
+
+fn property<T>(name: &str, value: T) -> Result<(String, OwnedVariant), HostError>
+where
+    T: Into<Variant<'static>>,
+{
+    Ok((name.to_owned(), OwnedVariant::try_from(value.into())?))
+}
+
+/// A borrowed unit has read authority only, with no method to stop it.
+#[derive(Clone, Debug)]
+pub struct BorrowedUnit {
+    manager: HostManager,
+    name: String,
+}
+impl BorrowedUnit {
+    /// Read live facts; this does not imply physical release or grant mutation permission.
+    pub async fn observe(&self) -> Result<UnitObservation, HostError> {
+        self.manager.observe(&self.name).await
+    }
+}
+
+/// Performing ownership of an original service; failure retains this capability.
+#[must_use = "owned units require explicit stop/drain; dropping a handle does not establish release"]
+#[derive(Debug)]
+pub struct OwnedUnit {
+    manager: HostManager,
+    intent: LaunchIntent,
+    invocation: Vec<u8>,
+    process: Option<ProcessIdentity>,
+    group: Group,
+    launch_job_result: Option<String>,
+    released: bool,
+}
+impl OwnedUnit {
+    /// Correlated management-job result, distinct from the actual child exit.
+    /// Reconciliation without the original signal leaves this unknown.
+    pub fn launch_job_result(&self) -> Option<&str> {
+        self.launch_job_result.as_deref()
+    }
+    /// Original launch intent for reconciliation and diagnostics.
+    pub fn intent(&self) -> &LaunchIntent {
+        &self.intent
+    }
+    /// Observe only while the original unit invocation remains selected.
+    pub async fn observe(&self) -> Result<UnitObservation, HostError> {
+        let result = self.manager.observe(&self.intent.unit).await?;
+        if result.invocation != self.invocation {
+            return Err(HostError::Ownership("unit invocation changed".into()));
+        }
+        if result.main_pid != 0 {
+            let current = ProcessReader::default().process(result.main_pid);
+            if !matches!(current, ProcessRead::Present(facts) if self.process.as_ref() == Some(&facts.identity))
+            {
+                return Err(HostError::Ownership(
+                    "main process identity changed or unavailable".into(),
+                ));
+            }
+        }
+        self.group.check_path(&result.control_group)?;
+        Ok(result)
+    }
+    /// Request stop and prove the original cgroup empty before reporting release.
+    pub async fn stop_and_drain(
+        &mut self,
+        deadline: Instant,
+    ) -> Result<UnitObservation, HostError> {
+        if Instant::now() >= deadline {
+            return Err(HostError::Deadline(
+                "stop deadline already expired; ownership retained".into(),
+            ));
+        }
+        tokio::time::timeout_at(deadline.into(), self.stop_and_drain_inner(deadline))
+            .await
+            .map_err(|_| {
+                HostError::Deadline(
+                    "absolute stop/drain deadline; original ownership retained".into(),
+                )
+            })?
+    }
+    async fn stop_and_drain_inner(
+        &mut self,
+        deadline: Instant,
+    ) -> Result<UnitObservation, HostError> {
+        self.observe().await?;
+        let manager = self.manager.manager().await?;
+        tokio::time::timeout_at(
+            deadline.into(),
+            manager.stop_unit(self.intent.unit.clone(), "replace".into()),
+        )
+        .await
+        .map_err(|_| HostError::Deadline("stop reply; original ownership retained".into()))??;
+        loop {
+            let observation = self.observe().await?;
+            if matches!(observation.active_state.as_str(), "inactive" | "failed")
+                && self.group.empty()?
+            {
+                manager.unref_unit(self.intent.unit.clone()).await?;
+                self.released = true;
+                return Ok(observation);
+            }
+            if Instant::now() >= deadline {
+                return Err(HostError::Deadline(
+                    "physical drain; original ownership retained".into(),
+                ));
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }
+    /// Whether explicit physical settlement succeeded, never inferred from Drop.
+    pub fn released(&self) -> bool {
+        self.released
+    }
+}
+
+#[derive(Debug)]
+struct Group {
+    directory: Option<File>,
+    path: PathBuf,
+    device: u64,
+    inode: u64,
+}
+impl Group {
+    fn path(value: &str) -> Result<PathBuf, HostError> {
+        let relative = value
+            .strip_prefix('/')
+            .ok_or_else(|| HostError::Ownership("manager cgroup path is not absolute".into()))?;
+        if relative.is_empty()
+            || relative.split('/').any(|part| part == "." || part == "..")
+            || Path::new(relative)
+                .components()
+                .any(|part| !matches!(part, Component::Normal(_)))
+        {
+            return Err(HostError::Ownership("invalid manager cgroup path".into()));
+        }
+        Ok(Path::new("/sys/fs/cgroup").join(relative))
+    }
+    fn open(value: &str, completed: bool) -> Result<Self, HostError> {
+        // Immediate completion can retire the cgroup before the launch reply. Only
+        // the authenticated original completed invocation in a verified view may
+        // construct this state; a missing path by itself grants no authority.
+        if value.is_empty() && completed {
+            return Ok(Self {
+                directory: None,
+                path: PathBuf::new(),
+                device: 0,
+                inode: 0,
+            });
+        }
+        let path = Self::path(value)?;
+        let descriptor = match rustix::fs::open(
+            &path,
+            rustix::fs::OFlags::RDONLY
+                | rustix::fs::OFlags::DIRECTORY
+                | rustix::fs::OFlags::NOFOLLOW
+                | rustix::fs::OFlags::CLOEXEC,
+            rustix::fs::Mode::empty(),
+        ) {
+            Ok(fd) => fd,
+            Err(rustix::io::Errno::NOENT) if completed => {
+                return Ok(Self {
+                    directory: None,
+                    path,
+                    device: 0,
+                    inode: 0,
+                });
+            }
+            Err(error) => return Err(io::Error::from(error).into()),
+        };
+        let directory = File::from(descriptor);
+        // Linux uapi/linux/magic.h: CGROUP2_SUPER_MAGIC. The pinned fd must be
+        // actual cgroup-v2 before mandatory-file disappearance proves removal.
+        let filesystem = rustix::fs::fstatfs(&directory).map_err(io::Error::from)?;
+        if filesystem.f_type != 0x6367_7270 {
+            return Err(HostError::Ownership(
+                "selected group is not cgroup-v2".into(),
+            ));
+        }
+        let meta = directory.metadata()?;
+        Ok(Self {
+            directory: Some(directory),
+            path,
+            device: meta.dev(),
+            inode: meta.ino(),
+        })
+    }
+    fn check_path(&self, value: &str) -> Result<(), HostError> {
+        if value.is_empty() && self.empty()? {
+            return Ok(());
+        }
+        if Self::path(value)? != self.path {
+            return Err(HostError::Ownership("unit cgroup changed".into()));
+        }
+        if self.directory.is_none() {
+            return if self.path.try_exists()? {
+                Err(HostError::Ownership(
+                    "previously absent cgroup appeared".into(),
+                ))
+            } else {
+                Ok(())
+            };
+        }
+        match std::fs::metadata(&self.path) {
+            Ok(meta) if meta.dev() == self.device && meta.ino() == self.inode => Ok(()),
+            Err(error) if error.kind() == io::ErrorKind::NotFound && self.empty()? => Ok(()),
+            _ => Err(HostError::Ownership(
+                "cgroup path identity changed or unavailable".into(),
+            )),
+        }
+    }
+    fn empty(&self) -> Result<bool, HostError> {
+        let Some(directory) = self.directory.as_ref() else {
+            return Ok(self.path.as_os_str().is_empty() || !self.path.try_exists()?);
+        };
+        let fd = match rustix::fs::openat(
+            directory,
+            "cgroup.events",
+            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC,
+            rustix::fs::Mode::empty(),
+        ) {
+            Ok(fd) => fd,
+            // cgroup.events is a mandatory kernel-owned cgroup-v2 file. It cannot be
+            // unlinked independently; ENOENT through the original open directory
+            // proves that original cgroup was removed, which requires no members.
+            Err(rustix::io::Errno::NOENT) if !self.path.try_exists()? => return Ok(true),
+            Err(error) => return Err(io::Error::from(error).into()),
+        };
+        let mut contents = String::new();
+        File::from(fd).read_to_string(&mut contents)?;
+        parse_population(&contents)
+    }
+}
+fn parse_population(contents: &str) -> Result<bool, HostError> {
+    let entries: Vec<_> = contents
+        .lines()
+        .filter_map(|line| line.strip_prefix("populated "))
+        .collect();
+    match entries.as_slice() {
+        ["0"] => Ok(true),
+        ["1"] => Ok(false),
+        _ => Err(HostError::Ownership(
+            "cgroup populated fact unavailable or malformed".into(),
+        )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[tokio::test]
+    async fn real_user_manager_owns_and_drains_escaped_descendants() {
+        let manager = HostManager::connect_user(None).await.unwrap();
+        let spec = ServiceSpec {
+            intent: LaunchIntent::fresh().unwrap(),
+            executable: "/bin/sh".into(),
+            arguments: vec!["-c".into(), "setsid /bin/sleep 30 & wait".into()],
+            environment: vec!["PATH=/usr/bin:/bin".into()],
+        };
+        let mut owned = manager
+            .start_service(&spec, Instant::now() + Duration::from_secs(10))
+            .await
+            .unwrap();
+        let timed_out = owned.stop_and_drain(Instant::now()).await;
+        let retained = !owned.released();
+        let observed = owned.observe().await;
+        let borrowed = manager.borrow(spec.intent.unit.clone()).observe().await;
+        let cleanup = owned
+            .stop_and_drain(Instant::now() + Duration::from_secs(10))
+            .await;
+        assert!(matches!(timed_out, Err(HostError::Deadline(_))));
+        assert!(retained);
+        assert!(observed.is_ok(), "{observed:?}");
+        assert!(borrowed.is_ok(), "{borrowed:?}");
+        assert!(cleanup.is_ok(), "{cleanup:?}");
+        assert!(owned.released());
+    }
+    #[tokio::test]
+    async fn real_user_manager_keeps_original_child_exit() {
+        let manager = HostManager::connect_user(None).await.unwrap();
+        let spec = ServiceSpec {
+            intent: LaunchIntent::fresh().unwrap(),
+            executable: "/bin/sh".into(),
+            arguments: vec!["-c".into(), "exit 7".into()],
+            environment: vec!["PATH=/usr/bin:/bin".into()],
+        };
+        let mut owned = manager
+            .start_service(&spec, Instant::now() + Duration::from_secs(10))
+            .await
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let observed: Result<i32, HostError> = async {
+            loop {
+                if let Some(code) = owned.observe().await?.completed_status() {
+                    break Ok(code);
+                }
+                if Instant::now() >= deadline {
+                    break Err(HostError::Deadline("test original child exit".into()));
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }
+        .await;
+        let cleanup = owned.stop_and_drain(deadline).await;
+        assert_eq!(observed.unwrap(), 7);
+        assert!(cleanup.is_ok(), "{cleanup:?}");
+    }
+    #[tokio::test]
+    async fn concurrent_fast_failures_retain_each_original_exit_and_settle_all() {
+        let manager = HostManager::connect_user(None).await.unwrap();
+        let mut cases = tokio::task::JoinSet::new();
+        for _ in 0..16 {
+            let manager = manager.clone();
+            cases.spawn(async move {
+                let spec = ServiceSpec {
+                    intent: LaunchIntent::fresh().map_err(|error| error.to_string())?,
+                    executable: "/bin/sh".into(),
+                    arguments: vec!["-c".into(), "exit 7".into()],
+                    environment: vec!["PATH=/usr/bin:/bin".into()],
+                };
+                let mut owned = match manager
+                    .start_service(&spec, Instant::now() + Duration::from_secs(10))
+                    .await
+                {
+                    Ok(owned) => owned,
+                    Err(operation) => {
+                        // Even a failing case attempts original-intent settlement;
+                        // other cases remain independently owned and are all joined.
+                        let cleanup = async {
+                            let mut original = manager
+                                .reconcile(&spec.intent, Instant::now() + Duration::from_secs(10))
+                                .await?;
+                            original
+                                .stop_and_drain(Instant::now() + Duration::from_secs(10))
+                                .await
+                        }
+                        .await;
+                        return Err(format!(
+                            "{}: {operation}; cleanup {cleanup:?}",
+                            spec.intent.unit
+                        ));
+                    }
+                };
+                let observed: Result<i32, HostError> = async {
+                    let deadline = Instant::now() + Duration::from_secs(10);
+                    loop {
+                        if let Some(code) = owned.observe().await?.completed_status() {
+                            break Ok(code);
+                        }
+                        if Instant::now() >= deadline {
+                            break Err(HostError::Deadline(
+                                "concurrent original completion".into(),
+                            ));
+                        }
+                        tokio::task::yield_now().await;
+                    }
+                }
+                .await;
+                let job_result = owned.launch_job_result().map(str::to_owned);
+                let cleanup = owned
+                    .stop_and_drain(Instant::now() + Duration::from_secs(10))
+                    .await;
+                match (observed, cleanup) {
+                    (Ok(7), Ok(_)) if job_result.is_some() && owned.released() => Ok(()),
+                    (outcome, cleanup) => Err(format!(
+                        "{} job={job_result:?} outcome={outcome:?} cleanup={cleanup:?}",
+                        spec.intent.unit
+                    )),
+                }
+            });
+        }
+        let mut failures = Vec::new();
+        while let Some(result) = cases.join_next().await {
+            match result {
+                Ok(Ok(())) => {}
+                other => failures.push(format!("{other:?}")),
+            }
+        }
+        assert!(failures.is_empty(), "{failures:#?}");
+    }
+    #[test]
+    fn manager_view_rejects_nested_or_ambiguous_pid_mounts() {
+        assert!(singleton_pid("NSpid:\t2381\n", 2381).is_ok());
+        for invalid in ["", "NSpid: 2381 1", "NSpid: 7", "NSpid: 2381\nNSpid: 2381"] {
+            assert!(singleton_pid(invalid, 2381).is_err());
+        }
+        assert_eq!(
+            cgroup_mount("37 28 0:31 / /sys/fs/cgroup rw - cgroup2 cgroup2 rw").unwrap(),
+            "0:31"
+        );
+        for invalid in [
+            "",
+            "37 28 0:31 /user.slice /sys/fs/cgroup rw - cgroup2 cgroup2 rw",
+            "37 28 0:31 / /sys/fs/cgroup rw - tmpfs tmpfs rw",
+            "37 28 0:31 / /other rw - cgroup2 cgroup2 rw",
+        ] {
+            assert!(cgroup_mount(invalid).is_err());
+        }
+    }
+    #[test]
+    fn population_never_infers_empty_from_unknown() {
+        assert!(parse_population("populated 0\nfrozen 0\n").unwrap());
+        assert!(!parse_population("populated 1\n").unwrap());
+        for invalid in ["", "populated 2", "populated 0\npopulated 1", "frozen 0"] {
+            assert!(parse_population(invalid).is_err());
+        }
+    }
+    #[test]
+    fn cgroup_paths_cannot_escape_kernel_root() {
+        for invalid in ["", "/", "relative", "/x/../y", "/x/./y"] {
+            assert!(Group::path(invalid).is_err(), "{invalid}");
+        }
+        assert_eq!(
+            Group::path("/user.slice/test.scope").unwrap(),
+            Path::new("/sys/fs/cgroup/user.slice/test.scope")
+        );
+    }
+    #[test]
+    fn original_launch_ids_are_distinct() {
+        let a = LaunchIntent::fresh().unwrap();
+        let b = LaunchIntent::fresh().unwrap();
+        assert_ne!(a.unit, b.unit);
+        assert_ne!(a.description, b.description);
+    }
+    #[test]
+    fn exit_status_never_turns_running_into_success() {
+        let mut value = UnitObservation {
+            unit: "test".into(),
+            invocation: vec![],
+            active_state: "active".into(),
+            sub_state: "running".into(),
+            main_pid: 1,
+            exit_code: 1,
+            exit_status: 0,
+            control_group: "/test".into(),
+        };
+        assert_eq!(value.completed_status(), None);
+        value.active_state = "failed".into();
+        value.main_pid = 0;
+        value.exit_status = 7;
+        assert_eq!(value.completed_status(), Some(7));
+        value.exit_code = 2;
+        value.exit_status = 15;
+        assert_eq!(value.completed_status(), Some(143));
+    }
+}

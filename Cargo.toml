@@ -162,12 +162,21 @@ surrealism = "=0.6.4"
 surrealdb-types = { version = "=3.3.4", features = ["proto"] }
 surrealdb-syn = "=3.3.4"
 surrealdb-sql = "=3.3.4"
-tokio = { version = "=1.53.2", default-features = false, features = [
+zbus = { version = "=6.1.0", default-features = false, features = [
+  "tokio",
+  "proxy",
+] }
+zbus_systemd = { version = "=0.26201.0", default-features = false, features = [
+  "systemd1",
+  "zbus-async-tokio",
+] }
+tokio = { version = "=1.53.3", default-features = false, features = [
   "rt-multi-thread",
   "sync",
   "macros",
   "time",
   "process",
+  "signal",
   "io-util",
 ] }
 tokio-util = { version = "=0.7.19", default-features = false, features = [
