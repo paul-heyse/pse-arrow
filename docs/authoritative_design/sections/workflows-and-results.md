@@ -1586,6 +1586,28 @@ already settled member and summary-run detail in bounded pages. Permanent identi
 unknown/audit obligations retain the protection specified in §20.4; release does not
 invent completion, redispatch native work or promise returned physical disk space.
 
+### 21.7 Proposed Rust-owned first-party boundary
+
+> Decision: [ADR-0233](../../adr/0233-rust-owned-host-and-execution-boundaries.md) (proposed).
+
+**Proposed:** Plan58 selects normal linked Rust operations as the first-party product and
+operating target. Python authoring/results and FastMCP are no longer mandatory target
+boundaries. CLI adapters remain optional; PyO3 implementation is deferred. The existing
+implemented Python contracts below remain current until their owning cutovers replace them.
+Independent scientific Python references remain isolated oracles, not production policy.
+
+The native host root is independent of scientific preparation, Arrow/DataFusion, database
+clients and generated product schemas. It owns environment selection and authentic OS
+process/service ownership. Canonical SurrealDB owns persisted execution transitions and
+schema/write-admission policy; native computation and physical joins remain Rust/OS effects.
+Service launch alone does not establish schema readiness. Pure local science needs no DB.
+
+Integrated cutovers remove replaced owners with callers/configuration/tests. Typed fixture
+construction replaces duplicate permission registries. Useful scientific progress remains;
+bespoke build observation retires. A successful compiler result does not become invalid
+solely because a cache service dies. Required correctness, real boundary admission and
+physical release remain. These are Proposed changes, not qualification of the current code.
+
 ### 21.1 Extension module, canonical operations and Arrow streams
 
 > Decision: [ADR-0231](../../adr/0231-retained-native-read-currency.md) (proposed; maintainer-selected Plan56 F02/F05/F06 target).

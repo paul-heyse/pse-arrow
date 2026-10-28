@@ -19,3 +19,5 @@ Plan49a–49c execution publication: record the approved finite 2 GiB compiler r
 2026-10-22 remaining49a–49c closeout: maintainer-authorized execution includes selected functional/native/Python qualification and enduring publication under proposed ADR-0214/0215. Publish supported scope/limits at §24.2 and blueprint245; formal ADR status unchanged. Preserve earlier authorizations.
 
 2026-10-24: Maintainer-authorized Plan53 D/E/F/G execution includes publication of preparation, immutable invocation/detail, selective discovery/custody and scheduling contracts at §24.1 and blueprint261. Assembled qualification and scientific limits remain with Plan53; preserve earlier authorizations.
+
+2026-10-28: Maintainer-authorized Plan58 T01/T02 and B01–B05 execution includes Proposed Rust-owned host/boundary publication under ADR-0233 and blueprint303, with scoped formal review before code. Existing authorizations retained; no current-data reset or accepted ADR status change.

@@ -90,8 +90,8 @@ Companions own package state. This coordinator owns opportunity/improvement disp
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| T01 | planned | Coordinator | Required decision/design route and shared capability/dependency contracts established before contract-changing implementation |
-| T02 | planned | Coordinator | Source/consumer inventory reconciled to this target; exact next implementation slice agreed without inherited Plan57 scope |
+| T01 | done | Coordinator | Required decision/design route and shared capability/dependency contracts established before contract-changing implementation |
+| T02 | done | Coordinator | Source/consumer inventory reconciled to this target; exact next implementation slice agreed without inherited Plan57 scope |
 
 <a id="t01"></a>
 ### T01 — Establish decision and integration authority
@@ -166,7 +166,7 @@ Delete replaced code/callers/tests/fixtures as soon as targeted replacement evid
 
 **Proposed:** target, packages and conditional branches. **Interface-checked:** functional review research, focused source/foundation assessment and lifecycle library source contracts. No product implementation, dependency bump, test, native build or service was run to author these plans. Documentation integrity/publication checks are reported separately from product qualification. Quantitative speed/memory/robustness benefits remain unmeasured.
 
-All execution packages start planned; optional deferred delivery does not block the native core. The first executable scope is T01/T02 and the shared contract/cold-start design slices of A/B/C/D/E, followed by the smallest original native workflow with its actual host/control/data consumers. Production execution remains paused until separately authorized. Improvement recommendations I01–I14 are now
+At authoring all execution packages started planned; T01/T02 foundation delivery is recorded below, while B and other runtime packages retain their own current state; optional deferred delivery does not block the native core. The first executable scope is T01/T02 and the shared contract/cold-start design slices of A/B/C/D/E, followed by the smallest original native workflow with its actual host/control/data consumers. Production execution remains paused until separately authorized. Improvement recommendations I01–I14 are now
 scheduled in this coordinator and their companion packages. No new companion is needed: expanded
 58d keeps canonical transition/schema/admission reasoning together. First execution remains
 T01/T02, including D05's bounded migration/drain decision, then independent cold-start/host and
@@ -187,3 +187,30 @@ Current file-backed admission reads do not alone establish future stale-handle o
 migration fencing. D05 therefore schedules that bounded design/verification before dependent
 code. This correction prevents typed construction from being mistaken for permanent authority.
 All packages remain planned/deferred. Document validation is separate from runtime qualification.
+
+## Execution checkpoint — 2026-10-28
+
+The maintainer authorized T01/T02 and B01–B05 with the necessary C/D/F prerequisite slices.
+T01's scoped decision/review basis is established: [ADR-0233](../adr/0233-rust-owned-host-and-execution-boundaries.md),
+[formal combined review](../design_review/reviews/design_review_rust-owned-host-and-boundaries_2026-10-28.md)
+and scoped audit publication `8fed0a30c`. The review accepts the bounded Proposed target with
+Interface-checked mechanisms; ADR status remains proposed. No implementation/numerical/runtime
+acceptance is inferred. T02 establishes the source mapping and B01/B02 first implementation
+slice below; later cutovers still reconcile their actual consumer closure before acceptance.
+
+T02 source mapping identifies these integrated cuts:
+
+| Cutover | Performing owner and actual consumers | Remaining boundary |
+| --- | --- | --- |
+| Cold construction | New lean host root/explicit seed; selected executable publication | Excludes xtask's unconditional Arrow/schema closure; no bootstrap Python-wrapper recursion. |
+| Environment and launch | Host owner; pse-env, direnv's direct Python call, Just shell/interpreters and native-env shims | Preserve precedence, secrets, exits and selected scientific exclusions; remove old host callers with owners. |
+| Passive ownership diagnosis | Native manager/process/cgroup reads; activity/watch consumers | Keep usable without admission/DB/compiler; build-stage/freshness observation intentionally removed. |
+| Fixture physical ownership | B/C owned/borrowed resources consumed by F02 | Broader runner, reports and evidence remain F-owned; no global fixture permission table. |
+| Compiler/cache | Native tool selection and F02 setup; actual compiler callers | No per-compiler Python watcher; cache-service loss cannot poison a successful result. |
+| Service establishment | B process/credential mechanics composed with working D schema-ready/admission capability | B04 cannot close on D design alone; full D03 progression is not a prerequisite to the cold host root. |
+
+Every retained direct caller of retiring Python host owners must migrate or retire before that
+cut is accepted. Unfinished F features may remain unavailable with no acceptance credit; they
+cannot keep the Python controller as a fallback. Existing non-host report/artifact functions
+remain only after removing their old-host dependencies. Plans53/54 keep historical evidence
+and unrelated work; changed fixture and cache-continuity assumptions route through ADR-0233.
