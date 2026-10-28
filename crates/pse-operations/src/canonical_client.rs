@@ -34,6 +34,8 @@ mod request;
 mod results;
 #[path = "canonical_client/wire.rs"]
 mod wire;
+// The generator's prettyplease output owns formatting for this wire catalogue.
+#[rustfmt::skip]
 #[path = "generated/grpc_wire_schema.rs"]
 mod wire_schema;
 pub use allocation::ResponseAllocation;

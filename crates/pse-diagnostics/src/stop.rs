@@ -85,15 +85,8 @@ mod tests {
             Arc,
             atomic::{AtomicBool, AtomicUsize, Ordering},
         },
-        task::{Context, Wake, Waker},
+        task::{Context, Waker},
     };
-    struct Noop;
-    impl Wake for Noop {
-        fn wake(self: Arc<Self>) {}
-    }
-    fn context() -> Waker {
-        Waker::from(Arc::new(Noop))
-    }
     #[test]
     fn simultaneous_stop_wins_without_polling_abandon_safe_work() {
         let polls = AtomicUsize::new(0);
@@ -103,7 +96,7 @@ mod tests {
         });
         let mut race = pin!(stop_first(std::future::ready(StopReason::Cancelled), work));
         assert_eq!(
-            race.as_mut().poll(&mut Context::from_waker(&context())),
+            race.as_mut().poll(&mut Context::from_waker(Waker::noop())),
             Poll::Ready(Err(StopReason::Cancelled))
         );
         assert_eq!(polls.load(Ordering::Relaxed), 0);
@@ -134,8 +127,8 @@ mod tests {
                 Guard(guarded.clone())
             }
         ));
-        let waker = context();
-        let mut cx = Context::from_waker(&waker);
+        let waker = Waker::noop();
+        let mut cx = Context::from_waker(waker);
         assert!(drain.as_mut().poll(&mut cx).is_pending());
         assert!(guarded.load(Ordering::Acquire));
         assert_eq!(
@@ -153,7 +146,7 @@ mod tests {
             |_| panic!("unexpected drain")
         ));
         assert_eq!(
-            drain.as_mut().poll(&mut Context::from_waker(&context())),
+            drain.as_mut().poll(&mut Context::from_waker(Waker::noop())),
             Poll::Ready((2, None))
         );
     }
@@ -162,8 +155,8 @@ mod tests {
         let cancellation = crate::Cancellation::default();
         assert_eq!(StopSignal::check(&cancellation), None);
         let mut stopped = pin!(cancellation.stopped());
-        let waker = context();
-        let mut cx = Context::from_waker(&waker);
+        let waker = Waker::noop();
+        let mut cx = Context::from_waker(waker);
         assert!(stopped.as_mut().poll(&mut cx).is_pending());
         cancellation.cancel();
         assert_eq!(
@@ -205,7 +198,7 @@ mod tests {
                     Guard(live.clone())
                 }
             ));
-            let _ = drain.as_mut().poll(&mut Context::from_waker(&context()));
+            let _ = drain.as_mut().poll(&mut Context::from_waker(Waker::noop()));
         }));
         assert!(result.is_err());
         assert!(!live.load(Ordering::Acquire));

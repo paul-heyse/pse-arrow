@@ -623,3 +623,11 @@ hygiene allocation was positively released through its original kernel owner. Fi
 source corrections before rebuilding required products, then run the joined control,
 worker and Python consumer journeys and the unfinished/failing scope-end checks. Surviving
 fixture data, selected immutable server, sources and earlier evidence remain preserved.
+
+The source repairs now pass Python lint/type checking and the dependency shear check.
+Scientific export typing retains a lazy package facade; generated identity conversion
+continues to call the typed native gateway only when explicitly requested. Formatting
+normalization initially emitted an unsupported inner Rust attribute, causing native builds
+to fail before execution. The corrected source places the formatting directive on the
+containing wire-schema module and regenerates the canonical output. Affected native builds
+must succeed before their functional evidence can be claimed.

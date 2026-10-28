@@ -170,6 +170,18 @@ impl std::fmt::Debug for EnteredExecution<'_> {
     }
 }
 
+impl std::fmt::Debug for ExecutionContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExecutionContext")
+            .field("runtime", &self.runtime.is_some())
+            .field(
+                "operation",
+                &self.observation.as_ref().map(ObservationContext::id),
+            )
+            .finish_non_exhaustive()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -304,17 +316,5 @@ mod tests {
                 Some(outcome)
             );
         }
-    }
-}
-
-impl std::fmt::Debug for ExecutionContext {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ExecutionContext")
-            .field("runtime", &self.runtime.is_some())
-            .field(
-                "operation",
-                &self.observation.as_ref().map(ObservationContext::id),
-            )
-            .finish_non_exhaustive()
     }
 }

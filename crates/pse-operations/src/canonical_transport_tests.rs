@@ -1144,8 +1144,9 @@ async fn canonical_statistics_keep_server_samples_out_of_local_active_intervals(
         metrics: &super::QUERY_METRICS,
         invocation: 42,
     };
-    let mut stats = crate::transport::client::Stats::default();
-    stats.execution_time = Some(Duration::from_nanos(91));
+    let stats = crate::transport::client::Stats {
+        execution_time: Some(Duration::from_nanos(91)),
+    };
     crate::transport::client::QueryStatisticsObserver::observe(&observer, 3, stats, false);
     let snapshot = operation.reader().snapshot(Duration::from_secs(60));
     let sample = snapshot
@@ -1182,8 +1183,9 @@ fn canonical_statistics_bound_bursts_without_displacing_attempt_identity() {
             metrics: &super::QUERY_METRICS,
             invocation,
         };
-        let mut stats = crate::transport::client::Stats::default();
-        stats.execution_time = Some(Duration::from_nanos(invocation));
+        let stats = crate::transport::client::Stats {
+            execution_time: Some(Duration::from_nanos(invocation)),
+        };
         observer.observe(3, stats, true);
     }
     operation
@@ -1282,8 +1284,9 @@ fn canonical_owner_metrics_without_capture_keep_exact_statement_population() {
     };
     let before = METRICS.snapshot();
     assert!(before.source_started_unix_micros.is_none());
-    let mut stats = crate::transport::client::Stats::default();
-    stats.execution_time = Some(Duration::from_nanos(91));
+    let stats = crate::transport::client::Stats {
+        execution_time: Some(Duration::from_nanos(91)),
+    };
     observer.observe(0, stats, true);
     observer.observe(1, crate::transport::client::Stats::default(), false);
     observer.request_failed();
@@ -1938,5 +1941,5 @@ fn inherited_response_retains_one_inline_child_without_async_state_duplication()
     let child = super::inherit_response_ownership(child);
     assert!(size_of_val(&child) <= bytes + 4 * size_of::<usize>());
     let child = crate::canonical::inherit_activity(child);
-    assert!(size_of_val(&child) <= bytes + 8 * size_of::<usize>());
+    assert!(size_of_val(&child) <= bytes + size_of::<[usize; 8]>());
 }

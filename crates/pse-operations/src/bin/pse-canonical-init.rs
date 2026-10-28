@@ -107,8 +107,8 @@ enum InitializerError {
     #[error("control actor provisioning failed: {issue}; physical disconnect also failed: {drain}")]
     ProvisionAndDrain {
         #[source]
-        issue: CanonicalError,
-        drain: CanonicalError,
+        issue: Box<CanonicalError>,
+        drain: Box<CanonicalError>,
     },
 }
 
@@ -120,7 +120,10 @@ fn settle_provision<T>(
         (Ok(report), Ok(())) => Ok(report),
         (Err(issue), Ok(())) => Err(issue.into()),
         (Ok(_), Err(drain)) => Err(drain.into()),
-        (Err(issue), Err(drain)) => Err(InitializerError::ProvisionAndDrain { issue, drain }),
+        (Err(issue), Err(drain)) => Err(InitializerError::ProvisionAndDrain {
+            issue: Box::new(issue),
+            drain: Box::new(drain),
+        }),
     }
 }
 
@@ -291,10 +294,9 @@ mod tests {
         .unwrap_err();
         assert!(matches!(
             error,
-            InitializerError::ProvisionAndDrain {
-                issue: CanonicalError::PayloadLimit,
-                drain: CanonicalError::Timeout
-            }
+            InitializerError::ProvisionAndDrain { issue, drain }
+                if matches!(issue.as_ref(), CanonicalError::PayloadLimit)
+                    && matches!(drain.as_ref(), CanonicalError::Timeout)
         ));
         assert!(settle_provision(Ok(7), Ok(())).is_ok());
         assert!(matches!(

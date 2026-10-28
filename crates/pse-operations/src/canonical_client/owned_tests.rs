@@ -468,7 +468,7 @@ async fn real_http2_route(terminal: &'static str) {
             "dropped" => {
                 context.cancel();
             }
-            _ => unreachable!(),
+            other => panic!("unexpected response scenario: {other}"),
         }
         drop(body);
         // Neither headers nor telemetry completion/cancellation can settle the
