@@ -85,7 +85,7 @@ def digest(path: Path) -> str:
 
 
 def acquire(tool_root: Path) -> Path:
-    """The selected toolkit uses the same patched gRPC SDK as canonical clients."""
+    """Acquire the standalone toolkit against the declared released gRPC SDK pin."""
     declared = selection()
     if platform.system() != "Linux" or platform.machine() not in {"x86_64", "aarch64"}:
         raise ToolError("No qualified source toolkit for this platform")

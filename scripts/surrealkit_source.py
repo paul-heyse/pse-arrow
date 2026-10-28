@@ -25,7 +25,7 @@ class BuildError(RuntimeError):
 
 
 def inputs(declared: Mapping[str, str]) -> str:
-    """Bind the executable to the actual SDK code used by this checkout."""
+    """Bind the executable to the declared SDK pin and admitted build recipe."""
     state = hashlib.sha256()
     state.update(json.dumps(dict(declared), sort_keys=True).encode())
     state.update(Path(__file__).read_bytes())
@@ -210,19 +210,20 @@ def build(
             original_package.replace("homepage.workspace = true\n", "")
         )
     command = [str(ROOT / "scripts/pse-env"), "--", "env", "-u", "BASH_ENV", "cargo"]
+    # Reconcile only the edited manifests against the admitted existing lock.
+    # A path-to-registry move changes the SDK package ID, so selecting the old
+    # package with `update -p` cannot resolve the newly declared dependency.
+    # Normal resolution preserves all still-compatible locked dependencies.
     run(
         [
             *command,
-            "update",
+            "metadata",
             "--manifest-path",
             str(source / "Cargo.toml"),
-            "-p",
-            "surrealdb",
-            "--precise",
-            tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"][
-                "dependencies"
-            ]["surrealdb"]["version"].removeprefix("="),
-        ]
+            "--format-version",
+            "1",
+        ],
+        capture=True,
     )
     lock_digest = hashlib.sha256((source / "Cargo.lock").read_bytes()).hexdigest()
     # Admit the exact resolved workspace before compiling, including failed
