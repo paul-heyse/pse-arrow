@@ -1,8 +1,8 @@
 ---
 title: "Plan57l: Database control and synchronization"
-status: draft
+status: in-progress
 date: 2026-10-28
-adrs: []
+adrs: [ADR-0232]
 review_sources: [docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md]
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
@@ -143,3 +143,15 @@ the scientific root for headers. These scenarios motivate the boundaries without
 scientific methods. J owns joined qualification, independent reconciliation, decision/architecture
 publication and benefit selection. Retain the current pause and stopped resources until a
 separately authorized execution approach reconciles the changed baseline and consumers.
+
+## Authorized first control slice — 2026-10-28
+
+The maintainer authorized K01/K02/L01 and the browse/cancel/reconcile portions of L02,
+K03/K04 with bounded J acceptance. The selected first API is async; import independence
+within the existing distribution is required, independent installation is deferred.
+ADR-0232 develops constrained DEFINE API ingress, HTTPX2 2.16.0/AnyIO 4.15.1 bounded
+async delivery, authenticated record actors and durable exact cancellation receipts.
+Existing cancellation state idempotence is not a request-specific receipt. Receipt absence
+is unobserved, not proof a submitted command cannot commit. Source-only import/test
+startup retains scientific validation at actual scientific consumers. Other K/L scope
+and the wider D–F qualification campaign remain outside this selected execution.

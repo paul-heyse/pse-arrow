@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 300
+revision: 301
 date: 2026-10-28
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 301 | 2026-10-28 | Publish Proposed native-independent durable control, actor-scoped exact cancellation receipts and constrained async HTTP ingress (§3.3/§20.6/§21). | ADR-0232 scoped target review; maintainer-authorized Plan57k/L; .design-edit, no ADR status or behavioral acceptance change. |
 | 300 | 2026-10-28 | Publish implemented bounded realized-point producers (§19.3/§21), the single protocol/types canonical client with typed custody and physical task/flush drain (§3.3/§20.6), and copied attribution, owner lifecycle/join and six Python wait policies (§23.1/§21.1). | Maintainer-authorized Plan57 D–F implementation; PSE_DESIGN_EDIT=1. Existing contracts, no ADR status or rule change; selected assembled qualification remains open with Plan57j. |
 | 299 | 2026-10-27 | Publish selected Plan57 A–C functional acceptance and original lifetime settlement in §24.2; retain broader inquiries and incomplete feature coverage. | Maintainer-authorized closeout; PSE_DESIGN_EDIT=1. Full matrix/no-default validation deferred to series end at the maintainer's request; no ADR status change or global qualification claim. |
 | 298 | 2026-10-27 | Publish selected Plan57 IPC admission/ownership and current writer/selection mechanics (§19.2), bounded cubic and exact proof constants (§7.5/§14.3), shared structural/LU/gate owners and truthful native supplier premises (§15.3/§16.5/§18.2/§18.8/§18.10). Reconcile the remaining R-41 source fixes. | Maintainer-authorized A–C execution; PSE_DESIGN_EDIT=1. Existing-contract corrections, no ADR status change. Joined qualification remains with Plan57j; no broader/global accounting, performance or portability claim. |

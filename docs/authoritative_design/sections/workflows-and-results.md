@@ -1474,6 +1474,16 @@ only, and robust optimization is not implemented.
 
 ## 21. The Python boundary
 
+> Decision: [ADR-0232](../../adr/0232-native-independent-durable-control.md) (proposed; maintainer-authorized Plan57k/L first slice).
+
+**Proposed:** async durable browse/cancel/reconcile consumes connection/actor configuration
+and finite control policy independently of scientific Runtime construction or native loading.
+The existing distribution remains; scientific/private entry points retain actual native
+compatibility and Arrow initialization at the scientific gate. Source-only imports do not
+fall back to native version discovery. Scientific execution and retained-data capabilities
+keep their distinct admission and physical owners. Plan57k/57j own actual migration/evidence.
+
+
 `ModelingPackage.generate_design` returns a local owning `GeneratedDesign`, with no store
 effect. Its explicit bounded `export()` creates an independent generated document containing
 the realized overlays and attribution; the native handle and conversion retain their actual

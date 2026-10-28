@@ -947,6 +947,17 @@ qualification or policy. Generated contracts remain declarations, never inferred
 
 ### 20.6 Operational store and durable execution
 
+> Decision: [ADR-0232](../../adr/0232-native-independent-durable-control.md) (proposed).
+
+**Proposed:** constrained DEFINE API ingress authenticates record actors and enforces explicit
+control grants before state or receipt access, including direct-function protection. Native
+workers retain the useful gRPC owner. Stable cancellation commands bind full immutable intent
+and outcome to an unambiguous issuing-store/actor/operation tuple; compact receipts survive
+study retirement for the database lifetime. Restore selects a distinct issuer. Missing receipt
+is unobserved, never evidence of rollback or permission to issue a new effect. Cancellation
+records stop intent; actual native/task/process drain remains with its performing owner.
+
+
 > Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),
 > selected Plan56d target; implementation and qualification remain with its owning packages.
 
