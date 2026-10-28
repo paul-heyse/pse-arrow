@@ -145,6 +145,47 @@ fn query_frames(value: proto::Value, complete: bool) -> Vec<u8> {
     }
     bytes
 }
+// This scripted source-stage peer also answers the guarded project preflight.
+// Model BEGIN / final RETURN / COMMIT slots, rather than treating that closed
+// envelope as the peer's ordinary one-statement primitive response.
+fn source_stage_acknowledgement_frames(value: proto::Value) -> Vec<u8> {
+    let mut bytes = frame(rpc::QueryResponse {
+        frame: Some(rpc::query_response::Frame::Begin(rpc::QueryBegin {
+            query_id: Some(proto::Uuid::from_uuid(uuid::Uuid::new_v4())),
+            statement_count: 3,
+        })),
+    });
+    for (query_index, value) in [
+        proto::Value {
+            value: Some(proto::value::Value::None(proto::NoneValue {})),
+        },
+        value,
+        proto::Value {
+            value: Some(proto::value::Value::None(proto::NoneValue {})),
+        },
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        bytes.extend(frame(rpc::QueryResponse {
+            frame: Some(rpc::query_response::Frame::Batch(rpc::QueryBatchFrame {
+                query_index: u32::try_from(query_index).unwrap(),
+                kind: rpc::QueryResponseKind::Single as i32,
+                payload: Some(rpc::query_batch_frame::Payload::Values(rpc::ValueBatch {
+                    values: vec![value],
+                })),
+                ..Default::default()
+            })),
+        }));
+    }
+    bytes.extend(frame(rpc::QueryResponse {
+        frame: Some(rpc::query_response::Frame::End(rpc::QueryEnd {
+            result_count: 3,
+            ..Default::default()
+        })),
+    }));
+    bytes
+}
 fn multiple_error_frames() -> Vec<u8> {
     let mut bytes = frame(rpc::QueryResponse {
         frame: Some(rpc::query_response::Frame::Begin(rpc::QueryBegin {
@@ -428,7 +469,13 @@ async fn start_scripted(
                                             value: Some(proto::value::Value::Bool(true)),
                                         }
                                     };
-                                    let mut bytes = query_frames(value, !query.contains("NO_END"));
+                                    let mut bytes = if source_stage_fault.is_some()
+                                        && query.contains("canonical_project_operations")
+                                    {
+                                        source_stage_acknowledgement_frames(value)
+                                    } else {
+                                        query_frames(value, !query.contains("NO_END"))
+                                    };
                                     if query.contains("AGGREGATE") {
                                         bytes = frame(rpc::QueryResponse {
                                             frame: Some(rpc::query_response::Frame::Begin(

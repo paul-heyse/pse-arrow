@@ -425,6 +425,7 @@ impl OwnedHttp2 {
         let socket = tokio::net::TcpStream::connect(address)
             .await
             .map_err(connection_error)?;
+        socket.set_nodelay(true).map_err(connection_error)?;
         Self::handshake(
             TokioIo::new(socket),
             address.to_string().parse().map_err(connection_error)?,

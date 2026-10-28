@@ -779,7 +779,7 @@ mod tests {
         let expected: Definitions = parse_definitions(wire::SCHEMA)
             .unwrap()
             .into_iter()
-            .filter(|(key, _)| key.0 == "event")
+            .filter(|(key, _)| key.0 == "event" && key.1 == "canonical_attempts")
             .collect();
         assert_eq!(
             expected.len(),

@@ -5447,6 +5447,7 @@ mod canonical_server_unit {
                 SnapshotClass::Sidecar,
                 "Native exact codec fixture.",
             )
+            .with_canonical(pse_schema::model::CanonicalRelation::DURABLE)
             .pk(&["key"])
             .granularity(DerivationGranularity::Row)
             .columns(vec![
@@ -5470,6 +5471,8 @@ mod canonical_server_unit {
             })
             .collect::<Vec<_>>()
             .join("\n");
+        assert!(fixture.contains("DEFINE TABLE canonical_wire_fixture SCHEMAFULL;"));
+        assert!(fixture.contains("DEFINE FIELD finite.bits ON canonical_wire_fixture"));
         store.db.query(fixture).await.unwrap().check().unwrap();
         for (index, value) in [
             0.0f64,
@@ -5518,18 +5521,17 @@ mod canonical_server_unit {
         if let Value::Object(ref mut object) = short {
             object.insert("bits", surrealdb_types::Bytes::from(vec![0u8; 7]));
         }
+        let malformed = store
+            .db
+            .query("CREATE canonical_wire_fixture:bad SET key = 'bad', finite = $cell, raw = $raw;")
+            .bind(("cell", short))
+            .bind(("raw", codec::encode_diagnostic_bits(0)))
+            .await
+            .unwrap()
+            .check();
         assert!(
-            store
-                .db
-                .query(
-                    "CREATE canonical_wire_fixture:bad SET key = 'bad', finite = $cell, raw = $raw;"
-                )
-                .bind(("cell", short))
-                .bind(("raw", codec::encode_diagnostic_bits(0)))
-                .await
-                .unwrap()
-                .check()
-                .is_err()
+            malformed.is_err(),
+            "seven-byte finite cell was not refused: {malformed:?}"
         );
         for absent in [Value::None, Value::Null] {
             assert!(store.db.query("CREATE canonical_wire_fixture:absent SET key = 'absent', finite = $cell, raw = $raw;").bind(("cell", absent)).bind(("raw", codec::encode_diagnostic_bits(0))).await.unwrap().check().is_err());

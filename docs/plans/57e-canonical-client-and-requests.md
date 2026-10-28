@@ -392,3 +392,14 @@ preparation also exposed native RPC features reaching the workspace-unified WASI
 RPC activation now lives on the native operations dependency edge; the actual production WASI
 module builds again, without changing workspace unification or module capabilities. Native
 operators and selected application journeys require the current post-correction build.
+
+
+The first assembled operations selection was interrupted after exposing nine substantive failures:
+the scientific-cell fixture had omitted its explicit canonical policy and emitted no schema;
+a scripted source-stage peer still supplied its old single-result layout; maintenance expected
+unrelated tables' events; four native study fixtures omitted the current population digest;
+and two controls exhausted their original clocks. The declarations/peer/fixtures now preserve the
+original assertions and current contracts. The TCP owner now selects NODELAY before handshake,
+matching ordinary RPC transport expectations rather than widening a deadline. The old owned
+adapter had also omitted this option; no differential latency or general speedup is claimed.
+Current focused execution of these corrections precedes the renewed assembled selection.

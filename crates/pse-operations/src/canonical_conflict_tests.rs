@@ -179,6 +179,23 @@ fn study(revision: &Revision, key: &str, run: &str) -> crate::canonical_studies:
         terminal: false,
     }
 }
+// These native race fixtures author synthetic rows directly. Their immutable
+// population identity binds exactly those rows, without claiming the public
+// scientific population/descriptor normal form.
+fn fixture_study_digest(
+    row: &crate::canonical_studies::Study,
+    points: &[crate::canonical_studies::StudyPoint],
+) -> String {
+    let mut digest = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
+    digest.str("pse.exact-conflict.study-population.v1");
+    digest.part(&serde_json::to_vec(&wire::encode_canonical_studies(row).unwrap()).unwrap());
+    for point in points {
+        digest.part(
+            &serde_json::to_vec(&wire::encode_canonical_study_points(point).unwrap()).unwrap(),
+        );
+    }
+    digest.finish_hash().to_hex()
+}
 
 #[tokio::test]
 async fn exact_terminal_seal_and_unrelated_source_creator_commute_both_orders() {
@@ -804,45 +821,28 @@ async fn exact_terminal_summary_and_point_creators_retirement_both_orders() {
         for creator_first in [false, true] {
             let (store, options, revision) = fixture().await;
             finish(&store, &revision, "target").await;
+            let fixture_point = point.then(|| self::point("point", "target", 0, false));
             if point {
                 finish(&store, &revision, "parent").await;
+                let row = study(&revision, "study", "parent");
                 bounded_query(
                     store
                         .db
-                        .query("RETURN fn::pse_study_v1::create($pse_rpc_expires_at,$row);")
+                        .query("RETURN fn::pse_study_v1::create($pse_rpc_expires_at,$row,$digest);")
+                        .bind(("row", wire::encode_canonical_studies(&row).unwrap()))
                         .bind((
-                            "row",
-                            wire::encode_canonical_studies(&study(&revision, "study", "parent"))
-                                .unwrap(),
+                            "digest",
+                            fixture_study_digest(
+                                &row,
+                                std::slice::from_ref(fixture_point.as_ref().unwrap()),
+                            ),
                         )),
                 )
                 .await
                 .unwrap();
             }
             let creator = held(&options).await;
-            if point {
-                let row = crate::canonical_studies::StudyPoint {
-                    key: "point".into(),
-                    study: "study".into(),
-                    admission_run: None,
-                    variant_problem: None,
-                    variant_operation: None,
-                    ordinal: 0,
-                    occurrence: 0,
-                    seed_solution: None,
-                    policy: vec![1].into(),
-                    descriptor: vec![2].into(),
-                    // This fixture already owns its exact run/source; no lazy input admission has occurred.
-                    admission: None,
-                    facts: vec![3].into(),
-                    outcome: None,
-                    run: "target".into(),
-                    revision: 0,
-                    assigned: false,
-                    settled: false,
-                    attempt: None,
-                    start: None,
-                };
+            if let Some(row) = fixture_point {
                 creator
                     .query("RETURN fn::pse_study_v1::append($expiry,'study',$points);")
                     .bind(("expiry", expiry()))
@@ -855,14 +855,12 @@ async fn exact_terminal_summary_and_point_creators_retirement_both_orders() {
                     .check()
                     .unwrap();
             } else {
+                let row = study(&revision, "study", "target");
                 creator
-                    .query("RETURN fn::pse_study_v1::create($expiry,$row);")
+                    .query("RETURN fn::pse_study_v1::create($expiry,$row,$digest);")
                     .bind(("expiry", expiry()))
-                    .bind((
-                        "row",
-                        wire::encode_canonical_studies(&study(&revision, "study", "target"))
-                            .unwrap(),
-                    ))
+                    .bind(("row", wire::encode_canonical_studies(&row).unwrap()))
+                    .bind(("digest", fixture_study_digest(&row, &[])))
                     .await
                     .unwrap()
                     .check()
@@ -914,14 +912,13 @@ async fn exact_cancellation_registers_dispatch_both_orders() {
             })
             .await
             .unwrap();
+        let row = study(&revision, "study", "target");
         bounded_query(
             store
                 .db
-                .query("RETURN fn::pse_study_v1::create($pse_rpc_expires_at,$row);")
-                .bind((
-                    "row",
-                    wire::encode_canonical_studies(&study(&revision, "study", "target")).unwrap(),
-                )),
+                .query("RETURN fn::pse_study_v1::create($pse_rpc_expires_at,$row,$digest);")
+                .bind(("row", wire::encode_canonical_studies(&row).unwrap()))
+                .bind(("digest", fixture_study_digest(&row, &[]))),
         )
         .await
         .unwrap();
@@ -1011,8 +1008,9 @@ async fn install_study(
     bounded_query(
         store
             .db
-            .query("RETURN fn::pse_study_v1::create($pse_rpc_expires_at,$row);")
-            .bind(("row", wire::encode_canonical_studies(&row).unwrap())),
+            .query("RETURN fn::pse_study_v1::create($pse_rpc_expires_at,$row,$digest);")
+            .bind(("row", wire::encode_canonical_studies(&row).unwrap()))
+            .bind(("digest", fixture_study_digest(&row, points))),
     )
     .await
     .unwrap();
