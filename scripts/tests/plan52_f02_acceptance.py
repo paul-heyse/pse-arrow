@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Explicit F02 canonical request -> native SDK -> server -> module acceptance.
+"""Explicit F02 canonical request -> native client -> server -> module acceptance.
 
 Requires a current linked correctness extension, canonical-tools executable and
 running selected telemetry pipeline. This driver provisions only its disposable
@@ -59,7 +59,7 @@ def canonical_tools_preflight() -> None:
 
 
 def producer(state: Path, database: str, output: Path, expected_trace: str) -> int:
-    """Two native sibling requests share one real SDK engine, with actual parents."""
+    """Two native sibling requests share one real client, with actual parents."""
     from opentelemetry import context, trace  # noqa: PLC0415
 
     import pse  # noqa: PLC0415
@@ -363,7 +363,7 @@ def compact(row: dict[str, object]) -> dict[str, object]:
 async def trace_rows(
     telemetry_state: Path, trace_id: str, started: int
 ) -> list[dict[str, object]]:
-    # A real canonical operation emits many small SDK/server spans. Select
+    # A real canonical operation emits many small client/server spans. Select
     # narrower original time windows before hydration when a row bound is hit;
     # never reconstruct a missing parent or claim a frozen/complete population.
     intervals = [(started, time.time_ns() // 1000 + 1)]
@@ -428,7 +428,7 @@ def chains(
             if (
                 not {
                     "executor",
-                    "surrealdb.sdk.request",
+                    "pse.canonical.request",
                     "pse.native.operation",
                     "pse.helper",
                 }
@@ -437,13 +437,13 @@ def chains(
                 continue
             if chain[-1]["parent_span_id"] != ANCESTOR:
                 continue
-            # The receiving service has an actual direct SDK parent, not a
+            # The receiving service has an actual direct canonical-client parent, not a
             # matching request label or reconstructed time-window association.
             boundaries = [
                 (child, parent)
                 for child, parent in pairwise(chain)
-                if parent["name"] == "surrealdb.sdk.request"
-                and child["name"] != "surrealdb.sdk.request"
+                if parent["name"] == "pse.canonical.request"
+                and child["name"] != "pse.canonical.request"
                 and child["service_instance_id"] != parent["service_instance_id"]
             ]
             if boundaries:
