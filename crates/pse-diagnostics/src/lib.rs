@@ -277,3 +277,6 @@ crate::impl_diagnostic! {
     code(this) { Some(match this { Self::Cancelled => DiagnosticCode::RuntimeCancelled, Self::Resource(_) => DiagnosticCode::RuntimeResourceLimit }) },
     forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
+
+/// Executor-neutral stop and completion-owned drain mechanics.
+pub mod stop;
