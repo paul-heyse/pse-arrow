@@ -10,12 +10,13 @@ minimum compiler/capture supervision prerequisite. Their selected implementation
 acceptance are complete; [57j's Outcome](57j-qualification-and-publication.md#selected-a-c-outcome--2026-10-27)
 records actual passes, original failures, repaired checks and drained ownership. At the maintainer's
 request, the remaining full feature matrix/no-default sweep is deferred to series-end validation.
-No campaign is running. D–F implementation and qualification are paused for the
+No campaign is running. Wider D–F qualification is paused for the
 [database-boundary integration](57-library-leverage-and-correctness.md#database-boundary-review-integration).
 New [57k](57k-durable-control-and-python-boundary.md) and
 [57l](57l-database-control-and-synchronization.md) develop durable access without scientific
 construction, database commands and synchronization. Their creation and the supporting plan
-amendments are authorized documentation work; runtime adoption remains a separate step. Broader CBO-001 inquiries,
+amendments are published. The first async browse/cancel/reconcile slice is now authorized
+and executing under ADR-0232; the coordinator owns its exact scope and evidence. Broader CBO-001 inquiries,
 other G03 consumers and remaining G–I work retain their existing owners. Other plans retain their
 independent scope and status.
 

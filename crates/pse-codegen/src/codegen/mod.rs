@@ -43,6 +43,7 @@ mod surreal_project_imports;
 mod surreal_projects;
 mod surreal_research;
 mod surreal_retention;
+mod surreal_control;
 mod surreal_studies;
 mod surreal_study_workbench;
 

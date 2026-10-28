@@ -11,6 +11,13 @@ pub use wire::{Versioned, VersionedValue, Wire, check_header, check_required_hea
 #[macro_export]
 macro_rules! for_each_boundary_document {
     ($callback:ident) => { $callback! {
+            (ControlBrowseRequest, pse_operations::canonical_control::ControlBrowseRequest, "control-browse-request", Both, Native),
+            (ControlBrowseResponse, pse_operations::canonical_control::ControlBrowseResponse, "control-browse-response", Both, Native),
+            (ControlCancelRequest, pse_operations::canonical_control::ControlCancelRequest, "control-cancel-request", Both, Native),
+            (ControlReconcileRequest, pse_operations::canonical_control::ControlReconcileRequest, "control-reconcile-request", Both, Native),
+            (ControlCommandRefusal, pse_operations::canonical_control::ControlCommandRefusal, "control-command-refusal", Both, Native),
+            (ControlCommandReceipt, pse_operations::canonical_control::ControlCommandReceipt, "control-command-receipt", Both, Native),
+            (ControlReconcileResponse, pse_operations::canonical_control::ControlReconcileResponse, "control-reconcile-response", Both, Native),
             (DeploymentRequest, pse_runtime::workflow::DeploymentRequest, "deployment-request", Both, FlatV1),
             (DeploymentResponse, pse_runtime::workflow::DeploymentResponse, "deployment-response", Both, FlatV1),
             (StudyKpiExport, pse_runtime::workflow::StudyKpiExport, "study-kpi-export", Output, Native),

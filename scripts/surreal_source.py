@@ -40,6 +40,7 @@ PATCHES = (
     "canonical-profile.patch",
     "grpc-session-admission.patch",
     "grpc-status-details.patch",
+    "api-failure-rollback.patch",
     "surrealism-locked-build.patch",
     "surrealism-build-features.patch",
     "surrealism-global-controllers.patch",

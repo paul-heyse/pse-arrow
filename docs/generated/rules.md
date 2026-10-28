@@ -116,6 +116,8 @@
 | `runtime.canonical_body_contents` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_body_contents" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_context_ancestry` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_context_ancestry" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_context_journals` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_context_journals" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_control_actors` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_control_actors" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_control_commands` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_control_commands" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_draft_diagnostics` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_draft_diagnostics" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_edges` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_edges" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_execution_operations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_execution_operations" s GROUP BY s."key" HAVING COUNT(*) > 1` |

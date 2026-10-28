@@ -2329,8 +2329,8 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
         Some("calibrated-v1")
     );
     for key in [&selection.key, &calibrated.key, &receipt.key] {
-        let page = runtime
-            .study_workbench_page(crate::workflow::StudyWorkbenchRequest {
+        let page = store
+            .control_study_workbench_page(crate::workflow::StudyWorkbenchRequest {
                 filter: crate::workflow::StudyWorkbenchFilter {
                     research_reference: Some(key.clone()),
                     ..Default::default()
@@ -2347,8 +2347,8 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
         );
         assert_eq!(page.headers[0].study, study.study_id().to_string());
     }
-    let absent = runtime
-        .study_workbench_page(crate::workflow::StudyWorkbenchRequest {
+    let absent = store
+        .control_study_workbench_page(crate::workflow::StudyWorkbenchRequest {
             filter: crate::workflow::StudyWorkbenchFilter {
                 research_reference: Some("absent-research-reference".into()),
                 ..Default::default()

@@ -20,8 +20,9 @@ and its scoped production/test audits and research. **Proposed:** adopt its cohe
 as the combined planning target: database-facing durable commands/reads, optional local
 scientific preparation and independently supervised native execution. This supersedes
 mandatory scientific Runtime construction for durable callers in the planned target;
-it does not declare the new boundary implemented. Production execution and D–F qualification
-remain paused. Existing source corrections and original evidence are preserved.
+it does not declare the new boundary implemented. The maintainer subsequently authorized
+the first K/L browse/cancel/reconcile slice; wider D–F qualification remains paused.
+Existing source corrections and original evidence are preserved.
 
 The review/audits at `277eee026`/`5e8aea0cc` inspect `64a217de2` plus the retained operations
 inheritance corrections and 57j checkpoint. The historical whole-audit baselines are unchanged.
@@ -385,3 +386,19 @@ contract change must return to the coordinator before dependent implementation.
 D01 returns raw PointOverlay assignments, not already-admitted StudyPointDefinition
 records. Existing overlay validation does not establish numeric domain/bounds membership;
 the producer checks those through compiled domain owners before generation.
+
+## First control slice execution — 2026-10-28
+
+K01/K02/L01 and browse/cancel/reconcile portions of L02/K03/K04 are authorized, with
+selected J acceptance. Async-first and import independence within the existing distribution
+are operator-selected; separate installation and a synchronous facade remain unselected.
+ADR-0232 and its independent scoped target review accept the Proposed architecture, not
+implemented behavior. The original refreshed audit remains applicable to this engagement.
+
+The selected adapter uses HTTPX2 2.16.0 and AnyIO 4.15.1, promoted from quality-only to runtime
+dependencies with unchanged versions/resolution. Server actors and immutable cancellation
+receipts must cover direct-function authorization, store/actor/operation tuple identity,
+retirement/non-reuse and absence uncertainty. Canonical state idempotence alone is insufficient.
+The decision commit is `1535f9381`; generated declarations, implementation, consumer deletion
+and actual native-loading-refused/server/worker acceptance are still in progress. No broader
+qualification or measured speed/capacity claim follows.

@@ -2765,6 +2765,39 @@ mod canonical_studies_server_unit {
         (store, options.database, revision)
     }
     #[tokio::test]
+    async fn control_cancel_receipt_preserves_exact_identity_generation_and_restore_scope() {
+        use crate::canonical_control::{ControlCancelRequest,ControlCommandStatus,ControlReconcileRequest};
+        let (store,_,revision)=fixture().await;
+        store.create_study("control-receipt",&request(&revision,"control-parent"),&[],&[occurrence(&revision,0,vec![])],&||false).await.unwrap();
+        let original=store.canonical_study("control-receipt").await.unwrap().unwrap();
+        let command=ControlCancelRequest {document_version:Default::default(),issuing_store:store.issuing_store().unwrap().to_owned(),operation_id:"original-command".into(),study:"control-receipt".into()};
+        let first=store.cancel_study_command(&command).await.unwrap();
+        assert_eq!(first.status,ControlCommandStatus::Accepted);
+        assert!(first.cancelled);
+        assert_eq!(first.generation.as_deref().unwrap().parse::<u64>().unwrap(),original.generation+1);
+        let lost_ack=store.finish_control_cancel(&command,Err(CanonicalError::Timeout)).await.unwrap();
+        assert_eq!(serde_json::to_value(&first).unwrap(),serde_json::to_value(&lost_ack).unwrap());
+        let replay=store.cancel_study_command(&command).await.unwrap();
+        assert_eq!(serde_json::to_value(&first).unwrap(),serde_json::to_value(&replay).unwrap());
+        let reconciled=store.reconcile_study_cancel(&ControlReconcileRequest {document_version:Default::default(),issuing_store:command.issuing_store.clone(),operation_id:command.operation_id.clone()}).await.unwrap().receipt.unwrap();
+        assert_eq!(serde_json::to_value(&first).unwrap(),serde_json::to_value(&reconciled).unwrap());
+        let mut reused=command.clone();reused.study="different-target".into();
+        assert!(store.cancel_study_command(&reused).await.is_err());
+        let mut restored=command.clone();restored.issuing_store="foreign-restore".into();
+        assert!(store.cancel_study_command(&restored).await.is_err());
+        let missing=ControlCancelRequest {document_version:Default::default(),issuing_store:command.issuing_store.clone(),operation_id:"absent-study-command".into(),study:"absent-study".into()};
+        let refusal=store.cancel_study_command(&missing).await.unwrap();
+        assert_eq!(refusal.status,ControlCommandStatus::Refused);
+        assert!(refusal.generation.is_none());
+        assert!(!refusal.cancelled);
+        let unknown=store.reconcile_study_cancel(&ControlReconcileRequest {document_version:Default::default(),issuing_store:command.issuing_store,operation_id:"unobserved-command".into()}).await.unwrap();
+        assert!(unknown.receipt.is_none());
+        let unobserved=ControlCancelRequest {document_version:Default::default(),issuing_store:store.issuing_store().unwrap().to_owned(),operation_id:"unobserved-command".into(),study:"control-receipt".into()};
+        let unresolved=store.finish_control_cancel(&unobserved,Err(CanonicalError::Timeout)).await.unwrap_err();
+        assert!(matches!(unresolved,CanonicalError::SettlementUnresolved {operation,request,..} if operation=="unobserved-command" && serde_json::from_slice::<ControlCancelRequest>(&request).unwrap().study=="control-receipt"));
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
     async fn workbench_native_capture_is_complete_bounded_and_keeps_failed_unattempted_members() {
         use crate::canonical_study_workbench::StudyWorkbenchFilter;
         let (store, _, revision) = fixture().await;

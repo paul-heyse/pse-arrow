@@ -27,7 +27,6 @@ import msgspec.json
 import msgspec.toml
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
 
-from pse._build import _check_document_header
 from pse.contracts.values import (
     FIELD_NAME_METADATA,
     ContentHash,
@@ -196,7 +195,7 @@ def _has_required_version(info: msgspec.inspect.Type, seen: set[int]) -> bool:
 
 
 def _check_version_headers(
-    value: object, info: msgspec.inspect.Type, path: str
+    value: object, info: msgspec.inspect.Type, path: str, *, native_header: bool = True
 ) -> None:
     """Check required headers on original JSON slices or TOML parser values."""
     original = value if isinstance(value, msgspec.Raw) else None
@@ -213,12 +212,12 @@ def _check_version_headers(
         )
     if isinstance(info, msgspec.inspect.Metadata):
         _check_version_headers(
-            original if original is not None else value, info.type, path
+            original if original is not None else value, info.type, path, native_header=native_header
         )
     elif isinstance(info, msgspec.inspect.UnionType):
         for alternative in info.types:
             _check_version_headers(
-                original if original is not None else value, alternative, path
+                original if original is not None else value, alternative, path, native_header=native_header
             )
     elif isinstance(info, msgspec.inspect.StructType) and isinstance(value, dict):
         if info.tag_field is not None:
@@ -230,8 +229,10 @@ def _check_version_headers(
         expected = getattr(info.cls, "_pse_required_version", None)
         if expected is not None:
             field = getattr(info.cls, "_pse_required_version_field", "version")
-            if original is not None:
+            if original is not None and native_header:
                 try:
+                    from pse._build import _check_document_header  # noqa: PLC0415 -- strict native header admission is consumed only by this decode
+
                     _check_document_header(bytes(original), field, expected)
                 except ValueError as error:
                     if field not in value:
@@ -271,7 +272,7 @@ def _check_version_headers(
         for field in info.fields:
             if field.encode_name in value:
                 _check_version_headers(
-                    value[field.encode_name], field.type, f"{path}.{field.encode_name}"
+                    value[field.encode_name], field.type, f"{path}.{field.encode_name}", native_header=native_header
                 )
     elif isinstance(
         info, (msgspec.inspect.TypedDictType, msgspec.inspect.DataclassType)
@@ -279,22 +280,22 @@ def _check_version_headers(
         for field in info.fields:
             if field.encode_name in value:
                 _check_version_headers(
-                    value[field.encode_name], field.type, f"{path}.{field.encode_name}"
+                    value[field.encode_name], field.type, f"{path}.{field.encode_name}", native_header=native_header
                 )
     elif isinstance(info, msgspec.inspect.NamedTupleType) and isinstance(value, list):
         for index, (item, field) in enumerate(zip(value, info.fields, strict=False)):
-            _check_version_headers(item, field.type, f"{path}[{index}]")
+            _check_version_headers(item, field.type, f"{path}[{index}]", native_header=native_header)
     elif isinstance(info, msgspec.inspect.DictType) and isinstance(value, dict):
         for key, item in value.items():
-            _check_version_headers(item, info.value_type, f"{path}[{key!r}]")
+            _check_version_headers(item, info.value_type, f"{path}[{key!r}]", native_header=native_header)
     elif isinstance(info, msgspec.inspect.CollectionType) and isinstance(value, list):
         for index, item in enumerate(value):
-            _check_version_headers(item, info.item_type, f"{path}[{index}]")
+            _check_version_headers(item, info.item_type, f"{path}[{index}]", native_header=native_header)
     elif isinstance(info, msgspec.inspect.TupleType) and isinstance(value, list):
         for index, (item, item_type) in enumerate(
             zip(value, info.item_types, strict=False)
         ):
-            _check_version_headers(item, item_type, f"{path}[{index}]")
+            _check_version_headers(item, item_type, f"{path}[{index}]", native_header=native_header)
 
 
 class _JsonDecoders(local):

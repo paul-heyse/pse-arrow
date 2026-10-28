@@ -2,23 +2,30 @@
 # Copyright (c) 2026 Paul Heyse
 """Public bounded workbench and passive observer composition on two declared points."""
 
+import os
+import secrets
 import subprocess
+import uuid
 from pathlib import Path
 
+import anyio
 import msgspec
 import pyarrow as pa
 import pytest
+from scripts import surreal_server
 
 import pse
 from pse import codec
 from pse.contracts.documents import (
+    ControlBrowseRequest,
     StudyCohortPageRequest,
     StudyCohortRequest,
     StudyKpiRequest,
     StudyObservationRequest,
     StudyWorkbenchFilter,
-    StudyWorkbenchRequest,
+    StudyWorkbenchPageOutput,
 )
+from pse.control import ControlClient
 from pse.contracts.enums import NativeSolveIntent
 from pse.contracts.values import SemanticId
 from pse.tests.canonical_fixture import CanonicalFixture
@@ -60,13 +67,35 @@ def test_study_workbench_public_snapshot_and_passive_reconnect(
         outcome=None,
         research_reference=None,
     )
-    browsing = runtime.study_workbench_page(
-        StudyWorkbenchRequest(
-            filter=selected,
-            maximum=1,
-            cursor=None,
-        )
-    )
+    actor = "workbench-" + uuid.uuid4().hex
+    password = secrets.token_urlsafe(32)
+    actor_file = tmp_path / "control-actor.json"
+    descriptor = os.open(actor_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "wb") as stream:
+        stream.write(msgspec.json.encode({
+            "document_version": 1, "key": actor, "password": password,
+            "browse": True, "cancel": False,
+        }))
+    root = Path(__file__).resolve().parents[3]
+    issued = subprocess.run([
+        str(root / "target/debug/pse-canonical-init"), "--issue-control-actor", str(actor_file),
+        "--database", canonical_substrate.database, canonical_substrate.state,
+    ], capture_output=True, check=True, timeout=90)
+    report = msgspec.json.decode(issued.stdout, type=dict[str, str])
+    config = surreal_server.config_for(Path(canonical_substrate.state))
+
+    async def browse() -> StudyWorkbenchPageOutput:
+        async with ControlClient(
+            f"http://127.0.0.1:{config['port']}", str(config["namespace"]),
+            canonical_substrate.database, None, issuing_store=report["issuing_store"],
+            timeout=30, maximum_request_bytes=65536, maximum_response_bytes=2 * 1024 * 1024,
+        ) as client:
+            await client.sign_in(actor, password)
+            return await client.study_workbench_page(ControlBrowseRequest(
+                document_version=1, filter=selected, maximum=1, cursor=None,
+            ))
+
+    browsing = anyio.run(browse)
     assert len(browsing.headers) == 1
     assert browsing.headers[0].point_count == 2
     assert browsing.next is None

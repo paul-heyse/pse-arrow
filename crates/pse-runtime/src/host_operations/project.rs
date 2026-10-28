@@ -339,12 +339,6 @@ pub struct ProjectMethod {
 }
 const METHODS: &[ProjectMethod] = &[
     ProjectMethod {
-        name: "study_workbench_page",
-        family: FacadeFamily::Study,
-        pyo3_signature: None,
-        effect_facts: super::EffectFacts::OBSERVATION,
-    },
-    ProjectMethod {
         name: "freeze_study_cohort",
         family: FacadeFamily::Study,
         pyo3_signature: None,
@@ -697,7 +691,8 @@ mod tests {
             .iter()
             .map(|method| method.name)
             .collect::<std::collections::BTreeSet<_>>();
-        assert_eq!(names.len(), 53);
+        assert_eq!(names.len(), 52);
+        assert!(!names.contains("study_workbench_page"));
         for expected in [
             "project_import_issue",
             "project_context_append",

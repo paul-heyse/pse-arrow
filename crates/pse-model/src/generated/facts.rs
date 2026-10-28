@@ -163,6 +163,14 @@ pub enum FactBatch {
     r#RuntimeCanonicalContextJournals(
         Vec<super::r#runtime::r#canonical_context_journals::Row>,
     ),
+    #[doc = stringify!(r#RuntimeCanonicalControlActors)]
+    r#RuntimeCanonicalControlActors(
+        Vec<super::r#runtime::r#canonical_control_actors::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalControlCommands)]
+    r#RuntimeCanonicalControlCommands(
+        Vec<super::r#runtime::r#canonical_control_commands::Row>,
+    ),
     #[doc = stringify!(r#RuntimeCanonicalDraftDiagnostics)]
     r#RuntimeCanonicalDraftDiagnostics(
         Vec<super::r#runtime::r#canonical_draft_diagnostics::Row>,
@@ -942,6 +950,18 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     232u8, 109u8, 92u8, 230u8, 234u8, 92u8, 22u8, 44u8, 214u8, 71u8,
                     31u8, 151u8, 51u8, 71u8, 47u8, 48u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalControlActors(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    155u8, 37u8, 27u8, 6u8, 140u8, 168u8, 214u8, 246u8, 185u8, 12u8,
+                    96u8, 194u8, 165u8, 138u8, 135u8, 68u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalControlCommands(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    89u8, 131u8, 175u8, 88u8, 164u8, 132u8, 87u8, 204u8, 205u8, 206u8,
+                    156u8, 189u8, 63u8, 183u8, 25u8, 191u8,
                 ])
             }
             Self::r#RuntimeCanonicalDraftDiagnostics(_) => {
@@ -1832,6 +1852,8 @@ impl FactBatch {
             Self::r#RuntimeCanonicalBodyContents(rows) => rows.len(),
             Self::r#RuntimeCanonicalContextAncestry(rows) => rows.len(),
             Self::r#RuntimeCanonicalContextJournals(rows) => rows.len(),
+            Self::r#RuntimeCanonicalControlActors(rows) => rows.len(),
+            Self::r#RuntimeCanonicalControlCommands(rows) => rows.len(),
             Self::r#RuntimeCanonicalDraftDiagnostics(rows) => rows.len(),
             Self::r#RuntimeCanonicalEdges(rows) => rows.len(),
             Self::r#RuntimeCanonicalExecutionOperations(rows) => rows.len(),
@@ -2282,6 +2304,16 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeCanonicalContextJournals(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalControlActors(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalControlCommands(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -3224,6 +3256,16 @@ impl FactBatch {
             Self::r#RuntimeCanonicalContextJournals(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCanonicalContextJournals(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalControlActors(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalControlActors(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalControlCommands(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalControlCommands(
                         vec![row.clone()],
                     ))
             }
@@ -4495,6 +4537,28 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalContextJournals(left),
                 Self::r#RuntimeCanonicalContextJournals(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalControlActors(left),
+                Self::r#RuntimeCanonicalControlActors(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalControlCommands(left),
+                Self::r#RuntimeCanonicalControlCommands(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -6407,6 +6471,20 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeCanonicalControlActors(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalControlCommands(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeCanonicalDraftDiagnostics(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -8127,6 +8205,28 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalContextJournals(left),
                 Self::r#RuntimeCanonicalContextJournals(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalControlActors(left),
+                Self::r#RuntimeCanonicalControlActors(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalControlCommands(left),
+                Self::r#RuntimeCanonicalControlCommands(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -10259,6 +10359,14 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
+            Self::r#RuntimeCanonicalControlActors(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalControlCommands(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
             Self::r#RuntimeCanonicalDraftDiagnostics(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
@@ -11307,6 +11415,20 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalContextJournals(left),
                 Self::r#RuntimeCanonicalContextJournals(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalControlActors(left),
+                Self::r#RuntimeCanonicalControlActors(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalControlCommands(left),
+                Self::r#RuntimeCanonicalControlCommands(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -12375,6 +12497,12 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalContextJournals(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalControlActors(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalControlCommands(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalDraftDiagnostics(rows) => {

@@ -1,8 +1,31 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bounded complete cohort capture shares the selector's one native snapshot.
-pub(super) fn append(ddl: &mut String) {
+pub(super) fn append(registry: &pse_schema::Registry, ddl: &mut String) -> Result<(), pse_schema::SchemaError> {
+    let enumeration=registry.enums().iter().find(|value|value.name=="CanonicalTerminalOutcome").ok_or_else(||pse_schema::SchemaError::Codegen {language:"surreal",reason:"canonical terminal outcome vocabulary absent".into()})?;
+    let outcomes=serde_json::to_string(&enumeration.members.iter().map(|member|member.name).collect::<Vec<_>>()).map_err(|error|pse_schema::SchemaError::Codegen {language:"surreal",reason:error.to_string()})?;
     ddl.push_str(&r#"
+// One selector supplies live browsing and frozen capture; all predicates are
+// values in the original database snapshot, never caller-authored SQL.
+DEFINE FUNCTION fn::pse_workbench_v1::select_rows($rpc_expiry:int,$filter:object,$after:string,$extent:int) -> array<object> {
+    IF $extent<2 OR $extent>65 OR bytes::len(<bytes>$after)>4096 OR array::sort(object::keys($filter))!=['branch','context','outcome','physical_revision','project','research_reference','source','study'] { THROW 'PSE_REFUSAL:control_request_invalid'; };
+    FOR $value IN object::values($filter) { IF $value!=NONE AND $value!=NULL AND (!type::is_string($value) OR bytes::len(<bytes>$value)<1 OR bytes::len(<bytes>$value)>4096) { THROW 'PSE_REFUSAL:control_request_invalid'; }; };
+    IF $filter.outcome NOT IN [NONE,NULL] AND $filter.outcome NOT IN __OUTCOMES__ { THROW 'PSE_REFUSAL:control_request_invalid'; };
+    LET $problems=IF $filter.project=NONE OR $filter.project=NULL {[]} ELSE {SELECT VALUE problem FROM canonical_project_branches WHERE project=$filter.project LIMIT 65};
+    IF array::len($problems)>64 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM canonical_studies
+    WHERE key>$after
+        AND ($filter.study IN [NONE,NULL] OR key=$filter.study)
+        AND ($filter.source IN [NONE,NULL] OR revision=$filter.source)
+        AND ($filter.physical_revision IN [NONE,NULL] OR physical_revision=$filter.physical_revision)
+        AND ($filter.context IN [NONE,NULL] OR context=$filter.context)
+        AND ($filter.branch IN [NONE,NULL] OR problem=(SELECT problem FROM ONLY type::record('canonical_project_branches',$filter.branch)).problem)
+        AND ($filter.project IN [NONE,NULL] OR problem IN $problems)
+        AND ($filter.outcome IN [NONE,NULL] OR type::record('canonical_runs',run).terminal_class=$filter.outcome)
+        AND ($filter.research_reference IN [NONE,NULL] OR type::record('canonical_runs',run).research_selection=$filter.research_reference OR type::record('canonical_runs',run).research_dataset=$filter.research_reference OR run=type::record('canonical_research_references',$filter.research_reference).run OR revision=type::record('canonical_research_references',$filter.research_reference).revision OR (type::record('canonical_research_publications',$filter.research_reference).selection!=NONE AND revision=type::record('canonical_research_publications',$filter.research_reference).revision AND type::record('canonical_runs',run).research_selection=type::record('canonical_research_publications',$filter.research_reference).selection))
+    ORDER BY key LIMIT $extent;
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rows;
+} PERMISSIONS NONE;
 // Conservative global publication scope includes future matching studies and all
 // selector metadata. Expiry is never a writer-side bypass of the checked guard.
 DEFINE FUNCTION fn::pse_workbench_v1::publication($rpc_expiry:int) -> bool {
@@ -209,5 +232,6 @@ DEFINE FUNCTION fn::pse_workbench_v1::browse($rpc_expiry:int,$rows:array<object>
     IF bytes::len(encoding::cbor::encode($result))>1048576 {THROW 'PSE_REFUSAL:study_workbench_narrow_selection';};
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $result;
 };
-"#.replace("__CAPTURE_ROWS__",&pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS.to_string()).replace("__COHORT_MEMBERS__",&pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS.to_string()).replace("__COHORT_SENTINEL__",&(pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS+1).to_string()).replace("__STUDY_BYTES__",&pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES.to_string()));
+"#.replace("__OUTCOMES__",&outcomes).replace("__CAPTURE_ROWS__",&pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS.to_string()).replace("__COHORT_MEMBERS__",&pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS.to_string()).replace("__COHORT_SENTINEL__",&(pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS+1).to_string()).replace("__STUDY_BYTES__",&pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES.to_string()));
+    Ok(())
 }

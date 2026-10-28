@@ -88,10 +88,10 @@ transport do not need identical implementations, but must share one durable doma
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| K01 | pending | Plan57k | Operation/capability and consumer map, actor/receipt contract and rule-amendment scope settled |
-| K02 | open | Plan57k | Exact ingress, SDK/package and bounded-delivery decision supports native-independent access |
-| K03 | pending | Plan57k | Selected typed client/import implementation and server ingress work together |
-| K04 | pending | Plan57k | Durable consumers migrate; replaced forwarding and unnecessary producer prerequisites are deleted |
+| K01 | in-progress | Plan57k | Operation/capability and consumer map, actor/receipt contract and rule-amendment scope settled |
+| K02 | in-progress | Plan57k | Exact ingress, SDK/package and bounded-delivery decision supports native-independent access |
+| K03 | in-progress | Plan57k | Selected typed client/import implementation and server ingress work together |
+| K04 | in-progress | Plan57k | Durable consumers migrate; replaced forwarding and unnecessary producer prerequisites are deleted |
 | K05 | pending | Plan57k | Data-access separation and actual acceptance handoff reach 57j |
 
 ### K01 — Shared command and capability contract

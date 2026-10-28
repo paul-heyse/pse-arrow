@@ -116,6 +116,19 @@ DEFINE FIELD ancestor ON canonical_context_ancestry TYPE string READONLY;
 DEFINE TABLE canonical_context_journals SCHEMAFULL;
 DEFINE FIELD key ON canonical_context_journals TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD sequence ON canonical_context_journals TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE TABLE canonical_control_actors SCHEMAFULL;
+DEFINE FIELD key ON canonical_control_actors TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD password ON canonical_control_actors TYPE string READONLY;
+DEFINE FIELD enabled ON canonical_control_actors TYPE bool;
+DEFINE FIELD browse ON canonical_control_actors TYPE bool;
+DEFINE FIELD cancel ON canonical_control_actors TYPE bool;
+DEFINE TABLE canonical_control_commands SCHEMAFULL;
+DEFINE FIELD key ON canonical_control_commands TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD issuing_store ON canonical_control_commands TYPE string READONLY;
+DEFINE FIELD actor ON canonical_control_commands TYPE string READONLY;
+DEFINE FIELD operation_id ON canonical_control_commands TYPE string READONLY;
+DEFINE FIELD study ON canonical_control_commands TYPE string READONLY;
+DEFINE FIELD receipt ON canonical_control_commands TYPE bytes READONLY;
 DEFINE TABLE canonical_draft_diagnostics SCHEMAFULL;
 DEFINE FIELD key ON canonical_draft_diagnostics TYPE string READONLY ASSERT $value = record::id($this.id);
 DEFINE FIELD version ON canonical_draft_diagnostics TYPE string READONLY;
@@ -3219,6 +3232,27 @@ DEFINE FUNCTION fn::pse_study_v1::conclude($rpc_expiry: int, $study: string) -> 
     RETURN $rpc_result;
 };
 
+// One selector supplies live browsing and frozen capture; all predicates are
+// values in the original database snapshot, never caller-authored SQL.
+DEFINE FUNCTION fn::pse_workbench_v1::select_rows($rpc_expiry:int,$filter:object,$after:string,$extent:int) -> array<object> {
+    IF $extent<2 OR $extent>65 OR bytes::len(<bytes>$after)>4096 OR array::sort(object::keys($filter))!=['branch','context','outcome','physical_revision','project','research_reference','source','study'] { THROW 'PSE_REFUSAL:control_request_invalid'; };
+    FOR $value IN object::values($filter) { IF $value!=NONE AND $value!=NULL AND (!type::is_string($value) OR bytes::len(<bytes>$value)<1 OR bytes::len(<bytes>$value)>4096) { THROW 'PSE_REFUSAL:control_request_invalid'; }; };
+    IF $filter.outcome NOT IN [NONE,NULL] AND $filter.outcome NOT IN ["succeeded","failed","partial","cancelled"] { THROW 'PSE_REFUSAL:control_request_invalid'; };
+    LET $problems=IF $filter.project=NONE OR $filter.project=NULL {[]} ELSE {SELECT VALUE problem FROM canonical_project_branches WHERE project=$filter.project LIMIT 65};
+    IF array::len($problems)>64 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
+    LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM canonical_studies
+    WHERE key>$after
+        AND ($filter.study IN [NONE,NULL] OR key=$filter.study)
+        AND ($filter.source IN [NONE,NULL] OR revision=$filter.source)
+        AND ($filter.physical_revision IN [NONE,NULL] OR physical_revision=$filter.physical_revision)
+        AND ($filter.context IN [NONE,NULL] OR context=$filter.context)
+        AND ($filter.branch IN [NONE,NULL] OR problem=(SELECT problem FROM ONLY type::record('canonical_project_branches',$filter.branch)).problem)
+        AND ($filter.project IN [NONE,NULL] OR problem IN $problems)
+        AND ($filter.outcome IN [NONE,NULL] OR type::record('canonical_runs',run).terminal_class=$filter.outcome)
+        AND ($filter.research_reference IN [NONE,NULL] OR type::record('canonical_runs',run).research_selection=$filter.research_reference OR type::record('canonical_runs',run).research_dataset=$filter.research_reference OR run=type::record('canonical_research_references',$filter.research_reference).run OR revision=type::record('canonical_research_references',$filter.research_reference).revision OR (type::record('canonical_research_publications',$filter.research_reference).selection!=NONE AND revision=type::record('canonical_research_publications',$filter.research_reference).revision AND type::record('canonical_runs',run).research_selection=type::record('canonical_research_publications',$filter.research_reference).selection))
+    ORDER BY key LIMIT $extent;
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rows;
+} PERMISSIONS NONE;
 // Conservative global publication scope includes future matching studies and all
 // selector metadata. Expiry is never a writer-side bypass of the checked guard.
 DEFINE FUNCTION fn::pse_workbench_v1::publication($rpc_expiry:int) -> bool {
@@ -3425,6 +3459,82 @@ DEFINE FUNCTION fn::pse_workbench_v1::browse($rpc_expiry:int,$rows:array<object>
     IF bytes::len(encoding::cbor::encode($result))>1048576 {THROW 'PSE_REFUSAL:study_workbench_narrow_selection';};
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $result;
 };
+
+DEFINE ACCESS pse_control ON DATABASE TYPE RECORD
+    SIGNIN (SELECT * FROM canonical_control_actors WHERE key=$actor AND enabled=true AND crypto::argon2::compare(password,$password))
+    DURATION FOR TOKEN 1h, FOR SESSION 1h;
+
+// These functions are callable by privileged internal owners and by the API's
+// permission-limited handler. Ordinary record users cannot call them directly.
+DEFINE FUNCTION fn::pse_control_v1::actor($grant:string) -> string {
+    IF $auth=NONE OR $auth.id=NONE OR record::tb($auth.id)!='canonical_control_actors' { THROW 'PSE_REFUSAL:control_actor_refused'; };
+    LET $actor=SELECT * FROM ONLY $auth.id;
+    IF $actor=NONE OR !$actor.enabled OR ($grant='browse' AND !$actor.browse) OR ($grant='cancel' AND !$actor.cancel) OR $grant NOT IN ['browse','cancel'] { THROW 'PSE_REFUSAL:control_actor_refused'; };
+    RETURN <string>$actor.id;
+} PERMISSIONS NONE;
+DEFINE FUNCTION fn::pse_control_v1::expiry($body:object) -> int {
+    IF array::sort(object::keys($body))!=['expires_at','issuing_store','request'] OR !type::is_int($body.expires_at) OR !type::is_object($body.request) { THROW 'PSE_REFUSAL:control_request_invalid'; };
+    IF $body.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:control_store_differs'; };
+    LET $expiry=math::min([$body.expires_at,time::micros()+30000000]);
+    fn::pse_execution_v1::deadline($expiry); RETURN $expiry;
+} PERMISSIONS NONE;
+DEFINE FUNCTION fn::pse_control_v1::key($actor:string,$operation:string) -> string {
+    LET $store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
+    RETURN encoding::base64::encode(encoding::cbor::encode([$store,$actor,$operation]));
+} PERMISSIONS NONE;
+DEFINE FUNCTION fn::pse_control_v1::cancel($expiry:int,$actor:string,$request:object) -> object {
+    fn::pse_execution_v1::deadline($expiry);
+    IF array::sort(object::keys($request))!=['document_version','issuing_store','operation_id','study'] OR $request.document_version!=1 OR !type::is_string($request.operation_id) OR bytes::len(<bytes>$request.operation_id)<1 OR bytes::len(<bytes>$request.operation_id)>128 OR !type::is_string($request.study) OR bytes::len(<bytes>$request.study)<1 OR bytes::len(<bytes>$request.study)>4096 { THROW 'PSE_REFUSAL:control_request_invalid'; };
+    IF $request.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:control_store_differs'; };
+    LET $key=fn::pse_control_v1::key($actor,$request.operation_id);
+    LET $old=SELECT * FROM ONLY type::record('canonical_control_commands',$key) FOR UPDATE;
+    IF $old!=NONE {
+        IF $old.actor!=$actor OR $old.operation_id!=$request.operation_id OR $old.study!=$request.study { fn::pse_execution_v1::deadline($expiry); RETURN {document_version:1,issuing_store:$request.issuing_store,operation_id:$request.operation_id,reason:'control_command_identity_reused'}; };
+        fn::pse_execution_v1::deadline($expiry); RETURN encoding::cbor::decode($old.receipt);
+    };
+    fn::pse_workbench_v1::publication($expiry);
+    fn::pse_history_v1::check_owner($expiry,'study',$request.study);
+    fn::pse_execution_v1::touch($expiry,'study-cancel:'+$request.study);
+    LET $study=SELECT * FROM ONLY type::record('canonical_studies',$request.study) FOR UPDATE;
+    LET $state=IF $study=NONE OR $study.terminal {$study} ELSE {fn::pse_study_v1::cancel($expiry,$request.study)};
+    LET $receipt={document_version:1,issuing_store:$request.issuing_store,operation_id:$request.operation_id,study:$request.study,status:IF $state=NONE {'refused'} ELSE {'accepted'},generation:IF $state=NONE {NULL} ELSE {<string>$state.generation},already_concluded:IF $state=NONE {false} ELSE {$state.terminal},cancelled:IF $state=NONE {false} ELSE {$state.cancelled},reason:IF $state=NONE {'study_unavailable_or_already_concluded'} ELSE {NULL}};
+    CREATE ONLY type::record('canonical_control_commands',$key) SET key=$key,issuing_store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store,actor=$actor,operation_id=$request.operation_id,study=$request.study,receipt=encoding::cbor::encode($receipt);
+    fn::pse_execution_v1::deadline($expiry); RETURN $receipt;
+} PERMISSIONS NONE;
+DEFINE FUNCTION fn::pse_control_v1::reconcile($expiry:int,$actor:string,$request:object) -> object {
+    IF array::sort(object::keys($request))!=['document_version','issuing_store','operation_id'] OR $request.document_version!=1 OR !type::is_string($request.operation_id) OR bytes::len(<bytes>$request.operation_id)<1 OR bytes::len(<bytes>$request.operation_id)>128 { THROW 'PSE_REFUSAL:control_request_invalid'; };
+    IF $request.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:control_store_differs'; };
+    LET $key=fn::pse_control_v1::key($actor,$request.operation_id);
+    LET $old=SELECT * FROM ONLY type::record('canonical_control_commands',$key);
+    fn::pse_execution_v1::deadline($expiry); RETURN {document_version:1,receipt:IF $old=NONE {NULL} ELSE {encoding::cbor::decode($old.receipt)}};
+} PERMISSIONS NONE;
+DEFINE FUNCTION fn::pse_control_v1::browse($expiry:int,$request:object) -> object {
+    IF array::sort(object::keys($request))!=['cursor','document_version','filter','maximum'] OR $request.document_version!=1 OR !type::is_int($request.maximum) OR $request.maximum<1 OR $request.maximum>64 { THROW 'PSE_REFUSAL:control_request_invalid'; };
+    LET $store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
+    IF $request.cursor NOT IN [NULL,NONE] {
+        IF !type::is_object($request.cursor) { THROW 'PSE_REFUSAL:control_request_invalid'; };
+        IF array::sort(object::keys($request.cursor))!=['after','filter','issuing_store'] OR !type::is_string($request.cursor.after) { THROW 'PSE_REFUSAL:control_request_invalid'; };
+        IF bytes::len(<bytes>$request.cursor.after)<1 OR bytes::len(<bytes>$request.cursor.after)>4096 OR $request.cursor.issuing_store!=$store OR $request.cursor.filter!=$request.filter { THROW 'PSE_REFUSAL:control_request_invalid'; };
+    };
+    LET $after=IF $request.cursor=NULL OR $request.cursor=NONE {''} ELSE {$request.cursor.after};
+    LET $rows=fn::pse_workbench_v1::select_rows($expiry,$request.filter,$after,$request.maximum+1);
+    LET $selected=fn::pse_workbench_v1::browse($expiry,$rows,$request.maximum);
+    LET $headers=$selected.headers.map(|$s| {study:$s.key,run:$s.run,problem:$s.problem,source:$s.revision,physical_revision:$s.physical_revision ?? NULL,physical_identity:$s.physical_identity ?? NULL,context:$s.context ?? NULL,point_count:<string>$s.point_count,generation:<string>$s.generation,active:$s.active,cancelled:$s.cancelled,terminal:$s.terminal,result_attempt:$s.result_attempt ?? NULL,outcome:$s.outcome ?? NULL});
+    LET $next=IF $selected.has_more {{issuing_store:$store,filter:$request.filter,after:array::last($headers).study}} ELSE {NULL};
+    fn::pse_execution_v1::deadline($expiry); RETURN {document_version:1,headers:$headers,next:$next};
+} PERMISSIONS NONE;
+DEFINE API '/pse/control/v1/browse' FOR post
+    PERMISSIONS WHERE $auth!=NONE
+    MIDDLEWARE api::req::max_body(65536),api::req::body('json'),api::res::body('json')
+    THEN { fn::pse_control_v1::actor('browse'); LET $expiry=fn::pse_control_v1::expiry($request.body); RETURN {status:200,body:fn::pse_control_v1::browse($expiry,$request.body.request)}; };
+DEFINE API '/pse/control/v1/cancel' FOR post
+    PERMISSIONS WHERE $auth!=NONE
+    MIDDLEWARE api::req::max_body(65536),api::req::body('json'),api::res::body('json')
+    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); LET $expiry=fn::pse_control_v1::expiry($request.body); LET $reply=fn::pse_control_v1::cancel($expiry,$actor,$request.body.request); RETURN {status:IF $reply.status=NONE {409} ELSE {200},body:$reply}; };
+DEFINE API '/pse/control/v1/reconcile' FOR post
+    PERMISSIONS WHERE $auth!=NONE
+    MIDDLEWARE api::req::max_body(65536),api::req::body('json'),api::res::body('json')
+    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); LET $expiry=fn::pse_control_v1::expiry($request.body); RETURN {status:200,body:fn::pse_control_v1::reconcile($expiry,$actor,$request.body.request)}; };
 
 
 // One physical source-deletion decision shared by stage and membership cleanup.

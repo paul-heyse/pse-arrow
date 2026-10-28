@@ -8,37 +8,7 @@ pub use pse_operations::canonical_study_workbench::{
 };
 use std::sync::Arc;
 
-/// Authority-bound continuation for live browsing, never a frozen analysis population.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct StudyWorkbenchCursor {
-    /// Canonical issuing database identity.
-    pub issuing_store: String,
-    /// Exact original predicates.
-    pub filter: StudyWorkbenchFilter,
-    /// Last displayed study key.
-    pub after: String,
-}
-/// Bounded live header selection; continuation pages can observe newer metadata.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct StudyWorkbenchRequest {
-    /// Exact scientific and engineering predicates.
-    pub filter: StudyWorkbenchFilter,
-    /// Maximum headers, from one through 64.
-    pub maximum: usize,
-    /// Issuer- and predicate-bound continuation.
-    pub cursor: Option<StudyWorkbenchCursor>,
-}
-/// Live browsing page, explicitly independent from frozen completeness.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct StudyWorkbenchPage {
-    /// Compact actual metadata; payloads are unopened.
-    pub headers: Vec<StudyWorkbenchHeader>,
-    /// More headers under this predicate, if present.
-    pub next: Option<StudyWorkbenchCursor>,
-}
+pub use pse_operations::canonical_control::{StudyWorkbenchCursor, StudyWorkbenchPage, StudyWorkbenchRequest};
 /// One complete bounded population selected before any analytical payload work.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -329,50 +299,6 @@ impl StudyKpiAnalysis {
     }
 }
 impl Runtime {
-    /// Browse compact live headers without opening result payloads.
-    pub async fn study_workbench_page(
-        &self,
-        request: StudyWorkbenchRequest,
-    ) -> Result<StudyWorkbenchPage, WorkflowError> {
-        let activity = self.admit_activity()?;
-        activity
-            .scope(async {
-                let issuer = self.canonical_store()?.issuing_store()?.to_owned();
-                if request.cursor.as_ref().is_some_and(|cursor| {
-                    cursor.issuing_store != issuer || cursor.filter != request.filter
-                }) {
-                    return Err(contract("workbench cursor issuer or predicates differ"));
-                }
-                let owner = super::connected_results::response_owner(
-                    self,
-                    "study-workbench:headers",
-                    pse_operations::canonical::MetadataResponse::Page,
-                )?;
-                let page = pse_operations::canonical::response_ownership_scope(
-                    owner,
-                    self.canonical_store()?.select_study_workbench(
-                        &request.filter,
-                        request.cursor.as_ref().map(|cursor| cursor.after.as_str()),
-                        request.maximum,
-                    ),
-                )
-                .await?;
-                let next = if page.has_more {
-                    page.headers.last().map(|header| StudyWorkbenchCursor {
-                        issuing_store: issuer,
-                        filter: request.filter,
-                        after: header.study.clone(),
-                    })
-                } else {
-                    None
-                };
-                Ok(StudyWorkbenchPage {
-                    headers: page.headers,
-                    next,
-                })
-            })
-            .await
-    }
     /// Settle one exact native cut and return only counts plus retained custody.
     pub async fn freeze_study_cohort(
         &self,

@@ -3,7 +3,7 @@
   "$defs": {
     "CanonicalQueryMetricsOutput": {
       "additionalProperties": false,
-      "description": "Process-cumulative actual query builder / SDK response populations. Not every SDK\nselect/control API uses this query adapter; no server-wide coverage is claimed.",
+      "description": "Process-cumulative actual query builder / client response populations. Not every client\nselect/control API uses this query adapter; no server-wide coverage is claimed.",
       "properties": {
         "builders": {
           "description": "Query builders constructed; never interpreted as dispatched requests.",
@@ -12,7 +12,7 @@
           "type": "integer"
         },
         "request_failures": {
-          "description": "SDK observer request failures without statement responses.",
+          "description": "Client observer request failures without statement responses.",
           "format": "uint64",
           "minimum": 0,
           "type": "integer"
@@ -1945,7 +1945,7 @@
       "properties": {
         "canonical_queries": {
           "$ref": "#/$defs/CanonicalQueryMetricsOutput",
-          "description": "Selected canonical Query-adapter SDK statistics; excludes other SDK APIs."
+          "description": "Selected canonical Query-adapter statistics; excludes other client APIs."
         },
         "coverage": {
           "$ref": "#/$defs/RuntimeMetricsCoverage",

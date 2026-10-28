@@ -341,6 +341,35 @@ Version: 1. Snapshot class: `derived`. Primary key: `key`.
 | `key` | `Utf8` | false | `key` | — | — |
 | `sequence` | `UInt64` | false | `payload` | — | — |
 
+## `canonical_control_actors`
+
+Privilegedly issued database-scoped control actors. No record user can select credentials or modify grants directly.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `password` | `Utf8` | false | `payload` | — | — |
+| `enabled` | `Boolean` | false | `payload` | — | — |
+| `browse` | `Boolean` | false | `payload` | — | — |
+| `cancel` | `Boolean` | false | `payload` | — | — |
+
+## `canonical_control_commands`
+
+Immutable actor/store-scoped cancellation intent and exact decision retained through database retirement; absence never authorizes mutation replay.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
+| `actor` | `Utf8` | false | `payload` | — | — |
+| `operation_id` | `Utf8` | false | `payload` | — | — |
+| `study` | `Utf8` | false | `payload` | — | — |
+| `receipt` | `Binary` | false | `payload` | — | — |
+
 ## `canonical_draft_diagnostics`
 
 Version-linked local admission diagnostics; no executable authority is granted by this record.

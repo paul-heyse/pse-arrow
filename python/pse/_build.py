@@ -144,9 +144,9 @@ def native_version() -> str:
     return _native.__version__
 
 
-def _check_native_compatibility(package_version: str, schema_fingerprint: str) -> None:
+def _check_native_compatibility(package_version: str | None, schema_fingerprint: str) -> None:
     """Check the compiled version and generated declaration identity without a scan."""
-    if package_version != native_version():
+    if package_version is not None and package_version != native_version():
         message = "pse package and native extension versions differ; run just py-sync"
         raise ImportError(message)
     if _native.registry_fingerprint() != contracts.REGISTRY_FINGERPRINT:
@@ -202,3 +202,12 @@ _telemetry_status = _native._telemetry_status  # noqa: SLF001 -- this module own
 
 # Original compiled host metadata, using the generated native output document.
 _host_operation_catalogue = _native.host_operation_catalogue
+
+
+# Actual scientific imports, including private consumers, cross this sole native gate.
+from pse import __version__ as _package_version  # noqa: E402 -- verify after the gate is fully defined
+from pse.contracts.documents import SCHEMA_SET_FINGERPRINT as _schema_fingerprint  # noqa: E402
+from pse.contracts.extension_types import register_all as _register_extensions  # noqa: E402
+
+_check_native_compatibility(_package_version, _schema_fingerprint)
+_register_extensions()

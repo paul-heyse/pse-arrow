@@ -45,6 +45,11 @@ macro_rules! refusals {
     };
 }
 refusals! {
+    ControlStoreDiffers: "control_store_differs" => (Identity, "control command issuing database differs"),
+    ControlActorRefused: "control_actor_refused" => (Admission, "control actor lacks the requested database operation grant"),
+    ControlActorAlreadyIssued: "control_actor_already_issued" => (Identity, "control actor identity has already been issued"),
+    ControlCommandIdentityReused: "control_command_identity_reused" => (Identity, "control operation identity has different immutable intent"),
+    ControlRequestInvalid: "control_request_invalid" => (Admission, "control request shape, version or extent is invalid"),
     StudyCapturePublicationBusy: "study_capture_publication_busy" => (Fence, "publication is temporarily gated by an exact immutable capture"),
     HistoryHasProtectedCaptures: "history_has_protected_captures" => (Fence, "immutable captured facts retain original result and history ownership"),
     StudyInstallationOriginalPageExpired: "study_installation_original_page_expired" => (Fence, "study installation original page expired"),

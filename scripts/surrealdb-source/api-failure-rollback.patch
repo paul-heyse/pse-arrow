@@ -1,0 +1,189 @@
+--- a/surrealdb/datastore/src/tx.rs
++++ b/surrealdb/datastore/src/tx.rs
+@@ -194,6 +194,8 @@
+ 	/// Set when a record's write stopped part-way because its query could not
+ 	/// continue. See [`Self::poison_interrupted_write`].
+ 	interrupted_write_poisoned: AtomicBool,
++	/// An API expression failed after its transaction may already have written.
++	api_failure_poisoned: AtomicBool,
+ 	/// Number of write slots reserved against the write-cardinality guard.
+ 	/// Each write operation atomically reserves its slot *before* the
+ 	/// storage call, so concurrent writes on the same transaction (e.g.
+@@ -949,6 +951,7 @@
+ 			write_guard_poisoned: AtomicBool::new(false),
+ 			save_point_poisoned: AtomicBool::new(false),
+ 			interrupted_write_poisoned: AtomicBool::new(false),
++			api_failure_poisoned: AtomicBool::new(false),
+ 			guarded_writes: AtomicU64::new(0),
+ 			pending_index_build_reservations: Mutex::new(Vec::new()),
+ 			cached_index_build_reservations: Mutex::new(HashMap::new()),
+@@ -1422,6 +1425,11 @@
+ 	/// transaction survives the statement error that set the flag. An explicit
+ 	/// CANCEL behaves as normal.
+ 	fn poisoned(&self) -> Result<()> {
++		if self.has_api_failure() {
++			return Err(crate::error::DatastoreError::QueryNotExecuted {
++				message: "An API handler or middleware failed; its transaction must roll back".to_string(),
++			}.into());
++		}
+ 		if self.write_guard_poisoned.load(Ordering::Relaxed) {
+ 			let limit = self.write_keys_limit.get().map(|l| l.get()).unwrap_or_default();
+ 			return Err(crate::error::DatastoreError::TransactionWriteKeysExceeded {
+@@ -1465,6 +1473,17 @@
+ 	/// back past the stopped write and completes — an `INSERT IGNORE` skipping the
+ 	/// row — still has its transaction's commit refused: that costs the caller a
+ 	/// retry, where committing a half-indexed record would cost a corrupt index.
++	/// Refuse every commit after an API expression or response conversion failed.
++	/// Error-to-response conversion must not turn partial writes into an accepted effect.
++	pub fn poison_api_failure(&self) {
++		self.api_failure_poisoned.store(true, Ordering::Relaxed);
++	}
++
++	/// HTTP owners can cancel while preserving the original secure API response.
++	pub fn has_api_failure(&self) -> bool {
++		self.api_failure_poisoned.load(Ordering::Relaxed)
++	}
++
+ 	pub fn poison_interrupted_write(&self) {
+ 		self.interrupted_write_poisoned.store(true, Ordering::Relaxed);
+ 	}
+--- a/surrealdb/core/src/api/invocation.rs
++++ b/surrealdb/core/src/api/invocation.rs
+@@ -252,9 +252,14 @@
+ 
+ 				// Convert to ApiResponse; set request_id from request for all responses
+ 				let mut res = match res {
+-					Ok(res) => ApiResponse::try_from(res)
+-						.unwrap_or_else(|e| ApiResponse::from_error(e, request_id.clone())),
+-					Err(e) => ApiResponse::from_error(e, request_id.clone()),
++					Ok(res) => ApiResponse::try_from(res).unwrap_or_else(|e| {
++						ctx_frozen.tx().poison_api_failure();
++						ApiResponse::from_error(e, request_id.clone())
++					}),
++					Err(e) => {
++						ctx_frozen.tx().poison_api_failure();
++						ApiResponse::from_error(e, request_id.clone())
++					},
+ 				};
+ 				res.request_id.clone_from(&request_id);
+ 				res.ensure_request_id_header();
+@@ -361,6 +366,7 @@
+ 							res
+ 						}
+ 						Err(e) => {
++							ctx.tx().poison_api_failure();
+ 							if is_initial {
+ 								error!(
+ 									request_id = %request_id,
+@@ -375,6 +381,7 @@
+ 						}
+ 					},
+ 					Err(e) => {
++						ctx.tx().poison_api_failure();
+ 						if is_initial {
+ 							error!(
+ 								request_id = %request_id,
+--- a/surrealdb/core/src/kvs/ds.rs
++++ b/surrealdb/core/src/kvs/ds.rs
+@@ -6077,8 +6077,9 @@
+ 			}
+ 		};
+ 
+-		// Handle committing or cancelling the transaction
+-		if res.is_ok() {
++		// A handler error can be represented by an ordinary ApiResponse. Preserve
++		// that response, but never commit the writes performed before the error.
++		if res.is_ok() && !tx.has_api_failure() {
+ 			tx.commit().await?;
+ 		} else {
+ 			tx.cancel().await?;
+--- a/surrealdb/core/src/kvs/tests/interrupted_write_test.rs
++++ b/surrealdb/core/src/kvs/tests/interrupted_write_test.rs
+@@ -5,7 +5,7 @@
+ //! elements, and the fan-out stops mid-record once its query is cancelled or
+ //! times out. The executor discards the transaction of a statement that fails,
+ //! but a client-owned transaction survives the error and can still COMMIT, and
+-//! a `DEFINE API` handler turns the error into a response and commits. Either
++//! a `DEFINE API` handler can turn the error into a response. Either
+ //! way the committed state must hold the record with every index entry, or
+ //! neither.
+ //!
+@@ -96,7 +96,7 @@
+ 	assert_consistent(committed(&ds).await);
+ }
+ 
+-/// The handler's error becomes a response, after which the handler commits.
++/// Error-to-response conversion must not authorize any partial API effect.
+ #[tokio::test(flavor = "multi_thread")]
+ async fn an_api_handler_cannot_commit_a_record_its_fan_out_left_half_indexed() {
+ 	use crate::api::request::ApiRequest;
+@@ -128,3 +128,69 @@
+ 	let _ = ds.invoke_api_handler("test", "test", "fan", &ses, req).await;
+ 	assert_consistent(committed(&ds).await);
+ }
++
++
++/// Complete writes before an ordinary handler/middleware error must roll back,
++/// not just writes interrupted within an index fan-out.
++#[tokio::test(flavor = "multi_thread")]
++async fn api_ordinary_errors_rollback_but_explicit_responses_commit() {
++    use crate::api::request::ApiRequest;
++    use crate::catalog::ApiMethod;
++    let (ds, ses) = fan_out_ds().await;
++    let definitions = r#"
++        DEFINE FUNCTION fn::after_failure($request: object, $next: any) {
++            LET $reply = $next($request);
++            THROW 'middleware failure after handler';
++        };
++        DEFINE FUNCTION fn::bad_conversion($request: object, $next: any) {
++            LET $reply = $next($request);
++            RETURN 42;
++        };
++        DEFINE API '/handler_failure' FOR get PERMISSIONS FULL THEN {
++            CREATE t:11 SET a = [11], b = [11]; THROW 'handler failure after write';
++        };
++        DEFINE API '/conversion_failure' FOR get PERMISSIONS FULL THEN {
++            CREATE t:12 SET a = [12], b = [12]; RETURN 42;
++        };
++        DEFINE API '/middleware_failure' FOR get PERMISSIONS FULL MIDDLEWARE fn::after_failure() THEN {
++            CREATE t:13 SET a = [13], b = [13]; RETURN {status:200};
++        };
++        DEFINE API '/middleware_conversion_failure' FOR get PERMISSIONS FULL MIDDLEWARE fn::bad_conversion() THEN {
++            CREATE t:14 SET a = [14], b = [14]; RETURN {status:200};
++        };
++        DEFINE API '/explicit_refusal' FOR get PERMISSIONS FULL THEN {
++            CREATE t:15 SET a = [15], b = [15]; RETURN {status:409,body:{refused:true}};
++        };
++        DEFINE API '/success' FOR get PERMISSIONS FULL THEN {
++            CREATE t:16 SET a = [16], b = [16]; RETURN {status:200};
++        };
++    "#;
++    for response in ds.execute(definitions,&ses,None).await.unwrap() {response.result.unwrap();}
++    for path in ["handler_failure","conversion_failure","middleware_failure","middleware_conversion_failure"] {
++        let request=ApiRequest {method:ApiMethod::Get,request_id:path.into(),..Default::default()};
++        let response=ds.invoke_api_handler("test","test",path,&ses,request).await.unwrap();
++        assert!(response.status.as_u16() >= 400,"{path} must preserve an error response");
++    }
++    for (path,status) in [("explicit_refusal",409),("success",200)] {
++        let request=ApiRequest {method:ApiMethod::Get,request_id:path.into(),..Default::default()};
++        let response=ds.invoke_api_handler("test","test",path,&ses,request).await.unwrap();
++        assert_eq!(response.status.as_u16(),status);
++    }
++    let mut responses=ds.execute("RETURN (SELECT VALUE id FROM t ORDER BY id) = [t:15, t:16];",&ses,None).await.unwrap();
++    let committed=responses.remove(0).result.unwrap();
++    assert_eq!(committed,surrealdb_types::Value::Bool(true));
++}
++
++/// Internal api::invoke can also convert an error to a value inside a caller's
++/// transaction. Neither an explicit COMMIT nor another successful statement can
++/// authorize those partial writes.
++#[tokio::test(flavor = "multi_thread")]
++async fn api_error_poison_refuses_explicit_caller_commit() {
++    use crate::kvs::QueryRequest;
++    let (ds,ses)=fan_out_ds().await;
++    for response in ds.execute("DEFINE API '/caller_failure' FOR get PERMISSIONS FULL THEN {CREATE t:17 SET a=[17],b=[17]; THROW 'cancel the whole API effect';};",&ses,None).await.unwrap() {response.result.unwrap();}
++    let tx=Arc::new(ds.transaction(TransactionType::Write).await.unwrap());
++    let _=ds.run(QueryRequest::new("RETURN api::invoke('/caller_failure',{method:'get'});",&ses).with_transaction(Arc::clone(&tx))).await;
++    assert!(tx.commit().await.is_err());
++    assert_eq!(committed(&ds).await,(0,0));
++}

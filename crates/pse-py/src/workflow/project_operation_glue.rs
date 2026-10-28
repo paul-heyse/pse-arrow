@@ -4,14 +4,6 @@
 use super::*;
 
 impl NativeRuntime {
-    /// Browse bounded compact metadata, including terminal studies.
-    pub(super) fn _host_study_workbench_page(
-        &self,
-        py: Python<'_>,
-        request: &[u8],
-    ) -> PyResult<documents::DocumentValue<native::StudyWorkbenchPage>> {
-        self.study_workbench_page_native(py, request)
-    }
     /// Freeze a complete bounded cohort before protected analytical reads.
     pub(super) fn _host_freeze_study_cohort(
         &self,

@@ -69,6 +69,11 @@ class ContinuationKind(StrEnum):
     OPAQUE = "opaque"
 
 
+class ControlCommandStatus(StrEnum):
+    ACCEPTED = "accepted"
+    REFUSED = "refused"
+
+
 class CopiedExecutionStatus(StrEnum):
     RUNNING = "running"
     COMPLETED = "completed"
@@ -5837,13 +5842,13 @@ class CanonicalGraphRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fi
 
 
 class CanonicalQueryMetrics(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Process-cumulative actual query builder / SDK response populations. Not every SDK
+    """Process-cumulative actual query builder / client response populations. Not every client
     select/control API uses this query adapter; no server-wide coverage is claimed.
     """
 
     #: Query builders constructed; never interpreted as dispatched requests.
     builders: Annotated[int, msgspec.Meta(ge=0)]
-    #: SDK observer request failures without statement responses.
+    #: Client observer request failures without statement responses.
     request_failures: Annotated[int, msgspec.Meta(ge=0)]
     #: A count or duration saturated; exact increases are unavailable after this point.
     saturated: bool
@@ -5867,13 +5872,13 @@ class CanonicalQueryMetrics(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 
 
 class CanonicalQueryMetricsOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Process-cumulative actual query builder / SDK response populations. Not every SDK
+    """Process-cumulative actual query builder / client response populations. Not every client
     select/control API uses this query adapter; no server-wide coverage is claimed.
     """
 
     #: Query builders constructed; never interpreted as dispatched requests.
     builders: Annotated[int, msgspec.Meta(ge=0)]
-    #: SDK observer request failures without statement responses.
+    #: Client observer request failures without statement responses.
     request_failures: Annotated[int, msgspec.Meta(ge=0)]
     #: A count or duration saturated; exact increases are unavailable after this point.
     saturated: bool
@@ -7417,6 +7422,293 @@ class ContinuationField(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.scalar_key)(self.input), v.scalar_key(self.kind), v.sequence_key(v.scalar_key)(self.output),))
+
+
+class ControlBrowseRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Versioned application request for compact live study headers."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    #: Exact control wire interpretation.
+    document_version: Literal[1] = 1
+    #: Original issuing-store and predicate binding.
+    cursor: StudyWorkbenchCursorBody | None = None
+    #: Existing indexed predicates; never arbitrary SQL.
+    filter: StudyWorkbenchFilter
+    #: Maximum compact rows, from one through 64.
+    maximum: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.cursor), v.record_key(self.filter), v.scalar_key(self.maximum),))
+
+
+class ControlBrowseRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Versioned application request for compact live study headers."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    #: Exact control wire interpretation.
+    document_version: Literal[1] = 1
+    #: Original issuing-store and predicate binding.
+    cursor: StudyWorkbenchCursorBodyOutput | None
+    #: Existing indexed predicates; never arbitrary SQL.
+    filter: StudyWorkbenchFilterOutput
+    #: Maximum compact rows, from one through 64.
+    maximum: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.cursor), v.record_key(self.filter), v.scalar_key(self.maximum),))
+
+
+class ControlBrowseResponse(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded live headers, not a frozen complete population."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    #: Exact control wire interpretation.
+    document_version: Literal[1] = 1
+    #: Compact headers with exact integer wire values.
+    headers: tuple[ControlStudyHeader, ...]
+    #: Original issuer- and predicate-bound continuation.
+    next: StudyWorkbenchCursorBody | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.headers), v.optional_key(v.record_key)(self.next),))
+
+
+class ControlBrowseResponseOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded live headers, not a frozen complete population."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    #: Exact control wire interpretation.
+    document_version: Literal[1] = 1
+    #: Compact headers with exact integer wire values.
+    headers: tuple[ControlStudyHeaderOutput, ...]
+    #: Original issuer- and predicate-bound continuation.
+    next: StudyWorkbenchCursorBodyOutput | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.sequence_key(v.record_key)(self.headers), v.optional_key(v.record_key)(self.next),))
+
+
+class ControlCancelRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Stable cancellation identity and immutable intent."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    #: Exact control wire interpretation.
+    document_version: Literal[1] = 1
+    #: Original issuing database; never rebound after restore.
+    issuing_store: str
+    #: Caller-retained operation identity, scoped to the authenticated actor and store.
+    operation_id: str
+    #: Exact study whose future claims are revoked.
+    study: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.issuing_store), v.scalar_key(self.operation_id), v.scalar_key(self.study),))
+
+
+class ControlCommandReceipt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One exact durable cancellation decision; not a native completion witness."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    #: Exact control wire interpretation.
+    document_version: Literal[1] = 1
+    #: The study was already terminal at the original decision.
+    already_concluded: bool
+    #: Actual cancellation state at the original decision.
+    cancelled: bool
+    #: Actual generation as exact decimal text; absent when the study was absent.
+    generation: str | None = None
+    #: Original issuing database; never rebound after restore.
+    issuing_store: str
+    #: Original operation identity.
+    operation_id: str
+    #: Typed declared refusal identity, when refused.
+    reason: str | None = None
+    #: Recorded command disposition.
+    status: ControlCommandStatus
+    #: Original immutable target.
+    study: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.already_concluded), v.scalar_key(self.cancelled), v.optional_key(v.scalar_key)(self.generation), v.scalar_key(self.issuing_store), v.scalar_key(self.operation_id), v.optional_key(v.scalar_key)(self.reason), v.scalar_key(self.status), v.scalar_key(self.study),))
+
+
+class ControlCommandReceiptOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One exact durable cancellation decision; not a native completion witness."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    #: Exact control wire interpretation.
+    document_version: Literal[1] = 1
+    #: The study was already terminal at the original decision.
+    already_concluded: bool
+    #: Actual cancellation state at the original decision.
+    cancelled: bool
+    #: Actual generation as exact decimal text; absent when the study was absent.
+    generation: str | None
+    #: Original issuing database; never rebound after restore.
+    issuing_store: str
+    #: Original operation identity.
+    operation_id: str
+    #: Typed declared refusal identity, when refused.
+    reason: str | None
+    #: Recorded command disposition.
+    status: ControlCommandStatus
+    #: Original immutable target.
+    study: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.already_concluded), v.scalar_key(self.cancelled), v.optional_key(v.scalar_key)(self.generation), v.scalar_key(self.issuing_store), v.scalar_key(self.operation_id), v.optional_key(v.scalar_key)(self.reason), v.scalar_key(self.status), v.scalar_key(self.study),))
+
+
+class ControlCommandRefusal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Definitive pre-effect refusal; unlike a command receipt this response is not persisted."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    #: Exact control wire interpretation.
+    document_version: Literal[1] = 1
+    #: Original issuing database.
+    issuing_store: str
+    #: Reused operation identity.
+    operation_id: str
+    #: Closed declared refusal identity.
+    reason: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.issuing_store), v.scalar_key(self.operation_id), v.scalar_key(self.reason),))
+
+
+class ControlReconcileRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Read the original cancellation decision without issuing another effect."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    #: Exact control wire interpretation.
+    document_version: Literal[1] = 1
+    #: Original issuing database; never rebound after restore.
+    issuing_store: str
+    #: Original caller-retained operation identity.
+    operation_id: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.scalar_key(self.issuing_store), v.scalar_key(self.operation_id),))
+
+
+class ControlReconcileResponse(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Missing means unobserved, never proof that an earlier request cannot still commit."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    #: Exact control wire interpretation.
+    document_version: Literal[1] = 1
+    #: Original immutable decision if observed under this actor and issuing store.
+    receipt: ControlCommandReceipt | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.receipt),))
+
+
+class ControlReconcileResponseOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Missing means unobserved, never proof that an earlier request cannot still commit."""
+
+    _pse_required_version: ClassVar[int] = 1
+    _pse_required_version_field: ClassVar[str] = "document_version"
+
+    #: Exact control wire interpretation.
+    document_version: Literal[1] = 1
+    #: Original immutable decision if observed under this actor and issuing store.
+    receipt: ControlCommandReceiptOutput | None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.document_version), v.optional_key(v.record_key)(self.receipt),))
+
+
+class ControlStudyHeader(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact HTTP projection with exact decimal strings rather than JSON floating point."""
+
+    #: Original membership is activated.
+    active: bool
+    #: Actual persistent cancellation flag.
+    cancelled: bool
+    #: Optional original engineering context.
+    context: str | None = None
+    #: Exact nonnegative u64 decimal encoding of the cancellation generation.
+    generation: str
+    #: Original operational outcome; never scientific usability.
+    outcome: enums.CanonicalTerminalOutcome | None = None
+    #: Optional original physical identity.
+    physical_identity: str | None = None
+    #: Optional original physical revision.
+    physical_revision: str | None = None
+    #: Exact nonnegative u64 decimal encoding of the population count.
+    point_count: str
+    #: Original source owner.
+    problem: str
+    #: Exact terminal attempt, when present.
+    result_attempt: str | None = None
+    #: Exact parent execution.
+    run: str
+    #: Exact original modeling revision.
+    source: str
+    #: Exact study identity.
+    study: str
+    #: Parent summary is concluded.
+    terminal: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.active), v.scalar_key(self.cancelled), v.optional_key(v.scalar_key)(self.context), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.outcome), v.optional_key(v.scalar_key)(self.physical_identity), v.optional_key(v.scalar_key)(self.physical_revision), v.scalar_key(self.point_count), v.scalar_key(self.problem), v.optional_key(v.scalar_key)(self.result_attempt), v.scalar_key(self.run), v.scalar_key(self.source), v.scalar_key(self.study), v.scalar_key(self.terminal),))
+
+
+class ControlStudyHeaderOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact HTTP projection with exact decimal strings rather than JSON floating point."""
+
+    #: Original membership is activated.
+    active: bool
+    #: Actual persistent cancellation flag.
+    cancelled: bool
+    #: Optional original engineering context.
+    context: str | None
+    #: Exact nonnegative u64 decimal encoding of the cancellation generation.
+    generation: str
+    #: Original operational outcome; never scientific usability.
+    outcome: enums.CanonicalTerminalOutcome | None
+    #: Optional original physical identity.
+    physical_identity: str | None
+    #: Optional original physical revision.
+    physical_revision: str | None
+    #: Exact nonnegative u64 decimal encoding of the population count.
+    point_count: str
+    #: Original source owner.
+    problem: str
+    #: Exact terminal attempt, when present.
+    result_attempt: str | None
+    #: Exact parent execution.
+    run: str
+    #: Exact original modeling revision.
+    source: str
+    #: Exact study identity.
+    study: str
+    #: Parent summary is concluded.
+    terminal: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.active), v.scalar_key(self.cancelled), v.optional_key(v.scalar_key)(self.context), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.outcome), v.optional_key(v.scalar_key)(self.physical_identity), v.optional_key(v.scalar_key)(self.physical_revision), v.scalar_key(self.point_count), v.scalar_key(self.problem), v.optional_key(v.scalar_key)(self.result_attempt), v.scalar_key(self.run), v.scalar_key(self.source), v.scalar_key(self.study), v.scalar_key(self.terminal),))
 
 
 class ControllerOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -28275,7 +28567,7 @@ class RuntimeMetricsCoverage(msgspec.Struct, frozen=True, forbid_unknown_fields=
 class RuntimeMetricsSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One read of the same typed sources used by checkpoints and optional OTel export."""
 
-    #: Selected canonical Query-adapter SDK statistics; excludes other SDK APIs.
+    #: Selected canonical Query-adapter statistics; excludes other client APIs.
     canonical_queries: CanonicalQueryMetrics
     #: Explicit registry losses and selected task coverage.
     coverage: RuntimeMetricsCoverage
@@ -28299,7 +28591,7 @@ class RuntimeMetricsSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=
 class RuntimeMetricsSnapshotOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """One read of the same typed sources used by checkpoints and optional OTel export."""
 
-    #: Selected canonical Query-adapter SDK statistics; excludes other SDK APIs.
+    #: Selected canonical Query-adapter statistics; excludes other client APIs.
     canonical_queries: CanonicalQueryMetricsOutput
     #: Explicit registry losses and selected task coverage.
     coverage: RuntimeMetricsCoverage
@@ -33915,6 +34207,20 @@ __all__ = [
     "ContextSelectionOutput",
     "ContinuationField",
     "ContinuationKind",
+    "ControlBrowseRequest",
+    "ControlBrowseRequestOutput",
+    "ControlBrowseResponse",
+    "ControlBrowseResponseOutput",
+    "ControlCancelRequest",
+    "ControlCommandReceipt",
+    "ControlCommandReceiptOutput",
+    "ControlCommandRefusal",
+    "ControlCommandStatus",
+    "ControlReconcileRequest",
+    "ControlReconcileResponse",
+    "ControlReconcileResponseOutput",
+    "ControlStudyHeader",
+    "ControlStudyHeaderOutput",
     "ControllerOperation",
     "ControllerOperationOutput",
     "CopiedExecutionObservations",
@@ -35526,4 +35832,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:11a975b6b75c9a9ece6505d8c65b3231519f0a579bc315b9e34d1445658489d2"
+SCHEMA_SET_FINGERPRINT = "blake3:ebce70362c331b341ee8d5f08250fcea7f7537e880952dbf1860f035d8cfbe20"

@@ -3,23 +3,6 @@
 //! Python-owned workbench and passive observer projections; policy stays in native owners.
 use super::*;
 impl NativeRuntime {
-    pub(super) fn study_workbench_page_native(
-        &self,
-        py: Python<'_>,
-        request: &[u8],
-    ) -> PyResult<documents::DocumentValue<native::StudyWorkbenchPage>> {
-        let request = documents::decode_document(py, "study workbench", request, 1024 * 1024)?;
-        let stop = CancelSource::new();
-        blocking(
-            py,
-            &self.owner,
-            self.recording_operation(&stop, |runtime| async move {
-                runtime.study_workbench_page(request).await
-            }),
-            || stop.cancel(),
-        )
-        .map(documents::DocumentValue)
-    }
     pub(super) fn freeze_study_cohort_native(
         &self,
         py: Python<'_>,

@@ -62,7 +62,18 @@ Receipt keys encode the issuing-store, authenticated actor and operation identit
 
 DEFINE API authenticates record actors with explicit enabled browse/cancel grants; request
 bodies confer no actor authority. Handler checks are essential because ordinary table checks
-are disabled inside the API. Authorization precedes receipt reads and writes as well as state access. Native internal entry requires trusted system identity, never a caller-supplied actor bypass, and shares the guarded transition. Restore changes issuing-store identity, so old command identities cannot alias restored ones. Generation/count encoding preserves exact integers.
+are disabled inside the API. Authorization precedes receipt reads and writes as well as state access. Native internal entry requires trusted system identity, never a caller-supplied actor bypass, and shares the guarded transition. Connection configuration, cancellation/reconciliation intent and receipts explicitly bind the original issuing-store. The server checks that selection before access; restore changes issuer identity, so retained commands cannot silently target the restored database. Generation/count encoding preserves exact integers.
+
+### API error rollback realization
+
+Independent implementation review established that selected SurrealDB 3.3.4 converts ordinary
+API handler and middleware errors into responses while the outer transaction can still commit.
+The stock API behavior cannot establish cancellation/receipt atomicity. The selected server
+integration therefore marks transaction-local API evaluation/conversion failure as poison,
+rolls back HTTP invocation on that flag while retaining the original safe error response,
+and refuses explicit caller commit through api::invoke. Intentional returned responses,
+including typed 409 refusal, retain their normal transaction behavior. This is a required
+local source patch, tested against the exact selected backend; no upstream publication follows.
 
 ### Consequences
 

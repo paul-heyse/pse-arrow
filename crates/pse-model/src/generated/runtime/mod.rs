@@ -39,6 +39,10 @@ pub mod r#canonical_context_ancestry;
 ///Generated relation contract.
 pub mod r#canonical_context_journals;
 ///Generated relation contract.
+pub mod r#canonical_control_actors;
+///Generated relation contract.
+pub mod r#canonical_control_commands;
+///Generated relation contract.
 pub mod r#canonical_draft_diagnostics;
 ///Generated relation contract.
 pub mod r#canonical_edges;

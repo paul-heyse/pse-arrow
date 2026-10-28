@@ -37,8 +37,6 @@ if TYPE_CHECKING:
         StudyObservationCursorOutput,
         StudyObservationPageOutput,
         StudyObservationRequest,
-        StudyWorkbenchPageOutput,
-        StudyWorkbenchRequest,
     )
 
 
@@ -154,11 +152,6 @@ class StudyWorkbenchGlue:
     def _handle(self) -> _NativeRuntime:
         """Read-only native owner supplied by the concrete Runtime facade."""
         raise NotImplementedError
-
-    def _host_study_workbench_page(
-        self, request: StudyWorkbenchRequest
-    ) -> StudyWorkbenchPageOutput:
-        return self._handle.study_workbench_page(codec.encode_json(request))
 
     def _host_freeze_study_cohort(
         self, request: StudyCohortRequest

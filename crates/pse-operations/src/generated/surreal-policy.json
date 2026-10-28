@@ -20,6 +20,8 @@
     "canonical_attempts",
     "canonical_context_ancestry",
     "canonical_context_journals",
+    "canonical_control_actors",
+    "canonical_control_commands",
     "canonical_draft_diagnostics",
     "canonical_edges",
     "canonical_execution_operations",
@@ -136,6 +138,14 @@
     },
     "canonical_context_journals": {
       "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_control_actors": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_control_commands": {
+      "retention": "Receipt",
       "backup": "Required"
     },
     "canonical_draft_diagnostics": {

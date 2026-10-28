@@ -181,6 +181,18 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     let timestamp = || FieldContract::native(crate::model::extension::timestamp_micros_storage());
     let declarations = [
         (
+            "canonical_control_actors",
+            vec![column("key", text()).canonical_record_key(),column("password",text()).canonical_readonly(),column("enabled",flag()),column("browse",flag()),column("cancel",flag())],
+            "Privilegedly issued database-scoped control actors. No record user can select credentials or modify grants directly.",
+            crate::model::CanonicalRelation {retention:crate::model::CanonicalRetention::Durable,backup:crate::model::CanonicalBackup::Required,inline_vertex:false,enforced:false,generation_references:false},
+        ),
+        (
+            "canonical_control_commands",
+            vec![column("key",text()).canonical_record_key(),column("issuing_store",text()).canonical_readonly(),column("actor",text()).canonical_readonly(),column("operation_id",text()).canonical_readonly(),column("study",text()).canonical_readonly(),column("receipt",bytes()).canonical_readonly()],
+            "Immutable actor/store-scoped cancellation intent and exact decision retained through database retirement; absence never authorizes mutation replay.",
+            crate::model::CanonicalRelation {retention:crate::model::CanonicalRetention::Receipt,backup:crate::model::CanonicalBackup::Required,inline_vertex:false,enforced:false,generation_references:false},
+        ),
+        (
             "canonical_maintenance_operations",
             vec![
                 column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::MaintenanceOperation),

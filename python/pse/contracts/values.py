@@ -12,12 +12,6 @@ from typing import Never, Protocol, Self, TypeVar, runtime_checkable
 import attrs
 import msgspec
 
-from pse._build import (
-    content_hash_from_prefixed,
-    content_hash_to_prefixed,
-    semantic_id_from_hex,
-    semantic_id_to_hex,
-)
 from pse.contracts import enums as e
 
 # Exact source field spelling for attributes escaped by the Python generator.
@@ -38,9 +32,13 @@ class SemanticId(bytes):
 
     @classmethod
     def from_hex(cls, value: str) -> Self:
+        from pse._build import semantic_id_from_hex  # noqa: PLC0415 -- explicit identity text conversion consumes the native parser
+
         return cls(semantic_id_from_hex(value))
 
     def to_hex(self) -> str:
+        from pse._build import semantic_id_to_hex  # noqa: PLC0415 -- explicit identity text conversion consumes the native parser
+
         return semantic_id_to_hex(self)
 
 
@@ -54,9 +52,13 @@ class ContentHash(bytes):
 
     @classmethod
     def from_prefixed(cls, value: str) -> Self:
+        from pse._build import content_hash_from_prefixed  # noqa: PLC0415 -- explicit identity text conversion consumes the native parser
+
         return cls(content_hash_from_prefixed(value))
 
     def to_prefixed(self) -> str:
+        from pse._build import content_hash_to_prefixed  # noqa: PLC0415 -- explicit identity text conversion consumes the native parser
+
         return content_hash_to_prefixed(self)
 
 

@@ -104,7 +104,6 @@ def _require_native_libraries() -> None:
             return
 
 
-_require_native_libraries()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -148,6 +147,19 @@ def pytest_configure(config: pytest.Config) -> None:
     Args:
         config: The active configuration.
     """
+    # Source-only control tests do not consume an extension image. Scientific
+    # selection still diagnoses native loader failures before subtree conftests.
+    from scripts import test_invocation  # noqa: PLC0415
+
+    targets = test_invocation.python(config.invocation_params.args).targets
+    scientific = Path(__file__).resolve().parent / "python" / "pse" / "tests"
+    if not targets or any(
+        Path(target.split("::", 1)[0]).resolve() == scientific
+        or scientific in Path(target.split("::", 1)[0]).resolve().parents
+        or Path(target.split("::", 1)[0]).resolve() in scientific.parents
+        for target in targets
+    ):
+        _require_native_libraries()
     # The controller captures before xdist workers are launched. Workers inherit
     # the explicit immutable role and never perform their own source reads.
     if not hasattr(config, "workerinput"):

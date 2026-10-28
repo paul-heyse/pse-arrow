@@ -72,8 +72,6 @@ from pse.contracts.documents import (
     StudyObservationCursor,
     StudyObservationCursorOutput,
     StudyObservationRequest,
-    StudyWorkbenchPageOutput,
-    StudyWorkbenchRequest,
 )
 from pse.generated.project_operation_defaults import DEFAULT_BRANCH
 
@@ -1218,27 +1216,6 @@ class ResearchRuntime(ResearchRuntimeGlue):
 
 class StudyWorkbenchMixin(StudyWorkbenchGlue):
     """Public runtime composition; the native owner performs selection and admission."""
-
-    def study_workbench_page(
-        self, request: StudyWorkbenchRequest
-    ) -> StudyWorkbenchPageOutput:
-        """Browse bounded compact metadata, including terminal studies.
-
-        Effects:
-            scope: observation
-            read_only: true
-            idempotent: true
-            destructive: false
-        """
-        return self._host_study_workbench_page(request)
-
-    _public_metadata(
-        study_workbench_page,
-        StudyWorkbenchGlue,
-        "_host_study_workbench_page",
-        "StudyWorkbenchMixin",
-        "pse._study_workbench",
-    )
 
     def freeze_study_cohort(self, request: StudyCohortRequest) -> FrozenStudyCohort:
         """Freeze a complete bounded cohort before protected analytical reads.

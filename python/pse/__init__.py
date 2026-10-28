@@ -1,163 +1,17 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Arrow-native process systems engineering core (import name ``pse``).
+"""Process systems engineering with independent durable-control imports.
 
-The distribution is ``pse-arrow``; the import name is ``pse``. Everything that
-computes lives in the Rust extension ``pse._native``; this package is the typed,
-contract-enforcing boundary around it (blueprint §21).
-
-Import registers the declared Arrow extension types and checks package/native
-version and generated registry identity. Exhaustive annotation checks run through
-``just python-contracts-check``; dynamic converter hooks check their own classes.
-
-Settings are the generated msgspec document types of ``pse.contracts.documents``;
-native entry points receive their JSON encoding (ADR-0116).
-
+Scientific exports load their qualified native image when first consumed. Importing
+``pse.control`` or its generated documents neither loads that image nor prepares science.
 """
 
+import importlib
 import importlib.metadata
+from typing import TYPE_CHECKING
 
-from pse._analyses import Analysis
-from pse._artifacts import (
-    ArtifactOwnerKind,
-    ArtifactSettlement,
-    ScientificArtifact,
-    ScientificArtifactKind,
-)
-from pse._build import (
-    CacheSettings,
-    DiagnosticReport,
-    EngineSettings,
-    InspectionError,
-    ModelingDiagnosticSettings,
-    ModelingLimits,
-    NativeAttempt,
-    NativeStrategyAttempt,
-    SimulationSettings,
-    _check_native_compatibility,
-    build_info,
-    native_version,
-)
-from pse._host_operations import host_operation_catalogue
-from pse._inspection import TableStream, registry_table
-from pse._modeling import (
-    CompactStudyResult,
-    GeneratedDesign,
-    LocalStudy,
-    ModelingConformance,
-    ModelingDiagnostics,
-    ModelingDiagnosticSamples,
-    ModelingElasticAttempt,
-    ModelingInitialization,
-    ModelingInitializationAttempt,
-    ModelingKnowledge,
-    ModelingNativeAnalysis,
-    ModelingNonlinearExplanation,
-    ModelingPackage,
-    ModelingResult,
-    ModelingTrajectory,
-    StudyReport,
-)
-from pse._runs import (
-    LiveSimulationCursor,
-    LiveSimulationEvent,
-    PreparedOperation,
-    ProgressStream,
-    RunHandle,
-    RunResult,
-    ScientificReplay,
-    StoredResult,
-    StudyCancel,
-    StudyHandle,
-    StudyPointStatus,
-    StudyResults,
-)
-from pse._strategies import PreparedFlow, PreparedStrategy, StrategyResult
-from pse._study_workbench import FrozenStudyCohort, StudyKpiAnalysis, StudyObserver
-from pse._transfer import FieldTransfer
-from pse._workflow import (
-    PhysicalContext,
-    ProjectBundle,
-    Runtime,
-    SolverCapability,
-)
-from pse.contracts import extension_types
-from pse.contracts.documents import (
-    SCHEMA_SET_FINGERPRINT,
-    AdjointSettings,
-    AnalysisControls,
-    BackendSettings,
-    BlockSolveOverride,
-    BuildInfo,
-    CacheReport,
-    ClarabelSettings,
-    Completion,
-    CompositionRequest,
-    ConformanceControls,
-    ConicRequest,
-    DiagnosticAnnotationDocument,
-    DiagnosticCauseDocument,
-    DiagnosticContextDocument,
-    DiagnosticNoteDocument,
-    DiagnosticSamplesControls,
-    DiagnosticSpanDocument,
-    DiffsolSettings,
-    EffortPolicy,
-    EligibilityDocument,
-    FitExecutionDocument,
-    FitProfileDocument,
-    FlowConnectionDocument,
-    FlowGraphDocument,
-    FlowSelectionDocument,
-    HighsSettings,
-    IdasSettings,
-    IncumbentDocument,
-    IneligibleDocument,
-    InitializationDocument,
-    InitializationOverrides,
-    IpoptSettings,
-    JacobianDiagnosticControls,
-    KinsolSettings,
-    KnowledgeControls,
-    LazyStudyDefinition,
-    LinearDiagnosticControls,
-    ModelingDiagnosticPolicy,
-    ModelingInspection,
-    ModelingInspectionRequest,
-    ModelingNonlinearPolicy,
-    NumericalStrategy,
-    NumericalStrategyDocument,
-    PetscSettings,
-    PhysicalFitRequest,
-    PounceSettings,
-    ProgressEventDocument,
-    ProgressMetricDocument,
-    PureConformanceControls,
-    RecycleRequest,
-    RecycleRestartRequest,
-    ResourceConsumer,
-    ResourceReport,
-    ResultReclamationPage,
-    RouteDocument,
-    RunControls,
-    ScipSettings,
-    SelectedStudyVariant,
-    SolveControls,
-    SolveSettings,
-    SourceChoice,
-    SourceLocation,
-    StudyInputs,
-    StudyInputsExplicit,
-    StudyInputsLazy,
-    StudyRunControls,
-    StudyStatus,
-    StudyVariants,
-    StudyWaitControls,
-    TableName,
-    TearSelectionDocument,
-    WarmStartSnapshot,
-)
-from pse.diagnostics import CaptureSession, Diagnostics, OperationObservations
+if TYPE_CHECKING:
+    from pse._scientific import *  # noqa: F403 -- the explicit scientific export owner supplies static types
 
 __all__ = [
     "AdjointSettings",
@@ -295,24 +149,20 @@ __all__ = [
     "registry_table",
 ]
 
-
-def _resolve_version() -> str:
-    """Resolve the package version, preferring installed metadata.
-
-    Returns:
-        The installed ``pse-arrow`` distribution version, or the version the
-        extension was built at when the distribution metadata is absent (a
-        source tree on ``sys.path`` beside a built extension).
-    """
-    try:
-        return importlib.metadata.version("pse-arrow")
-    except importlib.metadata.PackageNotFoundError:
-        return native_version()
+try:
+    __version__: str | None = importlib.metadata.version("pse-arrow")
+except importlib.metadata.PackageNotFoundError:
+    __version__ = None
 
 
-#: The one version number: the wheel's, the extension's and the workspace's.
-__version__: str = _resolve_version()
+def __getattr__(name: str) -> object:
+    """Resolve declared scientific exports without intercepting submodule imports."""
+    if (name not in __all__ and name not in ('SCHEMA_SET_FINGERPRINT', 'extension_types', 'native_version')) or name == "__version__":
+        raise AttributeError(f"module 'pse' has no attribute {name!r}")
+    value = getattr(importlib.import_module("pse._scientific"), name)
+    globals()[name] = value
+    return value
 
-# Cheap boundary compatibility; exhaustive annotation lint is an explicit check.
-_check_native_compatibility(__version__, SCHEMA_SET_FINGERPRINT)
-extension_types.register_all()
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))

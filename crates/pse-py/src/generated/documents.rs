@@ -203,6 +203,62 @@ for pse_operations::canonical_contexts::ContextSelection {
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
+impl crate::documents::DocumentType
+for pse_operations::canonical_control::ControlBrowseRequest {
+    const INPUT_NAME: &'static str = "ControlBrowseRequest";
+    const OUTPUT_NAME: &'static str = "ControlBrowseRequestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_control::ControlBrowseResponse {
+    const INPUT_NAME: &'static str = "ControlBrowseResponse";
+    const OUTPUT_NAME: &'static str = "ControlBrowseResponseOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_control::ControlCancelRequest {
+    const INPUT_NAME: &'static str = "ControlCancelRequest";
+    const OUTPUT_NAME: &'static str = "ControlCancelRequest";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_control::ControlCommandReceipt {
+    const INPUT_NAME: &'static str = "ControlCommandReceipt";
+    const OUTPUT_NAME: &'static str = "ControlCommandReceiptOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_control::ControlCommandRefusal {
+    const INPUT_NAME: &'static str = "ControlCommandRefusal";
+    const OUTPUT_NAME: &'static str = "ControlCommandRefusal";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_control::ControlReconcileRequest {
+    const INPUT_NAME: &'static str = "ControlReconcileRequest";
+    const OUTPUT_NAME: &'static str = "ControlReconcileRequest";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType
+for pse_operations::canonical_control::ControlReconcileResponse {
+    const INPUT_NAME: &'static str = "ControlReconcileResponse";
+    const OUTPUT_NAME: &'static str = "ControlReconcileResponseOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
 impl crate::documents::DocumentType for pse_runtime::workflow::DeclarationEdit {
     const INPUT_NAME: &'static str = "DeclarationEdit";
     const OUTPUT_NAME: &'static str = "DeclarationEditOutput";

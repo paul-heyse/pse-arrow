@@ -555,3 +555,37 @@ and bounded generation metadata, preserving distinct receiver execution environm
 rescanning or rehashing admitted program images. Twelve selected native selection/prepaid-future
 controls and four Python routing/measurement-command controls pass. Actual worker and managed
 sixteen-owner reruns remain pending; these local controls do not establish their acceptance.
+
+## First control slice implementation checkpoint — 2026-10-28
+
+The async control/import split, typed source-generated requests, issuer-bound commands,
+server actor/access/receipt declarations, shared selector, native/CLI caller migrations and
+private-file provisioning are implemented with focused controls. Generated native API stubs
+and the linked correctness extension have been rebuilt. Full generated publication succeeds.
+Earlier source-only controls passed thirteen cases; provisioning four; catalog parsing two.
+These controls do not qualify the public API or native worker cancellation/drain.
+
+Independent implementation review found four required corrections: ordinary API handler
+errors can commit prior writes in the selected upstream server; required response headers
+were defaulted by generated DTOs; concurrent close retries could change an earlier waiter's
+observed result; and cleanup errors could replace mutation uncertainty/cancellation. The
+server source integration is being corrected for transactional API rollback, while the
+Python boundary is adding the three failure controls. Actual API adoption remains held.
+
+The first fresh owned setup initialized the current catalog and started storage, then its
+scratch orchestration failed before actor provisioning on unsupported Path.open(opener=...).
+This was setup failure, not acceptance. Its storage instance 0fb5ff0a-891f-434a-9d8d-97e35c5c76be
+(unit pse-surreal-6e992c0974efb4d4.service) is stopped with contexts drained; original fixture
+data/logs remain beneath build/qualification/57kl-control-20261028/surreal-b1-caaw4k_w.
+No owned service is running. Next work is qualify the rollback patch and corrected Python
+controls, build/readmit its immutable server, then execute actual native-unavailable control
+and positive cancellation/recovery journeys with original-owner drain. Broader D–F managed
+acceptance and full series-end powerset remain separate and unqualified.
+
+The reviewed Python boundary corrections now pass 35 source-only cases, including actual
+HTTPX2/HTTPcore2 close-state behavior; failed body or pool cleanup remains explicitly
+unsettled and cannot become success on a provider no-op retry. The exact patched server
+release builds successfully with api-failure-rollback.patch; upstream transactional
+regressions and actual effective-server HTTP qualification remain pending. A direct private
+scientific import still validates/loads the current native artifact and registers Arrow,
+with force-validation active and the deleted native browse method absent.

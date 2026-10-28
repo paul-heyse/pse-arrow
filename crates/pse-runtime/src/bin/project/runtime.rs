@@ -211,6 +211,14 @@ pub(crate) async fn run(
 ) -> Result<serde_json::Value> {
     let request: Request = super::project_tools::read_json(&args.request)?;
     let _version = request.version;
+    if let Action::StudyWorkbench { request: browse } = &request.action {
+        let pool: Arc<dyn pse_columnar::MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(args.memory_limit_bytes));
+        let response=pse_columnar::MemoryConsumer::new("project:study-workbench-response").register(&pool);
+        response.try_grow(pse_operations::canonical::MetadataResponse::Page.allocation_bytes())?;
+        return pse_operations::canonical::response_ownership_scope(Arc::new(response),async {
+            value(store.control_study_workbench_page(browse.clone()).await?)
+        }).await;
+    }
     let budget = settings(&args)?;
     let shared = SharedRuntime::build(budget)?;
     let registry = pse_schema::shared_registry()?;
@@ -322,9 +330,7 @@ pub(crate) async fn run(
                 Action::ResearchPublicationOpen { key } => boxed(shared, async move {
                     package(&runtime.research_publication_open(&key, cancel).await?)
                 })?,
-                Action::StudyWorkbench { request } => boxed(shared, async move {
-                    value(runtime.study_workbench_page(request).await?)
-                })?,
+                Action::StudyWorkbench { .. } => return Err("operational browse was not dispatched before scientific construction".into()),
                 Action::StudyCohort { request,output,maximum_bytes } => boxed(shared, async move {
                     let cohort=runtime.freeze_study_cohort(request).await?;
                     let bytes=if let Some(output)=&output {Some(cohort.export_pages(output,maximum_bytes,&cancel.token()).await?)}else {None};

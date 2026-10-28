@@ -106,8 +106,8 @@ data reset or quantitative performance claim follows from this document.
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| L01 | open | Plan57l | Shared actor/transition contract and bounded composition choices settled with K01 |
-| L02 | pending | Plan57l | Selected server command/ingress slices enforce original semantics and actor isolation |
+| L01 | in-progress | Plan57l | Shared actor/transition contract and bounded composition choices settled with K01 |
+| L02 | in-progress | Plan57l | Selected server command/ingress slices enforce original semantics and actor isolation |
 | L03 | open | Plan57l | Worker discovery/catch-up decision and any selected integration preserve authoritative recovery |
 | L04 | open | Plan57l | Payload/backend inquiry chooses placement, retained obligations and any conditional migration route |
 | L05 | pending | Plan57l | Selected consumers and declarations migrate; replaced coordination is deleted and J receives evidence |

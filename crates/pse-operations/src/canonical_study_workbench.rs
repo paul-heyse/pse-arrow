@@ -532,47 +532,16 @@ fn workbench_script(
     filter: &StudyWorkbenchFilter,
     frozen: bool,
 ) -> Result<PreparedScript<Option<Object>>, CanonicalError> {
-    let mut prelude = String::new();
-    if filter.project.is_some() {
-        prelude.push_str("LET $problems=SELECT VALUE problem FROM canonical_project_branches WHERE project=$project LIMIT 65; IF array::len($problems)>64 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; }; ");
-    }
-    let mut predicates = vec!["key>$after".to_owned()];
-    for (present, predicate) in [
-        (filter.study.is_some(), "key=$study"),
-        (filter.source.is_some(), "revision=$source"),
-        (
-            filter.physical_revision.is_some(),
-            "physical_revision=$physical_revision",
-        ),
-        (filter.context.is_some(), "context=$context"),
-        (
-            filter.branch.is_some(),
-            "problem=(SELECT problem FROM ONLY type::record('canonical_project_branches',$branch)).problem",
-        ),
-        (filter.project.is_some(), "problem IN $problems"),
-        (
-            filter.outcome.is_some(),
-            "type::record('canonical_runs',run).terminal_class=$outcome",
-        ),
-        (
-            filter.research_reference.is_some(),
-            "(type::record('canonical_runs',run).research_selection=$research_reference OR type::record('canonical_runs',run).research_dataset=$research_reference OR run=type::record('canonical_research_references',$research_reference).run OR revision=type::record('canonical_research_references',$research_reference).revision OR (type::record('canonical_research_publications',$research_reference).selection!=NONE AND revision=type::record('canonical_research_publications',$research_reference).revision AND type::record('canonical_runs',run).research_selection=type::record('canonical_research_publications',$research_reference).selection))",
-        ),
-    ] {
-        if present {
-            predicates.push(predicate.into());
-        }
-    }
     let finish = if frozen {
         "fn::pse_workbench_v1::commit_capture($pse_rpc_expires_at,$capture,$owner,$request,$rows,$maximum,$members)"
     } else {
         "fn::pse_workbench_v1::browse($pse_rpc_expires_at,$rows,$maximum)"
     };
-    let sql = format!(
-        "LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM canonical_studies WHERE {} ORDER BY key LIMIT $extent;",
-        predicates.join(" AND ")
-    );
-    GuardedScript::new(Envelope::DeadlineOnly).returning(&format!("{prelude}{sql}"), finish)
+    let _ = filter;
+    GuardedScript::new(Envelope::DeadlineOnly).returning(
+        "LET $rows=fn::pse_workbench_v1::select_rows($pse_rpc_expires_at,{study:$study,project:$project,branch:$branch,source:$source,physical_revision:$physical_revision,context:$context,outcome:$outcome,research_reference:$research_reference},$after,$extent);",
+        finish,
+    )
 }
 impl CanonicalStore {
     /// Compact selected-run retry head; never fetch requests, source payloads or completion bytes.

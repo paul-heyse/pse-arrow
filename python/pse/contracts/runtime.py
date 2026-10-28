@@ -352,6 +352,35 @@ class RuntimeCanonicalContextJournalsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeCanonicalControlActorsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    password: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    enabled: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    browse: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    cancel: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.password), v.scalar_key(self.enabled), v.scalar_key(self.browse), v.scalar_key(self.cancel),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalControlCommandsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    actor: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    operation_id: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    study: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    receipt: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.issuing_store), v.scalar_key(self.actor), v.scalar_key(self.operation_id), v.scalar_key(self.study), v.scalar_key(self.receipt),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeCanonicalDraftDiagnosticsRow:
     """Declared relation row or nested value."""
 
