@@ -1543,7 +1543,16 @@ impl CanonicalStore {
                             readback.take::<Option<Object>>(0)?.map(|result| settled_readiness_count(&result, &pending.keys, &pending.operation)).transpose()
                         },
                         |_| true,
-                        |_| false,
+                        // This exact native fence precedes policy evaluation and page
+                        // writes. Retain receipt/readback precedence, then preserve the
+                        // original refusal without discarding the still-pending locator
+                        // or claiming absence of any earlier committed page prefix.
+                        |error| matches!(error, CanonicalError::Refused {
+                            code: pse_schema::catalog::canonical_refusals::RefusalCode::StudyReadinessModuleIdentityChanged,
+                            stage: "canonical_studies::readiness_apply_page",
+                            effect: crate::canonical::FailureEffect::StatementRefused,
+                            ..
+                        }),
                     ).await;
                 }
             };
