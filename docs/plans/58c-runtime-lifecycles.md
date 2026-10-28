@@ -6,7 +6,7 @@ adrs: []
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [current-work, architecture, libraries, validation]
-review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md]
+review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
 ---
 
 # Rust runtime lifecycles
@@ -15,6 +15,10 @@ This supporting plan develops O06 of the [Rust-owned functional
 review](../functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md) under [Plan58](58-rust-owned-system.md). It is
 new target-oriented scope replacing Plan57's frontend-shaped lifecycle decomposition. All packages are planned. Planning does not
 authorize implementation, resume interrupted qualification or attribute existing native failures to Python.
+
+The [hard-cutover review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I02),
+published at `c3b7f136d`, supplies I01/I02/I04/I10/I11/I12/I14. Its coordinator-owned dispositions
+replace preservation of Python-shaped coordination with actual native ownership and canonical durable policy.
 
 ## Target and foundation assessment
 
@@ -34,6 +38,12 @@ and physically releasing resources. Existing `workflow/worker.rs`, `operation_pr
 Observation metrics are facts about those owners and never grants of release or durable success. Python-specific pull/wait ownership
 retires with its actual consumers. Deferred optional PyO3 bindings do not require implementing another interpreter wait bridge in this
 series.
+
+Canonical SurrealDB governs durable study definitions, readiness, assignments and transitions through D;
+C owns preparation/resource admission, actual computation, joins and physical release. A worker does not
+mirror that durable workflow in another scheduler journal. Scientific calculation/progress observations remain;
+bespoke build-stage, wait-lock and freshness observations retire with B/F. Do not serialize live task handles,
+native workspaces or pointers to represent execution history.
 
 A local run owns its execution according to the native API contract; a durable accepted study can outlive an observer. Stopping either
 is an explicit operation policy, not a transport side effect. Shared preparation has producer/waiter ownership: one canceled waiter
@@ -113,6 +123,11 @@ execution owner instead of dropping authority at a wrapper boundary. Targeted te
 concurrent cases, retained-to-fresh fallback and failed construction without leaked permits/populations. Remove replaced admission
 wrappers and their obsolete tests once these consumers use the owner.
 
+For persisted work, consume D03's bounded preparation/claim handoff. Preparation and resource admission happen
+before execution claim; return prepared seed/premise evidence for canonical rechecking against current revisions
+and cancellation. Selection continuation must not be mistaken for exhaustive no-work. Keep preparation and
+foreign calls outside transactions. D owns whether a point can run; C supplies the owned resources needed to run it.
+
 <a id="c04"></a>
 ## C04 — Join service roots and hand physical ownership to the host owner
 
@@ -127,10 +142,19 @@ tests race admission against shutdown, fail one sibling while another drains, st
 owned after async timeout. Delete superseded root coordinators and process-release duplication only after host/runtime consumers migrate
 together.
 
+F02's disposable test resources consume a real owned fixture/worker capability with private constructors and explicit
+borrowed-service constraints. Nextest groups are scheduling, not permissions. Settle owned resources after a
+failed scientific assertion as well as success, retaining useful diagnostics outside disposable state; `Drop`
+does not establish scientific success. Do not reproduce global test-name/effect tables, success-gated retention
+or a resumable fixture terminal-composer. Keep runtime checks at external uncertainty: process death,
+authentication, unknown ownership and actual interference with shared services. Minimal physical helpers must
+remain below the DataFusion-bearing testkit closure so B's cold root can use them.
+
 <a id="c05"></a>
 ## C05 — Preserve publication and result-delivery lifetimes
 
-Consume C02 plus implemented [D02](58d-canonical-control-and-connectivity.md#d02) durable receipt and
+Consume C02 plus implemented [D03](58d-canonical-control-and-connectivity.md#d03) durable publication policy,
+[D02](58d-canonical-control-and-connectivity.md#d02) original command reconciliation and
 [E03](58e-retained-data-and-delivery.md#e03) protected-result delivery slices. A scientific terminal result is distinct from successful
 durable publication, acknowledgement, response delivery and physical output release. Reconcile uncertain publication under original
 identity; never rerun a completed scientific effect merely because a client lost its response. Cancellation of a reader or protocol
@@ -141,6 +165,13 @@ cannot stand for domain/native drain. Targeted tests cover late delivery, reader
 native completion, lost acknowledgement and abandoned delivery while another reader remains live. Delete frontend-only settlement
 files/bridges whose last consumer retires, keeping original owners.
 
+Store construction establishes schema applicability; it cannot alone settle a later migration boundary.
+Consume [D05](58d-canonical-control-and-connectivity.md#d05)'s explicit admission/version-fence and
+in-flight-attempt policy before publication can cross that boundary. A closing store must not manufacture
+completion or cause a second scientific execution. Distinguish
+database transaction visibility, immutable payload publication and host executable replacement; share compatible
+filesystem mechanics without imposing one universal publication protocol.
+
 <a id="c06"></a>
 ## C06 — Cut over callers and hand off assembled lifecycle qualification
 
@@ -149,6 +180,11 @@ interpreter-specific wait/pull orchestration and obsolete lifecycle metrics/test
 must supply their own bounded contract and tests. Retain attribution, native callback, stack/admission and physical release failure
 obligations even when they occurred through the removed interface. Coordinate source and test edits on shared runtime/host/results files
 rather than treating this document as an isolated edit boundary.
+
+Each unit integrates its native owner, actual callers, configuration and tests with old-path deletion.
+Temporary incomplete development paths are recorded without acceptance credit; no second controller or Python
+fallback is required between commits. Simplify ordinary unbounded host bookkeeping while retaining explicit
+scientific demands and selected timing/reference exclusions; do not introduce a resident admission daemon.
 
 ## Verification and current checkpoint
 

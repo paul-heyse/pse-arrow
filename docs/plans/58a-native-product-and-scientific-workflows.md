@@ -6,7 +6,7 @@ adrs: []
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [current-work, architecture, libraries, validation]
-review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md]
+review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
 ---
 
 # Native product and scientific workflows
@@ -17,6 +17,11 @@ document authorizes no implementation. The source [functional
 review](../functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md) supplies O01, O10 and O12, with a bounded O13
 decision. Its observations are planning inputs, not evidence that a native application journey has already passed.
 
+The [hard-cutover review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I01),
+published at `c3b7f136d`, additionally supplies I01/I02/I07/I09/I10/I13/I14. The coordinator owns
+their dispositions. This amendment retains scientific outcomes while removing unnecessary Python delivery
+requirements; no package inherits unfinished Plan57 work.
+
 ## Target and foundation assessment
 
 The product root is a callable Rust library: admitted authored definitions and explicit physical context enter existing
@@ -25,6 +30,12 @@ or an owned operation handle. Ordinary in-process calls do not serialize through
 dispatcher. Small executable commands may expose useful operations when inexpensive, but a product CLI is neither the architecture root
 nor a completion requirement. A future frontend consumes the same capabilities without implementing scientific admission, workflow
 policy or result interpretation.
+
+Normal linked Rust APIs are the immediate public capability. Do not first construct public pyclasses,
+frozen Python document wrappers, a replacement codec or a foreign ABI. Explicit build/development generation
+may publish declarations needed by retained consumers; ordinary execution, reads and help do not regenerate
+code. Validate external files/requests for finiteness, versions, unknown fields and physical context at their
+actual ingress, then carry established premises through Rust construction and borrowing.
 
 Current foundations include `pse-runtime/src/workflow/mod.rs`, `operation_preparation.rs`, `sampling.rs`, `strategies.rs`,
 `result_snapshot.rs` and `pse-compiler/src/workspace.rs`. `RuntimeOperationRequest`, `ModelingPackage::prepare_operation`,
@@ -84,8 +95,9 @@ physical-context and interpretation changes invalidate everything they can affec
 declarations; adding a physical concept changes its semantic owner. Use existing graph projections for explanations; SCCs and
 deterministic traversal must not confuse physical recycles with acyclic dependency order or persist local graph indices as identities.
 A02 owns migration of native source/project/history callers through the existing runtime/project and
-operations revision/publication owners. D supplies connection/authentication selection where needed;
-its compact browse/cancel/reconcile API does not implement source publication or study submission. Salsa persistence is deferred pending a concrete consumer: if selected later, compatibility/input namespaces and safe
+operations revision/publication owners. D supplies connection/authentication and canonical transition policy
+where persistence is selected; A owns the scientific source/submission callers and their preparation.
+Salsa persistence is deferred pending a concrete consumer: if selected later, compatibility/input namespaces and safe
 recomputation are mandatory. Targeted compiler tests distinguish value-only, structural and deletion edits, concurrent read/write drain
 and unavailable-cache recomputation. Delete Python-only workspace caching after caller migration.
 
@@ -116,20 +128,33 @@ tests run at the scientific owner; full multi-mode journeys wait for H. Remove w
 scientific claim has a native test or explicit H owner. No permission to lose peripheral interfaces authorizes loss of one of these
 scientific modes.
 
+Coordinate F04's independent-reference cutover: the existing parity candidate harness imports `pse.Runtime`
+and generated Python types. Native candidate operations must exchange explicit cases/results with isolated
+IDAES/Pyomo, SciPy or teqp references instead. A public CLI or a required Python extension is unnecessary.
+Retain original tolerances and physical interpretation; a deliberately wrong candidate must fail comparison.
+
 <a id="a05"></a>
 ## A05 — Compose native designs, studies and reproducible results
 
-Consume A03/A04, [D01](58d-canonical-control-and-connectivity.md#d01)'s connection/authentication contract and
-[C03](58c-runtime-lifecycles.md#c03)'s worker admission contract. A05 owns the native recording/submission
-caller migration through existing workflow/study and canonical publication owners, including its original
-acknowledgement/recovery identity. D02 supplies compact cancellation/reconciliation semantics, not submission. Native generated designs produce owned realized overlays; local
-studies remain local until explicit recording. Durable submission carries exact original source/operation identity and hands off to
-existing workers; observers read progress and reconcile uncertain effects without owning numerical execution. Keep
+Consume A03/A04, [D01](58d-canonical-control-and-connectivity.md#d01)'s connection/authentication,
+[D03](58d-canonical-control-and-connectivity.md#d03)'s canonical execution policy and
+[C03](58c-runtime-lifecycles.md#c03)'s worker admission contracts. A05 owns native recording/submission
+callers and scientific preparation; D owns persisted submission, readiness, claim and settlement meaning.
+Native generated designs produce owned realized overlays; local studies remain local until explicit recording.
+Durable submission carries exact original source/operation identity and uses the same canonical definitions,
+dependencies, attempts, assignments and result references later queried for analysis. Workers perform effects
+without maintaining a second durable interpretation of readiness. D02 supplies original command reconciliation. Keep
 recorded-realized-point replay, warm-start dependencies, actual failures, original result provenance and source/history retention.
 Cancellation and restart must not reinterpret an imputed value as an observation or regenerate realized points from a seed. Reuse shared
-prepared structure across cases while respecting nested native admission and attempt isolation. Targeted tests cover deterministic point
+prepared structure across cases while respecting nested native admission and attempt isolation. Preparation and
+required resource admission precede execution claim; D must recheck prepared seed evidence, dependency revisions
+and cancellation before granting that claim. Expensive preparation/native science stays outside short database
+transactions. Install dependency edges before activation; this scope does not introduce live graph mutation.
+Notifications only wake workers; canonical state resolves missed events. Retain useful calculation/progress
+observations at scientific granularity, not every runtime event or live object graph. Targeted tests cover deterministic point
 identity under reordered completion, generation failure, recorded replay after producer closure and interrupted
-publication/reconciliation. Delete Python study assembly and redundant conversion once all retained native consumers move.
+publication/reconciliation, cancellation or dependency revision changes after preparation, and worker replacement followed
+by analysis of the original lineage. Delete Python study assembly and redundant conversion with migrated consumers.
 
 <a id="a06"></a>
 ## A06 — Decide adaptive composition without inventing another optimizer
@@ -152,6 +177,12 @@ worker roots and non-Python consumers alongside each owner; retain only optional
 Coordinate deletion of the retiring Python facade/MCP consumers with their owning plan; never remove a shared guarantee merely because
 its old wrapper disappeared. A future frontend adaptation must consume these operations without copying their scientific policy. Product
 command additions remain discretionary.
+
+Use integrated cutover sets: owner, real consumers, configuration, generator declarations, targeted tests and
+obsolete implementation deletion belong together. Temporary development incompleteness earns no acceptance;
+do not add compatibility DTOs, a FastMCP proxy or a Python scientific fallback to keep intermediate commits usable.
+Retire Python projections, stubs, manifests and self-check expectations with their last retained consumer in F/G.
+Keep genuine external scientific contracts, not mechanism-specific drift guards.
 
 ## Verification and current checkpoint
 

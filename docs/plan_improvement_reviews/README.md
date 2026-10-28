@@ -13,7 +13,9 @@ It recommends integrated native replacements, database-model-driven durable exec
 structural fixture contracts, native-tool delegation and removal of unnecessary build and
 development-recovery machinery. Durable storage/migration infrastructure remains a target;
 full persistent-deployment qualification is distinguished from regenerable development work.
-Recommendations do not amend Plan58 or authorize implementation.
+The [Plan58 coordinator](../plans/58-rust-owned-system.md#improvement-dispositions) now owns
+the scheduled I01–I14 dispositions and companion work. Adoption into plans does not establish
+implementation, qualification or formal ADR acceptance.
 
 The [remaining test-architecture review](test-architecture-remaining-2026-10-24.md)
 assesses Plan 53's remaining work alongside Plan 52's affected contracts, taking completed

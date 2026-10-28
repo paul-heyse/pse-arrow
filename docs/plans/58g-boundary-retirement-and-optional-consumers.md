@@ -3,7 +3,7 @@ title: "Plan58: Boundary retirement and optional consumers"
 status: draft
 date: 2026-10-28
 adrs: []
-review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md]
+review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [current-work, architecture, design, libraries, validation]
@@ -13,45 +13,59 @@ doc_topics: [current-work, architecture, design, libraries, validation]
 
 ## Target and foundation
 
-**Proposed:** retire first-party Python operating machinery and the Python MCP stack while preserving useful scientific outcomes through Rust owners. Source review O03/O04; coordinator owns selection. No full Python API, FastMCP feature parity, CLI or MCP requirement survives merely because it once existed. Existing CLIs may stay when they are thin useful adapters; remove their mandatory MCP execution dependency or drop the adapter. Future optional PyO3 uses coarse Rust operations; its implementation is deferred.
+**Proposed:** retire first-party Python operating machinery and the Python MCP stack while preserving supported scientific outcomes through Rust owners. O03/O04 supply the original opportunity; the [improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I01), especially I01/I07–I09/I12/I13, supplies the integrated cutover and requirement reductions. The [coordinator](58-rust-owned-system.md) owns their dispositions. Baseline is `c3b7f136d`; no product replacement is implemented by this amendment.
 
-The current Python Runtime facade, control client, generated documents, native worker bridge, retained MCP sessions, source/extension currency checks and CLI generation serve different purposes. Inspect their callers before deletion. Do not replace a Python helper process with a Rust helper process if a direct owned operation suffices. Do not embed Python in the new host to preserve orchestration.
+A cutover includes the retained outcome's native owner, real callers, configuration, generator declarations, tests and old-path deletion. Temporary incomplete development states receive no acceptance credit, but need no compatibility bridge. G contributes to each owning change; it is not a final cleanup wave that permits replaced mechanisms to linger. Independent cuts need not become one repository-wide commit.
+
+No full Python API, FastMCP feature parity, CLI or MCP requirement survives merely because it once existed. Existing useful CLIs may stay as thin adapters with direct native calls. No universal operation catalogue, Rust proxy for a FastMCP child, replacement agent framework or embedded Python controller is selected. Qualified native C/Fortran solvers and ordinary third-party subprocess tools remain eligible.
+
+The current facade, control client, generated documents/stubs, native worker bridge, retained MCP sessions, source/extension currency checks and CLI generation have different consumers. Inspect those consumers to locate deletion boundaries, not to infer that each mechanism must be ported. Rust types and validated construction carry established internal premises; remaining external files, requests and persisted records still require their actual boundary validation.
 
 ## Package state
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| G01 | planned | 58g | Retained/lost frontend behavior and migration callers explicitly classified |
-| G02 | planned | 58g | Python MCP and consumer-specific bridges removed after retained consumers move |
-| G03 | planned | 58g | Python product facade/required dependency retirement integrated across build/generation/tests |
-| G04 | planned | 58g | Optional consumer contract/investigation decisions recorded without implementation requirement |
+| G01 | planned | 58g | Retained/lost behavior and integrated caller/declaration deletion boundaries classified |
+| G02 | planned | 58g | Python MCP and its bridges removed with retained consumer cutovers |
+| G03 | planned | 58g | Required Python product projections and operating dependencies retired with their declarations and consumers |
+| G04 | planned | 58g | Future optional binding seam defined; unnecessary ABI/catalogue/frontends explicitly unselected |
 
 <a id="g01"></a>
 ### G01 — Select outcomes and deletion boundaries
 
-Consume T01/T02 and A/D/E/F capability designs. Classify public authoring/result/control use, developer commands, prompts/navigation, source editing and telemetry/recovery access by actual retained outcome. Record intentional losses with their rationale and any ordinary tool/API replacement. A shell/editor workflow may replace an agent-specific editing service; no new preview state machine is required by default. No preserved interface can force a generic command catalogue into production. Targeted acceptance is a concrete consumer transition with input/output/failure expectations, not a module-count target.
+Consume T01/T02 and A/D/E/F capability designs. Classify public authoring/result/control use, developer commands, prompts/navigation, source editing and observation/recovery access by retained outcome. Record intentional losses with rationale and any ordinary tool/API replacement. Scientific calculation/progress observation remains; bespoke build observation and its derivative clients/alerts do not. A shell/editor workflow may replace an agent-specific editing service without a new preview state machine.
+
+Use I08's actual consumers to distinguish deletion from replacement. F owns replacement of the active `grpc_wire_schema.py` invocation by Rust parsing/generation and retained native-engine boundary checks. G removes frontend-only generated private/attrs modules, stubs, manifests, dynamic self-check expectations and configuration references with their last retained caller. Explicit resource-conversion actions, SurrealKit beta recipes/pending-state branches, `IDAES_NAMES` and probe assets require reachability/meaning assessment; a pathname or old schema difference alone does not establish disposability. Coordinate native migration infrastructure with D and development reconstruction with F; no existing store or authored/reference evidence is erased by this plan.
+
+Targeted acceptance is a concrete retained consumer transition with input/output/failure expectations and absent obsolete dependencies. It is not a module-count target or blanket ban on reference-only Python.
 
 <a id="g02"></a>
 ### G02 — Remove Python MCP as a system dependency
 
-After selected product/developer callers work, delete serving, fixed worker/native read subprocess bridges, retained Python Runtime sessions, generic invokers, visibility transforms, generated MCP CLI clients, reconnect/admission/currency checks and fixtures whose only consumer disappears. Migrate or drop every remaining meaningful `scripts/capabilities` consumer rather than deleting the directory by name. Update recipes, agent attachments/configuration, generation and dependency declarations together. Preserve immutable executing-artifact identity and physical settlement where their actual consumers remain. No alternate Python server or hidden compatibility invoker.
+In each integrated product/developer cutover, delete serving, fixed worker/native read subprocess bridges, retained Python Runtime sessions, generic invokers, visibility transforms, generated MCP CLI clients and reconnect/admission/currency checks whose consumers disappear. Migrate or intentionally drop each meaningful `scripts/capabilities` consumer. Update recipes, agent attachments/configuration, generation and dependency declarations together. Retire `WorkerFamily`, import eligibility and host-envelope projections when their consumers leave; do not translate them into a global Rust dispatch registry.
 
-Targeted tests exercise retained behavior directly at Rust owners plus startup/help/configuration with Python/MCP unavailable, and explicit refusal for removed entry points without launching setup. Removed interface tests retire; native assertions remain. H owns joined frontend-independent acceptance.
+Preserve actual executing-artifact selection and physical settlement where retained consumers need them, rather than every frozen-Python closure hash or mirror-consistency fence. No alternate Python server, hidden compatibility invoker or transitional RMCP proxy is permitted. Direct Rust applications are sufficient consumers; progressive disclosure, guidance and editing presentations do not block native delivery.
+
+Targeted tests exercise retained behavior directly at Rust owners and startup/help/configuration with Python/MCP unavailable. Removed interface tests retire with the interface. H owns joined frontend-independent acceptance.
 
 <a id="g03"></a>
 ### G03 — Retire required Python product/runtime adapters
 
-Migrate remaining native consumers before removing required scientific facade, HTTP orchestration, generated Python mirrors/stubs, pyo3-specific workflow roots and build dependencies. Reconcile version/build metadata authority when Python ceases to own package-facing publication. Remove stale generator outputs through their generator, not hand edits. Delete obsolete interpreter wait policies only after actual retained consumers leave; C owns native lifecycle guarantees. Isolate independent Python oracle execution and any explicitly optional Python data consumer; neither can become a required simulation/bootstrap dependency. Do not ship fake `.py` forwarding compatibility APIs.
+With each migrated retained consumer, remove the corresponding scientific facade, HTTP orchestration, generated Python mirrors/stubs, PyO3-specific workflow roots and build dependencies. Change generator emissions, manifests, registration and self-check declarations, then regenerate through the owning generator; never hand-edit generated output. Reconcile version/build metadata authority without retaining package-facing Python merely to validate its own removed projections. Generation is explicit development/build publication, never an import/read/help side effect.
 
-Targeted tests establish native operations do not import/start Python, generated contracts reflect retained consumers and optional references cannot contaminate production closure. No assertion that all dependencies must be implemented in Rust: qualified C/Fortran solvers and external tools remain eligible.
+Do not first build public pyclasses, frozen document wrappers, pythonize conversion or Python OTel integration to replace a deferred Python product. Native constructors still enforce retained physical context, finiteness and version/unknown-field rules at real inputs; internal values need no repeated mirror walk.
+
+The current parity candidate harness imports `pse`, generated types/test fixtures and constructs `pse.Runtime`. F04 must move candidate execution to native scientific operations and exchange explicit cases/results with isolated IDAES/Pyomo, SciPy or teqp reference execution. Preserve independent calculations, tolerances and interpretation, including a deliberately wrong candidate result. An unchanged facade-dependent parity harness is not oracle isolation. This exchange needs no public product CLI or ongoing extension delivery.
+
+Delete obsolete interpreter wait policies only with their actual consumers; C owns native lifecycle guarantees. Any temporary black-box harness challenges the native replacement without retaining the old production implementation as its expected-answer oracle. Targeted tests establish native production/bootstrap independence and reference-environment isolation, not language purity of every dependency.
 
 <a id="g04"></a>
 ### G04 — Define future adapters; conditional adoption only
 
-Document an optional PyO3 seam over native request/result/operation handles: Python supplies adaptation, Rust owns policy and lifecycle. Compare in-process borrowed Arrow access with process-isolated durable access for a concrete consumer; no GUI framework is selected. PyO3 `detach`/classes do not eliminate thread/destruction/cancellation obligations. This design deliverable is required; implementing the package is not.
+Document a coarse optional PyO3 seam over Rust-owned requests/results/operation handles: adaptation belongs to the binding, policy and lifetime to Rust. This design deliverable does not require implementing a Python package, GUI, public native class family or second cdylib. A `cdylib` artifact does not provide an API/ownership contract; current `_native` has CPython assumptions. Ordinary linked Rust APIs remain the immediate target. No mandatory C ABI, plugin system or stable-ABI framework follows without an actual foreign consumer. PyO3 detachment does not establish native destruction or cancellation.
 
-RMCP remains deferred until a retained actual agent workflow needs it beyond direct tools/APIs. If triggered, compare no MCP against a small typed STDIO adapter using `ServerHandler`, `ToolRouter`, `Parameters<T>` and structured results. Reuse existing directional schemas, not an independent protocol type universe. RMCP3.7 service close can cancel handlers after bounded drain; domain owners settle separately. No MCP task scheduler or full FastMCP parity. Actual host support is required before any delivery claim. See [tagged RMCP service](https://github.com/modelcontextprotocol/rust-sdk/blob/rmcp-v3.7.0/crates/rmcp/src/service.rs) and [PyO3 pinned API](https://docs.rs/pyo3/0.29.2/pyo3/).
+RMCP remains deferred until a concrete agent workflow earns it beyond direct APIs/tools. If triggered, compare no MCP against a small typed STDIO adapter using `ServerHandler`, `ToolRouter`, `Parameters<T>` and structured results. Reuse domain-owned operations rather than generating three required faces from a catalogue. RMCP3.7 service close can cancel handlers after bounded drain; domain owners settle separately. Actual host support is required before a delivery claim. Source: [tagged RMCP service](https://github.com/modelcontextprotocol/rust-sdk/blob/rmcp-v3.7.0/crates/rmcp/src/service.rs); the source review owns release-specific research. No FastMCP parity or MCP task scheduler is required.
 
 ## Verification and handoff
 
-**Proposed:** all packages. No execution performed. H receives retained/lost capabilities, final dependency closures, actual caller migrations and deletions. Optional consumers cannot hold the production target open. Rule/architecture changes precede their dependent implementation; this document does not change ADR status.
+**Proposed:** G01–G04. No runtime execution or product qualification occurred for this amendment. H receives retained/lost outcomes, final dependency closures and actual integrated caller/declaration deletions. Optional consumers cannot hold native core completion open. Applicable rule/architecture changes precede dependent implementation; this document does not change ADR status or authorize data disposal.

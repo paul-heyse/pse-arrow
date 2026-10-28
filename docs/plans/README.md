@@ -1,11 +1,15 @@
 # Current work and plans
 
 [Plan58: Rust-owned system](58-rust-owned-system.md) is the new owning series for the
-Rust-first functional review. It entirely supersedes Plan57 rather than inheriting its packages.
+Rust-first functional review and the [hard-cutover improvement review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md). It entirely supersedes Plan57 rather than inheriting its packages.
 Its eight companions develop independently usable native capabilities, small bootstrap/host
-control, runtime lifecycles, canonical control, retained data, development workflows, boundary
+control, runtime lifecycles, canonical durable execution/schema evolution, retained data, development workflows, boundary
 retirement and qualification. CLIs and MCP are optional; PyO3 implementation is deferred.
-The coordinator owns shared target decisions and O01–O15 dispositions; companions own packages.
+The coordinator owns shared target decisions and O01–O15/I01–I14 dispositions; companions own packages.
+Expanded 58d delivers minimal native migration infrastructure; exhaustive persistent-production
+recovery qualification is a later release obligation before non-regenerable/shared operational data.
+Integrated replacements retire Python mechanisms, bespoke build observation and redundant fixture
+guards. Scientific calculation observation and independent reference assurance remain.
 This publication authorizes planning only. Production implementation and qualification remain
 paused, with no service or campaign restarted.
 

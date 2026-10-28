@@ -3,7 +3,7 @@ title: "Plan 58e: Retained data and delivery"
 status: draft
 date: 2026-10-28
 adrs: []
-review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md]
+review_sources: [docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md, docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md]
 doc_role: plan
 doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [storage, design]
@@ -27,6 +27,12 @@ meaning. Core 3.4, its efficient-architecture companion and Process Simulator 1.
 foundation assessment. Selection/delivery preserves physical metadata and partiality; it
 does not establish a new scientific result or relax original admission.
 
+The [hard-cutover review](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I02),
+published at `c3b7f136d`, supplies I01/I02/I10/I12/I14. The coordinator owns adoption status;
+this companion owns protected payload interpretation/delivery, while D owns canonical execution
+lineage, result references and schema applicability. No additional store or payload-format migration
+is selected by moving durable workflow meaning into SurrealDB.
+
 ## Existing foundations and target
 
 `crates/pse-runtime/src/workflow/result_snapshot.rs` already provides full and selected protected snapshots,
@@ -49,6 +55,13 @@ Scientific execution separately adds model/math/native services. Direct Rust con
 typed requests, snapshots and Arrow batches without Python serialization. Authoritative
 completed payloads remain sealed Arrow IPC. Parquet is an explicitly selected export
 derivative; no database backend or authoritative payload migration is presumed.
+
+Persisted definitions/revisions, attempts, realized points and useful calculation observations
+must identify these same result references. A later comparison of repeated studies reads their
+original canonical lineage and protected payloads rather than rebuilding a separate execution
+history. Native task graphs and every runtime event are not analytical requirements. Keep
+scientific calculation/progress observation and diagnostics; build observations and derivative
+build-specific queries/alerts deliberately retire through B/F.
 
 ## Package state
 
@@ -84,6 +97,13 @@ compare selected versus independent full-read results, preserve original capture
 and reject invalid schema/grant/issuer without broad source preparation. Keep explicit
 force-validation on every Arrow-consuming correctness closure.
 
+Use D's established schema/store capability rather than rebuilding its whole applicability proof
+for every read. External payloads, grants, captured member identity and concurrent reclamation
+still require their real admission checks; Rust typing does not prove remote bytes are valid.
+Consume [D05](58d-canonical-control-and-connectivity.md#d05)'s interpretation/version boundary for open
+readers across migration and refuse unsupported interpretation explicitly rather than silently rebuilding
+mathematical services.
+
 <a id="e02"></a>
 ## E02 — Protected native relational composition
 
@@ -105,6 +125,10 @@ exercise a false-positive pruning predicate with limit, reject another deploymen
 retain cohort partiality after early scan termination. Compare results to small independently
 specified expected rows, not only a second use of the same pruning implementation. Retire
 replaced Python-only query assembly once retained consumer paths use this native composition.
+
+Add a repeated-study comparison that selects recorded attempts and realized-point/source lineage
+from canonical state, then joins their protected outputs. Worker replacement must not create a
+different history interpretation or require importing the deleted Python projection machinery.
 
 <a id="e03"></a>
 ## E03 — Delivery custody and useful exports
@@ -130,6 +154,11 @@ close with retained arrays, sliced Bytes leases, malformed/oversized IPC before 
 partial attachment, cancellation during delivery and failed export completion. Remove
 replaced Python materialization/stream holders and their mechanism-specific fixtures together.
 
+Keep publication semantics specific: immutable payload creation retains its no-replace/completion
+contract, selected executable descriptors may replace atomically, and canonical scientific commits
+have transaction/acknowledgement semantics. Reuse private staging/filesystem primitives where they
+fit; do not consolidate these into a universal generation receipt or preserve Python mirror hashing.
+
 <a id="e04"></a>
 ## E04 — Consumer cutover, conditional interoperability and H handoff
 
@@ -137,6 +166,10 @@ Migrate retained Rust inspection/export callers onto E01–E03; coordinate retir
 `TableStream`/MCP retained-session machinery with its frontend owner. A CLI is optional,
 PyO3 remains deferred and MCP depends on the coordinator's selected subset. Native data
 acceptance cannot depend on any of those adapters.
+
+Migrate each actual consumer with its owner, configuration, generator/manifest entries and targeted
+tests; delete retired outputs and assertions for the removed mechanism in that same cutover.
+No temporary Python stream bridge is needed to make an unfinished development unit appear complete.
 
 For O15, a named immutable-file download need first selects ordinary completed IPC-file HTTP
 delivery. Investigate Arrow Flight only when an actual interoperable batch-stream consumer

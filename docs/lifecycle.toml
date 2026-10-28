@@ -3835,3 +3835,32 @@ kind = "depends-on"
 from = "docs/plans/58g-boundary-retirement-and-optional-consumers.md::package-state::G01"
 to = "docs/plans/58-rust-owned-system.md::package-state::T02"
 kind = "depends-on"
+
+# Plan58 improvement dispositions share the coordinator; companions retain package state.
+[[scope_tables]]
+path = "docs/plans/58-rust-owned-system.md"
+name = "improvement-dispositions"
+heading = "Improvement dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision/work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
+[[relationships]]
+from = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D04"
+to = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D04"
+to = "docs/plans/58d-canonical-control-and-connectivity.md::package-state::D05"
+kind = "depends-on"

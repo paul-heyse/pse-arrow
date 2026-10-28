@@ -7,6 +7,7 @@ doc_owner: docs/plans/58-rust-owned-system.md
 doc_topics: [current-work, environment, validation]
 review_sources:
   - docs/functional_reviews/rust-first-system-functional-opportunities-2026-10-28.md
+  - docs/plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md
 ---
 
 # Plan58b: Bootstrap and host control
@@ -14,6 +15,8 @@ review_sources:
 This companion develops O05 and the host portion of O02/O06. The
 [coordinator](58-rust-owned-system.md) owns selection, rule changes and overall acceptance;
 this document owns the packages below. Creation authorizes planning only. Plan57 is superseded; its failed/interrupted evidence remains historical under its original conditions.
+
+This revision incorporates [I01/I03–I05/I10–I12](../plan_improvement_reviews/plan58-rust-hard-cutover-2026-10-28.md#I01). The amendment baseline is `c3b7f136d`; reviewed production source remains `bd1c4891e`. Recommendation disposition belongs to the coordinator.
 
 ## Baseline and target
 
@@ -31,7 +34,9 @@ Arrow/DataFusion, database clients and the schema/codegen closure. A feature-sep
 would require disentangling its unconditional imports and library dependencies while preserving
 its scientific development uses. The dedicated root makes bootstrap and failure diagnosis
 independently constructible; it adds a crate and therefore needs an ADR and formal design
-review before code. Its name and local module layout remain implementation choices.
+review before code. Its name and local module layout remain implementation choices. Do not import the current
+DataFusion-bearing `pse-testkit` into this root to share fixtures; reuse lightweight physical
+primitives or place the minimum necessary primitives below scientific dependencies.
 
 A tiny shell seed locates the pinned Cargo/toolchain and builds only this locked package
 into checkout-local Cargo output, then installs a completed executable by atomic replacement
@@ -60,7 +65,13 @@ selected user-bus address; never silently target PID 1. Compose `ManagerProxy`, 
 scope properties and `StartTransientUnit`'s typed `a(sv)` properties. Services let the manager
 spawn owned workloads; scopes attach explicitly owned external processes, preserving partial
 spawn/attach failure cleanup. Retain borrowed scope/service distinctions and allocation policy.
-Systemd owns process containment; Rust owns admission and original-result interpretation.
+Systemd owns process containment; Rust owns necessary admission and original-result interpretation.
+The baseline is an owned foreground operation with manager containment, not a resident admission
+daemon. A daemon requires a named persistent coordination workload and a demonstrated reduction
+in total machinery before selection. In configured unbounded development mode, delete unnecessary
+slot records and pressure-policy branches rather than translate them. Explicit scientific demands,
+selected reference/timing exclusions and operator finite selections retain their meaning; no new
+CPU/RAM partitions or serial execution are introduced.
 
 Create the `JobRemoved` receiver and call `Subscribe()` before submitting a job. Match its
 returned job path, distinguish accepted/queued from completed/failed/canceled, and inspect the
@@ -72,8 +83,9 @@ user manager. Do not select newer multi-job APIs merely because the bindings exp
 Bind boot ID, PID/start identity, manager invocation/unit identity and original cgroup identity
 before consumers trust ownership. A successful StopUnit job, absent observer, pidfd exit or
 transport EOF is insufficient for descendant release: observe the bound kernel cgroup's
-hierarchical population and authenticate identity changes. Unavailable evidence retains the
-charge and a useful refusal. Host liveness has no new canonical database store; consolidate
+hierarchical population and authenticate identity changes. Unavailable evidence prevents a claim of physical release and produces a useful refusal.
+A finite scientific charge remains until its actual release; ordinary unbounded work does not
+require recreating a general allocation ledger. Host liveness has no new canonical database store; consolidate
 helper-only records but preserve distinct scientific admission, borrowed ownership, durable
 study receipts and immutable artifact identity where their effects require them.
 
@@ -91,6 +103,42 @@ dependency is scheduled. Likewise [tokio-graceful-shutdown](../libraries/tokio-g
 is optional when real subsystem hierarchy warrants `Toplevel`, subtree failure routing and
 explicit joins. Flat tasks can use existing tokens/tracking. Neither timeout nor task abort
 proves a blocking native call or operating-system process drained.
+
+## Service, fixture and observation boundaries
+
+58b owns deployment process mechanics and the selected lifecycle/credential establishment.
+[58d](58d-canonical-control-and-connectivity.md) owns schema/version readiness, migrations and
+write admission. Starting a process does not establish schema applicability. Do not port the
+complete Python database operator or historical recovery machinery to satisfy service launch.
+
+A fixture gets real typed owned or borrowed capabilities with private construction and explicit
+shutdown. Test names, nextest groups and an effect registry grant no authority. Private per-run
+resources are preferred; shared services have an isolated borrow/stop adapter. The native owner
+settles disposable resources after either scientific success or failure, preserving useful
+diagnostics outside the store. Cleanup does not establish scientific success, and `Drop` is not
+a successful test outcome. Preserve uncertain ownership instead of stopping unrelated services.
+
+Replace controller filename/unit-name drift conventions with actual artifact/manager capabilities.
+Select native tool configuration once at explicit setup/build establishment. Use pinned sccache
+0.19 native executable/service behavior rather than a Rust translation of per-compiler Python
+hashing, service-identity polling, ledger updates and process-group settlement. The operator
+selected on 2026-10-28 that cache-service loss alone does not invalidate a valid compiler result;
+58f supplies the native tool configuration and targeted controls. Real compiler failures, child
+exit and containment remain meaningful. `SCCACHE_NO_DAEMON` is not a never-start guarantee;
+selected logging/distribution modes need exact-source qualification before integration.
+
+Retire bespoke build observation and its live build-stage/wait/freshness consumers and alerts.
+Retain scientific calculation/progress and useful diagnostics. Implement the useful native
+`OTEL_*`/local settings resolver below scientific dependencies: existing Rust
+`Host::from_environment` consumes serialized settings and is not that resolver. Optional telemetry
+does not gate local computation. Assessment/pressure observations need individual retained-value
+dispositions; collector removal is a separate decision because queue/failure alerts depend on it.
+No second SDK or monitoring stack follows from this cutover.
+
+Executable selection uses atomic replacement of a completed selection; immutable payloads in
+58e and canonical transaction publication in 58d retain their own visibility semantics. Delete
+frozen-Python generation/source-hash coherence machinery when its consumer goes; do not create
+a universal publication protocol.
 
 ## Package state
 
@@ -124,26 +172,33 @@ policy tests and a real disposable user-manager unit for the host255 capability 
 <a id="b03"></a>
 ### B03 — Move environment, admission and launch as one ownership slice
 
-B02 supplies real containment/observation. Move `pse_env`, `host_admission`, `operation_lifetime`,
-`systemd_environment`, process observation and consumed host metadata policy into Rust; migrate
-recipes, direnv exports and direct launch callers together. Preserve original child exit and
-retained cleanup failures, nested borrowing and original absolute stop deadlines. Targeted
-tests exercise partial launch, interrupted caller, borrowed owner, failed sibling teardown and
-retained charge until physical drain. Delete replaced Python owners/callers/tests in that slice;
-neither a fallback launcher nor independently writable release ledger remains.
+B02 supplies real containment/observation. Deliver the retained environment, launch and release
+outcomes through the lean host owner, migrating recipes, direnv and direct callers together.
+Replace `pse_env`, `host_admission`, `operation_lifetime` and `systemd_environment` responsibilities
+according to the target above; do not mechanically preserve every old branch or ledger.
+Preserve original child exit, retained cleanup failures, necessary borrowing and original absolute
+stop deadlines. Establish the typed fixture capability seam with F02 and C04. Targeted controls
+exercise partial launch, interrupted caller, borrowed owner, failed sibling teardown, uncertainty
+and populated descendants. Delete replaced Python mechanisms/configuration/tests in the same
+cutover. Temporary incompleteness receives no acceptance credit and needs no fallback launcher.
 
 <a id="b04"></a>
 ### B04 — Integrate service and compiler launch consumers
 
-B03 supplies the host contract; coordinate service deployment/worker owners with the native
-control package and compiler wrappers with [58f](58f-development-and-assurance.md). Preserve exact
-program/helper generation selection, narrow native environments and storage-only independence.
-Targeted tests cover immutable-helper attachment, stale mutable aliases, compiler child exit,
-manager refusal and service teardown without database availability. Migrate all retained launch
-writers before deleting their old Python adapters; retain third-party subprocess tools.
+B03 supplies physical ownership and the environment contract. Integrate required database/service
+launch with D's schema-ready/write-admission capability, without pulling schema clients into the
+cold root. Integrate compiler callers with F02's native sccache configuration and remove the old
+per-compiler wrapper. Choose the native server/client startup and compiler placement using pinned
+source; isolate any genuinely missing retained capability instead of inventing another daemon.
+Targeted controls cover compiler success/failure, cache loss with valid output, selected native
+modes, manager refusal, service teardown without database availability and failure before schema
+readiness. Establish external artifact validity at selection, then carry the capability without
+per-read source scans. Remove obsolete helper-image/frozen-Python publication checks and all
+corresponding launch writers, recipes and wrapper tests with their replacement. Third-party
+subprocess tools remain eligible.
 
 <a id="b05"></a>
-### B05 — Demonstrate usable cold-start and failure recovery
+### B05 — Demonstrate cold-start and owned-resource settlement
 
 Use targeted native host fixtures for B01–B04: no Python, missing/stale tool, unavailable user bus,
 interrupted launch, borrowed child, service restart and surviving descendant. Independently
