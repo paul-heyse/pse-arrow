@@ -88,62 +88,71 @@ impl MathService {
             .load_owned_until(
                 key.clone(),
                 move |cancel| {
-                    attribution.shared_producer_at("math.scalar.producer", pse_diagnostics::observation::current()).instrument(population.run(async move {
-                        let _descriptor_owner = descriptor_owner;
-                        if let Some(Value::Scalars(products)) = service.entries.get(&key) {
-                            return Ok(products);
-                        }
-                        let construction = super::jobs::ConstructionEstimate::from_bound(
-                            request.construction_allocation_bound()?,
-                            service.policy.worker_bytes,
-                        );
-                        let known_limit = construction.bytes();
-                        let foreign = service.policy.foreign_bytes;
-                        let check = cancel.flag();
-                        let (products, lease) = service
-                            .job_retained_construction(
-                                request.cores(),
-                                construction,
-                                cancel,
-                                None,
-                                move |flag| {
-                                    let products = request
-                                        .build_scalars(&pse_kernels::ExecutionScope::new(
-                                            flag, None,
-                                        ))
-                                        .map_err(MathRuntimeError::Math)?;
-                                    let known = products.retained_bytes();
-                                    if known > known_limit {
-                                        return Err(MathRuntimeError::Limit(
-                                            "scalar retained construction extent",
-                                        ));
-                                    }
-                                    let retained = known
-                                        .checked_add(if products.is_empty() { 0 } else { foreign })
-                                        .ok_or(MathRuntimeError::Limit(
-                                            "scalar retained foreign extent",
-                                        ))?;
-                                    Ok((products, retained))
-                                },
-                            )
-                            .await?;
-                        if check.load(Ordering::Acquire) {
-                            return Err(MathRuntimeError::Cancelled);
-                        }
-                        service.live.fetch_add(lease.size(), Ordering::AcqRel);
-                        let owner = Arc::new(ProgramOwner {
-                            lease,
-                            live: service.live.clone(),
-                        });
-                        let products =
-                            Arc::new(products.with_owner_and_foreign_allowance(owner, foreign));
-                        service.pressure.publish_artifact(
-                            epoch,
-                            &key,
-                            Value::Scalars(products.clone()),
-                        );
-                        Ok(products)
-                    }))
+                    attribution
+                        .shared_producer_at(
+                            "math.scalar.producer",
+                            pse_diagnostics::observation::current(),
+                        )
+                        .instrument(population.run(async move {
+                            let _descriptor_owner = descriptor_owner;
+                            if let Some(Value::Scalars(products)) = service.entries.get(&key) {
+                                return Ok(products);
+                            }
+                            let construction = super::jobs::ConstructionEstimate::from_bound(
+                                request.construction_allocation_bound()?,
+                                service.policy.worker_bytes,
+                            );
+                            let known_limit = construction.bytes();
+                            let foreign = service.policy.foreign_bytes;
+                            let check = cancel.flag();
+                            let (products, lease) = service
+                                .job_retained_construction(
+                                    request.cores(),
+                                    construction,
+                                    cancel,
+                                    None,
+                                    move |flag| {
+                                        let products = request
+                                            .build_scalars(&pse_kernels::ExecutionScope::new(
+                                                flag, None,
+                                            ))
+                                            .map_err(MathRuntimeError::Math)?;
+                                        let known = products.retained_bytes();
+                                        if known > known_limit {
+                                            return Err(MathRuntimeError::Limit(
+                                                "scalar retained construction extent",
+                                            ));
+                                        }
+                                        let retained = known
+                                            .checked_add(if products.is_empty() {
+                                                0
+                                            } else {
+                                                foreign
+                                            })
+                                            .ok_or(MathRuntimeError::Limit(
+                                                "scalar retained foreign extent",
+                                            ))?;
+                                        Ok((products, retained))
+                                    },
+                                )
+                                .await?;
+                            if check.load(Ordering::Acquire) {
+                                return Err(MathRuntimeError::Cancelled);
+                            }
+                            service.live.fetch_add(lease.size(), Ordering::AcqRel);
+                            let owner = Arc::new(ProgramOwner {
+                                lease,
+                                live: service.live.clone(),
+                            });
+                            let products =
+                                Arc::new(products.with_owner_and_foreign_allowance(owner, foreign));
+                            service.pressure.publish_artifact(
+                                epoch,
+                                &key,
+                                Value::Scalars(products.clone()),
+                            );
+                            Ok(products)
+                        }))
                 },
                 caller.cancelled(),
             )
@@ -262,91 +271,111 @@ impl MathService {
             .load_owned_until(
                 flight_key,
                 move |cancel| {
-                    attribution.shared_producer_at("math.artifact.producer", pse_diagnostics::observation::current()).instrument_with(population.run(async move {
-                        let _descriptor_owner = descriptor_owner;
-                        if let Some(Value::Artifact(v)) = service.entries.get(&key) {
-                            return Ok(v);
-                        }
-                        let scalars = service.scalar_products(request.clone(), &cancel).await?;
-                        let scalar_key = Key::Scalars(request.scalar_key());
-                        let cores = request.cores();
-                        let construction = super::jobs::ConstructionEstimate::from_bound(
-                            request.construction_allocation_bound()?,
-                            service.policy.worker_bytes,
-                        );
-                        let demand = construction.bytes();
-                        if demand > service.policy.worker_bytes {
-                            return Err(MathRuntimeError::Limit("artifact construction capacity"));
-                        }
-                        let foreign = service.policy.foreign_bytes;
-                        let known_limit = construction.bytes();
-                        let check = cancel.flag();
-                        let (program, lease) = service
-                            .job_retained_construction(
-                                cores,
-                                construction,
-                                cancel,
-                                None,
-                                move |flag| {
-                                    let program = request
-                                        .build_reusing(
-                                            &pse_kernels::ExecutionScope::new(flag, None),
-                                            &scalars,
-                                        )
-                                        .map_err(MathRuntimeError::Math)?;
-                                    let known = program.retained_bytes();
-                                    if known > known_limit {
-                                        return Err(MathRuntimeError::Limit(
-                                            "program retained construction extent",
-                                        ));
+                    attribution
+                        .shared_producer_at(
+                            "math.artifact.producer",
+                            pse_diagnostics::observation::current(),
+                        )
+                        .instrument_with(
+                            population.run(async move {
+                                let _descriptor_owner = descriptor_owner;
+                                if let Some(Value::Artifact(v)) = service.entries.get(&key) {
+                                    return Ok(v);
+                                }
+                                let scalars =
+                                    service.scalar_products(request.clone(), &cancel).await?;
+                                let scalar_key = Key::Scalars(request.scalar_key());
+                                let cores = request.cores();
+                                let construction = super::jobs::ConstructionEstimate::from_bound(
+                                    request.construction_allocation_bound()?,
+                                    service.policy.worker_bytes,
+                                );
+                                let demand = construction.bytes();
+                                if demand > service.policy.worker_bytes {
+                                    return Err(MathRuntimeError::Limit(
+                                        "artifact construction capacity",
+                                    ));
+                                }
+                                let foreign = service.policy.foreign_bytes;
+                                let known_limit = construction.bytes();
+                                let check = cancel.flag();
+                                let (program, lease) = service
+                                    .job_retained_construction(
+                                        cores,
+                                        construction,
+                                        cancel,
+                                        None,
+                                        move |flag| {
+                                            let program = request
+                                                .build_reusing(
+                                                    &pse_kernels::ExecutionScope::new(flag, None),
+                                                    &scalars,
+                                                )
+                                                .map_err(MathRuntimeError::Math)?;
+                                            let known = program.retained_bytes();
+                                            if known > known_limit {
+                                                return Err(MathRuntimeError::Limit(
+                                                    "program retained construction extent",
+                                                ));
+                                            }
+                                            let retained = known
+                                                .checked_add(
+                                                    if program.scalar_products().has_unowned() {
+                                                        foreign
+                                                    } else {
+                                                        0
+                                                    },
+                                                )
+                                                .ok_or(MathRuntimeError::Limit(
+                                                    "program retained foreign extent",
+                                                ))?;
+                                            Ok((program, retained))
+                                        },
+                                    )
+                                    .await?;
+                                if check.load(Ordering::Acquire) {
+                                    return Err(MathRuntimeError::Cancelled);
+                                }
+                                service.live.fetch_add(lease.size(), Ordering::AcqRel);
+                                let lease = Arc::new(ProgramOwner {
+                                    lease,
+                                    live: service.live.clone(),
+                                });
+                                let artifact = Arc::new(Artifact {
+                                    program: Arc::new(
+                                        program.with_owner_and_scalar_foreign_allowance(
+                                            lease.clone(),
+                                            foreign,
+                                        ),
+                                    ),
+                                    lease,
+                                });
+                                // Keep order-specific provider-lift scalars as seeds for later
+                                // upgrades too; every borrowed entry retains its first lease.
+                                service.pressure.publish_artifact(
+                                    epoch,
+                                    &scalar_key,
+                                    Value::Scalars(Arc::new(
+                                        artifact.program.scalar_products().clone(),
+                                    )),
+                                );
+                                service.pressure.publish_artifact(
+                                    epoch,
+                                    &key,
+                                    Value::Artifact(artifact.clone()),
+                                );
+                                Ok(artifact)
+                            }),
+                            |result| {
+                                Some(match result {
+                                    Ok(_) => pse_diagnostics::observation::Outcome::Completed,
+                                    Err(MathRuntimeError::Cancelled) => {
+                                        pse_diagnostics::observation::Outcome::Cancelled
                                     }
-                                    let retained = known
-                                        .checked_add(if program.scalar_products().has_unowned() {
-                                            foreign
-                                        } else {
-                                            0
-                                        })
-                                        .ok_or(MathRuntimeError::Limit(
-                                            "program retained foreign extent",
-                                        ))?;
-                                    Ok((program, retained))
-                                },
-                            )
-                            .await?;
-                        if check.load(Ordering::Acquire) {
-                            return Err(MathRuntimeError::Cancelled);
-                        }
-                        service.live.fetch_add(lease.size(), Ordering::AcqRel);
-                        let lease = Arc::new(ProgramOwner {
-                            lease,
-                            live: service.live.clone(),
-                        });
-                        let artifact =
-                            Arc::new(Artifact {
-                                program: Arc::new(program.with_owner_and_scalar_foreign_allowance(
-                                    lease.clone(),
-                                    foreign,
-                                )),
-                                lease,
-                            });
-                        // Keep order-specific provider-lift scalars as seeds for later
-                        // upgrades too; every borrowed entry retains its first lease.
-                        service.pressure.publish_artifact(
-                            epoch,
-                            &scalar_key,
-                            Value::Scalars(Arc::new(artifact.program.scalar_products().clone())),
-                        );
-                        service.pressure.publish_artifact(
-                            epoch,
-                            &key,
-                            Value::Artifact(artifact.clone()),
-                        );
-                        Ok(artifact)
-                    }), |result| Some(match result {
-                        Ok(_) => pse_diagnostics::observation::Outcome::Completed,
-                        Err(MathRuntimeError::Cancelled) => pse_diagnostics::observation::Outcome::Cancelled,
-                        Err(_) => pse_diagnostics::observation::Outcome::Failed,
-                    }))
+                                    Err(_) => pse_diagnostics::observation::Outcome::Failed,
+                                })
+                            },
+                        )
                 },
                 stop,
             )

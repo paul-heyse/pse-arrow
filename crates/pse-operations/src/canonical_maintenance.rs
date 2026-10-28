@@ -7,14 +7,17 @@ use super::{
     ACTIVATION_REQUEST_TIMEOUT, CanonicalError, CanonicalStore, WriteAdmission, bounded_query,
     original_deadline, wire, within_clock,
 };
+#[cfg(all(test, feature = "canonical-tests"))]
+use crate::canonical_script::ResultSlot;
+use crate::canonical_script::{Envelope, GuardedScript};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
-use surrealdb::types::{Object, ToSql, Value};
 use surrealdb_sql::{
     Expr,
     ast::TopLevelExpr,
     statements::{DefineStatement, define::DefineKind},
 };
+use surrealdb_types::{Object, ToSql, Value};
 
 /// Exact predecessor, distinct from the generated target and beta schema hash.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -447,7 +450,7 @@ impl CanonicalStore {
                 }
                 if self.maintenance_config()? != config { return Err(CanonicalError::Quiesced); }
                 let issuing = predecessor.as_ref().map(|marker| marker.issuing_store.clone()).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-                let query = "BEGIN; RETURN fn::pse_maintenance_v1::activate($pse_rpc_expires_at,$predecessor,$interpretation,$schema_digest,$study_module_sha256,$issuing,$payload_incarnation,$nonce,$input_sha256,$predecessor_bytes); COMMIT;";
+                let script = GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>("", "fn::pse_maintenance_v1::activate($pse_rpc_expires_at,$predecessor,$interpretation,$schema_digest,$study_module_sha256,$issuing,$payload_incarnation,$nonce,$input_sha256,$predecessor_bytes)")?;
                 let predecessor_value = match predecessor { Some(marker) => { let mut value=Object::new(); value.insert("interpretation", marker.interpretation); value.insert("schema_digest", marker.schema_digest); value.insert("study_module_sha256", marker.study_module_sha256); value.insert("issuing_store", marker.issuing_store); Value::Object(value) }, None => Value::None };
                 let request = serde_json::to_vec(&(nonce, input_sha256, &predecessor_bytes, wire::INTERPRETATION, wire::SCHEMA_DIGEST, &witness.study_module_sha256, &issuing, &self.files.incarnation)).map_err(|error| invalid(error.to_string()))?;
                 let expected = pse_model::generated::runtime::canonical_maintenance_activations::Row {
@@ -456,7 +459,7 @@ impl CanonicalStore {
                     interpretation: wire::INTERPRETATION.into(), schema_digest: wire::SCHEMA_DIGEST.into(),
                     study_module_sha256: witness.study_module_sha256.clone(), issuing_store: issuing.clone(),
                 };
-                let write = bounded_query(self.activation_db.query(query).bind(("predecessor",predecessor_value)).bind(("interpretation",wire::INTERPRETATION)).bind(("schema_digest",wire::SCHEMA_DIGEST)).bind(("study_module_sha256",witness.study_module_sha256.clone())).bind(("issuing",issuing)).bind(("payload_incarnation",self.files.incarnation.clone())).bind(("nonce",nonce.to_owned())).bind(("input_sha256",input_sha256.to_owned())).bind(("predecessor_bytes",surrealdb::types::Bytes::from(predecessor_bytes)))).await.and_then(super::complete_response).map(|_| expected.clone());
+                let write = bounded_query(self.activation_db.script(script).bind(("predecessor",predecessor_value)).bind(("interpretation",wire::INTERPRETATION)).bind(("schema_digest",wire::SCHEMA_DIGEST)).bind(("study_module_sha256",witness.study_module_sha256.clone())).bind(("issuing",issuing)).bind(("payload_incarnation",self.files.incarnation.clone())).bind(("nonce",nonce.to_owned())).bind(("input_sha256",input_sha256.to_owned())).bind(("predecessor_bytes",surrealdb_types::Bytes::from(predecessor_bytes)))).await.and_then(super::complete_response).map(|_| expected.clone());
                 super::settlement::settle_exact(
                     "maintenance-activation", nonce, &request, write,
                     async {
@@ -605,14 +608,11 @@ mod tests {
             .map(|ordinal| format!("retention:maintenance-{ordinal:03}"))
             .collect::<Vec<_>>();
         async fn call(store: &CanonicalStore, expression: &str) -> Result<Value, CanonicalError> {
-            let mut response = bounded_query(
-                store
-                    .db
-                    .query(format!("BEGIN; RETURN {expression}; COMMIT;")),
-            )
+            let mut response = bounded_query(store.db.script(
+                GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>("", expression)?,
+            ))
             .await?;
-            let index = response.num_statements().saturating_sub(2);
-            response.take(index).map_err(Into::into)
+            ResultSlot::<Value>::returned().take(&mut response)
         }
         let mut gate = bounded_query(
             store
@@ -637,12 +637,12 @@ mod tests {
                 ..
             })
         ));
-        bounded_query(store.db.query(
-            "BEGIN; UPDATE ONLY canonical_file_admission:current SET frozen=true,gc_frozen=true; \
+        bounded_query(store.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>(
+            "UPDATE ONLY canonical_file_admission:current SET frozen=true,gc_frozen=true; \
             FOR $key IN $guards { \
                 CREATE ONLY type::record('canonical_guards',$key) SET key=$key,generation=0dec,incarnation=string::concat('original:',$key); \
-            }; COMMIT;"
-        ).bind(("guards",guards.clone()))
+            };", "NONE"
+        ).unwrap()).bind(("guards",guards.clone()))
         ).await.unwrap();
         let first_owner = call(&store, &claim("g1", "NONE")).await.unwrap();
         assert!(matches!(

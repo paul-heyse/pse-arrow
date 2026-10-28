@@ -561,41 +561,53 @@ impl NativeCaptureSession {
             .or_else(|| state.completed.clone())
     }
     fn join(&self, py: Python<'_>) -> PyResult<DocumentValue<CaptureDocument>> {
-        let waited = crate::wait::wait(py, Duration::from_millis(20), |_| false,
+        let waited = crate::wait::wait(
+            py,
+            Duration::from_millis(20),
+            |_| false,
             crate::wait::SignalAction::Drain,
             |interval| {
                 let result = (|| {
-                let mut state = self.state();
-                if state.worker_failed {
-                    return Some(Err(pse_runtime::observation_detail::CaptureError::Worker));
-                }
-                if let Some(document) = &state.completed {
-                    return Some(Ok(document.clone()));
-                }
-                let document = state.session.as_ref()?.snapshot();
-                if !state.session.as_ref()?.is_finished() {
-                    return None;
-                }
-                let session = state.session.take()?;
-                let result = session.wait();
-                let mut completed = result.as_ref().cloned().unwrap_or(document);
-                if let Err(error) = &result {
-                    completed.status = capture::CaptureStatus::Failed;
-                    completed.errors.push(error.to_string());
-                    state.worker_failed = true;
-                }
-                state.completed = Some(completed);
-                Some(result)
+                    let mut state = self.state();
+                    if state.worker_failed {
+                        return Some(Err(pse_runtime::observation_detail::CaptureError::Worker));
+                    }
+                    if let Some(document) = &state.completed {
+                        return Some(Ok(document.clone()));
+                    }
+                    let document = state.session.as_ref()?.snapshot();
+                    if !state.session.as_ref()?.is_finished() {
+                        return None;
+                    }
+                    let session = state.session.take()?;
+                    let result = session.wait();
+                    let mut completed = result.as_ref().cloned().unwrap_or(document);
+                    if let Err(error) = &result {
+                        completed.status = capture::CaptureStatus::Failed;
+                        completed.errors.push(error.to_string());
+                        state.worker_failed = true;
+                    }
+                    state.completed = Some(completed);
+                    Some(result)
                 })();
                 match result {
                     Some(value) => std::task::Poll::Ready(value),
-                    None => { std::thread::sleep(interval); std::task::Poll::Pending }
+                    None => {
+                        std::thread::sleep(interval);
+                        std::task::Poll::Pending
+                    }
                 }
-            }, || self.request_stop(),
+            },
+            || self.request_stop(),
         );
-        if let Some(signal) = waited.signal { return Err(signal); }
-        waited.value.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("capture wait lost outcome"))?
-            .map(DocumentValue).map_err(|error| errors::diagnostic(py, &error))
+        if let Some(signal) = waited.signal {
+            return Err(signal);
+        }
+        waited
+            .value
+            .ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("capture wait lost outcome"))?
+            .map(DocumentValue)
+            .map_err(|error| errors::diagnostic(py, &error))
     }
 }
 #[pymethods]
@@ -668,16 +680,26 @@ impl NativeLaunchedCommand {
             .map_err(|error| errors::diagnostic(py, &error))
     }
     fn wait(&self, py: Python<'_>) -> PyResult<i32> {
-        let waited = crate::wait::wait(py, Duration::from_millis(20), |_| false,
+        let waited = crate::wait::wait(
+            py,
+            Duration::from_millis(20),
+            |_| false,
             crate::wait::SignalAction::Return,
             |interval| match self.command().wait_ready(interval) {
                 Ok(Some(status)) => std::task::Poll::Ready(Ok(status)),
                 Ok(None) => std::task::Poll::Pending,
                 Err(error) => std::task::Poll::Ready(Err(error)),
-            }, || { let _ = py.detach(|| self.command().cancel()); },
+            },
+            || {
+                let _ = py.detach(|| self.command().cancel());
+            },
         );
-        if let Some(signal) = waited.signal { return Err(signal); }
-        waited.value.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("command wait lost outcome"))?
+        if let Some(signal) = waited.signal {
+            return Err(signal);
+        }
+        waited
+            .value
+            .ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("command wait lost outcome"))?
             .map_err(|error| errors::diagnostic(py, &error))
     }
 

@@ -1441,7 +1441,7 @@ pub(crate) fn describe_body(
             product,
             selection,
             encoded.payload.clone(),
-            encoded.clone(),
+            encoded._owner.clone(),
         )?;
     let content_owner = reserve_portable(
         service,

@@ -4,21 +4,28 @@
 //! Leased immutable source staging. Scientific payload blocks travel separately
 //! from the closed metadata manifest activated by the head compare-and-set.
 
+use crate::canonical_script::{
+    CleanupFence, Envelope, GuardedScript, Recheck, ResultSlot, StageAcquisition, StageAuthority,
+    StageCleanup, StagePolicy,
+};
 use crate::{
     canonical::{
-        CanonicalError, CanonicalStore, ObjectEdit, PROTECTED_BEGIN, ProtectedSelection,
-        REQUEST_TIMEOUT, bounded_query, operation_failed, request,
+        CanonicalError, CanonicalStore, ObjectEdit, ProtectedSelection, REQUEST_TIMEOUT,
+        bounded_query, operation_failed, request,
     },
     canonical_codec,
     generated::surreal as wire,
 };
 use pse_ids::{Frame, derive_hash};
+use pse_model::generated::canonical::{OperationKey, ProblemKey, RevisionKey};
 use pse_model::generated::runtime::{
     canonical_revisions::Row as Revision, canonical_versions::Row as ObjectVersion,
 };
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use surrealdb::types::{Object, QueryError, Value};
+#[cfg(test)]
+use surrealdb_types::QueryError;
+use surrealdb_types::{Object, Value};
 
 /// Each native request/response carries one source block below the protocol limit.
 pub const SOURCE_BLOCK_BYTES: usize = 512 * 1024;
@@ -30,7 +37,6 @@ pub(crate) const MAX_EDITS: usize = pse_schema::catalog::substrate::SOURCE_PACKA
 pub const SOURCE_PACKAGE_EDITS: usize = MAX_EDITS;
 const MANIFEST_BYTES: usize = 32 * 1024 * 1024;
 pub(crate) const IDENTITY_BYTES: usize = 4096;
-const RETRIES: usize = 8;
 // Sixteen independent source writers may contend on the same immutable version.
 // Enlarge only the definite rollback budget, within the original request clock.
 #[cfg(test)]
@@ -379,18 +385,14 @@ fn plan(
     })
 }
 
-fn conflict(error: &CanonicalError) -> bool {
-    error.is_conflict()
-}
-
 async fn retry_stage_mutation<F, Q>(
     operation: &'static str,
     timeout: Duration,
     mut submit: F,
-) -> Result<surrealdb::IndexedResults, CanonicalError>
+) -> Result<crate::transport::client::IndexedResults, CanonicalError>
 where
     F: FnMut() -> Q,
-    Q: Future<Output = Result<surrealdb::IndexedResults, CanonicalError>>,
+    Q: Future<Output = Result<crate::transport::client::IndexedResults, CanonicalError>>,
 {
     // The queue, every complete transaction and conflict pacing share one clock.
     // Dropping this future also drops the current request or backoff; no detached
@@ -404,8 +406,8 @@ where
                 let request = submit();
                 async move { crate::transport::retry::Attempt::settled(request.await) }
             },
-        ).await
-
+        )
+        .await
     })
     .await;
     if let Err(error) = &result {
@@ -597,7 +599,7 @@ impl CanonicalStore {
     ) -> Result<(), CanonicalError> {
         self.ensure_writes()?;
         self.protected_query(&stage.problem, crate::canonical::QueryEffect::Mutation, "canonical_staging::abandon_source_stage", || Ok(
-            self.db.query("BEGIN; LET $retention=type::record('canonical_guards','retention:'+$problem); SELECT * FROM $retention FOR UPDATE; LET $guard=type::record('canonical_guards','stage:'+$operation); SELECT * FROM $guard FOR UPDATE; LET $stage=SELECT * FROM ONLY type::record('canonical_stages',$operation); IF $stage!=NONE AND $stage.problem=$problem AND $stage.generation=$generation AND !$stage.activated { UPDATE ONLY type::record('canonical_stages',$operation) SET abandoned=true,closed=false,generation+=1dec; UPSERT $guard SET key='stage:'+$operation,generation=(generation ?? 0dec)+1dec; }; fn::pse_execution_v1::deadline($pse_rpc_expires_at); RETURN true; COMMIT;")
+            self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>("LET $retention=type::record('canonical_guards','retention:'+$problem); SELECT * FROM $retention FOR UPDATE; LET $guard=type::record('canonical_guards','stage:'+$operation); SELECT * FROM $guard FOR UPDATE; LET $stage=SELECT * FROM ONLY type::record('canonical_stages',$operation); IF $stage!=NONE AND $stage.problem=$problem AND $stage.generation=$generation AND !$stage.activated { UPDATE ONLY type::record('canonical_stages',$operation) SET abandoned=true,closed=false,generation+=1dec; UPSERT $guard SET key='stage:'+$operation,generation=(generation ?? 0dec)+1dec; };","true")?)
                 .bind(("problem", stage.problem.clone())).bind(("operation", stage.operation.clone()))
                 .bind(("generation", canonical_codec::encode_uint(stage.generation)?))
         )).await?.check()?;
@@ -631,7 +633,7 @@ impl CanonicalStore {
         // remains bounded by that same clock.
         let deadline = crate::canonical::transport::original_deadline(REQUEST_TIMEOUT);
         crate::canonical::transport::operation_scope(deadline.into_std(), async {
-            loop {
+            crate::transport::retry::retry_pending(deadline, || async {
                 self.ensure_writes()?;
                 if tokio::time::Instant::now() >= deadline {
                     return Err(CanonicalError::Timeout);
@@ -642,7 +644,7 @@ impl CanonicalStore {
                 )
                 .await?
                 {
-                    return Ok(StageOutcome::Acknowledged(revision));
+                    return Ok(Some(StageOutcome::Acknowledged(revision)));
                 }
                 match crate::canonical::transport::within_clock(
                     deadline,
@@ -657,7 +659,7 @@ impl CanonicalStore {
                 )
                 .await
                 {
-                    Ok(Some(token)) => return Ok(StageOutcome::Closed(token)),
+                    Ok(Some(token)) => return Ok(Some(StageOutcome::Closed(token))),
                     Ok(None) => {
                         if let Some(revision) = crate::canonical::transport::within_clock(
                             deadline,
@@ -665,7 +667,7 @@ impl CanonicalStore {
                         )
                         .await?
                         {
-                            return Ok(StageOutcome::Acknowledged(revision));
+                            return Ok(Some(StageOutcome::Acknowledged(revision)));
                         }
                     }
                     Err(error) => {
@@ -677,7 +679,9 @@ impl CanonicalStore {
                         )
                         .await
                         {
-                            Ok(Some(revision)) => return Ok(StageOutcome::Acknowledged(revision)),
+                            Ok(Some(revision)) => {
+                                return Ok(Some(StageOutcome::Acknowledged(revision)));
+                            }
                             Err(CanonicalError::OperationReused) => {
                                 return Err(CanonicalError::OperationReused);
                             }
@@ -706,12 +710,9 @@ impl CanonicalStore {
                     }
                 }
                 self.ensure_writes()?;
-                crate::canonical::transport::within_clock(deadline, async {
-                    tokio::time::sleep(Duration::from_millis(20)).await;
-                    Ok(())
-                })
-                .await?;
-            }
+                Ok(None)
+            })
+            .await
         })
         .await
     }
@@ -930,70 +931,82 @@ impl CanonicalStore {
                     || async {
                         let result = async {
                             self.ensure_writes()?;
-                    let result = self
-                        .staging_query(
-                            problem,
-                            self.db
-                                .query(BEGIN_STAGE)
-                                .bind(("product_stage", matches!(purpose, StagePurpose::Product)))
-                                .bind((
-                                    "exclusive_stage",
-                                    matches!(
-                                        purpose,
-                                        StagePurpose::SourceEdit | StagePurpose::Product
-                                    ),
-                                ))
-                                .bind(("problem", problem.to_owned()))
-                                .bind(("expected", expected.map(str::to_owned)))
-                                .bind(("operation", operation.to_owned()))
-                                .bind(("request_digest", plan.request_digest.clone()))
-                                .bind(("edit_count", uint(plan.changes.len())?))
-                                .bind(("lifetime", lifetime_micros)),
-                        )
-                        .await;
+                            let result = self
+                                .staging_query(
+                                    problem,
+                                    self.db
+                                        .script(
+                                            GuardedScript::new(Envelope::StageAcquisition(
+                                                StageAcquisition {
+                                                    problem: &ProblemKey::from(problem),
+                                                    operation: &OperationKey::from(operation),
+                                                    expected: expected
+                                                        .map(RevisionKey::from)
+                                                        .as_ref(),
+                                                    request_digest: &plan.request_digest,
+                                                    lifetime,
+                                                },
+                                            ))
+                                            .returning::<Option<Object>>(
+                                                BEGIN_STAGE,
+                                                "$pse_rpc_result",
+                                            )?,
+                                        )
+                                        .bind((
+                                            "product_stage",
+                                            matches!(purpose, StagePurpose::Product),
+                                        ))
+                                        .bind((
+                                            "exclusive_stage",
+                                            matches!(
+                                                purpose,
+                                                StagePurpose::SourceEdit | StagePurpose::Product
+                                            ),
+                                        ))
+                                        .bind(("edit_count", uint(plan.changes.len())?)),
+                                )
+                                .await;
                             result
-                        }.await;
+                        }
+                        .await;
                         crate::transport::retry::Attempt::settled(result)
                     },
-                ).await.map_err(|error| {
+                )
+                .await
+                .map_err(|error| {
                     operation_failed("canonical_staging::begin_stage_inner", &error);
                     error
                 })?;
 
-                            let row = response
-                                .take::<Option<Object>>(
-                                    response.num_statements().saturating_sub(2),
-                                )?
-                                .ok_or_else(|| {
-                                    CanonicalError::Configuration(
-                                        "staging lease missing after acquisition".into(),
-                                    )
-                                })?;
-                            let mut row = row;
-                            let acquired = canonical_codec::decode_boolean(
-                                canonical_codec::required(&mut row, "acquired")?,
-                            )?;
-                            if !acquired {
-                                return Ok(None);
-                            }
-                            let Value::Object(stage) =
-                                canonical_codec::required(&mut row, "stage")?
-                            else {
-                                return Err(canonical_codec::CodecError::Domain(
-                                    "staging acquisition object",
-                                )
-                                .into());
-                            };
-                            let row = wire::decode_canonical_stages(stage)?;
-                            return Ok(Some(ClosedStage {
-                                problem: problem.into(),
-                                expected: expected.map(str::to_owned),
-                                operation: operation.into(),
-                                generation: row.generation,
-                                request: plan.request.clone(),
-                                request_digest: plan.request_digest.clone(),
-                                lifetime_micros,
-                            }));
+                let row = ResultSlot::<Option<Object>>::returned()
+                    .take(&mut response)?
+                    .ok_or_else(|| {
+                        CanonicalError::Configuration(
+                            "staging lease missing after acquisition".into(),
+                        )
+                    })?;
+                let mut row = row;
+                let acquired = canonical_codec::decode_boolean(canonical_codec::required(
+                    &mut row, "acquired",
+                )?)?;
+                if !acquired {
+                    return Ok(None);
+                }
+                let Value::Object(stage) = canonical_codec::required(&mut row, "stage")? else {
+                    return Err(
+                        canonical_codec::CodecError::Domain("staging acquisition object").into(),
+                    );
+                };
+                let row = wire::decode_canonical_stages(stage)?;
+                return Ok(Some(ClosedStage {
+                    problem: problem.into(),
+                    expected: expected.map(str::to_owned),
+                    operation: operation.into(),
+                    generation: row.generation,
+                    request: plan.request.clone(),
+                    request_digest: plan.request_digest.clone(),
+                    lifetime_micros,
+                }));
             },
         )
         .await
@@ -1005,8 +1018,8 @@ impl CanonicalStore {
         token: &ClosedStage,
         body: &str,
         bindings: Vec<(&str, Value)>,
-    ) -> Result<surrealdb::IndexedResults, CanonicalError> {
-        self.stage_mutation(operation, token, body, bindings, STAGE_BEGIN, STAGE_END)
+    ) -> Result<crate::transport::client::IndexedResults, CanonicalError> {
+        self.stage_mutation(operation, token, body, bindings, StagePolicy::Mutation)
             .await
     }
 
@@ -1015,14 +1028,13 @@ impl CanonicalStore {
     async fn close_stage(
         &self,
         token: &ClosedStage,
-    ) -> Result<surrealdb::IndexedResults, CanonicalError> {
+    ) -> Result<crate::transport::client::IndexedResults, CanonicalError> {
         self.stage_mutation(
             "canonical_staging::close_stage",
             token,
             CLOSE_STAGE,
             Vec::new(),
-            CLOSE_STAGE_BEGIN,
-            CLOSE_STAGE_END,
+            StagePolicy::Close,
         )
         .await
     }
@@ -1033,23 +1045,27 @@ impl CanonicalStore {
         token: &ClosedStage,
         body: &str,
         bindings: Vec<(&str, Value)>,
-        begin: &str,
-        end: &str,
-    ) -> Result<surrealdb::IndexedResults, CanonicalError> {
+        policy: StagePolicy,
+    ) -> Result<crate::transport::client::IndexedResults, CanonicalError> {
         retry_stage_mutation(operation, REQUEST_TIMEOUT, || async {
             self.ensure_writes()?;
-            let mut query = self
-                .db
-                .query(format!("{begin}\n{}\n{end}", bounded_edit_sql(body)))
-                .bind(("problem", token.problem.clone()))
-                .bind(("operation", token.operation.clone()))
-                .bind(("expected", token.expected.clone()))
-                .bind(("request_digest", token.request_digest.clone()))
-                .bind((
-                    "generation",
-                    canonical_codec::encode_uint(token.generation)?,
-                ))
-                .bind(("lifetime", token.lifetime_micros));
+            let problem = ProblemKey::from(token.problem.as_str());
+            let stage_operation = OperationKey::from(token.operation.as_str());
+            let expected = token.expected.as_deref().map(RevisionKey::from);
+            let script = GuardedScript::new(Envelope::StageGuard(StageAuthority {
+                problem: &problem,
+                operation: &stage_operation,
+                generation: token.generation,
+                expected: expected.as_ref(),
+                request_digest: &token.request_digest,
+                lifetime: Duration::from_micros(
+                    u64::try_from(token.lifetime_micros)
+                        .map_err(|_| CanonicalError::PayloadLimit)?,
+                ),
+                policy,
+            }))
+            .returning::<Value>(&bounded_edit_sql(body), "NONE")?;
+            let mut query = self.db.script(script);
             for (key, value) in &bindings {
                 query = query.bind(((*key).to_owned(), value.clone()));
             }
@@ -1460,7 +1476,7 @@ impl CanonicalStore {
         // Inputs are only store-issued bounded manifests/block keys. Membership
         // validation is shared by the whole group, under one exact protection.
         let sql = format!(
-            "{PROTECTED_BEGIN}\nLET $members = SELECT VALUE version FROM canonical_memberships WHERE problem = $problem AND version IN $versions AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nIF array::len(array::distinct($members)) != array::len($versions) {{ THROW 'PSE_REFUSAL:selected_grouped_membership_unavailable'; }};\nLET $pse_rpc_result = SELECT * FROM $keys.map(|$key| type::record($table, $key)) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"
+            "LET $members = SELECT VALUE version FROM canonical_memberships WHERE problem = $problem AND version IN $versions AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence);\nIF array::len(array::distinct($members)) != array::len($versions) {{ THROW 'PSE_REFUSAL:selected_grouped_membership_unavailable'; }};\nLET $pse_rpc_result = SELECT * FROM $keys.map(|$key| type::record($table, $key)) TIMEOUT $pse_rpc_timeout;"
         );
         let mut response = self
             .protected_query(
@@ -1470,21 +1486,20 @@ impl CanonicalStore {
                 || {
                     Ok(self
                         .db
-                        .query(sql.clone())
-                        .bind(("problem", selection.revision().problem.clone()))
-                        .bind(("protection", selection.key().to_owned()))
-                        .bind(("revision", selection.revision().key.clone()))
-                        .bind((
-                            "sequence",
-                            canonical_codec::encode_uint(selection.revision().sequence)?,
-                        ))
+                        .script(
+                            GuardedScript::new(Envelope::ProtectedRead {
+                                selection,
+                                recheck: Recheck::Pin,
+                            })
+                            .returning::<Vec<Object>>(&sql, "$pse_rpc_result")?,
+                        )
                         .bind(("versions", versions.to_vec()))
                         .bind(("keys", keys.to_vec()))
                         .bind(("table", table.to_owned())))
                 },
             )
             .await?;
-        Ok(response.take(response.num_statements().saturating_sub(2))?)
+        Ok(ResultSlot::<Vec<Object>>::returned().take(&mut response)?)
     }
 
     pub(crate) async fn validate_product_candidate(
@@ -1664,7 +1679,7 @@ impl CanonicalStore {
                 CanonicalError::Configuration("product read requires protection".into())
             })?;
             let sql = format!(
-                "{PROTECTED_BEGIN}\nLET $saved=SELECT * FROM ONLY type::record('canonical_product_associations',$product.key);\nLET $root=SELECT * FROM ONLY type::record('canonical_roots',$product.key) FOR UPDATE;\nIF $saved=NONE OR $saved.key!=$product.key OR $saved.issuing_store!=$product.issuing_store OR $saved.problem!=$problem OR $saved.problem!=$product.problem OR $saved.revision!=$product.revision OR $saved.payload!=$product.payload OR $saved.dependencies!=$product.dependencies OR $saved.request!=$product.request OR $saved.content!=$product.content OR $saved.receipt!=$product.receipt OR $saved.descriptor!=$product.descriptor OR $saved.producer!=$product.producer OR $saved.interpretation!=$product.interpretation OR $root=NONE OR $root.problem!=$saved.problem OR $root.revision!=$saved.revision OR $root.owner_kind!='product' OR $root.owner!=$saved.key OR $version NOT IN [$saved.content,$saved.receipt] {{ THROW 'PSE_REFUSAL:product_physical_authorization_unavailable'; }};\nLET $pse_rpc_result=SELECT * FROM ONLY type::record($table,$key) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at<=time::micros() {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $pse_rpc_result; COMMIT;"
+                "LET $saved=SELECT * FROM ONLY type::record('canonical_product_associations',$product.key);\nLET $root=SELECT * FROM ONLY type::record('canonical_roots',$product.key) FOR UPDATE;\nIF $saved=NONE OR $saved.key!=$product.key OR $saved.issuing_store!=$product.issuing_store OR $saved.problem!=$problem OR $saved.problem!=$product.problem OR $saved.revision!=$product.revision OR $saved.payload!=$product.payload OR $saved.dependencies!=$product.dependencies OR $saved.request!=$product.request OR $saved.content!=$product.content OR $saved.receipt!=$product.receipt OR $saved.descriptor!=$product.descriptor OR $saved.producer!=$product.producer OR $saved.interpretation!=$product.interpretation OR $root=NONE OR $root.problem!=$saved.problem OR $root.revision!=$saved.revision OR $root.owner_kind!='product' OR $root.owner!=$saved.key OR $version NOT IN [$saved.content,$saved.receipt] {{ THROW 'PSE_REFUSAL:product_physical_authorization_unavailable'; }};\nLET $pse_rpc_result=SELECT * FROM ONLY type::record($table,$key) TIMEOUT $pse_rpc_timeout;"
             );
             let mut response = self
                 .protected_query(
@@ -1674,14 +1689,13 @@ impl CanonicalStore {
                     || {
                         Ok(self
                             .db
-                            .query(sql.clone())
-                            .bind(("problem", selection.revision().problem.clone()))
-                            .bind(("protection", selection.key().to_owned()))
-                            .bind(("revision", selection.revision().key.clone()))
-                            .bind((
-                                "sequence",
-                                canonical_codec::encode_uint(selection.revision().sequence)?,
-                            ))
+                            .script(
+                                GuardedScript::new(Envelope::ProtectedRead {
+                                    selection,
+                                    recheck: Recheck::Pin,
+                                })
+                                .returning::<Option<Object>>(&sql, "$pse_rpc_result")?,
+                            )
                             .bind((
                                 "product",
                                 wire::encode_canonical_product_associations(
@@ -1694,14 +1708,13 @@ impl CanonicalStore {
                     },
                 )
                 .await?;
-            return Ok(response.take(response.num_statements().saturating_sub(2))?);
+            return Ok(ResultSlot::<Option<Object>>::returned().take(&mut response)?);
         }
         if let Some(selection) = selection {
-            let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_staging::authorized_record", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $members = SELECT key FROM canonical_memberships WHERE problem = $problem AND version = $version AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) LIMIT 1;\nLET $row = IF array::len($members) = 0 {{ RETURN NONE; }} ELSE {{ RETURN SELECT * FROM ONLY type::record($table, $key); }};\nLET $pse_rpc_result = $row;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"))
-                .bind(("problem", selection.revision().problem.clone())).bind(("protection", selection.key().to_owned()))
-                .bind(("revision", selection.revision().key.clone())).bind(("sequence", canonical_codec::encode_uint(selection.revision().sequence)?))
+            let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_staging::authorized_record", || Ok(self.db.script(GuardedScript::new(Envelope::ProtectedRead{selection,recheck:Recheck::Pin}).returning::<Option<Object>>("LET $members = SELECT key FROM canonical_memberships WHERE problem = $problem AND version = $version AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) LIMIT 1;\nLET $row = IF array::len($members) = 0 { RETURN NONE; } ELSE { RETURN SELECT * FROM ONLY type::record($table, $key); };","$row")?)
+
                 .bind(("version", version.to_owned())).bind(("table", table.to_owned())).bind(("key", key.to_owned())))).await?;
-            Ok(response.take(response.num_statements().saturating_sub(2))?)
+            Ok(ResultSlot::<Option<Object>>::returned().take(&mut response)?)
         } else {
             Ok(request(self.db.select((table, key))).await?)
         }
@@ -1852,7 +1865,7 @@ impl CanonicalStore {
     }
 }
 
-const BEGIN_STAGE: &str = r#"BEGIN;
+const BEGIN_STAGE: &str = r#"
 LET $retention_guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $retention_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
@@ -1874,42 +1887,7 @@ fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 };
 LET $pse_rpc_result = IF $busy { {acquired:false} } ELSE { {acquired:true, stage:(SELECT * FROM ONLY type::record('canonical_stages', $operation))} };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-RETURN $pse_rpc_result;
-COMMIT;"#;
-
-const STAGE_BEGIN: &str = r#"BEGIN;
-LET $retention_guard = type::record('canonical_guards', 'retention:' + $problem);
-SELECT * FROM $retention_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
-SELECT * FROM $stage_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-LET $lease = SELECT * FROM ONLY type::record('canonical_stages', $operation);
-IF $lease = NONE OR $lease.problem != $problem OR $lease.generation != $generation OR ($lease.expected_head ?? NONE) != $expected OR $lease.request_digest != $request_digest OR $lease.activated OR $lease.abandoned OR $lease.closed OR $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_lease_fenced_or_expired'; };"#;
-
-const STAGE_END: &str = r#"IF $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_lease_expired_before_renewal'; };
-UPDATE type::record('canonical_stages', $operation) SET expires_at = time::micros() + $lifetime;
-UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
-fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
-fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-IF $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_lease_expired_before_commit'; };
-COMMIT;"#;
-
-const CLOSE_STAGE_BEGIN: &str = r#"BEGIN;
-LET $retention_guard = type::record('canonical_guards', 'retention:' + $problem);
-SELECT * FROM $retention_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
-SELECT * FROM $stage_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-LET $lease = SELECT * FROM ONLY type::record('canonical_stages', $operation);
-IF $lease = NONE OR $lease.problem != $problem OR $lease.generation != $generation OR ($lease.expected_head ?? NONE) != $expected OR $lease.request_digest != $request_digest OR $lease.activated OR $lease.abandoned OR ($lease.closed = false AND $lease.expires_at <= time::micros()) { THROW 'PSE_REFUSAL:staging_close_fenced_or_expired'; };"#;
-
-const CLOSE_STAGE_END: &str = r#"IF $lease.closed = false AND $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_close_lease_expired'; };
-IF $lease.closed = false {
-    UPDATE type::record('canonical_stages', $operation) SET expires_at = time::micros() + $lifetime;
-    UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
-    fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
-};
-fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-IF $lease.closed = false AND $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_close_lease_expired_before_commit'; };
-COMMIT;"#;
+"#;
 
 const STAGE_METADATA_VERSION: &str = r#"LET $version_guard = type::record('canonical_guards', 'version:' + $manifest.key);
 SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
@@ -2021,10 +1999,10 @@ impl CanonicalStore {
             let key =
                 canonical_codec::decode_string(canonical_codec::required(&mut child, "key")?)?;
             let query = format!(
-                "{CLEANUP_STAGE_BEGIN}\nLET $child = SELECT * FROM ONLY type::record('canonical_staged_edits', $child_key);\nLET $result = IF $eligible = false OR $child = NONE OR $child.stage != $operation {{ {{edit:false, version:false, blocks:0dec, edges:0dec, pending:false}} }} ELSE {{\nLET $version = $child.version ?? NONE;\nLET $excluded_membership = NONE;\nLET $excluded_stage = $operation;\nLET $physical = IF $version = NONE {{ {{version:false, blocks:0dec, edges:0dec, pending:false}} }} ELSE {{\n{DELETE_VERSION}\n$deleted\n}};\nLET $keep = $child.scope IN ['pse.body-content.v1','pse.selection-receipt.v1'] AND array::len((SELECT key FROM canonical_product_associations WHERE (content = $version OR receipt = $version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1)) != 0;\nIF $physical.pending = false AND $keep = false {{ DELETE ONLY type::record('canonical_staged_edits', $child_key); }};\n{{edit:!$physical.pending AND !$keep, version:$physical.version, blocks:$physical.blocks, edges:$physical.edges, pending:$physical.pending}}\n}};\n{CLEANUP_STAGE_END}\nLET $pse_rpc_result = $result;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nRETURN $pse_rpc_result;\nCOMMIT;"
+                "LET $child = SELECT * FROM ONLY type::record('canonical_staged_edits', $child_key);\nLET $result = IF $eligible = false OR $child = NONE OR $child.stage != $operation {{ {{edit:false, version:false, blocks:0dec, edges:0dec, pending:false}} }} ELSE {{\nLET $version = $child.version ?? NONE;\nLET $excluded_membership = NONE;\nLET $excluded_stage = $operation;\nLET $physical = IF $version = NONE {{ {{version:false, blocks:0dec, edges:0dec, pending:false}} }} ELSE {{\n{DELETE_VERSION}\n$deleted\n}};\nLET $keep = $child.scope IN ['pse.body-content.v1','pse.selection-receipt.v1'] AND array::len((SELECT key FROM canonical_product_associations WHERE (content = $version OR receipt = $version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1)) != 0;\nIF $physical.pending = false AND $keep = false {{ DELETE ONLY type::record('canonical_staged_edits', $child_key); }};\n{{edit:!$physical.pending AND !$keep, version:$physical.version, blocks:$physical.blocks, edges:$physical.edges, pending:$physical.pending}}\n}};\nLET $pse_rpc_result = $result;"
             );
             let mut decision = self
-                .cleanup_stage_query(problem, &operation, &query, Some(&key))
+                .cleanup_stage_query(problem, &operation, &query, Some(&key),CleanupFence::AfterBody)
                 .await?
                 .ok_or_else(|| {
                     CanonicalError::Configuration("staging cleanup decision missing".into())
@@ -2053,10 +2031,10 @@ impl CanonicalStore {
             }
         }
         let query = format!(
-            "{CLEANUP_STAGE_BEGIN}\n{CLEANUP_STAGE_END}\nLET $all_remaining = SELECT key, scope, version FROM canonical_staged_edits WHERE stage = $operation LIMIT 65;\nLET $remaining = $all_remaining.filter(|$child| {{ LET $protected = SELECT key FROM canonical_product_associations WHERE (content = $child.version OR receipt = $child.version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1; $child.scope NOT IN ['pse.body-content.v1','pse.selection-receipt.v1'] OR array::len($protected) = 0 }});\nIF $eligible AND array::len($all_remaining) = 0 {{ UPDATE type::record('canonical_stages', $operation) SET cleanup_complete = true; }};\nLET $pse_rpc_result = {{pending:array::len($remaining) != 0}};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nRETURN $pse_rpc_result;\nCOMMIT;"
+            "LET $all_remaining = SELECT key, scope, version FROM canonical_staged_edits WHERE stage = $operation LIMIT 65;\nLET $remaining = $all_remaining.filter(|$child| {{ LET $protected = SELECT key FROM canonical_product_associations WHERE (content = $child.version OR receipt = $child.version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1; $child.scope NOT IN ['pse.body-content.v1','pse.selection-receipt.v1'] OR array::len($protected) = 0 }});\nIF $eligible AND array::len($all_remaining) = 0 {{ UPDATE type::record('canonical_stages', $operation) SET cleanup_complete = true; }};\nLET $pse_rpc_result = {{pending:array::len($remaining) != 0}};"
         );
         let mut decision = self
-            .cleanup_stage_query(problem, &operation, &query, None)
+            .cleanup_stage_query(problem, &operation, &query, None,CleanupFence::BeforeBody)
             .await?
             .ok_or_else(|| {
                 CanonicalError::Configuration("staging cleanup completion missing".into())
@@ -2079,57 +2057,47 @@ impl CanonicalStore {
         operation: &str,
         sql: &str,
         child: Option<&str>,
+        fence: CleanupFence,
     ) -> Result<Option<Object>, CanonicalError> {
         super::canonical::transport::within_clock(
             super::canonical::transport::original_deadline(REQUEST_TIMEOUT),
             async {
-                let mut attempt = 0;
-                loop {
-                    self.ensure_writes()?;
-                    let result = bounded_query(
-                        self.db
-                            .query(sql)
-                            .bind(("problem", problem.to_owned()))
-                            .bind(("operation", operation.to_owned()))
-                            .bind(("child_key", child.map(str::to_owned))),
-                    )
-                    .await;
-                    match result {
-                        Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
-                            tokio::task::yield_now().await;
-                            attempt += 1;
+                let mut response = crate::transport::retry::retry_conflicts(
+                    crate::transport::retry::RetryPolicy::Retention,
+                    "canonical_staging::cleanup_stage_query",
+                    || async {
+                        let result = async {
+                            self.ensure_writes()?;
+                            let result = bounded_query(
+                                self.db
+                                    .script(
+                                        GuardedScript::new(Envelope::StageCleanup(StageCleanup {
+                                            problem: &ProblemKey::from(problem),
+                                            operation: &OperationKey::from(operation),
+                                            fence,
+                                        }))
+                                        .returning::<Option<Object>>(sql, "$pse_rpc_result")?,
+                                    )
+                                    .bind(("child_key", child.map(str::to_owned))),
+                            )
+                            .await;
+                            result
                         }
-                        Err(error) => {
-                            let error = error.exhaust_conflict(
-                                "canonical_staging::cleanup_stage_query",
-                                RETRIES as u32,
-                            );
-                            operation_failed("canonical_staging::cleanup_stage_query", &error);
-                            return Err(error);
-                        }
-                        Ok(mut response) => {
-                            return Ok(response.take(response.num_statements().saturating_sub(2))?);
-                        }
-                    }
-                }
+                        .await;
+                        crate::transport::retry::Attempt::settled(result)
+                    },
+                )
+                .await
+                .map_err(|error| {
+                    operation_failed("canonical_staging::cleanup_stage_query", &error);
+                    error
+                })?;
+                Ok(ResultSlot::<Option<Object>>::returned().take(&mut response)?)
             },
         )
         .await
     }
 }
-
-const CLEANUP_STAGE_BEGIN: &str = r#"BEGIN;
-fn::pse_execution_v1::register($pse_rpc_expires_at,'source-creators:'+$problem);
-LET $retention_guard = type::record('canonical_guards', 'retention:' + $problem);
-SELECT * FROM $retention_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
-SELECT * FROM $stage_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-LET $lease = SELECT * FROM ONLY type::record('canonical_stages', $operation);
-LET $eligible = $lease != NONE AND $lease.problem = $problem AND ($lease.activated OR $lease.abandoned OR $lease.expires_at <= time::micros());
-IF $eligible AND $lease.activated = false { UPDATE type::record('canonical_stages', $operation) SET abandoned = true, closed = false, generation = generation + 1dec; };"#;
-
-const CLEANUP_STAGE_END: &str = r#"UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
-UPSERT $retention_guard SET key='retention:'+$problem,generation=(generation ?? 0dec)+1dec;"#;
 
 fn describe(
     version: &ObjectVersion,
@@ -2184,7 +2152,7 @@ mod canonical_staging_unit {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     fn rejected_mutation() -> CanonicalError {
-        surrealdb::Error::query(
+        surrealdb_types::Error::query(
             "definite staging rollback".into(),
             QueryError::TransactionConflict,
         )
@@ -2225,7 +2193,7 @@ mod canonical_staging_unit {
             REQUEST_TIMEOUT,
             || async {
                 attempts.fetch_add(1, Ordering::SeqCst);
-                Err(surrealdb::Error::internal("uncertain staging response".into()).into())
+                Err(surrealdb_types::Error::internal("uncertain staging response".into()).into())
             },
         )
         .await;
@@ -2234,12 +2202,15 @@ mod canonical_staging_unit {
 
         for kind in [QueryError::Cancelled, QueryError::NotExecuted] {
             attempts.store(0, Ordering::SeqCst);
-            let result = retry_stage_mutation("staging query refusal", REQUEST_TIMEOUT, || {
-                attempts.fetch_add(1, Ordering::SeqCst);
-                let kind = kind.clone();
-                async move { Err(surrealdb::Error::query("staging refusal".into(), kind).into()) }
-            })
-            .await;
+            let result =
+                retry_stage_mutation("staging query refusal", REQUEST_TIMEOUT, || {
+                    attempts.fetch_add(1, Ordering::SeqCst);
+                    let kind = kind.clone();
+                    async move {
+                        Err(surrealdb_types::Error::query("staging refusal".into(), kind).into())
+                    }
+                })
+                .await;
             assert!(result.is_err());
             assert_eq!(attempts.load(Ordering::SeqCst), 1);
         }

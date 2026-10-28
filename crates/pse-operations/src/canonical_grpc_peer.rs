@@ -8,8 +8,8 @@ use http_body::Frame;
 use http_body_util::{BodyExt, StreamBody};
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use std::{convert::Infallible, sync::Arc};
-use surrealdb::types::prost::Message;
 use surrealdb_protocol::proto::{rpc::v1 as rpc, v1 as proto};
+use surrealdb_types::prost::Message;
 use tokio::sync::{Semaphore, mpsc};
 
 pub(super) struct Peer {
@@ -28,6 +28,95 @@ fn frame(message: impl Message) -> Vec<u8> {
     framed.extend_from_slice(&u32::try_from(bytes.len()).unwrap().to_be_bytes());
     framed.extend(bytes);
     framed
+}
+fn unsupported_statement_frames(live: bool) -> Vec<u8> {
+    let mut bytes = frame(rpc::QueryResponse {
+        frame: Some(rpc::query_response::Frame::Begin(rpc::QueryBegin {
+            query_id: Some(proto::Uuid::from_uuid(uuid::Uuid::new_v4())),
+            statement_count: 1,
+        })),
+    });
+    for (batch_index, kind, values) in if live {
+        vec![(
+            0,
+            rpc::QueryResponseKind::Single,
+            vec!["unsupported-live-id"],
+        )]
+    } else {
+        vec![
+            (0, rpc::QueryResponseKind::Batched, vec!["first", "second"]),
+            (1, rpc::QueryResponseKind::Single, vec!["last"]),
+        ]
+    } {
+        bytes.extend(frame(rpc::QueryResponse {
+            frame: Some(rpc::query_response::Frame::Batch(rpc::QueryBatchFrame {
+                query_index: 0,
+                batch_index,
+                kind: kind as i32,
+                statement_kind: if live {
+                    rpc::QueryStatementKind::Live
+                } else {
+                    rpc::QueryStatementKind::Other
+                } as i32,
+                payload: Some(rpc::query_batch_frame::Payload::Values(rpc::ValueBatch {
+                    values: values
+                        .into_iter()
+                        .map(|value| proto::Value {
+                            value: Some(if live {
+                                proto::value::Value::Uuid(proto::Uuid::from_uuid(
+                                    uuid::Uuid::new_v4(),
+                                ))
+                            } else {
+                                proto::value::Value::String(value.into())
+                            }),
+                        })
+                        .collect(),
+                })),
+                ..Default::default()
+            })),
+        }));
+    }
+    bytes.extend(frame(rpc::QueryResponse {
+        frame: Some(rpc::query_response::Frame::End(rpc::QueryEnd {
+            result_count: 1,
+            ..Default::default()
+        })),
+    }));
+    bytes
+}
+fn sparse_kill_frames() -> Vec<u8> {
+    let mut bytes = frame(rpc::QueryResponse {
+        frame: Some(rpc::query_response::Frame::Begin(rpc::QueryBegin {
+            query_id: Some(proto::Uuid::from_uuid(uuid::Uuid::new_v4())),
+            statement_count: 5,
+        })),
+    });
+    for (index, kind, text) in [
+        (1, rpc::QueryStatementKind::Other, "first"),
+        (3, rpc::QueryStatementKind::Kill, "kill"),
+        (4, rpc::QueryStatementKind::Other, "last"),
+    ] {
+        bytes.extend(frame(rpc::QueryResponse {
+            frame: Some(rpc::query_response::Frame::Batch(rpc::QueryBatchFrame {
+                query_index: index,
+                statement_kind: kind as i32,
+                kind: rpc::QueryResponseKind::Single as i32,
+                payload: Some(rpc::query_batch_frame::Payload::Values(rpc::ValueBatch {
+                    values: vec![proto::Value {
+                        value: Some(proto::value::Value::String(text.into())),
+                    }],
+                })),
+                ..Default::default()
+            })),
+        }));
+    }
+    bytes.extend(frame(rpc::QueryResponse {
+        frame: Some(rpc::query_response::Frame::End(rpc::QueryEnd {
+            result_count: 3,
+            ..Default::default()
+        })),
+    }));
+    bytes
 }
 fn query_frames(value: proto::Value, complete: bool) -> Vec<u8> {
     let mut bytes = frame(rpc::QueryResponse {
@@ -74,13 +163,19 @@ fn multiple_error_frames() -> Vec<u8> {
             frame: Some(rpc::query_response::Frame::Batch(rpc::QueryBatchFrame {
                 query_index: index,
                 kind: rpc::QueryResponseKind::Single as i32,
-                error: Some(proto::SurrealError::new(proto::ErrorKind::Query, message).with_details(details, None)),
+                error: Some(
+                    proto::SurrealError::new(proto::ErrorKind::Query, message)
+                        .with_details(details, None),
+                ),
                 ..Default::default()
             })),
         }));
     }
     bytes.extend(frame(rpc::QueryResponse {
-        frame: Some(rpc::query_response::Frame::End(rpc::QueryEnd { result_count: 3, ..Default::default() })),
+        frame: Some(rpc::query_response::Frame::End(rpc::QueryEnd {
+            result_count: 3,
+            ..Default::default()
+        })),
     }));
     bytes
 }
@@ -113,10 +208,10 @@ fn generated_block_page() -> proto::Value {
                 "id",
                 crate::canonical_codec::record_link("canonical_result_blocks", &key),
             );
-            surrealdb::types::Value::Object(object)
+            surrealdb_types::Value::Object(object)
         })
         .collect::<Vec<_>>();
-    proto::Value::try_from(surrealdb::types::Value::Array(rows.into())).unwrap()
+    proto::Value::try_from(surrealdb_types::Value::Array(rows.into())).unwrap()
 }
 
 pub(super) async fn start() -> Peer {
@@ -126,13 +221,21 @@ pub(super) async fn start_generations(generations: usize) -> Peer {
     start_with_restore_delay(generations, false).await
 }
 pub(super) async fn start_with_restore_delay(generations: usize, delay: bool) -> Peer {
-    start_scripted(generations, delay, None).await
+    start_scripted(generations, delay, None, false).await
 }
 #[cfg(feature = "canonical-tests")]
 pub(super) async fn start_source_stage_fault(pending_readback: bool) -> Peer {
-    start_scripted(1, false, Some(pending_readback)).await
+    start_scripted(1, false, Some(pending_readback), false).await
 }
-async fn start_scripted(generations: usize, delay: bool, source_stage_fault: Option<bool>) -> Peer {
+pub(super) async fn start_with_held_detach() -> Peer {
+    start_scripted(1, false, None, true).await
+}
+async fn start_scripted(
+    generations: usize,
+    delay: bool,
+    source_stage_fault: Option<bool>,
+    hold_detach: bool,
+) -> Peer {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let (sent, received) = mpsc::unbounded_channel();
@@ -210,6 +313,9 @@ async fn start_scripted(generations: usize, delay: bool, source_stage_fault: Opt
                                 #[cfg(feature = "canonical-tests")]
                                 let _ = requests_sent
                                     .send((std::time::Instant::now(), request.clone()));
+                                let canonical_probe=request.variables.as_ref().is_some_and(|variables|variables.variables.iter().any(|entry|
+                                    entry.key=="pse_record" && matches!(entry.value.as_ref().and_then(|value|value.value.as_ref()),Some(proto::value::Value::RecordId(record)) if record.table=="canonical_interpretations")
+                                ));
                                 let query = request.query;
                                 let _ = sent.send(query.clone());
                                 if query.contains("FIRST_READ") || query.contains("SECOND_READ") {
@@ -251,6 +357,12 @@ async fn start_scripted(generations: usize, delay: bool, source_stage_fault: Opt
                                         );
                                     }
                                     Vec::new()
+                                } else if query.contains("MIXED_BATCH_TO_SINGLE") {
+                                    unsupported_statement_frames(false)
+                                } else if query.contains("UNSUPPORTED_LIVE_RESPONSE") {
+                                    unsupported_statement_frames(true)
+                                } else if query.contains("SPARSE_WITH_KILL") {
+                                    sparse_kill_frames()
                                 } else if query.contains("MULTIPLE_STATEMENT_ERRORS") {
                                     multiple_error_frames()
                                 } else if query.contains("READ_ALWAYS_CONFLICT")
@@ -304,6 +416,7 @@ async fn start_scripted(generations: usize, delay: bool, source_stage_fault: Opt
                                         || (source_stage_fault.is_some()
                                             && query.contains("canonical_project_operations"))
                                         || query.contains("canonical_interpretations")
+                                        || canonical_probe
                                     {
                                         proto::Value {
                                             value: Some(proto::value::Value::None(
@@ -463,7 +576,13 @@ async fn start_scripted(generations: usize, delay: bool, source_stage_fault: Opt
                                 );
                                 Vec::new()
                             }
-                            "SetVariable" | "UnsetVariable" | "DetachSession" | "Health" => {
+                            "DetachSession" => {
+                                if hold_detach {
+                                    release.acquire().await.unwrap().forget();
+                                }
+                                frame(rpc::DetachSessionResponse {})
+                            }
+                            "SetVariable" | "UnsetVariable" | "Health" => {
                                 frame(rpc::HealthResponse {})
                             }
                             _ => {

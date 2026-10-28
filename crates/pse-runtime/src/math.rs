@@ -7,6 +7,7 @@ mod functions;
 #[cfg(feature = "solver-kinsol")]
 pub mod initialization;
 mod jobs;
+mod joined_pool;
 pub mod modeling;
 #[cfg(all(unix, feature = "solver-kinsol"))]
 pub mod native_child;
@@ -16,6 +17,7 @@ pub mod prediction;
 mod preparation;
 mod products;
 pub(crate) mod retention;
+mod sampling;
 pub mod settings;
 pub mod solves;
 mod staged;
@@ -55,7 +57,7 @@ use std::{
 pub(crate) async fn scope_stopped(
     scope: &pse_kernels::ExecutionScope,
 ) -> pse_kernels::ProviderError {
-    use pse_diagnostics::stop::{StopSignal, StopReason};
+    use pse_diagnostics::stop::{StopReason, StopSignal};
     match crate::stop::KernelStop(scope).stopped().await {
         StopReason::Cancelled => pse_kernels::ProviderError::Cancelled,
         StopReason::Deadline => pse_kernels::ProviderError::Deadline,

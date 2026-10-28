@@ -3,7 +3,7 @@
 
 //! Native protocol values: authoritative bits and checked decimal integers.
 
-use surrealdb::types::{Bytes, Decimal, Number, Object, Value};
+use surrealdb_types::{Bytes, Decimal, Number, Object, Value};
 
 /// Refusal of an incompatible or corrupt scientific wire value.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -63,7 +63,7 @@ pub fn decode_string(value: Value) -> Result<String, CodecError> {
 }
 /// Native record identity is distinct from declared text; projections derive it exactly.
 pub fn record_link(table: &str, key: &str) -> Value {
-    Value::RecordId(surrealdb::types::RecordId::new(table, key))
+    Value::RecordId(surrealdb_types::RecordId::new(table, key))
 }
 /// Refuse string coercion, a wrong table, a numeric key or a mismatched declared key.
 pub fn check_record_identity(value: Value, table: &str, key: &str) -> Result<(), CodecError> {
@@ -174,11 +174,11 @@ pub fn decode_finite(value: Value) -> Result<f64, CodecError> {
 
 /// A bounded query's exclusive record-id cursor, with no secondary key index.
 /// The enclosing SELECT supplies its finite page size and legitimate selectors.
-pub(crate) fn record_page(table: &str, after: &str) -> surrealdb::types::RecordId {
+pub(crate) fn record_page(table: &str, after: &str) -> surrealdb_types::RecordId {
     use std::ops::Bound;
-    surrealdb::types::RecordId::new(
+    surrealdb_types::RecordId::new(
         table,
-        surrealdb::types::RecordIdKeyRange::from((
+        surrealdb_types::RecordIdKeyRange::from((
             Bound::Excluded(after.to_owned()),
             Bound::<String>::Unbounded,
         )),

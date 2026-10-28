@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Exact immutable research references; scientific values stay in admitted sources/results.
+use crate::canonical_script::{Envelope, GuardedScript, ResultSlot};
 use crate::{
     canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, bounded_query, protected_query},
@@ -12,7 +13,7 @@ pub use pse_model::generated::runtime::{
     canonical_research_publications::Row as ResearchPublication,
     canonical_research_selections::Row as ResearchSelection,
 };
-use surrealdb::types::Object;
+use surrealdb_types::Object;
 fn encode<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, CanonicalError> {
     serde_json::to_vec(value).map_err(|e| CanonicalError::Configuration(e.to_string()))
 }
@@ -24,18 +25,6 @@ fn identity(key: &str) -> Result<(), CanonicalError> {
     }
 }
 impl CanonicalStore {
-    fn research_query(
-        &self,
-        sql: &str,
-    ) -> Result<surrealdb::method::Query<'_, surrealdb::engine::remote::grpc::Client>, CanonicalError>
-    {
-        Ok(self
-            .db
-            .query(format!(
-                "BEGIN; fn::pse_project_v1::authority($pse_rpc_expires_at,$issuer); {sql} COMMIT;"
-            ))
-            .bind(("issuer", self.issuing_store()?.to_owned())))
-    }
     /// Append one immutable admitted-object version. Replays compare complete original inputs.
     pub async fn create_research_dataset(
         &self,
@@ -71,12 +60,12 @@ impl CanonicalStore {
         let object = wire::encode_canonical_research_datasets(&row)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{self.ensure_writes()?;
-            let query=||Ok(self.research_query("RETURN fn::pse_research_v1::dataset($pse_rpc_expires_at,$row,$generation);")?.bind(("row",object.clone())).bind(("generation",codec::encode_uint(project.generation)?)));
+            let query=||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_research_v1::dataset($pse_rpc_expires_at,$row,$generation)")?).bind(("row",object.clone())).bind(("generation",codec::encode_uint(project.generation)?)));
             let response = protected_query("canonical_research::dataset",query).await;
             #[cfg(any(test, feature = "test-support"))]
             let response = if response.is_ok() && crate::canonical_projects::simulate_reply_loss() { Err(CanonicalError::IncompleteResponse) } else { response };
             let write = response.and_then(|mut response| {
-                response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?
+                ResultSlot::<Option<Object>>::returned().take(&mut response)?
                     .map(wire::decode_canonical_research_datasets).transpose()?
                     .ok_or(CanonicalError::IncompleteResponse)
             });
@@ -124,12 +113,12 @@ impl CanonicalStore {
         let object = wire::encode_canonical_research_selections(&row)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{self.ensure_writes()?;
-            let query=||Ok(self.research_query("RETURN fn::pse_research_v1::selection($pse_rpc_expires_at,$row,$generation);")?.bind(("row",object.clone())).bind(("generation",codec::encode_uint(project.generation)?)));
+            let query=||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_research_v1::selection($pse_rpc_expires_at,$row,$generation)")?).bind(("row",object.clone())).bind(("generation",codec::encode_uint(project.generation)?)));
             let response = protected_query("canonical_research::selection",query).await;
             #[cfg(any(test, feature = "test-support"))]
             let response = if response.is_ok() && crate::canonical_projects::simulate_reply_loss() { Err(CanonicalError::IncompleteResponse) } else { response };
             let write = response.and_then(|mut response| {
-                response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?
+                ResultSlot::<Option<Object>>::returned().take(&mut response)?
                     .map(wire::decode_canonical_research_selections).transpose()?
                     .ok_or(CanonicalError::IncompleteResponse)
             });
@@ -149,8 +138,8 @@ impl CanonicalStore {
         identity(key)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            let mut r=bounded_query(self.research_query("RETURN SELECT * FROM ONLY type::record('canonical_research_datasets',$key) WHERE fn::pse_project_import_v1::available(project);")?.bind(("key",key.to_owned()))).await?;
-            r.take::<Option<Object>>(r.num_statements().saturating_sub(2))?.map(wire::decode_canonical_research_datasets).transpose().map_err(Into::into)
+            let mut r=bounded_query(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","SELECT * FROM ONLY type::record('canonical_research_datasets',$key) WHERE fn::pse_project_import_v1::available(project)")?).bind(("key",key.to_owned()))).await?;
+            ResultSlot::<Option<Object>>::returned().take(&mut r)?.map(wire::decode_canonical_research_datasets).transpose().map_err(Into::into)
         })).await
     }
     /// Select exact frozen observation intent without reading measurement or result payloads.
@@ -161,8 +150,8 @@ impl CanonicalStore {
         identity(key)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            let mut r=bounded_query(self.research_query("RETURN SELECT * FROM ONLY type::record('canonical_research_selections',$key) WHERE fn::pse_project_import_v1::available(project);")?.bind(("key",key.to_owned()))).await?;
-            r.take::<Option<Object>>(r.num_statements().saturating_sub(2))?.map(wire::decode_canonical_research_selections).transpose().map_err(Into::into)
+            let mut r=bounded_query(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","SELECT * FROM ONLY type::record('canonical_research_selections',$key) WHERE fn::pse_project_import_v1::available(project)")?).bind(("key",key.to_owned()))).await?;
+            ResultSlot::<Option<Object>>::returned().take(&mut r)?.map(wire::decode_canonical_research_selections).transpose().map_err(Into::into)
         })).await
     }
     /// Exact atomic source-publication receipt; values remain in original source/result owners.
@@ -173,8 +162,8 @@ impl CanonicalStore {
         identity(key)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            let mut r=bounded_query(self.research_query("RETURN SELECT * FROM ONLY type::record('canonical_research_publications',$key) WHERE fn::pse_project_import_v1::available(project);")?.bind(("key",key.to_owned()))).await?;
-            r.take::<Option<Object>>(r.num_statements().saturating_sub(2))?.map(wire::decode_canonical_research_publications).transpose().map_err(Into::into)
+            let mut r=bounded_query(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","SELECT * FROM ONLY type::record('canonical_research_publications',$key) WHERE fn::pse_project_import_v1::available(project)")?).bind(("key",key.to_owned()))).await?;
+            ResultSlot::<Option<Object>>::returned().take(&mut r)?.map(wire::decode_canonical_research_publications).transpose().map_err(Into::into)
         })).await
     }
     /// Bounded indexed metadata page, ordered by immutable key. Continue after the last key.
@@ -190,8 +179,8 @@ impl CanonicalStore {
         }
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            let mut r=bounded_query(self.research_query("IF !fn::pse_project_import_v1::available($project) {THROW 'PSE_REFUSAL:project_source_unavailable';}; SELECT * FROM canonical_research_datasets WITH INDEX research_dataset_project WHERE project=$project AND fn::pse_project_import_v1::available(project) AND key>$after ORDER BY key LIMIT $limit;")?.bind(("project",project.to_owned())).bind(("after",after.to_owned())).bind(("limit",limit))).await?;
-            r.take::<Vec<Object>>(r.num_statements().saturating_sub(2))?.into_iter().map(|o|wire::decode_canonical_research_datasets(o).map_err(Into::into)).collect()
+            let mut r=bounded_query(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Vec<Object>>("IF !fn::pse_project_import_v1::available($project) {THROW 'PSE_REFUSAL:project_source_unavailable';};","SELECT * FROM canonical_research_datasets WITH INDEX research_dataset_project WHERE project=$project AND fn::pse_project_import_v1::available(project) AND key>$after ORDER BY key LIMIT $limit")?).bind(("project",project.to_owned())).bind(("after",after.to_owned())).bind(("limit",limit))).await?;
+            ResultSlot::<Vec<Object>>::returned().take(&mut r)?.into_iter().map(|o|wire::decode_canonical_research_datasets(o).map_err(Into::into)).collect()
         })).await
     }
 }

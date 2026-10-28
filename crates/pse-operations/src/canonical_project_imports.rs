@@ -3,6 +3,7 @@
 //! Fresh project import composes the original source activation and artifact custody owners.
 use crate::canonical::REQUEST_TIMEOUT;
 use crate::canonical::transport::{original_deadline, within_clock};
+use crate::canonical_script::{Envelope, GuardedScript, ResultSlot};
 use crate::{
     canonical::{CanonicalError, CanonicalStore, bounded_query, protected_query},
     canonical_artifacts::Artifact,
@@ -10,7 +11,7 @@ use crate::{
     generated::surreal as wire,
 };
 pub use pse_model::generated::runtime::canonical_project_imports::Row as ProjectImport;
-use surrealdb::types::{Object, Value};
+use surrealdb_types::{Object, Value};
 
 /// Original bundle and presentation commitment, carried privately by source activation.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -38,7 +39,7 @@ impl ImportBinding {
         self.validate()?;
         let mut row = Object::new();
         row.insert("bundle_digest", self.bundle_digest.clone());
-        row.insert("origin", surrealdb::types::Bytes::from(self.origin.clone()));
+        row.insert("origin", surrealdb_types::Bytes::from(self.origin.clone()));
         row.insert("title", self.title.clone());
         row.insert("branch_name", self.branch_name.clone());
         Ok(row)
@@ -143,14 +144,21 @@ impl CanonicalStore {
             return Ok(None);
         };
         let mut response = bounded_query(
-            self.project_query(
-                "SELECT * FROM ONLY type::record('canonical_project_imports',$key);",
-            )?
-            .bind(("key", intent.operation().to_owned())),
+            self.db
+                .script(
+                    GuardedScript::new(Envelope::ProjectAuthority {
+                        issuer: self.issuing_store()?,
+                    })
+                    .returning::<Option<Object>>(
+                        "",
+                        "SELECT * FROM ONLY type::record('canonical_project_imports',$key)",
+                    )?,
+                )
+                .bind(("key", intent.operation().to_owned())),
         )
         .await?;
-        let row = response
-            .take::<Option<Object>>(response.num_statements().saturating_sub(2))?
+        let row = ResultSlot::<Option<Object>>::returned()
+            .take(&mut response)?
             .map(wire::decode_canonical_project_imports)
             .transpose()?;
         if row.as_ref().is_none_or(|r| {
@@ -188,11 +196,10 @@ impl CanonicalStore {
             .map_err(|e| CanonicalError::Configuration(e.to_string()))?;
         let request = serde_json::to_vec(&(intent, bytes.as_slice()))
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        let result=protected_query("canonical_project_imports::bind",||Ok(self.project_query("RETURN fn::pse_project_import_v1::bind($pse_rpc_expires_at,$key,$request,$artifact,$bytes,$provenance);")?.bind(("key",intent.operation().to_owned())).bind(("request",surrealdb::types::Bytes::from(intent.publication.request().to_vec()))).bind(("artifact",Value::Object(wire::encode_canonical_artifacts(artifact)?))).bind(("bytes",surrealdb::types::Bytes::from(bytes.clone()))).bind(("provenance",surrealdb::types::Bytes::from(provenance.clone()))))).await;
+        let result=protected_query("canonical_project_imports::bind",||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_project_import_v1::bind($pse_rpc_expires_at,$key,$request,$artifact,$bytes,$provenance)")?).bind(("key",intent.operation().to_owned())).bind(("request",surrealdb_types::Bytes::from(intent.publication.request().to_vec()))).bind(("artifact",Value::Object(wire::encode_canonical_artifacts(artifact)?))).bind(("bytes",surrealdb_types::Bytes::from(bytes.clone()))).bind(("provenance",surrealdb_types::Bytes::from(provenance.clone()))))).await;
         match result {
             Ok(mut response) => {
-                let _ =
-                    response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?;
+                let _ = ResultSlot::<Option<Object>>::returned().take(&mut response)?;
                 Ok(())
             }
             Err(error) => {
@@ -243,9 +250,9 @@ impl CanonicalStore {
             if row.artifact.as_ref().is_none_or(|b|b.as_slice()!=bytes.as_slice()) {return Err(CanonicalError::OperationReused);}
             retired.push(original.clone());let next=serde_json::to_vec(&retired).map_err(|e|CanonicalError::Configuration(e.to_string()))?;
             if next.len()>131072 {return Err(CanonicalError::PayloadLimit);}
-            let previous=row.retired_artifacts.as_ref().map(|b|Value::Bytes(surrealdb::types::Bytes::from(b.as_slice().to_vec()))).unwrap_or(Value::None);
+            let previous=row.retired_artifacts.as_ref().map(|b|Value::Bytes(surrealdb_types::Bytes::from(b.as_slice().to_vec()))).unwrap_or(Value::None);
             let request=serde_json::to_vec(&(intent,bytes.as_slice(),row.retired_artifacts.as_ref().map(|bytes|bytes.as_slice()),next.as_slice())).map_err(|error|CanonicalError::Configuration(error.to_string()))?;
-            let result=protected_query("canonical_project_imports::retire_artifact",||Ok(self.project_query("RETURN fn::pse_project_import_v1::retire_artifact($pse_rpc_expires_at,$key,$request,$original,$bytes,$previous,$next);")?.bind(("key",intent.operation().to_owned())).bind(("request",surrealdb::types::Bytes::from(intent.publication.request().to_vec()))).bind(("original",Value::Object(wire::encode_canonical_artifacts(original)?))).bind(("bytes",surrealdb::types::Bytes::from(bytes.clone()))).bind(("previous",previous.clone())).bind(("next",surrealdb::types::Bytes::from(next.clone()))))).await;
+            let result=protected_query("canonical_project_imports::retire_artifact",||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_project_import_v1::retire_artifact($pse_rpc_expires_at,$key,$request,$original,$bytes,$previous,$next)")?).bind(("key",intent.operation().to_owned())).bind(("request",surrealdb_types::Bytes::from(intent.publication.request().to_vec()))).bind(("original",Value::Object(wire::encode_canonical_artifacts(original)?))).bind(("bytes",surrealdb_types::Bytes::from(bytes.clone()))).bind(("previous",previous.clone())).bind(("next",surrealdb_types::Bytes::from(next.clone()))))).await;
             let readback=self.project_import_record(intent).await;
             if let Ok(Some(settled))=&readback
                 && settled.retired_artifacts.as_ref().is_some_and(|b|b.as_slice()==next.as_slice()) {
@@ -294,7 +301,7 @@ impl CanonicalStore {
             crate::canonical_artifacts::CanonicalArtifactHolderKind::Project,
             intent.operation(),
         );
-        let result=protected_query("canonical_project_imports::finish",||Ok(self.project_query("RETURN fn::pse_project_import_v1::finish($pse_rpc_expires_at,$key,$request,$artifact,$bytes,$obligation);")?.bind(("key",intent.operation().to_owned())).bind(("request",surrealdb::types::Bytes::from(intent.publication.request().to_vec()))).bind(("artifact",Value::Object(wire::encode_canonical_artifacts(&artifact)?))).bind(("bytes",surrealdb::types::Bytes::from(row.artifact.as_ref().ok_or(CanonicalError::IncompleteResponse)?.as_slice().to_vec()))).bind(("obligation",Value::Object(wire::encode_canonical_artifact_obligations(&obligation)?))))).await;
+        let result=protected_query("canonical_project_imports::finish",||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_project_import_v1::finish($pse_rpc_expires_at,$key,$request,$artifact,$bytes,$obligation)")?).bind(("key",intent.operation().to_owned())).bind(("request",surrealdb_types::Bytes::from(intent.publication.request().to_vec()))).bind(("artifact",Value::Object(wire::encode_canonical_artifacts(&artifact)?))).bind(("bytes",surrealdb_types::Bytes::from(row.artifact.as_ref().ok_or(CanonicalError::IncompleteResponse)?.as_slice().to_vec()))).bind(("obligation",Value::Object(wire::encode_canonical_artifact_obligations(&obligation)?))))).await;
         // Completion is immutable, unlike the preceding artifact-custody CAS.
         let request =
             serde_json::to_vec(&(intent, row.artifact.as_ref().map(|bytes| bytes.as_slice())))

@@ -1,7 +1,6 @@
 # Recoverable edited supplier trees
 
-These deltas record the edited trees described by [the native notes](../native-supplier-notes.md)
-and [the SDK notes](../patches.md). They are source-reconstruction records, not an installation
+These deltas record the edited trees described by [the native notes](../native-supplier-notes.md). They are source-reconstruction records, not an installation
 path, a second production implementation or a producer-eligibility grant. The server keeps its
 existing ordered patch-series form in [the server source record](../../scripts/surrealdb-source/source-build.md).
 
@@ -26,8 +25,6 @@ delta includes its native release replacement and maintained integration.
 | `diffsol-nl` | `diffsol-nl` | `0.1.1` | `6b24ab3f56ff94c563ab85e7897ba57f884617d0dc83a081028d28ec800213a1` | `dc30fee49e692c65577b11a1181bfca62f5ebf42` | `crates/diffsol-nl` | https://github.com/martinjrobins/diffsol |
 | `faer` | `faer` | `0.24.4` | `5ab6df3dd147fe8d702a288b95bcd8fcc499ab572fc80da6828f60cd4d524d67` | `0539947ffb757a739d7e703a7d2fa0c792a909c1` | `faer` | https://github.com/sarah-quinones/faer-rs |
 | `faer-traits` | `faer-traits` | `0.24.0` | `b87d23ed7ab1f26c0cba0e5b9e061a796fbb7dc170fa8bee6970055a1308bb0f` | `8dfcceee8eb3d81231366acc9d3f157ac5e7057a` | `faer-traits` | https://github.com/sarah-quinones/faer-rs |
-| `surrealdb` | `surrealdb` | `3.3.4` | `c045d1519c7f0b7a15eb1f0b53bda772e95b4a50de3000b30ac2dcfebaa891dd` | `1ac2b1dba7cd177621a4cf5d507caebeb2414395` | `surrealdb` | https://github.com/surrealdb/surrealdb |
-| `surrealdb-engine-api` | `surrealdb-engine-api` | `3.3.4` | `604b176c1ead986bb77da66f8d8e22f634d203e8cae8b23b3ca9afbf6144c954` | `1ac2b1dba7cd177621a4cf5d507caebeb2414395` | `surrealdb/engine-api` | https://github.com/surrealdb/surrealdb |
 | `symbolica` | `symbolica` | `3.0.1` | `0965398bbe5063c00b3a0d078d7d3dc57b61819b97e960b73e9a7e9602662795` | `e9a0d35490a834afb2fa40d97c8c0b1e58ef5a5e` | `.` | https://github.com/symbolica-dev/symbolica |
 
 ## Complete byte deltas
@@ -35,12 +32,11 @@ delta includes its native release replacement and maintained integration.
 Each `<directory>.patch` is a single full `git diff --binary --full-index --no-renames`
 from the entire extracted archive to the repository's tracked supplier files. It retains
 whitespace changes, added files, deleted files and executable modes. It does not select only
-Rust/C sources or substantive hunks. `PATCH.md` in the SDK is a repository provenance note,
-not a supplier source: copy it after applying the delta. All other tracked supplier files,
-including `.cargo-ok` in the two SDK trees and SuiteSparse's `.gitattributes`, are included.
+Rust/C sources or substantive hunks. All tracked supplier files, including SuiteSparse's
+`.gitattributes`, are included.
 Cargo-created untracked caches and build outputs are outside the edited tracked trees.
 
-Counts below compare archive files with tracked supplier files, excluding only that SDK note.
+Counts below compare archive files with tracked supplier files.
 Whitespace-only means no diff under `git diff --ignore-all-space --ignore-blank-lines`; all
 remaining changes are conservatively counted as substantive, including line reflow. These
 categories describe the diff and do not assert semantic equivalence.
@@ -54,14 +50,8 @@ categories describe the diff and do not assert semantic equivalence.
 | `diffsol-nl` | 1 | 0 | 0 | 0 | [diffsol-nl.patch](diffsol-nl.patch) |
 | `faer` | 3 | 0 | 0 | 0 | [faer.patch](faer.patch) |
 | `faer-traits` | 1 | 0 | 0 | 0 | [faer-traits.patch](faer-traits.patch) |
-| `surrealdb` | 64 | 20 | 6 | 0 | [surrealdb.patch](surrealdb.patch) |
-| `surrealdb-engine-api` | 4 | 0 | 2 | 0 | [surrealdb-engine-api.patch](surrealdb-engine-api.patch) |
 | `symbolica` | 2 | 0 | 0 | 0 | [symbolica.patch](symbolica.patch) |
 
-The SDK's twenty whitespace-only files include sixteen `src/` files, `build.rs` and
-three benchmark files. Added SDK files are `.cargo-ok`, `src/engine/remote/grpc_lifecycle.rs`,
-`grpc_lifecycle_tests.rs`, `grpc_wire.rs`, `grpc_wire_schema.rs` in that same directory,
-and `tools/update_grpc_wire_schema.py`. The engine API adds `.cargo-ok` and `src/request.rs`.
 SuiteSparse adds `.gitattributes` to retain its two published CRLF files. The SUNDIALS release
 replacement adds 138 and deletes 103 paths relative to the published wrapper, including the
 native provenance record. Its projection retains complete released `cmake/`, `external/`,
@@ -73,8 +63,7 @@ is the complete hunk inventory.
 ## Reconstruct and compare
 
 From the repository root, the following one-off command downloads and checksum-verifies each
-archive, applies its complete delta in private scratch, copies the SDK provenance note and
-compares every path, byte and executable mode with the tracked tree. It uses this page's archive
+archive, applies its complete delta in private scratch and compares every path, byte and executable mode with the tracked tree. It uses this page's archive
 table directly. It does not build a supplier or consume an installed binary. Retain or remove
 the printed scratch directory as desired.
 
@@ -83,7 +72,6 @@ scripts/pse-env -- .venv/bin/python - <<'PY'
 from pathlib import Path
 import hashlib
 import json
-import shutil
 import stat
 import subprocess
 import tarfile
@@ -122,8 +110,6 @@ for line in (repo / "vendor/deltas/readme.md").read_text().splitlines():
         source = repo / path
         mode = metadata.split()[0]
         wanted[relative] = (source.read_bytes(), mode)
-        if relative == "PATCH.md":
-            shutil.copyfile(source, tree / relative)
     actual = {
         str(path.relative_to(tree)): (
             path.read_bytes(), "100755" if path.stat().st_mode & stat.S_IXUSR else "100644"
@@ -137,8 +123,8 @@ PY
 
 To refresh a delta after an intentional supplier edit, extract its pinned archive into an
 isolated Git work directory and commit that unmodified archive there. Replace its file tree
-with only `git ls-files --stage -- vendor/<directory>/` from the repository, retaining modes
-and omitting the SDK's `PATCH.md`; remove files absent from that tracked set. Stage that isolated
+with only `git ls-files --stage -- vendor/<directory>/` from the repository, retaining modes;
+remove files absent from that tracked set. Stage that isolated
 tree and write `git diff --cached --binary --full-index --no-renames HEAD` to the existing delta.
 Run the full comparison above. Never regenerate from a working directory walk that could
 capture `target/`, caches or other untracked build artifacts. This maintenance step affects

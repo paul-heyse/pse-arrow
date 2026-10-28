@@ -810,6 +810,54 @@
       "wire": "FlatV1"
     },
     {
+      "direction": "output",
+      "exported_name": "DesignAttribution",
+      "name": "DesignAttribution",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: sampling :: DesignAttribution",
+      "schema_path": "docs/generated/schema/design-attribution.output.schema.json",
+      "schema_sha256": "fc6e3ee086b7a7d11823a4ae1614604a4a6da56d51ac4292bd743aa40a6b7f54",
+      "slug": "design-attribution",
+      "version": null,
+      "wire": "Native"
+    },
+    {
+      "direction": "output",
+      "exported_name": "DesignExport",
+      "name": "DesignExport",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: sampling :: DesignExport",
+      "schema_path": "docs/generated/schema/design-export.output.schema.json",
+      "schema_sha256": "244de7e1279510c007b82bb0959c16051898d6785bfaa00ca30c5e661e4957d5",
+      "slug": "design-export",
+      "version": null,
+      "wire": "Native"
+    },
+    {
+      "direction": "input",
+      "exported_name": "DesignRequest",
+      "name": "DesignRequest",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: sampling :: DesignRequest",
+      "schema_path": "docs/generated/schema/design-request.input.schema.json",
+      "schema_sha256": "e1046f6bbb7d3bd17d8390436fd1ba3c488242d334530c17d03a84f91c325f9a",
+      "slug": "design-request",
+      "version": null,
+      "wire": "Native"
+    },
+    {
+      "direction": "output",
+      "exported_name": "DesignRequestOutput",
+      "name": "DesignRequest",
+      "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
+      "rust_type": "pse_runtime :: workflow :: sampling :: DesignRequest",
+      "schema_path": "docs/generated/schema/design-request.output.schema.json",
+      "schema_sha256": "7e65e06644e339f1a6aa456584209a0b89abf66dd70a56c87628878ad7e0b99c",
+      "slug": "design-request",
+      "version": null,
+      "wire": "Native"
+    },
+    {
       "direction": "input",
       "exported_name": "DetailDocument",
       "name": "DetailDocument",
@@ -5742,6 +5790,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:1b3eea510cac8e12694f5124d2de8c142f470b42b1d77bd5769270ca9e7608f6",
+  "schema_set_fingerprint": "blake3:11a975b6b75c9a9ece6505d8c65b3231519f0a579bc315b9e34d1445658489d2",
   "version": 1
 }

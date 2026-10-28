@@ -276,7 +276,13 @@ impl CohortAnalysisState {
             members,
             progress,
             next: page.next,
-            _owner: Some(Arc::new((page._owner, owner))),
+            _owner: Some(match page._owner {
+                Some(page_owner) => pse_operations::transport::client::ResponseAllocation::combine(
+                    page_owner,
+                    Arc::new(owner),
+                ),
+                None => Arc::new(owner).into(),
+            }),
         })
     }
 }
@@ -417,8 +423,9 @@ impl Scan {
             start: self.state.request.start,
             end: self.state.request.end,
         };
-        let page = pse_operations::canonical::response_ownership_scope(
-            Arc::new((self.state.cohort.capture.clone(), response.clone())),
+        let page = connected_results::protected_response_scope(
+            self.state.cohort.capture.clone(),
+            response.clone(),
             self.state
                 .cohort
                 .capture

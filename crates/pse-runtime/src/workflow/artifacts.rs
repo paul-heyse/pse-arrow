@@ -385,8 +385,12 @@ impl ScientificArtifact {
             "canonical:artifact-block-response",
             MetadataResponse::Header,
         )?;
-        let block = pse_operations::canonical::response_ownership_scope(
-            Arc::new((response.clone(), read_owner)),
+        let block = super::connected_results::protected_response_scope(
+            Arc::new(read.clone()),
+            pse_operations::transport::client::ResponseAllocation::combine(
+                response.clone(),
+                read_owner,
+            ),
             read.block(ordinal),
         )
         .await?;
@@ -714,8 +718,12 @@ impl Runtime {
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("canonical.artifact.scientific_source_requests", "count", 1);
         }
-        let sources = pse_operations::canonical::response_ownership_scope(
-            Arc::new((input.clone(), input_owner.clone(), response.clone())),
+        let sources = super::connected_results::protected_response_scope(
+            input.clone(),
+            pse_operations::transport::client::ResponseAllocation::combine(
+                input_owner.clone(),
+                response.clone(),
+            ),
             self.canonical_store()?.analysis_run_sources(run),
         )
         .await?;
@@ -1024,8 +1032,12 @@ impl Runtime {
                 "canonical:artifact-promotion-header-response",
                 MetadataResponse::Header,
             )?;
-            let mut header = pse_operations::canonical::response_ownership_scope(
-                Arc::new((input.clone(), input_owner.clone(), response)),
+            let mut header = super::connected_results::protected_response_scope(
+                input.clone(),
+                pse_operations::transport::client::ResponseAllocation::combine(
+                    input_owner.clone(),
+                    response,
+                ),
                 self.canonical_store()?.new_artifact(
                     revision,
                     kind.as_str(),
@@ -1073,10 +1085,14 @@ impl Runtime {
                 "canonical:artifact-promotion-publication-response",
                 MetadataResponse::Selection,
             )?;
-            let publication = pse_operations::canonical::response_ownership_scope(
-                // The SDK owns metadata and the original read follower only;
-                // copied member buffers retain their separate local grant.
-                Arc::new((input.clone(), input_owner.clone(), response)),
+            let publication = super::connected_results::protected_response_scope(
+                // Original read custody and actual metadata grants remain separate;
+                // copied member buffers retain their independent local allocation.
+                input.clone(),
+                pse_operations::transport::client::ResponseAllocation::combine(
+                    input_owner.clone(),
+                    response,
+                ),
                 self.canonical_store()?.persist_artifact(
                     &header,
                     sources,

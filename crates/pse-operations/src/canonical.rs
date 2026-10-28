@@ -3,6 +3,7 @@
 
 //! Concrete remote canonical substrate. Scientific work runs outside guarded transactions.
 
+use crate::canonical_script::{Envelope, GuardedScript, Recheck, ResultSlot};
 pub(crate) use crate::transport::lifetime;
 use crate::{canonical_codec::CodecError, generated::surreal as wire};
 #[cfg(feature = "canonical-maintenance")]
@@ -21,19 +22,13 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use surrealdb::{
-    Surreal,
-    engine::remote::grpc::Grpc,
-    opt::{Config, GrpcConfig},
-    types::{Object, Value},
-};
+use surrealdb_types::{Object, Value};
 #[path = "canonical_metadata.rs"]
 mod metadata;
 #[path = "canonical_study_module.rs"]
 pub(crate) mod study_module;
 pub(crate) use crate::transport::{
-    bounded_query, checked, complete_response, conflict_backoff, operation_failed, protected_query,
-    request,
+    bounded_query, checked, complete_response, operation_failed, protected_query, request,
 };
 use crate::transport::{original_deadline, within_clock};
 pub use metadata::MetadataResponse;
@@ -128,7 +123,7 @@ pub enum CanonicalError {
     Configuration(String),
     #[error("canonical store driver: {0} (query domain: {domain:?})", domain = .0.query_details())]
     /// Protocol/database failure retaining its native typed cause.
-    Driver(surrealdb::Error),
+    Driver(surrealdb_types::Error),
     /// A recognized synchronous native THROW; rendered prose never grants policy.
     #[error("canonical refusal {code} at {stage} ({class:?}, {effect:?})")]
     Refused {
@@ -286,8 +281,8 @@ pub enum CanonicalError {
         source: Arc<CanonicalError>,
     },
 }
-impl From<surrealdb::Error> for CanonicalError {
-    fn from(error: surrealdb::Error) -> Self {
+impl From<surrealdb_types::Error> for CanonicalError {
+    fn from(error: surrealdb_types::Error) -> Self {
         // Only the native kind authenticates this wire grammar. An Internal error
         // whose message resembles THROW must remain an invariant/infrastructure error.
         if error.is_thrown() {
@@ -373,8 +368,8 @@ impl CanonicalError {
                     && !matches!(
                         error.query_details(),
                         Some(
-                            surrealdb::types::QueryError::NotExecuted
-                                | surrealdb::types::QueryError::TransactionConflict
+                            surrealdb_types::QueryError::NotExecuted
+                                | surrealdb_types::QueryError::TransactionConflict
                         )
                     )
             }
@@ -432,7 +427,7 @@ impl CanonicalError {
         )
     }
     pub(crate) fn is_conflict(&self) -> bool {
-        matches!(self, Self::Driver(error) if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
+        matches!(self, Self::Driver(error) if matches!(error.query_details(), Some(surrealdb_types::QueryError::TransactionConflict)))
     }
     pub(crate) fn exhaust_conflict(self, operation: &'static str, attempts: u32) -> Self {
         if self.is_conflict() {
@@ -453,7 +448,7 @@ impl CanonicalError {
     // later receipt read. The same error types at that later read prove nothing.
     pub(crate) fn source_transaction_refused(&self) -> bool {
         matches!(self, Self::Refused { .. } | Self::ConflictExhausted { .. })
-            || matches!(self,Self::Driver(error) if error.is_thrown() || matches!(error.query_details(),Some(surrealdb::types::QueryError::NotExecuted|surrealdb::types::QueryError::TransactionConflict)))
+            || matches!(self,Self::Driver(error) if error.is_thrown() || matches!(error.query_details(),Some(surrealdb_types::QueryError::NotExecuted|surrealdb_types::QueryError::TransactionConflict)))
     }
 }
 impl pse_diagnostics::TypedDiagnostic for CanonicalError {
@@ -478,10 +473,20 @@ pub fn operation_scope<F: Future>(
 /// Retain an actual prepaid response allocation through native transport drain.
 /// Nested scopes preserve their enclosing owners and original request clocks.
 pub async fn response_ownership_scope<F: Future>(
-    owner: Arc<dyn std::fmt::Debug + Send + Sync>,
+    owner: impl Into<crate::transport::client::ResponseAllocation>,
     future: F,
 ) -> F::Output {
     transport::response_ownership_scope(owner, future).await
+}
+
+/// Retain issued read/release owners independently of prepaid allocation custody.
+/// The scope supplies no new permission; native work retains these exact guards
+/// until its original response processing and physical drain have completed.
+pub async fn request_custody_scope<F: Future>(
+    owner: impl Into<crate::transport::client::RetainedRequest>,
+    future: F,
+) -> F::Output {
+    transport::request_custody_scope(owner, future).await
 }
 
 /// Authenticated deployment parameters. Credentials never appear in Debug or status output.
@@ -804,17 +809,32 @@ struct ProtectionOwner {
     executor: Option<tokio::runtime::Handle>,
     activity: std::sync::Mutex<Option<ConnectionActivity>>,
     released: std::sync::atomic::AtomicBool,
-    metadata_owner: std::sync::OnceLock<Arc<dyn std::fmt::Debug + Send + Sync>>,
+    metadata_owner: std::sync::OnceLock<crate::transport::client::ResponseAllocation>,
 }
 impl ProtectedSelection {
+    #[cfg(test)]
+    pub(crate) fn test_only(revision: Revision, key: impl Into<String>) -> Self {
+        Self {
+            owner: Arc::new(ProtectionOwner {
+                key: key.into(),
+                revision,
+                store: None,
+                executor: None,
+                activity: std::sync::Mutex::new(None),
+                released: std::sync::atomic::AtomicBool::new(false),
+                metadata_owner: std::sync::OnceLock::new(),
+            }),
+        }
+    }
     /// Attach the one actual retained metadata allocation. Aliases may attach
     /// the same Arc; replacing it could release storage still borrowed by work.
     pub fn retain_metadata_owner(
         &self,
-        owner: Arc<dyn std::fmt::Debug + Send + Sync>,
+        owner: impl Into<crate::transport::client::ResponseAllocation>,
     ) -> Result<(), CanonicalError> {
+        let owner: crate::transport::client::ResponseAllocation = owner.into();
         if let Some(existing) = self.owner.metadata_owner.get() {
-            return if Arc::ptr_eq(existing, &owner) {
+            return if existing.same_owner(&owner) {
                 Ok(())
             } else {
                 Err(CanonicalError::Configuration(
@@ -827,7 +847,7 @@ impl ProtectedSelection {
                 .owner
                 .metadata_owner
                 .get()
-                .is_none_or(|existing| !Arc::ptr_eq(existing, &owner))
+                .is_none_or(|existing| !existing.same_owner(&owner))
         {
             return Err(CanonicalError::Configuration(
                 "protected metadata allocation owner differs".into(),
@@ -1239,9 +1259,11 @@ impl CanonicalStore {
         &self,
         problem: &str,
         future: F,
-    ) -> Result<surrealdb::IndexedResults, CanonicalError>
+    ) -> Result<crate::transport::client::IndexedResults, CanonicalError>
     where
-        F: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
+        F: IntoFuture<
+            Output = Result<crate::transport::client::IndexedResults, surrealdb_types::Error>,
+        >,
     {
         let activity = self.admit_activity()?;
         activity
@@ -1267,33 +1289,49 @@ impl CanonicalStore {
         effect: QueryEffect,
         operation: &'static str,
         build: F,
-    ) -> Result<surrealdb::IndexedResults, CanonicalError>
+    ) -> Result<crate::transport::client::IndexedResults, CanonicalError>
     where
         F: FnMut() -> Result<Q, CanonicalError>,
-        Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
+        Q: IntoFuture<
+            Output = Result<crate::transport::client::IndexedResults, surrealdb_types::Error>,
+        >,
     {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        let deadline = original_deadline(REQUEST_TIMEOUT);
-        within_clock(deadline, async {
-            let result = crate::transport::retry::retry_with_state(
-                crate::transport::retry::RetryPolicy::Guarded,
-                operation,
-                build,
-                |mut build| async move {
-                    let result = self.problem_turns.run(
-                        problem, effect, deadline, async { bounded_query(build()?).await },
-                    ).await;
-                    #[cfg(all(test, feature = "canonical-tests"))]
-                    if result.as_ref().err().is_some_and(CanonicalError::is_conflict) { pacing_observation::conflict(problem); }
-                    (build, crate::transport::retry::Attempt::settled(result))
-                },
-            ).await;
-            if let Err(error) = &result { operation_failed(operation, error); }
-            result
-
-        }).await
-            }).await
+        activity
+            .scope(async {
+                let deadline = original_deadline(REQUEST_TIMEOUT);
+                within_clock(deadline, async {
+                    let result = crate::transport::retry::retry_with_state(
+                        crate::transport::retry::RetryPolicy::Guarded,
+                        operation,
+                        build,
+                        |mut build, _round| async move {
+                            let result = self
+                                .problem_turns
+                                .run(problem, effect, deadline, async {
+                                    bounded_query(build()?).await
+                                })
+                                .await;
+                            #[cfg(all(test, feature = "canonical-tests"))]
+                            if result
+                                .as_ref()
+                                .err()
+                                .is_some_and(CanonicalError::is_conflict)
+                            {
+                                pacing_observation::conflict(problem);
+                            }
+                            (build, crate::transport::retry::Attempt::settled(result))
+                        },
+                    )
+                    .await;
+                    if let Err(error) = &result {
+                        operation_failed(operation, error);
+                    }
+                    result.map_err(|error| error.exhaust_conflict(operation, GUARDED_ATTEMPTS))
+                })
+                .await
+            })
+            .await
     }
 
     /// Endpoint actually selected by this authenticated storage handle.
@@ -1416,32 +1454,42 @@ impl CanonicalStore {
     async fn initialize_with<F, Q>(&self, submit: F) -> Result<(), CanonicalError>
     where
         F: FnMut() -> Q,
-        Q: Future<Output = Result<surrealdb::IndexedResults, CanonicalError>>,
+        Q: Future<Output = Result<crate::transport::client::IndexedResults, CanonicalError>>,
     {
         within_clock(original_deadline(ACTIVATION_REQUEST_TIMEOUT), async {
             crate::transport::retry::retry_with_state(
                 crate::transport::retry::RetryPolicy::Initialization,
                 "canonical::initialize",
                 submit,
-                |mut submit| async move {
+                |mut submit, _round| async move {
                     use crate::transport::retry::Attempt;
                     let preflight = async {
                         self.ensure_writes()?;
-                        if !self.initialization_required().await? { return Ok(false); }
+                        if !self.initialization_required().await? {
+                            return Ok(false);
+                        }
                         self.provision_context().await?;
                         Ok(true)
-                    }.await;
+                    }
+                    .await;
                     let outcome = match preflight {
-                        Ok(true) => Attempt::settled(submit().await.and_then(complete_response).map(|_| ())),
+                        Ok(true) => match Attempt::settled(
+                            submit().await.and_then(complete_response).map(|_| ()),
+                        ) {
+                            Attempt::Done(result) => Attempt::Done(result.map_err(|error| {
+                                error.exhaust_conflict("canonical::initialize", 8)
+                            })),
+                            retry => retry,
+                        },
                         Ok(false) => Attempt::Done(Ok(())),
                         Err(error) => Attempt::Done(Err(error)),
                     };
                     (submit, outcome)
                 },
-            ).await?;
+            )
+            .await?;
             // An acknowledged installation is never retried because readback failed.
             self.open().await
-
         })
         .await
     }
@@ -1455,9 +1503,9 @@ impl CanonicalStore {
             Ok(response) => response,
             Err(CanonicalError::Driver(error))
                 if matches!(error.not_found_details(),
-                Some(surrealdb::types::NotFoundError::Namespace { name }) if name == &self.namespace)
+                Some(surrealdb_types::NotFoundError::Namespace { name }) if name == &self.namespace)
                     || matches!(error.not_found_details(),
-                Some(surrealdb::types::NotFoundError::Database { name }) if name == &self.database) =>
+                Some(surrealdb_types::NotFoundError::Database { name }) if name == &self.database) =>
             {
                 return Ok(None);
             }
@@ -1519,14 +1567,16 @@ impl CanonicalStore {
         Ok(())
     }
 
-    async fn submit_initialization(&self) -> Result<surrealdb::IndexedResults, CanonicalError> {
+    async fn submit_initialization(
+        &self,
+    ) -> Result<crate::transport::client::IndexedResults, CanonicalError> {
         self.ensure_writes()?;
         // Installing the complete schema is an atomic structural transition.
         // Its client deadline must match that role, rather than an ordinary read.
         let module = study_module::StudyModuleReceipt::read(&self.state_path)?;
         let query = self
             .activation_db
-            .query(initialization_statement(&module))
+            .script(initialization_statement(&module)?)
             .bind(("study_module_backend", module.backend()?))
             .bind(("study_module_sha256", module.sha256.clone()))
             .bind(("interpretation", wire::INTERPRETATION))
@@ -1764,133 +1814,152 @@ impl CanonicalStore {
         activity
             .scope(async {
                 within_clock(deadline, async {
-                    let mut attempt = 0;
-                    loop {
-                        self.ensure_writes()?;
-                        let query = self
-                            .activation_db
-                            .query(crate::canonical_staging::bounded_edit_sql(EDIT))
-                            .bind(("admission", admission.clone()))
-                            .bind((
-                                "project_intent",
-                                project
-                                    .map(|intent| intent.encode())
-                                    .transpose()?
-                                    .unwrap_or(Value::None),
-                            ))
-                            .bind(("problem", stage.problem.clone()))
-                            .bind(("expected", stage.expected.clone()))
-                            .bind(("operation", stage.operation.clone()))
-                            .bind(("interpretation", wire::INTERPRETATION))
-                            .bind((
-                                "request",
-                                surrealdb::types::Bytes::from(stage.request.clone()),
-                            ))
-                            .bind(("request_digest", stage.request_digest.clone()))
-                            .bind((
-                                "generation",
-                                crate::canonical_codec::encode_uint(stage.generation)?,
-                            ));
-                        let result =
-                            tokio::time::timeout(ACTIVATION_REQUEST_TIMEOUT, query.into_future())
+                    let admission = &admission;
+                    crate::transport::retry::retry_with_state(
+                        crate::transport::retry::RetryPolicy::Guarded,
+                        "canonical::activate_source_stage",
+                        (),
+                        |(), round| async move {
+                            let result = async {
+                                self.ensure_writes()?;
+                                let query = self
+                                    .activation_db
+                                    .script(
+                                        GuardedScript::new(Envelope::DeadlineOnly)
+                                            .returning::<Value>(
+                                                &crate::canonical_staging::bounded_edit_sql(EDIT),
+                                                "NONE",
+                                            )?,
+                                    )
+                                    .bind(("admission", admission.clone()))
+                                    .bind((
+                                        "project_intent",
+                                        project
+                                            .map(|intent| intent.encode())
+                                            .transpose()?
+                                            .unwrap_or(Value::None),
+                                    ))
+                                    .bind(("problem", stage.problem.clone()))
+                                    .bind(("expected", stage.expected.clone()))
+                                    .bind(("operation", stage.operation.clone()))
+                                    .bind(("interpretation", wire::INTERPRETATION))
+                                    .bind((
+                                        "request",
+                                        surrealdb_types::Bytes::from(stage.request.clone()),
+                                    ))
+                                    .bind(("request_digest", stage.request_digest.clone()))
+                                    .bind((
+                                        "generation",
+                                        crate::canonical_codec::encode_uint(stage.generation)?,
+                                    ));
+                                let result = tokio::time::timeout(
+                                    ACTIVATION_REQUEST_TIMEOUT,
+                                    query.into_future(),
+                                )
                                 .await
                                 .map_err(|_| CanonicalError::Timeout)
                                 .and_then(|response| response.map_err(CanonicalError::from))
                                 .and_then(complete_response);
-                        #[cfg(any(test, feature = "test-support"))]
-                        let result = if project.is_some()
-                            && result.is_ok()
-                            && crate::canonical_projects::simulate_reply_loss()
-                        {
-                            Err(CanonicalError::IncompleteResponse)
-                        } else {
-                            result
-                        };
-                        if let Err(error) = result {
-                            if error.is_capture_busy() {
-                                conflict_backoff(4).await;
-                                continue;
-                            }
-                            // A lost acknowledgment or concurrent identical activation is settled
-                            // exclusively by the immutable operation receipt, never by the head.
-                            let acknowledgement = self.revision(&stage.operation).await;
-                            if let Ok(Some(revision)) = &acknowledgement {
-                                if revision.request.as_slice() != stage.request.as_slice() {
-                                    return Err(CanonicalError::OperationReused);
-                                }
-                                if let Some(intent) = project
-                                    && let Err(readback) =
-                                        self.verify_project_publication_ack(intent).await
+                                #[cfg(any(test, feature = "test-support"))]
+                                let result = if project.is_some()
+                                    && result.is_ok()
+                                    && crate::canonical_projects::simulate_reply_loss()
                                 {
-                                    return Err(settlement::unresolved(
+                                    Err(CanonicalError::IncompleteResponse)
+                                } else {
+                                    result
+                                };
+                                if let Err(error) = result {
+                                    if error.is_capture_busy() {
+                                        return Err(error);
+                                    }
+                                    // A lost acknowledgment or concurrent identical activation is settled
+                                    // exclusively by the immutable operation receipt, never by the head.
+                                    let acknowledgement = self.revision(&stage.operation).await;
+                                    if let Ok(Some(revision)) = &acknowledgement {
+                                        if revision.request.as_slice() != stage.request.as_slice() {
+                                            return Err(CanonicalError::OperationReused);
+                                        }
+                                        if let Some(intent) = project
+                                            && let Err(readback) =
+                                                self.verify_project_publication_ack(intent).await
+                                        {
+                                            return Err(settlement::unresolved(
+                                                "source-activation",
+                                                &stage.operation,
+                                                &stage.request,
+                                                error,
+                                                Some(readback),
+                                            ));
+                                        }
+                                        return Ok(revision.clone());
+                                    }
+                                    let refused = matches!(acknowledgement, Ok(None))
+                                        && error.source_transaction_refused();
+                                    if matches!(acknowledgement, Ok(None))
+                                        && error.is_conflict()
+                                        && round.can_retry_conflict()
+                                    {
+                                        return Err(error);
+                                    }
+                                    let error = error.exhaust_conflict(
+                                        "canonical::activate_source_stage",
+                                        GUARDED_ATTEMPTS,
+                                    );
+                                    operation_failed("canonical::activate_source_stage", &error);
+                                    let result = settlement::settle_exact(
                                         "source-activation",
                                         &stage.operation,
                                         &stage.request,
-                                        error,
-                                        Some(readback),
-                                    ));
+                                        Err(error),
+                                        async { acknowledgement },
+                                        |revision| {
+                                            revision.request.as_slice() == stage.request.as_slice()
+                                        },
+                                        CanonicalError::source_transaction_refused,
+                                    )
+                                    .await;
+                                    return result.map_err(|error| {
+                                        if refused {
+                                            CanonicalError::SourceEditRefused {
+                                                problem: stage.problem.clone(),
+                                                operation: stage.operation.clone(),
+                                                source: Box::new(error),
+                                            }
+                                        } else {
+                                            error
+                                        }
+                                    });
                                 }
-                                return Ok(revision.clone());
+                                // The write completed, but a missing or failed receipt read still
+                                // cannot invent an immutable acknowledgement for this activation.
+                                return settlement::settle_exact(
+                                    "source-activation",
+                                    &stage.operation,
+                                    &stage.request,
+                                    Err(CanonicalError::IncompleteResponse),
+                                    async {
+                                        let revision = self.revision(&stage.operation).await?;
+                                        if revision.as_ref().is_some_and(|revision| {
+                                            revision.request.as_slice() == stage.request.as_slice()
+                                        }) && let Some(intent) = project
+                                        {
+                                            self.verify_project_publication_ack(intent).await?;
+                                        }
+                                        Ok(revision)
+                                    },
+                                    |revision| {
+                                        revision.request.as_slice() == stage.request.as_slice()
+                                    },
+                                    |_| false,
+                                )
+                                .await;
                             }
-                            let refused = matches!(acknowledgement, Ok(None))
-                                && error.source_transaction_refused();
-                            if matches!(acknowledgement, Ok(None))
-                                && error.is_conflict()
-                                && attempt + 1 < GUARDED_ATTEMPTS
-                            {
-                                conflict_backoff(attempt).await;
-                                attempt += 1;
-                                continue;
-                            }
-                            let error = error.exhaust_conflict(
-                                "canonical::activate_source_stage",
-                                GUARDED_ATTEMPTS,
-                            );
-                            operation_failed("canonical::activate_source_stage", &error);
-                            let result = settlement::settle_exact(
-                                "source-activation",
-                                &stage.operation,
-                                &stage.request,
-                                Err(error),
-                                async { acknowledgement },
-                                |revision| revision.request.as_slice() == stage.request.as_slice(),
-                                CanonicalError::source_transaction_refused,
-                            )
                             .await;
-                            return result.map_err(|error| {
-                                if refused {
-                                    CanonicalError::SourceEditRefused {
-                                        problem: stage.problem.clone(),
-                                        operation: stage.operation.clone(),
-                                        source: Box::new(error),
-                                    }
-                                } else {
-                                    error
-                                }
-                            });
-                        }
-                        // The write completed, but a missing or failed receipt read still
-                        // cannot invent an immutable acknowledgement for this activation.
-                        return settlement::settle_exact(
-                            "source-activation",
-                            &stage.operation,
-                            &stage.request,
-                            Err(CanonicalError::IncompleteResponse),
-                            async {
-                                let revision = self.revision(&stage.operation).await?;
-                                if revision.as_ref().is_some_and(|revision| {
-                                    revision.request.as_slice() == stage.request.as_slice()
-                                }) && let Some(intent) = project
-                                {
-                                    self.verify_project_publication_ack(intent).await?;
-                                }
-                                Ok(revision)
-                            },
-                            |revision| revision.request.as_slice() == stage.request.as_slice(),
-                            |_| false,
-                        )
-                        .await;
-                    }
+                            ((), crate::transport::retry::Attempt::settled(result))
+                        },
+                    )
+                    .await
                 })
                 .await
             })
@@ -1925,9 +1994,9 @@ impl CanonicalStore {
             .await
     }
     async fn protection_grant_key(&self, problem: &str) -> Result<String, CanonicalError> {
-        let mut response = bounded_query(self.db.query("LET $authority=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $authority=NONE OR $authority.incarnation=NONE { THROW 'PSE_REFUSAL:source_protection_authority_unavailable'; }; RETURN {incarnation:$authority.incarnation,deadline:time::micros()+30000000};").bind(("problem",problem.to_owned()))).await?;
-        let mut grant = response
-            .take::<Option<Object>>(response.num_statements().saturating_sub(1))?
+        let mut response = bounded_query(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("LET $authority=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $authority=NONE OR $authority.incarnation=NONE { THROW 'PSE_REFUSAL:source_protection_authority_unavailable'; };","{incarnation:$authority.incarnation,deadline:time::micros()+30000000}")?).bind(("problem",problem.to_owned()))).await?;
+        let mut grant = ResultSlot::<Option<Object>>::returned()
+            .take(&mut response)?
             .ok_or(CanonicalError::IncompleteResponse)?;
         let incarnation = crate::canonical_codec::decode_string(crate::canonical_codec::required(
             &mut grant,
@@ -1956,9 +2025,8 @@ impl CanonicalStore {
         activity.scope(async {
         self.ensure_writes()?;
         let mut response = self.protected_query(&format!("pin:{key}"), QueryEffect::Mutation,
-            "canonical::settle_protection_grant", || Ok(self.db.query("BEGIN; RETURN fn::pse_retention_v1::settle_protection($pse_rpc_expires_at,$problem,$key); COMMIT;").bind(("problem",problem.to_owned())).bind(("key",key.to_owned())))).await?;
-        let mut row = response
-            .take::<Option<Object>>(response.num_statements().saturating_sub(2))?
+            "canonical::settle_protection_grant", || Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("","fn::pse_retention_v1::settle_protection($pse_rpc_expires_at,$problem,$key)")?).bind(("problem",problem.to_owned())).bind(("key",key.to_owned())))).await?;
+        let mut row = ResultSlot::<Option<Object>>::returned().take(&mut response)?
             .ok_or(CanonicalError::IncompleteResponse)?;
         Ok(crate::canonical_codec::decode_boolean(
             crate::canonical_codec::required(&mut row, "complete")?,
@@ -2041,7 +2109,10 @@ impl CanonicalStore {
                 || {
                     Ok(self
                         .db
-                        .query(ACQUIRE_PROTECTION)
+                        .script(
+                            GuardedScript::new(Envelope::DeadlineOnly)
+                                .returning::<Option<Object>>(ACQUIRE_PROTECTION, "$rpc_result")?,
+                        )
                         .bind(("problem", revision.problem.clone()))
                         .bind(("revision", revision.key.clone()))
                         .bind(("key", key.to_owned()))
@@ -2049,7 +2120,7 @@ impl CanonicalStore {
                 },
             )
             .await?;
-        let actual: Option<Object> = response.take(response.num_statements().saturating_sub(2))?;
+        let actual = ResultSlot::<Option<Object>>::returned().take(&mut response)?;
         let revision = wire::decode_canonical_revisions(actual.ok_or_else(|| {
             CanonicalError::Configuration("protected revision unavailable".into())
         })?)?;
@@ -2084,25 +2155,19 @@ impl CanonicalStore {
                         || {
                             Ok(self
                                 .db
-                                .query(format!(
-                                    "{PROTECTED_BEGIN}\n{}\nRETURN true; COMMIT;",
-                                    crate::canonical_results::RENEW_PROTECTION
-                                ))
-                                .bind(("problem", selection.revision().problem.clone()))
-                                .bind(("revision", selection.revision().key.clone()))
-                                .bind((
-                                    "sequence",
-                                    crate::canonical_codec::encode_uint(
-                                        selection.revision().sequence,
-                                    )?,
-                                ))
-                                .bind(("protection", selection.key().to_owned()))
+                                .script(
+                                    GuardedScript::new(Envelope::ProtectedAdmission { selection })
+                                        .returning::<Option<bool>>(
+                                            crate::canonical_results::RENEW_PROTECTION,
+                                            "true",
+                                        )?,
+                                )
                                 .bind(("lifetime", micros)))
                         },
                     )
                     .await?;
                 let renewed: Option<bool> =
-                    response.take(response.num_statements().saturating_sub(2))?;
+                    ResultSlot::<Option<bool>>::returned().take(&mut response)?;
                 if renewed != Some(true) {
                     return Err(CanonicalError::IncompleteResponse);
                 }
@@ -2122,9 +2187,10 @@ impl CanonicalStore {
         if names.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = self.protected_query(&selection.revision().problem, QueryEffect::Read, "canonical::select_names", || Ok(self.db.query(format!("{}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;", PROTECTED_BEGIN))
-            .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.to_owned())).bind(("names", names.to_vec())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
-        let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
+        let mut response = self.protected_query(&selection.revision().problem, QueryEffect::Read, "canonical::select_names", || Ok(self.db.script(GuardedScript::new(Envelope::ProtectedRead{selection,recheck:Recheck::PinOrTicket})
+            .returning::<Vec<Object>>("","SELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout")?)
+            .bind(("scope",scope.to_owned())).bind(("names",names.to_vec())))).await?;
+        let rows: Vec<Object> = ResultSlot::<Vec<Object>>::returned().take(&mut response)?;
         rows.into_iter()
             .map(wire::decode_canonical_memberships)
             .collect::<Result<_, _>>()
@@ -2197,21 +2263,23 @@ impl CanonicalStore {
         let receipt = blob.receipt.as_ref().ok_or(CanonicalError::PayloadLimit)?;
         let content = pse_model::generated::runtime::canonical_body_contents::Row { key: blob.version.clone(), version: blob.version.clone(), digest: blob.digest.clone(), bytes: blob.payload_bytes as u64, producer: product.producer.clone(), interpretation: wire::INTERPRETATION.into(), format: crate::canonical_staging::BODY_CONTENT_KIND.into() };
         let selection_receipt = pse_model::generated::runtime::canonical_selection_receipts::Row { key: receipt.version.clone(), version: receipt.version.clone(), digest: receipt.digest.clone(), bytes: receipt.bytes as u64, interpretation: wire::INTERPRETATION.into(), format: crate::canonical_staging::SELECTION_RECEIPT_KIND.into() };
-        let mut attempt=0;
-            loop {
+        let descriptor = &descriptor;
+        let association = &association;
+        let content = &content;
+        let selection_receipt = &selection_receipt;
+        crate::transport::retry::retry_with_state(
+            crate::transport::retry::RetryPolicy::Guarded,
+            "canonical::admit_product",
+            (),
+            |(), round| async move {
+                let result = async {
             self.ensure_writes()?;
             let result = self
                 .staging_query(
                     &selection.revision().problem,
                     self.db
-                        .query(format!("{PROTECTED_BEGIN}\n{ADMIT_PRODUCT}\nCOMMIT;"))
-                        .bind(("problem", selection.revision().problem.clone()))
-                        .bind(("revision", selection.revision().key.clone()))
-                        .bind(("protection", selection.key().to_owned()))
-                        .bind((
-                            "sequence",
-                            crate::canonical_codec::encode_uint(selection.revision().sequence)?,
-                        ))
+                        .script(GuardedScript::new(Envelope::ProtectedAdmission{selection})
+                            .returning::<Value>(ADMIT_PRODUCT,"$rpc_result")?)
                         .bind(("product", wire::encode_canonical_product_associations(&association)?))
                         .bind(("descriptor", wire::encode_canonical_product_descriptors(&descriptor)?))
                         .bind(("content", wire::encode_canonical_body_contents(&content)?))
@@ -2228,29 +2296,30 @@ impl CanonicalStore {
             match result {
                 Ok(mut response) => {
                     return Ok(crate::canonical_codec::decode_string(
-                        response.take::<Value>(response.num_statements().saturating_sub(2))?,
+                        ResultSlot::<Value>::returned().take(&mut response)?,
                     )?);
                 }
                 Err(error) => {
-                    if error.is_capture_busy() { conflict_backoff(4).await; continue; }
+                    if error.is_capture_busy() { return Err(error); }
                     // This immutable acknowledgment remains meaningful even if the
                     // preparation pin expired after the successful commit.
                     if let Ok(Some(key)) = self.product_acknowledged(product).await {
                         return Ok(key);
                     }
-                    if matches!(&error, CanonicalError::Driver(error) if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
-                        && attempt + 1 < GUARDED_ATTEMPTS
+                    if matches!(&error, CanonicalError::Driver(error) if matches!(error.query_details(), Some(surrealdb_types::QueryError::TransactionConflict)))
+                        && round.can_retry_conflict()
                     {
-                        conflict_backoff(attempt).await;
-                    attempt+=1;
-                        continue;
+                        return Err(error);
                     }
                     let error = error.exhaust_conflict("canonical::admit_product", GUARDED_ATTEMPTS);
                     operation_failed("canonical::admit_product", &error);
                     return Err(error);
                 }
             }
-        }
+                }.await;
+                ((), crate::transport::retry::Attempt::settled(result))
+            },
+        ).await
         }).await
             }).await
     }
@@ -2270,7 +2339,10 @@ impl CanonicalStore {
                         || {
                             Ok(self
                                 .db
-                                .query(PRODUCT_ACK)
+                                .script(
+                                    GuardedScript::new(Envelope::DeadlineOnly)
+                                        .returning::<Value>(PRODUCT_ACK, "$rpc_result")?,
+                                )
                                 .bind(("problem", product.problem.clone()))
                                 .bind((
                                     "descriptor",
@@ -2279,7 +2351,7 @@ impl CanonicalStore {
                         },
                     )
                     .await?;
-                let value = response.take::<Value>(response.num_statements().saturating_sub(2))?;
+                let value = ResultSlot::<Value>::returned().take(&mut response)?;
                 if matches!(value, Value::None) {
                     return Ok(None);
                 }
@@ -2328,7 +2400,10 @@ impl CanonicalStore {
             || {
                 Ok(self
                     .db
-                    .query(RELEASE_PROTECTION)
+                    .script(
+                        GuardedScript::new(Envelope::DeadlineOnly)
+                            .returning::<Value>(RELEASE_PROTECTION, "NONE")?,
+                    )
                     .bind(("problem", revision.problem.clone()))
                     .bind(("revision", revision.key.clone()))
                     .bind(("sequence", sequence.clone()))
@@ -2496,12 +2571,15 @@ impl CanonicalStore {
     }
 }
 
-fn initialization_statement(module: &study_module::StudyModuleReceipt) -> String {
-    format!(
-        "BEGIN;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; }};\n{}{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, study_module_sha256 = $study_module_sha256, issuing_store = <string>rand::uuid::v4(), payload_incarnation = $payload_incarnation;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; }};\nCOMMIT;",
+fn initialization_statement(
+    module: &study_module::StudyModuleReceipt,
+) -> Result<crate::canonical_script::PreparedScript<Value>, CanonicalError> {
+    let body = format!(
+        "{}{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, study_module_sha256 = $study_module_sha256, issuing_store = <string>rand::uuid::v4(), payload_incarnation = $payload_incarnation;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;",
         module.declarations(false),
-        wire::SCHEMA
-    )
+        wire::SCHEMA,
+    );
+    GuardedScript::new(Envelope::Installation).returning::<Value>(&body, "NONE")
 }
 
 async fn connect_client(
@@ -2512,11 +2590,8 @@ async fn connect_client(
 ) -> Result<Arc<CanonicalClient>, CanonicalError> {
     let deadline = original_deadline(REQUEST_TIMEOUT);
     within_clock(deadline, async {
-        let config = Config::new()
-            .bounded_requests()
-            .grpc(GrpcConfig::new().max_message_size(MESSAGE_BYTES))?;
         let db = within_clock(deadline, async {
-            Surreal::new::<Grpc>((address, config))
+            crate::transport::client::Client::connect(address, MESSAGE_BYTES)
                 .await
                 .map_err(Into::into)
         })
@@ -2529,21 +2604,6 @@ async fn connect_client(
     })
     .await
 }
-
-// The native indexed route includes BEGIN and COMMIT result slots. Consumer SELECT
-// is immediately before COMMIT; do not decode either control's NONE as an object.
-pub(crate) const PROTECTED_BEGIN: &str = r#"BEGIN;
-SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-LET $pin = SELECT * FROM ONLY type::record('canonical_protections', $protection) FOR UPDATE;
-IF $pin = NONE OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence OR $pin.released OR ($pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection)) { THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; };
-LET $grant=fn::pse_execution_v1::protection_grant($pse_rpc_expires_at,$problem,$protection,false);
-IF $pin.grant_deadline!=$grant.grant_deadline OR $pin.grant_nonce!=$grant.grant_nonce OR $pin.authority_incarnation!=$grant.authority_incarnation { THROW 'PSE_REFUSAL:immutable_selection_grant_differs'; };
-LET $result_pin=SELECT * FROM ONLY type::record('canonical_result_protections',$protection) FOR UPDATE;
-IF $result_pin!=NONE {
-    LET $retirement=SELECT * FROM ONLY type::record('canonical_result_retirements',$result_pin.run) FOR UPDATE;
-    LET $selected_manifest=SELECT * FROM ONLY type::record('canonical_result_manifests',$result_pin.manifest) FOR UPDATE;
-    IF $retirement!=NONE OR $selected_manifest=NONE OR $selected_manifest.attempt!=$result_pin.attempt { THROW 'PSE_REFUSAL:result_protection_retired_or_manifest_unavailable'; };
-};"#;
 
 pub(crate) fn descriptor_for_product(
     product: &pse_model::generated::runtime::canonical_products::Row,
@@ -2641,7 +2701,7 @@ pub(crate) fn decode_product_association(
     })
 }
 
-const PRODUCT_ACK: &str = r#"BEGIN;
+const PRODUCT_ACK: &str = r#"
 SELECT * FROM type::record('canonical_guards','retention:'+$problem) FOR UPDATE;
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $saved = SELECT * FROM ONLY type::record('canonical_product_descriptors',$descriptor.key);
@@ -2651,7 +2711,7 @@ LET $root = IF $association = NONE { NONE } ELSE { SELECT * FROM ONLY type::reco
 IF $association != NONE AND ($association.descriptor != $descriptor.key OR $association.issuing_store != $descriptor.issuing_store OR $association.problem != $descriptor.problem OR $association.request != $descriptor.request OR $association.payload != $descriptor.payload OR $association.dependencies != $descriptor.dependencies OR $association.content != $descriptor.content OR $association.receipt != $descriptor.receipt OR $association.producer != $descriptor.producer OR $association.producer_class != $descriptor.producer_class OR $association.interpretation != $descriptor.interpretation) { THROW 'PSE_REFUSAL:descriptor_association_equality_differs'; };
 LET $rpc_result = IF $root != NONE AND $root.key = $association.key AND $root.owner_kind = 'product' AND $root.owner = $association.key AND $root.problem = $association.problem AND $root.revision = $association.revision { $association.key } ELSE { NONE };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-RETURN $rpc_result; COMMIT;"#;
+"#;
 
 const ADMIT_PRODUCT: &str = r#"
 LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
@@ -2701,16 +2761,17 @@ fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 LET $rpc_result = IF $eligible { $equivalent.key } ELSE { $product.key };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 IF $pin.expires_at <= time::micros() OR $stage.expires_at <= time::micros() { THROW 'PSE_REFUSAL:product_publication_authority_expired'; };
-RETURN $rpc_result;
 "#;
 
 #[cfg(all(test, feature = "canonical-tests"))]
-pub(crate) fn test_source_edit_sql() -> String {
-    crate::canonical_staging::bounded_edit_sql(EDIT)
+pub(crate) fn test_source_edit_sql() -> Result<String, CanonicalError> {
+    crate::canonical_script::test_script_sql(
+        &crate::canonical_staging::bounded_edit_sql(EDIT),
+        "NONE",
+    )
 }
 
 const EDIT: &str = r#"
-BEGIN;
 LET $retention_guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $retention_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
@@ -2816,7 +2877,6 @@ IF (SELECT * FROM ONLY $retention_guard)=NONE { CREATE ONLY $retention_guard SET
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 IF $stage.expires_at <= time::micros() { THROW 'PSE_REFUSAL:activation_staging_lease_expired_before_commit'; };
 IF $admission_owner!=NONE { fn::pse_execution_v1::lease($pse_rpc_expires_at,$admission_owner.expires_at); };
-COMMIT;
 "#;
 
 #[cfg(test)]
@@ -3547,7 +3607,7 @@ mod description_unit {
     #[test]
     fn split_descriptions_share_receipts_and_preserve_body_identity_when_premises_change() {
         let first = read("revision-one", "pin-one");
-        let selected = SelectionMaterial::capture(&first, Arc::new(())).unwrap();
+        let selected = SelectionMaterial::capture_unowned(&first).unwrap();
         let one = ProductDescription::prepare_with_selection(
             &first,
             product(&first, "one", b"body-one"),
@@ -3611,13 +3671,15 @@ mod description_unit {
     }
     #[test]
     fn shared_body_description_retains_exact_payload_allocation_without_copy() {
-        #[derive(Debug)]
-        struct Owner;
         let selected = read("revision", "pin");
-        let selection = SelectionMaterial::capture(&selected, Arc::new(())).unwrap();
+        let selection = SelectionMaterial::capture_unowned(&selected).unwrap();
         let payload = Arc::new(b"body".to_vec());
         let pointer = payload.as_ptr();
-        let owner = Arc::new(Owner);
+        use pse_columnar::{AllocationLease, GreedyMemoryPool, MemoryConsumer, MemoryPool};
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(4096));
+        let reservation = MemoryConsumer::new("test:shared-payload").register(&pool);
+        reservation.try_grow(4096).unwrap();
+        let owner = AllocationLease::new(reservation);
         let lifetime = Arc::downgrade(&owner);
         let header = product(&selected, "offer", b"");
         let description = ProductDescription::prepare_with_shared_payload(
@@ -3640,16 +3702,12 @@ mod description_unit {
     }
     #[test]
     fn shared_selection_material_preserves_wire_bytes_and_allocation_owner() {
-        #[derive(Debug)]
-        struct Owner(Arc<std::sync::atomic::AtomicUsize>);
-        impl Drop for Owner {
-            fn drop(&mut self) {
-                self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            }
-        }
         let selected = read("revision", "pin");
-        let released = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-        let owner = Arc::new(Owner(released.clone()));
+        use pse_columnar::{AllocationLease, GreedyMemoryPool, MemoryConsumer, MemoryPool};
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(4096));
+        let reservation = MemoryConsumer::new("test:selection-material").register(&pool);
+        reservation.try_grow(4096).unwrap();
+        let owner = AllocationLease::new(reservation);
         let lifetime = Arc::downgrade(&owner);
         let selection = SelectionMaterial::capture(&selected, owner.clone()).unwrap();
         drop(owner);
@@ -3682,15 +3740,15 @@ mod description_unit {
             lifetime.upgrade().is_some(),
             "the escaped settlement description retains the charged owner"
         );
-        assert_eq!(released.load(std::sync::atomic::Ordering::SeqCst), 0);
+        assert_eq!(pool.reserved(), 4096);
         drop(uncertain_settlement);
         assert!(lifetime.upgrade().is_none());
-        assert_eq!(released.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(pool.reserved(), 0);
     }
     #[test]
     fn shared_selection_material_refuses_acquired_changes_and_diverged_read_clones() {
         let selected = read("revision", "pin");
-        let original = SelectionMaterial::capture(&selected, Arc::new(())).unwrap();
+        let original = SelectionMaterial::capture_unowned(&selected).unwrap();
         let mut left = selected.clone();
         let mut right = selected.clone();
         left.interpretation("acquired".into(), "left".into())
@@ -3698,7 +3756,7 @@ mod description_unit {
         right
             .interpretation("acquired".into(), "right".into())
             .unwrap();
-        let left_material = SelectionMaterial::capture(&left, Arc::new(())).unwrap();
+        let left_material = SelectionMaterial::capture_unowned(&left).unwrap();
         assert!(
             ProductDescription::prepare_with_selection(
                 &left,
@@ -3727,7 +3785,7 @@ mod description_unit {
         assert!(
             left_material
                 .rebinding_from(
-                    &SelectionMaterial::capture(&selected, Arc::new(())).unwrap(),
+                    &SelectionMaterial::capture_unowned(&selected).unwrap(),
                     &left
                 )
                 .unwrap()
@@ -3740,7 +3798,7 @@ mod description_unit {
         let original =
             ProductDescription::prepare(&first, product(&first, "offer", b"body")).unwrap();
         let mut second = read("revision-two", "pin-two");
-        let selection = SelectionMaterial::capture(&second, Arc::new(())).unwrap();
+        let selection = SelectionMaterial::capture_unowned(&second).unwrap();
         let binding = selection
             .rebinding_from(original.selection_material(), &second)
             .unwrap()
@@ -3773,7 +3831,7 @@ mod canonical_server_unit {
         reason = "isolated server fixtures and assertions fail the test on unexpected results"
     )]
     use super::*;
-    use surrealdb::types::Number;
+    use surrealdb_types::Number;
     fn version(key: &str, logical: &str, payload: &[u8]) -> ObjectVersion {
         ObjectVersion {
             key: key.into(),
@@ -4738,7 +4796,7 @@ mod canonical_server_unit {
     async fn actual_sdk_stream_query_serial_and_sixteen_concurrent_readonly_control()
     -> Result<(), CanonicalError> {
         use std::sync::atomic::{AtomicUsize, Ordering};
-        use surrealdb::types::Bytes;
+        use surrealdb_types::Bytes;
         use tokio::time::Instant;
 
         #[allow(
@@ -4886,9 +4944,9 @@ mod canonical_server_unit {
     }
 
     fn rejected_initialization() -> CanonicalError {
-        surrealdb::Error::query(
+        surrealdb_types::Error::query(
             "definitely rejected installation".into(),
-            surrealdb::types::QueryError::TransactionConflict,
+            surrealdb_types::QueryError::TransactionConflict,
         )
         .into()
     }
@@ -4902,9 +4960,9 @@ mod canonical_server_unit {
             let store = &store;
             Ok(async move {
                 if attempt < 2 {
-                    Err(surrealdb::Error::query(
+                    Err(surrealdb_types::Error::query(
                         "definite protection rejection".into(),
-                        surrealdb::types::QueryError::TransactionConflict,
+                        surrealdb_types::QueryError::TransactionConflict,
                     ))
                 } else {
                     store.db.query("RETURN 'complete decision';").await
@@ -4922,9 +4980,9 @@ mod canonical_server_unit {
         let result = protected_query("canonical::protected_decision_retries_only_definite_conflicts_and_preserves_final_error", || {
             attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             Ok(async {
-                Err(surrealdb::Error::query(
+                Err(surrealdb_types::Error::query(
                     "final definite rejection".into(),
-                    surrealdb::types::QueryError::TransactionConflict,
+                    surrealdb_types::QueryError::TransactionConflict,
                 ))
             })
         })
@@ -4938,14 +4996,14 @@ mod canonical_server_unit {
             Err(CanonicalError::ConflictExhausted { .. })
         ));
         for kind in [
-            surrealdb::types::QueryError::Cancelled,
-            surrealdb::types::QueryError::NotExecuted,
+            surrealdb_types::QueryError::Cancelled,
+            surrealdb_types::QueryError::NotExecuted,
         ] {
             attempts.store(0, std::sync::atomic::Ordering::SeqCst);
             let result = protected_query("canonical::protected_decision_retries_only_definite_conflicts_and_preserves_final_error", || {
                 attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 let kind = kind.clone();
-                Ok(async move { Err(surrealdb::Error::query("uncertain protection".into(), kind)) })
+                Ok(async move { Err(surrealdb_types::Error::query("uncertain protection".into(), kind)) })
             })
             .await;
             assert!(result.is_err());
@@ -5161,7 +5219,11 @@ mod canonical_server_unit {
             .await
             .unwrap();
         let module = study_module::StudyModuleReceipt::read(&store.state_path).unwrap();
-        let delayed = initialization_statement(&module).replacen("BEGIN;", "BEGIN; SLEEP 1s;", 1);
+        let delayed = initialization_statement(&module)
+            .unwrap()
+            .into_parts()
+            .0
+            .replacen("BEGIN;", "BEGIN; SLEEP 1s;", 1);
         let attempts = std::sync::atomic::AtomicUsize::new(0);
         let response = store
             .initialize_with(|| {
@@ -5454,7 +5516,7 @@ mod canonical_server_unit {
         // Deliberately malformed native input cannot become a valid scientific cell.
         let mut short = codec::encode_finite(1.0).unwrap();
         if let Value::Object(ref mut object) = short {
-            object.insert("bits", surrealdb::types::Bytes::from(vec![0u8; 7]));
+            object.insert("bits", surrealdb_types::Bytes::from(vec![0u8; 7]));
         }
         assert!(
             store
@@ -5557,7 +5619,7 @@ mod canonical_server_unit {
 }
 
 // The same transaction text is used by held-commit protocol controls.
-pub(crate) const ACQUIRE_PROTECTION: &str = r#"BEGIN;
+pub(crate) const ACQUIRE_PROTECTION: &str = r#"
             SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
             LET $grant=fn::pse_execution_v1::protection_grant($pse_rpc_expires_at,$problem,$key,true);
             LET $revision = SELECT * FROM ONLY type::record('canonical_revisions', $revision);
@@ -5571,11 +5633,10 @@ pub(crate) const ACQUIRE_PROTECTION: &str = r#"BEGIN;
             LET $protection = SELECT * FROM ONLY type::record('canonical_protections', $key);
             IF $protection = NONE OR $protection.released OR $protection.expires_at <= time::micros() { THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; };
             IF $protection.problem!=$problem OR $protection.revision!=$revision.key OR $protection.sequence!=$revision.sequence OR $protection.grant_deadline!=$grant.grant_deadline OR $protection.grant_nonce!=$grant.grant_nonce OR $protection.authority_incarnation!=$grant.authority_incarnation { THROW 'PSE_REFUSAL:immutable_selection_grant_identity_reused'; };
-            RETURN $rpc_result;
-            COMMIT;"#;
+"#;
 
 // The same transaction text is used by held-commit protocol controls.
-pub(crate) const RELEASE_PROTECTION: &str = r#"BEGIN;
+pub(crate) const RELEASE_PROTECTION: &str = r#"
             SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE;
             fn::pse_execution_v1::deadline($pse_rpc_expires_at);
             LET $grant=fn::pse_execution_v1::protection_grant($pse_rpc_expires_at,$problem,$protection,false);
@@ -5584,14 +5645,14 @@ pub(crate) const RELEASE_PROTECTION: &str = r#"BEGIN;
             IF !$grant.closed OR $pin!=NONE { UPSERT type::record('canonical_protections', $protection) SET key = $protection, problem = $problem, revision = $revision, sequence = $sequence, expires_at = 0, released = true, grant_deadline=$grant.grant_deadline, grant_nonce=$grant.grant_nonce, authority_incarnation=$grant.authority_incarnation; };
             fn::pse_files_v1::release_ticket($pse_rpc_expires_at,$protection);
             fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-            COMMIT;"#;
+"#;
 
 #[cfg(test)]
 mod source_refusal_tests {
     use super::*;
     #[test]
     fn publication_busy_retries_only_the_exact_native_rollback_tag() {
-        let busy = CanonicalError::from(surrealdb::Error::thrown(
+        let busy = CanonicalError::from(surrealdb_types::Error::thrown(
             "PSE_REFUSAL:study_capture_publication_busy".into(),
         ));
         assert!(busy.is_capture_busy());
@@ -5603,11 +5664,14 @@ mod source_refusal_tests {
             "PSE_REFUSAL:study_capture_publication_busy changed",
             "PSE_REFUSAL:study_capture_publication_gate",
         ] {
-            assert!(!CanonicalError::from(surrealdb::Error::thrown(text.into())).is_capture_busy());
+            assert!(
+                !CanonicalError::from(surrealdb_types::Error::thrown(text.into()))
+                    .is_capture_busy()
+            );
         }
         assert!(!CanonicalError::Timeout.is_capture_busy());
         assert!(
-            !CanonicalError::from(surrealdb::Error::internal(
+            !CanonicalError::from(surrealdb_types::Error::internal(
                 RefusalCode::StudyCapturePublicationBusy.wire().into()
             ))
             .is_capture_busy()
@@ -5616,7 +5680,7 @@ mod source_refusal_tests {
 
     #[test]
     fn native_refusal_type_is_not_proof_without_the_source_effect_phase() {
-        let raw = CanonicalError::Driver(surrealdb::Error::thrown(
+        let raw = CanonicalError::Driver(surrealdb_types::Error::thrown(
             "explicit transaction refusal".into(),
         ));
         assert!(raw.source_transaction_refused());
@@ -5633,9 +5697,9 @@ mod source_refusal_tests {
         for raw in [
             CanonicalError::Timeout,
             CanonicalError::IncompleteResponse,
-            CanonicalError::Driver(surrealdb::Error::connection(
+            CanonicalError::Driver(surrealdb_types::Error::connection(
                 "lost acknowledgement".into(),
-                surrealdb::types::ConnectionError::ConnectionFailed,
+                surrealdb_types::ConnectionError::ConnectionFailed,
             )),
         ] {
             assert!(!raw.source_transaction_refused());
@@ -5654,7 +5718,7 @@ mod typed_refusal_unit {
     #[test]
     fn native_kind_authenticates_every_known_refusal_and_unknowns_fail_closed() {
         for &code in RefusalCode::ALL {
-            let decoded = CanonicalError::from(surrealdb::Error::thrown(format!(
+            let decoded = CanonicalError::from(surrealdb_types::Error::thrown(format!(
                 "An error occurred: {}",
                 code.wire()
             )));
@@ -5662,12 +5726,12 @@ mod typed_refusal_unit {
                 matches!(decoded, CanonicalError::Refused { code: actual, class, effect: FailureEffect::StatementRefused, .. } if actual == code && class == code.class())
             );
             assert!(matches!(
-                CanonicalError::from(surrealdb::Error::internal(code.wire().into())),
+                CanonicalError::from(surrealdb_types::Error::internal(code.wire().into())),
                 CanonicalError::Driver(_)
             ));
         }
         assert!(matches!(
-            CanonicalError::from(surrealdb::Error::thrown(
+            CanonicalError::from(surrealdb_types::Error::thrown(
                 "An error occurred: PSE_REFUSAL:unknown".into()
             )),
             CanonicalError::Driver(_)
@@ -5683,10 +5747,10 @@ mod typed_refusal_unit {
             ("PSE_MX_CORRUPTED:", StoreFailure::Corrupted),
             ("PSE_MX_COMMIT_UNKNOWN:", StoreFailure::CommitUnknown),
         ] {
-            let decoded = CanonicalError::from(surrealdb::Error::internal(wire.into()));
+            let decoded = CanonicalError::from(surrealdb_types::Error::internal(wire.into()));
             let original = std::error::Error::source(&decoded)
                 .unwrap()
-                .downcast_ref::<surrealdb::Error>()
+                .downcast_ref::<surrealdb_types::Error>()
                 .unwrap();
             assert!(original.is_internal());
             assert_eq!(original.message(), wire);
@@ -5694,13 +5758,13 @@ mod typed_refusal_unit {
                 matches!(decoded, CanonicalError::StoreFailure { failure, effect: FailureEffect::Unknown, .. } if failure==expected)
             );
             assert!(matches!(
-                CanonicalError::from(surrealdb::Error::thrown(wire.into())),
+                CanonicalError::from(surrealdb_types::Error::thrown(wire.into())),
                 CanonicalError::Driver(_)
             ));
         }
-        let conflict = CanonicalError::from(surrealdb::Error::query(
+        let conflict = CanonicalError::from(surrealdb_types::Error::query(
             "conflict".into(),
-            Some(surrealdb::types::QueryError::TransactionConflict),
+            Some(surrealdb_types::QueryError::TransactionConflict),
         ));
         assert!(matches!(
             conflict.exhaust_conflict("test", 32),

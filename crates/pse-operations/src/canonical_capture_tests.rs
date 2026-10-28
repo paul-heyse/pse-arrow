@@ -116,7 +116,7 @@ async fn capture_busy_wait_preserves_computed_append_and_original_clock() {
                 &&matches!(source.as_ref(),CanonicalError::Timeout)
                 &&match readback.as_ref() {
                     CanonicalError::Timeout=>true,
-                    CanonicalError::Driver(error)=>matches!(error.connection_details(),Some(surrealdb::types::ConnectionError::ConnectionFailed))
+                    CanonicalError::Driver(error)=>matches!(error.connection_details(),Some(surrealdb_types::ConnectionError::ConnectionFailed))
                         &&error.message()=="Request interrupted: not dispatched",
                     _=>false,
                 }

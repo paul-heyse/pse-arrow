@@ -420,43 +420,55 @@ impl MathService {
         let operation = self
             .frontier_flights
             .load_owned(key.clone(), move |control| {
-                telemetry.shared_producer_at("model.specialization.producer", pse_diagnostics::observation::current()).instrument_with(
-                    
-                    population.run(async move {
-                        let _interval =
-                            crate::tooling::operational_metrics::PreparationStage::Frontier
-                                .producer();
-                        let producer_deadline = producer_deadline?;
-                        if let Some(frontier) = service.modeling_cache.frontier(&key) {
-                            crate::tooling::operational_metrics::PreparationStage::Frontier.reuse();
-                            return Ok(frontier);
-                        }
-                        let mut frontier = service
-                            .plan_frontier_controlled(
-                                workspace,
-                                revision,
-                                key.root,
-                                key.instance,
-                                key.bindings.clone(),
-                                key.limits,
-                                control,
-                                Some(producer_deadline),
-                            )
-                            .await
-                            .map_err(producer_failure)?;
-                        frontier.key = Some(key.clone());
-                        frontier.generation = generation;
-                        let frontier = Arc::new(frontier);
-                        service
-                            .modeling_cache
-                            .retain_frontier(generation, key, frontier.clone());
-                        Ok(frontier)
-                    }),
-                |result| Some(match result {
-                        Ok(_) => pse_diagnostics::observation::Outcome::Completed,
-                        Err(MathRuntimeError::Cancelled) => pse_diagnostics::observation::Outcome::Cancelled,
-                        Err(_) => pse_diagnostics::observation::Outcome::Failed,
-                    }),)
+                telemetry
+                    .shared_producer_at(
+                        "model.specialization.producer",
+                        pse_diagnostics::observation::current(),
+                    )
+                    .instrument_with(
+                        population.run(async move {
+                            let _interval =
+                                crate::tooling::operational_metrics::PreparationStage::Frontier
+                                    .producer();
+                            let producer_deadline = producer_deadline?;
+                            if let Some(frontier) = service.modeling_cache.frontier(&key) {
+                                crate::tooling::operational_metrics::PreparationStage::Frontier
+                                    .reuse();
+                                return Ok(frontier);
+                            }
+                            let mut frontier = service
+                                .plan_frontier_controlled(
+                                    workspace,
+                                    revision,
+                                    key.root,
+                                    key.instance,
+                                    key.bindings.clone(),
+                                    key.limits,
+                                    control,
+                                    Some(producer_deadline),
+                                )
+                                .await
+                                .map_err(producer_failure)?;
+                            frontier.key = Some(key.clone());
+                            frontier.generation = generation;
+                            let frontier = Arc::new(frontier);
+                            service.modeling_cache.retain_frontier(
+                                generation,
+                                key,
+                                frontier.clone(),
+                            );
+                            Ok(frontier)
+                        }),
+                        |result| {
+                            Some(match result {
+                                Ok(_) => pse_diagnostics::observation::Outcome::Completed,
+                                Err(MathRuntimeError::Cancelled) => {
+                                    pse_diagnostics::observation::Outcome::Cancelled
+                                }
+                                Err(_) => pse_diagnostics::observation::Outcome::Failed,
+                            })
+                        },
+                    )
             });
         let operation = async {
             crate::tooling::operational_metrics::PreparationStage::Frontier.waiter();
@@ -464,8 +476,11 @@ impl MathService {
         };
         let stop = driver.with_deadline(Some(deadline));
         match pse_diagnostics::stop::stop_first(
-            pse_diagnostics::stop::StopSignal::stopped(&stop), operation,
-        ).await {
+            pse_diagnostics::stop::StopSignal::stopped(&stop),
+            operation,
+        )
+        .await
+        {
             Ok(result) => result.map_err(flight_error),
             Err(pse_diagnostics::stop::StopReason::Cancelled) => Err(MathRuntimeError::Cancelled),
             Err(pse_diagnostics::stop::StopReason::Deadline) => Err(waiter_expiry()),
@@ -581,43 +596,52 @@ impl MathService {
         let operation =
             self.basis_flights
                 .load_owned((key.clone(), source_premises.clone()), move |control| {
-                    telemetry.shared_producer_at("compiler.materialization.producer", pse_diagnostics::observation::current()).instrument_with(
-                        
-                        population.run(async move {
-                            let _interval =
-                                crate::tooling::operational_metrics::PreparationStage::Basis
-                                    .producer();
-                            let producer_deadline = producer_deadline?;
-                            if let Some(basis) = service.modeling_cache.basis(&key)
-                                && basis.source_premises == source_premises
-                            {
-                                crate::tooling::operational_metrics::PreparationStage::Basis
-                                    .reuse();
-                                return Ok(basis);
-                            }
-                            let model = service
-                                .complete_frontier_controlled(
-                                    workspace,
-                                    frontier,
-                                    control,
-                                    Some(producer_deadline),
-                                )
-                                .await
-                                .map_err(producer_failure)?;
-                            let basis =
-                                Arc::new(PreparedBasis::new(&service, model, source_premises)?);
-                            // Immutable local mathematics retains complete source premises. Durable
-                            // import/recording permissions remain with their actual adapters.
-                            service
-                                .modeling_cache
-                                .retain_basis(generation, key, basis.clone());
-                            Ok(basis)
-                        }),
-                    |result| Some(match result {
-                        Ok(_) => pse_diagnostics::observation::Outcome::Completed,
-                        Err(MathRuntimeError::Cancelled) => pse_diagnostics::observation::Outcome::Cancelled,
-                        Err(_) => pse_diagnostics::observation::Outcome::Failed,
-                    }),)
+                    telemetry
+                        .shared_producer_at(
+                            "compiler.materialization.producer",
+                            pse_diagnostics::observation::current(),
+                        )
+                        .instrument_with(
+                            population.run(async move {
+                                let _interval =
+                                    crate::tooling::operational_metrics::PreparationStage::Basis
+                                        .producer();
+                                let producer_deadline = producer_deadline?;
+                                if let Some(basis) = service.modeling_cache.basis(&key)
+                                    && basis.source_premises == source_premises
+                                {
+                                    crate::tooling::operational_metrics::PreparationStage::Basis
+                                        .reuse();
+                                    return Ok(basis);
+                                }
+                                let model = service
+                                    .complete_frontier_controlled(
+                                        workspace,
+                                        frontier,
+                                        control,
+                                        Some(producer_deadline),
+                                    )
+                                    .await
+                                    .map_err(producer_failure)?;
+                                let basis =
+                                    Arc::new(PreparedBasis::new(&service, model, source_premises)?);
+                                // Immutable local mathematics retains complete source premises. Durable
+                                // import/recording permissions remain with their actual adapters.
+                                service
+                                    .modeling_cache
+                                    .retain_basis(generation, key, basis.clone());
+                                Ok(basis)
+                            }),
+                            |result| {
+                                Some(match result {
+                                    Ok(_) => pse_diagnostics::observation::Outcome::Completed,
+                                    Err(MathRuntimeError::Cancelled) => {
+                                        pse_diagnostics::observation::Outcome::Cancelled
+                                    }
+                                    Err(_) => pse_diagnostics::observation::Outcome::Failed,
+                                })
+                            },
+                        )
                 });
         let operation = async {
             crate::tooling::operational_metrics::PreparationStage::Basis.waiter();
@@ -625,8 +649,11 @@ impl MathService {
         };
         let stop = driver.with_deadline(Some(deadline));
         match pse_diagnostics::stop::stop_first(
-            pse_diagnostics::stop::StopSignal::stopped(&stop), operation,
-        ).await {
+            pse_diagnostics::stop::StopSignal::stopped(&stop),
+            operation,
+        )
+        .await
+        {
             Ok(result) => result.map_err(flight_error),
             Err(pse_diagnostics::stop::StopReason::Cancelled) => Err(MathRuntimeError::Cancelled),
             Err(pse_diagnostics::stop::StopReason::Deadline) => Err(waiter_expiry()),

@@ -4,8 +4,9 @@
 use crate::{
     canonical::{CanonicalError, CanonicalStore, protected_query},
     canonical_codec as codec,
+    canonical_script::{Envelope, GuardedScript, ResultSlot},
 };
-use surrealdb::types::{Object, Value};
+use surrealdb_types::{Object, Value};
 
 /// Each effect has a different original owner. Visibility is a project navigation
 /// operation and physical file collection remains the existing file owner.
@@ -214,9 +215,9 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
             if target.key.is_empty() || target.key.len()>4096 {return Err(CanonicalError::PayloadLimit);}
-            let mut response=protected_query("canonical_lifecycle::select",|| Ok(self.db.query("BEGIN; RETURN fn::pse_lifecycle_v1::selection($pse_rpc_expires_at,$issuer,$kind,$key); COMMIT;")
+            let mut response=protected_query("canonical_lifecycle::select",|| Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("", "fn::pse_lifecycle_v1::selection($pse_rpc_expires_at,$issuer,$kind,$key)")?)
                 .bind(("issuer",self.issuing_store()?.to_owned())).bind(("kind",target.kind.name())).bind(("key",target.key.clone())))).await?;
-            let row=response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?.ok_or(CanonicalError::IncompleteResponse)?;
+            let row=ResultSlot::<Option<Object>>::returned().take(&mut response)?.ok_or(CanonicalError::IncompleteResponse)?;
             decode_selection(row)
         }).await
     }
@@ -226,21 +227,60 @@ impl CanonicalStore {
         selection: &LifecycleSelection,
     ) -> Result<LifecycleExplanation, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-            selection.validate(self)?; let encoded=selection.encode()?;
-            let mut response=protected_query("canonical_lifecycle::explain",|| Ok(self.db.query("BEGIN; RETURN fn::pse_lifecycle_v1::explain($pse_rpc_expires_at,$selection); COMMIT;").bind(("selection",encoded.clone())))).await?;
-            let mut row=response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?.ok_or(CanonicalError::IncompleteResponse)?;
-            let current=decode_selection(object(codec::required(&mut row,"selection")?)?)?;
-            let Value::Array(raw)=codec::required(&mut row,"blockers")? else {return Err(CanonicalError::IncompleteResponse);};
-            let blockers=raw.into_iter().map(|v| {let mut r=object(v)?;Ok(LifecycleBlocker{kind:codec::decode_string(codec::required(&mut r,"kind")?)?,identity:codec::decode_string(codec::required(&mut r,"identity")?)?})}).collect::<Result<Vec<_>,CanonicalError>>()?;
-            Ok(LifecycleExplanation {
-                selection:current,blockers,
-                blockers_complete:codec::decode_boolean(codec::required(&mut row,"blockers_complete")?)?,
-                bytes:LifecycleBytes { logical:optional_uint(&mut row,"logical_bytes")?,..LifecycleBytes::default() },
-                detail_released:codec::decode_boolean(codec::required(&mut row,"detail_released")?)?,
-                requires_original_artifact_intent:selection.target.kind==LifecycleKind::EvidenceArtifact,
+        activity
+            .scope(async {
+                selection.validate(self)?;
+                let encoded = selection.encode()?;
+                let mut response = protected_query("canonical_lifecycle::explain", || {
+                    Ok(self
+                        .db
+                        .script(
+                            GuardedScript::new(Envelope::DeadlineOnly)
+                                .returning::<Option<Object>>(
+                                    "",
+                                    "fn::pse_lifecycle_v1::explain($pse_rpc_expires_at,$selection)",
+                                )?,
+                        )
+                        .bind(("selection", encoded.clone())))
+                })
+                .await?;
+                let mut row = ResultSlot::<Option<Object>>::returned()
+                    .take(&mut response)?
+                    .ok_or(CanonicalError::IncompleteResponse)?;
+                let current = decode_selection(object(codec::required(&mut row, "selection")?)?)?;
+                let Value::Array(raw) = codec::required(&mut row, "blockers")? else {
+                    return Err(CanonicalError::IncompleteResponse);
+                };
+                let blockers = raw
+                    .into_iter()
+                    .map(|v| {
+                        let mut r = object(v)?;
+                        Ok(LifecycleBlocker {
+                            kind: codec::decode_string(codec::required(&mut r, "kind")?)?,
+                            identity: codec::decode_string(codec::required(&mut r, "identity")?)?,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, CanonicalError>>()?;
+                Ok(LifecycleExplanation {
+                    selection: current,
+                    blockers,
+                    blockers_complete: codec::decode_boolean(codec::required(
+                        &mut row,
+                        "blockers_complete",
+                    )?)?,
+                    bytes: LifecycleBytes {
+                        logical: optional_uint(&mut row, "logical_bytes")?,
+                        ..LifecycleBytes::default()
+                    },
+                    detail_released: codec::decode_boolean(codec::required(
+                        &mut row,
+                        "detail_released",
+                    )?)?,
+                    requires_original_artifact_intent: selection.target.kind
+                        == LifecycleKind::EvidenceArtifact,
+                })
             })
-        }).await
+            .await
     }
     /// Explicit exact original-owner release. A prior explanation is never consumed as a grant.
     /// Repeat to resume bounded original cleanup; this never claims physical file reclamation.
@@ -255,8 +295,8 @@ impl CanonicalStore {
                 return Err(CanonicalError::Configuration("evidence release requires the original Artifact intent through release_artifact_intent and collect_artifact".into()));
             }
             self.ensure_writes()?; let encoded=selection.encode()?;
-            let mut response=protected_query("canonical_lifecycle::release",|| Ok(self.db.query("BEGIN; RETURN fn::pse_lifecycle_v1::release($pse_rpc_expires_at,$selection); COMMIT;").bind(("selection",encoded.clone())))).await?;
-            let mut row=response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?.ok_or(CanonicalError::IncompleteResponse)?;
+            let mut response=protected_query("canonical_lifecycle::release",|| Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("", "fn::pse_lifecycle_v1::release($pse_rpc_expires_at,$selection)")?).bind(("selection",encoded.clone())))).await?;
+            let mut row=ResultSlot::<Option<Object>>::returned().take(&mut response)?.ok_or(CanonicalError::IncompleteResponse)?;
             Ok(LifecycleRelease {selection:selection.clone(),complete:codec::decode_boolean(codec::required(&mut row,"complete")?)?,physical_reclaimed_bytes:None})
         }).await
     }

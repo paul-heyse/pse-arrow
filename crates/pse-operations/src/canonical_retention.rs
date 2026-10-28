@@ -4,6 +4,7 @@
 //! Explicit retained selections and bounded reclamation. A revision receipt stays
 //! immutable after its source intervals are reclaimed; range markers fence reopening.
 
+use crate::canonical_script::{Envelope, GuardedScript, ResultSlot};
 use crate::{
     canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, bounded_query},
@@ -11,7 +12,7 @@ use crate::{
     generated::surreal as wire,
 };
 use pse_model::generated::runtime::canonical_revisions::Row as Revision;
-use surrealdb::types::Object;
+use surrealdb_types::{Object, Value};
 
 /// An explicit durable owner of an immutable revision selection.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -131,18 +132,21 @@ impl CanonicalStore {
                             crate::transport::retry::RetryPolicy::Retention,
                             "canonical_retention",
                             || {
-                                let query = self.ensure_writes().map(|()| bounded_query(
-                                self.db
-                                    .query(RETAIN)
-                                    .bind(("problem", revision.problem.clone()))
-                                    .bind(("revision", revision.key.clone()))
-                                    .bind(("root", owner.key()))
-                                    .bind(("owner_kind", owner.parts().0))
-                                    .bind(("owner", owner.parts().1.to_owned()))
-                                    .bind(("interpretation", wire::INTERPRETATION)),
-                            )
-
-                            );
+                                let query = self.ensure_writes().and_then(|()| {
+                                    Ok(bounded_query(
+                                        self.db
+                                            .script(
+                                                GuardedScript::new(Envelope::DeadlineOnly)
+                                                    .returning::<Value>(RETAIN, "NONE")?,
+                                            )
+                                            .bind(("problem", revision.problem.clone()))
+                                            .bind(("revision", revision.key.clone()))
+                                            .bind(("root", owner.key()))
+                                            .bind(("owner_kind", owner.parts().0))
+                                            .bind(("owner", owner.parts().1.to_owned()))
+                                            .bind(("interpretation", wire::INTERPRETATION)),
+                                    ))
+                                });
                                 async move {
                                     let result = match query {
                                         Ok(query) => query.await.map(|_| ()),
@@ -151,7 +155,8 @@ impl CanonicalStore {
                                     crate::transport::retry::Attempt::settled(result)
                                 }
                             },
-                        ).await
+                        )
+                        .await
                     },
                 )
                 .await
@@ -191,29 +196,36 @@ impl CanonicalStore {
                         ));
                     }
                     crate::transport::retry::retry_conflicts(
-                            crate::transport::retry::RetryPolicy::Retention,
-                            "canonical_retention",
-                            || {
-                                let query = self.ensure_writes().map(|()| bounded_query(
-                            self.db
-                                .query(DROP_ROOT)
-                                .bind(("problem", revision.problem.clone()))
-                                .bind(("revision", revision.key.clone()))
-                                .bind(("root", owner.key()))
-                                .bind(("owner_kind", owner.parts().0))
-                                .bind(("owner", owner.parts().1.to_owned())),
-                        )
-
-                        );
-                                async move {
-                                    let result = match query {
-                                        Ok(query) => query.await.map(|_| ()),
-                                        Err(error) => Err(error),
-                                    };
-                                    crate::transport::retry::Attempt::settled(result)
-                                }
-                            },
-                        ).await
+                        crate::transport::retry::RetryPolicy::Retention,
+                        "canonical_retention",
+                        || {
+                            let query = self.ensure_writes().and_then(|()| {
+                                Ok(bounded_query(
+                                    self.db
+                                        .script(
+                                            GuardedScript::new(Envelope::DeadlineOnly)
+                                                .returning::<Value>(
+                                                    DROP_ROOT,
+                                                    "$pse_retention_drop_result",
+                                                )?,
+                                        )
+                                        .bind(("problem", revision.problem.clone()))
+                                        .bind(("revision", revision.key.clone()))
+                                        .bind(("root", owner.key()))
+                                        .bind(("owner_kind", owner.parts().0))
+                                        .bind(("owner", owner.parts().1.to_owned())),
+                                ))
+                            });
+                            async move {
+                                let result = match query {
+                                    Ok(query) => query.await.map(|_| ()),
+                                    Err(error) => Err(error),
+                                };
+                                crate::transport::retry::Attempt::settled(result)
+                            }
+                        },
+                    )
+                    .await
                 })
                 .await?;
                 self.reclaim_source_after_commit(&revision.problem, deadline)
@@ -238,13 +250,13 @@ impl CanonicalStore {
                 for _ in 0..PAGE {
                     self.ensure_writes()?;
                     let mut response = crate::canonical::protected_query("canonical_retention::source_step", || {
-                        Ok(self.db.query("RETURN fn::pse_retention_v1::source_step($pse_rpc_expires_at,$problem);").bind(("problem",problem.to_owned())))
+                        Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("","fn::pse_retention_v1::source_step($pse_rpc_expires_at,$problem)")?).bind(("problem",problem.to_owned())))
                     }).await?;
-                    let mut decision = response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
+                    let mut decision = ResultSlot::<Option<Object>>::returned().take(&mut response)?.ok_or(CanonicalError::IncompleteResponse)?;
                     let done = canonical_codec::decode_boolean(canonical_codec::required(&mut decision,"done")?)?;
                     let after = canonical_codec::required(&mut decision,"after")?;
                     page.after = match after {
-                        surrealdb::types::Value::None => None,
+                        Value::None => None,
                         value => Some(canonical_codec::decode_string(value)?),
                     };
                     if done { return Ok(page); }
@@ -276,7 +288,7 @@ impl CanonicalStore {
     }
 }
 
-const RETAIN: &str = r#"BEGIN;
+const RETAIN: &str = r#"
 IF $owner_kind != 'history' { THROW 'PSE_REFUSAL:only_deliberate_history_roots_can_be_minted_or_moved_explicitly'; };
 LET $guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
@@ -289,10 +301,9 @@ LET $old = SELECT * FROM ONLY type::record('canonical_roots', $root) FOR UPDATE;
 IF $old != NONE AND ($old.problem != $problem OR $old.owner_kind != $owner_kind OR $old.owner != $owner) { THROW 'PSE_REFUSAL:retention_owner_identity_collision'; };
 UPSERT type::record('canonical_roots', $root) SET key = $root, problem = $problem, revision = $selected.key, sequence = $selected.sequence, owner_kind = $owner_kind, owner = $owner;
 fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
-fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-COMMIT;"#;
+fn::pse_execution_v1::deadline($pse_rpc_expires_at);"#;
 
-const DROP_ROOT: &str = "BEGIN; RETURN fn::pse_retention_v1::drop_source_root($pse_rpc_expires_at,$problem,$revision,$root,$owner_kind,$owner); COMMIT;";
+const DROP_ROOT: &str = "LET $pse_retention_drop_result=fn::pse_retention_v1::drop_source_root($pse_rpc_expires_at,$problem,$revision,$root,$owner_kind,$owner);";
 
 #[cfg(test)]
 mod postcommit_clock_tests {
@@ -676,7 +687,7 @@ mod canonical_server_unit {
                 bounded_query(
                     store
                         .db
-                        .query(RETAIN)
+                        .query(crate::canonical_script::test_script_sql(RETAIN, "NONE").unwrap())
                         .bind(("problem", second.problem.clone()))
                         .bind(("revision", second.key.clone()))
                         .bind(("root", owner.key()))
@@ -691,7 +702,13 @@ mod canonical_server_unit {
                 bounded_query(
                     store
                         .db
-                        .query(DROP_ROOT)
+                        .query(
+                            crate::canonical_script::test_script_sql(
+                                DROP_ROOT,
+                                "$pse_retention_drop_result"
+                            )
+                            .unwrap()
+                        )
                         .bind(("problem", first.problem.clone()))
                         .bind(("revision", first.key.clone()))
                         .bind(("root", owner.key()))
@@ -1028,10 +1045,16 @@ mod canonical_server_unit {
                 .source_reclaim_after
                 .is_some()
         );
-        let protected: Vec<Object> = store.db.select("canonical_memberships").await.unwrap();
+        let mut response = bounded_query(store.db.query("SELECT * FROM canonical_memberships;"))
+            .await
+            .unwrap();
+        let protected: Vec<Object> = response.take(0).unwrap();
         assert_eq!(protected.len(), 70);
         store.forget_history(&first).await.unwrap();
-        let remaining: Vec<Object> = store.db.select("canonical_memberships").await.unwrap();
+        let mut response = bounded_query(store.db.query("SELECT * FROM canonical_memberships;"))
+            .await
+            .unwrap();
+        let remaining: Vec<Object> = response.take(0).unwrap();
         assert_eq!(
             remaining.len(),
             64,

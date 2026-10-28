@@ -117,6 +117,15 @@ class DerivativeOrder(StrEnum):
     SECOND = "second"
 
 
+class DesignKind(StrEnum):
+    CLASSIC = "classic"
+    CENTERED = "centered"
+    MAXIMIN = "maximin"
+    CENTERED_MAXIMIN = "centered_maximin"
+    RANDOM = "random"
+    GRID = "grid"
+
+
 class DetailEnd(StrEnum):
     WINDOW_ELAPSED = "window_elapsed"
     OWNER_FINISHED = "owner_finished"
@@ -7997,6 +8006,138 @@ class DeploymentResponse(msgspec.Struct, frozen=True, forbid_unknown_fields=True
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.document_version), v.record_key(self.allocation),))
+
+
+class DesignAttribution(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Attribution travels with the retained design; realized assignments remain identity authority."""
+
+    #: Exact installed library and local mapping realization.
+    algorithm: str
+    #: Original ordered physical coordinate description.
+    coordinates: tuple[DesignCoordinateOutput, ...]
+    #: Complete occurrence count, including duplicate realized inputs.
+    count: Annotated[int, msgspec.Meta(ge=0)]
+    #: Producer kind.
+    kind: DesignKind
+    #: Submitted seed; Grid consumes no random stream.
+    seed: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.algorithm), v.sequence_key(v.record_key)(self.coordinates), v.scalar_key(self.count), v.scalar_key(self.kind), v.scalar_key(self.seed),))
+
+
+class DesignCoordinate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One numeric, quantity-typed authored coordinate, in its supplied representation."""
+
+    #: Ordered admissible values, required for noncontinuous domains.
+    levels: tuple[DesignLevel, ...] = msgspec.field(default_factory=tuple)
+    #: Complete quantity meaning.
+    quantity: identities.QuantityTypeId
+    #: Closed finite interval; omission selects finite authored bounds.
+    range: Annotated[tuple[FiniteBound, ...], msgspec.Meta(min_length=2, max_length=2)] | None = None
+    #: Stable member or authored path, resolved against this package's selected root.
+    target: BindingTarget
+    #: Representation for every emitted physical assignment.
+    unit: identities.UnitId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.levels), v.scalar_key(self.quantity), v.optional_key(v.sequence_key(v.scalar_key))(self.range), v.record_key(self.target), v.scalar_key(self.unit),))
+
+
+class DesignCoordinateOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One numeric, quantity-typed authored coordinate, in its supplied representation."""
+
+    #: Ordered admissible values, required for noncontinuous domains.
+    levels: tuple[DesignLevel, ...] = msgspec.field(default_factory=tuple)
+    #: Complete quantity meaning.
+    quantity: identities.QuantityTypeId
+    #: Closed finite interval; omission selects finite authored bounds.
+    range: Annotated[tuple[FiniteBound, ...], msgspec.Meta(min_length=2, max_length=2)] | None
+    #: Stable member or authored path, resolved against this package's selected root.
+    target: BindingTarget
+    #: Representation for every emitted physical assignment.
+    unit: identities.UnitId
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.levels), v.scalar_key(self.quantity), v.optional_key(v.sequence_key(v.scalar_key))(self.range), v.record_key(self.target), v.scalar_key(self.unit),))
+
+
+class DesignExport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit independent document copy. Its native owners live through document conversion."""
+
+    #: Generator attribution, excluded from binding identity.
+    attribution: DesignAttribution
+    #: Complete ordered raw overlays for StudyPoint authoring.
+    points: tuple[PointOverlayOutput, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.attribution), v.sequence_key(v.record_key)(self.points),))
+
+
+class DesignLevelInteger(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="integer"):
+    """An exact authored integer, refused if finite-f64 assignments cannot represent it."""
+
+    value: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class DesignLevelReal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="real"):
+    """An explicitly binary64 physical value."""
+
+    value: FiniteBound
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class DesignRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit finite producer request; does not change StudyRequest's wire interpretation."""
+
+    #: Original root specialization; callers may retain structural arguments/demands.
+    bindings: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...] = msgspec.field(default_factory=lambda: _document_default([123, 34, 102, 111, 114, 109, 117, 108, 97, 116, 105, 111, 110, 34, 58, 123, 34, 111, 109, 105, 116, 116, 101, 100, 34, 58, 91, 93, 44, 34, 101, 108, 97, 115, 116, 105, 99, 34, 58, 123, 125, 125, 44, 34, 97, 114, 103, 117, 109, 101, 110, 116, 115, 34, 58, 123, 125, 44, 34, 115, 99, 111, 112, 101, 34, 58, 123, 125, 44, 34, 102, 97, 99, 116, 115, 34, 58, 91, 93, 44, 34, 100, 101, 109, 97, 110, 100, 34, 58, 91, 93, 125], tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]))
+    #: Coordinate order is output order.
+    coordinates: tuple[DesignCoordinate, ...]
+    #: Positive complete point count; grid product must equal it exactly.
+    count: Annotated[int, msgspec.Meta(ge=0)]
+    #: For Grid only: positive counts per coordinate, last coordinate varies fastest.
+    grid_levels: tuple[Annotated[int, msgspec.Meta(ge=0)], ...] = msgspec.field(default_factory=tuple)
+    #: Explicit producer selection.
+    kind: DesignKind = DesignKind.CLASSIC
+    #: Finite generation-work allowance, counting normalized coordinate and distance components.
+    maximum_work: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original root whose numeric inputs are varied.
+    root: identities.DeclarationId
+    #: One fresh Xoshiro256Plus stream per generation; unused for Grid.
+    seed: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.bindings), v.sequence_key(v.record_key)(self.coordinates), v.scalar_key(self.count), v.sequence_key(v.scalar_key)(self.grid_levels), v.scalar_key(self.kind), v.scalar_key(self.maximum_work), v.scalar_key(self.root), v.scalar_key(self.seed),))
+
+
+class DesignRequestOutput(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit finite producer request; does not change StudyRequest's wire interpretation."""
+
+    #: Original root specialization; callers may retain structural arguments/demands.
+    bindings: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...] = msgspec.field(default_factory=lambda: _document_default([123, 34, 102, 111, 114, 109, 117, 108, 97, 116, 105, 111, 110, 34, 58, 123, 34, 111, 109, 105, 116, 116, 101, 100, 34, 58, 91, 93, 44, 34, 101, 108, 97, 115, 116, 105, 99, 34, 58, 123, 125, 125, 44, 34, 97, 114, 103, 117, 109, 101, 110, 116, 115, 34, 58, 123, 125, 44, 34, 115, 99, 111, 112, 101, 34, 58, 123, 125, 44, 34, 102, 97, 99, 116, 115, 34, 58, 91, 93, 44, 34, 100, 101, 109, 97, 110, 100, 34, 58, 91, 93, 125], tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]))
+    #: Coordinate order is output order.
+    coordinates: tuple[DesignCoordinateOutput, ...]
+    #: Positive complete point count; grid product must equal it exactly.
+    count: Annotated[int, msgspec.Meta(ge=0)]
+    #: For Grid only: positive counts per coordinate, last coordinate varies fastest.
+    grid_levels: tuple[Annotated[int, msgspec.Meta(ge=0)], ...] = msgspec.field(default_factory=tuple)
+    #: Explicit producer selection.
+    kind: DesignKind = DesignKind.CLASSIC
+    #: Finite generation-work allowance, counting normalized coordinate and distance components.
+    maximum_work: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original root whose numeric inputs are varied.
+    root: identities.DeclarationId
+    #: One fresh Xoshiro256Plus stream per generation; unused for Grid.
+    seed: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.bindings), v.sequence_key(v.record_key)(self.coordinates), v.scalar_key(self.count), v.sequence_key(v.scalar_key)(self.grid_levels), v.scalar_key(self.kind), v.scalar_key(self.maximum_work), v.scalar_key(self.root), v.scalar_key(self.seed),))
 
 
 class DetailDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -33187,6 +33328,8 @@ DeploymentRequest = DeploymentRequestMaterialize | DeploymentRequestValidate | D
 
 DeploymentRequestOutput = DeploymentRequestOutputMaterialize | DeploymentRequestOutputValidate | DeploymentRequestOutputProfile
 
+DesignLevel = DesignLevelReal | DesignLevelInteger
+
 DimensionVector = Annotated[tuple[Ratio, ...], msgspec.Meta(min_length=8, max_length=8)]
 
 DiscreteInitialization = DiscreteInitializationRefuse | DiscreteInitializationFixAtStart | DiscreteInitializationFixAt
@@ -33822,6 +33965,16 @@ __all__ = [
     "DeploymentRequestValidate",
     "DeploymentResponse",
     "DerivativeOrder",
+    "DesignAttribution",
+    "DesignCoordinate",
+    "DesignCoordinateOutput",
+    "DesignExport",
+    "DesignKind",
+    "DesignLevel",
+    "DesignLevelInteger",
+    "DesignLevelReal",
+    "DesignRequest",
+    "DesignRequestOutput",
     "DetailDocument",
     "DetailDocumentOutput",
     "DetailEnd",
@@ -35373,4 +35526,4 @@ __all__ = [
     "WorkingSetTransfer",
 ]
 
-SCHEMA_SET_FINGERPRINT = "blake3:1b3eea510cac8e12694f5124d2de8c142f470b42b1d77bd5769270ca9e7608f6"
+SCHEMA_SET_FINGERPRINT = "blake3:11a975b6b75c9a9ece6505d8c65b3231519f0a579bc315b9e34d1445658489d2"

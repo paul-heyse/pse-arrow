@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Disposable evidence projections on the selected service. Never scientific authority.
 use crate::generated::store::evidence as wire;
+use pse_operations::transport::client::{
+    Client, Database, Query, RequestContext, ResponseLimits, Root,
+};
 use pse_operations::{
     canonical::{self, CanonicalError},
     transport::{self, lifetime::ConnectionAccess, original_deadline, within_clock},
@@ -9,12 +12,7 @@ use pse_operations::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeSet, path::Path, sync::Arc};
-use surrealdb::{
-    Surreal,
-    engine::remote::grpc::{Client, Grpc},
-    opt::{Config, GrpcConfig, RequestContext},
-    types::{Object, Value},
-};
+use surrealdb_types::{Object, Value};
 /// Tooling lifecycle failures, retaining original native uncertainty.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[diagnostic(code(runtime::infrastructure))]
@@ -67,8 +65,8 @@ impl From<pse_operations::canonical_codec::CodecError> for EvidenceError {
         Self::Transport(e.into())
     }
 }
-impl From<surrealdb::Error> for EvidenceError {
-    fn from(e: surrealdb::Error) -> Self {
+impl From<surrealdb_types::Error> for EvidenceError {
+    fn from(e: surrealdb_types::Error) -> Self {
         Self::Transport(e.into())
     }
 }
@@ -606,7 +604,7 @@ where
 /// A tooling connection with shared admission/transport semantics, no scientific Runtime.
 #[derive(Clone)]
 pub struct EvidenceStore {
-    db: Arc<Surreal<Client>>,
+    db: Arc<Client>,
     access: ConnectionAccess,
     options: ToolingOptions,
     pub(crate) issuing_store: String,
@@ -623,19 +621,16 @@ impl std::fmt::Debug for EvidenceStore {
     }
 }
 impl EvidenceStore {
-    async fn client(options: &ToolingOptions) -> Result<Surreal<Client>, EvidenceError> {
+    async fn client(options: &ToolingOptions) -> Result<Client, EvidenceError> {
         options.validate()?;
-        let cfg = Config::new()
-            .bounded_requests()
-            .grpc(GrpcConfig::new().max_message_size(canonical::MESSAGE_BYTES))?;
         let deadline = original_deadline(canonical::REQUEST_TIMEOUT);
         Ok(within_clock(deadline, async {
-            Surreal::new::<Grpc>((
+            Client::connect(
                 options
                     .address()
                     .map_err(|e| CanonicalError::Configuration(e.to_string()))?,
-                cfg,
-            ))
+                canonical::MESSAGE_BYTES,
+            )
             .await
             .map_err(Into::into)
         })
@@ -670,7 +665,7 @@ impl EvidenceStore {
             ),
         };
         let connect = within_clock(deadline, async {
-            db.signin(surrealdb::opt::auth::Database {
+            db.signin(Database {
                 namespace: options.namespace.clone(),
                 database: options.database.clone(),
                 username: username.clone(),
@@ -713,14 +708,14 @@ impl EvidenceStore {
     pub(crate) fn query<'a>(
         &'a self,
         sql: impl Into<std::borrow::Cow<'a, str>>,
-    ) -> Result<surrealdb::method::Query<'a, Client>, EvidenceError> {
+    ) -> Result<Query<'a>, EvidenceError> {
         self.query_with_limits(sql, canonical::MetadataResponse::Page.limits())
     }
     pub(crate) fn query_with_limits<'a>(
         &'a self,
         sql: impl Into<std::borrow::Cow<'a, str>>,
-        limits: surrealdb::opt::ResponseLimits,
-    ) -> Result<surrealdb::method::Query<'a, Client>, EvidenceError> {
+        limits: ResponseLimits,
+    ) -> Result<Query<'a>, EvidenceError> {
         let activity = self.access.admit()?;
         let deadline = original_deadline(canonical::REQUEST_TIMEOUT);
         let expiry = rpc_expiry(deadline)?;
@@ -729,7 +724,7 @@ impl EvidenceStore {
             .query(sql)
             .request_context(
                 RequestContext::new(deadline.into_std())
-                    .with_lifetime_owner(Arc::new(activity))
+                    .with_lifetime_owner(activity)
                     .with_response_limits(limits),
             )
             .bind(("expiry", expiry)))
@@ -1148,7 +1143,7 @@ COMMIT;"#;
         let db = Self::client(options).await?;
         let deadline = original_deadline(canonical::REQUEST_TIMEOUT);
         let result=async{
-            transport::request(db.signin(surrealdb::opt::auth::Root{username:username.into(),password:password.into()}).request_context(RequestContext::control(deadline.into_std()))).await?;
+            transport::request(db.signin(Root{username:username.into(),password:password.into()}).request_context(RequestContext::control(deadline.into_std()))).await?;
             transport::bounded_query(db.query(format!("DEFINE NAMESPACE IF NOT EXISTS `{}`;",options.namespace)).request_context(RequestContext::control(deadline.into_std()))).await?;
             transport::request(db.use_ns(&options.namespace).request_context(RequestContext::control(deadline.into_std()))).await?;
             transport::bounded_query(db.query(format!("DEFINE DATABASE IF NOT EXISTS `{}`;",options.database)).request_context(RequestContext::control(deadline.into_std()))).await?;
@@ -1196,7 +1191,7 @@ COMMIT;"#;
         let db = Self::client(options).await?;
         let deadline = original_deadline(canonical::REQUEST_TIMEOUT);
         let result=async{
-            transport::request(db.signin(surrealdb::opt::auth::Root{username:username.into(),password:password.into()}).request_context(RequestContext::control(deadline.into_std()))).await?;
+            transport::request(db.signin(Root{username:username.into(),password:password.into()}).request_context(RequestContext::control(deadline.into_std()))).await?;
             transport::request(db.use_ns(&options.namespace).use_db(&options.database).request_context(RequestContext::control(deadline.into_std()))).await?;
             let sql=format!("BEGIN; IF time::micros()>=$expiry {{ THROW 'evidence original disposal deadline expired'; }}; LET $marker=SELECT * FROM ONLY evidence_interpretations:current; IF $marker=NONE OR $marker.issuing_store!=$issuer OR $marker.interpretation!=$interpretation OR $marker.service_instance_id!=$service {{ THROW 'evidence disposal authority changed'; }}; REMOVE DATABASE `{}`; COMMIT;",options.database);
             transport::protected_query("evidence-dispose",||Ok(db.query(sql.clone()).bind(("expiry",rpc_expiry(deadline).map_err(|e|CanonicalError::Configuration(e.to_string()))?)).bind(("issuer",expected_issuer.clone())).bind(("interpretation",wire::INTERPRETATION)).bind(("service",options.service_instance_id.clone())).request_context(RequestContext::control(deadline.into_std())))).await.map_err(|source|EvidenceError::LifecycleFailure{operation:"drop",namespace:options.namespace.clone(),database:options.database.clone(),issuing_store:expected_issuer.clone(),source:Box::new(source)})?;

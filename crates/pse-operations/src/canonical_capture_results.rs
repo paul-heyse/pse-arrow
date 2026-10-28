@@ -12,7 +12,7 @@ use crate::{
 use pse_model::generated::runtime::{
     canonical_result_batches::Row as Batch, canonical_result_manifests::Row as Manifest,
 };
-use surrealdb::types::{Bytes, Object, Value};
+use surrealdb_types::{Bytes, Object, Value};
 
 /// One exact scientific output predicate, independent of mutable membership.
 #[derive(Clone, Debug)]
@@ -281,17 +281,18 @@ struct CapturedReadPermission {
     position: u64,
     attempt: String,
     set: ResultSetDescriptor,
-    metadata: std::sync::OnceLock<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
+    metadata: std::sync::OnceLock<crate::transport::client::ResponseAllocation>,
 }
 impl CapturedResultRead {
     /// Retain only this compact permission allocation through physical borrowers.
     /// The grant cannot be replaced or accumulate temporary locator-page buffers.
     pub fn retain_metadata_owner(
         &self,
-        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+        owner: impl Into<crate::transport::client::ResponseAllocation>,
     ) -> Result<(), CanonicalError> {
+        let owner: crate::transport::client::ResponseAllocation = owner.into();
         if let Some(old) = self.0.metadata.get() {
-            return if std::sync::Arc::ptr_eq(old, &owner) {
+            return if old.same_owner(&owner) {
                 Ok(())
             } else {
                 Err(invalid("captured permission allocation owner differs"))
@@ -302,7 +303,7 @@ impl CapturedResultRead {
                 .0
                 .metadata
                 .get()
-                .is_none_or(|old| !std::sync::Arc::ptr_eq(old, &owner))
+                .is_none_or(|old| !old.same_owner(&owner))
         {
             return Err(invalid("captured permission allocation owner differs"));
         }

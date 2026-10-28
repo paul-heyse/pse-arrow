@@ -1154,6 +1154,8 @@ impl ModelingPackage {
                 &mut numerical,
                 compiler,
                 &providers,
+                true,
+                None,
                 cancel,
             )
             .await?;
@@ -1329,6 +1331,60 @@ impl ModelingPackage {
 
         }).await
     }
+    /// Resolve authored bounds for local design construction through the same annotation owner.
+    /// Only bound observations are requested; no numerical solver or start policy is selected.
+    pub(in crate::workflow) async fn design_variable_states(
+        &self,
+        services: &crate::workflow::PreparationServices,
+        model: &ModelingPreparation,
+        targets: &BTreeSet<SemanticId>,
+        cancel: &crate::CancelSource,
+    ) -> Result<
+        (
+            BTreeMap<SemanticId, ModelingVariableState>,
+            Arc<pse_columnar::AllocationLease>,
+        ),
+        WorkflowError,
+    > {
+        let product = model.compiled();
+        // Original-model capacity bounds known-input map, view-role and annotation metadata.
+        // Observation execution retains its independent compiler/worker grants.
+        let bytes = product
+            .retained_bytes()
+            .checked_mul(4)
+            .and_then(|n| n.checked_add(4096))
+            .ok_or_else(|| contract("design bound preparation extent"))?;
+        let owner = services.math().reserve("design:bounds", bytes)?;
+        let values = CaseValues {
+            scalars: product
+                .admitted
+                .inputs
+                .iter()
+                .filter_map(|id| match product.model.symbols[id].initial {
+                    Some(pse_modeling::specialize::Value::Number { bits, .. }) => {
+                        Some((*id, f64::from_bits(bits)))
+                    }
+                    _ => None,
+                })
+                .collect(),
+        };
+        let states = self
+            .variable_states(
+                services,
+                model,
+                &inner_roles(product),
+                &ModelingCaseBindings::default(),
+                &values,
+                &mut NumericalInputs::default(),
+                Profile::default(),
+                &self.registrations(),
+                false,
+                Some(targets),
+                cancel,
+            )
+            .await?;
+        Ok((states, owner))
+    }
     /// Variable states of the solver view: evaluated bound hints, nominal declarations for
     /// the numerical policy, and the case's fixed/free and bound overrides.
     #[expect(
@@ -1345,12 +1401,19 @@ impl ModelingPackage {
         numerical: &mut NumericalInputs,
         compiler: Profile,
         providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        include_nominal: bool,
+        targets: Option<&BTreeSet<SemanticId>>,
         cancel: &crate::CancelSource,
     ) -> Result<BTreeMap<SemanticId, ModelingVariableState>, WorkflowError> {
         let product = model.compiled();
-        let hints = outer_annotations(product)?
-            .into_iter()
-            .filter(|hint| !hint.nested)
+        let hints = annotations(product)?
+            .outer_hints()
+            .filter(|hint| {
+                !hint.nested
+                    && (include_nominal || hint.kind != ModelingHint::Nominal)
+                    && targets.is_none_or(|targets| targets.contains(&hint.target))
+            })
+            .cloned()
             .collect::<Vec<_>>();
         let bound_rows = hints
             .iter()

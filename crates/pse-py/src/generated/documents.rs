@@ -245,6 +245,28 @@ impl crate::documents::DocumentType for pse_runtime::workflow::DeploymentRespons
     const VERSION: Option<u32> = Some(1);
     const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::FlatV1;
 }
+impl crate::documents::DocumentType
+for pse_runtime::workflow::sampling::DesignAttribution {
+    const INPUT_NAME: &'static str = "DesignAttribution";
+    const OUTPUT_NAME: &'static str = "DesignAttribution";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::sampling::DesignExport {
+    const INPUT_NAME: &'static str = "DesignExport";
+    const OUTPUT_NAME: &'static str = "DesignExport";
+    const DISTINCT_DIRECTIONS: bool = false;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
+impl crate::documents::DocumentType for pse_runtime::workflow::sampling::DesignRequest {
+    const INPUT_NAME: &'static str = "DesignRequest";
+    const OUTPUT_NAME: &'static str = "DesignRequestOutput";
+    const DISTINCT_DIRECTIONS: bool = true;
+    const VERSION: Option<u32> = None;
+    const WIRE: pse_runtime::boundary_documents::Wire = pse_runtime::boundary_documents::Wire::Native;
+}
 impl crate::documents::DocumentType for pse_runtime::observation_detail::DetailDocument {
     const INPUT_NAME: &'static str = "DetailDocument";
     const OUTPUT_NAME: &'static str = "DetailDocumentOutput";

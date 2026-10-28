@@ -1054,7 +1054,11 @@ impl Runtime {
         let work = self.resolve_study_candidate_admission(scope, &fence, lane, &child);
         let on_loss = child.clone();
         let renewal = super::durable::LeaseRenewal::spawn_with(
-            self.canonical_store()?.clone(), fence.clone(), operations.policy(), false, "study.admission.renew",
+            self.canonical_store()?.clone(),
+            fence.clone(),
+            operations.policy(),
+            false,
+            "study.admission.renew",
             Arc::new(move || on_loss.cancel()),
         );
         let result = work.await;

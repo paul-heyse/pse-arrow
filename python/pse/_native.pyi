@@ -40,6 +40,9 @@ from pse.contracts.documents import (
     ContextSelectionOutput,
     DeclarationInventoryOutput,
     DecodeLocation,
+    DesignExport,
+    DesignRequest,
+    DesignRequestOutput,
     DetailDocumentOutput,
     DetailRecordPageOutput,
     DetailRequest,
@@ -572,6 +575,12 @@ class NativeFrozenStudyCohort:
     ) -> TableStream: ...
 
 @final
+class NativeGeneratedDesign:
+    @property
+    def count(self, /) -> int: ...
+    def export(self, /) -> DesignExport: ...
+
+@final
 class NativeLaunchedCommand:
     def cancel(self, /) -> int: ...
     def close(self, /) -> int: ...
@@ -830,6 +839,9 @@ class NativeModelingPackage:
         settings: SolveSettings | SolveSettingsOutput,
         policy: bytes,
     ) -> NativeModelingNonlinearExplanation: ...
+    def generate_design(
+        self, /, request: DesignRequest | DesignRequestOutput
+    ) -> NativeGeneratedDesign: ...
     def initialize(
         self,
         /,

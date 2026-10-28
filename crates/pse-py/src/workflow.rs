@@ -16,11 +16,12 @@ mod settings;
 mod source_settlement;
 mod study_workbench;
 pub(crate) use modeling::{
-    ModelingDiagnosticSettings, ModelingLimits, NativeLocalStudy, NativeModelingConformance,
-    NativeModelingDiagnosticSamples, NativeModelingDiagnostics, NativeModelingElasticAttempt,
-    NativeModelingInitialization, NativeModelingInitializationAttempt, NativeModelingKnowledge,
-    NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation, NativeModelingPackage,
-    NativeModelingResult, NativeModelingTrajectory, NativeStudyReport,
+    ModelingDiagnosticSettings, ModelingLimits, NativeGeneratedDesign, NativeLocalStudy,
+    NativeModelingConformance, NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
+    NativeModelingElasticAttempt, NativeModelingInitialization,
+    NativeModelingInitializationAttempt, NativeModelingKnowledge, NativeModelingNativeAnalysis,
+    NativeModelingNonlinearExplanation, NativeModelingPackage, NativeModelingResult,
+    NativeModelingTrajectory, NativeStudyReport,
 };
 use routes::{NativeEligibility, NativeRoute};
 pub(crate) use study_workbench::{
@@ -488,14 +489,22 @@ pub(crate) fn blocking_native_call<T: Send>(
                 let _ = sender.send(work());
             })
             .map_err(|error| pyo3::exceptions::PyRuntimeError::new_err(error.to_string()))?;
-        let waited = crate::wait::wait(py, Duration::from_millis(100), |_| false,
+        let waited = crate::wait::wait(
+            py,
+            Duration::from_millis(100),
+            |_| false,
             crate::wait::SignalAction::Drain,
             move |_| match receiver.recv_timeout(Duration::from_millis(100)) {
                 Ok(value) => std::task::Poll::Ready(Some(value)),
-                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => std::task::Poll::Ready(None),
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                    std::task::Poll::Ready(None)
+                }
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => std::task::Poll::Pending,
             },
-            || { lifecycle.stop_requested(); cancel(); },
+            || {
+                lifecycle.stop_requested();
+                cancel();
+            },
         );
         let mut signal = waited.signal;
         let value = waited.value.flatten();
@@ -582,62 +591,68 @@ fn blocking_on_with_interrupted_value<
     }
     let telemetry = crate::telemetry::ingress(py, "python.workflow");
     let mut future = Box::pin(tracing::Instrument::instrument(future, telemetry.clone()));
-    let waited = crate::wait::wait(py, Duration::from_millis(100), |_| true,
+    let waited = crate::wait::wait(
+        py,
+        Duration::from_millis(100),
+        |_| true,
         crate::wait::SignalAction::Drain,
-        |interval| match executor.block_on(async { tokio::time::timeout(interval, &mut future).await }) {
+        |interval| match executor
+            .block_on(async { tokio::time::timeout(interval, &mut future).await })
+        {
             Ok(value) => std::task::Poll::Ready(value),
             Err(_) => std::task::Poll::Pending,
-        }, cancel,
+        },
+        cancel,
     );
     let signal = waited.signal;
-    let value = waited.value.ok_or_else(|| invalid(py, "retained workflow wait lost completion"))?;
+    let value = waited
+        .value
+        .ok_or_else(|| invalid(py, "retained workflow wait lost completion"))?;
     match signal {
-                Some(e) => {
-                    use errors::ReportSource;
-                    match &value {
-                        Ok(value) => {
-                            interrupted_value(value);
-                            if let Some((field, key, intent)) = recovery_key(value) {
-                                e.value(py).setattr(field, key)?;
-                                if let Some(intent) = intent {
-                                    e.value(py).setattr(
-                                        "artifact_intent",
-                                        documents::DocumentValue(intent),
-                                    )?;
-                                }
-                            }
-                        }
-                        Err(error) => {
-                            for (field, key) in [
-                                ("analysis_key", error.report_analysis_key()),
-                                ("artifact_key", error.report_artifact_key()),
-                                ("study_key", error.report_study_key()),
-                                ("source_problem", error.report_source_problem()),
-                                ("source_operation", error.report_source_operation()),
-                            ] {
-                                if let Some(key) = key {
-                                    e.value(py).setattr(field, key)?;
-                                }
-                            }
-                            if let Some(intent) = error.report_artifact_intent() {
-                                e.value(py)
-                                    .setattr("artifact_intent", documents::DocumentValue(intent))?;
-                            }
-                            if let Some((kind, owner, read)) = error.report_artifact_cleanup() {
-                                e.value(py).setattr("artifact_owner_kind", kind)?;
-                                e.value(py).setattr("artifact_owner", owner)?;
-                                e.value(py).setattr("artifact_read_key", read)?;
-                            }
+        Some(e) => {
+            use errors::ReportSource;
+            match &value {
+                Ok(value) => {
+                    interrupted_value(value);
+                    if let Some((field, key, intent)) = recovery_key(value) {
+                        e.value(py).setattr(field, key)?;
+                        if let Some(intent) = intent {
+                            e.value(py)
+                                .setattr("artifact_intent", documents::DocumentValue(intent))?;
                         }
                     }
-                    if e.cause(py).is_none()
-                        && let Err(error) = &value
-                    {
-                        e.set_cause(py, Some(errors::diagnostic(py, error)));
-                    }
-                    Err(e)
                 }
-                None => value.map_err(|e| errors::diagnostic(py, &e)),
+                Err(error) => {
+                    for (field, key) in [
+                        ("analysis_key", error.report_analysis_key()),
+                        ("artifact_key", error.report_artifact_key()),
+                        ("study_key", error.report_study_key()),
+                        ("source_problem", error.report_source_problem()),
+                        ("source_operation", error.report_source_operation()),
+                    ] {
+                        if let Some(key) = key {
+                            e.value(py).setattr(field, key)?;
+                        }
+                    }
+                    if let Some(intent) = error.report_artifact_intent() {
+                        e.value(py)
+                            .setattr("artifact_intent", documents::DocumentValue(intent))?;
+                    }
+                    if let Some((kind, owner, read)) = error.report_artifact_cleanup() {
+                        e.value(py).setattr("artifact_owner_kind", kind)?;
+                        e.value(py).setattr("artifact_owner", owner)?;
+                        e.value(py).setattr("artifact_read_key", read)?;
+                    }
+                }
+            }
+            if e.cause(py).is_none()
+                && let Err(error) = &value
+            {
+                e.set_cause(py, Some(errors::diagnostic(py, error)));
+            }
+            Err(e)
+        }
+        None => value.map_err(|e| errors::diagnostic(py, &e)),
     }
 }
 /// Borrow the shared scientific deployment budget, services and executor.
@@ -1053,7 +1068,9 @@ impl NativeRuntime {
             *active = Some(Arc::clone(&ticket));
             ticket
         };
-        let waited = crate::wait::wait(py, Duration::from_millis(100),
+        let waited = crate::wait::wait(
+            py,
+            Duration::from_millis(100),
             |result: &Result<(_, bool), _>| result.as_ref().is_ok_and(|(_, check)| *check),
             crate::wait::SignalAction::Return,
             |interval| {
@@ -1066,13 +1083,20 @@ impl NativeRuntime {
                 }
                 match ticket.wait(remaining.min(interval)) {
                     Err(error) => std::task::Poll::Ready(Err(error)),
-                    Ok(result) if result.target_state != "pending" => std::task::Poll::Ready(Ok((result, true))),
+                    Ok(result) if result.target_state != "pending" => {
+                        std::task::Poll::Ready(Ok((result, true)))
+                    }
                     Ok(_) => std::task::Poll::Pending,
                 }
-            }, || {},
+            },
+            || {},
         );
-        if let Some(signal) = waited.signal { return Err(signal); }
-        let (result, _) = waited.value.ok_or_else(|| invalid(py, "observer wait lost outcome"))?
+        if let Some(signal) = waited.signal {
+            return Err(signal);
+        }
+        let (result, _) = waited
+            .value
+            .ok_or_else(|| invalid(py, "observer wait lost outcome"))?
             .map_err(|error| errors::diagnostic(py, &error))?;
         Ok(documents::DocumentValue(result))
     }

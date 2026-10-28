@@ -2110,43 +2110,48 @@ impl ModelingPackage {
         let producer_deadline = service.preparation_producer_deadline();
         let attribution = crate::ExecutionContext::capture();
         let operation = math.selected_flights.load_owned(key, move |control| {
-            attribution.shared_producer_at("modeling.selected.producer", pse_diagnostics::observation::current()).instrument(population.run(async move {
-                let producer_deadline = producer_deadline?;
-                let worker_service = service.clone();
-                let workspace = service.compiler_lane(lineage, inputs)?;
-                let pending_workspace = workspace.clone();
-                let admitted = service
-                    .compiler_job(
-                        workspace,
-                        crate::math::ConstructionEstimate::Known(0),
-                        control,
-                        Some(producer_deadline),
-                        move |authority, flag| {
-                            let _sources = leases;
-                            let _metadata = flight_metadata;
-                            if flag.load(std::sync::atomic::Ordering::Acquire) {
-                                return Err(crate::math::MathRuntimeError::Cancelled);
-                            }
-                            worker_service.modeling_revision_at(
-                                authority,
-                                rows,
-                                physical,
-                                Arc::new(documents),
-                                &physical_key,
-                                stamp,
-                                flag.flag(),
-                                &suppliers,
-                            )
-                        },
-                    )
-                    .await;
-                if admitted.is_err() {
-                    service.discard_uninitialized_compiler_lane(&pending_workspace);
-                }
-                let admitted = admitted
-                    .map_err(crate::math::MathRuntimeError::preparation_producer_failure)?;
-                Ok(Arc::new(admitted))
-            }))
+            attribution
+                .shared_producer_at(
+                    "modeling.selected.producer",
+                    pse_diagnostics::observation::current(),
+                )
+                .instrument(population.run(async move {
+                    let producer_deadline = producer_deadline?;
+                    let worker_service = service.clone();
+                    let workspace = service.compiler_lane(lineage, inputs)?;
+                    let pending_workspace = workspace.clone();
+                    let admitted = service
+                        .compiler_job(
+                            workspace,
+                            crate::math::ConstructionEstimate::Known(0),
+                            control,
+                            Some(producer_deadline),
+                            move |authority, flag| {
+                                let _sources = leases;
+                                let _metadata = flight_metadata;
+                                if flag.load(std::sync::atomic::Ordering::Acquire) {
+                                    return Err(crate::math::MathRuntimeError::Cancelled);
+                                }
+                                worker_service.modeling_revision_at(
+                                    authority,
+                                    rows,
+                                    physical,
+                                    Arc::new(documents),
+                                    &physical_key,
+                                    stamp,
+                                    flag.flag(),
+                                    &suppliers,
+                                )
+                            },
+                        )
+                        .await;
+                    if admitted.is_err() {
+                        service.discard_uninitialized_compiler_lane(&pending_workspace);
+                    }
+                    let admitted = admitted
+                        .map_err(crate::math::MathRuntimeError::preparation_producer_failure)?;
+                    Ok(Arc::new(admitted))
+                }))
         });
         tokio::pin!(operation);
         let revision = tokio::select! {

@@ -276,7 +276,7 @@ impl ReplaySourceDocument {
 /// Stream the modeling owner's exact JSON codec as bytes without an unadmitted
 /// intermediate string/vector. Bindings retain their native typed owner in Rust;
 /// the external closure carries its lossless body rather than a second value taxonomy.
-fn serialize_bindings<S: serde::Serializer>(
+pub(in crate::workflow) fn serialize_bindings<S: serde::Serializer>(
     value: &pse_modeling::Bindings,
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
@@ -301,7 +301,7 @@ fn serialize_bindings<S: serde::Serializer>(
 }
 // Decode only the existing producer's byte representation. Executable admission remains
 // ReplayCaseConstructor::reconstruct; decoding grants no runtime capability.
-fn deserialize_bindings<'de, D: serde::Deserializer<'de>>(
+pub(in crate::workflow) fn deserialize_bindings<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<pse_modeling::Bindings, D::Error> {
     let bytes = <Vec<u8> as serde::Deserialize>::deserialize(deserializer)?;

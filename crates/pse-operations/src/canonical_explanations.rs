@@ -13,7 +13,7 @@ use crate::{
 use pse_model::study::{ActionKind, PointAction, Refusal, WaitReason};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use surrealdb::types::{Object, Value};
+use surrealdb_types::{Object, Value};
 
 /// The exact selected graph owner and revision, never a moving current pointer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -1110,7 +1110,7 @@ pub(crate) async fn qualify_graph_seek_pages(
     request: &CanonicalGraphRequest,
     mut expected: Vec<(String, GraphEdge)>,
 ) {
-    use surrealdb::types::ToSql;
+    use surrealdb_types::ToSql;
     expected.sort_by(|left, right| left.0.cmp(&right.0));
     let (owner, field, index, ordering) = match (&request.anchor, request.scope) {
         (GraphAnchor::StudyPoint { point, .. }, GraphScope::RetainedConsumers) => {
@@ -1278,17 +1278,22 @@ mod server_tests {
                 "VIEWER",
             ),
         ] {
-            let db = surrealdb::Surreal::new::<surrealdb::engine::remote::grpc::Grpc>(address)
-                .await
-                .unwrap();
-            db.signin(surrealdb::opt::auth::Root {
+            let deadline = original_deadline(REQUEST_TIMEOUT).into_std();
+            let context = || crate::transport::client::RequestContext::control(deadline);
+            let db =
+                crate::transport::client::Client::connect(address, crate::canonical::MESSAGE_BYTES)
+                    .await
+                    .unwrap();
+            db.signin(crate::transport::client::Root {
                 username: username.clone(),
                 password: password.clone(),
             })
+            .request_context(context())
             .await
             .unwrap();
-            db.use_ns(options.namespace.clone())
-                .use_db(options.database.clone())
+            db.use_ns(&options.namespace)
+                .use_db(&options.database)
+                .request_context(context())
                 .await
                 .unwrap();
             let mut info = db
@@ -1296,6 +1301,7 @@ mod server_tests {
                     "INFO FOR USER `{}` ON ROOT;",
                     username.replace('`', "\\`")
                 ))
+                .request_context(context())
                 .await
                 .unwrap()
                 .check()
@@ -1305,8 +1311,9 @@ mod server_tests {
                 info.to_uppercase().contains(&format!("ROLES {role}")),
                 "configured root role did not match {role}"
             );
-            let mut rows=db.query("SELECT key FROM graph_auth_probe WITH INDEX graph_auth_seek WHERE owner='owner' AND key>'' ORDER BY key LIMIT 2;").await.unwrap().check().unwrap();
+            let mut rows=db.query("SELECT key FROM graph_auth_probe WITH INDEX graph_auth_seek WHERE owner='owner' AND key>'' ORDER BY key LIMIT 2;").request_context(context()).await.unwrap().check().unwrap();
             assert_eq!(rows.take::<Vec<Object>>(0).unwrap().len(), 2);
+            db.disconnect().await.unwrap();
         }
         store.remove_isolated_fixture().await.unwrap();
     }

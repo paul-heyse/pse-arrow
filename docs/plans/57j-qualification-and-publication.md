@@ -385,3 +385,41 @@ follows. Other G03 consumers and D–I work remain with their existing owners. C
 CBO-001 inquiry; they leave active current-work selection. Their enduring contracts are already
 published. The coordinator and J remain active for the rest of the series and deferred full
 validation; no completed plan/review is deleted while those readers still depend on it.
+
+## Selected D–F acceptance preparation — 2026-10-28
+
+D01, E01–E04 and F01–F06 are authorized from clean `6d13fc986`. Their targeted
+controls precede joined acceptance. Select generated-study creation/recorded replay,
+Rust multistart/surrogate preparation, the canonical Rust/Python/worker/xtask request
+union, sixteen-lane transport/lifetime, native job/session and Python signal/recovery
+journeys after functional scope. Rebuild the validated correctness extension where
+the public/native boundary changes. Actual original-owner drain remains required.
+
+The full powerset/no-default campaign remains deferred to series end. No speed or
+capacity measurement is selected: the decision is functional correctness and ownership
+consolidation, with benefits unmeasured. Existing A–C receipts retain their original
+source/mode scope; affected paths need current D–F evidence.
+
+### Current D–F qualification preparation
+
+Full generation now publishes the new design documents and direct native codec qualification.
+The three canonical/development schema compatibility digests remain unchanged. Runtime linked
+KINSOL/KLU test sources and the Python boundary compile; focused execution still needs the current
+sampling, lifecycle and interpreter cases. Independent client review exposed a Hyper task-closure
+obligation, so earlier focused client passes cannot establish physical drain for the replacement.
+Its current repair and owned-send/socket witnesses precede selected assembled acceptance.
+
+Standalone SurrealKit now builds and publishes an immutable, locked release artifact against the
+released SDK pin. A path-to-registry package-ID selection failure was corrected by normal
+conservative resolution of the explicitly edited standalone manifests against their admitted lock.
+The tool-only dependency declaration remains exact in Cargo metadata, with no SDK dependency in
+the product workspace graph. Actual fixture/tool journeys are separate from that build evidence.
+Full powerset/no-default and unselected performance/platform claims remain deferred.
+
+
+Current focused preparation is complete: corrected sampling consumers, client framing/result/
+retry/physical-drain controls, retained flight/store owners, native lifecycle mechanisms and
+runtime request-span export have passing bounded evidence. Generation and formatting are settled. The current linked, force-validated Python artifact
+and its actual compiled API stubs have been produced and admitted; environment readiness passes. The first formatter attempt exposed whitespace left
+by removed query-builder calls; those lines were corrected. Assembled canonical and actual
+interpreter journeys, scope-end hygiene/manual checks and enduring publication remain open.

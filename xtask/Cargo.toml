@@ -54,7 +54,7 @@ evidence-tools = [
   "dep:pse-relations",
   "dep:pse-diagnostics",
   "dep:datafusion",
-  "dep:surrealdb",
+  "dep:surrealdb-types",
   "dep:uuid",
   "dep:thiserror",
   "dep:strum",
@@ -104,7 +104,7 @@ product-schemas = [
 package-fixtures = ["physical-admission", "product-schemas"]
 
 [dependencies]
-surrealdb = { workspace = true, optional = true }
+surrealdb-types = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }

@@ -5,6 +5,7 @@
 
 #[cfg(all(test, feature = "canonical-tests"))]
 use crate::canonical::bounded_query;
+use crate::canonical_script::{Envelope, GuardedScript, ResultSlot};
 use crate::{
     canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, protected_query},
@@ -27,7 +28,7 @@ use std::{
     future::IntoFuture,
     time::Duration,
 };
-use surrealdb::types::{Bytes, Object, ToSql, Value};
+use surrealdb_types::{Bytes, Object, ToSql, Value};
 
 /// Original immutable definition fields and admission capability; excludes scientific outcomes and starts.
 #[derive(Clone, Debug)]
@@ -846,7 +847,7 @@ impl CanonicalStore {
             let row=pse_model::generated::runtime::canonical_study_inputs::Row { key:format!("{study}:{solution}"),study:study.into(),solution:solution.into(),artifact:artifact.into() };
             let row=wire::encode_canonical_study_inputs(&row)?;
             let owner=wire::encode_canonical_artifact_obligations(&crate::canonical_artifacts::artifact_obligation(&pse_model::generated::canonical::ArtifactKey::from(artifact),crate::canonical_artifacts::CanonicalArtifactHolderKind::Study,study))?;
-            protected_query("canonical_studies::retain_study_input",||Ok(self.db.query("BEGIN; fn::pse_history_v1::check_owner($pse_rpc_expires_at,'study',$study); fn::pse_execution_v1::touch($pse_rpc_expires_at,'study:'+$study); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))!=NONE { THROW 'PSE_REFUSAL:study_retired'; }; LET $s=SELECT * FROM ONLY type::record('canonical_studies',$study); IF $s!=NONE AND ($s.active OR $s.cancelled) { THROW 'PSE_REFUSAL:study_inputs_closed'; }; LET $artifact=fn::pse_artifact_v1::available($pse_rpc_expires_at,$row.artifact); IF $artifact.kind!='seed' { THROW 'PSE_REFUSAL:study_input_is_not_a_seed'; }; fn::pse_artifact_v1::attach($pse_rpc_expires_at,$row.artifact,$owner,true); LET $old=SELECT * FROM ONLY type::record('canonical_study_inputs',$row.key) FOR UPDATE; IF $old!=NONE AND object::remove($old,['id'])!=$row { THROW 'PSE_REFUSAL:study_exact_seed_changed'; }; IF $old=NONE { CREATE ONLY type::record('canonical_study_inputs',$row.key) CONTENT $row; }; COMMIT;")
+            protected_query("canonical_studies::retain_study_input",||Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>("fn::pse_history_v1::check_owner($pse_rpc_expires_at,'study',$study); fn::pse_execution_v1::touch($pse_rpc_expires_at,'study:'+$study); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))!=NONE { THROW 'PSE_REFUSAL:study_retired'; }; LET $s=SELECT * FROM ONLY type::record('canonical_studies',$study); IF $s!=NONE AND ($s.active OR $s.cancelled) { THROW 'PSE_REFUSAL:study_inputs_closed'; }; LET $artifact=fn::pse_artifact_v1::available($pse_rpc_expires_at,$row.artifact); IF $artifact.kind!='seed' { THROW 'PSE_REFUSAL:study_input_is_not_a_seed'; }; fn::pse_artifact_v1::attach($pse_rpc_expires_at,$row.artifact,$owner,true); LET $old=SELECT * FROM ONLY type::record('canonical_study_inputs',$row.key) FOR UPDATE; IF $old!=NONE AND object::remove($old,['id'])!=$row { THROW 'PSE_REFUSAL:study_exact_seed_changed'; }; IF $old=NONE { CREATE ONLY type::record('canonical_study_inputs',$row.key) CONTENT $row; };","NONE")?)
                 .bind(("study",study.to_owned())).bind(("row",row.clone())).bind(("owner",owner.clone())))).await?;
             Ok(())
         }).await
@@ -855,10 +856,9 @@ impl CanonicalStore {
     pub async fn study_input(&self, study: &str, solution: &str) -> Result<String, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
-            let mut response=protected_query("canonical_studies::study_input",||Ok(self.db.query("BEGIN; fn::pse_history_v1::check_owner($pse_rpc_expires_at,'study',$study); fn::pse_execution_v1::register($pse_rpc_expires_at,'study:'+$study); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))!=NONE { THROW 'PSE_REFUSAL:study_inputs_retired'; }; LET $row=SELECT * FROM ONLY type::record('canonical_study_inputs',$key); IF $row=NONE OR $row.study!=$study OR $row.solution!=$solution { THROW 'PSE_REFUSAL:retained_study_input_unavailable'; }; fn::pse_artifact_v1::available($pse_rpc_expires_at,$row.artifact); RETURN $row.artifact; COMMIT;")
+            let mut response=protected_query("canonical_studies::study_input",||Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<String>>("fn::pse_history_v1::check_owner($pse_rpc_expires_at,'study',$study); fn::pse_execution_v1::register($pse_rpc_expires_at,'study:'+$study); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))!=NONE { THROW 'PSE_REFUSAL:study_inputs_retired'; }; LET $row=SELECT * FROM ONLY type::record('canonical_study_inputs',$key); IF $row=NONE OR $row.study!=$study OR $row.solution!=$solution { THROW 'PSE_REFUSAL:retained_study_input_unavailable'; }; fn::pse_artifact_v1::available($pse_rpc_expires_at,$row.artifact);","$row.artifact")?)
                 .bind(("study",study.to_owned())).bind(("solution",solution.to_owned())).bind(("key",format!("{study}:{solution}"))))).await?;
-            let index=response.num_statements().saturating_sub(2);
-            response.take::<Option<String>>(index)?.ok_or(CanonicalError::IncompleteResponse)
+            ResultSlot::<Option<String>>::returned().take(&mut response)?.ok_or(CanonicalError::IncompleteResponse)
         }).await
     }
     /// Study-only decisions join the same immutable problem owner as execution.
@@ -868,10 +868,12 @@ impl CanonicalStore {
         study: &str,
         operation: &'static str,
         build: F,
-    ) -> Result<surrealdb::IndexedResults, CanonicalError>
+    ) -> Result<crate::transport::client::IndexedResults, CanonicalError>
     where
         F: FnMut() -> Result<Q, CanonicalError>,
-        Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
+        Q: IntoFuture<
+            Output = Result<crate::transport::client::IndexedResults, surrealdb_types::Error>,
+        >,
     {
         // These callers write the study header or its staged membership. Point
         // effects use their independent execution-run domains.
@@ -2269,14 +2271,13 @@ impl CanonicalStore {
                             }
                             // Reconcile the exact original start under its existing fence;
                             // this readback never repeats dispatch.
-                            let mut response = self.protected_execution_query(claim.fence.run(), "canonical_studies::finish_study_started", || Ok(self.db.query(
-                                "BEGIN; fn::pse_execution_v1::fence($pse_rpc_expires_at, $run,$attempt,$generation); LET $rpc_result = SELECT * FROM ONLY type::record('canonical_study_points',$point) TIMEOUT $pse_rpc_timeout; fn::pse_execution_v1::fence($pse_rpc_expires_at, $run,$attempt,$generation); RETURN $rpc_result; COMMIT;"
-                            ).bind(("run", claim.fence.run().to_owned()))
+                            let mut response = self.protected_execution_query(claim.fence.run(), "canonical_studies::finish_study_started", || Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>(
+                                "fn::pse_execution_v1::fence($pse_rpc_expires_at, $run,$attempt,$generation); LET $rpc_result = SELECT * FROM ONLY type::record('canonical_study_points',$point) TIMEOUT $pse_rpc_timeout; fn::pse_execution_v1::fence($pse_rpc_expires_at, $run,$attempt,$generation);", "$rpc_result"
+                            )?).bind(("run", claim.fence.run().to_owned()))
                                 .bind(("attempt", claim.fence.attempt().to_owned()))
                                 .bind(("generation", codec::encode_uint(claim.fence.generation())?))
                                 .bind(("point", claim.point.key.clone())))).await?;
-                            let index = response.num_statements().saturating_sub(2);
-                            let row = response.take::<Option<Object>>(index)?.ok_or(CanonicalError::IncompleteResponse)?;
+                            let row = ResultSlot::<Option<Object>>::returned().take(&mut response)?.ok_or(CanonicalError::IncompleteResponse)?;
                             Ok(Some(wire::decode_canonical_study_points(row)?))
                         },
                         |point| point.key == claim.point.key && point.study == claim.point.study && point.run == claim.fence.run(),
@@ -4335,11 +4336,17 @@ mod canonical_studies_server_unit {
             .await
             .unwrap()
             .unwrap();
-        for body in [
-            "LET $reply=mod::pse::study::readiness({generation:0dec,cancelled:false,rows:[],items:[{point:'missing',predecessors:[]}]}); IF $reply.accepted=false {THROW 'PSE_REFUSAL:study_readiness_policy_refused';};",
-            "RETURN mod::pse::study::readiness('malformed ABI input');",
+        for (body, expression) in [
+            (
+                "LET $reply=mod::pse::study::readiness({generation:0dec,cancelled:false,rows:[],items:[{point:'missing',predecessors:[]}]}); IF $reply.accepted=false {THROW 'PSE_REFUSAL:study_readiness_policy_refused';};",
+                "NONE",
+            ),
+            ("", "mod::pse::study::readiness('malformed ABI input')"),
         ] {
-            let error=bounded_query(store.db.query(format!("BEGIN; UPDATE ONLY type::record('canonical_studies','module-rollback') SET generation+=1dec; {body} COMMIT;"))).await;
+            let script = GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>(
+                &format!("UPDATE ONLY type::record('canonical_studies','module-rollback') SET generation+=1dec; {body}"), expression,
+            ).unwrap();
+            let error = bounded_query(store.db.script(script)).await;
             assert!(
                 error.is_err(),
                 "module refusal/ABI error must abort the containing transaction"
@@ -4386,18 +4393,19 @@ mod canonical_studies_server_unit {
             .unwrap();
         let cursor = store.readiness_cursor("module-return").await.unwrap();
         for empty in [true, false] {
-            let query = r#"BEGIN;
-                LET $page=fn::pse_study_v1::readiness_scope_page($pse_rpc_expires_at,'module-return',$cursor,'rebuild',NONE,NONE,64);
+            let body = r#"LET $page=fn::pse_study_v1::readiness_scope_page($pse_rpc_expires_at,'module-return',$cursor,'rebuild',NONE,NONE,64);
                 LET $reply=fn::pse_study_v1::readiness_policy($page);
                 LET $bad=IF $empty {[]} ELSE {$reply.decisions.map(|$item,$index| IF $index=1 {object::extend($item,{pending:-1dec})} ELSE {$item})};
                 LET $request={study:'module-return',fence:$page.fence,mutating:true};
                 UPDATE ONLY type::record('canonical_studies','module-return') SET generation+=1dec;
-                RETURN fn::pse_study_v1::readiness_apply_decisions($pse_rpc_expires_at,$request,$page,$bad,true);
-                COMMIT;"#;
+                "#;
+            let script = GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>(body,
+                "fn::pse_study_v1::readiness_apply_decisions($pse_rpc_expires_at,$request,$page,$bad,true)",
+            ).unwrap();
             let result = bounded_query(
                 store
                     .db
-                    .query(query)
+                    .script(script)
                     .bind(("cursor", codec::encode_uint(cursor.revision).unwrap()))
                     .bind(("empty", empty)),
             )
@@ -4726,7 +4734,7 @@ mod canonical_studies_server_unit {
         for result in [&apply, &fence] {
             if let Err(error) = result {
                 assert!(
-                    matches!(error,CanonicalError::Driver(error) if matches!(error.query_details(),Some(surrealdb::types::QueryError::TransactionConflict))),
+                    matches!(error,CanonicalError::Driver(error) if matches!(error.query_details(),Some(surrealdb_types::QueryError::TransactionConflict))),
                     "{error}"
                 );
             }

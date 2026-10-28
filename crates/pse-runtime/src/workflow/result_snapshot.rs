@@ -70,6 +70,31 @@ pub(super) enum ResultPayloadAuthority {
         read: Arc<pse_operations::canonical_capture_results::CapturedResultRead>,
     },
 }
+impl ResultPayloadAuthority {
+    fn custody(&self) -> pse_operations::transport::client::RetainedRequest {
+        use pse_operations::transport::client::RetainedRequest;
+        match self {
+            Self::Terminal { read, capture, .. } => {
+                let custody = RetainedRequest::from(read.clone());
+                match capture {
+                    Some(capture) => RetainedRequest::combine(custody, capture.clone()),
+                    None => custody,
+                }
+            }
+            Self::Capture { read } => RetainedRequest::from(read.clone()),
+        }
+    }
+    fn allocations(
+        &self,
+        response: Arc<MemoryReservation>,
+    ) -> pse_operations::transport::client::ResponseAllocation {
+        use pse_operations::transport::client::ResponseAllocation;
+        match self {
+            Self::Terminal { owner, .. } => ResponseAllocation::combine(owner.clone(), response),
+            Self::Capture { .. } => ResponseAllocation::from(response),
+        }
+    }
+}
 impl ProtectedResultDecode {
     pub(super) fn new(
         services: &SourceServices,
@@ -233,8 +258,12 @@ impl ResultSnapshot {
                 if let Some(context) = pse_diagnostics::observation::current() {
                     context.count("canonical.result.joined_page_requests", "count", 1);
                 }
-                let joined = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((read.clone(), read_owner.clone(), response.clone())),
+                let joined = super::connected_results::protected_response_scope(
+                    read.clone(),
+                    pse_operations::transport::client::ResponseAllocation::combine(
+                        read_owner.clone(),
+                        response.clone(),
+                    ),
                     services.canonical_store()?.result_joined_block_page(
                         &read,
                         set,
@@ -410,7 +439,7 @@ impl ResultBlockDecode {
                 .map_err(pse_engine::EngineError::from)?;
             // Both sequential catalog RPCs inside open_result_file must retain
             // the exact read ticket and a separately prepaid metadata response.
-            // The file-shaped decode/footer grants cannot bound SDK metadata,
+            // The file-shaped decode/footer grants cannot bound native response metadata,
             // and connection activity alone does not retain this ResultRead.
             let response = super::connected_results::pooled_response_owner(
                 &self.services.preparation().pool(),
@@ -426,8 +455,9 @@ impl ResultBlockDecode {
             )?;
             let (source, count, retained_source) = match &locator {
                 pse_operations::canonical_execution::PayloadLocator::Sealed { .. } => {
-                    let file = pse_operations::canonical::response_ownership_scope(
-                        Arc::new((authority.clone(), response.clone())),
+                    let file = super::connected_results::protected_response_scope(
+                        authority.custody(),
+                        authority.allocations(response.clone()),
                         async {
                             match &authority {
                                 ResultPayloadAuthority::Terminal {
@@ -460,8 +490,9 @@ impl ResultBlockDecode {
                     )
                 }
                 pse_operations::canonical_execution::PayloadLocator::Inline { .. } => {
-                    let body = pse_operations::canonical::response_ownership_scope(
-                        Arc::new((authority.clone(), response.clone())),
+                    let body = super::connected_results::protected_response_scope(
+                        authority.custody(),
+                        authority.allocations(response.clone()),
                         async {
                             match &authority {
                                 ResultPayloadAuthority::Terminal {

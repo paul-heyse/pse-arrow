@@ -4,7 +4,10 @@
 use super::connected_results::{PrepaidReaderFuture, prepaid_reader_future};
 use super::{ProgressCoverage, ProgressEventDocument, Runtime, SourceServices, WorkflowError};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
-use pse_operations::{canonical::MetadataResponse, canonical_results::ResultRead};
+use pse_operations::{
+    canonical::MetadataResponse, canonical_results::ResultRead,
+    transport::client::ResponseAllocation,
+};
 use std::sync::Arc;
 
 const READ_BYTES: usize = 16 * 1024 * 1024;
@@ -94,8 +97,9 @@ impl SourceServices {
             super::LeasePolicy::default(),
             self.preparation().pool(),
         );
-        let coverage = pse_operations::canonical::response_ownership_scope(
-            Arc::new((read.clone(), read_owner.clone(), response)),
+        let coverage = super::connected_results::protected_response_scope(
+            read.clone(),
+            ResponseAllocation::combine(read_owner.clone(), response),
             operations.progress_coverage(&read),
         )
         .await?;
@@ -220,8 +224,12 @@ impl ProgressStream {
             .read_owner
             .as_ref()
             .ok_or_else(|| super::contract("progress metadata owner closed"))?;
-        let response = Arc::new((read.clone(), read_owner.clone(), response, owner.clone()));
-        let descriptors = pse_operations::canonical::response_ownership_scope(
+        let response = ResponseAllocation::combine(
+            ResponseAllocation::combine(read_owner.clone(), response),
+            owner.clone(),
+        );
+        let descriptors = super::connected_results::protected_response_scope(
+            read.clone(),
             response.clone(),
             self.services
                 .canonical_store()?
@@ -236,7 +244,8 @@ impl ProgressStream {
         owner
             .try_grow(bytes.saturating_mul(8))
             .map_err(pse_engine::EngineError::from)?;
-        let payload = pse_operations::canonical::response_ownership_scope(
+        let payload = super::connected_results::protected_response_scope(
+            read.clone(),
             response,
             self.services
                 .canonical_store()?

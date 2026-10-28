@@ -15,40 +15,41 @@ async fn server_now(store: &CanonicalStore) -> u64 {
     let mut response = bounded_query(store.db.query("RETURN time::micros();"))
         .await
         .unwrap();
-    u64::try_from(codec::decode_int(response.take::<surrealdb::types::Value>(0).unwrap()).unwrap())
-        .unwrap()
+    u64::try_from(codec::decode_int(response.take::<Value>(0).unwrap()).unwrap()).unwrap()
 }
 
 // An independent test connection deliberately leaves the production bounded-request
 // profile unchanged: its pinned adapter does not expose interactive sessions.
-async fn held_transaction(
-    options: &CanonicalOptions,
-) -> surrealdb::method::Transaction<surrealdb::engine::remote::grpc::Client> {
+async fn held_transaction(options: &CanonicalOptions) -> crate::transport::client::HeldTransaction {
+    use crate::transport::client::{Client, RequestContext, Root};
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
     let address = url::Url::parse(&options.endpoint)
         .unwrap()
         .socket_addrs(|| None)
         .unwrap()[0];
-    let db = surrealdb::Surreal::new::<surrealdb::engine::remote::grpc::Grpc>(address)
+    let db = Client::connect(address, crate::canonical::MESSAGE_BYTES)
         .await
         .unwrap();
-    db.signin(surrealdb::opt::auth::Root {
+    db.signin(Root {
         username: options.username.clone(),
         password: options.password.clone(),
     })
+    .request_context(RequestContext::control(deadline))
     .await
     .unwrap();
-    db.use_ns(options.namespace.clone())
-        .use_db(options.database.clone())
+    db.use_ns(&options.namespace)
+        .use_db(&options.database)
+        .request_context(RequestContext::control(deadline))
         .await
         .unwrap();
-    db.begin().await.unwrap()
+    db.test_begin(deadline).await.unwrap()
 }
 
-fn assert_conflict(error: surrealdb::Error) {
+fn assert_conflict(error: surrealdb_types::Error) {
     assert!(
         matches!(
             error.query_details(),
-            Some(surrealdb::types::QueryError::TransactionConflict)
+            Some(surrealdb_types::QueryError::TransactionConflict)
         ),
         "expected backend transaction conflict, received {error}"
     );

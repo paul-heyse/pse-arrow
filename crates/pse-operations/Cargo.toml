@@ -21,6 +21,7 @@ workspace = true
 
 [features]
 force-validate = [
+  "pse-columnar/force-validate",
   "pse-codegen/force-validate",
   "pse-schema/force-validate",
   "pse-relations/force-validate",
@@ -34,6 +35,7 @@ canonical-tests = []
 canonical-maintenance = ["dep:surrealdb-syn", "dep:surrealdb-sql"]
 
 [dependencies]
+datafusion-execution.workspace = true
 clap.workspace = true
 hex.workspace = true
 libc.workspace = true
@@ -41,6 +43,7 @@ rustix.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
 pse-diagnostics.workspace = true
+pse-columnar.workspace = true
 pin-project-lite.workspace = true
 pse-ids.workspace = true
 # The registry owns canonical rows, enumerations and typed identities.
@@ -59,24 +62,29 @@ tempfile.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 tokio.workspace = true
-surrealdb.workspace = true
 surrealdb-syn = { workspace = true, optional = true }
 surrealdb-sql = { workspace = true, optional = true }
 
-[dev-dependencies]
-pse-engine.workspace = true
-datafusion.workspace = true
-surrealdb = { workspace = true, features = ["grpc-lifecycle-test-support"] }
-base64.workspace = true
-surrealdb-protocol.workspace = true
-pse-columnar.workspace = true
 bytes.workspace = true
 http.workspace = true
 http-body.workspace = true
-futures-util.workspace = true
 http-body-util.workspace = true
+futures-util.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true
+tonic.workspace = true
+tower-service.workspace = true
+surrealdb-types.workspace = true
+surrealdb-protocol.workspace = true
+opentelemetry.workspace = true
+opentelemetry_sdk.workspace = true
+tracing-opentelemetry.workspace = true
+
+[dev-dependencies]
+tracing-subscriber.workspace = true
+pse-engine.workspace = true
+datafusion.workspace = true
+base64.workspace = true
 arrow-schema.workspace = true
 pse-codegen.workspace = true
 url.workspace = true

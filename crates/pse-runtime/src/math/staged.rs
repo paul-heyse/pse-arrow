@@ -822,7 +822,13 @@ impl Drop for Stop {
     fn drop(&mut self) {
         if let Some(flag) = &self.0 {
             if let Some(context) = self.1.as_ref().filter(|context| context.is_active()) {
-                crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(context.clone())).record(pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested, true);
+                crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(
+                    context.clone(),
+                ))
+                .record(
+                    pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested,
+                    true,
+                );
             }
             flag.cancel();
         }
@@ -983,7 +989,12 @@ impl MathService {
         #[cfg(test)]
         let native_failure = fail_scope_entry.clone();
         let thread = crate::native_thread::NativeThread::spawn(
-            "pse-math", stack, crate::ExecutionContext::capture().without_request(), || {}, || {}, move || {
+            "pse-math",
+            stack,
+            crate::ExecutionContext::capture().without_request(),
+            || {},
+            || {},
+            move || {
                 #[cfg(feature = "solver-kinsol")]
                 pse_backend_native::implicit::budget_sessions(sessions);
                 #[cfg(not(feature = "solver-kinsol"))]
@@ -999,8 +1010,9 @@ impl MathService {
                     &native_failure,
                     &native_scope,
                 )
-            })
-            .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
+            },
+        )
+        .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("native.session.constructions", "count", 1);
         }
@@ -1349,7 +1361,11 @@ impl NativeSession {
         });
         let observation = operation.as_ref().map(|operation| operation.context());
         if let Some(context) = &observation {
-            crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(context.clone())).record(pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested, false);
+            crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(context.clone()))
+                .record(
+                    pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested,
+                    false,
+                );
         }
         let operation = Arc::new(std::sync::Mutex::new(operation));
         let admission = operation.clone();
@@ -1424,7 +1440,7 @@ impl NativeSession {
         let task_stop = async {
             match &enclosing {
                 Some(scope) => {
-                    use pse_diagnostics::stop::{StopSignal, StopReason};
+                    use pse_diagnostics::stop::{StopReason, StopSignal};
                     match crate::stop::KernelStop(scope).stopped().await {
                         StopReason::Cancelled => pse_kernels::ProviderError::Cancelled,
                         StopReason::Deadline => pse_kernels::ProviderError::Deadline,
@@ -1605,9 +1621,18 @@ impl NativeSession {
         let mut drain_span = None;
         let outcome = cancel
             .join_native(native, result, || {
-                drain_span = Some(tracing::info_span!("pse.native.session.drain.wait", pse.owner.stage = true));
+                drain_span = Some(tracing::info_span!(
+                    "pse.native.session.drain.wait",
+                    pse.owner.stage = true
+                ));
                 if let Some(context) = stop.1.as_ref().filter(|context| context.is_active()) {
-                    crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(context.clone())).record(pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested, true);
+                    crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(
+                        context.clone(),
+                    ))
+                    .record(
+                        pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested,
+                        true,
+                    );
                 }
                 pse_diagnostics::observation::phase("native.session.drain.wait")
             })
@@ -1948,9 +1973,15 @@ impl NativeSession {
             let result = joined.await;
             if let Some(context) = observation {
                 if result.is_ok() {
-                    crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(context.clone())).record(pse_diagnostics::lifecycle::LifecycleBoundary::Joined, true);
+                    crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(
+                        context.clone(),
+                    ))
+                    .record(pse_diagnostics::lifecycle::LifecycleBoundary::Joined, true);
                 } else {
-                    context.unavailable(pse_diagnostics::lifecycle::LifecycleBoundary::Joined.native_session_key(), "join supervisor reply absent");
+                    context.unavailable(
+                        pse_diagnostics::lifecycle::LifecycleBoundary::Joined.native_session_key(),
+                        "join supervisor reply absent",
+                    );
                 }
             }
         }

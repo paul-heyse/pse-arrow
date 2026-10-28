@@ -107,6 +107,7 @@ pub use progress::ProgressStream;
 mod bindings;
 mod native_deployment;
 mod physical_cache;
+pub mod sampling;
 mod worker;
 pub use bindings::{
     AdmittedBinding, AdmittedBindingEntry, BindingAssignment, BindingQuantity, BindingTarget,

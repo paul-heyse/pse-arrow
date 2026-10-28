@@ -688,7 +688,7 @@ Readable output includes every section also returned by JSON.
   reads bounded current source bytes and lexical excerpts with native roles/section IDs.
   `--literal`, `--source-role`, `--offset` and `--limit` narrow selection. Current, reference and
   historical scope comes from the documentation owner; a better word match cannot promote old authority.
-- `just context --library surrealdb --reference vendor/surrealdb/src/method/query.rs --json`
+- `just context --library surrealdb-types --reference crates/pse-operations/src/canonical_codec.rs --json`
   reports exact declarations, locks, patches/local source and selected signature leads. `--feature`
   is intent. `--target`, `--cargo-metadata` and `--rustdoc` can bind supplied build observations
   to manifest/lock/source digests; wrong or unknown formats/contexts remain unsuitable/unknown.
@@ -820,7 +820,7 @@ Scientific join/reap/deadline semantics remain unchanged. Detailed continuity co
 backend retention are separate from a healthy service or successful SDK shutdown.
 
 Ordinary Rust trace export selects spans declaring the exact `pse.owner.stage` metadata field,
-plus the exact `surrealdb.sdk.request` span from `surrealdb::engine::remote::grpc_lifecycle`.
+plus the exact `pse.canonical.request` span from `pse_operations::canonical_client::owned`.
 Name prefixes do not select arbitrary inner spans or tracing events. Explicit finite diagnostic
 capture retains its own broader inner-event contract; this ordinary-export filter does not
 change that capture's scope.

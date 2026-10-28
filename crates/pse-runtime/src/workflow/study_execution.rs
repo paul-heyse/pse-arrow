@@ -78,9 +78,13 @@ where
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         } else {
             let _ = pse_diagnostics::stop::stop_first(
-                async { cancel.cancelled().await; pse_diagnostics::stop::StopReason::Cancelled },
+                async {
+                    cancel.cancelled().await;
+                    pse_diagnostics::stop::StopReason::Cancelled
+                },
                 tokio::time::sleep(std::time::Duration::from_millis(100)),
-            ).await;
+            )
+            .await;
         }
     }
 }
@@ -4099,7 +4103,8 @@ mod inventory_wait_tests {
     use super::*;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     #[tokio::test]
-    async fn cancellation_during_inventory_sleep_records_once_and_rereads_authority_without_timer() {
+    async fn cancellation_during_inventory_sleep_records_once_and_rereads_authority_without_timer()
+    {
         let cancel = crate::CancelSource::new();
         let recorded = Arc::new(AtomicBool::new(false));
         let reads = Arc::new(AtomicUsize::new(0));
@@ -4109,16 +4114,28 @@ mod inventory_wait_tests {
         let record_count = records.clone();
         let stopped = cancel.clone();
         let mut wait = Box::pin(wait_study_inventory(
-            pse_operations::mint_id(), &cancel, std::time::Duration::from_secs(60),
+            pse_operations::mint_id(),
+            &cancel,
+            std::time::Duration::from_secs(60),
             move || {
                 inventory_reads.fetch_add(1, Ordering::Relaxed);
                 std::future::ready(Ok(after_record.load(Ordering::Acquire).then_some(23)))
             },
-            || { records.fetch_add(1, Ordering::Relaxed); recorded.store(true, Ordering::Release); std::future::ready(Ok(())) },
-            || { stopped.cancel(); std::future::ready(Ok(super::super::worker::PrimaryObservation::Live)) },
+            || {
+                records.fetch_add(1, Ordering::Relaxed);
+                recorded.store(true, Ordering::Release);
+                std::future::ready(Ok(()))
+            },
+            || {
+                stopped.cancel();
+                std::future::ready(Ok(super::super::worker::PrimaryObservation::Live))
+            },
         ));
         // Every supplied authority is ready. Old unconditional sleep left this poll pending.
-        assert!(matches!(futures_util::poll!(&mut wait), std::task::Poll::Ready(Ok(23))));
+        assert!(matches!(
+            futures_util::poll!(&mut wait),
+            std::task::Poll::Ready(Ok(23))
+        ));
         assert_eq!(reads.load(Ordering::Relaxed), 2);
         assert_eq!(record_count.load(Ordering::Relaxed), 1);
     }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Immutable project engineering contexts and exact, authority-bound recorded cuts.
+use crate::canonical_script::{Envelope, GuardedScript, ResultSlot};
 use crate::{
     canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, bounded_query, protected_query},
@@ -8,7 +9,7 @@ use crate::{
     generated::surreal as wire,
 };
 pub use pse_model::generated::runtime::canonical_project_contexts::Row as ProjectContext;
-use surrealdb::types::Object;
+use surrealdb_types::Object;
 /// Exact project journal position; never a source revision sequence or wall clock.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -42,31 +43,20 @@ fn identity(value: &str) -> Result<(), CanonicalError> {
     }
 }
 fn final_object(
-    response: &mut surrealdb::IndexedResults,
+    response: &mut crate::transport::client::IndexedResults,
 ) -> Result<Option<Object>, CanonicalError> {
-    let index = response
-        .num_statements()
-        .checked_sub(2)
-        .ok_or(CanonicalError::IncompleteResponse)?;
-    response.take::<Option<Object>>(index).map_err(Into::into)
+    ResultSlot::<Option<Object>>::returned().take(response)
 }
 fn encoded<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, CanonicalError> {
     serde_json::to_vec(value).map_err(|e| CanonicalError::Configuration(e.to_string()))
 }
 impl CanonicalStore {
-    fn context_query(
-        &self,
-        sql: &str,
-    ) -> Result<surrealdb::method::Query<'_, surrealdb::engine::remote::grpc::Client>, CanonicalError>
-    {
-        Ok(self.db.query(format!("BEGIN; fn::pse_project_v1::authority($pse_rpc_expires_at,$context_issuer); {sql} COMMIT;")).bind(("context_issuer",self.issuing_store()?.to_owned())))
-    }
     /// Capture a project journal position without loading scientific payloads.
     pub async fn project_context_cut(&self, project: &str) -> Result<ContextCut, CanonicalError> {
         identity(project)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
-            let mut response=bounded_query(self.context_query("LET $project=SELECT * FROM ONLY type::record('canonical_projects',$project); IF $project=NONE OR !fn::pse_project_import_v1::available($project.key) {THROW 'PSE_REFUSAL:project_context_unavailable';}; RETURN SELECT * FROM ONLY type::record('canonical_context_journals',$project.key);")?.bind(("project",project.to_owned()))).await?;
+            let mut response=bounded_query(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("LET $project=SELECT * FROM ONLY type::record('canonical_projects',$project); IF $project=NONE OR !fn::pse_project_import_v1::available($project.key) {THROW 'PSE_REFUSAL:project_context_unavailable';};","SELECT * FROM ONLY type::record('canonical_context_journals',$project.key)")?).bind(("project",project.to_owned()))).await?;
             let sequence=final_object(&mut response)?.map(wire::decode_canonical_context_journals).transpose()?.map_or(0,|r|r.sequence);
             Ok(ContextCut{issuing_store:self.issuing_store()?.into(),project:project.into(),sequence})
         })).await
@@ -147,21 +137,50 @@ impl CanonicalStore {
             request: request.clone().into(),
         };
         let activity = self.admit_activity()?;
-        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
-            self.ensure_writes()?;
-            let response=protected_query("canonical_contexts::append",||Ok(self.context_query("RETURN fn::pse_context_v1::append($pse_rpc_expires_at,$row,$generation);")?.bind(("row",wire::encode_canonical_project_contexts(&row)?)).bind(("generation",codec::encode_uint(project.generation)?)))).await;
-            #[cfg(all(test,feature="canonical-tests"))]
-            let response=if response.is_ok()&&crate::canonical_projects::simulate_reply_loss(){Err(CanonicalError::IncompleteResponse)}else{response};
-            let write = response.and_then(|mut response| {
-                wire::decode_canonical_project_contexts(final_object(&mut response)?.ok_or(CanonicalError::IncompleteResponse)?).map_err(Into::into)
-            });
-            crate::canonical::settlement::settle_exact(
-                "project-context", operation, &request, write,
-                self.project_context_record(operation),
-                |got| got.request.as_slice() == request,
-                CanonicalError::source_transaction_refused,
-            ).await
-        })).await
+        activity
+            .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                self.ensure_writes()?;
+                let response = protected_query("canonical_contexts::append", || {
+                    Ok(self
+                        .db
+                        .script(
+                            GuardedScript::new(Envelope::ProjectAuthority {
+                                issuer: self.issuing_store()?,
+                            })
+                            .returning::<Option<Object>>(
+                                "",
+                                "fn::pse_context_v1::append($pse_rpc_expires_at,$row,$generation)",
+                            )?,
+                        )
+                        .bind(("row", wire::encode_canonical_project_contexts(&row)?))
+                        .bind(("generation", codec::encode_uint(project.generation)?)))
+                })
+                .await;
+                #[cfg(all(test, feature = "canonical-tests"))]
+                let response =
+                    if response.is_ok() && crate::canonical_projects::simulate_reply_loss() {
+                        Err(CanonicalError::IncompleteResponse)
+                    } else {
+                        response
+                    };
+                let write = response.and_then(|mut response| {
+                    wire::decode_canonical_project_contexts(
+                        final_object(&mut response)?.ok_or(CanonicalError::IncompleteResponse)?,
+                    )
+                    .map_err(Into::into)
+                });
+                crate::canonical::settlement::settle_exact(
+                    "project-context",
+                    operation,
+                    &request,
+                    write,
+                    self.project_context_record(operation),
+                    |got| got.request.as_slice() == request,
+                    CanonicalError::source_transaction_refused,
+                )
+                .await
+            }))
+            .await
     }
     /// Exact immutable metadata, including tombstones and hidden project membership.
     /// This does not assert that scientific source payloads remain available.
@@ -171,7 +190,7 @@ impl CanonicalStore {
     ) -> Result<Option<ProjectContext>, CanonicalError> {
         identity(key)?;
         let activity = self.admit_activity()?;
-        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {let mut response=bounded_query(self.context_query("RETURN SELECT * FROM ONLY type::record('canonical_project_contexts',$key) WHERE fn::pse_project_import_v1::available(project);")?.bind(("key",key.to_owned()))).await?;final_object(&mut response)?.map(wire::decode_canonical_project_contexts).transpose().map_err(Into::into)})).await
+        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {let mut response=bounded_query(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","SELECT * FROM ONLY type::record('canonical_project_contexts',$key) WHERE fn::pse_project_import_v1::available(project)")?).bind(("key",key.to_owned()))).await?;final_object(&mut response)?.map(wire::decode_canonical_project_contexts).transpose().map_err(Into::into)})).await
     }
     fn check_cut(&self, cut: &ContextCut) -> Result<(), CanonicalError> {
         identity(&cut.project)?;
@@ -193,7 +212,7 @@ impl CanonicalStore {
         identity(scope)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
-            let mut response=bounded_query(self.context_query("IF !fn::pse_project_import_v1::available($project) {THROW 'PSE_REFUSAL:project_context_unavailable';}; LET $selected=fn::pse_context_v1::select($pse_rpc_expires_at,$project,$scope,$effective,$cut); IF $selected!=NONE {fn::pse_context_v1::available($pse_rpc_expires_at,$selected.revision); fn::pse_context_v1::available($pse_rpc_expires_at,$selected.physical_revision);}; RETURN $selected;")?.bind(("project",cut.project.as_str().to_owned())).bind(("scope",scope.to_owned())).bind(("effective",effective_at_us)).bind(("cut",codec::encode_uint(cut.sequence)?))).await?;
+            let mut response=bounded_query(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("IF !fn::pse_project_import_v1::available($project) {THROW 'PSE_REFUSAL:project_context_unavailable';}; LET $selected=fn::pse_context_v1::select($pse_rpc_expires_at,$project,$scope,$effective,$cut); IF $selected!=NONE {fn::pse_context_v1::available($pse_rpc_expires_at,$selected.revision); fn::pse_context_v1::available($pse_rpc_expires_at,$selected.physical_revision);};","$selected")?).bind(("project",cut.project.as_str().to_owned())).bind(("scope",scope.to_owned())).bind(("effective",effective_at_us)).bind(("cut",codec::encode_uint(cut.sequence)?))).await?;
             Ok(final_object(&mut response)?.map(wire::decode_canonical_project_contexts).transpose()?.map(|context|ContextSelection{cut:cut.clone(),effective_at_us,context}))
         })).await
     }

@@ -146,7 +146,10 @@ mod canonical_payload_unit {
     #[test]
     fn complete_encoding_threshold_selects_before_any_file_work() {
         assert!(ResultPayload::new(Vec::new()).is_err());
-        assert!(ResultPayload::new_owned(Vec::new(), std::sync::Arc::new(())).is_err());
+        assert!(
+            ResultPayload::new_owned(Vec::new(), super::super::test_payload_owner(1024 * 1024))
+                .is_err()
+        );
         let fence = AttemptFence {
             run: "run".into(),
             attempt: "attempt".into(),
@@ -169,7 +172,7 @@ mod canonical_payload_unit {
                 None,
             )
             .unwrap();
-            let Some(surrealdb::types::Value::Object(batch)) = prepared.item.get("batch") else {
+            let Some(surrealdb_types::Value::Object(batch)) = prepared.item.get("batch") else {
                 unreachable!()
             };
             let batch =

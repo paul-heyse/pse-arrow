@@ -4,10 +4,9 @@
 //! Exact admitted result reads. Metadata discovery does not fetch trajectory
 //! blobs; each later read names one immutable member of the closed descriptor.
 
+use crate::canonical_script::{Envelope, GuardedScript, Recheck, ResultSlot};
 use crate::{
-    canonical::{
-        CanonicalError, CanonicalStore, PROTECTED_BEGIN, ProtectedSelection, bounded_query,
-    },
+    canonical::{CanonicalError, CanonicalStore, ProtectedSelection, bounded_query},
     canonical_codec,
     canonical_execution::{ResultSetDescriptor, result_batch_key},
     generated::surreal as wire,
@@ -19,7 +18,7 @@ use pse_model::generated::runtime::{
     canonical_runs::Row as Run,
 };
 use std::{sync::Arc, time::Duration};
-use surrealdb::types::{Object, Value};
+use surrealdb_types::{Object, Value};
 
 /// Bound on independently read scientific blobs, including IPC schema and EOS.
 pub const RESULT_BLOCK_BYTES: usize = wire::RESULT_BLOCK_BYTES;
@@ -46,7 +45,7 @@ struct FailedProtection {
     error: Arc<CanonicalError>,
     retry: tokio::sync::Mutex<()>,
     done: std::sync::atomic::AtomicBool,
-    _metadata_owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
+    _metadata_owner: Option<crate::transport::client::ResponseAllocation>,
 }
 #[derive(Debug)]
 struct FailedCapture {
@@ -57,7 +56,7 @@ struct FailedCapture {
     error: Arc<CanonicalError>,
     retry: tokio::sync::Mutex<()>,
     done: std::sync::atomic::AtomicBool,
-    _metadata_owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
+    _metadata_owner: Option<crate::transport::client::ResponseAllocation>,
 }
 impl ResultReadDrain {
     #[cfg(all(test, feature = "canonical-tests"))]
@@ -92,7 +91,7 @@ impl ResultReadDrain {
         store: CanonicalStore,
         revision: crate::canonical::Revision,
         key: String,
-        metadata_owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
+        metadata_owner: Option<crate::transport::client::ResponseAllocation>,
     ) -> ResultReleaseTask {
         let mut release = self.release();
         release.recovery = Some((store, revision, key));
@@ -105,7 +104,7 @@ impl ResultReadDrain {
         key: String,
         owner: String,
         request: Vec<u8>,
-        metadata_owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
+        metadata_owner: Option<crate::transport::client::ResponseAllocation>,
     ) -> ResultReleaseTask {
         let mut release = self.release();
         release.capture_recovery = Some((store, key, owner, request));
@@ -257,7 +256,7 @@ pub(crate) struct ResultReleaseTask {
     drain: Arc<ResultReadDrain>,
     completed: bool,
     recovery: Option<(CanonicalStore, crate::canonical::Revision, String)>,
-    metadata_owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
+    metadata_owner: Option<crate::transport::client::ResponseAllocation>,
     capture_recovery: Option<(CanonicalStore, String, String, Vec<u8>)>,
     _token: tokio_util::task::task_tracker::TaskTrackerToken,
 }
@@ -358,8 +357,9 @@ impl CompletionRead {
     /// Carry this selection's actual metadata through its protected cleanup.
     pub fn retain_metadata_owner(
         &self,
-        owner: Arc<dyn std::fmt::Debug + Send + Sync>,
+        owner: impl Into<crate::transport::client::ResponseAllocation>,
     ) -> Result<(), CanonicalError> {
+        let owner: crate::transport::client::ResponseAllocation = owner.into();
         self.owner.selection.retain_metadata_owner(owner)
     }
     /// Exact admitted terminal receipt containing the completion header.
@@ -390,8 +390,9 @@ impl ResultRead {
     /// cleanup recovery, independently of the last public reader facade.
     pub fn retain_metadata_owner(
         &self,
-        owner: Arc<dyn std::fmt::Debug + Send + Sync>,
+        owner: impl Into<crate::transport::client::ResponseAllocation>,
     ) -> Result<(), CanonicalError> {
+        let owner: crate::transport::client::ResponseAllocation = owner.into();
         self.owner.selection.retain_metadata_owner(owner)
     }
     /// Owned selection metadata, including actual collection and string
@@ -481,7 +482,7 @@ pub struct HydratedResultBatch {
     pub descriptor: ResultBatch,
     /// Actual file bytes retained under the caller's prepaid response allowance.
     pub payload: pse_model::Bytes,
-    _allocation: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
+    _allocation: Option<crate::transport::client::ResponseAllocation>,
 }
 impl std::ops::Deref for HydratedResultBatch {
     type Target = ResultBatch;
@@ -880,10 +881,10 @@ impl CanonicalStore {
             return Err(invalid("invalid output range/predicate"));
         }
         self.files.require_current()?;
-        let query = format!("{PROTECTED_BEGIN}\nLET $pse_rpc_result=fn::pse_execution_v1::result_output_page($pse_rpc_expires_at,$result_set,$output,$partition,$start,$end,$after,$minimum,$maximum);\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;");
+        let query = || GuardedScript::new(Envelope::ProtectedRead {selection:&read.owner.selection,recheck:Recheck::PinOrTicket}).returning::<Option<Object>>("LET $pse_rpc_result=fn::pse_execution_v1::result_output_page($pse_rpc_expires_at,$result_set,$output,$partition,$start,$end,$after,$minimum,$maximum);","$pse_rpc_result");
         let finite = |value: Option<f64>| {
             value
-                .map(|v| Value::Number(surrealdb::types::Number::Float(v)))
+                .map(|v| Value::Number(surrealdb_types::Number::Float(v)))
                 .unwrap_or(Value::None)
         };
         let mut response = self
@@ -894,14 +895,11 @@ impl CanonicalStore {
                 || {
                     Ok(self
                         .db
-                        .metadata_query(crate::canonical::MetadataResponse::OutputPage, query.clone())
-                        .bind(("problem", read.run.problem.clone()))
-                        .bind(("revision", read.run.revision.clone()))
-                        .bind((
-                            "sequence",
-                            canonical_codec::encode_uint(read.owner.selection.revision().sequence)?,
-                        ))
-                        .bind(("protection", read.owner.selection.key().to_owned()))
+                        .metadata_script(crate::canonical::MetadataResponse::OutputPage, query()?)
+
+
+
+
                         .bind(("result_set", set.key.clone()))
                         .bind(("output", output.to_owned()))
                         .bind(("partition", partition.to_owned()))
@@ -919,8 +917,7 @@ impl CanonicalStore {
                 },
             )
             .await?;
-        let index = response.num_statements().saturating_sub(2);
-        let object=response.take::<Option<Object>>(index)?.ok_or_else(||invalid("output index response absent"))?;
+        let object=ResultSlot::<Option<Object>>::returned().take(&mut response)?.ok_or_else(||invalid("output index response absent"))?;
         decode_output_result_page(object,&read.attempt.key,&read.run.interpretation,set,output,partition,start,end,after)
             }).await
         }).await
@@ -1040,15 +1037,13 @@ impl CanonicalStore {
             .closed_manifest
             .as_deref()
             .ok_or_else(|| invalid("terminal attempt lacks closed manifest"))?;
-        let mut response=self.protected_query(&format!("result-creators:{}",run.key), crate::canonical::QueryEffect::Mutation, "canonical_results::read_results", ||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Selection, format!("{PROTECTED_BEGIN}\n{RESULT_ADMISSION}\nSELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);\nCOMMIT;"))
-            .bind(("problem",owner.selection.revision().problem.clone()))
-            .bind(("revision",owner.selection.revision().key.clone()))
-            .bind(("sequence",canonical_codec::encode_uint(owner.selection.revision().sequence)?))
-            .bind(("protection",owner.selection.key().to_owned()))
+        let mut response=self.protected_query(&format!("result-creators:{}",run.key), crate::canonical::QueryEffect::Mutation, "canonical_results::read_results", ||Ok(self.db.metadata_script(crate::canonical::MetadataResponse::Selection, GuardedScript::new(Envelope::ProtectedAdmission {selection:&owner.selection}).returning::<Option<Object>>(RESULT_ADMISSION,"SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest)")?)
+
+
+
+
             .bind(("manifest",key.to_owned())).bind(("attempt",attempt.key.clone())).bind(("run",run.key.clone())))).await?;
-        let index = response.num_statements().saturating_sub(2);
-        let manifest = response
-            .take::<Option<Object>>(index)?
+        let manifest = ResultSlot::<Option<Object>>::returned().take(&mut response)?
             .map(wire::decode_canonical_result_manifests)
             .transpose()?
             .ok_or_else(|| invalid("closed manifest unavailable"))?;
@@ -1092,19 +1087,17 @@ impl CanonicalStore {
         let mut response = self.protected_query(
             &format!("result-creators:{}", run.key), crate::canonical::QueryEffect::Mutation,
             "canonical_results::read_completion",
-            || Ok(self.db.query(format!("{PROTECTED_BEGIN}\n{RESULT_ADMISSION}\nIF $attempt_record.generation != $generation {{ THROW 'PSE_REFUSAL:terminal_completion_generation_changed'; }};\nSELECT * FROM ONLY type::record('canonical_result_sets',$set);\nCOMMIT;"))
-                .bind(("problem", owner.selection.revision().problem.clone()))
-                .bind(("revision", owner.selection.revision().key.clone()))
-                .bind(("sequence", canonical_codec::encode_uint(owner.selection.revision().sequence)?))
-                .bind(("protection", owner.selection.key().to_owned()))
+            || Ok(self.db.script(GuardedScript::new(Envelope::ProtectedAdmission {selection:&owner.selection}).returning::<Option<Object>>(&format!("{RESULT_ADMISSION}\nIF $attempt_record.generation != $generation {{ THROW 'PSE_REFUSAL:terminal_completion_generation_changed'; }};"),"SELECT * FROM ONLY type::record('canonical_result_sets',$set)")?)
+
+
+
+
                 .bind(("manifest", manifest.to_owned()))
                 .bind(("attempt", attempt.key.clone())).bind(("run", run.key.clone()))
                 .bind(("generation", canonical_codec::encode_uint(attempt.generation)?))
                 .bind(("set", set.clone()))),
         ).await?;
-        let index = response.num_statements().saturating_sub(2);
-        let chunks = response
-            .take::<Option<Object>>(index)?
+        let chunks = ResultSlot::<Option<Object>>::returned().take(&mut response)?
             .map(wire::decode_canonical_result_sets)
             .transpose()?;
         if chunks.as_ref().is_some_and(|row| {
@@ -1179,17 +1172,16 @@ impl CanonicalStore {
                 identity(output)?;
                 identity(partition)?;
                 if start > end { return Err(CanonicalError::PayloadLimit); }
-                let query = format!("{PROTECTED_BEGIN}\nLET $rpc_result=fn::pse_execution_v1::result_block_page($pse_rpc_expires_at,$result_set,$output,$partition,$start,$end,$after,$count);\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;");
-                let mut response = self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_joined_block_page", || Ok(self.db.metadata_query(layout, query.clone())
-                    .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
-                    .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
-                    .bind(("protection",read.owner.selection.key().to_owned()))
+                let query = || GuardedScript::new(Envelope::ProtectedRead {selection:&read.owner.selection,recheck:Recheck::PinOrTicket}).returning::<Option<Object>>("LET $rpc_result=fn::pse_execution_v1::result_block_page($pse_rpc_expires_at,$result_set,$output,$partition,$start,$end,$after,$count);","$rpc_result");
+                let mut response = self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_joined_block_page", || Ok(self.db.metadata_script(layout, query()?)
+
+
+
                     .bind(("result_set",set.key.clone())).bind(("output",output.to_owned())).bind(("partition",partition.to_owned()))
                     .bind(("count",canonical_codec::encode_uint(set.batch_count)?)).bind(("start",canonical_codec::encode_uint(start)?))
                     .bind(("end",canonical_codec::encode_uint(end)?)).bind(("after",after.map(canonical_codec::encode_uint).transpose()?.unwrap_or(Value::None)))
                 )).await?;
-                let index = response.num_statements().saturating_sub(2);
-                let envelope = response.take::<Option<Object>>(index)?.ok_or_else(|| invalid("joined result page absent"))?;
+                let envelope = ResultSlot::<Option<Object>>::returned().take(&mut response)?.ok_or_else(|| invalid("joined result page absent"))?;
                 decode_joined_result_page(envelope, &read.attempt.key, &read.run.interpretation, set, output, partition, start, end, after)
             }).await
         }).await
@@ -1237,9 +1229,9 @@ impl CanonicalStore {
         if ordinals.len()>64||ordinals.windows(2).any(|pair|pair[0]>=pair[1])||ordinals.iter().any(|ordinal|*ordinal>=set.batch_count){return Err(invalid("demanded payload descriptor page exceeds exact manifest scope"));}
         if ordinals.is_empty(){return Ok(Vec::new());}
         let selected=ordinals.iter().map(|value|canonical_codec::encode_uint(*value)).collect::<Result<Vec<_>,_>>()?;
-        let mut response=self.protected_query(&read.run.problem,crate::canonical::QueryEffect::Read,"canonical_results::file_descriptors",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Page, format!("{PROTECTED_BEGIN}\nRETURN SELECT * FROM canonical_result_batches WHERE result_set=$set AND ordinal IN $selected ORDER BY ordinal LIMIT 64; COMMIT;"))
-        .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone())).bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?)).bind(("protection",read.owner.selection.key().to_owned())).bind(("set",set_key.to_owned())).bind(("selected",selected.clone())))).await?;
-        let index=response.num_statements().saturating_sub(2);let page:Vec<Object>=response.take(index)?;
+        let mut response=self.protected_query(&read.run.problem,crate::canonical::QueryEffect::Read,"canonical_results::file_descriptors",||Ok(self.db.metadata_script(crate::canonical::MetadataResponse::Page, GuardedScript::new(Envelope::ProtectedRead {selection:&read.owner.selection,recheck:Recheck::PinOrTicket}).returning::<Vec<Object>>("","SELECT * FROM canonical_result_batches WHERE result_set=$set AND ordinal IN $selected ORDER BY ordinal LIMIT 64")?)
+        .bind(("set",set_key.to_owned())).bind(("selected",selected.clone())))).await?;
+        let page:Vec<Object>=ResultSlot::<Vec<Object>>::returned().take(&mut response)?;
         if page.len()!=ordinals.len(){return Err(invalid("frozen demanded payload inventory is incomplete"));}
         page.into_iter().zip(ordinals).map(|(row,ordinal)|{let batch=wire::decode_canonical_result_batches(row)?;crate::canonical_execution::validate_result_batch(&batch)?;if batch.ordinal!=*ordinal||batch.attempt!=read.attempt.key||batch.result_set!=set_key{return Err(invalid("frozen demanded payload coordinate differs"));}Ok(batch)}).collect()
         }).await
@@ -1287,12 +1279,10 @@ impl CanonicalStore {
         batch: &ResultBatch,
     ) -> Result<ResultBatch, CanonicalError> {
         crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
-        let mut response=self.protected_query(&run.problem,crate::canonical::QueryEffect::Read,"canonical_results::file_descriptor",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Header, format!("{PROTECTED_BEGIN}\nRETURN SELECT * FROM ONLY type::record('canonical_result_batches',$batch); COMMIT;"))
-        .bind(("problem",run.problem.clone())).bind(("revision",run.revision.clone())).bind(("sequence",canonical_codec::encode_uint(owner.selection.revision().sequence)?)).bind(("protection",owner.selection.key().to_owned())).bind(("batch",batch.key.clone())))).await?;
-        let index = response.num_statements().saturating_sub(2);
+        let mut response=self.protected_query(&run.problem,crate::canonical::QueryEffect::Read,"canonical_results::file_descriptor",||Ok(self.db.metadata_script(crate::canonical::MetadataResponse::Header, GuardedScript::new(Envelope::ProtectedRead {selection:&owner.selection,recheck:Recheck::PinOrTicket}).returning::<Option<Object>>("","SELECT * FROM ONLY type::record('canonical_result_batches',$batch)")?)
+        .bind(("batch",batch.key.clone())))).await?;
         Ok(wire::decode_canonical_result_batches(
-            response
-                .take::<Option<Object>>(index)?
+            ResultSlot::<Option<Object>>::returned().take(&mut response)?
                 .ok_or_else(|| invalid("file batch unavailable"))?,
         )?)
         }).await
@@ -1333,13 +1323,12 @@ impl CanonicalStore {
         activity.scope(crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::InlinePayload, async {
             let revision = owner.selection.revision();
             let expected = wire::encode_canonical_result_batches(batch)?;
-            let mut response = self.protected_query(&revision.problem, crate::canonical::QueryEffect::Read, "canonical_results::inline_payload", || Ok(self.db.metadata_query(crate::canonical::MetadataResponse::InlinePayload, format!("{PROTECTED_BEGIN}\nLET $descriptor=SELECT * FROM ONLY type::record('canonical_result_batches',$batch); IF $descriptor=NONE OR object::remove($descriptor,'id')!=$expected {{ THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; }}; LET $body=SELECT * FROM ONLY type::record('canonical_inline_payloads',$inline); fn::pse_execution_v1::deadline($pse_rpc_expires_at); IF $pin.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }}; RETURN $body; COMMIT;"))
-                .bind(("problem",revision.problem.clone())).bind(("revision",revision.key.clone()))
-                .bind(("sequence",canonical_codec::encode_uint(revision.sequence)?))
-                .bind(("protection",owner.selection.key().to_owned())).bind(("batch",batch.key.clone()))
+            let mut response = self.protected_query(&revision.problem, crate::canonical::QueryEffect::Read, "canonical_results::inline_payload", || Ok(self.db.metadata_script(crate::canonical::MetadataResponse::InlinePayload, GuardedScript::new(Envelope::ProtectedRead {selection:&owner.selection,recheck:Recheck::PinOrTicket}).returning::<Option<Object>>("LET $descriptor=SELECT * FROM ONLY type::record('canonical_result_batches',$batch); IF $descriptor=NONE OR object::remove($descriptor,'id')!=$expected { THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch'; }; LET $body=SELECT * FROM ONLY type::record('canonical_inline_payloads',$inline);","$body")?)
+
+
+                .bind(("batch",batch.key.clone()))
                 .bind(("inline",key.clone())).bind(("expected",expected.clone())))).await?;
-            let statement = response.num_statements().saturating_sub(2);
-            let body = response.take::<Option<Object>>(statement)?.map(wire::decode_canonical_inline_payloads).transpose()?.ok_or_else(|| invalid("admitted inline body unavailable"))?;
+            let body = ResultSlot::<Option<Object>>::returned().take(&mut response)?.map(wire::decode_canonical_inline_payloads).transpose()?.ok_or_else(|| invalid("admitted inline body unavailable"))?;
             validate_inline_body(batch,body)
         })).await
     }
@@ -1387,13 +1376,11 @@ impl CanonicalStore {
             return Err(invalid("payload outside admitted descriptor"));
         }
         let key = result_batch_key(&attempt.key, result_set, ordinal);
-        let mut response=self.protected_query(&run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_payload", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM ONLY type::record('canonical_result_batches',$batch) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
-            .bind(("problem",run.problem.clone())).bind(("revision",run.revision.clone()))
-            .bind(("sequence",canonical_codec::encode_uint(owner.selection.revision().sequence)?))
-            .bind(("protection",owner.selection.key().to_owned())).bind(("batch",key.clone())))).await?;
-        let index = response.num_statements().saturating_sub(2);
-        let batch = response
-            .take::<Option<Object>>(index)?
+        let mut response=self.protected_query(&run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_payload", ||Ok(self.db.script(GuardedScript::new(Envelope::ProtectedRead {selection:&owner.selection,recheck:Recheck::PinOrTicket}).returning::<Option<Object>>("LET $rpc_result = SELECT * FROM ONLY type::record('canonical_result_batches',$batch) TIMEOUT $pse_rpc_timeout;","$rpc_result")?)
+
+
+            .bind(("batch",key.clone())))).await?;
+        let batch = ResultSlot::<Option<Object>>::returned().take(&mut response)?
             .map(wire::decode_canonical_result_batches)
             .transpose()?
             .ok_or_else(|| invalid("admitted batch unavailable"))?;
@@ -1432,13 +1419,11 @@ impl CanonicalStore {
         {
             return Err(invalid("block outside admitted descriptor"));
         }
-        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_block", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $pse_rpc_result = {{metadata:(SELECT * FROM ONLY type::record('canonical_result_blocks',$key)),batch:(SELECT * FROM ONLY type::record('canonical_result_batches',$batch))}};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection) {{ THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"))
-            .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
-            .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
-            .bind(("protection",read.owner.selection.key().to_owned())).bind(("key",metadata.key.clone())).bind(("batch",metadata.batch.clone())))).await?;
-        let index = response.num_statements().saturating_sub(2);
-        let mut envelope = response
-            .take::<Option<Object>>(index)?
+        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_block", ||Ok(self.db.script(GuardedScript::new(Envelope::ProtectedRead {selection:&read.owner.selection,recheck:Recheck::PinOrTicket}).returning::<Option<Object>>("LET $pse_rpc_result = {metadata:(SELECT * FROM ONLY type::record('canonical_result_blocks',$key)),batch:(SELECT * FROM ONLY type::record('canonical_result_batches',$batch))};","$pse_rpc_result")?)
+
+
+            .bind(("key",metadata.key.clone())).bind(("batch",metadata.batch.clone())))).await?;
+        let mut envelope = ResultSlot::<Option<Object>>::returned().take(&mut response)?
             .ok_or_else(|| invalid("admitted block envelope absent"))?;
         let object = |value: Value| match value {
             Value::Object(row) => Ok(row),

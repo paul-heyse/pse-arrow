@@ -422,6 +422,9 @@ DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
         digest.str(&codec.to_string());
     }
     let schema_digest = digest.finish_hash().to_hex();
+    // CanonicalSchemaV1 keeps its established logical codec spelling. Physical
+    // Rust dependency qualification does not change the stored wire contract.
+    let physical_codecs = super::family::native_codecs(&codecs)?;
     let block_bytes = pse_schema::catalog::substrate::RESULT_BLOCK_BYTES;
     let file_target_bytes = pse_schema::catalog::substrate::RESULT_FILE_TARGET_BYTES;
     let index_bytes = pse_schema::catalog::substrate::RESULT_INDEX_BYTES;
@@ -444,7 +447,7 @@ DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
         pub const SCHEMA_DIGEST: &str = #schema_digest;
         /// Registry-derived database declarations.
         pub const SCHEMA: &str = include_str!("surreal.surql");
-        #(#codecs)*
+        #physical_codecs
     };
     let file = syn::parse2::<syn::File>(source).map_err(|error| SchemaError::Codegen {
         language: "surreal",

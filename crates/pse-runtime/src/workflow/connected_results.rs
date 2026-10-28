@@ -20,6 +20,20 @@ use std::{
     task::{Context, Poll},
 };
 
+/// Keep the exact read/release owner and its prepaid response grants through
+/// independent transport drain, without treating a guard as an allocation.
+pub(super) async fn protected_response_scope<F: Future>(
+    custody: impl Into<pse_operations::transport::client::RetainedRequest>,
+    allocation: impl Into<pse_operations::transport::client::ResponseAllocation>,
+    future: F,
+) -> F::Output {
+    pse_operations::canonical::request_custody_scope(
+        custody,
+        pse_operations::canonical::response_ownership_scope(allocation, future),
+    )
+    .await
+}
+
 #[cfg(all(test, feature = "canonical-tests"))]
 use std::time::Duration;
 
@@ -77,7 +91,7 @@ pub(super) fn pooled_response_owner(
     Ok(Arc::new(owner))
 }
 
-/// Transfer only an actually unique response grant. An outstanding SDK/router
+/// Transfer only an actually unique response grant. An outstanding native driver
 /// hold prevents partitioning its allowance; that real overlap stays prepaid.
 pub(super) fn retain_metadata(
     pool: &Arc<dyn MemoryPool>,
@@ -111,14 +125,14 @@ pub(super) fn retain_protected_metadata<F>(
 ) -> Result<MemoryReservation, WorkflowError>
 where
     F: FnOnce(
-        Arc<dyn std::fmt::Debug + Send + Sync>,
+        pse_operations::transport::client::ResponseAllocation,
     ) -> Result<(), pse_operations::canonical::CanonicalError>,
 {
     let Some(bytes) = bytes
         .checked_add(MetadataResponse::Protection.allocation_bytes())
         .filter(|bytes| *bytes <= response.size())
     else {
-        attach_fallback(response)?;
+        attach_fallback(response.into())?;
         return Err(contract("protected metadata allocation extent"));
     };
     match Arc::try_unwrap(response) {
@@ -127,9 +141,9 @@ where
             let retained =
                 MemoryConsumer::new("canonical:retained-protected-metadata").register(pool);
             if let Err(source) = retained.try_grow(bytes) {
-                // Admission can fail while the SDK still owns the original
+                // Admission can fail while the native client still owns the original
                 // response. Keep that whole grant through refused-read cleanup.
-                attach_fallback(response)?;
+                attach_fallback(response.into())?;
                 return Err(pse_engine::EngineError::from(source).into());
             }
             Ok(retained)
@@ -783,7 +797,7 @@ impl ResultReader {
             return Ok(None);
         }
         // Interrupt the original RPC future, rather than waiting for another
-        // between-block checkpoint. The SDK's CancelOnDrop cancels its exact
+        // between-block checkpoint. The client's cancel-on-drop guard cancels its exact
         // RequestContext; its driver retains uncertain dispatched work through
         // physical drain. This asserts no rollback of a late pin renewal.
         let cancel = self.cancel.clone();
@@ -913,8 +927,12 @@ impl ResultReader {
                         MetadataResponse::JoinedBlockPage
                     },
                 )?;
-                let page = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((self.read.clone(), self.read_owner.clone(), owner.clone())),
+                let page = protected_response_scope(
+                    self.read.clone(),
+                    pse_operations::transport::client::ResponseAllocation::combine(
+                        self.read_owner.clone(),
+                        owner.clone(),
+                    ),
                     async {
                         let page = if let Some(filter) = &self.output {
                             if let Some(context) = pse_diagnostics::observation::current() {
@@ -2134,7 +2152,7 @@ mod result_admission_unit {
         assert_eq!(
             sdk.size(),
             original,
-            "actual SDK suffix retains its entire allowance"
+            "actual native request suffix retains its entire allowance"
         );
         assert_eq!(pool.reserved(), original + 4096);
         let alias = retained.clone();
@@ -2253,7 +2271,7 @@ mod result_admission_unit {
         assert_eq!(
             sdk.size(),
             original,
-            "failed admission never shrinks the live SDK grant"
+            "failed admission never shrinks the live native response grant"
         );
         assert!(
             cleanup_owner.is_some(),
@@ -2272,14 +2290,14 @@ mod result_admission_unit {
         assert_eq!(
             pool.reserved(),
             original,
-            "SDK and cleanup share one original allocation"
+            "Client and cleanup share one original allocation"
         );
         sdk_drain.send(()).unwrap();
         late_sdk.await.unwrap();
         assert_eq!(
             pool.reserved(),
             original,
-            "SDK drain alone cannot retire queued cleanup's grant"
+            "Client drain alone cannot retire queued cleanup's grant"
         );
         let refused = MemoryConsumer::new("test:refused-cleanup-reuse").register(&pool);
         assert!(refused.try_grow(1).is_err());

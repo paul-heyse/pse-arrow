@@ -97,7 +97,7 @@ mod surrealism_qualification {
         end: u64,
     }
     impl HoldInterval {
-        fn decoded(mut response: surrealdb::IndexedResults) -> Self {
+        fn decoded(mut response: crate::transport::client::IndexedResults) -> Self {
             let mut interval = None;
             for index in 0..response.num_statements() {
                 match response.take::<Value>(index).unwrap() {
@@ -386,10 +386,10 @@ mod surrealism_qualification {
             let keys = pending.keys.clone();
             let original_epoch = pending.epoch.clone();
             let caller = peer(&store);
-            let context = surrealdb::opt::RequestContext::new(
+            let context = crate::transport::client::RequestContext::new(
                 std::time::Instant::now() + Duration::from_secs(10),
             )
-            .with_lifetime_owner(Arc::new(caller.admit_activity().unwrap()));
+            .with_lifetime_owner(caller.admit_activity().unwrap());
             let cancellation = context.clone();
             let dispatched = context.clone();
             let body_operation = operation.clone();

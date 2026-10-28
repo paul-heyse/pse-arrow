@@ -14,6 +14,7 @@ from pse._build import (
     ModelingLimits,
     NativeAttempt,
     SimulationSettings,
+    _NativeGeneratedDesign,
     _NativeLocalStudy,
     _NativeModelingConformance,
     _NativeModelingDiagnostics,
@@ -43,6 +44,8 @@ from pse.contracts.documents import (
     AdmittedBinding,
     Conclusion,
     ConformanceControls,
+    DesignExport,
+    DesignRequest,
     DiagnosticOrigin,
     DiagnosticOriginOutput,
     DiagnosticSamplesControls,
@@ -660,6 +663,20 @@ class ModelingKnowledge:
 
 
 @attrs.frozen
+class GeneratedDesign:
+    """Own realized physical overlays; export makes an independent document copy."""
+
+    _handle: _NativeGeneratedDesign = attrs.field(alias="handle")
+
+    def __len__(self) -> int:
+        return self._handle.count
+
+    def export(self) -> DesignExport:
+        """Return raw overlays and attribution for ordinary StudyPoint authoring."""
+        return self._handle.export()
+
+
+@attrs.frozen
 class ModelingPackage:
     """Immutable authored package.
 
@@ -1058,6 +1075,10 @@ class ModelingPackage:
                 overrides=None if overrides is None else codec.encode_json(overrides),
             )
         )
+
+    def generate_design(self, request: DesignRequest) -> GeneratedDesign:
+        """Generate bounded inputs locally without scientific execution."""
+        return GeneratedDesign(self._handle.generate_design(request))
 
     def admit_study(self, request: StudyRequest) -> "LocalStudy":
         """Retain admitted scientific intent and its exact immutable source owners."""

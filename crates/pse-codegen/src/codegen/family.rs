@@ -153,10 +153,125 @@ pub fn development_native_codecs(
 ) -> Result<proc_macro2::TokenStream, SchemaError> {
     let mut syntax = syn::parse2::<syn::File>(quote::quote!(#(#codecs)*))
         .map_err(|cause| rust::error(cause.to_string()))?;
+    NativeValuePaths.visit_file_mut(&mut syntax);
     OwnerPaths {
         model: false,
         store: true,
     }
     .visit_file_mut(&mut syntax);
     Ok(quote::quote!(#syntax))
+}
+
+/// Qualify the physical native value dependency after computing codec identity.
+/// The old SDK namespace was a reexport of these exact types. Keeping the logical
+/// tokens for CanonicalSchemaV1 avoids invalidating unchanged stored schemas.
+/// # Errors
+/// The logical codec source is not valid Rust.
+pub fn native_codecs(
+    codecs: &[proc_macro2::TokenStream],
+) -> Result<proc_macro2::TokenStream, SchemaError> {
+    let mut syntax = syn::parse2::<syn::File>(quote::quote!(#(#codecs)*))
+        .map_err(|cause| rust::error(cause.to_string()))?;
+    NativeValuePaths.visit_file_mut(&mut syntax);
+    Ok(quote::quote!(#syntax))
+}
+struct NativeValuePaths;
+impl VisitMut for NativeValuePaths {
+    fn visit_macro_mut(&mut self, value: &mut syn::Macro) {
+        // Macro bodies are token streams rather than syn paths (notably matches!).
+        // Rewrite only the dependency qualifier, retaining literals and other tokens.
+        fn qualify(tokens: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+            use proc_macro2::TokenTree;
+            let mut tokens = tokens.into_iter().peekable();
+            let mut output = proc_macro2::TokenStream::new();
+            while let Some(token) = tokens.next() {
+                if let TokenTree::Ident(name) = &token
+                    && name == "surrealdb"
+                {
+                    let mut suffix = tokens.clone();
+                    if matches!(suffix.next(), Some(TokenTree::Punct(p)) if p.as_char() == ':')
+                        && matches!(suffix.next(), Some(TokenTree::Punct(p)) if p.as_char() == ':')
+                        && matches!(suffix.next(), Some(TokenTree::Ident(i)) if i == "types")
+                    {
+                        tokens = suffix;
+                        output.extend([TokenTree::Ident(proc_macro2::Ident::new(
+                            "surrealdb_types",
+                            name.span(),
+                        ))]);
+                        continue;
+                    }
+                }
+                output.extend([if let TokenTree::Group(group) = token {
+                    let mut lowered =
+                        proc_macro2::Group::new(group.delimiter(), qualify(group.stream()));
+                    lowered.set_span(group.span());
+                    TokenTree::Group(lowered)
+                } else {
+                    token
+                }]);
+            }
+            output
+        }
+        value.tokens = qualify(value.tokens.clone());
+        syn::visit_mut::visit_path_mut(self, &mut value.path);
+    }
+    fn visit_path_mut(&mut self, path: &mut syn::Path) {
+        if path
+            .segments
+            .first()
+            .is_some_and(|s| s.ident == "surrealdb")
+            && path
+                .segments
+                .iter()
+                .nth(1)
+                .is_some_and(|s| s.ident == "types")
+        {
+            let mut lowered: syn::Path = syn::parse_quote!(surrealdb_types);
+            lowered.leading_colon = path.leading_colon;
+            lowered
+                .segments
+                .extend(path.segments.iter().skip(2).cloned());
+            *path = lowered;
+        }
+        syn::visit_mut::visit_path_mut(self, path);
+    }
+}
+#[cfg(test)]
+mod native_value_tests {
+    use super::*;
+    #[test]
+    fn dependency_qualification_preserves_logical_identity_and_changes_only_value_paths() {
+        let logical = quote::quote!(
+            fn decode(x: surrealdb::types::Value) -> surrealdb::types::Value {
+                x
+            }
+        );
+        let original = logical.to_string();
+        let physical = native_codecs(std::slice::from_ref(&logical)).unwrap();
+        let expected = quote::quote!(
+            fn decode(x: surrealdb_types::Value) -> surrealdb_types::Value {
+                x
+            }
+        );
+        assert_eq!(physical.to_string(), expected.to_string());
+        assert_eq!(logical.to_string(), original);
+        let changed = quote::quote!(
+            fn decode(x: surrealdb::types::Value) -> surrealdb::types::Value {
+                surrealdb::types::Value::None
+            }
+        );
+        assert_ne!(changed.to_string(), original);
+        assert_ne!(
+            native_codecs(&[changed]).unwrap().to_string(),
+            physical.to_string()
+        );
+        let logical = quote::quote!(
+            fn optional(x: surrealdb::types::Value) -> bool {
+                matches!(Some(x), None | Some(surrealdb::types::Value::None))
+            }
+        );
+        let physical = native_codecs(&[logical]).unwrap().to_string();
+        assert!(!physical.contains("surrealdb :: types"));
+        assert!(physical.contains("Some (surrealdb_types :: Value :: None)"));
+    }
 }

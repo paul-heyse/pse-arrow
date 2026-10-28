@@ -135,8 +135,6 @@ def refresh(repo: Path, directory: str) -> None:
         for entry in filter(None, entries):
             metadata, path = entry.split("\t", 1)
             relative = path[len(prefix) :]
-            if relative == "PATCH.md":
-                continue
             source = repo / path
             mode = metadata.split()[0]
             files[relative] = {"sha256": digest(source.read_bytes()), "mode": mode}

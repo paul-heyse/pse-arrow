@@ -69,6 +69,9 @@ datafusion-pruning.workspace = true
 levenberg-marquardt.workspace = true
 nalgebra.workspace = true
 async-trait.workspace = true
+egobox-doe.workspace = true
+rand_xoshiro.workspace = true
+ndarray-rand.workspace = true
 egobox-ego.workspace = true
 egobox-moe.workspace = true
 egobox-gp.workspace = true
@@ -135,7 +138,6 @@ chrono.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
-egobox-doe.workspace = true
 uuid.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }
 pse-relations = { workspace = true, features = ["test-support"] }

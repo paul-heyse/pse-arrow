@@ -17,8 +17,8 @@ This companion supplies common attribution, stop/drain, renewal, lifecycle, nati
 synchronous Python-wait mechanisms for CBO-013–018, while preserving the neutral single-flight
 and I/O/admission owners (CBO-011). [Plan57e](57e-canonical-client-and-requests.md) owns all
 CBO-010 retry/script work and the subscription disposition. The
-[coordinator](57-library-leverage-and-correctness.md) owns the combined dispositions. This is
-plan-document work; every replacement below remains proposed and pending implementation authority.
+[coordinator](57-library-leverage-and-correctness.md) owns the combined dispositions. The maintainer authorized this scope on 2026-10-28; the package table and execution
+checkpoint below own current implementation and remaining acceptance.
 
 ## Foundation assessment and governing distinctions
 
@@ -333,3 +333,17 @@ the correctness-extension tests. An isolated test-only C caller arms CPython's p
 and calls the real native `next_batch` without intervening Python bytecode, so the planned precheck
 control can establish that no reader is consumed. Its dispatch smoke control passed; the actual
 stream control awaits the rebuilt extension. No production testing hook was introduced.
+
+The selected current native-local batch exercised the lifecycle/attribution, original native
+join, borrowed population, renewal and inventory controls successfully, including the new
+fine-fact/interval-capacity and delayed-study-heartbeat cases. The enclosing batch also contained
+sampling cases and failed there, so it is not an all-pass D–F qualification. The actual interpreter,
+canonical and shared-flight/store journeys remain separate pending acceptance work.
+
+
+The retained shared-flight and store-admission owner controls now pass in their actual owning
+crates: waiter cancellation does not duplicate or stop shared production, last-waiter retirement
+joins actual exit, and nested streams retain the original gate through body consumption/drop.
+The distinct metadata/payload reservation control passes without merging the two grants.
+Actual CPython and canonical/native assembled journeys remain pending; no replaced wrapper or
+compatibility implementation was retained to supply this evidence.

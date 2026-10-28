@@ -39,5 +39,5 @@ pub mod generated;
 pub mod testing;
 pub use ids::mint_id;
 
-#[cfg(test)]
-mod grpc_lifecycle_tests;
+// Guarded scripts share the canonical request owner; no alternate transport.
+mod canonical_script;

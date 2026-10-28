@@ -42,6 +42,7 @@ from pse._host_operations import host_operation_catalogue
 from pse._inspection import TableStream, registry_table
 from pse._modeling import (
     CompactStudyResult,
+    GeneratedDesign,
     LocalStudy,
     ModelingConformance,
     ModelingDiagnostics,
@@ -195,6 +196,7 @@ __all__ = [
     "FlowGraphDocument",
     "FlowSelectionDocument",
     "FrozenStudyCohort",
+    "GeneratedDesign",
     "HighsSettings",
     "IdasSettings",
     "IncumbentDocument",

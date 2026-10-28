@@ -699,11 +699,10 @@ fn context_explanations(snapshot: &OperationSnapshot) -> Vec<Statement> {
     }) {
         result.push(Statement::operation(snapshot,StatementKind::Limitation,"resource.scope","Pool reservations, current RSS, lifetime high-water and process CPU ticks have different scopes. None establishes a private operation peak, allocation churn or a known wait cause.",vec![NextObservation::OptionalAllocationProbe,NextObservation::OptionalWaitProbe]));
     }
-    if snapshot
-        .metrics
-        .iter()
-        .any(|metric| metric.name == pse_diagnostics::lifecycle::LifecycleBoundary::Joined.native_job_key() && metric.latest == Value::Boolean(true))
-    {
+    if snapshot.metrics.iter().any(|metric| {
+        metric.name == pse_diagnostics::lifecycle::LifecycleBoundary::Joined.native_job_key()
+            && metric.latest == Value::Boolean(true)
+    }) {
         result.push(Statement::operation(snapshot,StatementKind::Established,"native.joined","The native owner published actual join/drain, separately from numerical usability and publication.",vec![]));
     }
     if !snapshot.phases.is_empty() && snapshot.outcome.is_none() {

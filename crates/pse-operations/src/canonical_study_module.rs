@@ -4,6 +4,9 @@
 //! Exact local Surrealism artifact admission and installed-module attestation.
 
 use crate::canonical::{CanonicalError, CanonicalStore, MetadataResponse, bounded_query};
+use crate::canonical_script::UnframedResult;
+#[cfg(feature = "canonical-maintenance")]
+use crate::canonical_script::{Envelope, GuardedScript};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::{
@@ -268,7 +271,7 @@ impl CanonicalStore {
             crate::canonical::within_clock(crate::canonical::original_deadline(crate::canonical::ACTIVATION_REQUEST_TIMEOUT),async {
                 let before=self.maintenance_config()?;
                 let receipt=StudyModuleReceipt::read(&self.state_path)?;
-                let response=bounded_query(self.db.query(format!("BEGIN; fn::pse_execution_v1::deadline($pse_rpc_expires_at); LET $marker=SELECT study_module_sha256 FROM ONLY canonical_interpretations:current FOR UPDATE; IF $marker!=NONE AND $marker.study_module_sha256!=$study_module_sha256 {{THROW 'PSE_REFUSAL:activation_predecessor_changed';}}; {} fn::pse_execution_v1::deadline($pse_rpc_expires_at); COMMIT;",receipt.declarations(true)))
+                let response=bounded_query(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<surrealdb_types::Value>(&format!("LET $marker=SELECT study_module_sha256 FROM ONLY canonical_interpretations:current FOR UPDATE; IF $marker!=NONE AND $marker.study_module_sha256!=$study_module_sha256 {{THROW 'PSE_REFUSAL:activation_predecessor_changed';}}; {}",receipt.declarations(true)),"NONE")?)
                     .bind(("study_module_backend",receipt.backend()?)).bind(("study_module_sha256",receipt.sha256.clone()))).await?;
                 crate::canonical::complete_response(response)?;
                 if self.maintenance_config()?!=before {return Err(CanonicalError::Quiesced);}
@@ -283,8 +286,7 @@ impl CanonicalStore {
         let mut response = bounded_query(self.db.metadata_query(MetadataResponse::DiagnosticPlan,
             "LET $info=INFO FOR DB STRUCTURE; RETURN {buckets:$info.buckets.filter(|$row|$row.name=$bucket),modules:$info.modules.filter(|$row|$row.name='pse')};")
             .bind(("bucket", receipt.bucket()))).await?;
-        let index = response.num_statements().saturating_sub(1);
-        let installed = response.take::<surrealdb::types::Value>(index)?;
+        let installed = UnframedResult::<surrealdb_types::Value>::returned().take(&mut response)?;
         Ok(
             serde_json::json!({"selected": receipt, "installed": installed,
             "attestation": "existing validate_study_module passed: sole readonly study::readiness export, unsigned Surrealism registration and immutable bucket",
@@ -301,8 +303,7 @@ impl CanonicalStore {
         let mut response=bounded_query(self.db.metadata_query(MetadataResponse::Header,
             "LET $info=INFO FOR DB STRUCTURE; LET $b=$info.buckets.filter(|$row|$row.name=$bucket); LET $m=$info.modules.filter(|$row|$row.name='pse'); RETURN array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND array::len($m[0].exports)=1 AND $m[0].exports[0].name='study::readiness' AND $m[0].exports[0].writeable=false;")
             .bind(("bucket",receipt.bucket())).bind(("backend",receipt.backend()?))).await?;
-        let index = response.num_statements().saturating_sub(1);
-        if response.take::<Option<bool>>(index)? != Some(true) {
+        if UnframedResult::<Option<bool>>::returned().take(&mut response)? != Some(true) {
             return Err(invalid(
                 "installed module, readonly bucket or pure export differs",
             ));

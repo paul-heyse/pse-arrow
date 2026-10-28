@@ -10,8 +10,9 @@ minimum compiler/capture supervision prerequisite. Their selected implementation
 acceptance are complete; [57j's Outcome](57j-qualification-and-publication.md#selected-a-c-outcome--2026-10-27)
 records actual passes, original failures, repaired checks and drained ownership. At the maintainer's
 request, the remaining full feature matrix/no-default sweep is deferred to series-end validation.
-No campaign is running. Broader CBO-001 inquiries, other G03 consumers and D–I remain with their
-existing owners; other plans retain their independent scope and status.
+No campaign is running. D01, E01–E04 and F01–F06 are now authorized and in progress. Broader CBO-001 inquiries,
+other G03 consumers and remaining G–I work retain their existing owners. Other plans retain their
+independent scope and status.
 
 [Plan56: Design principle alignment](56-design-principle-alignment.md) is **complete** for its
 selected local Linux target, including all 37 packages, the completion audit's CA01–CA08 repairs

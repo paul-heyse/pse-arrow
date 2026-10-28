@@ -31,10 +31,15 @@ pub(super) async fn scoped<T>(
     }
     let stop = cancel.with_deadline(Some(deadline));
     match pse_diagnostics::stop::stop_first(
-        pse_diagnostics::stop::StopSignal::stopped(&stop), operation,
-    ).await {
+        pse_diagnostics::stop::StopSignal::stopped(&stop),
+        operation,
+    )
+    .await
+    {
         Ok(result) => result,
-        Err(pse_diagnostics::stop::StopReason::Cancelled) => Err(crate::math::MathRuntimeError::Cancelled.into()),
+        Err(pse_diagnostics::stop::StopReason::Cancelled) => {
+            Err(crate::math::MathRuntimeError::Cancelled.into())
+        }
         Err(pse_diagnostics::stop::StopReason::Deadline) => Err(preparation_time_limit()),
     }
 }

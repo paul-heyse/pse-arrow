@@ -10,8 +10,8 @@ pub const SCHEMA: &str = include_str!("evidence.surql");
 ///Encode the registry row using native exact values.
 pub fn encode_evidence_facts(
     row: &crate::generated::model::runtime::evidence_facts::RuntimeEvidenceFactsRow,
-) -> Result<surrealdb::types::Object, pse_operations::canonical_codec::CodecError> {
-    let mut object = surrealdb::types::Object::new();
+) -> Result<surrealdb_types::Object, pse_operations::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
     object
         .insert(
             "key",
@@ -115,7 +115,7 @@ pub fn encode_evidence_facts(
 }
 ///Decode the registry row; native id metadata is distinct from the declared key.
 pub fn decode_evidence_facts(
-    mut object: surrealdb::types::Object,
+    mut object: surrealdb_types::Object,
 ) -> Result<
     crate::generated::model::runtime::evidence_facts::RuntimeEvidenceFactsRow,
     pse_operations::canonical_codec::CodecError,
@@ -138,47 +138,47 @@ pub fn decode_evidence_facts(
             pse_operations::canonical_codec::required(&mut object, "status")?,
         )?,
         r#crate_name: match object.remove("crate_name") {
-            None | Some(surrealdb::types::Value::None) => None,
+            None | Some(surrealdb_types::Value::None) => None,
             Some(value) => Some(pse_operations::canonical_codec::decode_string(value)?),
         },
         r#test_id: match object.remove("test_id") {
-            None | Some(surrealdb::types::Value::None) => None,
+            None | Some(surrealdb_types::Value::None) => None,
             Some(value) => Some(pse_operations::canonical_codec::decode_string(value)?),
         },
         r#detail_ref: match object.remove("detail_ref") {
-            None | Some(surrealdb::types::Value::None) => None,
+            None | Some(surrealdb_types::Value::None) => None,
             Some(value) => Some(pse_operations::canonical_codec::decode_string(value)?),
         },
         r#binary_id: match object.remove("binary_id") {
-            None | Some(surrealdb::types::Value::None) => None,
+            None | Some(surrealdb_types::Value::None) => None,
             Some(value) => Some(pse_operations::canonical_codec::decode_string(value)?),
         },
         r#context_id: match object.remove("context_id") {
-            None | Some(surrealdb::types::Value::None) => None,
+            None | Some(surrealdb_types::Value::None) => None,
             Some(value) => Some(pse_operations::canonical_codec::decode_string(value)?),
         },
         r#context_json: match object.remove("context_json") {
-            None | Some(surrealdb::types::Value::None) => None,
+            None | Some(surrealdb_types::Value::None) => None,
             Some(value) => Some(pse_operations::canonical_codec::decode_string(value)?),
         },
         r#link_relation: match object.remove("link_relation") {
-            None | Some(surrealdb::types::Value::None) => None,
+            None | Some(surrealdb_types::Value::None) => None,
             Some(value) => Some(pse_operations::canonical_codec::decode_string(value)?),
         },
         r#link_target: match object.remove("link_target") {
-            None | Some(surrealdb::types::Value::None) => None,
+            None | Some(surrealdb_types::Value::None) => None,
             Some(value) => Some(pse_operations::canonical_codec::decode_string(value)?),
         },
         r#population_id: match object.remove("population_id") {
-            None | Some(surrealdb::types::Value::None) => None,
+            None | Some(surrealdb_types::Value::None) => None,
             Some(value) => Some(pse_operations::canonical_codec::decode_string(value)?),
         },
         r#sample_id: match object.remove("sample_id") {
-            None | Some(surrealdb::types::Value::None) => None,
+            None | Some(surrealdb_types::Value::None) => None,
             Some(value) => Some(pse_operations::canonical_codec::decode_string(value)?),
         },
         r#value_ns: match object.remove("value_ns") {
-            None | Some(surrealdb::types::Value::None) => None,
+            None | Some(surrealdb_types::Value::None) => None,
             Some(value) => Some(pse_operations::canonical_codec::decode_finite(value)?),
         },
     };
@@ -197,8 +197,8 @@ pub fn decode_evidence_facts(
 ///Encode the registry row using native exact values.
 pub fn encode_evidence_generations(
     row: &crate::generated::model::runtime::evidence_generations::RuntimeEvidenceGenerationsRow,
-) -> Result<surrealdb::types::Object, pse_operations::canonical_codec::CodecError> {
-    let mut object = surrealdb::types::Object::new();
+) -> Result<surrealdb_types::Object, pse_operations::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
     object
         .insert(
             "key",
@@ -254,7 +254,7 @@ pub fn encode_evidence_generations(
 }
 ///Decode the registry row; native id metadata is distinct from the declared key.
 pub fn decode_evidence_generations(
-    mut object: surrealdb::types::Object,
+    mut object: surrealdb_types::Object,
 ) -> Result<
     crate::generated::model::runtime::evidence_generations::RuntimeEvidenceGenerationsRow,
     pse_operations::canonical_codec::CodecError,
@@ -310,8 +310,8 @@ pub fn decode_evidence_generations(
 ///Encode the registry row using native exact values.
 pub fn encode_evidence_interpretations(
     row: &crate::generated::model::runtime::evidence_interpretations::RuntimeEvidenceInterpretationsRow,
-) -> Result<surrealdb::types::Object, pse_operations::canonical_codec::CodecError> {
-    let mut object = surrealdb::types::Object::new();
+) -> Result<surrealdb_types::Object, pse_operations::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
     object
         .insert(
             "key",
@@ -350,7 +350,7 @@ pub fn encode_evidence_interpretations(
 }
 ///Decode the registry row; native id metadata is distinct from the declared key.
 pub fn decode_evidence_interpretations(
-    mut object: surrealdb::types::Object,
+    mut object: surrealdb_types::Object,
 ) -> Result<
     crate::generated::model::runtime::evidence_interpretations::RuntimeEvidenceInterpretationsRow,
     pse_operations::canonical_codec::CodecError,
@@ -376,7 +376,7 @@ pub fn decode_evidence_interpretations(
             )?,
         )?,
         r#active_generation: match object.remove("active_generation") {
-            None | Some(surrealdb::types::Value::None) => None,
+            None | Some(surrealdb_types::Value::None) => None,
             Some(value) => Some(pse_operations::canonical_codec::decode_string(value)?),
         },
     };

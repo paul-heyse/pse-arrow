@@ -3,6 +3,7 @@
 
 //! Bounded immutable derived graphs with exact source and result lineage.
 
+use crate::canonical_script::{Envelope, GuardedScript, ResultSlot};
 use crate::{
     canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, Revision, bounded_query, protected_query},
@@ -16,7 +17,7 @@ pub use pse_model::generated::runtime::{
     canonical_analysis_inputs::Row as AnalysisInput, canonical_analysis_nodes::Row as AnalysisNode,
 };
 use std::collections::{BTreeMap, BTreeSet};
-use surrealdb::types::Object;
+use surrealdb_types::{Object, Value};
 
 #[cfg(all(test, feature = "canonical-tests"))]
 #[path = "canonical_analyses/race_tests.rs"]
@@ -157,10 +158,10 @@ impl CanonicalStore {
     ) -> Result<Analysis, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
-        let mut response = bounded_query(self.db.query("LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $guard=NONE OR $guard.incarnation=NONE { THROW 'PSE_REFUSAL:analysis_source_authority_unavailable'; }; RETURN {authority:$guard.incarnation,now:time::micros()};").bind(("problem",revision.problem.clone()))).await?;
-        let index = response.num_statements().saturating_sub(1);
-        let mut row = response
-            .take::<Option<Object>>(index)?
+        let script=GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $guard=NONE OR $guard.incarnation=NONE { THROW 'PSE_REFUSAL:analysis_source_authority_unavailable'; };","{authority:$guard.incarnation,now:time::micros()}")?;
+        let slot=script.result();
+        let mut response = bounded_query(self.db.script(script).bind(("problem",revision.problem.clone()))).await?;
+        let mut row = slot.take(&mut response)?
             .ok_or(CanonicalError::IncompleteResponse)?;
         let primary_authority = codec::decode_string(codec::required(&mut row, "authority")?)?;
         let now = codec::decode_int(codec::required(&mut row, "now")?)?;
@@ -324,7 +325,7 @@ impl CanonicalStore {
                 protected_query("canonical_analyses::persist_analysis", || {
                     Ok(self
                         .db
-                        .query("BEGIN; RETURN fn::pse_analysis_v1::begin($pse_rpc_expires_at, $row,$sources,$inputs); COMMIT;")
+                        .script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>("","fn::pse_analysis_v1::begin($pse_rpc_expires_at, $row,$sources,$inputs)")?)
                         .bind(("row", row.clone()))
                         .bind(("sources", roots.clone()))
                         .bind(("inputs", selected.clone())))
@@ -359,13 +360,12 @@ impl CanonicalStore {
             let mut response = protected_query("canonical_analyses::persist_analysis", || {
                 Ok(self
                     .db
-                    .query("BEGIN; RETURN fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key); COMMIT;")
+                    .script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("","fn::pse_analysis_v1::activate($pse_rpc_expires_at, $key)")?)
                     .bind(("key", header.key.clone())))
             })
             .await?;
             Ok(wire::decode_canonical_analyses(
-                response
-                    .take::<Option<Object>>(response.num_statements().saturating_sub(2))?
+                ResultSlot::<Option<Object>>::returned().take(&mut response)?
                     .ok_or(CanonicalError::IncompleteResponse)?,
             )?)
         }).await;
@@ -385,7 +385,7 @@ impl CanonicalStore {
             protected_query("canonical_analyses::append_analysis", || {
                 Ok(self
                     .db
-                    .query("BEGIN; RETURN fn::pse_analysis_v1::append($pse_rpc_expires_at, $key,$nodes,$edges); COMMIT;")
+                    .script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>("","fn::pse_analysis_v1::append($pse_rpc_expires_at, $key,$nodes,$edges)")?)
                     .bind(("key", key.to_owned()))
                     .bind(("nodes", nodes.clone()))
                     .bind(("edges", edges.clone())))
@@ -401,11 +401,9 @@ impl CanonicalStore {
         activity.scope(async {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
             identity(key)?;
-            let mut result=protected_query("canonical_analyses::analysis", ||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; LET $row=fn::pse_analysis_v1::available($pse_rpc_expires_at, $key); IF !$row.active { THROW 'PSE_REFUSAL:analysis_graph_incomplete'; }; RETURN $row; COMMIT;").bind(("key",key.to_owned())))).await?;
-            let index = result.num_statements().saturating_sub(2);
+            let mut result=protected_query("canonical_analyses::analysis", ||Ok(self.db.metadata_script(crate::canonical::MetadataResponse::Header, GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("LET $row=fn::pse_analysis_v1::available($pse_rpc_expires_at, $key); IF !$row.active { THROW 'PSE_REFUSAL:analysis_graph_incomplete'; };","$row")?).bind(("key",key.to_owned())))).await?;
             Ok(wire::decode_canonical_analyses(
-                result
-                    .take::<Option<Object>>(index)?
+                ResultSlot::<Option<Object>>::returned().take(&mut result)?
                     .ok_or(CanonicalError::IncompleteResponse)?,
             )?)
         }).await
@@ -474,13 +472,13 @@ impl CanonicalStore {
             let mut response = protected_query("canonical_analyses::analysis_page", || {
                 Ok(self
                     .db
-                    .metadata_query(crate::canonical::MetadataResponse::Page, "BEGIN; RETURN fn::pse_analysis_v1::read($pse_rpc_expires_at, $key,$after,$kind); COMMIT;")
+                    .metadata_script(crate::canonical::MetadataResponse::Page, GuardedScript::new(Envelope::DeadlineOnly).returning::<Vec<Object>>("","fn::pse_analysis_v1::read($pse_rpc_expires_at, $key,$after,$kind)")?)
                     .bind(("key", key.to_owned()))
                     .bind(("after", after.unwrap_or("").to_owned()))
                     .bind(("kind", kind.to_owned())))
             })
             .await?;
-            let rows = response.take::<Vec<Object>>(response.num_statements().saturating_sub(2))?;
+            let rows = ResultSlot::<Vec<Object>>::returned().take(&mut response)?;
             if rows.len() > 64 {
                 return Err(CanonicalError::PayloadLimit);
             }
@@ -799,7 +797,7 @@ mod canonical_analyses_server_unit {
             let mut response = bounded_query(store.db.query(query).bind(("key", key)))
                 .await
                 .unwrap();
-            let plan = response.take::<surrealdb::types::Value>(0).unwrap();
+            let plan = response.take::<Value>(0).unwrap();
             let plan = format!("{plan:?}");
             assert!(plan.contains("IndexScan") && plan.contains(index), "{plan}");
         }

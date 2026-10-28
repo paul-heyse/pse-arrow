@@ -136,7 +136,7 @@ scientific policy; it would not redefine what current first-order uncertainty cl
 
 | Package | Status | Owner | Completion |
 |---|---|---|---|
-| D01 | pending | [Bounded design producer](#d01) | Library producer, domain mapping, admission and actual consumer integrations pass targeted controls; retained/inquiry dispositions remain explicit |
+| D01 | in-progress | [Bounded design producer](#d01) | Library producer, domain mapping, admission and actual consumer integrations pass targeted controls; retained/inquiry dispositions remain explicit |
 
 <a id="d01"></a>
 
@@ -337,3 +337,26 @@ conversational execution approach. Work starts from clean `6d13fc986`. The exist
 package owners retain status and acceptance; 57j owns selected assembled qualification.
 Full powerset/no-default validation remains deferred to series end. No upstream contact,
 data reset or formal ADR status change is authorized.
+
+### Current implementation checkpoint — producer and existing consumers
+
+The bounded producer, owned independent export, Rust/Python exposure and generated documents
+are integrated. Explicit grid order, seeded library kinds, exact authored integer levels,
+semi-domain gaps, retained pool ownership, byte/work refusal, ordinary study admission,
+complete-original multistart composition and actual surrogate preparation/advance have passing
+focused controls. The evidence is composed from the original native-local batch and affected
+retries, preserving its fixture failures; it is not a clean whole-suite or assembled replay claim.
+
+The producer reuses the existing variable-state evaluator for authored bound annotations and
+canonical conversion for representable unit preimages. Checked grid suffix strides are prepaid
+and computed once, keeping construction within admitted linear coordinate work. Recorded realized
+points remain replay authority; no portable seed regeneration or statistical method change follows.
+Fixture repairs preserved the actual quantity/domain, KINSOL-bound and explicit-demand contracts:
+Count is required for integral coordinates, KINSOL refuses two-sided boxes, and human-readable
+binding addresses exist only for demanded source paths. An absent address does not prove variable
+elimination. The multistart control uses complete original specification seeds, overlays only the
+sampled coordinate and preserves the untouched coordinate and scientific identity.
+
+Full generation has passed. The current Python generated-study recording/new-runtime replay
+journey is authored but awaits the rebuilt correctness extension and selected canonical acceptance.
+Plan57j retains those assembled obligations, scope-end checks and publication; D01 stays in progress.

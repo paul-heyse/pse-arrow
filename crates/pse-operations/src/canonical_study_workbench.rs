@@ -5,9 +5,10 @@ use crate::{
     canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, protected_query},
     canonical_codec as codec,
+    canonical_script::{Envelope, GuardedScript, PreparedScript, ResultSlot},
 };
 use std::sync::Arc;
-use surrealdb::types::{Bytes, Object, Value};
+use surrealdb_types::{Bytes, Object, Value};
 
 /// Indexed predicates over actual original scientific and engineering owners.
 #[derive(
@@ -137,7 +138,7 @@ struct CaptureOwner {
     request: Vec<u8>,
     executor: tokio::runtime::Handle,
     release_needed: std::sync::atomic::AtomicBool,
-    metadata: std::sync::Mutex<Option<Arc<dyn std::fmt::Debug + Send + Sync>>>,
+    metadata: std::sync::Mutex<Option<crate::transport::client::ResponseAllocation>>,
 }
 struct CaptureCustody {
     request: Vec<u8>,
@@ -217,7 +218,11 @@ impl StudyCapture {
     }
     /// Attach one fixed custody/release grant. Page/document grants remain with
     /// their actual consumers; replay cannot accumulate them in this owner.
-    pub fn retain_metadata_owner(&self, owner: Arc<dyn std::fmt::Debug + Send + Sync>) {
+    pub fn retain_metadata_owner(
+        &self,
+        owner: impl Into<crate::transport::client::ResponseAllocation>,
+    ) {
+        let owner: crate::transport::client::ResponseAllocation = owner.into();
         self.0
             .metadata
             .lock()
@@ -523,7 +528,10 @@ fn member(mut row: Object) -> Result<StudyCohortMember, CanonicalError> {
     })
 }
 /// Bound original values separately from generated SQL. Every supplied predicate is native.
-pub fn workbench_sql(filter: &StudyWorkbenchFilter, frozen: bool) -> String {
+fn workbench_script(
+    filter: &StudyWorkbenchFilter,
+    frozen: bool,
+) -> Result<PreparedScript<Option<Object>>, CanonicalError> {
     let mut prelude = String::new();
     if filter.project.is_some() {
         prelude.push_str("LET $problems=SELECT VALUE problem FROM canonical_project_branches WHERE project=$project LIMIT 65; IF array::len($problems)>64 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; }; ");
@@ -556,15 +564,15 @@ pub fn workbench_sql(filter: &StudyWorkbenchFilter, frozen: bool) -> String {
         }
     }
     let finish = if frozen {
-        "RETURN fn::pse_workbench_v1::commit_capture($pse_rpc_expires_at,$capture,$owner,$request,$rows,$maximum,$members);"
+        "fn::pse_workbench_v1::commit_capture($pse_rpc_expires_at,$capture,$owner,$request,$rows,$maximum,$members)"
     } else {
-        "RETURN fn::pse_workbench_v1::browse($pse_rpc_expires_at,$rows,$maximum);"
+        "fn::pse_workbench_v1::browse($pse_rpc_expires_at,$rows,$maximum)"
     };
     let sql = format!(
-        "LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM canonical_studies WHERE {} ORDER BY key LIMIT $extent; {finish}",
+        "LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM canonical_studies WHERE {} ORDER BY key LIMIT $extent;",
         predicates.join(" AND ")
     );
-    format!("BEGIN; {prelude}{sql} COMMIT;")
+    GuardedScript::new(Envelope::DeadlineOnly).returning(&format!("{prelude}{sql}"), finish)
 }
 impl CanonicalStore {
     /// Compact selected-run retry head; never fetch requests, source payloads or completion bytes.
@@ -606,14 +614,13 @@ impl CanonicalStore {
                 return Err(CanonicalError::PayloadLimit);
             }
         }
-        let sql = workbench_sql(filter, false);
         let activity = self.admit_activity()?;
         activity
             .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
                 let mut response = protected_query("canonical_study_workbench::select", || {
                     Ok(self
                         .db
-                        .query(sql.clone())
+                        .script(workbench_script(filter, false)?)
                         .bind(("study", filter.study.clone()))
                         .bind(("project", filter.project.clone()))
                         .bind(("branch", filter.branch.clone()))
@@ -636,14 +643,9 @@ impl CanonicalStore {
                         .bind(("members", 0)))
                 })
                 .await?;
-                let index = response
-                    .num_statements()
-                    .checked_sub(2)
+                let mut row = ResultSlot::<Option<Object>>::returned()
+                    .take(&mut response)?
                     .ok_or(CanonicalError::IncompleteResponse)?;
-                let mut row = match response.take::<Value>(index)? {
-                    Value::Object(row) => row,
-                    _ => return Err(CanonicalError::IncompleteResponse),
-                };
                 let has_more = codec::decode_boolean(codec::required(&mut row, "has_more")?)?;
                 let rows = match codec::required(&mut row, "headers")? {
                     Value::Array(rows) => rows,
@@ -735,12 +737,11 @@ impl CanonicalStore {
                 })?;
                 if opened.get("state")==Some(&Value::String("frozen".into())) {return Ok(opened);}
                 if opened.get("state")!=Some(&Value::String("pending".into())) {return Err(CanonicalError::CaptureClosed{capture:key.into()});}
-                let sql=workbench_sql(filter,true);
-                let write=protected_query("canonical_study_workbench::capture_commit",|| Ok(self.db.query(sql.clone())
+                let write=protected_query("canonical_study_workbench::capture_commit",|| Ok(self.db.script(workbench_script(filter,true)?)
                     .bind(("capture",key.to_owned())).bind(("owner",owner.clone())).bind(("request",Bytes::from(request.clone())))
                     .bind(("study",filter.study.clone())).bind(("project",filter.project.clone())).bind(("branch",filter.branch.clone())).bind(("source",filter.source.clone())).bind(("physical_revision",filter.physical_revision.clone())).bind(("context",filter.context.clone())).bind(("research_reference",filter.research_reference.clone()))
                     .bind(("outcome",filter.outcome.map(serde_json::to_value).transpose().map_err(|e| CanonicalError::Configuration(e.to_string()))?.and_then(|v|v.as_str().map(str::to_owned))))
-                    .bind(("after",String::new())).bind(("maximum",maximum)).bind(("extent",maximum+1)).bind(("members",members)))).await.and_then(|mut response| {let index=response.num_statements().checked_sub(2).ok_or(CanonicalError::IncompleteResponse)?;response.take::<Option<Object>>(index)?.ok_or(CanonicalError::IncompleteResponse)});
+                    .bind(("after",String::new())).bind(("maximum",maximum)).bind(("extent",maximum+1)).bind(("members",members)))).await.and_then(|mut response| {ResultSlot::<Option<Object>>::returned().take(&mut response)?.ok_or(CanonicalError::IncompleteResponse)});
                 crate::canonical::settlement::settle_exact("study-cohort-capture",key,&request,write,async {
                     let mut response=protected_query("canonical_study_workbench::capture_readback",|| Ok(self.db.query("SELECT * FROM ONLY type::record('canonical_study_captures',$capture);").bind(("capture",key.to_owned())))).await?;
                     let row=response.take::<Option<Object>>(0)?;
@@ -767,12 +768,27 @@ mod tests {
             outcome: Some(pse_model::generated::enums::CanonicalTerminalOutcome::Succeeded),
             ..Default::default()
         };
-        let sql = workbench_sql(&filter, true);
-        assert!(!sql.contains("DELETE"));
-        assert!(sql.contains("revision=$source"));
-        assert!(sql.contains("physical_revision=$physical_revision"));
-        assert!(sql.contains(".terminal_class=$outcome"));
-        assert!(!sql.contains("eligible"));
+        for frozen in [false, true] {
+            let (sql, _, _) = workbench_script(&filter, frozen).unwrap().into_parts();
+            assert!(!sql.contains("DELETE"));
+            assert!(sql.contains("revision=$source"));
+            assert!(sql.contains("physical_revision=$physical_revision"));
+            assert!(sql.contains(".terminal_class=$outcome"));
+            assert!(!sql.contains("eligible"));
+            #[cfg(feature = "canonical-maintenance")]
+            assert!(
+                surrealdb_syn::parse(&sql).is_ok(),
+                "native workbench script must parse: {sql}"
+            );
+            let expression = if frozen {
+                "fn::pse_workbench_v1::commit_capture"
+            } else {
+                "fn::pse_workbench_v1::browse"
+            };
+            let evaluated = sql.find(expression).unwrap();
+            let postlude = sql.rfind("fn::pse_execution_v1::deadline").unwrap();
+            assert!(evaluated < postlude);
+        }
     }
     #[test]
     fn index_attribution_is_exact_optional_and_not_invented_for_opaque_metadata() {

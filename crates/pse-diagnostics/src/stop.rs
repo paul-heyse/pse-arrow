@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Executor-neutral stop races. Completion custody remains with the performing owner.
-use std::{future::{Future, poll_fn}, pin::pin, task::Poll};
+use std::{
+    future::{Future, poll_fn},
+    pin::pin,
+    task::Poll,
+};
 
 /// A stop request does not establish completion or authorize resource release.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -41,7 +45,8 @@ pub async fn stop_first<T>(
             return Poll::Ready(Err(reason));
         }
         work.as_mut().poll(cx).map(Ok)
-    }).await
+    })
+    .await
 }
 
 pin_project_lite::pin_project! {
@@ -75,44 +80,82 @@ pub async fn drain_on_stop<T, G>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{sync::{Arc, atomic::{AtomicBool, AtomicUsize, Ordering}}, task::{Context, Wake, Waker}};
+    use std::{
+        sync::{
+            Arc,
+            atomic::{AtomicBool, AtomicUsize, Ordering},
+        },
+        task::{Context, Wake, Waker},
+    };
     struct Noop;
-    impl Wake for Noop { fn wake(self: Arc<Self>) {} }
-    fn context() -> Waker { Waker::from(Arc::new(Noop)) }
+    impl Wake for Noop {
+        fn wake(self: Arc<Self>) {}
+    }
+    fn context() -> Waker {
+        Waker::from(Arc::new(Noop))
+    }
     #[test]
     fn simultaneous_stop_wins_without_polling_abandon_safe_work() {
         let polls = AtomicUsize::new(0);
-        let work = poll_fn(|_| { polls.fetch_add(1, Ordering::Relaxed); Poll::Ready(7) });
+        let work = poll_fn(|_| {
+            polls.fetch_add(1, Ordering::Relaxed);
+            Poll::Ready(7)
+        });
         let mut race = pin!(stop_first(std::future::ready(StopReason::Cancelled), work));
-        assert_eq!(race.as_mut().poll(&mut Context::from_waker(&context())), Poll::Ready(Err(StopReason::Cancelled)));
+        assert_eq!(
+            race.as_mut().poll(&mut Context::from_waker(&context())),
+            Poll::Ready(Err(StopReason::Cancelled))
+        );
         assert_eq!(polls.load(Ordering::Relaxed), 0);
     }
     #[test]
     fn stopped_work_keeps_original_future_and_guard_until_completion() {
         struct Guard(Arc<AtomicBool>);
-        impl Drop for Guard { fn drop(&mut self) { self.0.store(false, Ordering::Release); } }
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                self.0.store(false, Ordering::Release);
+            }
+        }
         let guarded = Arc::new(AtomicBool::new(false));
         let polls = AtomicUsize::new(0);
         let work = poll_fn(|_| {
             assert!(guarded.load(Ordering::Acquire));
-            if polls.fetch_add(1, Ordering::Relaxed) == 0 { Poll::Pending } else { Poll::Ready(13) }
+            if polls.fetch_add(1, Ordering::Relaxed) == 0 {
+                Poll::Pending
+            } else {
+                Poll::Ready(13)
+            }
         });
-        let mut drain = pin!(drain_on_stop(std::future::ready(StopReason::Deadline), work, |_| {
-            guarded.store(true, Ordering::Release);
-            Guard(guarded.clone())
-        }));
+        let mut drain = pin!(drain_on_stop(
+            std::future::ready(StopReason::Deadline),
+            work,
+            |_| {
+                guarded.store(true, Ordering::Release);
+                Guard(guarded.clone())
+            }
+        ));
         let waker = context();
         let mut cx = Context::from_waker(&waker);
         assert!(drain.as_mut().poll(&mut cx).is_pending());
         assert!(guarded.load(Ordering::Acquire));
-        assert_eq!(drain.as_mut().poll(&mut cx), Poll::Ready((13, Some(StopReason::Deadline))));
+        assert_eq!(
+            drain.as_mut().poll(&mut cx),
+            Poll::Ready((13, Some(StopReason::Deadline)))
+        );
         assert!(!guarded.load(Ordering::Acquire));
         assert_eq!(polls.load(Ordering::Relaxed), 2);
     }
     #[test]
     fn normal_completion_never_constructs_drain_guard() {
-        let mut drain = pin!(drain_on_stop(std::future::pending(), std::future::ready(2), |_| panic!("unexpected drain")));
-        assert_eq!(drain.as_mut().poll(&mut Context::from_waker(&context())), Poll::Ready((2, None)));
+        let mut drain = pin!(drain_on_stop(
+            std::future::pending(),
+            std::future::ready(2),
+            |_| panic!("unexpected drain")
+        ));
+        assert_eq!(
+            drain.as_mut().poll(&mut Context::from_waker(&context())),
+            Poll::Ready((2, None))
+        );
     }
     #[test]
     fn flat_cancellation_checks_and_wakes_without_runtime() {
@@ -123,28 +166,48 @@ mod tests {
         let mut cx = Context::from_waker(&waker);
         assert!(stopped.as_mut().poll(&mut cx).is_pending());
         cancellation.cancel();
-        assert_eq!(StopSignal::check(&cancellation), Some(StopReason::Cancelled));
-        assert_eq!(stopped.as_mut().poll(&mut cx), Poll::Ready(StopReason::Cancelled));
+        assert_eq!(
+            StopSignal::check(&cancellation),
+            Some(StopReason::Cancelled)
+        );
+        assert_eq!(
+            stopped.as_mut().poll(&mut cx),
+            Poll::Ready(StopReason::Cancelled)
+        );
     }
     #[test]
     fn drain_guard_outlives_retained_future_destruction_when_poll_panics() {
         struct Guard(Arc<AtomicBool>);
-        impl Drop for Guard { fn drop(&mut self) { self.0.store(false, Ordering::Release); } }
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                self.0.store(false, Ordering::Release);
+            }
+        }
         struct Work(Arc<AtomicBool>);
         impl Future for Work {
             type Output = ();
-            fn poll(self: std::pin::Pin<&mut Self>, _: &mut Context<'_>) -> Poll<()> { panic!("work poll failed"); }
+            fn poll(self: std::pin::Pin<&mut Self>, _: &mut Context<'_>) -> Poll<()> {
+                panic!("work poll failed");
+            }
         }
-        impl Drop for Work { fn drop(&mut self) { assert!(self.0.load(Ordering::Acquire)); } }
+        impl Drop for Work {
+            fn drop(&mut self) {
+                assert!(self.0.load(Ordering::Acquire));
+            }
+        }
         let live = Arc::new(AtomicBool::new(false));
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let mut drain = pin!(drain_on_stop(std::future::ready(StopReason::Cancelled), Work(live.clone()), |_| {
-                live.store(true, Ordering::Release); Guard(live.clone())
-            }));
+            let mut drain = pin!(drain_on_stop(
+                std::future::ready(StopReason::Cancelled),
+                Work(live.clone()),
+                |_| {
+                    live.store(true, Ordering::Release);
+                    Guard(live.clone())
+                }
+            ));
             let _ = drain.as_mut().poll(&mut Context::from_waker(&context()));
         }));
         assert!(result.is_err());
         assert!(!live.load(Ordering::Acquire));
     }
-
 }

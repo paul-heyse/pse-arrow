@@ -4,8 +4,8 @@
 #[cfg(all(test, feature = "canonical-tests", feature = "solver-kinsol"))]
 use super::RunReport;
 use super::connected_results::{
-    PrepaidReaderFuture, pooled_response_owner, prepaid_reader_future, retain_metadata,
-    retain_protected_metadata,
+    PrepaidReaderFuture, pooled_response_owner, prepaid_reader_future, protected_response_scope,
+    retain_metadata, retain_protected_metadata,
 };
 use super::{RunRequest, RunResult, WorkflowError, contract, relation};
 use datafusion::execution::memory_pool::{MemoryConsumer, MemoryPool};
@@ -15,6 +15,7 @@ use pse_model::generated::{
     enums::{AttemptState, CandidateUse, NativeBackend},
     identities::{AttemptId, RunId, SolutionId},
 };
+use pse_operations::transport::client::{ResponseAllocation, RetainedRequest};
 use pse_operations::{
     canonical::{CanonicalOptions, CanonicalStore, Revision},
     canonical_execution::{
@@ -310,8 +311,9 @@ impl Operations {
                     |owner| read.retain_metadata_owner(owner),
                 )?);
                 read.retain_metadata_owner(read_owner.clone())?;
-                let completion = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((read.clone(), read_owner.clone())),
+                let completion = protected_response_scope(
+                    read.clone(),
+                    read_owner.clone(),
                     self.decode_completion(CompletionSelection::Full(&read)),
                 )
                 .await?;
@@ -323,8 +325,9 @@ impl Operations {
                         "canonical:record-seed-page-response",
                         pse_operations::canonical::MetadataResponse::Page,
                     )?;
-                    let page = pse_operations::canonical::response_ownership_scope(
-                        Arc::new((read.clone(), read_owner.clone(), response)),
+                    let page = protected_response_scope(
+                        read.clone(),
+                        ResponseAllocation::combine(read_owner.clone(), response),
                         self.store.result_seed_page(attempt, after),
                     )
                     .await?;
@@ -2522,7 +2525,14 @@ pub(super) struct LeaseRenewal {
 }
 impl LeaseRenewal {
     fn spawn(operations: &Operations, fence: AttemptFence, cancel: Canceller) -> Self {
-        Self::spawn_with(operations.store.clone(), fence, operations.policy, true, "durable.heartbeat.renew", cancel)
+        Self::spawn_with(
+            operations.store.clone(),
+            fence,
+            operations.policy,
+            true,
+            "durable.heartbeat.renew",
+            cancel,
+        )
     }
     pub(super) fn spawn_with(
         store: CanonicalStore,
@@ -2535,39 +2545,65 @@ impl LeaseRenewal {
         Self::spawn_loop(policy.heartbeat, immediate, owner, on_loss, move || {
             let store = store.clone();
             let fence = fence.clone();
-            async move { store.renew_attempt(&fence, policy.lease).await.map(|_| ()).map_err(WorkflowError::Canonical) }
+            async move {
+                store
+                    .renew_attempt(&fence, policy.lease)
+                    .await
+                    .map(|_| ())
+                    .map_err(WorkflowError::Canonical)
+            }
         })
     }
-    fn spawn_loop<F, W>(heartbeat: Duration, immediate: bool, owner: &'static str, on_loss: Canceller, mut renew: F) -> Self
-    where F: FnMut() -> W + Send + 'static,
-          W: Future<Output = Result<(), WorkflowError>> + Send + 'static,
+    fn spawn_loop<F, W>(
+        heartbeat: Duration,
+        immediate: bool,
+        owner: &'static str,
+        on_loss: Canceller,
+        mut renew: F,
+    ) -> Self
+    where
+        F: FnMut() -> W + Send + 'static,
+        W: Future<Output = Result<(), WorkflowError>> + Send + 'static,
     {
         let stop = pse_diagnostics::Cancellation::default();
         let stopped = stop.clone();
         // Anchor the first tick at admission, not at the task's eventual first poll.
-        let first = tokio::time::Instant::now() + if immediate { Duration::ZERO } else { heartbeat };
+        let first =
+            tokio::time::Instant::now() + if immediate { Duration::ZERO } else { heartbeat };
         let work = async move {
             let mut interval = tokio::time::interval_at(first, heartbeat);
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
                 match pse_diagnostics::stop::stop_first(
-                    async { stopped.cancelled().await; pse_diagnostics::stop::StopReason::Cancelled },
+                    async {
+                        stopped.cancelled().await;
+                        pse_diagnostics::stop::StopReason::Cancelled
+                    },
                     interval.tick(),
-                ).await {
+                )
+                .await
+                {
                     Err(_) => return None,
                     Ok(_) => {
                         // An issued renewal is completion-owned: stop never drops this RPC.
                         if let Err(error) = renew().await {
                             on_loss();
-                            return Some(Arc::new(super::diagnostics::operation_context(error, owner)));
+                            return Some(Arc::new(super::diagnostics::operation_context(
+                                error, owner,
+                            )));
                         }
                     }
                 }
             }
         };
-        let task = tokio::spawn(crate::ExecutionContext::capture().instrument(
-            crate::workflow::inherit_runtime_activity(work)));
-        Self { stop, task: Some(task) }
+        let task = tokio::spawn(
+            crate::ExecutionContext::capture()
+                .instrument(crate::workflow::inherit_runtime_activity(work)),
+        );
+        Self {
+            stop,
+            task: Some(task),
+        }
     }
     pub(super) async fn stop(mut self) -> Option<Arc<WorkflowError>> {
         self.stop.cancel();
@@ -2580,7 +2616,9 @@ impl LeaseRenewal {
 }
 
 impl Drop for LeaseRenewal {
-    fn drop(&mut self) { self.stop.cancel(); }
+    fn drop(&mut self) {
+        self.stop.cancel();
+    }
 }
 
 const PROGRESS_EVENT_BYTES: usize = 16 * 1024;
@@ -3055,12 +3093,12 @@ async fn read_chunks_selection(
         "canonical:opaque-file-response",
         pse_operations::canonical::MetadataResponse::Header,
     )?;
-    let response: Arc<dyn std::fmt::Debug + Send + Sync> = match read {
-        CompletionSelection::Full(full) => Arc::new((full.clone(), response)),
-        CompletionSelection::Slim(slim) => Arc::new((slim.clone(), response)),
+    let custody = match read {
+        CompletionSelection::Full(full) => RetainedRequest::from(Arc::new(full.clone())),
+        CompletionSelection::Slim(slim) => RetainedRequest::from(Arc::new(slim.clone())),
     };
     let child = chunk_read_future(store, pool, read, name, first, count, length, &mut bytes)?;
-    pse_operations::canonical::response_ownership_scope(response, child).await?;
+    protected_response_scope(custody, response, child).await?;
     if result_payload_digest(&bytes) != digest {
         return Err(contract("stored chunk digest differs"));
     }
@@ -3517,7 +3555,7 @@ impl Operations {
                 "stored seed is outside the admitted original inventory",
             ));
         }
-        let completed = pse_operations::canonical::response_ownership_scope(
+        let completed = pse_operations::canonical::request_custody_scope(
             read.clone(),
             self.decode_completion(CompletionSelection::Full(&read)),
         )
@@ -3538,7 +3576,7 @@ impl Operations {
         {
             return Err(contract("stored seed set coordinates differ"));
         }
-        let (bytes, owner) = pse_operations::canonical::response_ownership_scope(
+        let (bytes, owner) = pse_operations::canonical::request_custody_scope(
             read.clone(),
             read_chunks(
                 &self.store,
@@ -3616,8 +3654,9 @@ impl Operations {
                     "canonical:seed-promotion-sources-response",
                     pse_operations::canonical::MetadataResponse::Selection,
                 )?;
-                let sources = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((read.clone(), response)),
+                let sources = protected_response_scope(
+                    read.clone(),
+                    response,
                     self.store.analysis_run_sources(&capsule.header.run),
                 )
                 .await?;
@@ -3634,8 +3673,9 @@ impl Operations {
                     "canonical:seed-promotion-header-response",
                     pse_operations::canonical::MetadataResponse::Header,
                 )?;
-                let mut artifact = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((read.clone(), response)),
+                let mut artifact = protected_response_scope(
+                    read.clone(),
+                    response,
                     self.store
                         .new_artifact(revision, "seed", provenance, 1, payload.len() as u64),
                 )
@@ -3661,8 +3701,9 @@ impl Operations {
                     "canonical:seed-promotion-publication-response",
                     pse_operations::canonical::MetadataResponse::Selection,
                 )?;
-                Ok(pse_operations::canonical::response_ownership_scope(
-                    Arc::new((read.clone(), response)),
+                Ok(protected_response_scope(
+                    read.clone(),
+                    response,
                     self.store.persist_artifact(
                         &artifact,
                         &sources,
@@ -3713,7 +3754,10 @@ impl Operations {
                     pse_operations::canonical::MetadataResponse::Header,
                 )?;
                 let block = pse_operations::canonical::response_ownership_scope(
-                    Arc::new((read_owner, file_owner, response)),
+                    ResponseAllocation::combine(
+                        ResponseAllocation::combine(read_owner, file_owner),
+                        response,
+                    ),
                     read.block(0),
                 )
                 .await?;
@@ -6874,36 +6918,70 @@ mod lease_renewal_tests {
         let mut released = Some(released);
         let cancelled = Arc::new(AtomicBool::new(false));
         let on_loss = cancelled.clone();
-        let renewal = LeaseRenewal::spawn_loop(Duration::from_secs(60), true, "test.renew", Arc::new(move || { on_loss.store(true, Ordering::Release); }), move || {
-            let entered = entered.take();
-            let released = released.take();
-            async move {
-                entered.unwrap().send(()).unwrap();
-                released.unwrap().await.unwrap();
-                Err(WorkflowError::Integrity("original renewal failure".into()))
-            }
-        });
+        let renewal = LeaseRenewal::spawn_loop(
+            Duration::from_secs(60),
+            true,
+            "test.renew",
+            Arc::new(move || {
+                on_loss.store(true, Ordering::Release);
+            }),
+            move || {
+                let entered = entered.take();
+                let released = released.take();
+                async move {
+                    entered.unwrap().send(()).unwrap();
+                    released.unwrap().await.unwrap();
+                    Err(WorkflowError::Integrity("original renewal failure".into()))
+                }
+            },
+        );
         entering.await.unwrap();
         let mut stopping = Box::pin(renewal.stop());
-        assert!(tokio::time::timeout(Duration::from_millis(10), &mut stopping).await.is_err());
+        assert!(
+            tokio::time::timeout(Duration::from_millis(10), &mut stopping)
+                .await
+                .is_err()
+        );
         assert!(!cancelled.load(Ordering::Acquire));
         release.send(()).unwrap();
         let failure = stopping.await.unwrap();
-        assert!(matches!(failure.as_ref(), WorkflowError::Integrity(detail) if detail == "original renewal failure"));
+        assert!(
+            matches!(failure.as_ref(), WorkflowError::Integrity(detail) if detail == "original renewal failure")
+        );
         assert!(cancelled.load(Ordering::Acquire));
     }
     #[tokio::test]
     async fn delayed_study_renewal_uses_heartbeat_instead_of_lease_thirds() {
-        let heartbeat = Duration::from_millis(30);
+        let policy = LeasePolicy::new(
+            Duration::from_secs(3),
+            Duration::from_millis(30),
+            1,
+            Duration::from_millis(1),
+        )
+        .unwrap();
+        let heartbeat = policy.heartbeat();
+        assert_ne!(heartbeat, policy.lease() / 3);
         let (entered, entering) = tokio::sync::oneshot::channel();
         let mut entered = Some(entered);
         let started = std::time::Instant::now();
-        let renewal = LeaseRenewal::spawn_loop(heartbeat, false, "test.study.renew", Arc::new(|| {}), move || {
-            if let Some(entered) = entered.take() { let _ = entered.send(std::time::Instant::now()); }
-            async { Ok(()) }
-        });
-        let first = tokio::time::timeout(Duration::from_secs(5), entering).await.unwrap().unwrap();
+        let renewal = LeaseRenewal::spawn_loop(
+            heartbeat,
+            false,
+            "test.study.renew",
+            Arc::new(|| {}),
+            move || {
+                if let Some(entered) = entered.take() {
+                    let _ = entered.send(std::time::Instant::now());
+                }
+                async { Ok(()) }
+            },
+        );
+        let first = tokio::time::timeout(policy.lease() / 6, entering)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(first.duration_since(started) >= heartbeat);
+        assert!(first.duration_since(started) < policy.lease() / 3);
         assert!(renewal.stop().await.is_none());
     }
 }

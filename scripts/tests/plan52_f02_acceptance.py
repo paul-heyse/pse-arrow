@@ -596,7 +596,7 @@ def journey(telemetry_state: Path, state: Path, database: str, output: Path) -> 
         )
         receipt.update(
             status="passed",
-            controls="Actual HTTP/2 stream error/cancellation and dispatch uncertainty are verified separately by grpc_lifecycle::tests; same-generation reconnect requires its native integration controls.",
+            controls="Actual HTTP/2 stream error/cancellation and dispatch uncertainty are verified separately by the canonical protocol client transport/physical controls; same-generation reconnect requires its native integration controls.",
             scientific_outcomes="Original native study cancellation and missing-branch refusal are retained in each producer.json; tracing does not settle them.",
         )
     except BaseException as error:

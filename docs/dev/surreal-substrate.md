@@ -1238,7 +1238,7 @@ claim neither capability absence nor representative performance.
   effect owner; database feeds cannot establish process or physical drain.
 
 - **I3 — Transport and protected reads.** Select the
-  [bounded gRPC integration](../../vendor/surrealdb/PATCH.md) and finite protected
+  [bounded canonical client](../authoritative_design/sections/identity-and-publication.md#section-20-6) and finite protected
   page/block reads. Incremental rows remain provisional through statement and
   transaction completion. Assess additional streaming consumers when a representative
   read exceeds an agreed memory/latency requirement despite finite admission, or

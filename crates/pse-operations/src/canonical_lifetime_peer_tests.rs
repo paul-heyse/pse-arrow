@@ -10,7 +10,7 @@ use std::{
     sync::{Arc, atomic::AtomicBool},
     time::Duration,
 };
-use surrealdb::types::Value;
+use surrealdb_types::Value;
 
 #[tokio::test]
 async fn caller_close_rejects_escaped_aliases_but_admitted_work_and_other_caller_use_rpc() {
@@ -95,11 +95,12 @@ async fn last_protected_owner_transfers_activity_before_reader_count_disappears(
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(retained_bytes));
     let allocation = MemoryConsumer::new("test:queued-protection-metadata").register(&pool);
     allocation.try_grow(retained_bytes).unwrap();
-    let allocation: Arc<dyn std::fmt::Debug + Send + Sync> = Arc::new(allocation);
+    let allocation = Arc::new(allocation);
     let late_sdk = allocation.clone();
     selection.retain_metadata_owner(allocation.clone()).unwrap();
     selection.retain_metadata_owner(allocation.clone()).unwrap();
-    assert!(selection.retain_metadata_owner(Arc::new(())).is_err());
+    let different = Arc::new(MemoryConsumer::new("test:different-grant").register(&pool));
+    assert!(selection.retain_metadata_owner(different).is_err());
     drop(allocation);
     store.close();
     drop(selection);
@@ -130,7 +131,8 @@ async fn last_protected_owner_transfers_activity_before_reader_count_disappears(
     );
     assert_eq!(
         received.recv().await.unwrap(),
-        crate::canonical::RELEASE_PROTECTION
+        crate::canonical_script::test_script_sql(crate::canonical::RELEASE_PROTECTION, "NONE")
+            .unwrap()
             .trim()
             .trim_end_matches(';')
     );
@@ -167,7 +169,7 @@ async fn failed_release_retains_exact_authority_until_explicit_original_grant_re
             issuing,
             revision,
             "original-grant".into(),
-            Some(Arc::new(allocation)),
+            Some(Arc::new(allocation).into()),
         )
         .complete(Err(CanonicalError::Timeout));
     assert_eq!(
@@ -193,7 +195,8 @@ async fn failed_release_retains_exact_authority_until_explicit_original_grant_re
     );
     assert_eq!(
         received.recv().await.unwrap(),
-        crate::canonical::RELEASE_PROTECTION
+        crate::canonical_script::test_script_sql(crate::canonical::RELEASE_PROTECTION, "NONE")
+            .unwrap()
             .trim()
             .trim_end_matches(';')
     );
@@ -233,7 +236,8 @@ async fn acknowledged_protection_alias_is_idle_and_does_not_hold_physical_admiss
     store.release(&selection).await.unwrap();
     assert_eq!(
         received.recv().await.unwrap(),
-        crate::canonical::RELEASE_PROTECTION
+        crate::canonical_script::test_script_sql(crate::canonical::RELEASE_PROTECTION, "NONE")
+            .unwrap()
             .trim()
             .trim_end_matches(';')
     );

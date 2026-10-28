@@ -3,12 +3,13 @@
 
 //! Explicit scientific history withdrawal and restartable bounded result cleanup.
 
+use crate::canonical_script::{Envelope, GuardedScript, ResultSlot};
 use crate::{
     canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, bounded_query, protected_query},
     canonical_codec,
 };
-use surrealdb::types::Object;
+use surrealdb_types::Object;
 
 /// One bounded cleanup operation after explicit run retirement.
 #[derive(
@@ -91,10 +92,9 @@ impl CanonicalStore {
             self.ensure_writes()?;
             loop {
                 let mut response=protected_query("canonical_result_retention::forget_study_results", || {
-                    Ok(self.db.query("BEGIN; RETURN fn::pse_retention_v1::forget_study($pse_rpc_expires_at, $study); COMMIT;").bind(("study",study.to_owned())))
+                    Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<bool>>("","fn::pse_retention_v1::forget_study($pse_rpc_expires_at, $study)")?).bind(("study",study.to_owned())))
                 }).await?;
-                let index=response.num_statements().saturating_sub(2);
-                if response.take::<Option<bool>>(index)?.ok_or(CanonicalError::IncompleteResponse)? { break; }
+                if ResultSlot::<Option<bool>>::returned().take(&mut response)?.ok_or(CanonicalError::IncompleteResponse)? { break; }
             }
             Ok(())
         }).await?;
@@ -113,12 +113,10 @@ impl CanonicalStore {
         identity(analysis)?;
         self.ensure_writes()?;
         let mut response = protected_query("canonical_result_retention::forget_analysis_results", || {
-            Ok(self.db.query("BEGIN; RETURN fn::pse_retention_v1::forget_analysis($pse_rpc_expires_at,$analysis); COMMIT;")
+            Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("","fn::pse_retention_v1::forget_analysis($pse_rpc_expires_at,$analysis)")?)
                 .bind(("analysis", analysis.to_owned())))
         }).await?;
-        let index = response.num_statements().saturating_sub(2);
-        let mut row = response
-            .take::<Option<Object>>(index)?
+        let mut row = ResultSlot::<Option<Object>>::returned().take(&mut response)?
             .ok_or(CanonicalError::IncompleteResponse)?;
         let complete = canonical_codec::decode_boolean(canonical_codec::required(&mut row,"complete")?)?;
         Ok(complete)
@@ -138,12 +136,10 @@ impl CanonicalStore {
         self.ensure_writes()?;
         let row = crate::generated::surreal::encode_canonical_analyses(intent)?;
         let mut response = protected_query("canonical_result_retention::settle_analysis", || {
-            Ok(self.db.query("BEGIN; RETURN fn::pse_retention_v1::settle_analysis($pse_rpc_expires_at,$intent); COMMIT;")
+            Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("","fn::pse_retention_v1::settle_analysis($pse_rpc_expires_at,$intent)")?)
                 .bind(("intent", row.clone())))
         }).await?;
-        let index = response.num_statements().saturating_sub(2);
-        let mut row = response
-            .take::<Option<Object>>(index)?
+        let mut row = ResultSlot::<Option<Object>>::returned().take(&mut response)?
             .ok_or(CanonicalError::IncompleteResponse)?;
         Ok(canonical_codec::decode_boolean(canonical_codec::required(
             &mut row, "complete",
@@ -172,8 +168,8 @@ impl CanonicalStore {
                             .bind(("run",run.to_owned())))
                     }).await?;
                     let row=response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
-                    if row.get("pending")==Some(&surrealdb::types::Value::Bool(true)) { continue; }
-                    if row.get("run")!=Some(&surrealdb::types::Value::String(run.into())) {
+                    if row.get("pending")==Some(&surrealdb_types::Value::Bool(true)) { continue; }
+                    if row.get("run")!=Some(&surrealdb_types::Value::String(run.into())) {
                         return Err(CanonicalError::IncompleteResponse);
                     }
                     return Ok(());
@@ -452,7 +448,7 @@ mod canonical_result_retention_server_unit {
             pse_model::generated::enums::CanonicalAttemptPhase::TerminalCompacted
         );
         assert!(compacted.terminal());
-        let resurrected=bounded_query(store.db.query("UPDATE ONLY type::record('canonical_attempts',$attempt) SET completion=$completion;").bind(("attempt",attempt.clone())).bind(("completion",surrealdb::types::Bytes::from(vec![9_u8])))).await.unwrap_err();
+        let resurrected=bounded_query(store.db.query("UPDATE ONLY type::record('canonical_attempts',$attempt) SET completion=$completion;").bind(("attempt",attempt.clone())).bind(("completion",surrealdb_types::Bytes::from(vec![9_u8])))).await.unwrap_err();
         assert!(matches!(resurrected, CanonicalError::Driver(_)));
         assert!(
             store
@@ -545,7 +541,7 @@ mod canonical_result_retention_server_unit {
         // and conservative unknown-statistics behavior. These bytes are not an
         // admitted-file proof and must never be submitted as exact statistics.
         store.db.query("UPDATE canonical_result_blocks SET statistics=$statistics WHERE result_set=$set RETURN NONE;")
-            .bind(("statistics", surrealdb::types::Bytes::from(vec![0xff; pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES])))
+            .bind(("statistics", surrealdb_types::Bytes::from(vec![0xff; pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES])))
             .bind(("set", set.clone()))
             .await.unwrap().check().unwrap();
         let closed = store

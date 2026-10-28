@@ -24,7 +24,7 @@ use pse_model::{
     },
     study::{ActionKind, Dependency, OccurrenceKey, PointPolicy, SeedNeed, StartPolicy},
 };
-use surrealdb::types::{NotFoundError, Object, ToSql, Value};
+use surrealdb_types::{NotFoundError, Object, ToSql, Value};
 
 async fn fixture() -> CanonicalStore {
     let state =

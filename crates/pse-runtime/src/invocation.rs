@@ -214,11 +214,21 @@ impl TransferredContext {
         Self((recorder, unavailable))
     }
     #[cfg(test)]
-    pub(crate) fn recorder_ptr_for_test(&self) -> Option<usize> { self.0.0.as_ref().map(|recorder| Arc::as_ptr(recorder) as usize) }
+    pub(crate) fn recorder_ptr_for_test(&self) -> Option<usize> {
+        self.0
+            .0
+            .as_ref()
+            .map(|recorder| Arc::as_ptr(recorder) as usize)
+    }
     #[cfg(test)]
-    pub(crate) fn has_recorder_for_test(&self) -> bool { self.0.0.is_some() }
+    pub(crate) fn has_recorder_for_test(&self) -> bool {
+        self.0.0.is_some()
+    }
     pub(crate) fn unavailable() -> Self {
-        Self((None, Some(pse_diagnostics::observation::RecordAvailability::Unavailable)))
+        Self((
+            None,
+            Some(pse_diagnostics::observation::RecordAvailability::Unavailable),
+        ))
     }
     pub(crate) async fn scope_inherited<T>(self, work: impl Future<Output = T>) -> T {
         CURRENT.scope(self.0, work).await
@@ -722,5 +732,40 @@ impl Drop for IntegrationObservation {
         if !self.finished {
             self.publish("interrupted");
         }
+    }
+}
+
+#[cfg(test)]
+mod lifecycle_recording_tests {
+    use super::*;
+    #[test]
+    fn fine_lifecycle_facts_do_not_spend_invocation_interval_capacity() {
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("lifecycle recorder population");
+        let _entered = operation.context().enter();
+        start_scope(|| {
+            let context = TransferredContext::capture();
+            let recorder = context.0.0.as_ref().unwrap();
+            let before = recorder.state().intervals.len();
+            let lifecycle = crate::tooling::operational_metrics::NativeJobLifecycle::new();
+            for _ in 0..256 {
+                lifecycle.observe(
+                    pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested,
+                    true,
+                );
+            }
+            lifecycle.returned(false);
+            assert_eq!(recorder.state().intervals.len(), before);
+            assert_eq!(recorder.state().omitted, 0);
+            let snapshot = operation
+                .reader()
+                .snapshot(std::time::Duration::from_secs(60));
+            assert!(
+                snapshot
+                    .metrics
+                    .iter()
+                    .any(|metric| metric.name == "native.stop_requested")
+            );
+        })();
     }
 }

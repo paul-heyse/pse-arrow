@@ -193,7 +193,7 @@ pub struct StudyCohortClassificationPage {
     pub next: Option<StudyCohortCursor>,
     #[serde(skip)]
     #[schemars(skip)]
-    pub(super) _owner: Option<Arc<dyn std::fmt::Debug + Send + Sync>>,
+    pub(super) _owner: Option<pse_operations::transport::client::ResponseAllocation>,
 }
 /// Nonserializable exact capture capability retained through pages and physical scans.
 #[derive(Clone, Debug)]
@@ -555,8 +555,9 @@ impl FrozenStudyCohort {
             "study-workbench:captured-headers",
             pse_operations::canonical::MetadataResponse::StudyPage,
         )?;
-        let page = pse_operations::canonical::response_ownership_scope(
-            Arc::new((self.capture.clone(), response.clone())),
+        let page = super::connected_results::protected_response_scope(
+            self.capture.clone(),
+            response.clone(),
             self.capture.header_page(after, request.maximum),
         )
         .await?;
@@ -602,8 +603,9 @@ impl FrozenStudyCohort {
             "study-workbench:captured-members",
             pse_operations::canonical::MetadataResponse::StudyPage,
         )?;
-        let page = pse_operations::canonical::response_ownership_scope(
-            Arc::new((self.capture.clone(), response.clone())),
+        let page = super::connected_results::protected_response_scope(
+            self.capture.clone(),
+            response.clone(),
             self.capture.member_page(after, request.maximum),
         )
         .await?;

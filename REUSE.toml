@@ -26,21 +26,6 @@ SPDX-FileCopyrightText = [
 ]
 SPDX-License-Identifier = "MIT OR Apache-2.0"
 
-# Preserve the imported SDK family's exact upstream license parameters.
-[[annotations]]
-path = [
-  "vendor/surrealdb/**",
-  "vendor/surrealdb-engine-api/**",
-  "vendor/deltas/surrealdb.patch",
-  "vendor/deltas/surrealdb-engine-api.patch",
-]
-precedence = "override"
-SPDX-FileCopyrightText = [
-  "2025 SurrealDB Limited",
-  "2026 Paul Heyse (bounded RPC additions)",
-]
-SPDX-License-Identifier = "LicenseRef-SurrealDB-BSL-3.0"
-
 [[annotations]]
 path = [
   "scripts/surrealdb-source/*.patch",

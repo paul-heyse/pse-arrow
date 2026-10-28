@@ -40,14 +40,15 @@ def inputs(declared: Mapping[str, str]) -> str:
 def manifest(upstream: str) -> str:
     """Keep toolkit behavior with an exact released remote SDK, without embedding."""
     old = "surrealdb = { version = '3.3.0', features = ['protocol-http', 'jwks'] }"
-    pin = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]["dependencies"][
-        "surrealdb"
-    ]["version"]
+    sdk = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]["metadata"][
+        "pse"
+    ]["tool-dependencies"]["surrealdb"]
+    pin = sdk["version"]
     if upstream.count(old) != 1 or not pin.startswith("="):
         raise BuildError("Pinned toolkit/SDK manifest integration changed")
     result = upstream.replace(
         old,
-        f'surrealdb = {{ version = "{pin}", default-features = false, features = ["protocol-grpc", "rustls"] }}',
+        f'surrealdb = {{ version = "{pin}", default-features = {json.dumps(sdk["default-features"])}, features = {json.dumps(sdk["features"])} }}',
     )
     result = result.replace(
         "surrealdb-types = { version = '3.3.0' }",

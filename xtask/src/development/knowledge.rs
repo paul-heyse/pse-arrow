@@ -19,6 +19,7 @@ use crate::generated::model::{
     },
 };
 use crate::generated::store::knowledge as wire;
+use pse_operations::transport::client::{Query, ResponseLimits};
 use pse_operations::{
     canonical::{self, CanonicalError},
     transport::{self, original_deadline},
@@ -27,7 +28,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
-use surrealdb::types::{Object, Value};
+use surrealdb_types::{Object, Value};
 fn invalid(message: impl Into<String>) -> EvidenceError {
     EvidenceError::Configuration(message.into())
 }
@@ -871,8 +872,8 @@ fn prepare(corpus: &KnowledgeCorpus) -> Result<Prepared, EvidenceError> {
             .collect(),
     })
 }
-fn limits() -> surrealdb::opt::ResponseLimits {
-    surrealdb::opt::ResponseLimits {
+fn limits() -> ResponseLimits {
+    ResponseLimits {
         wire_bytes: canonical::MESSAGE_BYTES,
         nodes: 131072,
         depth: 16,
@@ -895,10 +896,7 @@ fn reconciliation() -> String {
         format!("LET $actual=SELECT * OMIT id FROM {table} WHERE generation=$generation ORDER BY key; IF $actual!={parameter} OR <decimal>array::len({parameter})!=$row.{count} {{ THROW 'knowledge exact {table} membership differs'; }};")
     }).collect()
 }
-fn bind_rows<'a>(
-    mut query: surrealdb::method::Query<'a, surrealdb::engine::remote::grpc::Client>,
-    prepared: &Prepared,
-) -> surrealdb::method::Query<'a, surrealdb::engine::remote::grpc::Client> {
+fn bind_rows<'a>(mut query: Query<'a>, prepared: &Prepared) -> Query<'a> {
     for (table, rows) in &prepared.rows {
         query = query.bind(((*table).to_owned(), rows.clone()));
     }
@@ -1586,10 +1584,7 @@ fn selection(request: &KnowledgeQuery) -> (String, String) {
         }
     }
 }
-fn bind_request<'a>(
-    mut query: surrealdb::method::Query<'a, surrealdb::engine::remote::grpc::Client>,
-    request: &KnowledgeQuery,
-) -> surrealdb::method::Query<'a, surrealdb::engine::remote::grpc::Client> {
+fn bind_request<'a>(mut query: Query<'a>, request: &KnowledgeQuery) -> Query<'a> {
     query = query
         .bind(("generation", request.generation.clone()))
         .bind(("kind", request.kind.map(|value| value.as_str().to_owned())))

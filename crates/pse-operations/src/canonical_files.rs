@@ -7,6 +7,7 @@
 /// Native offline physical operations used by the product recovery helper.
 pub mod offline;
 
+use crate::canonical_script::{Envelope, GuardedScript, ResultSlot};
 use crate::{
     canonical::{CanonicalError, CanonicalStore, bounded_query, protected_query},
     canonical_codec as codec,
@@ -20,7 +21,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use surrealdb::types::{Object, Value};
+use surrealdb_types::{Object, Value};
 
 #[cfg(all(test, feature = "canonical-tests"))]
 #[derive(Clone)]
@@ -491,10 +492,11 @@ impl FileSession {
 fn configuration(error: impl std::fmt::Display) -> CanonicalError {
     CanonicalError::Configuration(error.to_string())
 }
-fn last_object(response: &mut surrealdb::IndexedResults) -> Result<Object, CanonicalError> {
-    let index = response.num_statements().saturating_sub(2);
-    response
-        .take::<Option<Object>>(index)?
+fn last_object(
+    response: &mut crate::transport::client::IndexedResults,
+) -> Result<Object, CanonicalError> {
+    ResultSlot::<Option<Object>>::returned()
+        .take(response)?
         .ok_or(CanonicalError::IncompleteResponse)
 }
 fn text(row: &mut Object, name: &'static str) -> Result<String, CanonicalError> {
@@ -627,7 +629,19 @@ impl CanonicalStore {
         if !pending.acknowledged {
             #[cfg(all(test, feature = "canonical-tests"))]
             effect_pause("register").await;
-            let mut response=protected_query("canonical_files::register_owner", || Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; RETURN fn::pse_files_v1::register_owner($pse_rpc_expires_at,$row); COMMIT;").bind(("row",pending.row.clone())))).await?;
+            let mut response = protected_query("canonical_files::register_owner", || {
+                Ok(self
+                    .db
+                    .metadata_script(
+                        crate::canonical::MetadataResponse::Header,
+                        GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>(
+                            "",
+                            "fn::pse_files_v1::register_owner($pse_rpc_expires_at,$row)",
+                        )?,
+                    )
+                    .bind(("row", pending.row.clone())))
+            })
+            .await?;
             let mut saved = last_object(&mut response)?;
             saved.remove("id");
             if saved != pending.row {
@@ -676,7 +690,7 @@ impl CanonicalStore {
         self.ensure_writes()?;let owner=self.registered_file_owner().await?;
         if operation.is_empty()||operation.len()>4096||request_digest.len()!=64{return Err(configuration("file original intent malformed"));}
         let mut row=Object::new();row.insert("key",uuid::Uuid::new_v4().to_string());row.insert("intent",operation.to_owned());row.insert("request_digest",request_digest.to_owned());row.insert("owner",owner.clone());row.insert("owner_kind",kind.to_owned());row.insert("selection",selection.to_owned());row.insert("issuing_store",self.issuing_store()?.to_owned());row.insert("storage_incarnation",self.files.incarnation.clone());row.insert("digest",String::new());row.insert("payload_bytes",codec::encode_uint(0)?);row.insert("encoding",String::new());row.insert("batch_count",codec::encode_uint(0)?);row.insert("schema",String::new());row.insert("interpretation",crate::generated::surreal::INTERPRETATION);row.insert("state","pending");
-        let mut response=protected_query("canonical_files::reserve", || Ok(self.db.query("BEGIN; RETURN fn::pse_files_v1::reserve($pse_rpc_expires_at,$row,$run,$attempt,$generation); COMMIT;").bind(("row",row.clone())).bind(("run",fence.map(|f|Value::String(f.run().to_owned())).unwrap_or(Value::None))).bind(("attempt",fence.map(|f|Value::String(f.attempt().to_owned())).unwrap_or(Value::None))).bind(("generation",fence.map(|f|codec::encode_uint(f.generation())).transpose()?.unwrap_or(Value::None))))).await?;
+        let mut response=protected_query("canonical_files::reserve", || Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("","fn::pse_files_v1::reserve($pse_rpc_expires_at,$row,$run,$attempt,$generation)")?).bind(("row",row.clone())).bind(("run",fence.map(|f|Value::String(f.run().to_owned())).unwrap_or(Value::None))).bind(("attempt",fence.map(|f|Value::String(f.attempt().to_owned())).unwrap_or(Value::None))).bind(("generation",fence.map(|f|codec::encode_uint(f.generation())).transpose()?.unwrap_or(Value::None))))).await?;
         let mut saved=crate::canonical_execution::writer_response(last_object(&mut response)?)?;
         let original=FilePublicationIntent{instance:text(&mut saved,"key")?,intent:text(&mut saved,"intent")?,request_digest:text(&mut saved,"request_digest")?,owner:text(&mut saved,"owner")?,storage_incarnation:text(&mut saved,"storage_incarnation")?};
         if original.owner!=owner {self.recover_file_intent(&original).await}else{Ok(original)}
@@ -696,7 +710,7 @@ impl CanonicalStore {
         if text(&mut inspected,"intent")?!=original.intent||text(&mut inspected,"request_digest")?!=original.request_digest||text(&mut inspected,"storage_incarnation")?!=self.files.incarnation{return Err(CanonicalError::OperationReused);}
         let owner=self.registered_file_owner().await?;
         let mut expected=Object::new();expected.insert("instance",original.instance.clone());expected.insert("intent",original.intent.clone());expected.insert("request_digest",original.request_digest.clone());expected.insert("owner",original.owner.clone());
-        let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::recover_intent($pse_rpc_expires_at,$expected,$owner,$incarnation); COMMIT;").bind(("expected",expected)).bind(("owner",owner.clone())).bind(("incarnation",self.files.incarnation.clone()))).await?;
+        let mut response=bounded_query(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("","fn::pse_files_v1::recover_intent($pse_rpc_expires_at,$expected,$owner,$incarnation)")?).bind(("expected",expected)).bind(("owner",owner.clone())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let mut saved=last_object(&mut response)?;
         let recovered=FilePublicationIntent{instance:text(&mut saved,"key")?,intent:text(&mut saved,"intent")?,request_digest:text(&mut saved,"request_digest")?,owner,storage_incarnation:self.files.incarnation.clone()};
         let lock=lock_instance(&self.files.root,&recovered.instance).await?;
@@ -713,7 +727,7 @@ impl CanonicalStore {
         expected.insert("instance", intent.instance.clone());
         expected.insert("intent", intent.intent.clone());
         expected.insert("request_digest", intent.request_digest.clone());
-        let mut response=protected_query("canonical_files::intent_open", || Ok(self.db.query("BEGIN; RETURN fn::pse_files_v1::intent_open($pse_rpc_expires_at,$expected,$owner,$incarnation); COMMIT;").bind(("expected",expected.clone())).bind(("owner",intent.owner.clone())).bind(("incarnation",self.files.incarnation.clone())))).await?;
+        let mut response=protected_query("canonical_files::intent_open", || Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("","fn::pse_files_v1::intent_open($pse_rpc_expires_at,$expected,$owner,$incarnation)")?).bind(("expected",expected.clone())).bind(("owner",intent.owner.clone())).bind(("incarnation",self.files.incarnation.clone())))).await?;
         last_object(&mut response)
     }
     /// Complete an opaque bounded native file after original intent reservation.
@@ -743,7 +757,7 @@ impl CanonicalStore {
         publish_locked(&self.files.root,&descriptor,bytes,&lock)?;
         #[cfg(all(test,feature="canonical-tests"))]
         effect_pause("seal").await;
-        let mut response=protected_query("canonical_files::seal", || Ok(self.db.query("BEGIN; RETURN fn::pse_files_v1::seal($pse_rpc_expires_at,$key,$owner,$incarnation,$descriptor); COMMIT;").bind(("key",intent.instance.clone())).bind(("owner",intent.owner.clone())).bind(("incarnation",self.files.incarnation.clone())).bind(("descriptor",descriptor.encode()?)))).await?;
+        let mut response=protected_query("canonical_files::seal", || Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("","fn::pse_files_v1::seal($pse_rpc_expires_at,$key,$owner,$incarnation,$descriptor)")?).bind(("key",intent.instance.clone())).bind(("owner",intent.owner.clone())).bind(("incarnation",self.files.incarnation.clone())).bind(("descriptor",descriptor.encode()?)))).await?;
         let saved=last_object(&mut response)?;
         if saved.get("digest")!=Some(&Value::String(descriptor.digest.clone())){return Err(CanonicalError::OperationReused);}
         Ok(SealedFile{descriptor,intent:intent.clone()})
@@ -776,8 +790,8 @@ impl CanonicalStore {
         activity.scope(crate::canonical::transport::within_clock(crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),async {
         self.files.require_current()?;
         let mut expected=Object::new();expected.insert("instance",original.instance.clone());expected.insert("intent",original.intent.clone());expected.insert("request_digest",original.request_digest.clone());expected.insert("owner",original.owner.clone());
-        let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::settle_intent($pse_rpc_expires_at,$expected,$incarnation); COMMIT;").bind(("expected",expected)).bind(("incarnation",self.files.incarnation.clone()))).await?;
-        let index=response.num_statements().saturating_sub(2);response.take::<Option<bool>>(index)?.ok_or(CanonicalError::IncompleteResponse)
+        let mut response=bounded_query(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<bool>>("","fn::pse_files_v1::settle_intent($pse_rpc_expires_at,$expected,$incarnation)")?).bind(("expected",expected)).bind(("incarnation",self.files.incarnation.clone()))).await?;
+        ResultSlot::<Option<bool>>::returned().take(&mut response)?.ok_or(CanonicalError::IncompleteResponse)
         })).await
     }
     /// Resume an exact admitted collection. Physical unlink follows irreversible
@@ -793,14 +807,14 @@ impl CanonicalStore {
         match state { CanonicalFileState::Collected => return Ok(()), CanonicalFileState::Attached | CanonicalFileState::Abandoned | CanonicalFileState::Collecting => {}, CanonicalFileState::Pending | CanonicalFileState::Sealed => return Err(configuration("original file publication remains unresolved")), }
         self.registered_file_owner().await?;
         let _lock=lock_instance(&self.files.root,instance).await?;
-        let mut response=bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::collect($pse_rpc_expires_at,$key,$incarnation); COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
+        let mut response=bounded_query(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("","fn::pse_files_v1::collect($pse_rpc_expires_at,$key,$incarnation)")?).bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let row=last_object(&mut response)?;if file_state(&row)? == CanonicalFileState::Collected{return Ok(());}
         #[cfg(all(test,feature="canonical-tests"))]
         effect_pause("collect").await;
         match std::fs::remove_file(&path){Ok(())=>File::open(path.parent().ok_or_else(||configuration("file parent absent"))?).and_then(|f|f.sync_all()).map_err(configuration)?,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
         let pending=self.files.root.join(".pending").join(format!("{instance}.pending"));
         match std::fs::remove_file(&pending){Ok(())=>File::open(pending.parent().ok_or_else(||configuration("staging parent absent"))?).and_then(|f|f.sync_all()).map_err(configuration)?,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
-        bounded_query(self.db.query("BEGIN; RETURN fn::pse_files_v1::collected($pse_rpc_expires_at,$key,$incarnation); COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;Ok(())
+        bounded_query(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>("","fn::pse_files_v1::collected($pse_rpc_expires_at,$key,$incarnation)")?).bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;Ok(())
         })).await
     }
 }
@@ -1085,28 +1099,51 @@ impl CanonicalStore {
         result: Option<(&str, &str, &str)>,
         protection: &str,
     ) -> Result<(), CanonicalError> {
-        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
-        let owner = self.registered_file_owner().await?;
-        let mut row = Object::new();
-        row.insert("key", protection.to_owned());
-        row.insert("kind", kind.to_owned());
-        row.insert("selection", selection.to_owned());
-        row.insert("owner", owner);
-        row.insert("storage_incarnation", self.files.incarnation.clone());
-        row.insert("released", false);
-        if let Some((run, attempt, manifest)) = result {
-            row.insert("run", run.to_owned());
-            row.insert("attempt", attempt.to_owned());
-            row.insert("manifest", manifest.to_owned());
-        }
-        let mut response=self.protected_query(&format!("file-ticket:{protection}"),crate::canonical::QueryEffect::Mutation,"canonical_files::admit_ticket",||Ok(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; RETURN fn::pse_files_v1::ticket($pse_rpc_expires_at,$row); COMMIT;").bind(("row",row.clone())))).await?;
-        let mut saved = last_object(&mut response)?;
-        saved.remove("id");
-        if saved != row {
-            return Err(CanonicalError::OperationReused);
-        }
-        Ok(())
-        }).await
+        crate::canonical::transport::metadata_scope(
+            crate::canonical::MetadataResponse::Header,
+            async {
+                let owner = self.registered_file_owner().await?;
+                let mut row = Object::new();
+                row.insert("key", protection.to_owned());
+                row.insert("kind", kind.to_owned());
+                row.insert("selection", selection.to_owned());
+                row.insert("owner", owner);
+                row.insert("storage_incarnation", self.files.incarnation.clone());
+                row.insert("released", false);
+                if let Some((run, attempt, manifest)) = result {
+                    row.insert("run", run.to_owned());
+                    row.insert("attempt", attempt.to_owned());
+                    row.insert("manifest", manifest.to_owned());
+                }
+                let mut response = self
+                    .protected_query(
+                        &format!("file-ticket:{protection}"),
+                        crate::canonical::QueryEffect::Mutation,
+                        "canonical_files::admit_ticket",
+                        || {
+                            Ok(self
+                                .db
+                                .metadata_script(
+                                    crate::canonical::MetadataResponse::Header,
+                                    GuardedScript::new(Envelope::DeadlineOnly)
+                                        .returning::<Option<Object>>(
+                                            "",
+                                            "fn::pse_files_v1::ticket($pse_rpc_expires_at,$row)",
+                                        )?,
+                                )
+                                .bind(("row", row.clone())))
+                        },
+                    )
+                    .await?;
+                let mut saved = last_object(&mut response)?;
+                saved.remove("id");
+                if saved != row {
+                    return Err(CanonicalError::OperationReused);
+                }
+                Ok(())
+            },
+        )
+        .await
     }
     pub(crate) async fn file_descriptor(
         &self,
@@ -1142,7 +1179,7 @@ impl CanonicalStore {
     ) -> Result<FileDescriptor, CanonicalError> {
         crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Header, async {
         self.files.require_current()?;
-        let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Header, "BEGIN; LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE; IF $file=NONE OR $file.storage_incarnation!=$incarnation OR $file.state!='attached' { THROW 'PSE_REFUSAL:admitted_file_physical_instance_unavailable'; }; RETURN $file; COMMIT;").bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
+        let mut response=bounded_query(self.db.metadata_script(crate::canonical::MetadataResponse::Header, GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE; IF $file=NONE OR $file.storage_incarnation!=$incarnation OR $file.state!='attached' { THROW 'PSE_REFUSAL:admitted_file_physical_instance_unavailable'; };","$file")?).bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let mut row = last_object(&mut response)?;
         let descriptor = FileDescriptor {
             instance: text(&mut row, "key")?,
@@ -1792,7 +1829,20 @@ mod catalog_controls {
         .await
         .unwrap();
         assert!(before.take::<Option<Object>>(0).unwrap().is_none());
-        bounded_query(peer.db.query("BEGIN; RETURN fn::pse_files_v1::freeze($pse_rpc_expires_at,$incarnation); COMMIT;").bind(("incarnation",store.files.incarnation.clone()))).await.unwrap();
+        bounded_query(
+            peer.db
+                .script(
+                    GuardedScript::new(Envelope::DeadlineOnly)
+                        .returning::<Option<Object>>(
+                            "",
+                            "fn::pse_files_v1::freeze($pse_rpc_expires_at,$incarnation)",
+                        )
+                        .unwrap(),
+                )
+                .bind(("incarnation", store.files.incarnation.clone())),
+        )
+        .await
+        .unwrap();
         store.disconnect().await.unwrap();
         let mut after=bounded_query(peer.db.query("RETURN SELECT * FROM ONLY type::record('canonical_file_owners',$key); RETURN SELECT key FROM canonical_file_owners; RETURN SELECT key FROM canonical_file_instances;").bind(("key",key.clone()))).await.unwrap();
         let mut receipt = after.take::<Option<Object>>(0).unwrap().unwrap();
@@ -1802,8 +1852,36 @@ mod catalog_controls {
         assert_eq!(receipt, original);
         assert_eq!(after.take::<Vec<Object>>(1).unwrap().len(), 1);
         assert!(after.take::<Vec<Object>>(2).unwrap().is_empty());
-        bounded_query(peer.db.query("BEGIN; RETURN fn::pse_files_v1::thaw($pse_rpc_expires_at,$incarnation); COMMIT;").bind(("incarnation",store.files.incarnation.clone()))).await.unwrap();
-        assert!(bounded_query(peer.db.query("BEGIN; RETURN fn::pse_files_v1::register_owner($pse_rpc_expires_at,$row); COMMIT;").bind(("row",original))).await.is_err());
+        bounded_query(
+            peer.db
+                .script(
+                    GuardedScript::new(Envelope::DeadlineOnly)
+                        .returning::<Option<Object>>(
+                            "",
+                            "fn::pse_files_v1::thaw($pse_rpc_expires_at,$incarnation)",
+                        )
+                        .unwrap(),
+                )
+                .bind(("incarnation", store.files.incarnation.clone())),
+        )
+        .await
+        .unwrap();
+        assert!(
+            bounded_query(
+                peer.db
+                    .script(
+                        GuardedScript::new(Envelope::DeadlineOnly)
+                            .returning::<Option<Object>>(
+                                "",
+                                "fn::pse_files_v1::register_owner($pse_rpc_expires_at,$row)"
+                            )
+                            .unwrap()
+                    )
+                    .bind(("row", original))
+            )
+            .await
+            .is_err()
+        );
         peer.disconnect().await.unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }

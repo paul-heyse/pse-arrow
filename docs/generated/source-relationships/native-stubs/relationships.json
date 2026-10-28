@@ -18,7 +18,7 @@
       "generator_path": "xtask/src/codegen/python_stubs.rs",
       "generator_symbol": "run",
       "output_path": "python/pse/_native.pyi",
-      "source_identity": "pyo3-stub-sha256:f428a361ddca00de586b1a0d1ea44d2a963647bbeeadd7c6c08707f1fb3e7866",
+      "source_identity": "pyo3-stub-sha256:74e7dded610f455f5c81e3d86a21bed71b9309d24e3d2c0c61a6c29c490aeb24",
       "source_path": "crates/pse-py/src/inspection/errors.rs",
       "source_role": "introspector_supplement",
       "source_symbol": "_native"
@@ -34,7 +34,7 @@
       "generator_path": "xtask/src/codegen/python_stubs.rs",
       "generator_symbol": "run",
       "output_path": "python/pse/_native.pyi",
-      "source_identity": "pyo3-stub-sha256:f428a361ddca00de586b1a0d1ea44d2a963647bbeeadd7c6c08707f1fb3e7866",
+      "source_identity": "pyo3-stub-sha256:74e7dded610f455f5c81e3d86a21bed71b9309d24e3d2c0c61a6c29c490aeb24",
       "source_path": null,
       "source_role": "compiled_pyo3_metadata",
       "source_symbol": "_native"
@@ -50,7 +50,7 @@
       "generator_path": "xtask/src/codegen/python_stubs.rs",
       "generator_symbol": "run",
       "output_path": "python/pse/_native.pyi",
-      "source_identity": "pyo3-stub-sha256:f428a361ddca00de586b1a0d1ea44d2a963647bbeeadd7c6c08707f1fb3e7866",
+      "source_identity": "pyo3-stub-sha256:74e7dded610f455f5c81e3d86a21bed71b9309d24e3d2c0c61a6c29c490aeb24",
       "source_path": "crates/pse-py/src/lib.rs",
       "source_role": "module_registration",
       "source_symbol": "_native"

@@ -632,7 +632,7 @@ pub(crate) async fn exercise_native(
     let counts: Vec<Object> = count.take(0)?;
     assert_eq!(
         counts[0].get("n"),
-        Some(&Value::Number(surrealdb::types::Number::Int(3)))
+        Some(&Value::Number(surrealdb_types::Number::Int(3)))
     );
     let base = query(KnowledgeMode::Subjects, Some(first.generation.clone()));
     let selected = KnowledgeQuery {

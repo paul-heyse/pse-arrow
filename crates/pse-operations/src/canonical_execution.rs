@@ -7,6 +7,7 @@ use crate::{
     canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, bounded_query, protected_query},
     canonical_codec,
+    canonical_script::{Envelope, GuardedScript, ResultSlot},
     generated::surreal as wire,
 };
 use pse_ids::{Frame, FramedHasher};
@@ -23,7 +24,7 @@ use pse_model::generated::runtime::{
 };
 use serde::{Deserialize, Serialize};
 use std::{future::IntoFuture, time::Duration};
-use surrealdb::types::{Bytes, Object, Value};
+use surrealdb_types::{Bytes, Object, Value};
 
 #[cfg(all(test, feature = "canonical-tests"))]
 tokio::task_local! { static APPEND_GROUP_REPLY_LOSS: bool; }
@@ -44,7 +45,7 @@ tokio::task_local! {
 // the returned ACK, while genuine server effects and recovery reads remain real.
 fn take_execution_ack(
     owner: &'static str,
-    response: &mut surrealdb::IndexedResults,
+    response: &mut crate::transport::client::IndexedResults,
 ) -> Result<Object, CanonicalError> {
     let row = response.take::<Option<Object>>(0)?;
     #[cfg(all(test, feature = "canonical-tests"))]
@@ -218,7 +219,7 @@ pub fn result_metadata_extent(value: &Value) -> Result<usize, CanonicalError> {
     let add = |a: usize, b: usize| a.checked_add(b).ok_or(CanonicalError::PayloadLimit);
     match value {
         Value::None | Value::Null | Value::Bool(_) => Ok(4),
-        Value::Number(surrealdb::types::Number::Decimal(_)) => Ok(40),
+        Value::Number(surrealdb_types::Number::Decimal(_)) => Ok(40),
         Value::Number(_) => Ok(9),
         Value::String(v) => add(head(v.len()), v.len()),
         Value::Bytes(v) => add(head(v.len()), v.len()),
@@ -329,7 +330,7 @@ mod canonical_execution_server_unit {
             .await
             .unwrap();
         assert!(ResultPayload::new(Vec::new()).is_err());
-        assert!(ResultPayload::new_owned(Vec::new(), std::sync::Arc::new(())).is_err());
+        assert!(ResultPayload::new_owned(Vec::new(), test_payload_owner(1024 * 1024)).is_err());
         assert!(
             ResultPayload::from_encoded_owned(
                 Vec::new(),
@@ -338,7 +339,7 @@ mod canonical_execution_server_unit {
                 0,
                 0,
                 "empty-body",
-                std::sync::Arc::new(())
+                test_payload_owner(1024 * 1024)
             )
             .is_err()
         );
@@ -622,7 +623,7 @@ mod canonical_execution_server_unit {
                             0,
                             0,
                             "original-complete-body",
-                            std::sync::Arc::new(()),
+                            test_payload_owner(1024 * 1024),
                         )
                         .unwrap(),
                         1,
@@ -838,7 +839,7 @@ mod canonical_execution_server_unit {
                         admitted.clone(),
                         ordinal,
                         "original-ipc-body",
-                        std::sync::Arc::new(()),
+                        test_payload_owner(1024 * 1024),
                     )
                     .unwrap();
                     let key = result_batch_key(fence.attempt(), &set, ordinal);
@@ -869,7 +870,7 @@ mod canonical_execution_server_unit {
                         1,
                         &block,
                         &[],
-                        std::sync::Arc::new(()),
+                        test_payload_owner(1024 * 1024),
                     )
                     .unwrap()
                 })
@@ -2314,7 +2315,7 @@ mod canonical_execution_server_unit {
         let mut contexts = Vec::new();
         for _ in 0..32 {
             let client = std::sync::Arc::clone(&store.db);
-            let context = surrealdb::opt::RequestContext::new(
+            let context = crate::transport::client::RequestContext::new(
                 std::time::Instant::now() + Duration::from_secs(5),
             );
             contexts.push(context.clone());
@@ -2330,7 +2331,7 @@ mod canonical_execution_server_unit {
         tokio::time::timeout(Duration::from_secs(2), async {
             while !contexts
                 .iter()
-                .all(surrealdb::opt::RequestContext::was_dispatched)
+                .all(crate::transport::client::RequestContext::was_dispatched)
             {
                 tokio::time::sleep(Duration::from_millis(1)).await;
             }
@@ -2850,19 +2851,47 @@ mod canonical_execution_server_unit {
         .await
         .unwrap_err();
         assert!(matches!(error, CanonicalError::Driver(_)));
-        for sql in [
-            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='terminal',outcome='succeeded';",
-            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='terminal',outcome='failed',completion=NONE;",
-            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='closed_awaiting_manifest';",
-            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET outcome='invented';",
-            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET key='different';",
-            "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='ingesting',completion=$completion;",
-            "BEGIN; CREATE canonical_guards:illegal_phase_rollback SET key='illegal_phase_rollback',generation=0dec; UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='invented'; COMMIT;",
+        for (sql, transactional) in [
+            (
+                "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='terminal',outcome='succeeded';",
+                false,
+            ),
+            (
+                "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='terminal',outcome='failed',completion=NONE;",
+                false,
+            ),
+            (
+                "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='closed_awaiting_manifest';",
+                false,
+            ),
+            (
+                "UPDATE ONLY type::record('canonical_attempts',$attempt) SET outcome='invented';",
+                false,
+            ),
+            (
+                "UPDATE ONLY type::record('canonical_attempts',$attempt) SET key='different';",
+                false,
+            ),
+            (
+                "UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='ingesting',completion=$completion;",
+                false,
+            ),
+            (
+                "CREATE canonical_guards:illegal_phase_rollback SET key='illegal_phase_rollback',generation=0dec; UPDATE ONLY type::record('canonical_attempts',$attempt) SET phase='invented';",
+                true,
+            ),
         ] {
+            let query = if transactional {
+                store.db.script(
+                    GuardedScript::new(Envelope::DeadlineOnly)
+                        .returning::<Value>(sql, "NONE")
+                        .unwrap(),
+                )
+            } else {
+                store.db.query(sql)
+            };
             let error = bounded_query(
-                store
-                    .db
-                    .query(sql)
+                query
                     .bind(("attempt", fence.attempt().to_owned()))
                     .bind(("completion", Bytes::from(vec![1_u8]))),
             )
@@ -3490,7 +3519,7 @@ pub struct ResultBlockAppend {
     acknowledgment: AppendAck,
     item: Object,
     extent: usize,
-    _owner: Option<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
+    _owner: Option<std::sync::Arc<pse_columnar::AllocationLease>>,
     payload: ResultPayload,
 }
 impl ResultBlockAppend {
@@ -3509,7 +3538,7 @@ impl ResultBlockAppend {
         row_count: u64,
         block: &ResultBlock,
         outputs: &[ResultOutput],
-        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+        owner: std::sync::Arc<pse_columnar::AllocationLease>,
     ) -> Result<Self, CanonicalError> {
         Self::prepare(
             fence,
@@ -3522,6 +3551,19 @@ impl ResultBlockAppend {
             outputs,
             Some(owner),
         )
+    }
+    /// Retain both actual metadata/copy and encoded-payload reservations in the driver.
+    /// They may be separate original allocations; selecting one cannot release the other.
+    fn scientific_owners(&self) -> Vec<std::sync::Arc<pse_columnar::AllocationLease>> {
+        let mut owners = self._owner.iter().cloned().collect::<Vec<_>>();
+        if let Some(owner) = &self.payload.owner
+            && !owners
+                .iter()
+                .any(|retained| std::sync::Arc::ptr_eq(retained, owner))
+        {
+            owners.push(owner.clone());
+        }
+        owners
     }
     /// Conservative encoded metadata extent, including file binding and request.
     pub fn encoded_extent(&self) -> usize {
@@ -3540,7 +3582,7 @@ impl ResultBlockAppend {
         row_count: u64,
         block: Option<&ResultBlock>,
         outputs: &[ResultOutput],
-        owner: Option<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
+        owner: Option<std::sync::Arc<pse_columnar::AllocationLease>>,
     ) -> Result<Self, CanonicalError> {
         identity(operation)?;
         if outputs.windows(2).any(|pair| pair[0].key >= pair[1].key) {
@@ -4216,7 +4258,7 @@ pub fn result_payload_digest(payload: &[u8]) -> String {
 pub struct ResultPayload {
     bytes: pse_model::Bytes,
     digest: String,
-    owner: Option<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
+    owner: Option<std::sync::Arc<pse_columnar::AllocationLease>>,
     file: Option<crate::canonical_files::SealedFile>,
     payload_index: u64,
     facts: Option<pse_relations::result_batch::BatchFacts>,
@@ -4294,7 +4336,7 @@ impl ResultPayload {
     /// The owner follows every local route copy until response or physical drain.
     pub fn new_owned(
         bytes: Vec<u8>,
-        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+        owner: std::sync::Arc<pse_columnar::AllocationLease>,
     ) -> Result<Self, CanonicalError> {
         let mut payload = Self::new(bytes)?;
         payload.owner = Some(owner);
@@ -4324,7 +4366,7 @@ impl ResultPayload {
     pub fn from_sealed_owned(
         file: crate::canonical_files::SealedFile,
         index: u64,
-        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+        owner: std::sync::Arc<pse_columnar::AllocationLease>,
     ) -> Result<Self, CanonicalError> {
         let mut payload = Self::from_sealed(file, index)?;
         payload.owner = Some(owner);
@@ -4336,7 +4378,7 @@ impl ResultPayload {
     pub fn from_admitted_sealed_owned(
         admitted: &AdmittedSealedResultFile,
         index: u64,
-        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+        owner: std::sync::Arc<pse_columnar::AllocationLease>,
     ) -> Result<Self, CanonicalError> {
         let facts = usize::try_from(index)
             .ok()
@@ -4397,7 +4439,7 @@ impl ResultPayload {
         admitted: std::sync::Arc<pse_relations::result_batch::AdmittedResultFile>,
         index: u64,
         body_operation: &str,
-        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+        owner: std::sync::Arc<pse_columnar::AllocationLease>,
     ) -> Result<Self, CanonicalError> {
         identity(body_operation)?;
         bounded(
@@ -4441,7 +4483,7 @@ impl ResultPayload {
         batch_count: u64,
         index: u64,
         body_operation: &str,
-        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+        owner: std::sync::Arc<pse_columnar::AllocationLease>,
     ) -> Result<Self, CanonicalError> {
         crate::canonical_files::validate_codec_schema(encoding, schema)?;
         identity(body_operation)?;
@@ -4952,10 +4994,12 @@ impl CanonicalStore {
         run: &str,
         operation: &'static str,
         build: F,
-    ) -> Result<surrealdb::IndexedResults, CanonicalError>
+    ) -> Result<crate::transport::client::IndexedResults, CanonicalError>
     where
         F: FnMut() -> Result<Q, CanonicalError>,
-        Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
+        Q: IntoFuture<
+            Output = Result<crate::transport::client::IndexedResults, surrealdb_types::Error>,
+        >,
     {
         let activity = self.admit_activity()?;
         activity
@@ -5257,10 +5301,9 @@ impl CanonicalStore {
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(key)?;
-            let mut response = protected_query("canonical_execution::recovery_snapshot", || Ok(self.db.query("BEGIN; fn::pse_history_v1::point($pse_rpc_expires_at,$key); LET $point = SELECT * FROM ONLY type::record('canonical_study_points',$key); RETURN {point:$point,attempt:(SELECT * FROM ONLY type::record('canonical_attempts',$point.attempt)),study:(SELECT * FROM ONLY type::record('canonical_studies',$point.study)),run:(SELECT * FROM ONLY type::record('canonical_runs',$point.run))}; COMMIT;").bind(("key",key.to_owned())))).await?;
-            let index = response.num_statements().saturating_sub(2);
-            let mut row = response
-                .take::<Option<Object>>(index)?
+            let mut response = protected_query("canonical_execution::recovery_snapshot", || Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("fn::pse_history_v1::point($pse_rpc_expires_at,$key); LET $point = SELECT * FROM ONLY type::record('canonical_study_points',$key);", "{point:$point,attempt:(SELECT * FROM ONLY type::record('canonical_attempts',$point.attempt)),study:(SELECT * FROM ONLY type::record('canonical_studies',$point.study)),run:(SELECT * FROM ONLY type::record('canonical_runs',$point.run))}")?).bind(("key",key.to_owned())))).await?;
+            let mut row = ResultSlot::<Option<Object>>::returned()
+                .take(&mut response)?
                 .ok_or(CanonicalError::IncompleteResponse)?;
             let object = |value| match value {
                 Value::Object(row) => Ok(row),
@@ -5673,7 +5716,7 @@ impl CanonicalStore {
                     .bind(("block",item.get("block").cloned().unwrap_or(Value::None)))
                     .bind(("outputs",item.get("outputs").cloned().unwrap_or(Value::None)))
                     ;
-                Ok(match prepared._owner.clone() { Some(owner) => query.payload_owner(owner), None => query })
+                Ok(query.scientific_payload_owners(prepared.scientific_owners()))
             }).await;
             let write = result.and_then(|mut response| {
                 let saved=writer_response(take_execution_ack("execution-append",&mut response)?)?;
@@ -5769,7 +5812,7 @@ impl CanonicalStore {
             for item in &mut items { self.prepare_result_payload(fence,item).await?; }
             validate_append_group(fence, &items)?;
             let generation = canonical_codec::encode_uint(fence.generation)?;
-            let owners = std::sync::Arc::new(items.iter().filter_map(|item| item._owner.clone()).collect::<Vec<_>>());
+            let owners = items.iter().flat_map(ResultBlockAppend::scientific_owners).collect::<Vec<_>>();
             let mut shared = std::collections::BTreeSet::new();
             let encoded = items.iter().map(|item| {
                 let mut encoded = item.item.clone();
@@ -5786,7 +5829,7 @@ impl CanonicalStore {
             let result = self.protected_execution_query(&fence.run, "canonical_execution::append_result_blocks", ||
                 Ok(self.db.query("RETURN fn::pse_execution_v1::append_many($pse_rpc_expires_at,$run,$attempt,$generation,$items);")
                     .bind(("run",fence.run.as_str().to_owned())).bind(("attempt",fence.attempt.as_str().to_owned()))
-                    .bind(("generation",generation.clone())).bind(("items",encoded.clone())).payload_owner(owners.clone()))).await;
+                    .bind(("generation",generation.clone())).bind(("items",encoded.clone())).scientific_payload_owners(owners.clone()))).await;
             #[cfg(all(test, feature = "canonical-tests"))]
             let result = if result.is_ok() && APPEND_GROUP_REPLY_LOSS.try_with(|lost| *lost).unwrap_or(false) {
                 // Controlled actual-server post-commit reply loss. Settlement
@@ -5939,7 +5982,7 @@ impl CanonicalStore {
     }
     async fn closed_response(
         &self,
-        result: Result<surrealdb::IndexedResults, CanonicalError>,
+        result: Result<crate::transport::client::IndexedResults, CanonicalError>,
         operation: &str,
         kind: &str,
         request: &[u8],
@@ -6518,6 +6561,20 @@ impl CanonicalStore {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    reason = "isolated protocol fixtures reserve their actual synthetic payload allowance"
+)]
+fn test_payload_owner(bytes: usize) -> std::sync::Arc<pse_columnar::AllocationLease> {
+    let pool: std::sync::Arc<dyn pse_columnar::MemoryPool> =
+        std::sync::Arc::new(pse_columnar::GreedyMemoryPool::new(bytes));
+    let reservation =
+        pse_columnar::MemoryConsumer::new("canonical:payload-fixture").register(&pool);
+    reservation.try_grow(bytes).unwrap();
+    pse_columnar::AllocationLease::new(reservation)
+}
+
+#[cfg(test)]
 mod canonical_result_admission_unit {
     use super::*;
     fn ack(
@@ -6583,9 +6640,41 @@ mod canonical_result_admission_unit {
             1,
             &block,
             &[],
-            std::sync::Arc::new(()),
+            test_payload_owner(1024 * 1024),
         )
         .unwrap()
+    }
+    #[test]
+    fn append_driver_keeps_distinct_metadata_and_payload_reservations() {
+        let mut item = append_item(&ack_fence(), "values", 0, vec![1]);
+        let metadata = test_payload_owner(4096);
+        let payload = test_payload_owner(128);
+        let metadata_weak = std::sync::Arc::downgrade(&metadata);
+        let payload_weak = std::sync::Arc::downgrade(&payload);
+        item._owner = Some(metadata.clone());
+        item.payload.owner = Some(payload.clone());
+        let retained = item.scientific_owners();
+        assert_eq!(retained.len(), 2);
+        assert!(
+            retained
+                .iter()
+                .any(|owner| std::sync::Arc::ptr_eq(owner, &metadata))
+        );
+        assert!(
+            retained
+                .iter()
+                .any(|owner| std::sync::Arc::ptr_eq(owner, &payload))
+        );
+        drop((item, metadata, payload));
+        assert!(metadata_weak.upgrade().is_some());
+        assert!(payload_weak.upgrade().is_some());
+        drop(retained);
+        assert!(metadata_weak.upgrade().is_none());
+        assert!(payload_weak.upgrade().is_none());
+
+        let mut item = append_item(&ack_fence(), "shared", 0, vec![1]);
+        item.payload.owner = item._owner.clone();
+        assert_eq!(item.scientific_owners().len(), 1);
     }
     #[test]
     fn copied_statistics_and_equal_replay_cannot_mint_exact_first_append_facts() {
@@ -6608,7 +6697,7 @@ mod canonical_result_admission_unit {
                 1,
                 &block,
                 &[],
-                std::sync::Arc::new(()),
+                test_payload_owner(1024 * 1024),
             );
             assert!(
                 matches!(result, Err(CanonicalError::Configuration(message)) if message.contains("actual admitted-file proof"))
@@ -6849,10 +6938,7 @@ mod canonical_result_admission_unit {
             matches!(writer_response(row.clone()), Err(CanonicalError::StudyCancellation { run, attempt, generation: 7, operation })
             if run == "run" && attempt == "attempt" && operation == "append-17")
         );
-        row.insert(
-            "generation",
-            Value::Number(surrealdb::types::Number::Int(7)),
-        );
+        row.insert("generation", Value::Number(surrealdb_types::Number::Int(7)));
         assert!(matches!(
             writer_response(row.clone()),
             Err(CanonicalError::Codec(_))

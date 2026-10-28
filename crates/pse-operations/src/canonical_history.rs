@@ -3,11 +3,12 @@
 
 //! Deliberately retained detailed history and irreversible minimal replay fences.
 
+use crate::canonical_script::{Envelope, GuardedScript, ResultSlot};
 use crate::{
     canonical::{CanonicalError, CanonicalStore, protected_query},
     canonical_codec,
 };
-use surrealdb::types::Object;
+use surrealdb_types::{Object, Value};
 
 /// Exact scientific history owner. Releasing payloads does not release its history.
 #[derive(
@@ -137,8 +138,8 @@ impl CanonicalStore {
         activity.scope(async {
             obligation.owner.validate()?; identity(&obligation.key)?; identity(&obligation.attribution)?;
             self.ensure_writes()?;
-            let query=if retaining {"BEGIN; RETURN fn::pse_history_v1::retain($pse_rpc_expires_at,$key,$kind,$owner,$purpose,$attribution); COMMIT;"} else {"BEGIN; RETURN fn::pse_history_v1::drop_obligation($pse_rpc_expires_at,$key,$kind,$owner,$purpose,$attribution); COMMIT;"};
-            protected_query("canonical_history::obligation", || Ok(self.db.query(query)
+            let query=|| if retaining {GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>("","fn::pse_history_v1::retain($pse_rpc_expires_at,$key,$kind,$owner,$purpose,$attribution)")} else {GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>("","fn::pse_history_v1::drop_obligation($pse_rpc_expires_at,$key,$kind,$owner,$purpose,$attribution)")};
+            protected_query("canonical_history::obligation", || Ok(self.db.script(query()?)
                 .bind(("key",obligation.key.clone())).bind(("kind",obligation.owner.parts().0))
                 .bind(("owner",obligation.owner.parts().1.to_owned())).bind(("purpose",obligation.purpose.name()))
                 .bind(("attribution",obligation.attribution.clone())))).await?;
@@ -151,12 +152,26 @@ impl CanonicalStore {
     /// alone never authorizes release. Repeating resumes the same permanent fence.
     pub async fn release_history(&self, owner: &HistoryOwner) -> Result<(), CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-            owner.validate()?; self.ensure_writes()?;
-            protected_query("canonical_history::release", || Ok(self.db.query("BEGIN; RETURN fn::pse_history_v1::release($pse_rpc_expires_at,$kind,$owner); COMMIT;")
-                .bind(("kind",owner.parts().0)).bind(("owner",owner.parts().1.to_owned())))).await?;
-            Ok(())
-        }).await
+        activity
+            .scope(async {
+                owner.validate()?;
+                self.ensure_writes()?;
+                protected_query("canonical_history::release", || {
+                    Ok(self
+                        .db
+                        .script(
+                            GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>(
+                                "",
+                                "fn::pse_history_v1::release($pse_rpc_expires_at,$kind,$owner)",
+                            )?,
+                        )
+                        .bind(("kind", owner.parts().0))
+                        .bind(("owner", owner.parts().1.to_owned())))
+                })
+                .await?;
+                Ok(())
+            })
+            .await
     }
 
     /// Remove at most 64 records, or compact at most 64 operation receipts.
@@ -167,18 +182,41 @@ impl CanonicalStore {
         owner: &HistoryOwner,
     ) -> Result<HistoryReclamationPage, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-            owner.validate()?; self.ensure_writes()?;
-            let mut response=protected_query("canonical_history::collect", || Ok(self.db.query("BEGIN; RETURN fn::pse_history_v1::collect($pse_rpc_expires_at,$kind,$owner); COMMIT;")
-                .bind(("kind",owner.parts().0)).bind(("owner",owner.parts().1.to_owned())))).await?;
-            let index=response.num_statements().saturating_sub(2);
-            let mut row=response.take::<Option<Object>>(index)?.ok_or(CanonicalError::IncompleteResponse)?;
-            Ok(HistoryReclamationPage {
-                complete:canonical_codec::decode_boolean(canonical_codec::required(&mut row,"complete")?)?,
-                removed:canonical_codec::decode_uint(canonical_codec::required(&mut row,"removed")?)?,
-                compacted:canonical_codec::decode_uint(canonical_codec::required(&mut row,"compacted")?)?,
+        activity
+            .scope(async {
+                owner.validate()?;
+                self.ensure_writes()?;
+                let mut response = protected_query("canonical_history::collect", || {
+                    Ok(self
+                        .db
+                        .script(
+                            GuardedScript::new(Envelope::DeadlineOnly)
+                                .returning::<Option<Object>>(
+                                    "",
+                                    "fn::pse_history_v1::collect($pse_rpc_expires_at,$kind,$owner)",
+                                )?,
+                        )
+                        .bind(("kind", owner.parts().0))
+                        .bind(("owner", owner.parts().1.to_owned())))
+                })
+                .await?;
+                let mut row = ResultSlot::<Option<Object>>::returned()
+                    .take(&mut response)?
+                    .ok_or(CanonicalError::IncompleteResponse)?;
+                Ok(HistoryReclamationPage {
+                    complete: canonical_codec::decode_boolean(canonical_codec::required(
+                        &mut row, "complete",
+                    )?)?,
+                    removed: canonical_codec::decode_uint(canonical_codec::required(
+                        &mut row, "removed",
+                    )?)?,
+                    compacted: canonical_codec::decode_uint(canonical_codec::required(
+                        &mut row,
+                        "compacted",
+                    )?)?,
+                })
             })
-        }).await
+            .await
     }
 }
 

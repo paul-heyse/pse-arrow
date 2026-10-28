@@ -37,9 +37,9 @@ pub enum MetadataResponse {
 impl MetadataResponse {
     /// Limits include 32 statement envelopes of at most eight fields, errors,
     /// and the root envelope. Keys are counted separately from their values.
-    pub fn limits(self) -> surrealdb::opt::ResponseLimits {
+    pub fn limits(self) -> crate::transport::client::ResponseLimits {
         if matches!(self, Self::InlinePayload) {
-            return surrealdb::opt::ResponseLimits {
+            return crate::transport::client::ResponseLimits {
                 wire_bytes: wire::RESULT_INLINE_BYTES + 64 * 1024,
                 nodes: 256,
                 depth: 16,
@@ -53,7 +53,7 @@ impl MetadataResponse {
         if matches!(self, Self::StudyPage) {
             let bound = pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES;
             let rows = pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS;
-            return surrealdb::opt::ResponseLimits {
+            return crate::transport::client::ResponseLimits {
                 wire_bytes: bound + rows * 32 * 128,
                 nodes: 512 + rows * 32 * 2,
                 depth: 16,
@@ -75,7 +75,7 @@ impl MetadataResponse {
             // This also covers RecordId/RecordIdKey and row/container wrappers;
             // 512 further nodes cover operation envelopes and bounded errors.
             let nodes = 512 + rows * (8 + 6 + 3 + 5 + 17 + 15 + 11) * 8;
-            return surrealdb::opt::ResponseLimits {
+            return crate::transport::client::ResponseLimits {
                 wire_bytes: wire::RESULT_MESSAGE_BYTES,
                 nodes,
                 // Pinned grpc_wire_schema: QueryResponse/QueryBatchFrame/
@@ -94,7 +94,7 @@ impl MetadataResponse {
             };
         }
         if matches!(self, Self::DiagnosticPlan) {
-            return surrealdb::opt::ResponseLimits {
+            return crate::transport::client::ResponseLimits {
                 wire_bytes: 1 << 20,
                 nodes: 16384,
                 depth: 256,
@@ -129,7 +129,7 @@ impl MetadataResponse {
             }
             Self::Header | Self::Selection | Self::OutputPage => wire::RESULT_MESSAGE_BYTES,
         };
-        surrealdb::opt::ResponseLimits {
+        crate::transport::client::ResponseLimits {
             // Native protobuf messages and repeated slots need at most 128 bytes
             // per admitted node beyond copied strings for this scalar ACK layout.
             wire_bytes: if matches!(self, Self::Protection) {

@@ -33,8 +33,7 @@ pub const INSTRUMENTATION_SCOPE: &str = "pse-runtime";
 fn exported_owner_span(metadata: &tracing::Metadata<'_>) -> bool {
     metadata.is_span()
         && (metadata.fields().field("pse.owner.stage").is_some()
-            || (metadata.target() == "surrealdb::engine::remote::grpc_lifecycle"
-                && metadata.name() == "surrealdb.sdk.request"))
+            || pse_operations::transport::client::is_request_span(metadata))
 }
 
 /// Actual compiled SDK metadata, supplied by the SDK's own detector without
@@ -1330,7 +1329,8 @@ mod tests {
         }
     }
     #[test]
-    fn production_span_filter_retains_exact_sdk_parent_without_events_or_other_library_spans() {
+    fn production_span_filter_retains_exact_request_parent_without_events_or_other_library_spans() {
+        use pse_operations::transport::client::{REQUEST_SPAN_NAME, REQUEST_SPAN_TARGET};
         let recorded = Recorded::default();
         let provider = SdkTracerProvider::builder()
             .with_simple_exporter(recorded.clone())
@@ -1347,20 +1347,20 @@ mod tests {
         )]))
         .unwrap();
         let native_id = tracing::dispatcher::with_default(&dispatch, || {
-            let native = carrier.operation_span("fixture.sdk");
+            let native = carrier.operation_span("fixture.canonical");
             let native_id = native.context().span().span_context().span_id();
             native.in_scope(|| {
-                let sdk = tracing::info_span!(
-                    target: "surrealdb::engine::remote::grpc_lifecycle",
-                    "surrealdb.sdk.request"
+                let request = tracing::info_span!(
+                    target: REQUEST_SPAN_TARGET,
+                    REQUEST_SPAN_NAME
                 );
-                assert!(!sdk.is_disabled());
-                sdk.in_scope(|| {
-                    tracing::warn!(target: "surrealdb::engine::remote::grpc_lifecycle", private = "must-not-export", "private request event");
-                    let unrelated = tracing::info_span!(target: "surrealdb::engine::remote::grpc", "unrelated.sdk.span");
+                assert!(!request.is_disabled());
+                request.in_scope(|| {
+                    tracing::warn!(target: REQUEST_SPAN_TARGET, private = "must-not-export", "private request event");
+                    let unrelated = tracing::info_span!(target: "unrelated.grpc", REQUEST_SPAN_NAME);
                     assert!(unrelated.is_disabled());
-                    let wrong_sdk_name = tracing::info_span!(target: "surrealdb::engine::remote::grpc_lifecycle", "unrelated.lifecycle.span");
-                    assert!(wrong_sdk_name.is_disabled());
+                    let wrong_request_name = tracing::info_span!(target: REQUEST_SPAN_TARGET, "unrelated.lifecycle.span");
+                    assert!(wrong_request_name.is_disabled());
                     let inner = tracing::info_span!(target: "pse_runtime::math", "pse.inner.expression");
                     assert!(inner.is_disabled());
                     let lookalike = tracing::info_span!(target: "pse_unrelated", "pse.lookalike");
@@ -1376,14 +1376,14 @@ mod tests {
             .iter()
             .find(|span| span.name == "pse.native.operation")
             .unwrap();
-        let sdk = records
+        let request = records
             .iter()
-            .find(|span| span.name == "surrealdb.sdk.request")
+            .find(|span| span.name == REQUEST_SPAN_NAME)
             .unwrap();
         assert_eq!(native.parent_span_id.to_string(), "9123456789abcdef");
-        assert_eq!(sdk.parent_span_id, native_id);
+        assert_eq!(request.parent_span_id, native_id);
         assert_eq!(
-            sdk.span_context.trace_id().to_string(),
+            request.span_context.trace_id().to_string(),
             "8123456789abcdef0123456789abcdef"
         );
         assert!(records.iter().all(|span| span.events.events.is_empty()));
@@ -1783,16 +1783,23 @@ mod tests {
             .enable_all()
             .build()
             .unwrap();
-        runtime.block_on(context.shared_producer("fixture.continued").instrument_with(async {
-            tokio::task::yield_now().await;
-            assert!(
-                Carrier::current()
-                    .context()
-                    .span()
-                    .span_context()
-                    .is_valid()
-            );
-        }, |_| Some(pse_diagnostics::observation::Outcome::Completed)));
+        runtime.block_on(
+            context
+                .shared_producer("fixture.continued")
+                .instrument_with(
+                    async {
+                        tokio::task::yield_now().await;
+                        assert!(
+                            Carrier::current()
+                                .context()
+                                .span()
+                                .span_context()
+                                .is_valid()
+                        );
+                    },
+                    |_| Some(pse_diagnostics::observation::Outcome::Completed),
+                ),
+        );
         provider.force_flush().unwrap();
         let records = recorded.0.lock().unwrap();
         let producer = records

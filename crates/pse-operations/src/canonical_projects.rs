@@ -3,6 +3,7 @@
 //! Project and research operations over the canonical source owner, never a second model store.
 use crate::canonical::REQUEST_TIMEOUT;
 use crate::canonical::transport::{original_deadline, within_clock};
+use crate::canonical_script::{Envelope, GuardedScript, ResultSlot};
 use crate::{
     canonical::{
         CanonicalError, CanonicalStore, ObjectEdit, Revision, bounded_query, protected_query,
@@ -24,7 +25,7 @@ pub use pse_model::generated::runtime::{
     canonical_project_savepoints::Row as Savepoint, canonical_projects::Row as Project,
     canonical_research_references::Row as ResearchReference,
 };
-use surrealdb::types::{Object, Value};
+use surrealdb_types::{Object, Value};
 
 /// One atomic draft-head and immutable-version selection.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -340,11 +341,11 @@ impl ProjectPublication {
             }
             value.insert(
                 "source_selection",
-                surrealdb::types::Bytes::from(binding.source_selection.clone()),
+                surrealdb_types::Bytes::from(binding.source_selection.clone()),
             );
             value.insert(
                 "mapping",
-                surrealdb::types::Bytes::from(binding.mapping.clone()),
+                surrealdb_types::Bytes::from(binding.mapping.clone()),
             );
             Value::Object(value)
         } else {
@@ -373,7 +374,7 @@ impl ProjectPublication {
         );
         row.insert(
             "request",
-            surrealdb::types::Bytes::from(self.request.clone()),
+            surrealdb_types::Bytes::from(self.request.clone()),
         );
         for (key, value) in [
             ("expected", self.expected.as_deref()),
@@ -433,15 +434,14 @@ fn object(value: Value) -> Result<Object, codec::CodecError> {
         _ => Err(codec::CodecError::Domain("object")),
     }
 }
-fn final_object(response: &mut surrealdb::IndexedResults) -> Result<Object, CanonicalError> {
-    let index = response
-        .num_statements()
-        .checked_sub(2)
-        .ok_or(CanonicalError::IncompleteResponse)?;
-    response
-        .take::<Option<Object>>(index)?
+fn final_object(
+    response: &mut crate::transport::client::IndexedResults,
+) -> Result<Object, CanonicalError> {
+    ResultSlot::<Option<Object>>::returned()
+        .take(response)?
         .ok_or(CanonicalError::IncompleteResponse)
 }
+
 fn obligation(artifact: Option<&str>, owner: &str) -> Result<Value, CanonicalError> {
     artifact
         .map(|key| {
@@ -459,22 +459,6 @@ fn obligation(artifact: Option<&str>, owner: &str) -> Result<Value, CanonicalErr
         .map_err(Into::into)
 }
 impl CanonicalStore {
-    pub(crate) fn project_query(
-        &self,
-        sql: &str,
-    ) -> Result<surrealdb::method::Query<'_, surrealdb::engine::remote::grpc::Client>, CanonicalError>
-    {
-        let guard = "fn::pse_project_v1::authority($pse_rpc_expires_at,$project_issuing_store);";
-        let sql = if let Some(body) = sql.strip_prefix("BEGIN;") {
-            format!("BEGIN; {guard} {body}")
-        } else {
-            format!("BEGIN; {guard} {sql} COMMIT;")
-        };
-        Ok(self
-            .db
-            .query(sql)
-            .bind(("project_issuing_store", self.issuing_store()?.to_owned())))
-    }
     /// Read immutable exact-operation attribution; absence is not a rollback proof.
     pub async fn project_acknowledgement(
         &self,
@@ -482,7 +466,7 @@ impl CanonicalStore {
     ) -> Result<Option<ProjectAcknowledgement>, CanonicalError> {
         identity(operation)?;
         let activity = self.admit_activity()?;
-        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async { let mut response=bounded_query(self.project_query("SELECT * FROM ONLY type::record('canonical_project_operations',$operation);")?.bind(("operation",operation.to_owned()))).await?; response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?.map(wire::decode_canonical_project_operations).transpose().map_err(Into::into) })).await
+        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async { let mut response=bounded_query(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","SELECT * FROM ONLY type::record('canonical_project_operations',$operation)")?).bind(("operation",operation.to_owned()))).await?; ResultSlot::<Option<Object>>::returned().take(&mut response)?.map(wire::decode_canonical_project_operations).transpose().map_err(Into::into) })).await
     }
     /// Explicit project creation with caller-issued immutable identity.
     pub async fn create_project(
@@ -499,7 +483,7 @@ impl CanonicalStore {
         let request = request(&("create", self.issuing_store()?, project, title))?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {self.ensure_writes()?;
-            let result=protected_query("canonical_projects::create",||Ok(self.project_query("BEGIN; RETURN fn::pse_project_v1::create($pse_rpc_expires_at,$operation,$request,$project,$title); COMMIT;")?.bind(("operation",operation.to_owned())).bind(("request",surrealdb::types::Bytes::from(request.clone()))).bind(("project",project.to_owned())).bind(("title",title.to_owned())))).await;
+            let result=protected_query("canonical_projects::create",||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_project_v1::create($pse_rpc_expires_at,$operation,$request,$project,$title)")?).bind(("operation",operation.to_owned())).bind(("request",surrealdb_types::Bytes::from(request.clone()))).bind(("project",project.to_owned())).bind(("title",title.to_owned())))).await;
             self.settle_project_effect(operation,&request,result).await
         })).await
     }
@@ -507,7 +491,7 @@ impl CanonicalStore {
         &self,
         operation: &str,
         request: &[u8],
-        result: Result<surrealdb::IndexedResults, CanonicalError>,
+        result: Result<crate::transport::client::IndexedResults, CanonicalError>,
     ) -> Result<ProjectAcknowledgement, CanonicalError> {
         #[cfg(any(test, feature = "test-support"))]
         let result = if result.is_ok() && simulate_reply_loss() {
@@ -538,14 +522,11 @@ impl CanonicalStore {
         activity
             .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
                 let mut response = bounded_query(
-                    self.project_query(
-                        "SELECT * FROM ONLY type::record('canonical_projects',$key) WHERE fn::pse_project_import_v1::available(key);",
-                    )?
+                    self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","SELECT * FROM ONLY type::record('canonical_projects',$key) WHERE fn::pse_project_import_v1::available(key)")?)
                     .bind(("key", key.to_owned())),
                 )
                 .await?;
-                response
-                    .take::<Option<Object>>(response.num_statements().saturating_sub(2))?
+                ResultSlot::<Option<Object>>::returned().take(&mut response)?
                     .map(wire::decode_canonical_projects)
                     .transpose()
                     .map_err(Into::into)
@@ -567,7 +548,7 @@ impl CanonicalStore {
         }
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async{
-            let mut response=protected_query("canonical_projects::branches",||Ok(self.project_query("BEGIN; LET $project=SELECT * FROM ONLY type::record('canonical_projects',$key); IF $project=NONE OR !fn::pse_project_import_v1::available($key) OR ($generation!=NONE AND $project.generation!=$generation) { THROW 'PSE_REFUSAL:project_generation_changed'; }; LET $rows=SELECT * FROM canonical_project_branches WITH INDEX project_branch_order WHERE project=$key AND key>$after ORDER BY key LIMIT 65; RETURN {project:$project,branches:$rows}; COMMIT;")?.bind(("key",project.to_owned())).bind(("generation",cursor.map(|c|codec::encode_uint(c.generation)).transpose()?.unwrap_or(Value::None))).bind(("after",cursor.map_or("",|c|c.after.as_str()).to_owned())))).await?;
+            let mut response=protected_query("canonical_projects::branches",||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("LET $project=SELECT * FROM ONLY type::record('canonical_projects',$key); IF $project=NONE OR !fn::pse_project_import_v1::available($key) OR ($generation!=NONE AND $project.generation!=$generation) { THROW 'PSE_REFUSAL:project_generation_changed'; }; LET $rows=SELECT * FROM canonical_project_branches WITH INDEX project_branch_order WHERE project=$key AND key>$after ORDER BY key LIMIT 65;","{project:$project,branches:$rows}")?).bind(("key",project.to_owned())).bind(("generation",cursor.map(|c|codec::encode_uint(c.generation)).transpose()?.unwrap_or(Value::None))).bind(("after",cursor.map_or("",|c|c.after.as_str()).to_owned())))).await?;
             let mut row=final_object(&mut response)?;let project=wire::decode_canonical_projects(object(codec::required(&mut row,"project")?)?)?;
             let Value::Array(rows)=codec::required(&mut row,"branches")? else{return Err(CanonicalError::IncompleteResponse);};
             let mut branches=rows.into_iter().map(|v|wire::decode_canonical_project_branches(object(v)?)).collect::<Result<Vec<_>,_>>()?;
@@ -582,14 +563,11 @@ impl CanonicalStore {
         activity
             .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
                 let mut response = bounded_query(
-                    self.project_query(
-                        "SELECT * FROM ONLY type::record('canonical_project_branches',$key) WHERE fn::pse_project_import_v1::available(project);",
-                    )?
+                    self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","SELECT * FROM ONLY type::record('canonical_project_branches',$key) WHERE fn::pse_project_import_v1::available(project)")?)
                     .bind(("key", key.to_owned())),
                 )
                 .await?;
-                response
-                    .take::<Option<Object>>(response.num_statements().saturating_sub(2))?
+                ResultSlot::<Option<Object>>::returned().take(&mut response)?
                     .map(wire::decode_canonical_project_branches)
                     .transpose()
                     .map_err(Into::into)
@@ -604,8 +582,8 @@ impl CanonicalStore {
         identity(key)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async{
-            let mut response=bounded_query(self.project_query("LET $branch=SELECT * FROM ONLY type::record('canonical_project_branches',$key) WHERE fn::pse_project_import_v1::available(project); LET $problem=IF $branch=NONE {NONE} ELSE {SELECT * FROM ONLY type::record('canonical_problems',$branch.problem)}; RETURN IF $problem=NONE {NONE} ELSE {SELECT * FROM ONLY type::record('canonical_revisions',$problem.head)};")?.bind(("key",key.to_owned()))).await?;
-            response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?.map(wire::decode_canonical_revisions).transpose().map_err(Into::into)
+            let mut response=bounded_query(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("LET $branch=SELECT * FROM ONLY type::record('canonical_project_branches',$key) WHERE fn::pse_project_import_v1::available(project); LET $problem=IF $branch=NONE {NONE} ELSE {SELECT * FROM ONLY type::record('canonical_problems',$branch.problem)};","IF $problem=NONE {NONE} ELSE {SELECT * FROM ONLY type::record('canonical_revisions',$problem.head)}")?).bind(("key",key.to_owned()))).await?;
+            ResultSlot::<Option<Object>>::returned().take(&mut response)?.map(wire::decode_canonical_revisions).transpose().map_err(Into::into)
         })).await
     }
     /// Capture an original independent-branch fork intent; source closure is checked atomically.
@@ -853,15 +831,15 @@ impl CanonicalStore {
         let encoded = wire::encode_canonical_project_draft_versions(&row)?;
         let obligation = obligation(artifact, key)?;
         let activity = self.admit_activity()?;
-        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async{self.ensure_writes()?;let result=protected_query("canonical_projects::draft",||Ok(self.project_query("BEGIN; RETURN fn::pse_project_v1::draft($pse_rpc_expires_at,$operation,$request,$row,$expected,$project_generation,$obligation); COMMIT;")?.bind(("operation",operation.to_owned())).bind(("request",surrealdb::types::Bytes::from(request.clone()))).bind(("row",encoded.clone())).bind(("expected",expected.map(codec::encode_uint).transpose()?.unwrap_or(Value::None))).bind(("project_generation",codec::encode_uint(project.generation)?)).bind(("obligation",obligation.clone())))).await;self.settle_project_effect(operation,&request,result).await})).await
+        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async{self.ensure_writes()?;let result=protected_query("canonical_projects::draft",||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_project_v1::draft($pse_rpc_expires_at,$operation,$request,$row,$expected,$project_generation,$obligation)")?).bind(("operation",operation.to_owned())).bind(("request",surrealdb_types::Bytes::from(request.clone()))).bind(("row",encoded.clone())).bind(("expected",expected.map(codec::encode_uint).transpose()?.unwrap_or(Value::None))).bind(("project_generation",codec::encode_uint(project.generation)?)).bind(("obligation",obligation.clone())))).await;self.settle_project_effect(operation,&request,result).await})).await
     }
     /// Read the head and exact immutable version in one short snapshot.
     pub async fn project_draft(&self, key: &str) -> Result<Option<Draft>, CanonicalError> {
         identity(key)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            let mut response=bounded_query(self.project_query("LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$key) WHERE fn::pse_project_import_v1::available(project); RETURN IF $head=NONE {NONE} ELSE {{head:$head,version:(SELECT * FROM ONLY type::record('canonical_project_draft_versions',$head.version) WHERE project=$head.project AND fn::pse_project_import_v1::available(project))}};")?.bind(("key",key.to_owned()))).await?;
-            let value=response.take::<Option<Object>>(response.num_statements().saturating_sub(2))?;
+            let mut response=bounded_query(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("LET $head=SELECT * FROM ONLY type::record('canonical_project_drafts',$key) WHERE fn::pse_project_import_v1::available(project);","IF $head=NONE {NONE} ELSE {{head:$head,version:(SELECT * FROM ONLY type::record('canonical_project_draft_versions',$head.version) WHERE project=$head.project AND fn::pse_project_import_v1::available(project))}}")?).bind(("key",key.to_owned()))).await?;
+            let value=ResultSlot::<Option<Object>>::returned().take(&mut response)?;
             value.map(|mut row|Ok(Draft{head:wire::decode_canonical_project_drafts(object(codec::required(&mut row,"head")?)?)?,version:wire::decode_canonical_project_draft_versions(object(codec::required(&mut row,"version")?)?)?})).transpose()
         })).await
     }
@@ -875,14 +853,11 @@ impl CanonicalStore {
         activity
             .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
                 let mut response = bounded_query(
-                    self.project_query(
-                        "SELECT * FROM ONLY type::record('canonical_project_draft_versions',$key) WHERE fn::pse_project_import_v1::available(project);",
-                    )?
+                    self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","SELECT * FROM ONLY type::record('canonical_project_draft_versions',$key) WHERE fn::pse_project_import_v1::available(project)")?)
                     .bind(("key", key.to_owned())),
                 )
                 .await?;
-                response
-                    .take::<Option<Object>>(response.num_statements().saturating_sub(2))?
+                ResultSlot::<Option<Object>>::returned().take(&mut response)?
                     .map(wire::decode_canonical_project_draft_versions)
                     .transpose()
                     .map_err(Into::into)
@@ -896,14 +871,11 @@ impl CanonicalStore {
         activity
             .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
                 let mut response = bounded_query(
-                    self.project_query(
-                        "SELECT * FROM ONLY type::record('canonical_project_bookmarks',$key) WHERE fn::pse_project_import_v1::available(project);",
-                    )?
+                    self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","SELECT * FROM ONLY type::record('canonical_project_bookmarks',$key) WHERE fn::pse_project_import_v1::available(project)")?)
                     .bind(("key", key.to_owned())),
                 )
                 .await?;
-                response
-                    .take::<Option<Object>>(response.num_statements().saturating_sub(2))?
+                ResultSlot::<Option<Object>>::returned().take(&mut response)?
                     .map(wire::decode_canonical_project_bookmarks)
                     .transpose()
                     .map_err(Into::into)
@@ -917,7 +889,7 @@ impl CanonicalStore {
     ) -> Result<Vec<String>, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            let mut response=bounded_query(self.project_query("LET $actual=SELECT * FROM ONLY type::record('canonical_revisions',$key); IF $actual=NONE OR $actual.problem!=$problem {THROW 'PSE_REFUSAL:project_source_unavailable';}; LET $branch=SELECT * FROM canonical_project_branches WITH INDEX project_branch_problem WHERE problem=$problem LIMIT 2; FOR $owner IN $branch {IF !fn::pse_project_import_v1::available($owner.project) {THROW 'PSE_REFUSAL:project_source_unavailable';};}; LET $extra=SELECT VALUE parent FROM canonical_project_ancestry WITH INDEX project_ancestry WHERE revision=$key LIMIT 3; RETURN {parent:$actual.parent,origin:IF $actual.parent=NONE AND array::len($branch)=1 {$branch[0].origin_revision} ELSE {NONE},extra:$extra};")?.bind(("key",revision.key.clone())).bind(("problem",revision.problem.clone()))).await?;
+            let mut response=bounded_query(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("LET $actual=SELECT * FROM ONLY type::record('canonical_revisions',$key); IF $actual=NONE OR $actual.problem!=$problem {THROW 'PSE_REFUSAL:project_source_unavailable';}; LET $branch=SELECT * FROM canonical_project_branches WITH INDEX project_branch_problem WHERE problem=$problem LIMIT 2; FOR $owner IN $branch {IF !fn::pse_project_import_v1::available($owner.project) {THROW 'PSE_REFUSAL:project_source_unavailable';};}; LET $extra=SELECT VALUE parent FROM canonical_project_ancestry WITH INDEX project_ancestry WHERE revision=$key LIMIT 3;","{parent:$actual.parent,origin:IF $actual.parent=NONE AND array::len($branch)=1 {$branch[0].origin_revision} ELSE {NONE},extra:$extra}")?).bind(("key",revision.key.clone())).bind(("problem",revision.problem.clone()))).await?;
             let mut row=final_object(&mut response)?;let mut result=Vec::new();for field in ["parent","origin"]{if let Some(value)=row.remove(field) && value!=Value::None && value!=Value::Null {result.push(codec::decode_string(value)?);}}
             let extra=codec::required(&mut row,"extra")?;if let Value::Array(items)=extra {for item in items{if let Value::String(v)=item {result.push(v);}}}result.sort();result.dedup();Ok(result)
         })).await
@@ -958,7 +930,7 @@ impl CanonicalStore {
         let row = wire::encode_canonical_research_references(&row)?;
         let obligation = obligation(artifact, key)?;
         let activity = self.admit_activity()?;
-        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async{self.ensure_writes()?;let result=protected_query("canonical_projects::research",||Ok(self.project_query("BEGIN; RETURN fn::pse_project_v1::research($pse_rpc_expires_at,$operation,$request,$row,$project_generation,$obligation); COMMIT;")?.bind(("operation",operation.to_owned())).bind(("request",surrealdb::types::Bytes::from(request.clone()))).bind(("row",row.clone())).bind(("project_generation",codec::encode_uint(project.generation)?)).bind(("obligation",obligation.clone())))).await;self.settle_project_effect(operation,&request,result).await})).await
+        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async{self.ensure_writes()?;let result=protected_query("canonical_projects::research",||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_project_v1::research($pse_rpc_expires_at,$operation,$request,$row,$project_generation,$obligation)")?).bind(("operation",operation.to_owned())).bind(("request",surrealdb_types::Bytes::from(request.clone()))).bind(("row",row.clone())).bind(("project_generation",codec::encode_uint(project.generation)?)).bind(("obligation",obligation.clone())))).await;self.settle_project_effect(operation,&request,result).await})).await
     }
 }
 
@@ -1174,7 +1146,7 @@ impl CanonicalStore {
         ))?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            self.ensure_writes()?;let result=protected_query("canonical_projects::navigate",||Ok(self.project_query("RETURN fn::pse_project_v1::navigate($pse_rpc_expires_at,$operation,$request,$project,$generation,$action);")?.bind(("operation",operation.to_owned())).bind(("request",surrealdb::types::Bytes::from(request.clone()))).bind(("project",project.key.clone())).bind(("generation",codec::encode_uint(project.generation)?)).bind(("action",encoded.clone())))).await;
+            self.ensure_writes()?;let result=protected_query("canonical_projects::navigate",||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_project_v1::navigate($pse_rpc_expires_at,$operation,$request,$project,$generation,$action)")?).bind(("operation",operation.to_owned())).bind(("request",surrealdb_types::Bytes::from(request.clone()))).bind(("project",project.key.clone())).bind(("generation",codec::encode_uint(project.generation)?)).bind(("action",encoded.clone())))).await;
             self.settle_project_effect(operation,&request,result).await
         })).await
     }
@@ -1244,20 +1216,25 @@ impl CanonicalStore {
                  if kind==ProjectMetadataKind::Diagnostics {"fn::pse_project_import_v1::available(type::record('canonical_project_draft_versions',version).project)"} else {"fn::pse_project_import_v1::available(project)"})
             },
         };
-        let sql = format!(
-            "{guard} SELECT * FROM {table}{index} WHERE {clause}{availability} AND key>$after ORDER BY key LIMIT 65;"
+        let expression = format!(
+            "SELECT * FROM {table}{index} WHERE {clause}{availability} AND key>$after ORDER BY key LIMIT 65"
         );
         let activity = self.admit_activity()?;
         activity
             .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
                 let mut response = bounded_query(
-                    self.project_query(&sql)?
+                    self.db
+                        .script(
+                            GuardedScript::new(Envelope::ProjectAuthority {
+                                issuer: self.issuing_store()?,
+                            })
+                            .returning::<Vec<Object>>(&guard, &expression)?,
+                        )
                         .bind(("owner", owner.to_owned()))
                         .bind(("after", cursor.map_or("", |c| c.after.as_str()).to_owned())),
                 )
                 .await?;
-                let mut rows =
-                    response.take::<Vec<Object>>(response.num_statements().saturating_sub(2))?;
+                let mut rows = ResultSlot::<Vec<Object>>::returned().take(&mut response)?;
                 let more = rows.len() > 64;
                 rows.truncate(64);
                 let after = rows
@@ -1321,7 +1298,7 @@ impl CanonicalStore {
         }
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{
-            self.ensure_writes()?;let mut response=protected_query("canonical_projects::diagnostic",||Ok(self.project_query("RETURN fn::pse_project_v1::diagnostic($pse_rpc_expires_at,$operation,$version,$message,$admitted);")?.bind(("operation",operation.to_owned())).bind(("version",version.to_owned())).bind(("message",message.to_owned())).bind(("admitted",admitted)))).await?;
+            self.ensure_writes()?;let mut response=protected_query("canonical_projects::diagnostic",||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_project_v1::diagnostic($pse_rpc_expires_at,$operation,$version,$message,$admitted)")?).bind(("operation",operation.to_owned())).bind(("version",version.to_owned())).bind(("message",message.to_owned())).bind(("admitted",admitted)))).await?;
             wire::decode_canonical_draft_diagnostics(final_object(&mut response)?).map_err(Into::into)
         })).await
     }
@@ -1415,7 +1392,7 @@ mod tests {
         // These deliberately synthetic metadata rows test disclosure boundaries,
         // not scientific admission or validity. Every row belongs to this fixture.
         bounded_query(store.db.query("BEGIN; CREATE type::record('canonical_context_journals','pending-project') SET key='pending-project',sequence=1dec; CREATE canonical_project_contexts:pending_context SET key='pending_context',project='pending-project',scope='fixture',revision=$revision,source_identity='fixture',physical_context='fixture',physical_revision=$revision,physical_source_identity='fixture',effective_from_us=0,effective_to_us=NONE,recorded_sequence=1dec,corrects=NONE,deleted=false,request=$bytes; CREATE canonical_research_datasets:pending_dataset SET key='pending_dataset',project='pending-project',revision=$revision,physical_context='fixture',context='pending_context',parent=NONE,role='raw',members=$bytes,request=$bytes; CREATE canonical_research_selections:pending_selection SET key='pending_selection',project='pending-project',dataset='pending_dataset',revision=$revision,physical_context='fixture',context='pending_context',fit='fixture',selection=$bytes,request=$bytes; CREATE canonical_research_publications:pending_publication SET key='pending_publication',project='pending-project',selection='pending_selection',run='fixture',attempt='fixture',revision=$revision,parent=$revision,mapping=$bytes,request=$bytes; COMMIT;")
-            .bind(("revision",head.key.clone())).bind(("bytes",surrealdb::types::Bytes::from(vec![1_u8])))).await.unwrap();
+            .bind(("revision",head.key.clone())).bind(("bytes",surrealdb_types::Bytes::from(vec![1_u8])))).await.unwrap();
         let cut = store.project_context_cut("pending-project").await.unwrap();
         assert!(
             store
@@ -1434,7 +1411,7 @@ mod tests {
         // Install an original incomplete-import checkpoint only after creating
         // adversarial pre-existing references, so forged known coordinates are covered.
         bounded_query(store.db.query("CREATE canonical_project_imports:pending_import SET key='pending_import',issuing_store=$issuer,bundle_digest='fixture',project='pending-project',branch='pending-branch',problem='pending-problem',revision=$revision,origin=$bytes,request=$bytes,artifact=NONE,complete=false;")
-            .bind(("issuer",store.issuing_store().unwrap().to_owned())).bind(("revision",head.key.clone())).bind(("bytes",surrealdb::types::Bytes::from(vec![1_u8])))).await.unwrap();
+            .bind(("issuer",store.issuing_store().unwrap().to_owned())).bind(("revision",head.key.clone())).bind(("bytes",surrealdb_types::Bytes::from(vec![1_u8])))).await.unwrap();
         assert!(store.project("pending-project").await.unwrap().is_none());
         assert!(
             store

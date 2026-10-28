@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Full retained egobox/TREGO iteration. Every result is a proposal for original correction.
+use crate::math::joined_pool::{JoinedPool, spawn_pool_worker};
 use argmin::core::{CostFunction, Problem, Solver, State};
 use egobox_ego::{
     Constraints, Cstr, EgorConfig, EgorSolver, EgorState, InfillOptimizer, RuntimeFlags, to_xtypes,
@@ -799,61 +800,6 @@ enum Command<E: std::error::Error + 'static> {
         reply: std::sync::mpsc::SyncSender<Result<SurrogateSnapshot, SurrogateFailure<E>>>,
     },
     Stop(std::sync::mpsc::SyncSender<()>),
-}
-/// Own both the Rayon termination request and the actual OS worker lifetimes.
-/// This guard also drains partially constructed pools before constructor errors escape.
-struct JoinedPool {
-    pool: Option<rayon::ThreadPool>,
-    workers: Vec<std::thread::JoinHandle<()>>,
-}
-impl JoinedPool {
-    fn new(
-        threads: usize,
-        stack_bytes: usize,
-        mut spawn: impl FnMut(rayon::ThreadBuilder) -> std::io::Result<std::thread::JoinHandle<()>>,
-    ) -> Result<Self, MathError> {
-        let mut owner = Self {
-            pool: None,
-            workers: Vec::with_capacity(threads),
-        };
-        owner.pool = Some(
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(threads)
-                .stack_size(stack_bytes)
-                .spawn_handler(|thread| {
-                    owner.workers.push(spawn(thread)?);
-                    Ok(())
-                })
-                .build()
-                .map_err(|error| MathError::Library(error.to_string()))?,
-        );
-        Ok(owner)
-    }
-    fn spawn(&self, operation: impl FnOnce() + Send + 'static) {
-        if let Some(pool) = &self.pool {
-            pool.spawn(operation);
-        }
-    }
-}
-impl Drop for JoinedPool {
-    fn drop(&mut self) {
-        // Rayon drop requests termination; only OS joins establish actual exit.
-        drop(self.pool.take());
-        for worker in self.workers.drain(..) {
-            // A failed worker must not prevent joining the remaining workers.
-            let _ = worker.join();
-        }
-    }
-}
-fn spawn_pool_worker(thread: rayon::ThreadBuilder) -> std::io::Result<std::thread::JoinHandle<()>> {
-    let mut builder = std::thread::Builder::new();
-    if let Some(name) = thread.name() {
-        builder = builder.name(name.to_owned());
-    }
-    if let Some(bytes) = thread.stack_size() {
-        builder = builder.stack_size(bytes);
-    }
-    builder.spawn(|| thread.run())
 }
 /// Channel owner of the full solver/state, permanently retained inside one actual local-rayon worker.
 /// Library non-Send strategies never cross threads. Read-only snapshots do not replace worker state.

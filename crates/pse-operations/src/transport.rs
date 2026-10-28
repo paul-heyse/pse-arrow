@@ -4,11 +4,13 @@
 //! Shared bounded request clocks and physical lifetimes for independently owned native clients.
 //! These operations accept a caller's future; they expose no canonical store or raw client.
 use crate::canonical::CanonicalError;
+#[path = "canonical_client.rs"]
+pub mod client;
 use std::{pin::Pin, time::Duration};
-#[path = "transport_retry.rs"]
-pub(crate) mod retry;
 #[path = "transport_lifetime.rs"]
 pub mod lifetime;
+#[path = "transport_retry.rs"]
+pub(crate) mod retry;
 /// Existing per-request ceiling; an enclosing operation may only shorten it.
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 // Existing finite contention window for sixteen clients sharing a retention guard.
@@ -111,7 +113,7 @@ impl<F: Future> Future for OperationScope<F> {
 /// Bound one native client operation, preserving its typed failure.
 pub async fn request<F, T>(future: F) -> Result<T, CanonicalError>
 where
-    F: IntoFuture<Output = Result<T, surrealdb::Error>>,
+    F: IntoFuture<Output = Result<T, surrealdb_types::Error>>,
 {
     within_clock(original_deadline(REQUEST_TIMEOUT), async {
         future.into_future().await.map_err(Into::into)
@@ -121,16 +123,16 @@ where
 
 // Transaction failures also mark preceding statements NotExecuted. Preserve the substantive failure.
 /// A single checked RPC with a transport deadline; callers retry complete decisions.
-pub async fn bounded_query<F>(future: F) -> Result<surrealdb::IndexedResults, CanonicalError>
+pub async fn bounded_query<F>(future: F) -> Result<client::IndexedResults, CanonicalError>
 where
-    F: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
+    F: IntoFuture<Output = Result<client::IndexedResults, surrealdb_types::Error>>,
 {
     complete_response(request(future).await?)
 }
 
 pub(crate) fn complete_response(
-    response: surrealdb::IndexedResults,
-) -> Result<surrealdb::IndexedResults, CanonicalError> {
+    response: client::IndexedResults,
+) -> Result<client::IndexedResults, CanonicalError> {
     let response = checked(response)?;
     if response.num_statements() == 0 {
         return Err(CanonicalError::IncompleteResponse);
@@ -144,10 +146,10 @@ pub(crate) fn complete_response(
 pub async fn protected_query<F, Q>(
     operation: &'static str,
     mut build: F,
-) -> Result<surrealdb::IndexedResults, CanonicalError>
+) -> Result<client::IndexedResults, CanonicalError>
 where
     F: FnMut() -> Result<Q, CanonicalError>,
-    Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
+    Q: IntoFuture<Output = Result<client::IndexedResults, surrealdb_types::Error>>,
 {
     within_clock(original_deadline(REQUEST_TIMEOUT), async {
         let result = retry::retry_conflicts(retry::RetryPolicy::Guarded, operation, || {
@@ -158,15 +160,21 @@ where
                     Err(error) => Err(error),
                 };
                 #[cfg(all(test, feature = "canonical-tests"))]
-                if result.as_ref().err().is_some_and(CanonicalError::is_conflict) {
+                if result
+                    .as_ref()
+                    .err()
+                    .is_some_and(CanonicalError::is_conflict)
+                {
                     crate::canonical::pacing_observation::conflict(operation);
                 }
                 retry::Attempt::settled(result)
             }
-        }).await;
-        if let Err(error) = &result { operation_failed(operation, error); }
+        })
+        .await;
+        if let Err(error) = &result {
+            operation_failed(operation, error);
+        }
         result
-
     })
     .await
 }
@@ -187,25 +195,21 @@ pub(crate) fn operation_failed(operation: &'static str, error: &CanonicalError) 
     }
 }
 
-// Jitter separates definite conflict retries after the RPC releases its local turn.
-// Each owner rebuilds its complete decision under the original request clock.
-pub(crate) async fn conflict_backoff(attempt: u32) {
-    let jitter = u64::from(uuid::Uuid::new_v4().as_bytes()[0] % 64);
-    tokio::time::sleep(Duration::from_millis((10_u64 << attempt.min(4)) + jitter)).await;
-}
-
 pub(crate) fn checked(
-    mut response: surrealdb::IndexedResults,
-) -> Result<surrealdb::IndexedResults, CanonicalError> {
-    let errors = response.take_errors().into_iter().collect::<std::collections::BTreeMap<_, _>>();
+    mut response: client::IndexedResults,
+) -> Result<client::IndexedResults, CanonicalError> {
+    let errors = response
+        .take_errors()
+        .into_iter()
+        .collect::<std::collections::BTreeMap<_, _>>();
     let errors = errors.into_values().collect::<Vec<_>>();
     if !errors.is_empty() {
         let substantive = errors.iter().position(|error| {
             !matches!(
                 error.query_details(),
                 Some(
-                    surrealdb::types::QueryError::NotExecuted
-                        | surrealdb::types::QueryError::Cancelled
+                    surrealdb_types::QueryError::NotExecuted
+                        | surrealdb_types::QueryError::Cancelled
                 )
             )
         });

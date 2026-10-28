@@ -30,8 +30,8 @@ mod host_operations;
 mod identities;
 mod inspection;
 mod telemetry;
-mod workflow;
 mod wait;
+mod workflow;
 
 /// Captured build provenance projected from its Rust-owned document.
 #[pyfunction]
@@ -125,9 +125,9 @@ mod _native {
         telemetry::{_telemetry_initialize, _telemetry_shutdown, _telemetry_status},
         workflow::{
             ModelingDiagnosticSettings, ModelingLimits, NativeAnalysis, NativeArtifactSettlement,
-            NativeAttempt, NativeFrozenStudyCohort, NativeLiveSimulationCursor,
-            NativeLiveSimulationEvent, NativeLocalStudy, NativeModelingConformance,
-            NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
+            NativeAttempt, NativeFrozenStudyCohort, NativeGeneratedDesign,
+            NativeLiveSimulationCursor, NativeLiveSimulationEvent, NativeLocalStudy,
+            NativeModelingConformance, NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
             NativeModelingElasticAttempt, NativeModelingInitialization,
             NativeModelingInitializationAttempt, NativeModelingKnowledge,
             NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation,

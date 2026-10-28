@@ -15,8 +15,8 @@ review_sources:
 
 This companion develops CBO-009 and the whole CBO-010: both conflict retry and guarded-script
 composition. The [coordinator](57-library-leverage-and-correctness.md) owns selection,
-cross-series disposition and completion. This document owns the packages below; it is a draft
-implementation proposal, not authorization to replace the current client. SurrealDB remains
+cross-series disposition and completion. This document owns the packages below; the [authorized execution checkpoint](#authorized-df-execution--2026-10-28)
+records the maintainer-selected implementation scope. SurrealDB remains
 canonical (U3). Conditional upstream work is included (U1), without authorizing contact.
 Recorded point replay (U2) does not grant transport-level replay of application operations.
 
@@ -172,10 +172,10 @@ qualification.
 
 | Package | Status | Owner | Completion |
 | --- | --- | --- | --- |
-| E01 | pending | Plan57e | Consumed result, close and request interfaces have discriminating contract cases. |
-| E02 | pending | Plan57e | Protocol client owns bounded transport with serialized admission and completion custody. |
-| E03 | pending | Plan57e | All guarded decisions and retries migrate once with original settlement semantics. |
-| E04 | pending | Plan57e | Supplier patch coupling is removed and assembled qualification is handed off. |
+| E01 | in-progress | Plan57e | Consumed result, close and request interfaces have discriminating contract cases. |
+| E02 | in-progress | Plan57e | Protocol client owns bounded transport with serialized admission and completion custody. |
+| E03 | in-progress | Plan57e | All guarded decisions and retries migrate once with original settlement semantics. |
+| E04 | in-progress | Plan57e | Supplier patch coupling is removed and assembled qualification is handed off. |
 
 <a id="e01"></a>
 
@@ -228,8 +228,11 @@ has no accidental read postlude, pin/ticket variants refuse correctly, original 
 attempts, busy does not spend conflict count, final conflict attributes operation/attempts, and
 lost acknowledgement settles the original receipt without another mutation. Fake clocks and
 controlled jitter exercise pacing; existing conflict fixtures retain actual server conflict
-typing. Resolve the interactive fixture via a single-call conflict case, without deleting its
-owner-level conflict/exhaustion assertions. Remove three authority wrappers, repeated bind sets,
+typing. Add a single-call conflict case for the production client. Preserve controlled commit-order
+scientific race fixtures through a test-only generated-protocol held-transaction helper with
+explicit clocks and owned driver join; no SDK or production interactive-transaction API remains.
+A single buffered RPC cannot acknowledge intermediate state and then select its commit order.
+Keep the owner-level conflict, exhaustion, retention, seal and capture assertions. Remove three authority wrappers, repeated bind sets,
 postludes, slot arithmetic, ten inline loops and duplicate conflict predicates when replaced.
 
 <a id="e04"></a>
@@ -289,3 +292,94 @@ conversational execution approach. Work starts from clean `6d13fc986`. The exist
 package owners retain status and acceptance; 57j owns selected assembled qualification.
 Full powerset/no-default validation remains deferred to series end. No upstream contact,
 data reset or formal ADR status change is authorized.
+
+### Conditional upstream proposal content — not submitted
+
+**Proposed:** expose a supported conversion from the protocol protobuf error to
+`surrealdb_types::Error`, retaining kind-specific codes, typed details and recursive
+causes. The present 3.3.4 client must use the public but doc-hidden `from_wire`
+constructor; a supported fallible protobuf conversion would remove that coupling.
+Unknown kinds/details and malformed causes must preserve typed refusal rather than
+become a retryable conflict. Validate query-frame and unary trailer errors, bounded
+8 KiB envelopes, status fallback, NotExecuted/Cancelled and nested causes.
+
+**Proposed:** extend the protocol conformance runner with a gRPC driver and the
+consumed session/query/result-cardinality cases. Preserve the separate local
+fault-injection suite for cumulative predecode budgets, uncertain dispatch,
+original clocks and physical drain; conformance examples cannot establish these
+lifetime contracts. Neither proposal was sent, and no local adoption depends on
+an unreleased supplier change. Revisit the dependency hold only after an inspected
+compatible release and the affected conversion/transport controls pass.
+
+### Test-realization amendment — 2026-10-28
+
+Current fixture inventory includes controlled interactive transactions for source-retention,
+collector/seal, protected-read/writer and capture ordering. The original single-call-only fixture
+proposal cannot preserve those intermediate acknowledgements and chosen commit orders. The
+coordinator selected a test-only protocol helper using the same bounded owned HTTP/2 mechanics,
+original contexts and actual driver settlement, plus a new production single-call conflict
+control. This changes test realization, not production transaction eligibility or scientific
+assertions. No vendor SDK or public production begin/commit route is retained.
+
+### Current implementation checkpoint — typed request custody
+
+The direct protocol client and operations/tooling consumers are implemented in the working tree;
+focused acceptance is still being completed. The replaced SDK and engine-API vendor trees
+and all workspace dependency edges have been deleted; the standalone tooling SDK declaration
+lives in Cargo metadata rather than an unused workspace dependency. Guarded scripts own framing,
+result extraction and sealed authority bindings. Existing single bounded native primitives retain
+their request shape. Test-only held transactions retain the original controlled commit/rollback
+ordering without adding a production interactive API.
+
+Integration exposed request followers outside the initial operations census. Runtime terminal,
+completion, captured and artifact reads, study captures and physical decoders also need explicit
+custody. `RetainedRequest` carries only closed, already issued operational guards;
+`ResponseAllocation` composes actual `MemoryReservation` and `AllocationLease` byte owners.
+Separate clearable request cells and independent driver holds retain both through physical drain,
+including caller abandonment, without treating a guard or an opaque debug object as a byte grant.
+The runtime helper nests these two existing owners; it acquires neither authority nor capacity.
+
+SDK type reexports also appeared in generated codec identity inputs. The generator retains the
+established logical codec tokens for `CanonicalSchemaV1` and qualifies physical Rust paths only
+after hashing, including macro bodies. Regeneration preserves the canonical, evidence and knowledge
+schema digests; it does not require a data reset or catalog activation. Full code generation and
+current consumer compilation are still being completed. Earlier client failures retain their
+original scope; selected actual-server journeys remain required after the consumer port.
+
+Independent implementation review found that Hyper's supplied executor spawns socket and
+request-body tasks independently of the returned connection dispatcher. Dropping that dispatcher
+alone cannot establish physical drain. The client is being corrected to own the complete executor
+task group from before handshake, seal admission atomically, and join all actual tasks before
+publishing drain or releasing bootstrap custody. Outbound body/chunk custody must also survive
+backpressure until its actual destruction. Earlier inbound-response and focused contract passes
+retain their bounded scope; they do not discharge this newly identified physical-closure obligation.
+
+The same review requires refusal of a mixed Batched-to-Single response rather than truncation,
+connection retirement for an unexpected LIVE response, and sealed original deadline/RPC-timeout
+bindings. Metadata profile selection preserves the already composed lifecycle instead of creating
+a later clock or duplicating owner cells. These repairs require their current discriminating
+controls and real canonical journeys before E02/E03 can close. Native parser coverage of every
+envelope is separately selected through canonical-maintenance.
+
+The physical repair is implemented and the current focused client/parser suite passes. Four
+revealing witnesses cover actual task/destructor and socket custody, copied/chained outbound
+storage and early-response admission under the original deadline. The first early-response
+fixture used an upload smaller than Hyper's default window; explicit small receive windows and
+positive outstanding-upload assertions established actual backpressure before the passing retry.
+Copied source buffers do not establish socket drain: the typed outbound Buf records the I/O flush
+requirement while the codec consumes it, and pending custody releases only after that successful
+flush or full native task join. Known response acknowledgements remain distinct from physical
+settlement. Actual canonical application/worker and Python journeys still remain.
+
+Consumer reconciliation also found the runtime exporter selecting the removed SDK span target.
+The client now owns its exact request-span metadata contract; the runtime exporter must consume
+that contract while still refusing private events and lookalike spans. That final observation
+consumer correction precedes assembled trace qualification.
+
+
+The client-owned request span predicate now drives the runtime exporter; its exact-parent and
+private-event exclusion control passes in the linked runtime. The separate generated-wire
+output-owner refusal and logical-codec-identity controls also pass. SDK trees, their two complete
+deltas, obsolete reconstruction exceptions and license annotations have been retired together;
+current developer routes point to the canonical owner. Historical review inputs remain in Git.
+Actual canonical application/worker/xtask journeys and current Python acceptance remain pending.

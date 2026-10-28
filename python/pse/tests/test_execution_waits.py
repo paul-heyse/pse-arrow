@@ -4,8 +4,8 @@
 
 import shlex
 import subprocess
-import sysconfig
 import sys
+import sysconfig
 from pathlib import Path
 
 import pytest
@@ -17,7 +17,7 @@ def test_signal_wait_keeps_original_exception_and_distinct_stop_policy(
     tmp_path: Path, mode: str
 ) -> None:
     # Isolate the real signal handler from pytest/xdist and retain actual native owners.
-    source = r'''
+    source = r"""
 import os
 import signal
 import sys
@@ -27,7 +27,9 @@ from pathlib import Path
 import pse
 import msgspec
 from pse import diagnostics
-from pse.contracts.documents import CaptureBudget, CaptureRequest, ClosedDuration, LaunchCaptureRequest
+from pse.contracts.documents import (
+    CaptureBudget, CaptureRequest, ClosedDuration, LaunchCaptureRequest,
+)
 
 mode, output = sys.argv[1:]
 runtime = None
@@ -50,7 +52,9 @@ if mode == "capture":
         try:
             capture = diagnostics.capture(CaptureRequest(
                 version=1, checkpoint=str(observations.checkpoint),
-                operation=msgspec.convert(reader.id, type=documents.OperationIdBody, from_attributes=True),
+                operation=msgspec.convert(
+                    reader.id, type=documents.OperationIdBody, from_attributes=True,
+                ),
                 kind=CaptureKind.TIMELINE, output=str(Path(output) / mode),
                 duration=ClosedDuration(secs=10, nanos=0),
                 budget=CaptureBudget(memory_bytes=16 << 20, output_bytes=256 << 20),
@@ -89,7 +93,7 @@ try:
     else:
         raise AssertionError("pending native wait ignored the interpreter signal")
     if mode == "capture":
-        # Timeline waits need no perf privilege. The original operation remains unchanged.
+        # Timeline needs no perf privilege; the original operation remains unchanged.
         assert reader.snapshot().outcome == before.outcome
         assert capture.snapshot().operation is not None
     else:
@@ -109,7 +113,7 @@ finally:
             runtime.close()
 if command is not None:
     assert command.try_wait() == 137
-'''
+"""
     result = subprocess.run(
         [sys.executable, "-c", source, mode, str(tmp_path)],
         capture_output=True,
@@ -121,11 +125,13 @@ if command is not None:
 
 
 @pytest.mark.unit
-def test_pending_cpython_signal_precheck_keeps_native_stream_unconsumed(tmp_path: Path) -> None:
+def test_pending_cpython_signal_precheck_keeps_native_stream_unconsumed(
+    tmp_path: Path,
+) -> None:
     # The tiny test extension sets the C pending flag and calls the actual native
     # bound method without a Python bytecode checkpoint between those actions.
     source = tmp_path / "pending_signal_control.c"
-    source.write_text(r'''#include <Python.h>
+    source.write_text(r"""#include <Python.h>
 static int last_call_raised = 0;
 static int probes = 0;
 static PyObject *probe(PyObject *self, PyObject *unused) {
@@ -140,7 +146,8 @@ static PyObject *armed_call(PyObject *self, PyObject *callable) {
     last_call_raised = 0;
     PyErr_SetInterrupt();
     PyObject *result = PyObject_CallNoArgs(callable);
-    last_call_raised = result == NULL && PyErr_ExceptionMatches(PyExc_KeyboardInterrupt);
+    last_call_raised = result == NULL &&
+        PyErr_ExceptionMatches(PyExc_KeyboardInterrupt);
     return result;
 }
 static PyObject *last_error(PyObject *self, PyObject *unused) {
@@ -160,20 +167,28 @@ static struct PyModuleDef module = {
     PyModuleDef_HEAD_INIT, "_pending_signal_control", NULL, -1, methods
 };
 PyMODINIT_FUNC PyInit__pending_signal_control(void) { return PyModule_Create(&module); }
-''')
+""")
     suffix = sysconfig.get_config_var("EXT_SUFFIX")
     linker = sysconfig.get_config_var("LDSHARED")
     assert isinstance(suffix, str)
     assert isinstance(linker, str)
     compiled = subprocess.run(
-        [*shlex.split(linker), *shlex.split(str(sysconfig.get_config_var("CFLAGS") or "")),
-         *shlex.split(str(sysconfig.get_config_var("CCSHARED") or "")),
-         f"-I{sysconfig.get_path('include')}", str(source),
-         "-o", str(tmp_path / f"_pending_signal_control{suffix}")],
-        capture_output=True, text=True, timeout=30, check=False,
+        [
+            *shlex.split(linker),
+            *shlex.split(str(sysconfig.get_config_var("CFLAGS") or "")),
+            *shlex.split(str(sysconfig.get_config_var("CCSHARED") or "")),
+            f"-I{sysconfig.get_path('include')}",
+            str(source),
+            "-o",
+            str(tmp_path / f"_pending_signal_control{suffix}"),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
     )
     assert compiled.returncode == 0, compiled.stdout + compiled.stderr
-    control = r'''
+    control = r"""
 import signal
 import sys
 import threading
@@ -208,7 +223,8 @@ try:
     assert control.last_error() is False
     settings = pse.EngineSettings(
         memory_limit_bytes=64 << 30, threads=2, target_partitions=1,
-        spill_dir=str(Path(sys.argv[1]) / "spill"), max_spill_bytes=1 << 30, batch_size=7,
+        spill_dir=str(Path(sys.argv[1]) / "spill"),
+        max_spill_bytes=1 << 30, batch_size=7,
         cache=pse.CacheSettings(working_bytes=128 << 20, concurrent_loads=2,
             inflight_bytes=32 << 20, inspection_bytes=4 << 20),
     )
@@ -233,9 +249,12 @@ finally:
         reader.close()
     if stream is not None:
         stream.close()
-'''
+"""
     result = subprocess.run(
         [sys.executable, "-c", control, str(tmp_path)],
-        capture_output=True, text=True, timeout=30, check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr

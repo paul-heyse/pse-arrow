@@ -14,7 +14,7 @@ pub async fn result_payload_counts(
         "RETURN {inline:<decimal>array::len((SELECT key FROM canonical_inline_payloads WHERE attempt=$attempt)),sealed:<decimal>array::len((SELECT key FROM canonical_file_instances WHERE owner_kind='result' AND selection=$attempt))};"
     ).bind(("attempt",fence.attempt().to_owned()))).await?;
     let mut row = response
-        .take::<Option<surrealdb::types::Object>>(0)?
+        .take::<Option<surrealdb_types::Object>>(0)?
         .ok_or(crate::canonical::CanonicalError::IncompleteResponse)?;
     Ok((
         decode_uint(required(&mut row, "inline")?)?,
@@ -749,7 +749,7 @@ pub async fn source_problem_head(
     )
     .await?;
     response
-        .take::<Option<surrealdb::types::Object>>(0)?
+        .take::<Option<surrealdb_types::Object>>(0)?
         .map(crate::generated::surreal::decode_canonical_problems)
         .transpose()
         .map_err(Into::into)
@@ -771,7 +771,7 @@ pub async fn pending_result_batch_rows(
     let key = result_batch_key(fence.attempt(), &set, ordinal);
     let mut response = bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_result_batches',$key) WHERE attempt=$attempt AND result_set=$set;")
         .bind(("key",key)).bind(("attempt",fence.attempt().to_owned())).bind(("set",set))).await?;
-    let Some(mut row) = response.take::<Option<surrealdb::types::Object>>(0)? else {
+    let Some(mut row) = response.take::<Option<surrealdb_types::Object>>(0)? else {
         return Ok(None);
     };
     Ok(Some(codec::decode_uint(codec::required(
@@ -799,7 +799,7 @@ pub async fn pending_result_payload_coordinates(
     let key = result_batch_key(fence.attempt(), &set, ordinal);
     let mut response = bounded_query(store.db.query("RETURN SELECT * FROM ONLY type::record('canonical_result_batches',$key) WHERE attempt=$attempt AND result_set=$set;")
         .bind(("key",key)).bind(("attempt",fence.attempt().to_owned())).bind(("set",set))).await?;
-    let Some(row) = response.take::<Option<surrealdb::types::Object>>(0)? else {
+    let Some(row) = response.take::<Option<surrealdb_types::Object>>(0)? else {
         return Ok(None);
     };
     let batch = wire::decode_canonical_result_batches(row)?;
@@ -844,7 +844,7 @@ pub async fn invalidate_terminal_study_outcome(
     bounded_query(store.db.query("BEGIN; LET $study = SELECT * FROM ONLY type::record('canonical_studies',$study); IF $study = NONE OR !$study.terminal { THROW 'PSE_REFUSAL:fixture_study_is_not_terminal'; }; UPDATE ONLY type::record('canonical_study_points',$point) SET outcome=$outcome; COMMIT;")
         .bind(("study", study.to_owned()))
         .bind(("point", crate::canonical_studies::point_key(study, occurrence)))
-        .bind(("outcome", surrealdb::types::Bytes::from(vec![0xff])))).await?;
+        .bind(("outcome", surrealdb_types::Bytes::from(vec![0xff])))).await?;
     Ok(())
 }
 
@@ -1022,7 +1022,7 @@ mod canonical_server_unit {
     )]
     use super::*;
     use crate::canonical::{CanonicalOptions, CanonicalStore, bounded_query};
-    use surrealdb::types::Value;
+    use surrealdb_types::Value;
 
     fn options() -> CanonicalOptions {
         let state = std::env::var_os("PSE_SURREAL_STATE").unwrap();

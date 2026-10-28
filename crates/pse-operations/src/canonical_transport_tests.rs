@@ -1,33 +1,20 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Actual HTTP/2/protobuf controls for the pinned gRPC lifecycle.
+use crate::transport::client::{Client, DispatchState, RequestContext};
 use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use surrealdb::{
-    Surreal,
-    engine::remote::grpc::{Client, Grpc},
-    opt::{Config, DispatchState, GrpcConfig, RequestContext},
-    types::Value,
-};
+use surrealdb_types::Value;
 #[cfg(feature = "canonical-tests")]
 use tokio::sync::mpsc;
 #[path = "canonical_grpc_peer.rs"]
 mod peer;
-async fn connect(peer: &peer::Peer) -> Arc<Surreal<Client>> {
-    Arc::new(
-        Surreal::new::<Grpc>((
-            peer.address,
-            Config::new()
-                .bounded_requests()
-                .grpc(GrpcConfig::new().max_message_size(4 << 20))
-                .unwrap(),
-        ))
-        .await
-        .unwrap(),
-    )
+async fn connect(peer: &peer::Peer) -> Arc<Client> {
+    Arc::new(Client::connect(peer.address, 4 << 20).await.unwrap())
 }
+
 fn context() -> RequestContext {
     RequestContext::new(Instant::now() + Duration::from_secs(5))
 }
@@ -178,14 +165,17 @@ async fn grpc_native_uuid_envelopes_do_not_consume_application_blob_allowance() 
 #[tokio::test]
 async fn grpc_unary_commit_preserves_exact_native_conflict_metadata() {
     let peer = peer::start().await;
-    // Explicit transactions are the upstream SDK control surface used by the
-    // native race fixtures; this exercises a real unary status/trailer failure.
-    let db = Surreal::new::<Grpc>(peer.address).await.unwrap();
-    let transaction = db.begin().await.unwrap();
+    // Only the bounded test fixture exposes held transactions. This exercises
+    // an actual unary status/trailer conflict without a production transaction API.
+    let db = Client::connect(peer.address, 4 << 20).await.unwrap();
+    let transaction = db
+        .test_begin(Instant::now() + Duration::from_secs(5))
+        .await
+        .unwrap();
     let error = transaction.commit().await.unwrap_err();
     assert!(matches!(
         error.query_details(),
-        Some(surrealdb::types::QueryError::TransactionConflict)
+        Some(surrealdb_types::QueryError::TransactionConflict)
     ));
     peer.server.abort();
     assert!(peer.server.await.unwrap_err().is_cancelled());
@@ -210,7 +200,7 @@ async fn grpc_generated_64_row_block_page_fits_original_owned_node_budget() {
             .await;
         if accepted {
             let mut result = result.unwrap();
-            let rows: Vec<surrealdb::types::Object> = result.take(0).unwrap();
+            let rows: Vec<surrealdb_types::Object> = result.take(0).unwrap();
             assert_eq!(rows.len(), 64);
             for (ordinal, row) in rows.into_iter().enumerate() {
                 let decoded =
@@ -235,34 +225,47 @@ async fn grpc_generated_64_row_block_page_fits_original_owned_node_budget() {
 }
 
 #[tokio::test]
-async fn grpc_extra_application_session_is_refused_before_dispatch_without_poisoning_owner() {
+async fn grpc_cloned_handles_share_one_native_session_and_driver() {
     let mut peer = peer::start().await;
     let db = connect(&peer).await;
-    let rejected = db.as_ref().clone();
+    let clone = db.as_ref().clone();
     for _ in 0..100 {
         let original = context();
-        assert!(
-            rejected
-                .query("RETURN 'EXTRA_SESSION';")
-                .request_context(original.clone())
-                .await
-                .is_err()
+        clone
+            .query("RETURN 'CLONED_HANDLE';")
+            .request_context(original.clone())
+            .await
+            .unwrap();
+        assert_eq!(original.dispatch_state(), DispatchState::Completed);
+        assert_eq!(
+            peer.received.recv().await.unwrap(),
+            "RETURN 'CLONED_HANDLE'"
         );
-        assert_eq!(original.dispatch_state(), DispatchState::NotDispatched);
     }
-    drop(rejected);
-    assert!(
-        db.query("RETURN 'ORIGINAL_OWNER';")
-            .request_context(context())
-            .await
-            .is_ok()
+    drop(clone);
+    db.query("RETURN 'ORIGINAL_OWNER';")
+        .request_context(context())
+        .await
+        .unwrap();
+    assert_eq!(
+        peer.received.recv().await.unwrap(),
+        "RETURN 'ORIGINAL_OWNER'"
     );
-    assert!(
-        peer.received
-            .recv()
-            .await
-            .unwrap()
-            .contains("ORIGINAL_OWNER")
+    let mut methods = Vec::new();
+    while let Ok(method) = peer.methods.try_recv() {
+        methods.push(method);
+    }
+    assert_eq!(
+        methods
+            .iter()
+            .filter(|method| *method == "AttachSession")
+            .count(),
+        1,
+        "cloning issued handles cannot attach another session"
+    );
+    assert_eq!(
+        methods.iter().filter(|method| *method == "Query").count(),
+        101
     );
     assert!(peer.received.try_recv().is_err());
     db.disconnect().await.unwrap();
@@ -310,11 +313,16 @@ async fn grpc_expired_queued_request_never_dispatches_and_does_not_renew_clock()
 async fn grpc_cancelled_dispatched_owner_retains_grants_until_actual_response_drain() {
     let mut peer = peer::start().await;
     let db = connect(&peer).await;
-    let owner = Arc::new("original actual allocation");
+    use datafusion_execution::memory_pool::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64 << 10));
+    let reservation = MemoryConsumer::new("response-drain-fixture").register(&pool);
+    reservation.try_grow(4096).unwrap();
+    let owner = Arc::new(reservation);
+    let access = crate::transport::lifetime::ConnectionAccess::default();
     let weak = Arc::downgrade(&owner);
     let ctx = context()
-        .with_payload_owner(owner.clone())
-        .with_lifetime_owner(owner);
+        .with_payload_owner(owner)
+        .with_lifetime_owner(access.admit().unwrap());
     let retained = ctx.clone();
     let active = db.clone();
     let caller =
@@ -332,6 +340,11 @@ async fn grpc_cancelled_dispatched_owner_retains_grants_until_actual_response_dr
         .await
         .unwrap();
     assert!(weak.upgrade().is_none());
+    assert_eq!(
+        pool.reserved(),
+        0,
+        "actual prepaid capacity releases only after drain"
+    );
     assert_eq!(retained.dispatch_state(), DispatchState::Completed);
     db.disconnect().await.unwrap();
     tokio::time::timeout(Duration::from_secs(2), peer.server)
@@ -455,37 +468,68 @@ async fn grpc_legal_ordered_batches_publish_only_complete_result() {
 
 #[tokio::test]
 async fn grpc_repeated_selection_checkpoint_retains_finite_acknowledged_setup() {
-    let peer = peer::start().await;
-    let db = connect(&peer).await;
-    let identity = uuid::Uuid::new_v4();
+    let mut peer = peer::start().await;
+    let raw = Arc::try_unwrap(connect(&peer).await).unwrap();
+    let options = crate::canonical::CanonicalOptions {
+        endpoint: format!("grpc://{}", peer.address),
+        namespace: "namespace".into(),
+        database: "database".into(),
+        username: "owner".into(),
+        password: "test".into(),
+        selection_username: "viewer".into(),
+        selection_password: "test".into(),
+        state_path: std::path::PathBuf::new(),
+        initializer_nonce: None,
+    };
+    let client = super::CanonicalClient::new(raw, Duration::from_secs(5), &options);
     for _ in 0..80 {
-        db.signin(surrealdb::opt::auth::Root {
-            username: "viewer".into(),
-            password: "test".into(),
-        })
-        .request_context(RequestContext::control(
-            Instant::now() + Duration::from_secs(5),
-        ))
+        assert!(client.select_existing().await.unwrap());
+    }
+    let mut methods = Vec::new();
+    while let Ok(method) = peer.methods.try_recv() {
+        methods.push(method);
+    }
+    assert_eq!(methods.iter().filter(|m| *m == "Signin").count(), 2);
+    assert_eq!(methods.iter().filter(|m| *m == "Use").count(), 1);
+    assert_eq!(methods.iter().filter(|m| *m == "Query").count(), 1);
+    client.client.disconnect().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), peer.server)
         .await
+        .unwrap()
         .unwrap();
-        db.use_ns("namespace")
-            .use_db("database")
-            .request_context(RequestContext::control(
-                Instant::now() + Duration::from_secs(5),
-            ))
-            .await
-            .unwrap();
-        db.signin(surrealdb::opt::auth::Root {
+}
+
+#[tokio::test]
+async fn grpc_ordered_setup_refuses_its_finite_cap_before_another_rpc() {
+    let mut peer = peer::start().await;
+    let db = connect(&peer).await;
+    for _ in 0..63 {
+        db.signin(crate::transport::client::Root {
             username: "owner".into(),
             password: "test".into(),
         })
-        .request_context(RequestContext::selection_checkpoint(
-            Instant::now() + Duration::from_secs(5),
-            identity,
-        ))
+        .request_context(context())
         .await
         .unwrap();
     }
+    let refused = context();
+    assert!(
+        db.signin(crate::transport::client::Root {
+            username: "owner".into(),
+            password: "test".into()
+        })
+        .request_context(refused.clone())
+        .await
+        .is_err()
+    );
+    assert_eq!(refused.dispatch_state(), DispatchState::NotDispatched);
+    let mut count = 0;
+    while let Ok(method) = peer.methods.try_recv() {
+        if method == "Signin" {
+            count += 1;
+        }
+    }
+    assert_eq!(count, 63, "a full setup log grants no further RPC");
     db.disconnect().await.unwrap();
     tokio::time::timeout(Duration::from_secs(2), peer.server)
         .await
@@ -497,7 +541,7 @@ async fn grpc_repeated_selection_checkpoint_retains_finite_acknowledged_setup() 
 async fn grpc_retained_handle_restores_acknowledged_setup_for_new_rpc_without_app_replay() {
     let mut peer = peer::start_generations(2).await;
     let db = connect(&peer).await;
-    db.signin(surrealdb::opt::auth::Root {
+    db.signin(crate::transport::client::Root {
         username: "owner".into(),
         password: "test".into(),
     })
@@ -509,10 +553,13 @@ async fn grpc_retained_handle_restores_acknowledged_setup_for_new_rpc_without_ap
         .request_context(context())
         .await
         .unwrap();
-    db.set("confirmed", true)
-        .request_context(context())
-        .await
-        .unwrap();
+    db.signin(crate::transport::client::Root {
+        username: "final-owner".into(),
+        password: "test".into(),
+    })
+    .request_context(context())
+    .await
+    .unwrap();
     assert!(
         db.query("RETURN 'MALFORMED';")
             .request_context(context())
@@ -545,15 +592,18 @@ async fn grpc_retained_handle_restores_acknowledged_setup_for_new_rpc_without_ap
     );
     assert_eq!(
         methods.iter().filter(|method| *method == "Signin").count(),
-        2
+        4
     );
     assert_eq!(methods.iter().filter(|method| *method == "Use").count(), 2);
+    let setup: Vec<_> = methods
+        .iter()
+        .filter(|m| matches!(m.as_str(), "Signin" | "Use"))
+        .map(String::as_str)
+        .collect();
+    let expected = ["Signin", "Use", "Signin", "Signin", "Use", "Signin"];
     assert_eq!(
-        methods
-            .iter()
-            .filter(|method| *method == "SetVariable")
-            .count(),
-        2
+        setup, expected,
+        "only complete ACK setup replays in original order"
     );
     db.disconnect().await.unwrap();
     tokio::time::timeout(Duration::from_secs(2), peer.server)
@@ -573,7 +623,7 @@ async fn grpc_retained_handle_restores_acknowledged_setup_for_new_rpc_without_ap
 async fn grpc_restoration_uses_original_clock_and_retains_complete_ack_snapshot_after_failure() {
     let mut peer = peer::start_with_restore_delay(3, true).await;
     let db = connect(&peer).await;
-    db.signin(surrealdb::opt::auth::Root {
+    db.signin(crate::transport::client::Root {
         username: "owner".into(),
         password: "test".into(),
     })
@@ -585,10 +635,13 @@ async fn grpc_restoration_uses_original_clock_and_retains_complete_ack_snapshot_
         .request_context(context())
         .await
         .unwrap();
-    db.set("confirmed", true)
-        .request_context(context())
-        .await
-        .unwrap();
+    db.signin(crate::transport::client::Root {
+        username: "final-owner".into(),
+        password: "test".into(),
+    })
+    .request_context(context())
+    .await
+    .unwrap();
     assert!(
         db.query("RETURN 'MALFORMED';")
             .request_context(context())
@@ -633,12 +686,17 @@ async fn grpc_restoration_uses_original_clock_and_retains_complete_ack_snapshot_
         2,
         "a partial failed restore must not erase the last complete ACK snapshot"
     );
+    let setup: Vec<_> = methods
+        .iter()
+        .filter(|m| matches!(m.as_str(), "Signin" | "Use"))
+        .map(String::as_str)
+        .collect();
+    let expected = [
+        "Signin", "Use", "Signin", "Signin", "Signin", "Use", "Signin",
+    ];
     assert_eq!(
-        methods
-            .iter()
-            .filter(|method| *method == "SetVariable")
-            .count(),
-        2
+        setup, expected,
+        "only complete ACK setup replays in original order"
     );
     db.disconnect().await.unwrap();
     tokio::time::timeout(Duration::from_secs(2), peer.server)
@@ -955,7 +1013,7 @@ async fn source_stage_failed_acquisition_retains_both_causes_under_direct_and_pr
                 assert!(
                     matches!(readback.as_ref(), CanonicalError::Timeout)
                         || matches!(readback.as_ref(), CanonicalError::Driver(error)
-                        if error.connection_details() == Some(&surrealdb::types::ConnectionError::ConnectionFailed)),
+                        if error.connection_details() == Some(&surrealdb_types::ConnectionError::ConnectionFailed)),
                     "{readback:?}"
                 );
                 assert!(Instant::now() >= deadline);
@@ -1086,9 +1144,9 @@ async fn canonical_statistics_keep_server_samples_out_of_local_active_intervals(
         metrics: &super::QUERY_METRICS,
         invocation: 42,
     };
-    let mut stats = surrealdb::method::Stats::default();
+    let mut stats = crate::transport::client::Stats::default();
     stats.execution_time = Some(Duration::from_nanos(91));
-    surrealdb::method::QueryStatisticsObserver::observe(&observer, 3, stats, false);
+    crate::transport::client::QueryStatisticsObserver::observe(&observer, 3, stats, false);
     let snapshot = operation.reader().snapshot(Duration::from_secs(60));
     let sample = snapshot
         .metrics
@@ -1114,8 +1172,8 @@ async fn canonical_statistics_keep_server_samples_out_of_local_active_intervals(
 
 #[test]
 fn canonical_statistics_bound_bursts_without_displacing_attempt_identity() {
+    use crate::transport::client::QueryStatisticsObserver;
     use pse_diagnostics::observation::{ObservationHub, Policy, Value as ObservedValue};
-    use surrealdb::method::QueryStatisticsObserver;
     let hub = ObservationHub::new(Policy::default());
     let operation = hub.start("canonical-statistics-burst");
     for invocation in 0..1000 {
@@ -1124,7 +1182,7 @@ fn canonical_statistics_bound_bursts_without_displacing_attempt_identity() {
             metrics: &super::QUERY_METRICS,
             invocation,
         };
-        let mut stats = surrealdb::method::Stats::default();
+        let mut stats = crate::transport::client::Stats::default();
         stats.execution_time = Some(Duration::from_nanos(invocation));
         observer.observe(3, stats, true);
     }
@@ -1215,7 +1273,7 @@ fn canonical_statistics_exact_sample_fits_default_text_bound() {
 
 #[test]
 fn canonical_owner_metrics_without_capture_keep_exact_statement_population() {
-    use surrealdb::method::QueryStatisticsObserver;
+    use crate::transport::client::QueryStatisticsObserver;
     static METRICS: super::CanonicalMetricState = super::CanonicalMetricState::new();
     let observer = super::CanonicalStatistics {
         context: None,
@@ -1224,10 +1282,10 @@ fn canonical_owner_metrics_without_capture_keep_exact_statement_population() {
     };
     let before = METRICS.snapshot();
     assert!(before.source_started_unix_micros.is_none());
-    let mut stats = surrealdb::method::Stats::default();
+    let mut stats = crate::transport::client::Stats::default();
     stats.execution_time = Some(Duration::from_nanos(91));
     observer.observe(0, stats, true);
-    observer.observe(1, surrealdb::method::Stats::default(), false);
+    observer.observe(1, crate::transport::client::Stats::default(), false);
     observer.request_failed();
     let sample = METRICS.snapshot();
     assert_eq!(sample.builders, 0);
@@ -1310,15 +1368,389 @@ async fn complete_response_selects_lowest_substantive_statement_not_frame_or_has
     let peer = peer::start().await;
     let db = connect(&peer).await;
     for _ in 0..16 {
-        let response = db.query("RETURN 'MULTIPLE_STATEMENT_ERRORS';")
-            .request_context(context()).await.unwrap();
+        let response = db
+            .query("RETURN 'MULTIPLE_STATEMENT_ERRORS';")
+            .request_context(context())
+            .await
+            .unwrap();
         let error = crate::transport::complete_response(response).unwrap_err();
         let crate::canonical::CanonicalError::Driver(error) = error else {
             panic!("expected original typed statement error");
         };
         assert!(error.to_string().contains("first substantive"));
-        assert!(matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)));
+        assert!(matches!(
+            error.query_details(),
+            Some(surrealdb_types::QueryError::TransactionConflict)
+        ));
     }
     db.disconnect().await.unwrap();
-    tokio::time::timeout(Duration::from_secs(2), peer.server).await.unwrap().unwrap();
+    tokio::time::timeout(Duration::from_secs(2), peer.server)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn grpc_trimmed_query_compacts_unframed_indices_and_keeps_kill_gap() {
+    let mut peer = peer::start().await;
+    let db = connect(&peer).await;
+    let mut response = db
+        .query("RETURN 'SPARSE_WITH_KILL'; \n;\t")
+        .request_context(context())
+        .await
+        .unwrap();
+    assert_eq!(
+        peer.received.recv().await.unwrap(),
+        "RETURN 'SPARSE_WITH_KILL'"
+    );
+    assert_eq!(
+        response.num_statements(),
+        2,
+        "Kill is absent from published slots"
+    );
+    assert_eq!(
+        response.take::<Option<String>>(0).unwrap().as_deref(),
+        Some("first")
+    );
+    assert_eq!(
+        response.take::<Value>(1).unwrap(),
+        Value::None,
+        "Kill keeps its compacted index"
+    );
+    assert_eq!(
+        response.take::<Vec<String>>(2).unwrap(),
+        vec!["last".to_owned()]
+    );
+    assert_eq!(response.num_statements(), 0);
+    assert_eq!(
+        response.take::<Value>(0).unwrap(),
+        Value::None,
+        "taken slots remain absent"
+    );
+    db.disconnect().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), peer.server)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn grpc_typed_authority_bindings_cannot_be_replaced_by_business_binds() {
+    let mut peer = peer::start().await;
+    let db = connect(&peer).await;
+    let mut authority = surrealdb_types::Object::new();
+    authority.insert("problem", Value::String("issued-problem".into()));
+    let original = context();
+    let error = db
+        .query("RETURN $problem")
+        .bind_guarded(authority)
+        .bind(("problem", "forged-problem"))
+        .request_context(original.clone())
+        .await
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("authority binding problem cannot be overwritten")
+    );
+    assert_eq!(original.dispatch_state(), DispatchState::NotDispatched);
+    assert!(
+        peer.received.try_recv().is_err(),
+        "authority misuse never reaches a physical query"
+    );
+    db.query("RETURN 'AFTER_LOCAL_REFUSAL'")
+        .request_context(context())
+        .await
+        .unwrap();
+    assert!(
+        peer.received
+            .recv()
+            .await
+            .unwrap()
+            .contains("AFTER_LOCAL_REFUSAL")
+    );
+    db.disconnect().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), peer.server)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn grpc_abandoned_request_retains_all_issued_read_guards_until_physical_drain() {
+    use crate::transport::client::RetainedRequest;
+    use pse_columnar::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
+    let mut peer = peer::start().await;
+    let db = connect(&peer).await;
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64));
+    let guards = ["first-issued-read", "second-issued-read"].map(|name| {
+        let owner = MemoryConsumer::new(name).register(&pool);
+        owner.try_grow(32).unwrap();
+        let selection = crate::canonical::ProtectedSelection::test_only(
+            crate::canonical::Revision {
+                key: "revision".into(),
+                problem: "problem".into(),
+                sequence: 1,
+                parent: None,
+                operation: "operation".into(),
+                request: Vec::new().into(),
+                interpretation: "test".into(),
+            },
+            name,
+        );
+        selection.retain_metadata_owner(Arc::new(owner)).unwrap();
+        selection
+    });
+    let [first, second] = guards;
+    let ctx = context().with_retained_request(RetainedRequest::combine(first, second));
+    let historical = ctx.clone();
+    let active = db.clone();
+    let caller =
+        tokio::spawn(async move { active.query("RETURN 'HOLD';").request_context(ctx).await });
+    peer.received.recv().await.unwrap();
+    caller.abort();
+    assert!(caller.await.unwrap_err().is_cancelled());
+    assert_eq!(
+        pool.reserved(),
+        64,
+        "caller abandonment cannot drop either issued release guard"
+    );
+    peer.release.add_permits(1);
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while pool.reserved() != 0 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(historical.dispatch_state(), DispatchState::Completed);
+    assert_eq!(
+        pool.reserved(),
+        0,
+        "actual late response drain retires both guard cells before disconnect"
+    );
+    db.disconnect().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), peer.server)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn grpc_internal_owner_composition_keeps_each_original_drain_leaf_once() {
+    use pse_columnar::{AllocationLease, GreedyMemoryPool, MemoryConsumer, MemoryPool};
+    let peer = peer::start().await;
+    let db = connect(&peer).await;
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(3));
+    let reservation = || {
+        let grant = MemoryConsumer::new("test:distinct-drain-leaf").register(&pool);
+        grant.try_grow(1).unwrap();
+        grant
+    };
+    let query = db
+        .query("RETURN 'MUST_NOT_DISPATCH'")
+        .payload_owner(Arc::new(reservation()))
+        .payload_owner(Arc::new(reservation()))
+        .scientific_payload_owner(AllocationLease::new(reservation()));
+    assert_eq!(
+        query.payload_leaf_count(),
+        3,
+        "internal composition does not re-inherit an already retained owner tree"
+    );
+    assert_eq!(pool.reserved(), 3);
+    drop(query);
+    assert_eq!(
+        pool.reserved(),
+        0,
+        "unpolled builder drops actual bytes before retiring custody cells"
+    );
+    db.disconnect().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), peer.server)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn grpc_abandoned_close_joins_one_detach_round_under_its_original_clock() {
+    let mut peer = peer::start_with_held_detach().await;
+    let db = connect(&peer).await;
+    let original = tokio::time::Instant::now() + Duration::from_millis(300);
+    let first = db.clone();
+    let closing = tokio::spawn(async move {
+        crate::transport::operation_scope(original.into_std(), first.disconnect()).await
+    });
+    while peer.methods.recv().await.unwrap() != "DetachSession" {}
+    closing.abort();
+    assert!(closing.await.unwrap_err().is_cancelled());
+    let request = context();
+    assert!(
+        db.query("RETURN 'AFTER_CLOSE';")
+            .request_context(request.clone())
+            .await
+            .is_err()
+    );
+    assert_eq!(request.dispatch_state(), DispatchState::NotDispatched);
+    tokio::time::timeout(Duration::from_secs(1), db.disconnect())
+        .await
+        .unwrap()
+        .unwrap();
+    while let Ok(method) = peer.methods.try_recv() {
+        assert_ne!(
+            method, "DetachSession",
+            "successor waiter cannot issue a second detach or renew its clock"
+        );
+    }
+    peer.release.add_permits(1);
+    tokio::time::timeout(Duration::from_secs(2), peer.server)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn canonical_envelopes_seal_original_clock_and_authority_before_dispatch() {
+    let mut peer = peer::start().await;
+    let raw = Arc::try_unwrap(connect(&peer).await).unwrap();
+    let options = crate::canonical::CanonicalOptions {
+        endpoint: format!("grpc://{}", peer.address),
+        namespace: "namespace".into(),
+        database: "database".into(),
+        username: "owner".into(),
+        password: "test".into(),
+        selection_username: "viewer".into(),
+        selection_password: "test".into(),
+        state_path: std::path::PathBuf::new(),
+        initializer_nonce: None,
+    };
+    let client = super::CanonicalClient::new(raw, Duration::from_secs(5), &options);
+    let selection = crate::canonical::ProtectedSelection::test_only(
+        crate::canonical::Revision {
+            key: "revision".into(),
+            problem: "problem".into(),
+            sequence: 1,
+            parent: None,
+            operation: "operation".into(),
+            request: Vec::new().into(),
+            interpretation: "test".into(),
+        },
+        "issued-protection",
+    );
+    use crate::canonical_script::{Envelope, GuardedScript, Recheck};
+    for envelope in [
+        Envelope::DeadlineOnly,
+        Envelope::ProtectedRead {
+            selection: &selection,
+            recheck: Recheck::Pin,
+        },
+    ] {
+        for key in ["pse_rpc_expires_at", "pse_rpc_timeout", "problem"] {
+            if key == "problem" && matches!(envelope, Envelope::DeadlineOnly) {
+                continue;
+            }
+            let query = client.script(
+                GuardedScript::new(envelope)
+                    .returning::<Value>("", "true")
+                    .unwrap(),
+            );
+            let original = query.context_snapshot().unwrap();
+            let error = query.bind((key, Value::None)).await.unwrap_err();
+            assert!(
+                error.to_string().contains("cannot be overwritten"),
+                "{error}"
+            );
+            assert_eq!(original.dispatch_state(), DispatchState::NotDispatched);
+            assert!(
+                peer.received.try_recv().is_err(),
+                "clock/authority overwrite never reaches a physical query"
+            );
+        }
+    }
+    client.client.disconnect().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), peer.server)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn grpc_metadata_limits_preserve_original_lifecycle_and_exact_owner_population() {
+    use pse_columnar::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
+    let peer = peer::start().await;
+    let db = connect(&peer).await;
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(1));
+    let grant = MemoryConsumer::new("test:metadata-profile-context").register(&pool);
+    grant.try_grow(1).unwrap();
+    let original = context();
+    let query = db
+        .query("RETURN 'NOT_POLLED'")
+        .request_context(original.clone())
+        .payload_owner(Arc::new(grant));
+    let count = query.payload_leaf_count();
+    let query = query.response_limits(crate::canonical::MetadataResponse::Header.limits());
+    assert!(
+        query.shares_lifecycle(&original),
+        "profile update retains the identical original deadline/cancellation/dispatch cell"
+    );
+    assert_eq!(
+        query.payload_leaf_count(),
+        count,
+        "profile update adds no independent owner or activity cell"
+    );
+    assert_eq!(
+        query.context_snapshot().unwrap().deadline(),
+        original.deadline()
+    );
+    drop(query);
+    assert_eq!(pool.reserved(), 0);
+    db.disconnect().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), peer.server)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn grpc_malformed_batch_and_unsupported_live_close_generation_without_replaying_query() {
+    for (marker, reason) in [
+        (
+            "MIXED_BATCH_TO_SINGLE",
+            "Single query response cannot follow",
+        ),
+        ("UNSUPPORTED_LIVE_RESPONSE", "Unsupported LIVE response"),
+    ] {
+        let mut peer = peer::start_generations(2).await;
+        let db = connect(&peer).await;
+        let query = format!("RETURN '{marker}'");
+        let error = db
+            .query(query.clone())
+            .request_context(context())
+            .await
+            .unwrap_err();
+        assert!(
+            error.is_connection(),
+            "unsupported protocol must close the generation: {error}"
+        );
+        assert!(error.to_string().contains(reason), "{error}");
+        assert_eq!(peer.received.recv().await.unwrap(), query);
+        let mut valid = db
+            .query("RETURN 'AFTER_PROTOCOL_REFUSAL'")
+            .request_context(context())
+            .await
+            .unwrap();
+        assert_eq!(valid.take::<Value>(0).unwrap(), Value::Bool(true));
+        assert_eq!(
+            peer.received.recv().await.unwrap(),
+            "RETURN 'AFTER_PROTOCOL_REFUSAL'"
+        );
+        assert!(
+            peer.received.try_recv().is_err(),
+            "restoration never replays the refused application query"
+        );
+        db.disconnect().await.unwrap();
+        tokio::time::timeout(Duration::from_secs(2), peer.server)
+            .await
+            .unwrap()
+            .unwrap();
+    }
 }

@@ -6,6 +6,7 @@
 #[cfg(feature = "physical-admission")]
 mod physical;
 
+mod grpc_wire;
 mod private_store;
 
 #[cfg(feature = "product-schemas")]
@@ -145,6 +146,9 @@ fn language_tree(
         } else {
             append_physical(root, registry, &mut tree)?;
         }
+    }
+    if language == Language::Surreal {
+        grpc_wire::append(root, &mut tree)?;
     }
     validate_tree(&tree)?;
     Ok(tree)

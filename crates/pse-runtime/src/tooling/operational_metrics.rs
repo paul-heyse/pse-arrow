@@ -255,14 +255,24 @@ impl NativeJobLifecycle {
             _interval: OwnerInterval::new(OwnerIntervalFamily::Native, SUPERVISOR_STAGE),
         }
     }
-    pub(crate) fn joined(&self) { NativeEvent::Joined.increment(); }
-    pub(crate) fn observe(&self, boundary: pse_diagnostics::lifecycle::LifecycleBoundary, value: bool) {
+    pub(crate) fn joined(&self) {
+        NativeEvent::Joined.increment();
+    }
+    pub(crate) fn observe(
+        &self,
+        boundary: pse_diagnostics::lifecycle::LifecycleBoundary,
+        value: bool,
+    ) {
         if let Some(context) = pse_diagnostics::observation::current() {
             context.boolean(boundary.native_job_key(), value);
         }
         let code = match boundary {
-            pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested => "native.cancel.requested",
-            pse_diagnostics::lifecycle::LifecycleBoundary::DeadlineExpired => "native.deadline.expired",
+            pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested => {
+                "native.cancel.requested"
+            }
+            pse_diagnostics::lifecycle::LifecycleBoundary::DeadlineExpired => {
+                "native.deadline.expired"
+            }
             pse_diagnostics::lifecycle::LifecycleBoundary::Joined => "native.join.settled",
             _ => boundary.native_job_key(),
         };

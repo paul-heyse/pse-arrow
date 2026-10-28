@@ -155,7 +155,7 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
         let service_ns=deployment["namespace"].as_str().unwrap();let service_db=deployment["database"].as_str().unwrap();
         for (user,pass) in [(&options.credentials.reader_username,&options.credentials.reader_password),(&options.credentials.importer_username,&options.credentials.importer_password)] {
             let probe=EvidenceStore::client(&options).await?;
-            probe.signin(surrealdb::opt::auth::Database{namespace:options.namespace.clone(),database:options.database.clone(),username:user.clone(),password:pass.clone()}).request_context(RequestContext::control(original_deadline(canonical::REQUEST_TIMEOUT).into_std())).await?;
+            probe.signin(Database{namespace:options.namespace.clone(),database:options.database.clone(),username:user.clone(),password:pass.clone()}).request_context(RequestContext::control(original_deadline(canonical::REQUEST_TIMEOUT).into_std())).await?;
             let selected=probe.use_ns(service_ns).use_db(service_db).request_context(RequestContext::control(original_deadline(canonical::REQUEST_TIMEOUT).into_std())).await;
             if selected.is_ok() && let Ok(mut response)=transport::bounded_query(probe.query("SELECT * FROM canonical_interpretations:current;").request_context(RequestContext::new(original_deadline(canonical::REQUEST_TIMEOUT).into_std()))).await{assert!(response.take::<Vec<Object>>(0)?.is_empty(),"database scoped account must not read canonical authority");}
             probe.disconnect().await?;
@@ -202,10 +202,10 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
         assert!(transport::bounded_query(importer.query("SELECT * FROM evidence_facts LIMIT 1; THROW 'later statement failure';")?).await.is_err());
         // Pinned native REMOVE DATABASE remains inside its enclosing transaction.
         let admin=EvidenceStore::client(&options).await?;let context=||RequestContext::control(original_deadline(canonical::REQUEST_TIMEOUT).into_std());
-        admin.signin(surrealdb::opt::auth::Root{username:username.into(),password:password.into()}).request_context(context()).await?;
+        admin.signin(Root{username:username.into(),password:password.into()}).request_context(context()).await?;
         admin.use_ns(&options.namespace).use_db(&options.database).request_context(context()).await?;
         let cancelled=transport::bounded_query(admin.query(format!("BEGIN; SELECT * FROM evidence_interpretations:current; REMOVE DATABASE `{}`; CANCEL;",options.database)).request_context(context())).await;
-        assert!(matches!(&cancelled,Err(CanonicalError::Driver(error)) if matches!(error.query_details(),Some(surrealdb::types::QueryError::Cancelled))),"CANCEL must establish rollback, not an earlier failure: {cancelled:?}");admin.disconnect().await?;
+        assert!(matches!(&cancelled,Err(CanonicalError::Driver(error)) if matches!(error.query_details(),Some(surrealdb_types::QueryError::Cancelled))),"CANCEL must establish rollback, not an earlier failure: {cancelled:?}");admin.disconnect().await?;
         let retained=EvidenceStore::open(&options,EvidenceAccess::Reader).await?;assert_eq!(retained.issuing_store,reader.issuing_store);retained.disconnect().await?;
         let entered=Arc::new(tokio::sync::Notify::new());let resume=Arc::new(tokio::sync::Notify::new());
         DROP_PAUSE.with(|pause|*pause.borrow_mut()=Some((entered.clone(),resume.clone())));
@@ -226,7 +226,7 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
         .unwrap();
     let admin = EvidenceStore::client(&options).await.unwrap();
     admin
-        .signin(surrealdb::opt::auth::Root {
+        .signin(Root {
             username: username.into(),
             password: password.into(),
         })

@@ -88,10 +88,18 @@ impl CancelSource {
         on_stop: impl FnOnce() -> Drain,
     ) -> T {
         pse_diagnostics::stop::drain_on_stop(
-            async { self.cancelled().await; pse_diagnostics::stop::StopReason::Cancelled },
+            async {
+                self.cancelled().await;
+                pse_diagnostics::stop::StopReason::Cancelled
+            },
             work,
-            |_| { native.cancel(); on_stop() },
-        ).await.0
+            |_| {
+                native.cancel();
+                on_stop()
+            },
+        )
+        .await
+        .0
     }
 }
 
