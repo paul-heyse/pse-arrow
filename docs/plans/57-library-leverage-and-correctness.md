@@ -3,7 +3,7 @@ title: "Plan 57: Library leverage and correctness"
 status: in-progress
 date: 2026-10-27
 adrs: [ADR-0055, ADR-0082, ADR-0108, ADR-0118, ADR-0210]
-review_sources: [docs/library_leverage/reviews/README.md]
+review_sources: [docs/library_leverage/reviews/README.md, docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md]
 scenario_sources: [docs/library_leverage/reviews/README.md]
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
@@ -11,6 +11,77 @@ doc_topics: [current-work, libraries, design, numerical-execution, storage, diag
 ---
 
 # Plan 57: Library leverage and correctness
+
+## Database boundary review integration
+
+The maintainer authorized creation of this amendment on 2026-10-28 from the
+[study execution and database boundary review](../design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md)
+and its scoped production/test audits and research. **Proposed:** adopt its coherent hybrid
+as the combined planning target: database-facing durable commands/reads, optional local
+scientific preparation and independently supervised native execution. This supersedes
+mandatory scientific Runtime construction for durable callers in the planned target;
+it does not declare the new boundary implemented. Production execution and D–F qualification
+remain paused. Existing source corrections and original evidence are preserved.
+
+The review/audits at `277eee026`/`5e8aea0cc` inspect `64a217de2` plus the retained operations
+inheritance corrections and 57j checkpoint. The historical whole-audit baselines are unchanged.
+[57k](57k-durable-control-and-python-boundary.md) owns public contracts/imports/ingress and
+consumer migration; [57l](57l-database-control-and-synchronization.md) owns transactional
+composition, synchronization and payload/backend decisions. E retains Rust transport,
+F lifecycle/attribution, G host/file mechanisms, I scientific public-family/developer adapters,
+and J joined qualification/publication. A–C's completed selected work is not reopened.
+
+### Confirmed review rule directions
+
+All references below mean this review's RC identities, not the older RC01–RC09 in this plan.
+Operator confirmation occurred on 2026-10-28 during plan preparation. It permits developing
+the target; formal ADR acceptance and production execution are separate.
+
+| Source impact | Decision | Route before dependent implementation |
+|---|---|---|
+| review RC01 | accepted — native-independent durable Python access | K01/K02 prepare Python-boundary ADR/formal design review and blueprint §21 amendment before K03 |
+| review RC02 | accepted — public ingress may replace mandatory gRPC | K02 selects exact ingress; reconcile proposed ADR-0214 and blueprint §3.3/§20.6 before K03/L02; worker transport may retain useful gRPC |
+| review RC03 | accepted — producer requirements follow scientific provenance consumption | K01 inventories operation requirements; supersede accepted ADR-0164-related decisions if changed and amend applicable architecture before migration |
+| review RC04 | accepted conditionally — justified bounded module compositions only | L01 compares ordinary functions first; any selected capability change gets its specific decision/design route before L02 |
+
+K/L authors assess exact affected decision text; acceptance of direction is not permission
+for a blanket relaxation. Any newly discovered rule impact requires explicit operator disposition.
+Keep accepted ADRs immutable. J schedules enduring amendments/revision rows through their owner.
+
+### Coverage and execution dependency changes
+
+R01's primary diagnosis remains DA-046; R02 remains DA-047. The following source-qualified
+rows in the sole Finding dispositions table own scheduled correction status. Existing DTA-050,
+DTA-055 and DTA-058 retain primary test-account homes; J consumes their corrected route,
+fixture and evidence distinctions rather than allocating duplicate defects.
+
+| Review material | Work route and completion boundary |
+|---|---|
+| R01/DA-046; S01 | K01–K05 and L01/L02: public durable use without native science construction, migrated callers and deletion |
+| R02/DA-047 | F07: explicit poll/destruction contract, restoration controls and affected consumer adoption |
+| S02; shared scientific meaning | L01/L02 and D/F: one scientific/policy owner for local and worker operations |
+| S03; original receipts/replacement | L02/L03, E and G: unknown-effect reconciliation, stale fences and actual old-owner drain |
+| S04; growth/data access | K05/L04 with A/G preserved owners: compact headers, bounded hydration and explicit payload placement |
+| S05; connectivity/synchronization | K02/L03: unavailable versus failed, notification catch-up and lease/recovery authority |
+| S06; library/transport replacement | E05/K02: full consumed contracts, not adjacent API similarity |
+| Additional scientific research | D02: recorded points, DOE/ESE bounds, array materialization, GP reuse and restart distinctions |
+| Corrected DA-033/034/035/042 premises | Preserve exact settlement, bulk resume/compact outcomes/inline payloads/lazy cohorts and exact telemetry selection; no work recreating them |
+
+Useful next order is K01/L01's shared operation/actor contract, K02 ingress/package selection
+and its decision route, then working L02 endpoint slices and K03/K04 consumers. F07 and E05
+can settle independently where inputs are available; E05 waits on K02 only when public ingress
+changes its actual obligation. L03/L04 and D02 are bounded inquiries, not automatic feature
+adoption. K05 consumes selected L04 placement and existing data custody. J reconciles the
+new working baseline before selected joined acceptance. Document letters do not impose serial
+host execution or whole-document barriers.
+
+Previous D–F implementation authorization is historical; it does not silently authorize this
+new target or a restart of stopped services. The next execution engagement must reconcile
+its selected packages and the three dirty operations corrections before compiling/running.
+Full powerset/no-default validation remains deferred to series end, with all ordinary host
+capacity available. Optional upstream contact, scientific method changes and backend migration
+remain unselected unless their stated decision routes establish otherwise.
+
 
 ## Purpose, authorization and evidence boundary
 
@@ -87,6 +158,8 @@ process exit does not prove group drain; and replaying inputs does not satisfy a
 | [57h](57h-registry-identity-and-diagnostics.md) | Nested identity framing, diagnostic authority, registry feasibility and generator hardening |
 | [57i](57i-python-and-developer-workflows.md) | Trusted codec preparation, public-type feasibility, generated evidence adapters and capture |
 | [57j](57j-qualification-and-publication.md) | Joined acceptance, benefit-selection boundaries, independent reconciliation and enduring publication |
+| [57k](57k-durable-control-and-python-boundary.md) | Native-independent public durable client, ingress and consumer migration |
+| [57l](57l-database-control-and-synchronization.md) | Transactional commands, synchronization and payload/backend investigations |
 
 Package letters follow the companion; their order is navigation, not an agent allocation or
 mandatory serial execution. Shared CBO-001 has several contributing owners but only one
@@ -162,14 +235,14 @@ functional evidence; the maintainer deferred full series-wide feature validation
 | CBO-006 | [Dense indexing](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-006) | resolved — selected dense indexing | [A04](57a-result-data-and-prepaid-accounting.md#a04) | Original-column indexing, window-local selection and canonical readback; A/J Outcomes |
 | CBO-007 | [Predicate meaning](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-007) | resolved — predicate; planner premise disproved | [A04](57a-result-data-and-prepaid-accounting.md#a04) | Shared predicate/metadata codec and indexed canonical pruning preserved; A/J Outcomes |
 | CBO-008 | [Progress](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-008) | resolved — sink; representation retained | [A01](57a-result-data-and-prepaid-accounting.md#a01) | Typed bounded progress sink adopted; heterogeneous JSON policy retained; A Outcome |
-| CBO-009 | [Canonical client](../library_leverage/reviews/canonical-store-transport.md#cbo-009) | planned — decision route conditional | [E](57e-canonical-client-and-requests.md) | Whole canonical/xtask/fixture surface, hidden error seam, admission and two-driver restoration/drain |
+| CBO-009 | [Canonical client](../library_leverage/reviews/canonical-store-transport.md#cbo-009) | planned — decision route conditional | [E](57e-canonical-client-and-requests.md), [K](57k-durable-control-and-python-boundary.md) | Rust canonical/xtask/fixture surface and K public ingress; original receipts, bounded delivery and actual drain |
 | CBO-010 | [Retry and scripts](../library_leverage/reviews/execution-lifecycle-and-observation.md#cbo-010) | planned | [E](57e-canonical-client-and-requests.md) | One migration, typed guarded result slots, settled-effect retry and original pacing/clock |
 | CBO-011 | [Shared flights](../library_leverage/reviews/execution-lifecycle-and-observation.md#cbo-011) | planned — unused wrapper only; flights retained | [F](57f-execution-lifecycle-and-observation.md) | Confirm wrapper consumers absent, preserve producer completion and explicit prepaid authority |
 | CBO-012 | [Field-local checks](../library_leverage/reviews/result-data-and-prepaid-accounting.md#cbo-012) | deferred — retain current | [A](57a-result-data-and-prepaid-accounting.md#dependencies-retained-scope-and-qualification) | Reopen CHECK adapter on concrete grammar/version change or failure; no full-plan replacement selected |
 | CBO-013 | [Lifecycle facts](../library_leverage/reviews/execution-lifecycle-and-observation.md#cbo-013) | planned | [F](57f-execution-lifecycle-and-observation.md) | Owner-typed event, independent sinks and population-specific counters without subscriber dependence |
 | CBO-014 | [Attribution](../library_leverage/reviews/execution-lifecycle-and-observation.md#cbo-014) | planned | [F](57f-execution-lifecycle-and-observation.md) | Ordered capture/enter, shared producer links, window-team propagation; no authority/cyclic dependency |
 | CBO-015 | [Stop/drain/lease](../library_leverage/reviews/execution-lifecycle-and-observation.md#cbo-015) | planned | [F](57f-execution-lifecycle-and-observation.md) | Explicit first renewal and deadline/cancellation/drain behavior; no silent cadence normalization |
-| CBO-016 | [Notification](../library_leverage/reviews/canonical-store-transport.md#cbo-016) | deferred — notification; sleep correction planned | [E](57e-canonical-client-and-requests.md), [F02](57f-execution-lifecycle-and-observation.md#f02) | Preserve polling and authoritative reread; F02 makes study sleep cancellation-aware. Reopen notifications only for material measured discovery/query burden; server has no resume |
+| CBO-016 | [Notification](../library_leverage/reviews/canonical-store-transport.md#cbo-016) | open — L03 synchronization inquiry; polling retained pending selection | [L03](57l-database-control-and-synchronization.md#package-state), [E](57e-canonical-client-and-requests.md) | Authoritative catch-up, finite subscription ownership and a reasoned retain/adopt decision; notifications grant no claim authority |
 | CBO-017 | [Python waits](../library_leverage/reviews/execution-lifecycle-and-observation.md#cbo-017) | planned | [F](57f-execution-lifecycle-and-observation.md) | Signals, final checks, per-caller stop action, recovery key and owned drain |
 | CBO-018 | [Native joins](../library_leverage/reviews/execution-lifecycle-and-observation.md#cbo-018) | planned — owner consolidation | [F](57f-execution-lifecycle-and-observation.md) | Per-owner join observes TLS/native destruction; pidfd replacement only after settling its exact exit semantics |
 | CBO-019 | [Process facts](../library_leverage/reviews/host-processes-and-durable-files.md#cbo-019) | planned — remaining G migrations; reader foundation tested | [G](57g-host-files-and-maintenance.md) | Shared Rust reader preserves boot/namespace/start identity, unknown/malformed state and owner tests |
@@ -208,6 +281,8 @@ functional evidence; the maintainer deferred full series-wide feature validation
 | CBO-052 | [Command surfaces](../library_leverage/reviews/developer-tooling.md#cbo-052) | disproved — blanket consolidation premise | [I](57i-python-and-developer-workflows.md) | Keep coherent MCP/CLI/recipe layers; only actual request declaration duplication joins I's work |
 | CBO-053 | [Maintenance output](../library_leverage/reviews/host-processes-and-durable-files.md#cbo-053) | open — demand/lifetime inquiry | [G](57g-host-files-and-maintenance.md) | Full catalogs, nonce ack and copy logs differ; select bounded ownership without arbitrary restore timeout |
 | FMA | [Arithmetic conflict](../library_leverage/reviews/native-solver-integration.md#faer-kernels-and-the-fma-free-premise) | resolved — consumed faer realization | [C02](57c-native-solvers-and-arithmetic.md#c02) | Maintained nonfused source/dispatch closure, optimized-IR probe and actual LU/SVD/EVD consumers; C/J Outcomes; no cross-CPU measurement |
+| Boundary R01 / DA-046 | [Review S01–S06](../design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md#r01) | scheduled | [K](57k-durable-control-and-python-boundary.md), [L](57l-database-control-and-synchronization.md) | Native-independent durable client, actual migrated consumers, authorization and joined acceptance |
+| Boundary R02 / DA-047 | [Review attribution](../design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md#r02) | scheduled | [F07](57f-execution-lifecycle-and-observation.md#f07--settle-lifecycle-attribution-and-migrate-promised-boundaries) | Explicit lifecycle promise and destructor/restoration controls, then actual affected trace consumers |
 
 ## Investigation outcomes and non-selected alternatives
 

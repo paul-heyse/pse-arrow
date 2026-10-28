@@ -3,7 +3,7 @@ title: "Plan 57j: Qualification and publication"
 status: in-progress
 date: 2026-10-27
 adrs: []
-review_sources: [docs/library_leverage/reviews/README.md]
+review_sources: [docs/library_leverage/reviews/README.md, docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md]
 scenario_sources: [docs/library_leverage/reviews/README.md]
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
@@ -11,6 +11,49 @@ doc_topics: [current-work, validation, documentation, libraries, numerical-execu
 ---
 
 # Plan 57j: Qualification and publication
+
+## Database-boundary review acceptance amendment
+
+The [principal review](../design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md)
+and [test-account refresh](../design_review/test-audit/study-execution-and-database-boundary.md)
+change the future acceptance target, not earlier observations. K/L are planned, not implemented.
+D–F execution remains paused; no service or campaign is restarted by document adoption. The
+last focused inheritance result is twelve passes/zero failures, not actual managed acceptance.
+Earlier twenty-case claims exclude the managed partition; use its dedicated route and report
+actual selected/executed identities. DTA-050/055/058 remain their source finding homes.
+
+J01 first reconciles K/L decisions, F07/E05 outcomes, changed consumers and current immutable
+binaries against the retained dirty source. J02 then selects the following affected scenarios
+once their functional prerequisites work, preserving original failed/interrupted evidence:
+
+| Review scenario | Required assembled distinction |
+|---|---|
+| S01 | Fresh Python process with scientific extension loading refused browses/cancels through actual ingress; actor denial is independently exercised |
+| S02 | Shared authored scientific preparation/admission serves local and supervised worker execution; no duplicated interpretation |
+| S03 | Lost acknowledgement reconciles original receipt; duplicate intent/stale revision/fence refuses correctly; replacement worker cannot publish stale results; old owner actually drains |
+| S04 | Compact headers avoid payload hydration; data-only reader retains finite decode/storage custody and complete stream semantics; generated points record/replay exactly |
+| S05 | Actual disconnect/reconnect and lost notifications recover authoritative state; database unavailability differs from scientific failure; lease expiry remains covered |
+| S06 | Selected transport preserves bounds, original deadline, typed outcomes, session rules and physical task/body/socket completion; poll/drop attribution restores ambient context |
+
+Retain original worker pair, dedicated managed sixteen-owner pair, evidence/knowledge xtask,
+validated Python replay/results/registry, actual SIGINT pull/analysis recovery, taskdump and
+cross-process trace/restoration obligations where current affected scope still consumes them.
+If migration removes a journey's old entry, port its behavioral assertions to the target rather
+than count it as passed or retain a legacy production API. Correct fixture construction and
+partial-startup cleanup must settle even after failure. Refused setup is not scientific acceptance.
+
+K02's selected SDK/ingress and L's selected module/payload changes require effective-server
+qualification, not only permissive peers or latest upstream examples. Final capability and import
+checks must distinguish installed package requirements, loading, scientific admission and actual
+execution. Rebuild current correctness/native artifacts only through their owning routes.
+
+J03 retains scope-end hygiene/manual checks and the maintainer-deferred full powerset/no-default
+campaign. Do not restart that campaign during these inquiries. J04 selects startup/memory/throughput
+measurements only if they resolve a concrete decision; no ecosystem performance claim is inherited.
+J05 obtains independent completion reconciliation of the stable integrated scope and publishes
+changed Python/control/provenance/module/transport contracts through their ADR/design owners.
+Architectural fitness, behavioral acceptance and benefit evidence remain separate conclusions.
+
 
 ## Purpose and claim boundary
 

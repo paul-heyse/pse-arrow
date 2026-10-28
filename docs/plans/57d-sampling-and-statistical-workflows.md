@@ -3,13 +3,43 @@ title: "Plan 57d: Sampling and statistical workflows"
 status: in-progress
 date: 2026-10-27
 adrs: []
-review_sources: [docs/library_leverage/reviews/numerical-workflows.md, docs/library_leverage/reviews/native-solver-integration.md, docs/library_leverage/reviews/result-data-and-prepaid-accounting.md]
+review_sources: [docs/library_leverage/reviews/numerical-workflows.md, docs/library_leverage/reviews/native-solver-integration.md, docs/library_leverage/reviews/result-data-and-prepaid-accounting.md, docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md]
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
 doc_topics: [current-work, design, libraries, preparation, numerical-execution, validation]
 ---
 
 # Plan 57d: Sampling and statistical workflows
+
+## Database-boundary review amendment
+
+D01's implemented producer and focused evidence remain intact; its recorded-study/new-runtime
+replay acceptance remains with J. The [boundary review](../design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md)
+does not select new statistical methods. K's durable client receives exact realized points
+through the common command protocol; native generation remains optional local science.
+
+### D02 — Settle supporting scientific capability inquiries
+
+**Proposed inquiry:** inspect the actual multistart/surrogate route and exact pinned source
+using the review's research companion, docs/libraries/egobox.md, ndarray.md and rand_xoshiro.md,
+then Context7/primary-source follow-up where needed. Distinguish:
+
+- ESE/Optimized design quality from its candidate/distance allocation, random-draw and singleton
+  bounds; supplier FullFactorial truncation and MixedInt mapping are not current grid/equal-slice semantics.
+- ndarray views/Zip/reused output from unavoidable materialization through downstream consumers;
+  logical indexing of non-row-major arrays must remain correct.
+- Retained optimizer actors, GP 0.36.4 fixed-theta consuming update, EGO model rebuild, coherent
+  family upgrades and ask-and-tell. They offer different scientific/restart contracts.
+- Recorded realized-point replay, RNG checkpoints, persisted fitted models and optimizer hot
+  restart. rand_xoshiro 0.8 state APIs are not supplied by the selected 0.6 dependency.
+
+For each, record select/retain/defer with exact mechanism, complete semantic/resource implications,
+consumer, dependent work and observable trigger. A method or persistence change requires its
+scientific/decision route; none follows automatically. Required outcome is a reasoned disposition,
+not implementation of every option. Selected follow-up must migrate its actual consumers and
+independent correctness controls together; J owns composed acceptance. No speed/quality benefit
+is measured by this inquiry. Its completion does not close D01's outstanding replay journey.
+
 
 ## Purpose and consumed baseline
 
@@ -137,6 +167,7 @@ scientific policy; it would not redefine what current first-order uncertainty cl
 | Package | Status | Owner | Completion |
 |---|---|---|---|
 | D01 | in-progress | [Bounded design producer](#d01) | Library producer, domain mapping, admission and actual consumer integrations pass targeted controls; retained/inquiry dispositions remain explicit |
+| D02 | open | Plan57d | Supporting scientific inquiries have explicit selections, limits and reopening triggers |
 
 <a id="d01"></a>
 

@@ -1,8 +1,8 @@
 # Current work and plans
 
-[Plan57: Library leverage and correctness](57-library-leverage-and-correctness.md) is a
+[Plan57: Library leverage and correctness](57-library-leverage-and-correctness.md) is an
 active series covering the reassessed library-leverage review's 53 allocated CBO identities
-and additional arithmetic finding. Ten companions develop the selected corrections, library
+and additional arithmetic finding. Twelve companions develop the selected corrections, library
 mechanisms, foundation improvements, bounded investigations, retained alternatives and joined
 qualification. The coordinator owns finding dispositions and confirmed operator directions;
 companions own package progress. The maintainer authorized execution of 57a–57c and their
@@ -10,7 +10,12 @@ minimum compiler/capture supervision prerequisite. Their selected implementation
 acceptance are complete; [57j's Outcome](57j-qualification-and-publication.md#selected-a-c-outcome--2026-10-27)
 records actual passes, original failures, repaired checks and drained ownership. At the maintainer's
 request, the remaining full feature matrix/no-default sweep is deferred to series-end validation.
-No campaign is running. D01, E01–E04 and F01–F06 are now authorized and in progress. Broader CBO-001 inquiries,
+No campaign is running. D–F implementation and qualification are paused for the
+[database-boundary integration](57-library-leverage-and-correctness.md#database-boundary-review-integration).
+New [57k](57k-durable-control-and-python-boundary.md) and
+[57l](57l-database-control-and-synchronization.md) develop durable access without scientific
+construction, database commands and synchronization. Their creation and the supporting plan
+amendments are authorized documentation work; runtime adoption remains a separate step. Broader CBO-001 inquiries,
 other G03 consumers and remaining G–I work retain their existing owners. Other plans retain their
 independent scope and status.
 

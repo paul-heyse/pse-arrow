@@ -6,6 +6,7 @@ doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
 doc_topics: [current-work, libraries, design, diagnostics, validation]
 review_sources:
+  - docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md
   - docs/library_leverage/reviews/execution-lifecycle-and-observation.md
   - docs/library_leverage/reviews/native-solver-integration.md
   - docs/library_leverage/reviews/declarations-registry-and-python-boundary.md
@@ -19,6 +20,39 @@ and I/O/admission owners (CBO-011). [Plan57e](57e-canonical-client-and-requests.
 CBO-010 retry/script work and the subscription disposition. The
 [coordinator](57-library-leverage-and-correctness.md) owns the combined dispositions. The maintainer authorized this scope on 2026-10-28; the package table and execution
 checkpoint below own current implementation and remaining acceptance.
+
+## Database-boundary review amendment
+
+The [review](../design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md)
+preserves F's implemented completion/authority mechanisms and adds the bounded R02/DA-047
+attribution correction. Database cancellation records desired stop; native threads/tasks and
+supervised processes still need actual completion. K/L must consume these owners rather than
+create another scheduler or infer physical release from a record. Execution remains paused.
+
+### F07 — Settle lifecycle attribution and migrate promised boundaries
+
+Inventory ExecutionContext::instrument_with, observation::Scoped, tracing Instrumented and
+WithDispatch, staged request/native thread carriers and ObservedBody. Their poll and destruction
+contracts differ. ObservedBody already scopes both; authority inheritance corrections are separate.
+No misattributed event or premature release was reproduced by the audit.
+
+For each affected boundary, explicitly choose polling-only or lifecycle attribution based on
+its diagnostics promise. Where cleanup diagnostics belong to captured work, scope child drop
+under the captured observation, subscriber, span and OTel context, then restore the ambient
+caller. Keep intentionally polling-only contracts explicit. Prefer existing library composition
+where it supplies the full contract; no universal wrapper, recorder or authority carrier is required.
+
+Targeted controls use distinct captured/ambient contexts and destructor-emitted diagnostics:
+never-polled, Pending cancellation, Ready, panic, absent context and reused lanes. Establish
+owner release and ambient restoration independently; add composed future-size/construction
+controls if wrapper layout changes. Preserve child destruction/join semantics and avoid multiplying
+large inline future state. Migrate actual promised consumers before deleting replaced composition.
+J owns cross-process trace and real native/Python cancellation acceptance. Passing poll/drop
+controls alone cannot close the managed worker, interpreter or downstream ingestion obligations.
+
+L03 now owns any synchronization/subscription investigation; E provides transport and F preserves
+stop/drain. Existing local WakeSignal/Notify behavior and authoritative final rereads remain.
+
 
 ## Foundation assessment and governing distinctions
 
@@ -188,6 +222,7 @@ Only the table below owns package progress. The coordinator owns aggregate oppor
 | F04 | in-progress | Plan57f | Jobs/session native thread owners migrate without weakening join custody. |
 | F05 | in-progress | Plan57f | Synchronous Python policies share mechanics and preserve acknowledgement identity. |
 | F06 | in-progress | Plan57f | Neutral flight behavior is retained; unused wrapper is deleted and handoff complete. |
+| F07 | open | Plan57f | Poll/destruction attribution contract settled and promised consumers migrated |
 
 <a id="f01"></a>
 

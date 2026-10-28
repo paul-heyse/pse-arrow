@@ -6,6 +6,7 @@ doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
 doc_topics: [current-work, libraries, storage, design, validation]
 review_sources:
+  - docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md
   - docs/library_leverage/reviews/canonical-store-transport.md
   - docs/library_leverage/reviews/execution-lifecycle-and-observation.md
   - docs/library_leverage/reviews/result-data-and-prepaid-accounting.md
@@ -19,6 +20,39 @@ cross-series disposition and completion. This document owns the packages below; 
 records the maintainer-selected implementation scope. SurrealDB remains
 canonical (U3). Conditional upstream work is included (U1), without authorizing contact.
 Recorded point replay (U2) does not grant transport-level replay of application operations.
+
+## Database-boundary review amendment
+
+The [boundary review](../design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md)
+changes the combined planned target. E's direct Rust gRPC client is an implemented foundation
+with outstanding assembled acceptance, not the mandatory public Python ingress. K02 owns that
+selection under operator-confirmed review RC02; L owns durable transition/actor composition.
+Earlier G3 option B and RC09 statements describe the original E selection. They do not constrain
+K's approved investigation or imply renewed qualification. Keep original clock, receipts,
+serialized admission, predecode bounds and actual descendant/flush custody wherever consumed.
+
+### E05 — Reconcile transport mechanisms with the selected boundary
+
+Use the research companion and exact Hyper 1.11.1/Tonic 0.14.6/Prost 0.14.4/protocol 0.13.1
+sources. Compare retaining owned transport with Tonic decoder/executor/connector composition
+and Hyper-util connection coalescing. A Decoder sees a complete framed message after encoded
+buffering; it can remove duplicate framing only if earlier allocation admission remains sound.
+Supplier stubs hardcode ProstCodec, so codec injection requires explicit client/generator ownership.
+Channel reconnection does not restore application capabilities; Bytes consumption does not prove
+copied-buffer flush. TaskTracker close does not seal admission. Preserve connection-bound worker
+sessions or explicitly revise the affected contract through the decision route.
+
+Output a retain/replace decision for each complete obligation, the actual consumers and deletions,
+and targeted malformed/oversize, early-response/backpressure, restoration and two-driver drain
+cases. K02 may remove public obligations; it cannot retroactively discharge existing worker ones.
+Use current focused custody tests, including the dirty inline-child corrections, without claiming
+that they prove actual managed execution. No extra transport or compatibility shim is selected.
+
+CBO-016's blanket production-LIVE refusal below is superseded for investigation by L03. Polling
+remains the implemented path until that package decides and qualifies a bounded alternative.
+L03 owns notification/catch-up semantics; E supplies any selected transport slice. CBO-046/048
+and upstream proposal content retain their existing limits. No upstream contact is authorized.
+
 
 ## Foundation assessment and baseline
 
@@ -176,6 +210,7 @@ qualification.
 | E02 | in-progress | Plan57e | Protocol client owns bounded transport with serialized admission and completion custody. |
 | E03 | in-progress | Plan57e | All guarded decisions and retries migrate once with original settlement semantics. |
 | E04 | in-progress | Plan57e | Supplier patch coupling is removed and assembled qualification is handed off. |
+| E05 | open | Plan57e | Complete transport alternatives and affected contracts reconciled with K02 |
 
 <a id="e01"></a>
 

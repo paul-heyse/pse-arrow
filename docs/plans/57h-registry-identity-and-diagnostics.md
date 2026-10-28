@@ -3,13 +3,25 @@ title: "Plan 57h: Registry, identity and diagnostics"
 status: draft
 date: 2026-10-27
 adrs: [ADR-0210, ADR-0116, ADR-0178, ADR-0224]
-review_sources: [docs/library_leverage/reviews/declarations-registry-and-python-boundary.md, docs/library_leverage/codebase/authoring-and-identity.md, docs/library_leverage/codebase/registry-generation-and-python-boundary.md]
+review_sources: [docs/library_leverage/reviews/declarations-registry-and-python-boundary.md, docs/library_leverage/codebase/authoring-and-identity.md, docs/library_leverage/codebase/registry-generation-and-python-boundary.md, docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md]
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
 doc_topics: [current-work, design, preparation, diagnostics, libraries, validation]
 ---
 
 # Plan 57h: Registry, identity and diagnostics
+
+
+## Database-boundary review integration
+
+K01/K03 consume responsibility-owned generated durable contracts through native-independent
+Python leaves; H retains registry identity, diagnostics and generator authority. Coordinate
+H06/I01 generator changes with K rather than declaring another wire schema or hand-editing
+outputs. New actor/control errors retain typed diagnostics and source privacy. F07's attribution
+changes do not turn diagnostic observations into durable authority. The conditional embedded
+registry product remains governed by H04's complete compatibility/integrity/source-equivalence
+assessment; the boundary review selects no shortcut or automatic registry cutover.
+
 
 ## Purpose and authority
 

@@ -3,13 +3,34 @@ title: "Plan 57i: Python and developer workflows"
 status: draft
 date: 2026-10-27
 adrs: [ADR-0116, ADR-0178, ADR-0219, ADR-0222, ADR-0224]
-review_sources: [docs/library_leverage/reviews/declarations-registry-and-python-boundary.md, docs/library_leverage/reviews/developer-tooling.md, docs/library_leverage/codebase/registry-generation-and-python-boundary.md, docs/library_leverage/codebase/developer-tooling.md]
+review_sources: [docs/library_leverage/reviews/declarations-registry-and-python-boundary.md, docs/library_leverage/reviews/developer-tooling.md, docs/library_leverage/codebase/registry-generation-and-python-boundary.md, docs/library_leverage/codebase/developer-tooling.md, docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md]
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
 doc_topics: [current-work, design, diagnostics, libraries, environment, validation, storage]
 ---
 
 # Plan 57i: Python and developer workflows
+
+## Database-boundary review amendment
+
+K owns the new durable public client/import boundary; I retains scientific public-family
+feasibility, trusted codec preparation, generated developer adapters and capture. I02/I03's
+conditional native-public-type direction must not force connection-only records or imports to
+load PyO3. Coordinate common generated documents/import leaves with K01/K03, preserving Rust-owned
+meaning, strict finite validation, errors and stubs. Never create a second editable schema.
+
+I04 evidence/knowledge and I06 CLI/MCP/selection consumers join K04's operation inventory.
+Only consumers whose requirements are connection/data-only move to that path; actual scientific
+work retains its native producer and admission. Generated adapter availability alone proves
+neither publication validation nor real canonical behavior. SurrealDB remains canonical (U3).
+I05 finite capture continues to distinguish clean completion and incomplete/reset streams.
+F07 supplies any changed attribution contract without replacing capture's completeness policy.
+
+Before public-family migration, reconcile the selected package/import architecture with I02's
+constructor/equality/indexed-view/mutation/helper/stub assessment and its ADR/formal review.
+K's boundary correction does not settle those separate choices. Actual native-independent
+imports and developer publication routes are assembled J evidence, distinct from code generation.
+
 
 ## Purpose and baseline
 

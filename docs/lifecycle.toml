@@ -3689,7 +3689,7 @@ headers = [
 ]
 kind = "finding"
 id_column = 0
-id_pattern = '^(CBO-[0-9]+|FMA)'
+id_pattern = '^(CBO-[0-9]+|FMA|Boundary R[0-9]+ / DA-[0-9]+)'
 status_profile = "finding"
 status_column = 2
 owner_column = 3
@@ -3902,4 +3902,63 @@ kind = "depends-on"
 [[relationships]]
 from = "docs/plans/57i-python-and-developer-workflows.md::package-state::I03"
 to = "docs/plans/57f-execution-lifecycle-and-observation.md::package-state::F05"
+kind = "depends-on"
+
+[[scope_tables]]
+path = "docs/plans/57k-durable-control-and-python-boundary.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(K[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/57l-database-control-and-synchronization.md"
+name = "package-state"
+heading = "Package state"
+headers = ["Package", "Status", "Owner", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(L[0-9]+)'
+status_profile = "packet"
+status_column = 1
+owner_column = 2
+
+[[relationships]]
+from = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K02"
+to = "docs/plans/57l-database-control-and-synchronization.md::package-state::L01"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K03"
+to = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K03"
+to = "docs/plans/57l-database-control-and-synchronization.md::package-state::L02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K04"
+to = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K03"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K05"
+to = "docs/plans/57l-database-control-and-synchronization.md::package-state::L04"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57l-database-control-and-synchronization.md::package-state::L02"
+to = "docs/plans/57k-durable-control-and-python-boundary.md::package-state::K02"
+kind = "depends-on"
+
+[[relationships]]
+from = "docs/plans/57l-database-control-and-synchronization.md::package-state::L05"
+to = "docs/plans/57l-database-control-and-synchronization.md::package-state::L02"
 kind = "depends-on"

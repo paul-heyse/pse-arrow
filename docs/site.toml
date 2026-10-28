@@ -14,7 +14,7 @@ current_work = [
   "plans/53*.md",
   "plans/54*.md",
   "plans/57-library-leverage-and-correctness.md",
-  "plans/57[d-j]-*.md",
+  "plans/57[d-l]-*.md",
 ]
 assets = [
   "functional_reviews/probes/opentelemetry-sdk-2026-10-24.json",

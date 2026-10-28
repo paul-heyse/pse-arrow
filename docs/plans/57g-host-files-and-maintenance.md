@@ -6,6 +6,7 @@ doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
 doc_topics: [current-work, libraries, environment, storage, design, validation]
 review_sources:
+  - docs/design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md
   - docs/library_leverage/reviews/host-processes-and-durable-files.md
   - docs/library_leverage/reviews/canonical-store-transport.md
   - docs/library_leverage/reviews/mathematics-preparation.md
@@ -19,6 +20,28 @@ This companion develops publication (CBO-003), shared child supervision (004), p
 [coordinator](57-library-leverage-and-correctness.md) owns aggregate selection and dispositions;
 this document owns the pending packages below. Drafting does not authorize host cleanup,
 placement changes, maintenance workloads or production implementation.
+
+## Database-boundary review amendment
+
+K/L's [hybrid target](57k-durable-control-and-python-boundary.md) consumes G's existing
+host/file owners. Extend G03/G04's consumer map to the selected control ingress, worker
+admission and service endpoint configuration. Storage controller and receiver generations
+remain distinct; bootstrap/listener authentication, exact program identity, partial-startup
+settlement and process-group drain retain their performing owners. A committed database
+record is not a kernel liveness or join witness. Use the corrected storage-controller routing;
+do not recreate the audit's superseded receiver/storage conflation as a current defect.
+
+L04 owns payload-placement selection; G01 supplies any surviving external publication protocol.
+Do not implement a file-helper rewrite that L04's selected atomic database transition eliminates.
+Where files remain, preserve sync/no-clobber/intent/attachment and reader custody. Object_store
+range/stream primitives are eligible delivery mechanisms but do not supply canonical catalog
+transactions or all local durability semantics. A selected change integrates producer, reader,
+recovery and protected retention together; K05 consumes its data capability.
+
+Any new HTTP/WS/API ingress must be integrated into the authenticated existing deployment,
+readiness/stop/backup and exact owner cleanup routes, not added as an untracked server. J uses
+actual partial-startup and drain scenarios. This amendment schedules integration, not host changes.
+
 
 ## Foundation assessment
 
