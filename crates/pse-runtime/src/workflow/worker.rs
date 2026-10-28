@@ -121,7 +121,8 @@ pub struct WorkerSettings {
     pub recovery: Duration,
     /// Optional maximum number of processed actions.
     pub maximum_actions: Option<usize>,
-    /// Maximum concurrent case lanes; defaults to the runtime CPU and population allocation.
+    /// Maximum concurrent cases; defaults to CPUs and half the native population,
+    /// preserving a second population owner through publication for each case.
     pub maximum_in_flight: Option<usize>,
     /// Finish when a complete scoped discovery pass has no work.
     pub until_idle: bool,
@@ -548,6 +549,24 @@ where
     )
 }
 
+fn worker_width(
+    maximum: Option<usize>,
+    cores: usize,
+    population: usize,
+) -> Result<usize, WorkflowError> {
+    // NativeAllocation validates this same relation for managed profiles. The
+    // second owner survives the scientific-to-publication handoff, so generic
+    // callers must preserve it too rather than treating every job as a case.
+    let allocation = cores.min(population / super::NativeExecutionAllocation::POPULATION_PER_CASE);
+    let width = maximum.unwrap_or(allocation);
+    if width == 0 || width > allocation {
+        return Err(contract(
+            "worker cases and publication owners exceed the runtime allocation",
+        ));
+    }
+    Ok(width)
+}
+
 fn take_recovery(
     last: &mut Option<tokio::time::Instant>,
     now: tokio::time::Instant,
@@ -565,6 +584,15 @@ fn take_recovery(
 mod lane_tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn worker_width_preserves_publication_population_and_explicit_selection() {
+        assert_eq!(worker_width(None, 16, 4).unwrap(), 2);
+        assert_eq!(worker_width(Some(1), 16, 4).unwrap(), 1);
+        assert_eq!(worker_width(None, 1, 4).unwrap(), 1);
+        assert!(worker_width(Some(3), 16, 4).is_err());
+        assert!(worker_width(None, 16, 1).is_err());
+    }
 
     #[tokio::test]
     async fn worker_refills_after_progress_even_when_another_lane_was_idle() {
@@ -2345,16 +2373,11 @@ impl Runtime {
                         "worker polling and recovery intervals must be positive",
                     ));
                 }
-                let allocation = self
-                    .shared
-                    .math()
-                    .cores()
-                    .min(self.shared.budget().math.jobs)
-                    .max(1);
-                let width = settings.maximum_in_flight.unwrap_or(allocation);
-                if width == 0 || width > allocation {
-                    return Err(contract("worker case lanes exceed the runtime allocation"));
-                }
+                let width = worker_width(
+                    settings.maximum_in_flight,
+                    self.shared.math().cores(),
+                    self.shared.budget().math.jobs,
+                )?;
                 let group = CandidateGroup::default();
                 let group = &group;
                 let recovery_position = tokio::sync::Mutex::new(None);
@@ -2389,7 +2412,7 @@ impl Runtime {
                 }
                 let future_bytes = future_bytes(&work);
                 let lanes = width
-                    .checked_mul(2)
+                    .checked_mul(super::NativeExecutionAllocation::POPULATION_PER_CASE)
                     .ok_or_else(|| contract("worker publication lane extent"))?;
                 let lane_bytes = lanes
                     .checked_mul(size_of::<super::study::StudyCandidateLane>() + future_bytes + 128)

@@ -81,6 +81,10 @@ pub struct NativeExecutionAllocation {
     /// Separately placed observer allocation without native assistance.
     pub observer_memory_bytes: usize,
 }
+impl NativeExecutionAllocation {
+    /// Running and publication owners share the finite native population.
+    pub(super) const POPULATION_PER_CASE: usize = 2;
+}
 impl NativeAllocation {
     /// Materialize the declared process envelope and the storage defaults once.
     /// # Errors
@@ -150,7 +154,7 @@ impl NativeAllocation {
                 || profile.case_lanes > profile.cpu_threads
                 || profile
                     .case_lanes
-                    .checked_mul(2)
+                    .checked_mul(NativeExecutionAllocation::POPULATION_PER_CASE)
                     .is_none_or(|population| population > profile.math_jobs)
                 || profile.compiler_cores == 0
                 || profile.compiler_cores > profile.cpu_threads

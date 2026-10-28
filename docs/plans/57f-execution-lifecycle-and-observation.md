@@ -403,3 +403,13 @@ CAS remain at their existing owner. Twenty-three focused administrative controls
 actual retained resources passed settlement, preserving failures and database bytes. The original
 private service then stopped and its allocation retired. This is a necessary qualification/drain
 prerequisite correction, not broader Plan57g supervision implementation or assembled F completion.
+
+The first K/L worker qualification exposed a receiver-allocation handoff defect. The CLI
+validated the selected case lanes but omitted them from worker settings; the generic service
+default also treated every native job as a case, despite the existing allocation contract's
+second resident population through publication. The correction consumes the selected lanes
+and shares that population factor across allocation validation, runtime width admission and
+publication ownership. Explicit bounded overrides remain available; workstation CPU and
+memory policy is unchanged. Three selected profile/width/override controls pass. Plan57j owns
+the original worker retry and retained-data handoff; these controls do not complete F or the
+paused broader D–F campaign.

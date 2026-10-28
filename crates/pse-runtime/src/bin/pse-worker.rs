@@ -442,18 +442,28 @@ fn report(error: &WorkflowError) {
     }
 }
 
+fn worker_settings(
+    cli: &Cli,
+    allocation: pse_runtime::workflow::NativeAllocation,
+) -> WorkerSettings {
+    WorkerSettings {
+        poll: Duration::from_millis(cli.poll_ms),
+        maximum_actions: cli.maximum_actions,
+        maximum_in_flight: cli
+            .maximum_in_flight
+            .or(allocation.execution.map(|profile| profile.case_lanes)),
+        until_idle: cli.until_idle,
+        ..WorkerSettings::default()
+    }
+}
+
 async fn serve(
     cli: &Cli,
     runtime: Runtime,
+    allocation: pse_runtime::workflow::NativeAllocation,
     #[cfg(feature = "canonical-tests")] qualification: Option<Arc<qualification::Controller>>,
 ) -> Result<usize, WorkflowError> {
-    let settings = WorkerSettings {
-        poll: Duration::from_millis(cli.poll_ms),
-        maximum_actions: cli.maximum_actions,
-        maximum_in_flight: cli.maximum_in_flight,
-        until_idle: cli.until_idle,
-        ..WorkerSettings::default()
-    };
+    let settings = worker_settings(cli, allocation);
     let stop = CancelSource::new();
     let interrupt = stop.clone();
     tokio::spawn(async move {
@@ -546,9 +556,9 @@ fn main() -> ExitCode {
     }
     let diagnostics = runtime.observations().clone();
     #[cfg(feature = "canonical-tests")]
-    let result = executor.block_on(serve(&cli, runtime, qualification));
+    let result = executor.block_on(serve(&cli, runtime, selected.allocation(), qualification));
     #[cfg(not(feature = "canonical-tests"))]
-    let result = executor.block_on(serve(&cli, runtime));
+    let result = executor.block_on(serve(&cli, runtime, selected.allocation()));
     // This process composition root joins its optional publisher after scientific
     // lanes have drained, outside RuntimeCaller admission and native ownership locks.
     diagnostics.stop_publisher();
@@ -726,6 +736,34 @@ mod tests {
         );
         std::fs::remove_file(&path).unwrap();
         assert!(producer_receipt_observation(Some(path.as_os_str())).is_err());
+    }
+
+    #[test]
+    fn selected_functional_worker_consumes_case_lanes_and_preserves_bounded_override() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let profiles = pse_runtime::workflow::ProductionProfiles::read(
+            &root.join(".config/agent-capacity.toml"),
+        )
+        .unwrap();
+        let allocation = profiles
+            .select(pse_runtime::workflow::ProductionProfileName::Functional)
+            .unwrap();
+        let cli = Cli::try_parse_from(["pse-worker"]).unwrap();
+        let selected = allocation.execution.unwrap();
+        assert_eq!(selected.case_lanes, 2);
+        assert_eq!(selected.math_jobs, 4);
+        assert_eq!(
+            worker_settings(&cli, allocation).maximum_in_flight,
+            Some(selected.case_lanes)
+        );
+        let smaller = Cli::try_parse_from(["pse-worker", "--maximum-in-flight", "1"]).unwrap();
+        assert!(resource_budget(&smaller, allocation).is_ok());
+        assert_eq!(
+            worker_settings(&smaller, allocation).maximum_in_flight,
+            Some(1)
+        );
+        let larger = Cli::try_parse_from(["pse-worker", "--maximum-in-flight", "3"]).unwrap();
+        assert!(resource_budget(&larger, allocation).is_err());
     }
 
     #[test]

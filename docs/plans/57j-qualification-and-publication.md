@@ -652,3 +652,11 @@ positively drained all contexts, retaining the fixture and original result. The 
 retained-data component did not run. Diagnose the actual frozen native-job allowance and
 its performing owners before another selected worker attempt; do not weaken the test or
 substitute a broader campaign for that missing acceptance.
+
+Frozen evidence distinguishes the functional receiver (two case lanes/four math jobs) from
+the separate observer profile. The worker CLI dropped its validated lane selection, and
+the runtime default ignored the existing two-population-per-case allocation contract.
+Both paths now consume that contract through one shared factor; three targeted profile,
+default and explicit-override controls pass. The reference profile remains valid and host
+CPU/job policy is unchanged. Current worker products and the original selected cancellation
+case must establish whether this also resolves the observed permit exhaustion.
