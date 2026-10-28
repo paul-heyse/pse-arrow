@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Build the selected standalone toolkit with the canonical gRPC SDK integration."""
+"""Build the selected standalone toolkit with the released gRPC SDK."""
 
 from __future__ import annotations
 
@@ -34,31 +34,20 @@ def inputs(declared: Mapping[str, str]) -> str:
         path = ROOT / relative
         state.update(relative.encode())
         state.update(path.read_bytes() if path.is_file() else b"absent")
-    for directory in ("surrealdb", "surrealdb-engine-api"):
-        base = ROOT / "vendor" / directory
-        for path in sorted(base.rglob("*")):
-            if path.is_file() and (path.suffix == ".rs" or path.name == "Cargo.toml"):
-                relative = path.relative_to(ROOT).as_posix().encode()
-                content = path.read_bytes()
-                state.update(len(relative).to_bytes(8, "big"))
-                state.update(relative)
-                state.update(len(content).to_bytes(8, "big"))
-                state.update(content)
     return state.hexdigest()
 
 
 def manifest(upstream: str) -> str:
-    """Keep toolkit behavior; select the same patched remote SDK, without embedding."""
+    """Keep toolkit behavior with an exact released remote SDK, without embedding."""
     old = "surrealdb = { version = '3.3.0', features = ['protocol-http', 'jwks'] }"
     pin = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]["dependencies"][
         "surrealdb"
     ]["version"]
     if upstream.count(old) != 1 or not pin.startswith("="):
         raise BuildError("Pinned toolkit/SDK manifest integration changed")
-    sdk = json.dumps(str(ROOT / "vendor/surrealdb"))
     result = upstream.replace(
         old,
-        f'surrealdb = {{ path = {sdk}, version = "{pin}", default-features = false, features = ["protocol-grpc", "rustls"] }}',
+        f'surrealdb = {{ version = "{pin}", default-features = false, features = ["protocol-grpc", "rustls"] }}',
     )
     result = result.replace(
         "surrealdb-types = { version = '3.3.0' }",

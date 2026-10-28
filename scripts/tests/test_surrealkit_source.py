@@ -17,7 +17,7 @@ from scripts import surrealkit_source as source
 
 
 class ToolkitSourceTests(unittest.TestCase):
-    def test_manifest_selects_patched_remote_sdk_without_embedded_engine(self) -> None:
+    def test_manifest_selects_released_remote_sdk_without_embedded_engine(self) -> None:
         upstream = (
             "surrealdb = { version = '3.3.0', features = ['protocol-http', 'jwks'] }\n"
             "surrealdb-types = { version = '3.3.0' }\n"
@@ -26,7 +26,8 @@ class ToolkitSourceTests(unittest.TestCase):
         result = source.manifest(upstream)
         self.assertIn('features = ["protocol-grpc", "rustls"]', result)
         self.assertIn("default-features = false", result)
-        self.assertIn(str(source.ROOT / "vendor/surrealdb"), result)
+        self.assertNotIn("path =", result)
+        self.assertIn('version = "=3.3.4"', result)
         self.assertNotIn("protocol-http", result)
         self.assertNotIn("jwks", result)
         self.assertIn("panic = 'unwind'", result)
@@ -35,7 +36,7 @@ class ToolkitSourceTests(unittest.TestCase):
         with self.assertRaises(source.BuildError):
             source.manifest("surrealdb = 'unknown'")
 
-    def test_actual_sdk_source_change_invalidates_executable_inputs(self) -> None:
+    def test_unconsumed_vendor_source_does_not_change_toolkit_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             sdk = root / "vendor/surrealdb/src"
@@ -46,6 +47,8 @@ class ToolkitSourceTests(unittest.TestCase):
             with patch.object(source, "ROOT", root):
                 before = source.inputs(declared)
                 code.write_text("changed implementation")
+                self.assertEqual(before, source.inputs(declared))
+                (root / "Cargo.toml").write_text("changed released SDK selection")
                 self.assertNotEqual(before, source.inputs(declared))
 
     def test_new_acquire_preserves_old_publication_and_current_verify_refuses_stale(
