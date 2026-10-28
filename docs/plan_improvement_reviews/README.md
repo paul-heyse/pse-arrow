@@ -7,6 +7,14 @@ approaches across materially affected components and consumers. An improvement's
 extend beyond the plan's functional target; recommendations are judged for coherent integration
 and total burden.
 
+The [Plan58 Rust hard-cutover review](plan58-rust-hard-cutover-2026-10-28.md)
+assesses the colleague's Python-subsumption proposals against Plan58's remaining footprint.
+It recommends integrated native replacements, database-model-driven durable execution,
+structural fixture contracts, native-tool delegation and removal of unnecessary build and
+development-recovery machinery. Durable storage/migration infrastructure remains a target;
+full persistent-deployment qualification is distinguished from regenerable development work.
+Recommendations do not amend Plan58 or authorize implementation.
+
 The [remaining test-architecture review](test-architecture-remaining-2026-10-24.md)
 assesses Plan 53's remaining work alongside Plan 52's affected contracts, taking completed
 52k as the starting condition for subsequent Plan 53 execution.
