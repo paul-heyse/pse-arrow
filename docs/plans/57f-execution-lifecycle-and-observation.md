@@ -356,3 +356,15 @@ pass. The first Python attempt stopped before collection on a root-owned shared 
 a private run directory avoids that unrelated path. Two fixture failures then correctly refused
 missing spill directories; creating those owned directories repaired the fixtures without changing
 production admission. Canonical issued-effect/recovery and taskdump journeys remain pending.
+
+
+Interrupted assembled qualification also exposed the codec-only fixture cleanup boundary inside
+a reference-capable service. Recovery now observes every actual base/registered descendant rather
+than treating configured native capability as an admitted receiver. An interrupted atomic catalog
+creation may leave an exactly blank database: strict pinned catalog observation before/after and
+the native exact-placement empty check now establish that case separately from absent, complete,
+partial or malformed catalogs. Frozen membership, original dead-owner checks and final metadata
+CAS remain at their existing owner. Twenty-three focused administrative controls and all seventeen
+actual retained resources passed settlement, preserving failures and database bytes. The original
+private service then stopped and its allocation retired. This is a necessary qualification/drain
+prerequisite correction, not broader Plan57g supervision implementation or assembled F completion.

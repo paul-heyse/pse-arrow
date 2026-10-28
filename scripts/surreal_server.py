@@ -4849,13 +4849,22 @@ def drain_context(
     try:
         remaining(deadline)
         if not (state / ".contexts" / f"{database}.json").exists():
-            base = config_for(state)
-            if (
-                "execution" not in object_mapping(base["resources"])
-                and base.get("primary_receiver") is None
-            ):
-                # A registered codec-only database never admitted a native receiver.
-                return []
+            with lifecycle_reservation(state, deadline=deadline):
+                base = config_for(state)
+                if not (state / ".contexts" / f"{database}.json").exists() and (
+                    base["database"] != database
+                    or (
+                        "execution" not in object_mapping(base["resources"])
+                        and base.get("primary_receiver") is None
+                    )
+                ):
+                    # A service may offer native execution without this codec-only
+                    # fixture admitting a receiver. Missing association alone is
+                    # not drain: preserve every actual base/registered descendant
+                    # obligation while lifecycle admission remains excluded.
+                    for context in managed_contexts(state):
+                        context_processes_drained(context, deadline=deadline)
+                    return []
         selected = receiver_context(state, database)
         config = config_for(selected)
         if config["database"] != database:
@@ -7540,6 +7549,30 @@ def fixture_database_absent(state: Path, database: str, deadline: float) -> bool
     return database not in databases
 
 
+def empty_fixture_catalog(
+    state: Path, config: Mapping[str, object], deadline: float
+) -> str | None:
+    """Distinguish absent or exactly blank creation from a published catalog."""
+    database = str(config["database"])
+    if fixture_database_absent(state, database, deadline):
+        return "absent"
+    rows = administrative_query(
+        state,
+        "INFO FOR DB;",
+        deadline,
+        namespace=str(config["namespace"]),
+        database=database,
+    )
+    if len(rows) != 1:
+        raise SupervisorError("Fixture database inventory acknowledgment differs")
+    catalog = object_mapping(rows[0]["result"])
+    if set(catalog) != MAINTENANCE_CATALOG_FIELDS["DB"] or any(
+        not isinstance(value, dict) for value in catalog.values()
+    ):
+        raise SupervisorError("Fixture database catalog inventory is unavailable")
+    return "blank" if all(not value for value in catalog.values()) else None
+
+
 def require_fixture_recovery_idle(state: Path, config: Mapping[str, object]) -> None:
     """An orphan observation never takes over an original maintenance operation."""
     if (
@@ -7619,23 +7652,23 @@ def recover_file_owners(
                 "Orphan recovery requires the current selected interpretation"
             )
         deadline = getattr(_STARTUP, "deadline", None) or time.monotonic() + 90
-        if (
-            fixture_recovery
-            and database is not None
-            and fixture_database_absent(state, database, deadline)
-        ):
+        empty_catalog = (
+            empty_fixture_catalog(state, config, deadline)
+            if fixture_recovery and database is not None
+            else None
+        )
+        if empty_catalog is not None:
             # A failed fixture creation need not have published a database. Its
-            # absence says nothing about orphan bytes: the existing native owner
-            # must independently reject every unknown file, lock and symlink.
+            # atomic catalog may also have left only the blank database. Neither
+            # observation settles bytes: the native owner must independently
+            # reject every unknown file, lock and symlink in the exact placement.
             result = native_payload_operation(
                 state, config, "retired-check", [], placement=config
             )
             if result != []:
                 raise SupervisorError("Empty fixture placement acknowledgment differs")
-            if not fixture_database_absent(state, database, deadline):
-                raise SupervisorError(
-                    "Fixture database appeared during orphan recovery"
-                )
+            if empty_fixture_catalog(state, config, deadline) != empty_catalog:
+                raise SupervisorError("Fixture catalog changed during orphan recovery")
             counts = {"recovered": 0, "live": 0, "unknown": 0}
         else:
             counts = recover_selected_file_owners(

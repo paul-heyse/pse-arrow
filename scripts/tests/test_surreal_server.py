@@ -86,6 +86,118 @@ def record(value: object) -> dict[str, object]:
 
 
 class FixtureFileOwnerRecoveryTests(unittest.TestCase):
+    def test_unassociated_codec_fixture_requires_all_actual_contexts_drained(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            child = state / ".receivers/other"
+            config = {
+                "database": "canonical",
+                "resources": {"execution": {}, "native_workers": 1},
+                "primary_receiver": {"worker": "admitted"},
+            }
+            deadline = time.monotonic() + 5
+            with (
+                patch.object(
+                    server,
+                    "lifecycle_reservation",
+                    return_value=contextlib.nullcontext(),
+                ) as reservation,
+                patch.object(server, "config_for", return_value=config),
+                patch.object(server, "managed_contexts", return_value=[state, child]),
+                patch.object(server, "context_processes_drained") as descendants,
+                patch.object(server.signal, "pidfd_send_signal") as signal,
+            ):
+                self.assertEqual(
+                    server.drain_context(
+                        state, "canonical_test_codec", deadline=deadline
+                    ),
+                    [],
+                )
+            reservation.assert_called_once_with(state, deadline=deadline)
+            self.assertEqual(
+                descendants.call_args_list,
+                [
+                    unittest.mock.call(state, deadline=deadline),
+                    unittest.mock.call(child, deadline=deadline),
+                ],
+            )
+            signal.assert_not_called()
+
+    def test_unassociated_fixture_never_hides_live_or_unknown_descendants(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            for reason in (
+                "primary receiver remains active",
+                "independent worker remains active",
+                "observer launch remains active",
+                "descendant observation unavailable",
+            ):
+                with (
+                    self.subTest(reason=reason),
+                    patch.object(
+                        server,
+                        "lifecycle_reservation",
+                        return_value=contextlib.nullcontext(),
+                    ),
+                    patch.object(
+                        server,
+                        "config_for",
+                        return_value={"database": "canonical"},
+                    ),
+                    patch.object(server, "managed_contexts", return_value=[state]),
+                    patch.object(
+                        server,
+                        "context_processes_drained",
+                        side_effect=server.SupervisorError(reason),
+                    ),
+                    patch.object(server.signal, "pidfd_send_signal") as signal,
+                    self.assertRaisesRegex(server.SupervisorError, reason),
+                ):
+                    server.drain_context(
+                        state, "canonical_test_codec", deadline=time.monotonic() + 5
+                    )
+                signal.assert_not_called()
+
+    def test_unassociated_native_service_checks_real_worker_observer(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            with (
+                patch.object(
+                    server,
+                    "lifecycle_reservation",
+                    return_value=contextlib.nullcontext(),
+                ),
+                patch.object(
+                    server,
+                    "config_for",
+                    return_value={
+                        "database": "canonical",
+                        "resources": {"execution": {}, "native_workers": 1},
+                    },
+                ),
+                patch.object(server, "observer_launch_busy", return_value=False),
+                patch.object(
+                    server,
+                    "primary_observation",
+                    return_value={"ActiveState": "inactive", "ControlGroup": ""},
+                ),
+                patch.object(server, "systemctl"),
+                patch.object(
+                    server,
+                    "settled_worker",
+                    return_value={"ActiveState": "active", "ControlGroup": "worker"},
+                ) as worker,
+                self.assertRaisesRegex(
+                    server.SupervisorError, "worker slots remain active"
+                ),
+            ):
+                server.drain_context(
+                    state, "canonical_test_codec", deadline=time.monotonic() + 5
+                )
+            worker.assert_called_once_with(state, 0)
+
     def test_inactive_receiver_does_not_hide_surviving_independent_worker(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             state = Path(directory)
@@ -312,6 +424,101 @@ class AbsentFixtureRecoveryTests(unittest.TestCase):
             verifier=self.helper,
         )
 
+    def present_catalog(self, *, blank: bool = False) -> list[dict[str, object]]:
+        catalog = {field: {} for field in server.MAINTENANCE_CATALOG_FIELDS["DB"]}
+        if not blank:
+            catalog["tables"] = {"canonical_interpretations": "defined"}
+        return [{"status": "OK", "result": catalog}]
+
+    def test_blank_fixture_requires_exact_catalog_twice_and_native_empty_placement(
+        self,
+    ) -> None:
+        present = [{"status": "OK", "result": {"databases": {self.database: {}}}}]
+        blank = self.present_catalog(blank=True)
+        with (
+            self.boundaries(),
+            patch.object(
+                server,
+                "administrative_query",
+                side_effect=[present, blank, present, blank],
+            ) as catalog,
+            patch.object(server, "native_payload_operation", return_value=[]) as native,
+            patch.object(server, "recover_selected_file_owners") as interpreted,
+            patch.object(server, "write_json") as write,
+        ):
+            self.assertEqual(self.recover(), {"recovered": 0, "live": 0, "unknown": 0})
+        self.assertEqual(catalog.call_count, 4)
+        for observed in (catalog.call_args_list[1], catalog.call_args_list[3]):
+            self.assertEqual(observed.args[:2], (self.state, "INFO FOR DB;"))
+            self.assertEqual(
+                observed.kwargs,
+                {"namespace": "pse", "database": self.database},
+            )
+        self.assertEqual(native.call_args.args[2:], ("retired-check", []))
+        self.assertEqual(
+            native.call_args.kwargs["placement"]["database"], self.database
+        )
+        self.assertEqual(self.path.read_bytes(), self.original)
+        interpreted.assert_not_called()
+        write.assert_not_called()
+
+    def test_blank_fixture_refuses_changed_partial_malformed_or_unknown_catalog(
+        self,
+    ) -> None:
+        present = [{"status": "OK", "result": {"databases": {self.database: {}}}}]
+        blank = self.present_catalog(blank=True)
+        for reason in (
+            "partial",
+            "missing",
+            "extra",
+            "malformed",
+            "bytes",
+            "ack",
+            "changed",
+        ):
+            changed = self.present_catalog(blank=True)
+            data = record(changed[0]["result"])
+            if reason in {"partial", "changed"}:
+                data["functions"] = {"unrecognized": "defined"}
+            elif reason == "missing":
+                data.pop("tables")
+            elif reason == "extra":
+                data["unrecognized"] = {}
+            elif reason == "malformed":
+                data["tables"] = []
+            before = blank if reason in {"bytes", "ack", "changed"} else changed
+            after = changed if reason == "changed" else blank
+            with (
+                self.subTest(reason=reason),
+                self.boundaries(),
+                patch.object(
+                    server,
+                    "administrative_query",
+                    side_effect=[present, before, present, after],
+                ),
+                patch.object(
+                    server,
+                    "native_payload_operation",
+                    side_effect=server.SupervisorError("unknown payload bytes or lock")
+                    if reason == "bytes"
+                    else None,
+                    return_value=[{"unexpected": True}] if reason == "ack" else [],
+                ) as native,
+                patch.object(
+                    server,
+                    "recover_selected_file_owners",
+                    side_effect=server.SupervisorError(
+                        "partial catalog is not interpreted"
+                    ),
+                ),
+                self.assertRaises(server.SupervisorError),
+            ):
+                self.recover()
+            self.assertEqual(
+                native.call_count, int(reason in {"bytes", "ack", "changed"})
+            )
+            self.assertEqual(self.path.read_bytes(), self.original)
+
     def test_absent_fixture_requires_two_catalog_observations_and_native_empty_placement(
         self,
     ) -> None:
@@ -351,8 +558,9 @@ class AbsentFixtureRecoveryTests(unittest.TestCase):
             patch.object(
                 server,
                 "administrative_query",
-                return_value=[
-                    {"status": "OK", "result": {"databases": {self.database: {}}}}
+                side_effect=[
+                    [{"status": "OK", "result": {"databases": {self.database: {}}}}],
+                    self.present_catalog(),
                 ],
             ),
             patch.object(server, "payload_query", return_value=None),
@@ -378,7 +586,11 @@ class AbsentFixtureRecoveryTests(unittest.TestCase):
                 patch.object(
                     server,
                     "administrative_query",
-                    side_effect=[absent, appeared if reason == "appeared" else absent],
+                    side_effect=[
+                        absent,
+                        appeared if reason == "appeared" else absent,
+                        self.present_catalog(blank=True),
+                    ],
                 ) as catalog,
                 patch.object(
                     server,
@@ -394,7 +606,7 @@ class AbsentFixtureRecoveryTests(unittest.TestCase):
             ):
                 self.recover()
             native.assert_called_once()
-            self.assertEqual(catalog.call_count, 2 if reason == "appeared" else 1)
+            self.assertEqual(catalog.call_count, 3 if reason == "appeared" else 1)
             self.assertEqual(self.path.read_bytes(), self.original)
 
     def test_explicit_recovery_helper_is_rechecked_after_native_observation(
@@ -428,8 +640,9 @@ class AbsentFixtureRecoveryTests(unittest.TestCase):
             patch.object(
                 server,
                 "administrative_query",
-                return_value=[
-                    {"status": "OK", "result": {"databases": {self.database: {}}}}
+                side_effect=[
+                    [{"status": "OK", "result": {"databases": {self.database: {}}}}],
+                    self.present_catalog(),
                 ],
             ),
             patch.object(server, "payload_query", return_value=marker),

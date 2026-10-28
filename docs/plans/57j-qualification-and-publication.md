@@ -433,3 +433,16 @@ kernel lifetimes and their allocation charges are absent. Raising runtime watche
 1048576 repaired the documented watch-exhaustion condition; an identical fresh native probe now
 settles normally. Instances remain 1024, original timeouts/drain checks are unchanged, and no
 unrelated process or store was touched. These observations do not rewrite either failed attempt.
+
+
+The first real operations attempt selected 453 cases (nine excluded: five separate module
+qualification cases and four explicitly ignored external/operator journeys). It retained 310
+passes, nine substantive failures and sixteen SIGINT outcomes; 118 selected cases did not run.
+Its original nextest exit was 100, composed interruption 130, with selected/executed membership
+incomplete. Required corrections are owned by E/F's current checkpoints; no assertion or original
+clock was widened. Initial teardown correctly refused seventeen unsettled fixture creations and
+retained the reference allocation. Exact recorded-resource recovery subsequently proved all
+seventeen drained with zero live/unknown native file owners, after twenty-three focused owner
+controls. The failed private service is now stopped, listener absent and allocation charge gone;
+all database contents, receipts and failed observations remain. A fresh or explicitly reopened
+owned fixture and current binaries are prerequisites for the affected regression/acceptance work.
