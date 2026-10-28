@@ -55,13 +55,10 @@ use std::{
 pub(crate) async fn scope_stopped(
     scope: &pse_kernels::ExecutionScope,
 ) -> pse_kernels::ProviderError {
-    if let Err(error) = scope.check() {
-        return error;
-    }
-    tokio::select! {
-        biased;
-        () = scope.cancellation_control().cancelled() => pse_kernels::ProviderError::Cancelled,
-        () = async { match scope.deadline() { Some(at) => tokio::time::sleep_until(at.into()).await, None => std::future::pending().await } } => pse_kernels::ProviderError::Deadline,
+    use pse_diagnostics::stop::{StopSignal, StopReason};
+    match crate::stop::KernelStop(scope).stopped().await {
+        StopReason::Cancelled => pse_kernels::ProviderError::Cancelled,
+        StopReason::Deadline => pse_kernels::ProviderError::Deadline,
     }
 }
 /// Finite math allowances draw from the deployment pool, never a second memory budget.

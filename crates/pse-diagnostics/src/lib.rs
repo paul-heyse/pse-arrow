@@ -280,3 +280,6 @@ crate::impl_diagnostic! {
 
 /// Executor-neutral stop and completion-owned drain mechanics.
 pub mod stop;
+
+/// Owner-independent execution lifecycle vocabulary.
+pub mod lifecycle;

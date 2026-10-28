@@ -213,6 +213,16 @@ impl TransferredContext {
         };
         Self((recorder, unavailable))
     }
+    #[cfg(test)]
+    pub(crate) fn recorder_ptr_for_test(&self) -> Option<usize> { self.0.0.as_ref().map(|recorder| Arc::as_ptr(recorder) as usize) }
+    #[cfg(test)]
+    pub(crate) fn has_recorder_for_test(&self) -> bool { self.0.0.is_some() }
+    pub(crate) fn unavailable() -> Self {
+        Self((None, Some(pse_diagnostics::observation::RecordAvailability::Unavailable)))
+    }
+    pub(crate) async fn scope_inherited<T>(self, work: impl Future<Output = T>) -> T {
+        CURRENT.scope(self.0, work).await
+    }
     pub(crate) fn capture() -> Self {
         Self(CURRENT.try_with(Clone::clone).unwrap_or_else(|_| {
             SYNCHRONOUS.with(|scope| scope.borrow().clone()).unwrap_or((
@@ -251,11 +261,6 @@ impl Drop for EnteredContext {
             scope.replace(self.0.take());
         });
     }
-}
-/// Capture at future construction, before the caller dispatches an independent task.
-pub(crate) fn inherit<T>(work: impl Future<Output = T>) -> impl Future<Output = T> {
-    let context = TransferredContext::capture();
-    async move { CURRENT.scope(context.0, work).await }
 }
 impl Recorder {
     pub(crate) fn new() -> Option<Arc<Self>> {

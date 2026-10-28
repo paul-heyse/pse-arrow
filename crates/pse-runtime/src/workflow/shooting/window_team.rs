@@ -94,8 +94,7 @@ struct WindowEvaluation<'a> {
     purpose: crate::invocation::IntegrationPurpose,
 }
 struct Request {
-    context: Option<pse_diagnostics::observation::ObservationContext>,
-    invocation: crate::invocation::TransferredContext,
+    context: crate::ExecutionContext,
     producer: Option<pse_diagnostics::observation::Producer>,
     purpose: crate::invocation::IntegrationPurpose,
     execution: Execution,
@@ -303,8 +302,7 @@ impl WindowTeam {
                     let source = problem.clone();
                     let execution = execution.clone();
                     let runtime = runtime.clone();
-                    let preparation_context = pse_diagnostics::observation::current();
-                    let preparation_invocation = crate::invocation::TransferredContext::capture();
+                    let preparation_context = crate::ExecutionContext::capture();
                     let constructors: Vec<_> =
                         assigned.iter().map(|&k| constructors[k].clone()).collect();
                     let coverages: Vec<_> =
@@ -346,9 +344,7 @@ impl WindowTeam {
                                     .collect::<Result<Vec<_>, _>>()
                             };
                             let prepared = {
-                                let _observation =
-                                    preparation_context.as_ref().map(|context| context.enter());
-                                let _invocation = preparation_invocation.enter();
+                                let _context = preparation_context.enter_native();
                                 catch_unwind(AssertUnwindSafe(|| {
                                     native::execution::original_scoped(&execution, prepare)
                                 }))
@@ -357,7 +353,6 @@ impl WindowTeam {
                                 Err(ProblemError::internal("shooting lane preparation panic"))
                             });
                             drop(preparation_context);
-                            drop(preparation_invocation);
                             let mut workers = match prepared {
                                 Ok(workers) => {
                                     if ready.send(Ok(())).is_err() {
@@ -394,10 +389,7 @@ impl WindowTeam {
                                         continue;
                                     }
                                 }
-                                let _entered =
-                                    request.context.as_ref().map(|context| context.enter());
-                                let _invocation = request.invocation.enter();
-                                let _execution = crate::observation::native_execution_scope();
+                                let _context = request.context.enter_native();
                                 for (local, &k) in assigned.iter().enumerate() {
                                     let work = || {
                                         let worker = workers[local].as_mut().ok_or_else(|| {
@@ -592,8 +584,7 @@ impl WindowTeam {
                     let mut results: Vec<_> = (0..source.windows.len()).map(|_| None).collect();
                     for lane in lanes.iter() {
                         let request = Request {
-                            context: pse_diagnostics::observation::current(),
-                            invocation: crate::invocation::TransferredContext::capture(),
+                            context: crate::ExecutionContext::capture(),
                             producer: producer.clone(),
                             purpose,
                             execution: execution.clone(),

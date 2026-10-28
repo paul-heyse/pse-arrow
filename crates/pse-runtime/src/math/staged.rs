@@ -330,8 +330,7 @@ impl execution::ComputeAdmission for ComputeOwner {
                     () = abandoned => {},
                     () = self.jobs.closed() => return Err(MathRuntimeError::Limit("active jobs closed").into_problem()),
                     () = self.cpu.closed() => return Err(MathRuntimeError::Limit("CPU admission closed").into_problem()),
-                    () = scope.cancellation_control().cancelled() => {},
-                    () = async { match scope.deadline() { Some(at) => tokio::time::sleep_until(at.into()).await, None => std::future::pending().await } } => {},
+                    _ = async { pse_diagnostics::stop::StopSignal::stopped(&crate::stop::KernelStop(&scope)).await } => {},
                 }
             }
         })
@@ -574,8 +573,7 @@ impl std::task::Wake for IdleWake {
 struct RequestObservation {
     context: Option<pse_diagnostics::observation::ObservationContext>,
     operation: Arc<std::sync::Mutex<Option<pse_diagnostics::observation::OperationGuard>>>,
-    dispatch: tracing::Dispatch,
-    span: tracing::Span,
+    execution: crate::ExecutionContext,
 }
 /// Adapter scopes currently entered on the session thread.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -824,7 +822,7 @@ impl Drop for Stop {
     fn drop(&mut self) {
         if let Some(flag) = &self.0 {
             if let Some(context) = self.1.as_ref().filter(|context| context.is_active()) {
-                context.boolean("native.session.stop_requested", true);
+                crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(context.clone())).record(pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested, true);
             }
             flag.cancel();
         }
@@ -984,10 +982,8 @@ impl MathService {
         let fail_scope_entry = Arc::new(AtomicBool::new(false));
         #[cfg(test)]
         let native_failure = fail_scope_entry.clone();
-        let thread = std::thread::Builder::new()
-            .name("pse-math".into())
-            .stack_size(stack)
-            .spawn(move || {
+        let thread = crate::native_thread::NativeThread::spawn(
+            "pse-math", stack, crate::ExecutionContext::capture().without_request(), || {}, || {}, move || {
                 #[cfg(feature = "solver-kinsol")]
                 pse_backend_native::implicit::budget_sessions(sessions);
                 #[cfg(not(feature = "solver-kinsol"))]
@@ -1012,7 +1008,7 @@ impl MathService {
         let joined_population = population.clone();
         tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             // Joining, not the last reply, witnesses thread-local destruction.
-            let _ = tokio::task::spawn_blocking(move || thread.join()).await;
+            let _ = thread.await;
             drop(lease);
             joined_population.drain().await;
             drop(joined_population);
@@ -1353,15 +1349,14 @@ impl NativeSession {
         });
         let observation = operation.as_ref().map(|operation| operation.context());
         if let Some(context) = &observation {
-            context.boolean("native.session.stop_requested", false);
+            crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(context.clone())).record(pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested, false);
         }
         let operation = Arc::new(std::sync::Mutex::new(operation));
         let admission = operation.clone();
         let observed = RequestObservation {
             context: observation,
             operation,
-            dispatch: tracing::dispatcher::get_default(Clone::clone),
-            span: tracing::Span::current(),
+            execution: crate::ExecutionContext::capture(),
         };
         let future = self
             .run_task_context_inner(cores, backends, deadline, enclosing, cancel, work, observed);
@@ -1408,8 +1403,7 @@ impl NativeSession {
         let RequestObservation {
             context: observation,
             operation,
-            dispatch: trace_dispatch,
-            span: trace_span,
+            execution: context,
         } = observed;
         let waiting = observation
             .as_ref()
@@ -1430,13 +1424,10 @@ impl NativeSession {
         let task_stop = async {
             match &enclosing {
                 Some(scope) => {
-                    if let Err(error) = scope.check() {
-                        return error;
-                    }
-                    tokio::select! {
-                        biased;
-                        () = scope.cancellation_control().cancelled() => pse_kernels::ProviderError::Cancelled,
-                        () = async { match scope.deadline() { Some(at) => tokio::time::sleep_until(at.into()).await, None => std::future::pending().await } } => pse_kernels::ProviderError::Deadline,
+                    use pse_diagnostics::stop::{StopSignal, StopReason};
+                    match crate::stop::KernelStop(scope).stopped().await {
+                        StopReason::Cancelled => pse_kernels::ProviderError::Cancelled,
+                        StopReason::Deadline => pse_kernels::ProviderError::Deadline,
                     }
                 }
                 None => std::future::pending::<pse_kernels::ProviderError>().await,
@@ -1526,20 +1517,16 @@ impl NativeSession {
         let lane = self.population.clone();
         #[cfg(any(test, feature = "solver-kinsol"))]
         let runtime = tokio::runtime::Handle::current();
-        let invocation = crate::invocation::TransferredContext::capture();
+        let context = context.with_observation(observation.clone());
         let request = Request {
             threads: cores,
             backends,
             observation: observation.clone(),
             scope_owner: Some(scope_owner),
             work: Some(Box::new(move |retained| {
-                let _invocation = invocation.enter();
+                let _context = context.enter_native();
                 drop(waiting);
                 drop(admission_span);
-                let _entered = observation.as_ref().map(|context| context.enter());
-                let _execution = crate::observation::native_execution_scope();
-                let _trace_dispatch = tracing::dispatcher::set_default(&trace_dispatch);
-                let _trace_span = trace_span.enter();
                 let phase = pse_diagnostics::observation::phase("native.session.work");
                 let _work_span =
                     tracing::info_span!("pse.native.session.execute", pse.owner.stage = true)
@@ -1619,9 +1606,8 @@ impl NativeSession {
         let outcome = cancel
             .join_native(native, result, || {
                 drain_span = Some(tracing::info_span!("pse.native.session.drain.wait", pse.owner.stage = true));
-                tracing::info!(target: "pse.telemetry.diagnostic", code = "native.cancel.requested", "native session cancellation requested; retaining owner through drain");
                 if let Some(context) = stop.1.as_ref().filter(|context| context.is_active()) {
-                    context.boolean("native.session.stop_requested", true);
+                    crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(context.clone())).record(pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested, true);
                 }
                 pse_diagnostics::observation::phase("native.session.drain.wait")
             })
@@ -1962,9 +1948,9 @@ impl NativeSession {
             let result = joined.await;
             if let Some(context) = observation {
                 if result.is_ok() {
-                    context.boolean("native.session.joined", true);
+                    crate::execution_lifecycle::NativeSessionLifecycle::for_context(Some(context.clone())).record(pse_diagnostics::lifecycle::LifecycleBoundary::Joined, true);
                 } else {
-                    context.unavailable("native.session.joined", "join supervisor reply absent");
+                    context.unavailable(pse_diagnostics::lifecycle::LifecycleBoundary::Joined.native_session_key(), "join supervisor reply absent");
                 }
             }
         }

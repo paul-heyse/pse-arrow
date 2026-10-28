@@ -617,31 +617,6 @@ impl Carrier {
         span
     }
 }
-/// A shared producer has independent lifetime and links to its initiating request.
-/// Further waiters retain their native SharedProduction relationship rather than
-/// becoming invented causal parents.
-pub(crate) struct ProducerContext {
-    carrier: Carrier,
-    dispatch: tracing::Dispatch,
-}
-impl ProducerContext {
-    pub(crate) fn capture() -> Self {
-        Self {
-            carrier: Carrier::current(),
-            dispatch: tracing::dispatcher::get_default(Clone::clone),
-        }
-    }
-    pub(crate) fn run<F: Future>(
-        self,
-        owner: &'static str,
-        future: F,
-    ) -> impl Future<Output = F::Output> {
-        let span =
-            tracing::dispatcher::with_default(&self.dispatch, || self.carrier.linked_span(owner));
-        tracing::Instrument::instrument(future, span).with_subscriber(self.dispatch)
-    }
-}
-
 /// Poll-scoped propagation across owned tasks. No attached guard crosses await.
 pub(crate) fn inherit<F: Future>(future: F) -> impl Future<Output = F::Output> {
     tracing::Instrument::instrument(future, tracing::Span::current())
@@ -1800,7 +1775,7 @@ mod tests {
             remote.operation_span("fixture.initiator")
         });
         let context = tracing::dispatcher::with_default(&dispatch, || {
-            initiator.in_scope(ProducerContext::capture)
+            initiator.in_scope(crate::ExecutionContext::capture)
         });
         let initiator_id = initiator.context().span().span_context().span_id();
         drop(initiator);
@@ -1808,7 +1783,7 @@ mod tests {
             .enable_all()
             .build()
             .unwrap();
-        runtime.block_on(context.run("fixture.continued", async {
+        runtime.block_on(context.shared_producer("fixture.continued").instrument_with(async {
             tokio::task::yield_now().await;
             assert!(
                 Carrier::current()
@@ -1817,7 +1792,7 @@ mod tests {
                     .span_context()
                     .is_valid()
             );
-        }));
+        }, |_| Some(pse_diagnostics::observation::Outcome::Completed)));
         provider.force_flush().unwrap();
         let records = recorded.0.lock().unwrap();
         let producer = records

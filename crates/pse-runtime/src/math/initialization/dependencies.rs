@@ -141,8 +141,7 @@ impl Dependencies {
                 tokio::select! {
                     () = fence.release.notified() => {},
                     () = cancel.cancelled() => {},
-                    () = scope.cancellation_control().cancelled() => {},
-                    () = async { match scope.deadline() { Some(deadline) => tokio::time::sleep_until(deadline.into()).await, None => std::future::pending().await } } => {},
+                    _ = async { pse_diagnostics::stop::StopSignal::stopped(&crate::stop::KernelStop(scope)).await } => {},
                 }
             }
             let _ = fence.events.send(index).await;

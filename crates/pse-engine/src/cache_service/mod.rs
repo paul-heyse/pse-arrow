@@ -5,7 +5,6 @@
 pub mod details;
 mod envelope;
 pub use details::{CacheEntries, CacheEntryReport};
-pub mod flight;
 pub(crate) mod inspection;
 pub mod load;
 pub mod metrics;

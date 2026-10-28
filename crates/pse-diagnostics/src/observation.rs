@@ -2127,7 +2127,8 @@ pub fn inherit<F: Future>(future: F) -> impl Future<Output = F::Output> {
     let context = current();
     scope(context, future)
 }
-fn enter_optional(context: Option<ObservationContext>) -> EnterGuard {
+/// Enter an explicitly present or absent context, restoring the prior context on drop.
+pub fn enter_optional(context: Option<ObservationContext>) -> EnterGuard {
     let previous = CURRENT.with(|current| current.replace(context));
     EnterGuard {
         previous,

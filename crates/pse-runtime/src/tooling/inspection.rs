@@ -702,7 +702,7 @@ fn context_explanations(snapshot: &OperationSnapshot) -> Vec<Statement> {
     if snapshot
         .metrics
         .iter()
-        .any(|metric| metric.name == "native.joined" && metric.latest == Value::Boolean(true))
+        .any(|metric| metric.name == pse_diagnostics::lifecycle::LifecycleBoundary::Joined.native_job_key() && metric.latest == Value::Boolean(true))
     {
         result.push(Statement::operation(snapshot,StatementKind::Established,"native.joined","The native owner published actual join/drain, separately from numerical usability and publication.",vec![]));
     }

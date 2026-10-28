@@ -416,12 +416,12 @@ impl MathService {
         let generation = self.modeling_cache.generation();
         let population = super::PopulationScope::capture();
         let producer_deadline = service.preparation_producer_deadline();
-        let telemetry = crate::tooling::telemetry::ProducerContext::capture();
+        let telemetry = crate::ExecutionContext::capture();
         let operation = self
             .frontier_flights
             .load_owned(key.clone(), move |control| {
-                telemetry.run(
-                    "model.specialization.producer",
+                telemetry.shared_producer_at("model.specialization.producer", pse_diagnostics::observation::current()).instrument_with(
+                    
                     population.run(async move {
                         let _interval =
                             crate::tooling::operational_metrics::PreparationStage::Frontier
@@ -452,18 +452,23 @@ impl MathService {
                             .retain_frontier(generation, key, frontier.clone());
                         Ok(frontier)
                     }),
-                )
+                |result| Some(match result {
+                        Ok(_) => pse_diagnostics::observation::Outcome::Completed,
+                        Err(MathRuntimeError::Cancelled) => pse_diagnostics::observation::Outcome::Cancelled,
+                        Err(_) => pse_diagnostics::observation::Outcome::Failed,
+                    }),)
             });
         let operation = async {
             crate::tooling::operational_metrics::PreparationStage::Frontier.waiter();
             operation.await
         };
-        tokio::pin!(operation);
-        tokio::select! {
-            biased;
-            () = driver.cancelled() => Err(MathRuntimeError::Cancelled),
-            () = tokio::time::sleep_until(deadline.into()) => Err(waiter_expiry()),
-            result = &mut operation => result.map_err(flight_error),
+        let stop = driver.with_deadline(Some(deadline));
+        match pse_diagnostics::stop::stop_first(
+            pse_diagnostics::stop::StopSignal::stopped(&stop), operation,
+        ).await {
+            Ok(result) => result.map_err(flight_error),
+            Err(pse_diagnostics::stop::StopReason::Cancelled) => Err(MathRuntimeError::Cancelled),
+            Err(pse_diagnostics::stop::StopReason::Deadline) => Err(waiter_expiry()),
         }
     }
     pub(crate) async fn complete_frontier(
@@ -572,12 +577,12 @@ impl MathService {
         let generation = frontier.generation;
         let population = super::PopulationScope::capture();
         let producer_deadline = service.preparation_producer_deadline();
-        let telemetry = crate::tooling::telemetry::ProducerContext::capture();
+        let telemetry = crate::ExecutionContext::capture();
         let operation =
             self.basis_flights
                 .load_owned((key.clone(), source_premises.clone()), move |control| {
-                    telemetry.run(
-                        "compiler.materialization.producer",
+                    telemetry.shared_producer_at("compiler.materialization.producer", pse_diagnostics::observation::current()).instrument_with(
+                        
                         population.run(async move {
                             let _interval =
                                 crate::tooling::operational_metrics::PreparationStage::Basis
@@ -608,18 +613,23 @@ impl MathService {
                                 .retain_basis(generation, key, basis.clone());
                             Ok(basis)
                         }),
-                    )
+                    |result| Some(match result {
+                        Ok(_) => pse_diagnostics::observation::Outcome::Completed,
+                        Err(MathRuntimeError::Cancelled) => pse_diagnostics::observation::Outcome::Cancelled,
+                        Err(_) => pse_diagnostics::observation::Outcome::Failed,
+                    }),)
                 });
         let operation = async {
             crate::tooling::operational_metrics::PreparationStage::Basis.waiter();
             operation.await
         };
-        tokio::pin!(operation);
-        tokio::select! {
-            biased;
-            () = driver.cancelled() => Err(MathRuntimeError::Cancelled),
-            () = tokio::time::sleep_until(deadline.into()) => Err(waiter_expiry()),
-            result = &mut operation => result.map_err(flight_error),
+        let stop = driver.with_deadline(Some(deadline));
+        match pse_diagnostics::stop::stop_first(
+            pse_diagnostics::stop::StopSignal::stopped(&stop), operation,
+        ).await {
+            Ok(result) => result.map_err(flight_error),
+            Err(pse_diagnostics::stop::StopReason::Cancelled) => Err(MathRuntimeError::Cancelled),
+            Err(pse_diagnostics::stop::StopReason::Deadline) => Err(waiter_expiry()),
         }
     }
 }

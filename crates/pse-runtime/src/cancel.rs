@@ -87,16 +87,11 @@ impl CancelSource {
         work: impl Future<Output = T>,
         on_stop: impl FnOnce() -> Drain,
     ) -> T {
-        tokio::pin!(work);
-        tokio::select! {
-            biased;
-            () = self.cancelled() => {
-                native.cancel();
-                let _drain = on_stop();
-                work.await
-            }
-            result = &mut work => result,
-        }
+        pse_diagnostics::stop::drain_on_stop(
+            async { self.cancelled().await; pse_diagnostics::stop::StopReason::Cancelled },
+            work,
+            |_| { native.cancel(); on_stop() },
+        ).await.0
     }
 }
 

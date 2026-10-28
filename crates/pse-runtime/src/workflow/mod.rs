@@ -1081,12 +1081,15 @@ impl RuntimeActivity {
 
 pub(crate) fn inherit_runtime_activity<F: Future>(future: F) -> impl Future<Output = F::Output> {
     let activity = RUNTIME_CONTINUATION.try_with(Clone::clone).ok();
-    let context = pse_diagnostics::observation::current();
+    let context = crate::ExecutionContext::capture();
     let future = pse_operations::canonical::inherit_activity(future);
-    // Construct the scope now: a spawned task's first poll has no originating task-local.
+    // Authority retains its original owner; copied attribution alone cannot mint continuation.
     match activity {
-        Some(activity) => futures_util::future::Either::Left(activity.scope(future)),
-        None => futures_util::future::Either::Right(crate::observation::scope(context, future)),
+        Some(activity) => {
+            let context = context.with_observation(activity.observation_context());
+            futures_util::future::Either::Left(activity.scope(context.instrument(future)))
+        }
+        None => futures_util::future::Either::Right(context.instrument(future)),
     }
 }
 #[cfg(test)]

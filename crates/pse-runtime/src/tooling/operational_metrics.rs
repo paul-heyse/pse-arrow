@@ -129,9 +129,6 @@ fn increment(counter: &AtomicU64) {
 pub(crate) fn preparation_activity() {
     let _ = start();
 }
-pub(crate) fn native_joined() {
-    NativeEvent::Joined.increment();
-}
 
 /// Bounded actual shared immutable-product owner.
 #[derive(
@@ -247,16 +244,37 @@ pub fn snapshot() -> OperationalMetricsSnapshot {
     }
 }
 /// The existing supervisor retains this observer through admission and actual join.
-pub(crate) struct NativeAttempt {
+pub(crate) struct NativeJobLifecycle {
     _interval: OwnerInterval,
 }
-impl NativeAttempt {
+impl NativeJobLifecycle {
     pub(crate) fn new() -> Self {
         NativeEvent::Attempt.increment();
         increment(&SUPERVISORS);
         Self {
             _interval: OwnerInterval::new(OwnerIntervalFamily::Native, SUPERVISOR_STAGE),
         }
+    }
+    pub(crate) fn joined(&self) { NativeEvent::Joined.increment(); }
+    pub(crate) fn observe(&self, boundary: pse_diagnostics::lifecycle::LifecycleBoundary, value: bool) {
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.boolean(boundary.native_job_key(), value);
+        }
+        let code = match boundary {
+            pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested => "native.cancel.requested",
+            pse_diagnostics::lifecycle::LifecycleBoundary::DeadlineExpired => "native.deadline.expired",
+            pse_diagnostics::lifecycle::LifecycleBoundary::Joined => "native.join.settled",
+            _ => boundary.native_job_key(),
+        };
+        tracing::info!(target: "pse.telemetry.diagnostic", code, value, "native job lifecycle");
+    }
+    pub(crate) fn returned(&self, failed: bool) {
+        use pse_diagnostics::lifecycle::LifecycleBoundary as B;
+        if let Some(context) = pse_diagnostics::observation::current() {
+            context.boolean(B::Joined.native_job_key(), true);
+            context.boolean(B::ReturnFailed.native_job_key(), failed);
+        }
+        tracing::info!(target: "pse.telemetry.diagnostic", code = "native.join.settled", native.failed = failed, "native worker and foreign destructors joined");
     }
     pub(crate) fn admitted(&self) {
         NativeEvent::Admitted.increment();
@@ -271,7 +289,7 @@ impl NativeAttempt {
         NativeEvent::DeadlineRequested.increment();
     }
 }
-impl Drop for NativeAttempt {
+impl Drop for NativeJobLifecycle {
     fn drop(&mut self) {
         SUPERVISORS.fetch_sub(1, Ordering::Relaxed);
     }
@@ -519,10 +537,10 @@ mod tests {
             let traces = SdkTracerProvider::builder().with_sampler(sampler).build();
             traces.tracer("fixture").in_span("fixture", |context| {
                 assert_eq!(context.span().span_context().is_sampled(), index == 1);
-                let attempt = NativeAttempt::new();
+                let attempt = NativeJobLifecycle::new();
                 attempt.admitted();
                 attempt.dispatched();
-                native_joined();
+                attempt.joined();
                 attempt.cancelled();
                 drop(attempt);
             });

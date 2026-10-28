@@ -44,6 +44,16 @@ pub async fn stop_first<T>(
     }).await
 }
 
+pin_project_lite::pin_project! {
+    // Field order keeps the guard alive through the retained future's destruction,
+    // including unwinding from its poll. The original future is pinned only once.
+    struct DrainOwner<W, G> {
+        #[pin]
+        work: W,
+        guard: Option<G>,
+    }
+}
+
 /// Retain the original work after stop and keep its owner's drain guard through completion.
 /// The caller must itself retain this future in a completion-owned supervisor when abandonable.
 pub async fn drain_on_stop<T, G>(
@@ -51,12 +61,13 @@ pub async fn drain_on_stop<T, G>(
     work: impl Future<Output = T>,
     on_stop: impl FnOnce(StopReason) -> G,
 ) -> (T, Option<StopReason>) {
-    let mut work = pin!(work);
-    match stop_first(stop, &mut work).await {
+    let mut owner = pin!(DrainOwner { work, guard: None });
+    match stop_first(stop, poll_fn(|cx| owner.as_mut().project().work.poll(cx))).await {
         Ok(value) => (value, None),
         Err(reason) => {
-            let _guard = on_stop(reason);
-            (work.await, Some(reason))
+            *owner.as_mut().project().guard = Some(on_stop(reason));
+            let value = poll_fn(|cx| owner.as_mut().project().work.poll(cx)).await;
+            (value, Some(reason))
         }
     }
 }
@@ -77,7 +88,7 @@ mod tests {
         assert_eq!(polls.load(Ordering::Relaxed), 0);
     }
     #[test]
-    fn stopped_work_is_polled_once_and_guard_lives_until_original_completion() {
+    fn stopped_work_keeps_original_future_and_guard_until_completion() {
         struct Guard(Arc<AtomicBool>);
         impl Drop for Guard { fn drop(&mut self) { self.0.store(false, Ordering::Release); } }
         let guarded = Arc::new(AtomicBool::new(false));
@@ -115,4 +126,25 @@ mod tests {
         assert_eq!(StopSignal::check(&cancellation), Some(StopReason::Cancelled));
         assert_eq!(stopped.as_mut().poll(&mut cx), Poll::Ready(StopReason::Cancelled));
     }
+    #[test]
+    fn drain_guard_outlives_retained_future_destruction_when_poll_panics() {
+        struct Guard(Arc<AtomicBool>);
+        impl Drop for Guard { fn drop(&mut self) { self.0.store(false, Ordering::Release); } }
+        struct Work(Arc<AtomicBool>);
+        impl Future for Work {
+            type Output = ();
+            fn poll(self: std::pin::Pin<&mut Self>, _: &mut Context<'_>) -> Poll<()> { panic!("work poll failed"); }
+        }
+        impl Drop for Work { fn drop(&mut self) { assert!(self.0.load(Ordering::Acquire)); } }
+        let live = Arc::new(AtomicBool::new(false));
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut drain = pin!(drain_on_stop(std::future::ready(StopReason::Cancelled), Work(live.clone()), |_| {
+                live.store(true, Ordering::Release); Guard(live.clone())
+            }));
+            let _ = drain.as_mut().poll(&mut Context::from_waker(&context()));
+        }));
+        assert!(result.is_err());
+        assert!(!live.load(Ordering::Acquire));
+    }
+
 }

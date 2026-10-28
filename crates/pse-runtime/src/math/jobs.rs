@@ -255,8 +255,7 @@ impl MathService {
                     () = abandoned => {},
                     () = self.active_jobs.closed() => return Err(MathRuntimeError::Limit("active jobs closed")),
                     () = self.cpu.closed() => return Err(MathRuntimeError::Limit("CPU admission closed")),
-                    () = task_scope.cancellation_control().cancelled() => {},
-                    () = async { match task_scope.deadline() { Some(at) => tokio::time::sleep_until(at.into()).await, None => std::future::pending().await } } => {},
+                    _ = async { pse_diagnostics::stop::StopSignal::stopped(&crate::stop::KernelStop(&task_scope)).await } => {},
                 }
             }
         });
@@ -909,7 +908,7 @@ impl MathService {
         let (sender, receiver) = tokio::sync::oneshot::channel();
         tokio::spawn(crate::tooling::runtime_metrics::instrument(
             crate::tooling::runtime_metrics::NativeTaskClass::MathSubmission,
-            crate::invocation::inherit(crate::observation::inherit(crate::observation::child(
+            crate::ExecutionContext::capture().instrument(crate::observation::child(
                 "math.submission",
                 pse_operations::canonical::inherit_activity(async move {
                     let result = service
@@ -929,7 +928,7 @@ impl MathService {
                         .await;
                     let _ = sender.send(result);
                 }),
-            ))),
+            )),
         ));
         Ok(super::solves::SolveHandle {
             cancel,
@@ -1114,8 +1113,10 @@ impl MathService {
         let stage = pse_diagnostics::observation::phase("math.compiler_admission");
         let permit = tokio::select! {
             biased;
-            () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
-            () = tokio::time::sleep_until(cutoff.into()) => return Err(Self::admission_timeout()),
+            reason = async { pse_diagnostics::stop::StopSignal::stopped(&crate::stop::NativeStop { control: cancel, deadline: Some(cutoff) }).await } => return Err(match reason {
+                pse_diagnostics::stop::StopReason::Cancelled => MathRuntimeError::Cancelled,
+                pse_diagnostics::stop::StopReason::Deadline => Self::admission_timeout(),
+            }),
             permit = workspace.admission.clone().acquire_owned() => permit.map_err(|_| {
                 MathRuntimeError::Infrastructure("compiler admission closed".into())
             })?,
@@ -1302,8 +1303,10 @@ impl MathService {
             }
             tokio::select! {
                 biased;
-                () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
-                () = tokio::time::sleep_until(at.into()) => return Err(Self::admission_timeout()),
+                reason = async { pse_diagnostics::stop::StopSignal::stopped(&crate::stop::NativeStop { control: cancel, deadline: Some(at) }).await } => return Err(match reason {
+                    pse_diagnostics::stop::StopReason::Cancelled => MathRuntimeError::Cancelled,
+                    pse_diagnostics::stop::StopReason::Deadline => Self::admission_timeout(),
+                }),
                 () = released => {},
             }
         }
@@ -1352,7 +1355,7 @@ impl MathService {
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
-        let metrics = crate::tooling::operational_metrics::NativeAttempt::new();
+        let metrics = Arc::new(crate::tooling::operational_metrics::NativeJobLifecycle::new());
         let AdmissionControl {
             cancel,
             admitted,
@@ -1381,7 +1384,7 @@ impl MathService {
         let (tx, rx) = tokio::sync::oneshot::channel();
         tokio::spawn(crate::tooling::runtime_metrics::instrument(
             crate::tooling::runtime_metrics::NativeTaskClass::MathJob,
-            crate::invocation::inherit(crate::observation::inherit(crate::observation::child(
+            crate::ExecutionContext::capture().instrument(crate::observation::child(
                 "math.job",
                 pse_operations::canonical::inherit_activity(async move {
                     let result = async {
@@ -1423,21 +1426,10 @@ impl MathService {
                     service.pressure.clone(),
                 ));
                 let sessions = service.policy.inner_session_bytes;
-                let runtime = tokio::runtime::Handle::current();
-                let observation = pse_diagnostics::observation::current();
-                let invocation = crate::invocation::TransferredContext::capture();
-                let dispatch = tracing::dispatcher::get_default(Clone::clone);
-                let span = tracing::Span::current();
-                let handle = std::thread::Builder::new()
-                    .name("pse-math".into())
-                    .stack_size(service.policy.stack_bytes)
-                    .spawn(move || {
-                        let _runtime = runtime.enter();
-                        let _invocation = invocation.enter();
-                        let _observation = observation.as_ref().map(pse_diagnostics::observation::ObservationContext::enter);
-                        let _execution = crate::observation::native_execution_scope();
-                        let _dispatch = tracing::dispatcher::set_default(&dispatch);
-                        let _span = span.enter();
+                let joined_metrics = metrics.clone();
+                let mut joining = crate::native_thread::NativeThread::spawn(
+                    "pse-math", service.policy.stack_bytes, crate::ExecutionContext::capture(),
+                    || metrics.dispatched(), move || joined_metrics.joined(), move || {
                         let _phase = pse_diagnostics::observation::phase("native.worker");
                         let _native_span = tracing::info_span!("pse.native.worker.execute", pse.owner.stage = true).entered();
                         #[cfg(feature = "solver-kinsol")]
@@ -1458,49 +1450,35 @@ impl MathService {
                         result
                     })
                     .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
-                metrics.dispatched();
-                // Joining witnesses thread-local and native destructor completion.
-                let mut joining = tokio::task::spawn_blocking(move || {
-                    let joined = handle.join();
-                    crate::tooling::operational_metrics::native_joined();
-                    joined
-                });
                 // Inclusive supervisor wait overlaps worker execution; it is not exclusive CPU time.
                 let joining_phase = pse_diagnostics::observation::phase("native.join.wait");
-                let result = match deadline {
-                    Some(deadline) => tokio::select! {
-                        biased;
-                        () = cancel.cancelled() => {
+                let stop = async {
+                    match deadline {
+                        Some(deadline) => pse_diagnostics::stop::StopSignal::stopped(&crate::stop::NativeStop { control: &cancel, deadline: Some(deadline) }).await,
+                        None => std::future::pending().await,
+                    }
+                };
+                let (joined, reason) = pse_diagnostics::stop::drain_on_stop(stop, &mut joining, |reason| {
+                    match reason {
+                        pse_diagnostics::stop::StopReason::Cancelled => {
                             metrics.cancelled();
-                            if let Some(context) = pse_diagnostics::observation::current() { context.boolean("native.stop_requested", true); }
-                            tracing::info!(target: "pse.telemetry.diagnostic", code = "native.cancel.requested", "native cancellation requested; retaining ownership through join");
-                            let _ = joining.await;
-                            Err(MathRuntimeError::Cancelled)
-                        },
-                        () = tokio::time::sleep_until(deadline.into()) => {
+                            metrics.observe(pse_diagnostics::lifecycle::LifecycleBoundary::StopRequested, true);
+                        }
+                        pse_diagnostics::stop::StopReason::Deadline => {
                             metrics.expired();
-                            // Signal checkpoints immediately, but retain every native owner
-                            // until the actual thread and its foreign destructors have joined.
-                            if let Some(context) = pse_diagnostics::observation::current() { context.boolean("native.deadline_expired", true); }
+                            metrics.observe(pse_diagnostics::lifecycle::LifecycleBoundary::DeadlineExpired, true);
                             if !source_owns_deadline { cancel.cancel(); }
-                            let _ = joining.await;
-                            Err(Self::admission_timeout())
-                        },
-                        joined = &mut joining => joined
-                            .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
-                            .map_err(|_| MathRuntimeError::Panic("native worker panic".into()))?,
-                    },
-                    None => joining
-                        .await
-                        .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
+                        }
+                    }
+                }).await;
+                let result = match reason {
+                    Some(pse_diagnostics::stop::StopReason::Cancelled) => Err(MathRuntimeError::Cancelled),
+                    Some(pse_diagnostics::stop::StopReason::Deadline) => Err(Self::admission_timeout()),
+                    None => joined.map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
                         .map_err(|_| MathRuntimeError::Panic("native worker panic".into()))?,
                 };
                 drop(joining_phase);
-                tracing::info!(target: "pse.telemetry.diagnostic", code = "native.join.settled", native.failed = result.is_err(), "native worker and foreign destructors joined");
-                if let Some(context) = pse_diagnostics::observation::current() {
-                    context.boolean("native.joined", true);
-                    context.boolean("native.return.failed", result.is_err());
-                }
+                metrics.returned(result.is_err());
                 // Native thread, TLS and foreign destruction have joined. Release CPU
                 // before optional retention yields for the escaped result's growth.
                 drop(compute);
@@ -1529,7 +1507,7 @@ impl MathService {
                     drop(slot);
                     let _ = tx.send(result);
                 }),
-            ))),
+            )),
         ));
         let result = rx
             .await

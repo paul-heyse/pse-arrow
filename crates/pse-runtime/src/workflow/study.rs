@@ -1052,21 +1052,14 @@ impl Runtime {
         };
         let child = cancel.child_with_deadline(None);
         let work = self.resolve_study_candidate_admission(scope, &fence, lane, &child);
-        tokio::pin!(work);
-        let renewal = (operations.policy().lease() / 3).max(Duration::from_millis(1));
-        let mut renewal_error = None;
-        let result = loop {
-            tokio::select! {
-                result = &mut work => break result,
-                () = tokio::time::sleep(renewal), if renewal_error.is_none() => {
-                    if let Err(error) = self.canonical_store()?.renew_attempt(&fence, operations.policy().lease()).await {
-                        child.cancel(); renewal_error = Some(error);
-                    }
-                }
-            }
-        };
-        if let Some(error) = renewal_error {
-            return Err(error.into());
+        let on_loss = child.clone();
+        let renewal = super::durable::LeaseRenewal::spawn_with(
+            self.canonical_store()?.clone(), fence.clone(), operations.policy(), false, "study.admission.renew",
+            Arc::new(move || on_loss.cancel()),
+        );
+        let result = work.await;
+        if let Some(error) = renewal.stop().await {
+            return Err(WorkflowError::Shared(error));
         }
         result
     }

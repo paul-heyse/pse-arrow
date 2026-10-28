@@ -529,9 +529,10 @@ impl Runtime {
         self.physical_cache
             .admission_flight_waiters
             .fetch_add(1, Ordering::SeqCst);
+        let attribution = crate::ExecutionContext::capture();
         let mut flight = Box::pin(self.physical_cache.admission_flights.load_owned(
             flight_key,
-            move |control| async move {
+            move |control| attribution.shared_producer_at("physical.admission.producer", pse_diagnostics::observation::current()).instrument_with(async move {
                 #[cfg(test)]
                 load_cache
                     .admission_flight_loads
@@ -564,7 +565,11 @@ impl Runtime {
                 };
                 physical._source_owner = None;
                 Ok(Arc::new(physical))
-            },
+            }, |result| Some(match result {
+                Ok(_) => pse_diagnostics::observation::Outcome::Completed,
+                Err(WorkflowError::Math(MathRuntimeError::Cancelled)) => pse_diagnostics::observation::Outcome::Cancelled,
+                Err(_) => pse_diagnostics::observation::Outcome::Failed,
+            })),
         ));
         let admitted = tokio::select! {
             result = &mut flight => result.map_err(|error| match error {

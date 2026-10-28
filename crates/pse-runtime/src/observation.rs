@@ -775,11 +775,6 @@ pub(crate) fn scope<F: Future>(
 ) -> impl Future<Output = F::Output> {
     crate::tooling::telemetry::inherit(pse_diagnostics::observation::scope(context, future))
 }
-/// Capture context before spawning, independently of scientific continuation ownership.
-pub(crate) fn inherit<F: Future>(future: F) -> impl Future<Output = F::Output> {
-    scope(pse_diagnostics::observation::current(), future)
-}
-
 /// A real asynchronous producer scope, distinct from its caller's waiting/accounting scope.
 pub(crate) fn child<F: Future>(kind: &'static str, future: F) -> impl Future<Output = F::Output> {
     let operation = pse_diagnostics::observation::current()

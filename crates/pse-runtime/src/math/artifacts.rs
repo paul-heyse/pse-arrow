@@ -83,11 +83,12 @@ impl MathService {
         let service = self.clone();
         let epoch = self.retention.generation();
         let population = super::PopulationScope::capture();
+        let attribution = crate::ExecutionContext::capture();
         self.scalar_flights
             .load_owned_until(
                 key.clone(),
                 move |cancel| {
-                    population.run(async move {
+                    attribution.shared_producer_at("math.scalar.producer", pse_diagnostics::observation::current()).instrument(population.run(async move {
                         let _descriptor_owner = descriptor_owner;
                         if let Some(Value::Scalars(products)) = service.entries.get(&key) {
                             return Ok(products);
@@ -142,7 +143,7 @@ impl MathService {
                             Value::Scalars(products.clone()),
                         );
                         Ok(products)
-                    })
+                    }))
                 },
                 caller.cancelled(),
             )
@@ -256,11 +257,12 @@ impl MathService {
         let flight_key = key.clone();
         let epoch = self.retention.generation();
         let population = super::PopulationScope::capture();
+        let attribution = crate::ExecutionContext::capture();
         self.flights
             .load_owned_until(
                 flight_key,
                 move |cancel| {
-                    population.run(async move {
+                    attribution.shared_producer_at("math.artifact.producer", pse_diagnostics::observation::current()).instrument_with(population.run(async move {
                         let _descriptor_owner = descriptor_owner;
                         if let Some(Value::Artifact(v)) = service.entries.get(&key) {
                             return Ok(v);
@@ -340,7 +342,11 @@ impl MathService {
                             Value::Artifact(artifact.clone()),
                         );
                         Ok(artifact)
-                    })
+                    }), |result| Some(match result {
+                        Ok(_) => pse_diagnostics::observation::Outcome::Completed,
+                        Err(MathRuntimeError::Cancelled) => pse_diagnostics::observation::Outcome::Cancelled,
+                        Err(_) => pse_diagnostics::observation::Outcome::Failed,
+                    }))
                 },
                 stop,
             )

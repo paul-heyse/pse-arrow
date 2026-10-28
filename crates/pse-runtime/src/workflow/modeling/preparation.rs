@@ -29,11 +29,13 @@ pub(super) async fn scoped<T>(
     if Instant::now() >= deadline {
         return Err(preparation_time_limit());
     }
-    tokio::select! {
-        biased;
-        () = cancel.cancelled() => Err(crate::math::MathRuntimeError::Cancelled.into()),
-        () = tokio::time::sleep_until(deadline.into()) => Err(preparation_time_limit()),
-        result = operation => result,
+    let stop = cancel.with_deadline(Some(deadline));
+    match pse_diagnostics::stop::stop_first(
+        pse_diagnostics::stop::StopSignal::stopped(&stop), operation,
+    ).await {
+        Ok(result) => result,
+        Err(pse_diagnostics::stop::StopReason::Cancelled) => Err(crate::math::MathRuntimeError::Cancelled.into()),
+        Err(pse_diagnostics::stop::StopReason::Deadline) => Err(preparation_time_limit()),
     }
 }
 

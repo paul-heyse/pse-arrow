@@ -553,7 +553,7 @@ impl Operations {
         class: TerminalClass,
         receipt: &CompletionReceipt,
         seeds: SeedEligibility,
-        heartbeat: Option<Heartbeat>,
+        heartbeat: Option<LeaseRenewal>,
     ) -> Result<DurableRecord, WorkflowError> {
         let prepared = async {
             let completion = serde_json::to_vec(receipt).map_err(|e| contract(e.to_string()))?;
@@ -1116,7 +1116,7 @@ pub(crate) struct DurableAttempt {
     solutions: Vec<(usize, SolutionId)>,
     solutions_owner: Option<Arc<pse_columnar::AllocationLease>>,
     completion_owner: Option<Arc<pse_columnar::AllocationLease>>,
-    heartbeat: Option<Heartbeat>,
+    heartbeat: Option<LeaseRenewal>,
 }
 impl DurableAttempt {
     pub(super) fn set_worker_publication(
@@ -1729,7 +1729,7 @@ impl DurableAttempt {
             .get()
             .ok_or_else(|| contract("no native claim before admission"))?
             .clone();
-        self.heartbeat = Some(Heartbeat::spawn(&self.operations, fence, cancel));
+        self.heartbeat = Some(LeaseRenewal::spawn(&self.operations, fence, cancel));
         Ok(())
     }
     pub(super) async fn finish(mut self, result: &RunResult, cancelled: bool) -> DurableRecord {
@@ -2516,43 +2516,73 @@ fn export_failure(
     }
 }
 #[derive(Debug)]
-struct Heartbeat {
-    stop: tokio::sync::oneshot::Sender<()>,
-    task: tokio::task::JoinHandle<()>,
-    failure: Arc<Mutex<Option<Arc<WorkflowError>>>>,
+pub(super) struct LeaseRenewal {
+    stop: pse_diagnostics::Cancellation,
+    task: Option<tokio::task::JoinHandle<Option<Arc<WorkflowError>>>>,
 }
-impl Heartbeat {
+impl LeaseRenewal {
     fn spawn(operations: &Operations, fence: AttemptFence, cancel: Canceller) -> Self {
-        let (stop, mut stopped) = tokio::sync::oneshot::channel();
-        let operations = operations.clone();
-        let failure = Arc::new(Mutex::new(None));
-        let recorded = failure.clone();
-        let task = tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
-            let mut interval = tokio::time::interval(operations.policy.heartbeat);
+        Self::spawn_with(operations.store.clone(), fence, operations.policy, true, "durable.heartbeat.renew", cancel)
+    }
+    pub(super) fn spawn_with(
+        store: CanonicalStore,
+        fence: AttemptFence,
+        policy: LeasePolicy,
+        immediate: bool,
+        owner: &'static str,
+        on_loss: Canceller,
+    ) -> Self {
+        Self::spawn_loop(policy.heartbeat, immediate, owner, on_loss, move || {
+            let store = store.clone();
+            let fence = fence.clone();
+            async move { store.renew_attempt(&fence, policy.lease).await.map(|_| ()).map_err(WorkflowError::Canonical) }
+        })
+    }
+    fn spawn_loop<F, W>(heartbeat: Duration, immediate: bool, owner: &'static str, on_loss: Canceller, mut renew: F) -> Self
+    where F: FnMut() -> W + Send + 'static,
+          W: Future<Output = Result<(), WorkflowError>> + Send + 'static,
+    {
+        let stop = pse_diagnostics::Cancellation::default();
+        let stopped = stop.clone();
+        // Anchor the first tick at admission, not at the task's eventual first poll.
+        let first = tokio::time::Instant::now() + if immediate { Duration::ZERO } else { heartbeat };
+        let work = async move {
+            let mut interval = tokio::time::interval_at(first, heartbeat);
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
-                tokio::select! {_=&mut stopped=>break,_=interval.tick()=>{if let Err(error)=operations.store.renew_attempt(&fence,operations.policy.lease).await{let error=super::diagnostics::operation_context(WorkflowError::Canonical(error),"durable.heartbeat.renew");if let Ok(mut failure)=recorded.lock(){*failure=Some(Arc::new(error));}cancel();break;}}}
+                match pse_diagnostics::stop::stop_first(
+                    async { stopped.cancelled().await; pse_diagnostics::stop::StopReason::Cancelled },
+                    interval.tick(),
+                ).await {
+                    Err(_) => return None,
+                    Ok(_) => {
+                        // An issued renewal is completion-owned: stop never drops this RPC.
+                        if let Err(error) = renew().await {
+                            on_loss();
+                            return Some(Arc::new(super::diagnostics::operation_context(error, owner)));
+                        }
+                    }
+                }
             }
-        }));
-        Self {
-            stop,
-            task,
-            failure,
-        }
+        };
+        let task = tokio::spawn(crate::ExecutionContext::capture().instrument(
+            crate::workflow::inherit_runtime_activity(work)));
+        Self { stop, task: Some(task) }
     }
-    async fn stop(self) -> Option<Arc<WorkflowError>> {
-        let _ = self.stop.send(());
-        if let Err(error) = self.task.await {
-            return Some(Arc::new(contract(format!("heartbeat join: {error}"))));
-        }
-        match self.failure.lock() {
-            Ok(mut failure) => failure.take(),
-            Err(_) => Some(Arc::new(WorkflowError::Internal(
-                "heartbeat failure observation poisoned".into(),
-            ))),
+    pub(super) async fn stop(mut self) -> Option<Arc<WorkflowError>> {
+        self.stop.cancel();
+        let task = self.task.take()?;
+        match task.await {
+            Ok(failure) => failure,
+            Err(error) => Some(Arc::new(contract(format!("heartbeat join: {error}")))),
         }
     }
 }
+
+impl Drop for LeaseRenewal {
+    fn drop(&mut self) { self.stop.cancel(); }
+}
+
 const PROGRESS_EVENT_BYTES: usize = 16 * 1024;
 
 fn progress_memory(
@@ -4829,30 +4859,28 @@ mod canonical_durable_codec {
             if unrelated_export || unrelated_heartbeat {
                 // Compose both unrelated-error precedences through finish and the
                 // final heartbeat join, after real acknowledged study cancellation.
-                let (stop, stopped) = tokio::sync::oneshot::channel();
-                let failure = Arc::new(Mutex::new(None));
-                let recorded = failure.clone();
+                let stop = pse_diagnostics::Cancellation::default();
+                let stopped = stop.clone();
                 let joined_operations = operations.clone();
                 let joined_fence = fence.clone();
                 let unrelated = unrelated.clone();
                 let task = tokio::spawn(async move {
-                    stopped.await.unwrap();
+                    stopped.cancelled().await;
                     let refusal = joined_operations
                         .store
                         .renew_attempt(&joined_fence, Duration::from_secs(60))
                         .await
                         .unwrap_err();
                     assert!(canonical_cancellation(&refusal, &joined_fence));
-                    *recorded.lock().unwrap() = Some(if unrelated_heartbeat {
+                    Some(if unrelated_heartbeat {
                         unrelated
                     } else {
                         Arc::new(WorkflowError::Canonical(refusal))
-                    });
+                    })
                 });
-                attempt.heartbeat = Some(Heartbeat {
+                attempt.heartbeat = Some(LeaseRenewal {
                     stop,
-                    task,
-                    failure,
+                    task: Some(task),
                 });
             } else {
                 attempt.start(Arc::new(|| {})).await.unwrap();
@@ -5598,13 +5626,12 @@ mod canonical_durable_codec {
                 state: AttemptState::Failed,
                 progress: super::super::ProgressCoverage::Unknown {},
             };
-            let (stop, stopped) = tokio::sync::oneshot::channel();
-            let failure = Arc::new(Mutex::new(None));
-            let recorded = failure.clone();
+            let stop = pse_diagnostics::Cancellation::default();
+            let stopped = stop.clone();
             let final_operations = operations.clone();
             let final_fence = fence.clone();
             let task = tokio::spawn(async move {
-                stopped.await.unwrap();
+                stopped.cancelled().await;
                 // The stop/join boundary must see the actual completion chunks
                 // frozen in a reconciled manifest, with terminal admission pending.
                 let actual = final_operations
@@ -5630,13 +5657,13 @@ mod canonical_durable_codec {
                     } else {
                         pse_operations::canonical::CanonicalError::Timeout
                     };
-                    *recorded.lock().unwrap() = Some(Arc::new(WorkflowError::Canonical(error)));
+                    return Some(Arc::new(WorkflowError::Canonical(error)));
                 }
+                None
             });
-            attempt.heartbeat = Some(Heartbeat {
+            attempt.heartbeat = Some(LeaseRenewal {
                 stop,
-                task,
-                failure,
+                task: Some(task),
             });
             attempt.stream.finish().await;
             let settled = attempt.terminate(original.clone()).await;
@@ -6833,5 +6860,50 @@ mod typed_store_failure_unit {
             outcome.detail.effect,
             pse_model::study::EffectState::Unknown
         );
+    }
+}
+
+#[cfg(test)]
+mod lease_renewal_tests {
+    use super::*;
+    #[tokio::test]
+    async fn renewal_stop_joins_in_flight_work_and_keeps_original_failure() {
+        let (entered, entering) = tokio::sync::oneshot::channel();
+        let (release, released) = tokio::sync::oneshot::channel();
+        let mut entered = Some(entered);
+        let mut released = Some(released);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let on_loss = cancelled.clone();
+        let renewal = LeaseRenewal::spawn_loop(Duration::from_secs(60), true, "test.renew", Arc::new(move || { on_loss.store(true, Ordering::Release); }), move || {
+            let entered = entered.take();
+            let released = released.take();
+            async move {
+                entered.unwrap().send(()).unwrap();
+                released.unwrap().await.unwrap();
+                Err(WorkflowError::Integrity("original renewal failure".into()))
+            }
+        });
+        entering.await.unwrap();
+        let mut stopping = Box::pin(renewal.stop());
+        assert!(tokio::time::timeout(Duration::from_millis(10), &mut stopping).await.is_err());
+        assert!(!cancelled.load(Ordering::Acquire));
+        release.send(()).unwrap();
+        let failure = stopping.await.unwrap();
+        assert!(matches!(failure.as_ref(), WorkflowError::Integrity(detail) if detail == "original renewal failure"));
+        assert!(cancelled.load(Ordering::Acquire));
+    }
+    #[tokio::test]
+    async fn delayed_study_renewal_uses_heartbeat_instead_of_lease_thirds() {
+        let heartbeat = Duration::from_millis(30);
+        let (entered, entering) = tokio::sync::oneshot::channel();
+        let mut entered = Some(entered);
+        let started = std::time::Instant::now();
+        let renewal = LeaseRenewal::spawn_loop(heartbeat, false, "test.study.renew", Arc::new(|| {}), move || {
+            if let Some(entered) = entered.take() { let _ = entered.send(std::time::Instant::now()); }
+            async { Ok(()) }
+        });
+        let first = tokio::time::timeout(Duration::from_secs(5), entering).await.unwrap().unwrap();
+        assert!(first.duration_since(started) >= heartbeat);
+        assert!(renewal.stop().await.is_none());
     }
 }

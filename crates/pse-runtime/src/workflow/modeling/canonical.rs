@@ -2108,8 +2108,9 @@ impl ModelingPackage {
         let key = (request.clone(), dependencies.clone());
         let population = crate::math::PopulationScope::capture();
         let producer_deadline = service.preparation_producer_deadline();
+        let attribution = crate::ExecutionContext::capture();
         let operation = math.selected_flights.load_owned(key, move |control| {
-            population.run(async move {
+            attribution.shared_producer_at("modeling.selected.producer", pse_diagnostics::observation::current()).instrument(population.run(async move {
                 let producer_deadline = producer_deadline?;
                 let worker_service = service.clone();
                 let workspace = service.compiler_lane(lineage, inputs)?;
@@ -2145,7 +2146,7 @@ impl ModelingPackage {
                 let admitted = admitted
                     .map_err(crate::math::MathRuntimeError::preparation_producer_failure)?;
                 Ok(Arc::new(admitted))
-            })
+            }))
         });
         tokio::pin!(operation);
         let revision = tokio::select! {
