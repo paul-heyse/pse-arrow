@@ -804,7 +804,7 @@ async fn canonical_complete_read_conflicts_keep_original_clock_and_typed_exhaust
         crate::canonical::protected_query("read-clock-control", || {
             let inherited = super::original_deadline(Duration::from_secs(30));
             clocks.push(inherited);
-            // Observe the enclosing retry clock independently of an SDK deadline
+            // Observe the enclosing retry clock independently of a client deadline
             // racing to return its correctly unreplayed unknown-outcome error.
             Ok(db
                 .query("RETURN 'READ_ALWAYS_CONFLICT';")
@@ -1008,7 +1008,7 @@ async fn source_stage_failed_acquisition_retains_both_causes_under_direct_and_pr
             let readback = readback.expect("independent receipt failure");
             assert!(readback.effect_is_unknown());
             if pending_readback {
-                // At an equal clock, the pinned SDK may publish its original typed
+                // At an equal clock, the native client may publish its original typed
                 // interruption before Tokio's enclosing timeout observes expiry.
                 assert!(
                     matches!(readback.as_ref(), CanonicalError::Timeout)

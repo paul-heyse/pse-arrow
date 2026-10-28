@@ -156,7 +156,7 @@ impl MetadataResponse {
     }
     /// Raw frame plus four simultaneous owned/intermediate representations.
     /// 256 bytes per visited value/key covers Value slots, geometric Vec growth,
-    /// BTreeMap nodes and typed row/index copies at the pinned SDK. String/blob
+    /// BTreeMap nodes and typed row/index copies at the canonical client. String/blob
     /// occurrences are separately prepaid, even for repeated wire offsets.
     pub fn allocation_bytes(self) -> usize {
         let limits = self.limits();

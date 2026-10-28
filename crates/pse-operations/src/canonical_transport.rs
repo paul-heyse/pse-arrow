@@ -370,7 +370,7 @@ impl CanonicalClient {
         }
     }
 
-    /// Endpoint-shaped response admission, before the SDK expands wire values.
+    /// Endpoint-shaped response admission, before the client expands wire values.
     pub(crate) fn metadata_query<'r>(
         &'r self,
         profile: super::MetadataResponse,
@@ -493,7 +493,7 @@ impl CanonicalClient {
     }
 }
 
-/// One actual SDK response sample. The compact wire representation fits the
+/// One actual canonical client response sample. The compact wire representation fits the
 /// default observation text bound even at the maximum integer values. Statement
 /// index and server time belong to the same invocation atomically; history may
 /// coalesce intermediate responses and reports that loss explicitly.
@@ -727,7 +727,7 @@ impl CanonicalMetricState {
     }
 }
 static QUERY_METRICS: CanonicalMetricState = CanonicalMetricState::new();
-/// Process-cumulative actual query builder / SDK response populations. Not every SDK
+/// Process-cumulative actual query builder / client response populations. Not every client
 /// select/control API uses this query adapter; no server-wide coverage is claimed.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -736,7 +736,7 @@ pub struct CanonicalQueryMetrics {
     pub source_started_unix_micros: Option<u128>,
     /// Query builders constructed; never interpreted as dispatched requests.
     pub builders: u64,
-    /// SDK observer request failures without statement responses.
+    /// Client observer request failures without statement responses.
     pub request_failures: u64,
     /// Actual statements received before caller consumption, including failures.
     pub statements: u64,

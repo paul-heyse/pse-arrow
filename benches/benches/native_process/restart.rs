@@ -3,7 +3,10 @@
 //! Ordinary local native reconstruction after releasing every source runtime owner.
 use super::*;
 use pse_ids::{ContentHash, Frame, FramedHasher};
-use pse_operations::canonical::{CanonicalOptions, CanonicalStore};
+use pse_operations::{
+    canonical::{CanonicalOptions, CanonicalStore},
+    transport::{REQUEST_TIMEOUT, operation_scope, original_deadline},
+};
 use pse_relations::{
     columnar::RelationRow,
     generated::runtime::{canonical_revisions, modeling_checks, solve_variables},
@@ -240,8 +243,10 @@ async fn native_warmup(phases: &phases::Phases, build: ContentHash) -> Value {
         "canonical_test_restart_warmup_{}",
         pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
     );
+    // The registered fixture lifetime spans observers.
+    let fixture = pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap();
     let store = CanonicalStore::connect(&options).await.unwrap();
-    store.create().await.unwrap();
+    store.open().await.unwrap();
     let sources = k4_support::sources(k4_support::SOURCE);
     let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(1).unwrap()).unwrap();
     let warmup = Arc::downgrade(&owner.runtime);
@@ -300,7 +305,13 @@ async fn native_warmup(phases: &phases::Phases, build: ContentHash) -> Value {
         0,
         "native warmup retained pool allocations"
     );
-    store.remove_isolated_fixture().await.unwrap();
+    let cleanup_deadline = original_deadline(REQUEST_TIMEOUT);
+    operation_scope(cleanup_deadline.into_std(), async {
+        store.drain_owned_connection_until(cleanup_deadline).await?;
+        fixture.remove_isolated_fixture().await
+    })
+    .await
+    .unwrap();
     json!({"database":options.database,"seconds":started.elapsed().as_secs_f64(),
         "replay_admission":false,"constructions":constructions,"original_rows":rows,"invocation":invocation,
         "after_runtime_teardown_bytes":pool.reserved(),"runtime_released":warmup.upgrade().is_none()})
@@ -318,8 +329,10 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
         "canonical_test_restart_{}",
         pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
     );
+    // The registered fixture lifetime spans observers.
+    let fixture = pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap();
     let store = CanonicalStore::connect(&options).await.unwrap();
-    store.create().await.unwrap();
+    store.open().await.unwrap();
     let sources = k4_support::sources(k4_support::SOURCE);
     let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(1).unwrap()).unwrap();
     let origin = Arc::downgrade(&owner.runtime);
@@ -371,6 +384,7 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
 
     // The measured operation begins with ordinary release, not interruption.
     let started = Instant::now();
+    let source_store = runtime.canonical_store().unwrap().clone();
     drop(result);
     drop(prepared);
     drop(package);
@@ -386,6 +400,11 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
         0,
         "source runtime retained pool allocations"
     );
+    source_store
+        .drain_owned_connection_until(original_deadline(REQUEST_TIMEOUT))
+        .await
+        .unwrap();
+    drop(source_store);
     let release_seconds = started.elapsed().as_secs_f64();
     let phase = Instant::now();
     let store = CanonicalStore::connect(&options).await.unwrap();
@@ -540,7 +559,13 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
     assert_eq!(fresh_pool.reserved(), 0);
     let fresh_control_seconds = fresh_started.elapsed().as_secs_f64();
     let cleanup_started = Instant::now();
-    store.remove_isolated_fixture().await.unwrap();
+    let cleanup_deadline = original_deadline(REQUEST_TIMEOUT);
+    operation_scope(cleanup_deadline.into_std(), async {
+        store.drain_owned_connection_until(cleanup_deadline).await?;
+        fixture.remove_isolated_fixture().await
+    })
+    .await
+    .unwrap();
     (
         elapsed,
         json!({"database":options.database,"source_revision":revision_row(&revision),"root":root,

@@ -32,7 +32,7 @@ pub fn required(object: &mut Object, field: &'static str) -> Result<Value, Codec
     object.remove(field).ok_or(CodecError::Missing(field))
 }
 
-/// Unsigned values never pass through the SDK's signed ordinary integer conversion.
+/// Unsigned values never pass through the ordinary signed native integer conversion.
 pub fn encode_uint(value: u64) -> Result<Value, CodecError> {
     Ok(Value::Number(Number::Decimal(Decimal::from(value))))
 }

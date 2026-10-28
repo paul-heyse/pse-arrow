@@ -780,7 +780,7 @@ impl EvidenceStore {
     pub fn close(&self) {
         self.access.close_caller();
     }
-    /// Drain the actual SDK connection, reusing existing physical lifetime semantics.
+    /// Drain the actual canonical connection, reusing existing physical lifetime semantics.
     pub async fn disconnect(&self) -> Result<(), EvidenceError> {
         let db = self.db.clone();
         self.access

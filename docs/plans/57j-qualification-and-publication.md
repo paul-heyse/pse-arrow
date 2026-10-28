@@ -446,3 +446,27 @@ seventeen drained with zero live/unknown native file owners, after twenty-three 
 controls. The failed private service is now stopped, listener absent and allocation charge gone;
 all database contents, receipts and failed observations remain. A fresh or explicitly reopened
 owned fixture and current binaries are prerequisites for the affected regression/acceptance work.
+
+The fresh reference fixture initialized and started with the current worker, verifier and linked
+correctness extension. All nine corrected operations regressions passed under force-validation
+and the normal sixteen-lane test configuration. The subsequent complete selected operations run
+finished with 450 passes, three failures and nine excluded cases; membership and reporting were
+complete, with no interrupted tests. Its registered resources have no outstanding creation
+borrowers or unproved drain. The private service remains admitted for the remaining acceptance.
+
+The three failures require bounded corrections before further acceptance: the independent product
+hash fixture omitted the existing producer-class frame; readiness settlement obscured the exact
+pre-effect module-identity refusal; and fixture removal admitted a connection without its registered
+fixture owner. Production product identity, the original refusal/removal assertions and all clocks
+remain unchanged. All fifteen selected readiness/hash/fixture regressions now pass, together with
+eighteen direct lifetime/settlement controls. Two intermediate builds stopped before execution on
+unported private-helper test calls; all four calls now borrow the real fixture lifetime without
+changing its strong count. Operations evidence is composite, preserving the broader failed run.
+
+The required owner migration also ports portable-body and native-restart fixture callers: actual
+raw reconnections remain, their transports drain explicitly, and only registered owners enter
+fixture settlement. Final observer drain and owner settlement share the original cleanup deadline.
+Their affected runtime/benchmark acceptance remains pending. The trace acceptance fixture now
+expects the sole canonical client's span while retaining actual cross-process ancestry and sibling
+checks. Remaining native, worker, development-store and Python journeys, and scope-end checks are
+still pending. The full feature-matrix/no-default campaign remains deferred to series end.

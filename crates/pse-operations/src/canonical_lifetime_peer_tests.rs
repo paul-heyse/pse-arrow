@@ -116,7 +116,7 @@ async fn last_protected_owner_transfers_activity_before_reader_count_disappears(
     assert_eq!(
         pool.reserved(),
         retained_bytes,
-        "late original SDK release cannot retire queued cleanup's fallback grant"
+        "late original client release cannot retire queued cleanup's fallback grant"
     );
     assert!(matches!(
         store.disconnect().await,
@@ -127,7 +127,7 @@ async fn last_protected_owner_transfers_activity_before_reader_count_disappears(
     assert_eq!(
         pool.reserved(),
         0,
-        "actual tracked cleanup and SDK drain release metadata"
+        "actual tracked cleanup and client drain release metadata"
     );
     assert_eq!(
         received.recv().await.unwrap(),
@@ -337,7 +337,7 @@ async fn terminal_teardown_seals_admission_and_joins_actual_response_work(
     );
     let mut cleanup = Box::pin(async {
         if fixture {
-            store.remove_isolated_fixture().await
+            store.drain_fixture_connection().await
         } else {
             store.drain_owned_connection().await
         }
@@ -428,13 +428,14 @@ async fn independent_fixture_caller_mint_finishes_before_final_borrower_decision
     barrier.wait();
     let borrower = mint.join().unwrap();
     assert!(admission_held);
+    let lifetime = store.fixture_lifetime.as_ref().unwrap();
     assert!(
-        !store.seal_final_fixture_owner(),
+        !store.seal_final_fixture_owner(lifetime),
         "the completely constructed caller is a registered fixture borrower"
     );
     drop(store.admit_activity().unwrap());
     drop(borrower);
-    assert!(store.seal_final_fixture_owner());
+    assert!(store.seal_final_fixture_owner(lifetime));
     store.drain_fixture_connection().await.unwrap();
     tokio::time::timeout(Duration::from_secs(2), server)
         .await
@@ -447,7 +448,7 @@ async fn independent_fixture_caller_mint_finishes_before_final_borrower_decision
 async fn final_fixture_decision_fences_independent_mint_and_clones_remain_closed_aliases() {
     let (store, mut received, server) = super::tests::canonical_read_barrier_peer().await;
     let store = decision_wire_fixture(store).await;
-    assert!(store.seal_final_fixture_owner());
+    assert!(store.seal_final_fixture_owner(store.fixture_lifetime.as_ref().unwrap()));
     assert!(matches!(
         store.independent_caller(),
         Err(CanonicalError::ConnectionUnavailable)
@@ -458,7 +459,7 @@ async fn final_fixture_decision_fences_independent_mint_and_clones_remain_closed
         Err(CanonicalError::ConnectionUnavailable)
     ));
     assert!(
-        store.seal_final_fixture_owner(),
+        store.seal_final_fixture_owner(store.fixture_lifetime.as_ref().unwrap()),
         "a closed alias cannot undo the original final decision"
     );
     store.drain_fixture_connection().await.unwrap();

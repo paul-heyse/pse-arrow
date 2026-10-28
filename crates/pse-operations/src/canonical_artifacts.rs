@@ -379,7 +379,7 @@ impl ArtifactRead {
         .try_fold(0usize, usize::checked_add)
         .ok_or(CanonicalError::PayloadLimit)
     }
-    /// Keep the continuing allocation through protected release and SDK drain.
+    /// Keep the continuing allocation through protected release and canonical driver drain.
     pub fn retain_metadata_owner(
         &self,
         owner: impl Into<crate::transport::client::ResponseAllocation>,

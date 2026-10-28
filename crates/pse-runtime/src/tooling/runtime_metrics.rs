@@ -351,7 +351,7 @@ pub struct RuntimeMetricsSnapshot {
     pub operational: super::operational_metrics::OperationalMetricsSnapshot,
     /// Performing-owner preparation totals; nested operation/service summaries overlap.
     pub preparations: crate::math::PreparationCounts,
-    /// Selected canonical Query-adapter SDK statistics; excludes other SDK APIs.
+    /// Selected canonical Query-adapter statistics; excludes other client APIs.
     pub canonical_queries: pse_operations::canonical::CanonicalQueryMetrics,
 }
 

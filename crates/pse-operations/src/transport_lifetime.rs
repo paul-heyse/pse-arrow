@@ -272,7 +272,7 @@ impl PhysicalLifetime {
         round.changed.notify_waiters();
     }
     /// Terminal operation ownership has excluded escaped callers and joined
-    /// protected releases. Seal new admission before joining actual SDK terminal
+    /// protected releases. Seal new admission before joining actual client terminal
     /// work; admitted continuations retain their original authority while draining.
     pub(crate) async fn seal_and_wait_for_idle(
         &self,

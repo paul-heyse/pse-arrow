@@ -2691,6 +2691,7 @@ mod canonical_portable_body_tests {
     use pse_compiler::workspace::{CompilerWorkspace, ModelingBodyRetention, WorkspaceLimits};
     use pse_modeling::{Bindings, InstanceId, Limits, PhysicalScope};
     use pse_operations::canonical::{CanonicalOptions, ObjectEdit};
+    use pse_operations::transport::{REQUEST_TIMEOUT, operation_scope, original_deadline};
     use std::{collections::BTreeMap, path::Path, sync::Mutex, time::Duration};
 
     #[tokio::test]
@@ -2784,8 +2785,11 @@ mod canonical_portable_body_tests {
             "canonical_test_portable_large_{}",
             pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
         );
+        // The registered fixture lifetime spans distinct raw observers.
+        let fixture =
+            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap();
         let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
+        store.open().await.unwrap();
         // One ordinary semantic body retains a balanced consumed arithmetic tree and
         // its physical/proof receipts. Independent equations produce separate bodies.
         let mut terms = vec![String::from("(x-x)"); 1024];
@@ -2849,6 +2853,10 @@ mod canonical_portable_body_tests {
         drop(body);
         drop(text);
         drop(read);
+        store
+            .drain_owned_connection_until(original_deadline(REQUEST_TIMEOUT))
+            .await
+            .unwrap();
         drop(store);
         let store = CanonicalStore::connect(&options).await.unwrap();
         store.open().await.unwrap();
@@ -2903,7 +2911,14 @@ mod canonical_portable_body_tests {
         assert_eq!(jet.values, vec![7.0]);
         assert_eq!(jet.jacobian, vec![1.0]);
         store.release(read.selection()).await.unwrap();
-        store.remove_isolated_fixture().await.unwrap();
+        let cleanup_deadline = original_deadline(REQUEST_TIMEOUT);
+        operation_scope(cleanup_deadline.into_std(), async {
+            store.drain_owned_connection_until(cleanup_deadline).await?;
+            drop(store);
+            fixture.remove_isolated_fixture().await
+        })
+        .await
+        .unwrap();
     }
     #[tokio::test]
     async fn canonical_portable_body_candidate_reserves_before_protected_hydration() {
@@ -2915,8 +2930,8 @@ mod canonical_portable_body_tests {
             "canonical_test_portable_budget_{}",
             pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
         );
-        let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
+        let store =
+            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap();
         let text = "package p {def Root {var x:Scalar;eq residual:x==2;}}";
         let revision = store
             .edit(
@@ -3043,8 +3058,8 @@ mod canonical_portable_body_tests {
             "canonical_test_shared_material_{}",
             uuid::Uuid::new_v4().simple()
         );
-        let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
+        let store =
+            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap();
         let revision = store
             .edit("problem", None, "shared-material", &[])
             .await
@@ -3330,8 +3345,11 @@ mod canonical_portable_body_tests {
             "canonical_test_explicit_{}",
             pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
         );
+        // The registered fixture lifetime spans distinct raw observers.
+        let fixture =
+            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap();
         let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
+        store.open().await.unwrap();
         let text = "package p {def Root {var x:Scalar;eq residual:x==2;}}";
         let revision = store
             .edit(
@@ -3384,6 +3402,10 @@ mod canonical_portable_body_tests {
         drop(body);
         drop(selected);
         drop(service);
+        store
+            .drain_owned_connection_until(original_deadline(REQUEST_TIMEOUT))
+            .await
+            .unwrap();
         drop(store);
         let store = CanonicalStore::connect(&options).await.unwrap();
         store.open().await.unwrap();
@@ -3449,7 +3471,14 @@ mod canonical_portable_body_tests {
             .unwrap();
         assert_eq!(9.0 - jet.values[0] / jet.jacobian[0], 2.0);
         store.release(selected.selection()).await.unwrap();
-        store.remove_isolated_fixture().await.unwrap();
+        let cleanup_deadline = original_deadline(REQUEST_TIMEOUT);
+        operation_scope(cleanup_deadline.into_std(), async {
+            store.drain_owned_connection_until(cleanup_deadline).await?;
+            drop(store);
+            fixture.remove_isolated_fixture().await
+        })
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
@@ -3466,8 +3495,9 @@ mod canonical_portable_body_tests {
             "canonical_test_cold_miss_{}",
             pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
         );
-        let store = Arc::new(CanonicalStore::connect(&options).await.unwrap());
-        store.create().await.unwrap();
+        let store = Arc::new(
+            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap(),
+        );
         let context = context();
         let body = admitted(
             context.clone(),
@@ -3549,8 +3579,11 @@ mod canonical_portable_body_tests {
             "canonical_test_portable_{}",
             pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
         );
+        // The registered fixture lifetime spans distinct raw observers.
+        let fixture =
+            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap();
         let store = CanonicalStore::connect(&options).await.unwrap();
-        store.create().await.unwrap();
+        store.open().await.unwrap();
         let text = "package p {def Root {var x:Scalar;eq residual:x==2;}}";
         let revision = store
             .edit(
@@ -3662,6 +3695,10 @@ mod canonical_portable_body_tests {
         // Drop the native source product and the original authenticated transport.
         drop(body);
         drop(read);
+        store
+            .drain_owned_connection_until(original_deadline(REQUEST_TIMEOUT))
+            .await
+            .unwrap();
         drop(store);
         let store = CanonicalStore::connect(&options).await.unwrap();
         store.open().await.unwrap();
@@ -3779,7 +3816,14 @@ mod canonical_portable_body_tests {
             .is_none()
         );
         store.release(changed_read.selection()).await.unwrap();
-        store.remove_isolated_fixture().await.unwrap();
+        let cleanup_deadline = original_deadline(REQUEST_TIMEOUT);
+        operation_scope(cleanup_deadline.into_std(), async {
+            store.drain_owned_connection_until(cleanup_deadline).await?;
+            drop(store);
+            fixture.remove_isolated_fixture().await
+        })
+        .await
+        .unwrap();
     }
     #[test]
     fn canonical_portable_body_incomplete_producer_refuses_persistent_reuse() {
@@ -3890,8 +3934,9 @@ mod canonical_portable_body_tests {
             "canonical_test_corrupt_{}",
             pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
         );
-        let store = Arc::new(CanonicalStore::connect(&options).await.unwrap());
-        store.create().await.unwrap();
+        let store = Arc::new(
+            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap(),
+        );
         let text = "package p {def Root {var x:Scalar;eq residual:x==2;}}";
         let context = context();
         let body = admitted(context.clone(), text);

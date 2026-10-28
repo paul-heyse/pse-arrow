@@ -126,7 +126,7 @@ fn proto_details(details: proto::ErrorDetails) -> Option<Value> {
 /// Maps a structured error carried on the wire, preserving its kind, message,
 /// reason, retryability and cause chain.
 ///
-/// The reason is rebuilt into the typed detail the rest of the SDK exposes, so
+/// The reason is rebuilt into the typed detail supplied by surrealdb-types, so
 /// `query_details()` and its siblings answer the same here as on any other
 /// transport. Leaving it out would push callers back onto the message, which
 /// the protocol states is not part of the contract and will be reworded.

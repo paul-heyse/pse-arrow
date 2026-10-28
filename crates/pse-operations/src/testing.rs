@@ -23,7 +23,7 @@ pub async fn result_payload_counts(
 }
 
 /// Join already registered result-read cleanup without closing the fixture or
-/// treating a facade drop as native/SDK drain. Future independent reads remain valid.
+/// treating a facade drop as physical driver drain. Future independent reads remain valid.
 pub async fn drain_result_releases(
     store: &crate::canonical::CanonicalStore,
 ) -> Result<(), crate::canonical::CanonicalError> {
@@ -198,7 +198,7 @@ impl FixtureLifetime {
             )),
         }
     }
-    /// Join SDK owners and the separately supervised receiver. Native progress
+    /// Join canonical client owners and the separately supervised receiver. Native progress
     /// is independent; publication waits for all required acknowledgments.
     pub(crate) async fn settle(
         &self,

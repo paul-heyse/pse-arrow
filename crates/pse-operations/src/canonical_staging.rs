@@ -52,7 +52,7 @@ const SMALL_STAGE_REFERENCES: usize = 16;
 
 /// Maximum selected source manifests in one protected acquisition frontier.
 pub const SELECTED_OBJECT_BATCH: usize = 64;
-/// Header/SDK decoding scratch reserved before receiving a bounded header batch.
+/// Header/value decoding scratch reserved before receiving a bounded header batch.
 pub const SELECTED_OBJECT_HEADER_SCRATCH: usize = SELECTED_OBJECT_BATCH * 32 * 1024 * 8;
 
 /// Store-issued selected manifests. Payload hydration must use this exact live
@@ -270,7 +270,7 @@ impl ProductBlob {
         // Blob assembly, returned payload/dependency copies, and conservative JSON
         // syntax/string/tree expansion remain simultaneously charged by the caller.
         // The fixed 64 MiB allowance covers one 64-row flat membership page
-        // under the 4 MiB protocol limit, SDK/value/typed-row copies, product
+        // under the 4 MiB protocol limit, client/value/typed-row copies, product
         // request bindings and the two block buffers even for an empty old scope.
         self.bytes
             .checked_add(self.payload_bytes)
