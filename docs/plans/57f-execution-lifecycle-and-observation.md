@@ -411,7 +411,7 @@ second resident population through publication. The correction consumes the sele
 and shares that population factor across allocation validation, runtime width admission and
 publication ownership. Explicit bounded overrides remain available; workstation CPU and
 memory policy is unchanged. Three selected profile/width/override controls pass. Plan57j owns
-the original worker retry and retained-data handoff; these controls do not complete F or the
+the original worker acceptance and retained-data handoff; these controls do not complete F or the
 paused broader D–F campaign.
 
 The retry showed a second independent preparation issue: top-level artifact batches used
@@ -419,5 +419,15 @@ CPU/flight concurrency without their native-job allowance. The existing collecto
 respects that population, with no new queue, retry or global cache-flight limit. Three
 targeted real-product/borrow/drain controls pass, including cold products beyond the job
 count and cache delivery under occupied resident tickets. Independent competing batches
-retain existing admission/refusal semantics. J's original worker case remains the required
-joined confirmation; broader mixed-study and sixteen-owner acceptance stays paused.
+retain existing admission/refusal semantics. J's original worker case subsequently passed
+on current artifacts; broader mixed-study and sixteen-owner acceptance stays paused.
+
+## Operator pause — 2026-10-28
+
+The original `cross_process_cancel_stops_scip` passed (1 passed, 0 failed, 9 excluded),
+including exact receipt reconciliation and original-owner drain. Its timing does not prove
+native entry preceded cancel dispatch. The Python workbench component then suffered seven
+confirmed worker SIGSEGVs and was interrupted. All owned processes/resources are now
+stopped/drained. No testing or implementation is active; F and joined acceptance remain
+incomplete. [57j's checkpoint](57j-qualification-and-publication.md#first-control-slice-implementation-checkpoint--2026-10-28)
+owns retained evidence, crash uncertainty and resumption work.

@@ -54,6 +54,23 @@ was recovered through existing dead-owner/reset/stop APIs and independently witn
 no ownership guard or retained database was deleted. These observations schedule G inquiry,
 not a claim that its general lifecycle scope is repaired.
 
+Qualification also observed a compiler-tooling lock cycle between concurrent default and
+no-default Cargo checks in the same artifact tree: each held shared per-unit locks needed
+exclusively by the other. Both processes had no compiler children and blocked on those
+locks; terminating only the owned no-default check allowed the default check to finish.
+G03's tooling inquiry should assess the pinned toolchain's lock behavior and invocation
+composition. Coordinating these overlapping artifact writers preserves ordinary Cargo jobs
+and test lanes; CPU/memory partitions and a global serialization policy are not selected.
+
+The later component launch hit the mutable-helper/native-link issue again before pytest.
+Using the supported `PSE_DEPLOYMENT_OPERATOR` binding to the held immutable worker-generation
+helper admitted the component without widening the pure storage environment. G03 still owns
+the general selection inquiry. The component later failed independently with worker SIGSEGVs;
+all eight orphaned fixtures and the outer service were settled through existing authenticated
+recovery/normal-stop owners, retaining bytes and failure records. Execution is paused at the
+maintainer's request; no further host inquiry, cleanup or testing is active.
+[57j's checkpoint](57j-qualification-and-publication.md#first-control-slice-implementation-checkpoint--2026-10-28)
+owns this selected run's evidence and remaining crash investigation.
 
 ## Foundation assessment
 

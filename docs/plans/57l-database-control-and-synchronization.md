@@ -21,7 +21,8 @@ needed outside transactions. Consume the [principal review](../design_review/rev
 The [coordinator](57-library-leverage-and-correctness.md#database-boundary-review-integration)
 owns disposition. Baseline is product `64a217de2` with retained inheritance corrections,
 audit `5e8aea0cc` and review `277eee026`; Core 3.4, heuristics 1.0, test assessment 1.2
-and process-simulator 1.5 apply. This is planned work, not renewed database qualification.
+and process-simulator 1.5 apply. The selected first slice below is implemented; remaining
+L scope is planned. Current incomplete acceptance is paused at the maintainer's request.
 
 The existing database already owns leases, claims, generations, receipt reconciliation,
 cancellation and file intents. Generated readiness acquires bounded facts, calls shared
@@ -157,3 +158,13 @@ Existing cancellation state idempotence is not a request-specific receipt. Recei
 is unobserved, not proof a submitted command cannot commit. Source-only import/test
 startup retains scientific validation at actual scientific consumers. Other K/L scope
 and the wider D–F qualification campaign remain outside this selected execution.
+
+## Operator pause — 2026-10-28
+
+Selected actual server transaction, strict JSON, catalog/receipt and public-client controls
+passed, as did the original supervised SCIP cancellation case. The retained-data Python
+component failed with confirmed worker SIGSEGVs and was interrupted, so joined acceptance
+remains incomplete. All owned processes/resources are stopped/drained; data and original
+failures remain retained. [57j's checkpoint](57j-qualification-and-publication.md#first-control-slice-implementation-checkpoint--2026-10-28)
+owns evidence and future resumption. No testing, implementation, L03/L04 inquiry or backend
+change is active. Broader L and D–F obligations remain open.

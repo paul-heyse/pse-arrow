@@ -15,8 +15,11 @@ No campaign is running. Wider D–F qualification is paused for the
 New [57k](57k-durable-control-and-python-boundary.md) and
 [57l](57l-database-control-and-synchronization.md) develop durable access without scientific
 construction, database commands and synchronization. Their creation and the supporting plan
-amendments are published. The first async browse/cancel/reconcile slice is now authorized
-and executing under ADR-0232; the coordinator owns its exact scope and evidence. Broader CBO-001 inquiries,
+amendments are published. The first async browse/cancel/reconcile slice is implemented under
+proposed ADR-0232, but its incomplete joined acceptance is paused at the maintainer's request.
+No testing or implementation is active for that slice; all owned resources are stopped/drained.
+[57j's checkpoint](57j-qualification-and-publication.md#first-control-slice-implementation-checkpoint--2026-10-28)
+owns the passed public/SCIP controls, failed Python component and resumption work. Broader CBO-001 inquiries,
 other G03 consumers and remaining G–I work retain their existing owners. Other plans retain their
 independent scope and status.
 

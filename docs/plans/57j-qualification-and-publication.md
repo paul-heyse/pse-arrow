@@ -16,9 +16,10 @@ doc_topics: [current-work, validation, documentation, libraries, numerical-execu
 
 The [principal review](../design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md)
 and [test-account refresh](../design_review/test-audit/study-execution-and-database-boundary.md)
-change the future acceptance target, not earlier observations. K/L are planned, not implemented.
-D–F execution remains paused; no service or campaign is restarted by document adoption. The
-last focused inheritance result is twelve passes/zero failures, not actual managed acceptance.
+change the acceptance target, not earlier observations. The selected K/L slice is now implemented;
+its current incomplete acceptance and operator pause are recorded in the checkpoint below.
+Wider D–F execution remains paused; document adoption does not restart a service or campaign. The
+amendment-time inheritance result was twelve passes/zero failures, not actual managed acceptance.
 Earlier twenty-case claims exclude the managed partition; use its dedicated route and report
 actual selected/executed identities. DTA-050/055/058 remain their source finding homes.
 
@@ -574,99 +575,124 @@ qualification, subsequently removed. Current-worker rebuild and actual managed r
 
 ## First control slice implementation checkpoint — 2026-10-28
 
-The async control/import split, typed source-generated requests, issuer-bound commands,
-server actor/access/receipt declarations, shared selector, native/CLI caller migrations and
-private-file provisioning are implemented with focused controls. Generated native API stubs
-and the linked correctness extension have been rebuilt. Full generated publication succeeds.
-Earlier source-only controls passed thirteen cases; provisioning four; catalog parsing two.
-These controls do not qualify the public API or native worker cancellation/drain.
+**Paused at the maintainer's request.** All testing and implementation stopped. The selected
+K01/K02/L01 and browse/cancel/reconcile portions of L02/K03/K04 are implemented, but their
+joined acceptance is incomplete. No owned test, build, worker or storage service remains
+running. Wider D–F managed acceptance and the series-end feature/powerset campaign remain
+paused/deferred. This checkpoint does not close K, L, F, R01/DA-046 or the series.
 
-Independent implementation review found four required corrections: ordinary API handler
-errors can commit prior writes in the selected upstream server; required response headers
-were defaulted by generated DTOs; concurrent close retries could change an earlier waiter's
-observed result; and cleanup errors could replace mutation uncertainty/cancellation. The
-server source integration is being corrected for transactional API rollback, while the
-Python boundary is adding the three failure controls. Actual API adoption remains held.
+### Implemented scope and corrections
 
-The first fresh owned setup initialized the current catalog and started storage, then its
-scratch orchestration failed before actor provisioning on unsupported Path.open(opener=...).
-This was setup failure, not acceptance. Its storage instance 0fb5ff0a-891f-434a-9d8d-97e35c5c76be
-(unit pse-surreal-6e992c0974efb4d4.service) is stopped with contexts drained; original fixture
-data/logs remain beneath build/qualification/57kl-control-20261028/surreal-b1-caaw4k_w.
-No owned service is running. Next work is qualify the rollback patch and corrected Python
-controls, build/readmit its immutable server, then execute actual native-unavailable control
-and positive cancellation/recovery journeys with original-owner drain. Broader D–F managed
-acceptance and full series-end powerset remain separate and unqualified.
+The async control/import split, Rust-generated request types, issuer-bound commands,
+authenticated actors and immutable exact-operation receipts, shared selector, native/CLI
+caller migrations and explicit private-file provisioning are integrated. Scientific imports
+retain native identity validation and Arrow registration. HTTPX2 2.16.0 and AnyIO 4.15.1
+are runtime dependencies at their existing exact versions. Selected implementation and
+publication span `3c0831519` through `f5d61a4a4`; blueprint revision 302 records the implemented
+boundary. ADR-0232 remains proposed; its independent target acceptance is not product acceptance.
 
-The reviewed Python boundary corrections now pass 35 source-only cases, including actual
-HTTPX2/HTTPcore2 close-state behavior; failed body or pool cleanup remains explicitly
-unsettled and cannot become success on a provider no-op retry. The exact patched server
-release builds successfully with api-failure-rollback.patch; upstream transactional
-regressions and actual effective-server HTTP qualification were still pending at that checkpoint. A direct private
-scientific import still validates/loads the current native artifact and registers Arrow,
-with force-validation active and the deleted native browse method absent.
+Required corrections found during execution are integrated: required response headers,
+shared close-result stability, mutation uncertainty surviving cleanup failure, and sticky
+unsettled body/pool cleanup. The selected immutable SurrealDB 3.3.4/MX 1.0 server includes
+`api-failure-rollback.patch`: ordinary API evaluation/conversion errors prevent transaction
+commit, while intentional successful/conflict responses retain their transaction meaning.
+Actual ingress also exposed legacy JSON promotion of UUID-like strings; generated selected
+endpoints now bound raw bytes and call the library's strict UTF-8/JSON decoder. Known actor
+grant denial returns 403 before parsing or mutation. No new parser or permissive casts were added.
 
-The current immutable server subsequently passed both upstream API rollback regressions
-and actual HTTP controls for committed explicit 200/409 responses and rolled-back writes
-on an ordinary handler error. The first actual HTTP attempt had exposed missing JSON
-response middleware; the generator now installs it on every selected endpoint. Native
-worker and public-client acceptance remain pending, with their original setup failures
-retained. Pure preparation followed by native observer execution was correctly refused
-for changing the prepared environment; the combined functional fixture must prepare and
-execute under the same native environment while freezing a pure storage helper.
+Two original worker attempts failed before assignment with native-job exhaustion. The CLI
+had discarded its validated case lanes, and the generic default ignored the existing two
+resident populations per case. Commit `3659efea7` consumes that authority through a shared
+factor. A second defect let a cold artifact batch exceed its native-job allowance despite
+respecting CPU/flight width; `f5d61a4a4` bounds it by all three allowances. Cache hits retain
+immediate delivery; independent competing batches retain existing refusal semantics. Host
+CPU/job policy and reference case lanes are unchanged. Neither earlier failed attempt is
+converted to a cancellation pass.
 
-Scope-end validation found Rust style and Python lint/type corrections. Its first bundle
-was interrupted by ENOSPC during generation-check compilation and evidence publication;
-that run is incomplete, not a pass. The maintainer then ran cargo clean, removing target
-products and restoring space. Both owned clippy processes were settled, and the failed
-hygiene allocation was positively released through its original kernel owner. Finish the
-source corrections before rebuilding required products, then run the joined control,
-worker and Python consumer journeys and the unfinished/failing scope-end checks. Surviving
-fixture data, selected immutable server, sources and earlier evidence remain preserved.
+### Selected verification — zero failure baseline
 
-The source repairs now pass Python lint/type checking and the dependency shear check.
-Scientific export typing retains a lazy package facade; generated identity conversion
-continues to call the typed native gateway only when explicitly requested. Formatting
-normalization initially emitted an unsupported inner Rust attribute, causing native builds
-to fail before execution. The corrected source places the formatting directive on the
-containing wire-schema module and regenerates the canonical output. Affected native builds
-must succeed before their functional evidence can be claimed.
+**Tested:** the following bounded checks passed in their recorded modes; they do not qualify
+unselected scientific, backend, synchronization or wider managed scope.
 
-Actual authenticated public browsing then exposed a distinct wire defect: the stock API
-JSON middleware promotes UUID-like strings to database UUID values, rejecting the correct
-text issuer. Exact source rules out the alternative nested-function permission hypothesis;
-`/signin` already uses a strict decoder. The selected APIs now cap raw bytes and use the
-library's strict UTF-8/JSON conversion through one private helper. Eight actual isolated
-server checks establish exact UUID/date/record/nested string preservation, malformed-input
-refusal and rollback; the legacy promotion was independently reproduced. Known actor-grant
-denial now returns 403 before parsing or mutation. Regenerated catalog and current native
-products must run the strengthened public replay/negative controls, original worker cancel/
-drain and retained-data consumer before first-slice completion can be claimed.
+| Check and mode | Actual result |
+|---|---|
+| `scripts/pse-env -- .venv/bin/python -m pytest python/control_tests -n16 --basetemp <fresh-owned>`; source-only and native-loading-refused controls | 35 passed; includes scientific import gate and provider cleanup behavior |
+| Managed-fixture source controls | 15 passed |
+| `just test-package pse-operations --bin pse-canonical-init` | 4 passed |
+| `just unit-package pse-diagnostics 'stop::tests::'` | 5 passed, 107 excluded |
+| Selected worker profile/default/override controls | 3 passed, 1565 excluded |
+| Selected real artifact construction/borrow/drain controls | 3 passed, 1553 excluded; six cold products/two jobs and saturated-population cache hits |
+| Selected upstream `surrealdb-core` API rollback tests; `--no-default-features --features kv-mem` | 2 passed, 3325 excluded |
+| Actual owned-server HTTP transaction / strict JSON / Rust catalog-positive receipt controls | 5 / 8 / 3 passed |
+| Actual public Python client with native loading refused, current owned server | 22 checks passed |
+| Original native `cross_process_cancel_stops_scip`, force-validation and native solvers | 1 passed, 0 failed, 9 excluded; 21.040 seconds |
 
-The final owned functional fixture passed HTTP transaction controls (5), strict JSON controls
-(8), catalog/positive receipt tests (3) and the native-loading-unavailable public client
-journey (22). The selected original worker case then failed before assignment with
-`runtime::resource_limit: math resource limit: native jobs` (0 passed, 1 failed, 9 excluded).
-It establishes no native entry or cancellation behavior. Its owner stopped storage and
-positively drained all contexts, retaining the fixture and original result. The Python
-retained-data component did not run. Diagnose the actual frozen native-job allowance and
-its performing owners before another selected worker attempt; do not weaken the test or
-substitute a broader campaign for that missing acceptance.
+The original SCIP case passed under invocation `e0fceaf96d2a4bc896b81d9d51da4fa1`,
+Nextest `1d9fc0f9-300c-447c-ac14-278a45493e94`. It exercised public native-blocked child
+cancellation, exact receipt/replay/reconcile, generation increment, retained actual SCIP
+incumbent callback, canceled point/attempt assertions and bounded cancellation/drain.
+The test waits for assignment plus five seconds and inspects the callback afterward; it
+does not prove native entry preceded cancellation dispatch. No broader sixteen-owner or
+reference-capacity qualification follows.
 
-Frozen evidence distinguishes the functional receiver (two case lanes/four math jobs) from
-the separate observer profile. The worker CLI dropped its validated lane selection, and
-the runtime default ignored the existing two-population-per-case allocation contract.
-Both paths now consume that contract through one shared factor; three targeted profile,
-default and explicit-override controls pass. The reference profile remains valid and host
-CPU/job policy is unchanged. Current worker products and the original selected cancellation
-case must establish whether this also resolves the observed permit exhaustion.
+**Interface-checked/Tested:** full generated publication and `just codegen-check`, Python
+lint/import/type checks, dependency shear, `just governance` (25 tests plus its generated/
+family checks) and the final `just clippy` aggregate passed. The earlier `just hygiene`
+bundle exited 1 with five unsuccessful steps; the affected recipes were corrected and
+rerun individually. The prior ENOSPC bundle was incomplete. Neither bundle is an all-pass
+result. `just ready` passed after the maintainer's cargo clean; required native products
+and the correctness extension were rebuilt. The admitted extension generation is
+`8503695e531c405a8bbb10597591ae48` (force-validate, native-solvers, solver-highs), SHA-256
+`be1d6d2f6c2af0c80dd8cbffd514b0edef3c5ea602f5cb6e88da5679ca5bc917`.
+No validation was rerun for this documentation-only stop.
 
-The corrected-width retry still failed before assignment (0 passed, 1 failed, 9 excluded);
-its independent fixture also stopped and drained. It exposed another admission mismatch:
-one internally issued cold artifact batch used CPU/flight width without the declared native
-job population. That collector now respects all three allowances while preserving inherited
-one-owner preparation and immediate cache hits. Three selected construction/borrow/drain
-controls pass, including six distinct real products with two native jobs and a saturated
-population cache-hit witness. This bounds one internal batch; it adds no queue/retry policy
-or claim that concurrent independent cold batches cannot refuse. The original worker and
-retained-data component still require current-artifact acceptance.
+### Failed component and retained uncertainty
+
+The selected `python/pse/tests/test_study_workbench.py` component did **not** pass.
+Invocation `4c2b1e278f804b8b98a2ffb125aae047` selected one case; seven xdist workers
+(the initial worker and six replacements) terminated with confirmed SIGSEGV 11. The run
+was then authentically interrupted, exit 130. Its frozen result remains `Complete=False`,
+with missing JUnit and the selected/executed identity mismatch preserved. The new compact
+CLI browse assertion has passed targeted lint/type checks but was not reached behaviorally.
+
+Runtime/package admission and `start_study` completed, and the private actor file was
+created. The next source step issues the actor through `pse-canonical-init`; evidence does
+not establish that subprocess's start/completion or the crash instruction. Apport records
+match all seven authenticated PID/start identities. Core limit zero and Apport's rejection
+of the custom uv Python executable left no core/backtrace; no matching OOM evidence was
+found. OOM, stack overflow and subprocess causation remain unestablished. The later SIGINT/
+SIGKILL settlement events are distinct from the original worker SIGSEGVs.
+
+A separate earlier component launch exited 125 before pytest because the mutable deployment
+helper had become native-linked and lacked MKL in the pure storage closure. Binding the
+supported `PSE_DEPLOYMENT_OPERATOR` to the held immutable worker-generation helper admitted
+the subsequent run without a manual library-path override. That setup correction is not a
+component pass or a general G03 repair.
+
+### Stopped ownership, retained evidence and resumption
+
+All eight orphaned component fixture resources were recovered through the existing
+authenticated `recover_fixture_drain` owner: drained true, live/unknown file owners zero,
+empty borrows and retained bytes. The outer fixture stopped through its normal owner;
+all contexts and recorded kernel scopes drained, and service/borrow host allocations are
+absent. The outer run exited 1 after its explicit component-failed gate, not success.
+Earlier failed fixtures are also stopped/drained, with original failures and data retained.
+
+The final retained fixture is
+`build/qualification/57kl-native-control-20261028/surreal-b1-hywh4j9j`
+(instance `1d3d063b-f1be-4bc8-9a6a-f5fa1840363d`). Supporting local evidence includes
+`/tmp/pse-control-native-final-drain.json`, `/tmp/pse-control-component-recovery.json`,
+`/tmp/pse-control-workbench-final-membership.json`,
+`/tmp/pse-control-workbench-component-frozen.log` and
+`/tmp/pse-control-native-artifact-budget-owned.log`. Other focused results remain in the
+corresponding `/tmp/pse-control-*` logs and assessment output. Original data was not reset.
+Only two task-owned upstream debug artifact trees were removed after ownership inventory;
+8,726,155,264 bytes were reclaimed, preserving source, lockfiles and release hashes
+(`/tmp/pse-control-owned-upstream-debug-cleanup.json`). No further cleanup is scheduled.
+
+On renewed authorization, first localize the native component crash with an actual crash
+witness/backtrace and reconcile the current consumers/artifact identities before retrying.
+Retain existing assertions and the workstation's sixteen test lanes; do not infer a cause
+or repeat the component blindly. Then complete the retained-data/CLI consumer and affected
+joined acceptance, independent reconciliation and publication. No investigation or rerun
+is active. Startup/memory/performance benefits remain unmeasured.

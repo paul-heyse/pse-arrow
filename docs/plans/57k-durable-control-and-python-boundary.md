@@ -17,8 +17,8 @@ doc_topics: [current-work, design, storage, libraries, validation]
 scientific runtime or loading its Python extension. This develops review R01/DA-046;
 the [coordinator](57-library-leverage-and-correctness.md#database-boundary-review-integration)
 owns disposition and confirmed rule directions. The first browse/cancel/reconcile slice
-below is authorized and implemented; its joined qualification is in progress. Remaining
-K scope retains the recorded execution boundary.
+below is authorized and implemented; its incomplete joined qualification is paused at the
+maintainer's request. Remaining K scope retains the recorded execution boundary.
 
 Consume the [principal review](../design_review/reviews/design_review_study-execution-and-database-boundary_2026-10-28.md),
 its production/test accounts and [research basis](../design_review/evidence/study-execution-and-database-boundary.md).
@@ -159,3 +159,13 @@ Existing cancellation state idempotence is not a request-specific receipt. Recei
 is unobserved, not proof a submitted command cannot commit. Source-only import/test
 startup retains scientific validation at actual scientific consumers. Other K/L scope
 and the wider D–F qualification campaign remain outside this selected execution.
+
+## Operator pause — 2026-10-28
+
+The selected public control journey and original supervised SCIP cancellation case passed.
+The migrated Python workbench component suffered seven confirmed worker SIGSEGVs and was
+interrupted; its compact CLI assertion was not reached. This leaves first-slice acceptance
+incomplete. All owned processes and fixture resources are stopped/drained, with failures and
+data retained. [57j's checkpoint](57j-qualification-and-publication.md#first-control-slice-implementation-checkpoint--2026-10-28)
+owns results, evidence limits and resumption work. No testing or implementation is active;
+remaining K packages and R01/DA-046 are not closed.

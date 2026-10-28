@@ -21,7 +21,9 @@ as the combined planning target: database-facing durable commands/reads, optiona
 scientific preparation and independently supervised native execution. This supersedes
 mandatory scientific Runtime construction for durable callers in the planned target;
 it does not declare the new boundary implemented. The maintainer subsequently authorized
-the first K/L browse/cancel/reconcile slice; wider D–F qualification remains paused.
+the first K/L browse/cancel/reconcile slice. That selected implementation is integrated,
+but incomplete joined acceptance is now paused at the maintainer's request; wider D–F
+qualification remains paused.
 Existing source corrections and original evidence are preserved.
 
 The review/audits at `277eee026`/`5e8aea0cc` inspect `64a217de2` plus the retained operations
@@ -399,6 +401,15 @@ The selected adapter uses HTTPX2 2.16.0 and AnyIO 4.15.1, promoted from quality-
 dependencies with unchanged versions/resolution. Server actors and immutable cancellation
 receipts must cover direct-function authorization, store/actor/operation tuple identity,
 retirement/non-reuse and absence uncertainty. Canonical state idempotence alone is insufficient.
-The decision commit is `1535f9381`; generated declarations, implementation, consumer deletion
-and actual native-loading-refused/server/worker acceptance are still in progress. No broader
-qualification or measured speed/capacity claim follows.
+The decision commit is `1535f9381`; selected implementation, generated declarations and
+consumer deletions are integrated through `f5d61a4a4`, with implemented boundary publication
+in blueprint revision 302. ADR-0232 remains proposed. Actual native-loading-refused public
+controls and the original supervised SCIP cancellation case passed. The migrated Python
+workbench component suffered seven confirmed worker SIGSEGVs and was interrupted, leaving
+joined acceptance incomplete.
+
+**Paused at the maintainer's request:** all testing and implementation stopped, all owned
+processes/resources are stopped/drained, and original failures/data remain retained.
+[57j's checkpoint](57j-qualification-and-publication.md#first-control-slice-implementation-checkpoint--2026-10-28)
+is the evidence and resumption owner. R01/DA-046, broader K/L and wider D–F remain open;
+no broader qualification or measured speed/capacity claim follows.
