@@ -293,3 +293,20 @@ and timing amendment recorded at revision 299. Broader CBO-001 alias-header/tigh
 retained source/API couplings and conditional upstream/supplier choices remain explicit.
 Performance and cross-CPU benefits are unmeasured. A–C leave active current-work selection but
 remain for active readers and shared inquiry context; the coordinator and J own remaining work.
+
+## Selected D–F execution — 2026-10-28
+
+The maintainer authorized D01, E01–E04 and F01–F06, their required shared prerequisites,
+targeted acceptance and selected scope-end integration/publication. Execution starts from
+clean `6d13fc986`; A–C retains its recorded evidence. The full feature matrix/no-default
+sweep remains deferred to series end. Other G–I work, optional statistical methods,
+upstream contact and formal ADR status changes remain outside this selection.
+
+RC09 is classified as a contract-preserving client realization: generated protocol/types
+retain the existing gRPC, response, clock, restoration, receipt and drain commitments.
+ADR-0214’s module SDK/ABI clause retains its Surrealism meaning. A discovered governed
+contract change must return to the coordinator before dependent implementation.
+
+D01 returns raw PointOverlay assignments, not already-admitted StudyPointDefinition
+records. Existing overlay validation does not establish numeric domain/bounds membership;
+the producer checks those through compiled domain owners before generation.

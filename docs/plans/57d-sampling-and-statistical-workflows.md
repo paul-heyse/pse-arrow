@@ -1,6 +1,6 @@
 ---
 title: "Plan 57d: Sampling and statistical workflows"
-status: draft
+status: in-progress
 date: 2026-10-27
 adrs: []
 review_sources: [docs/library_leverage/reviews/numerical-workflows.md, docs/library_leverage/reviews/native-solver-integration.md, docs/library_leverage/reviews/result-data-and-prepaid-accounting.md]
@@ -329,3 +329,11 @@ regeneration. **Proposed:** D01 and every conditional extension. **Not run:** pr
 producer probes/tests, native/provider workloads or broad qualification during this documentation
 task. 57j owns selected assembled evidence after functional implementation. No sampler parity,
 statistical coverage, whole-product qualification or measured benefit is claimed by authoring.
+
+## Authorized D–F execution — 2026-10-28
+
+The maintainer authorized implementation of D01, E01–E04 and F01–F06 through the
+conversational execution approach. Work starts from clean `6d13fc986`. The existing
+package owners retain status and acceptance; 57j owns selected assembled qualification.
+Full powerset/no-default validation remains deferred to series end. No upstream contact,
+data reset or formal ADR status change is authorized.

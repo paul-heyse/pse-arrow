@@ -1,6 +1,6 @@
 ---
 title: "Plan57f: Execution lifecycle and observation"
-status: draft
+status: in-progress
 date: 2026-10-27
 doc_role: plan
 doc_owner: docs/plans/57-library-leverage-and-correctness.md
@@ -309,3 +309,11 @@ Plan57j owns assembled native job/session/window-team, Python interruption/recov
 lease-loss, flight/retention and host receiver interaction journeys after functional scope ends,
 plus hygiene and publication. Passing local helpers cannot establish foreign-thread completion,
 real Python signal handling or canonical operation settlement in the assembled system.
+
+## Authorized D–F execution — 2026-10-28
+
+The maintainer authorized implementation of D01, E01–E04 and F01–F06 through the
+conversational execution approach. Work starts from clean `6d13fc986`. The existing
+package owners retain status and acceptance; 57j owns selected assembled qualification.
+Full powerset/no-default validation remains deferred to series end. No upstream contact,
+data reset or formal ADR status change is authorized.
