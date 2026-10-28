@@ -24,6 +24,7 @@ from pse.contracts.documents import (
     StudyObservationRequest,
     StudyWorkbenchFilter,
     StudyWorkbenchPageOutput,
+    StudyWorkbenchRequest,
 )
 from pse.contracts.enums import NativeSolveIntent
 from pse.contracts.values import SemanticId
@@ -269,6 +270,23 @@ def test_study_workbench_public_snapshot_and_passive_reconnect(
         envelope = msgspec.json.decode(result.stdout, type=dict[str, object])
         assert envelope["version"] == 1
         return envelope["result"]
+
+    browse_json = msgspec.json.decode(
+        codec.encode_json(StudyWorkbenchRequest(filter=selected, maximum=1)),
+        type=dict[str, object],
+    )
+    assert browse_json.pop("document_version") == 1
+    cli_page = invoke({"kind": "study_workbench", "request": browse_json})
+    assert isinstance(cli_page, dict)
+    cli_headers = cli_page["headers"]
+    assert isinstance(cli_headers, list)
+    (cli_header,) = cli_headers
+    assert isinstance(cli_header, dict)
+    assert (cli_header["study"], cli_header["point_count"], cli_page["next"]) == (
+        browsing.headers[0].study,
+        2,
+        None,
+    )
 
     request_json = msgspec.json.decode(
         codec.encode_json(request), type=dict[str, object]
