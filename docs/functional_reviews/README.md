@@ -1,5 +1,13 @@
 # Functional opportunity reviews
 
+The [Rust-first system review](rust-first-system-functional-opportunities-2026-10-28.md)
+assesses complete Rust ownership of product, operational and developer workflows, optional
+Python bindings, and retirement of the Python MCP stack. It recommends independently usable
+native APIs/product CLIs and a separate developer CLI, with no-MCP as a valid target and
+reduced RMCP as a conditional adapter. End-to-end Rust-library overview research, focused
+primary-source checks and independent assessment inform the proposed opportunities. It changes
+no existing plan, decision, implementation or qualification status; Plan57 remains paused.
+
 The [MCP development-effectiveness review](mcp-development-effectiveness-2026-10-25.md)
 assesses the completed interface as a foundation for further Codex-driven development. Its
 sixteen opportunities cover faithful Cyclopts-derived recovery access, connection/lifetime
