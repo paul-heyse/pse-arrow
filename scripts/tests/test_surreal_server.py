@@ -119,8 +119,8 @@ class FixtureFileOwnerRecoveryTests(unittest.TestCase):
             self.assertEqual(
                 descendants.call_args_list,
                 [
-                    unittest.mock.call(state, deadline=deadline),
-                    unittest.mock.call(child, deadline=deadline),
+                    call(state, deadline=deadline),
+                    call(child, deadline=deadline),
                 ],
             )
             signal.assert_not_called()
