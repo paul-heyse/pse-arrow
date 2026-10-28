@@ -4747,6 +4747,7 @@ mod canonical_server_unit {
             .str(&offered.problem)
             .str(&offered.interpretation)
             .str(&offered.producer)
+            .str(offered.producer_class.as_str())
             .part(offered.request.as_slice())
             .part(offered.payload.as_slice())
             .part(&dependencies);
@@ -4757,7 +4758,7 @@ mod canonical_server_unit {
         assert_eq!(
             key,
             original_hash.finish_hash().to_hex(),
-            "new admission keeps the exact original framing"
+            "new admission keeps the exact framing including its declared producer class"
         );
         let second_revision = store
             .edit(
