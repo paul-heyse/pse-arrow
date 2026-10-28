@@ -466,21 +466,27 @@ built linked worker when creating state:
 export PSE_SURREAL_STATE=/absolute/path/to/private/reference-state
 just deployment-build
 scripts/pse-env --native -- .venv/bin/python -m scripts.arrow_validation build -p pse-runtime --bin pse-worker --locked --features product-operators,native-solvers
-just surreal setup --execution-profile reference \
-  --worker-executable "$PWD/target/debug/pse-worker"
+scripts/pse-env -- .venv/bin/python -m scripts.arrow_validation build -p pse-operations --bin pse-canonical-recovery --locked
+scripts/pse-env --native -- just surreal setup --execution-profile reference \
+  --worker-executable "$PWD/target/debug/pse-worker" \
+  --payload-verifier "$PWD/target/debug/pse-canonical-recovery"
 scripts/pse-env --resource-class reference -- bash -euo pipefail -s <<'SH'
 cleanup() {
   just surreal quiesce --state "$PSE_SURREAL_STATE"
   just surreal stop --drained --state "$PSE_SURREAL_STATE"
 }
 trap cleanup EXIT
-just surreal start --state "$PSE_SURREAL_STATE"
 just canonical-init "$PSE_SURREAL_STATE"
+just surreal start --state "$PSE_SURREAL_STATE"
 # Run the selected managed study here, before leaving its allocation.
 SH
 ```
 
 The setup records the selected worker bytes and the exact reference allocation.
+Receiver publication captures the prepared native environment. Keep the allocation
+materializer on its separate `deployment-build` route: it must run before native
+library paths are prepared. A fresh state initializes through its closed lifecycle
+owner before ordinary startup; normal start cannot bypass required validation.
 Start, managed work and drained stop share one reference allocation: the reference
 store exceeds the ordinary resident functional lane. A plain light start does not
 establish that allocation. The trap stops the owned service without deleting its data.
