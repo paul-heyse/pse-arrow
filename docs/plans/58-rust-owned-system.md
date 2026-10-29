@@ -437,3 +437,15 @@ Final product-extension/crate and governance retirement consumes the proposed AD
 amendment and required scoped design review before code. Conditional RMCP/PyO3 delivery,
 new storage/transport/reactive mechanisms and F06 stay deferred without a concrete trigger.
 There is no data reset or automatic cache/generation collection in this authorization.
+
+
+### Remaining retirement decision coverage
+
+The [independent bounded target extension](../design_review/reviews/design_review_rust-owned-host-and-boundaries_2026-10-28.md#13-remaining-native-development-and-product-retirement--2026-10-29)
+accepts the proposed ADR-0233 amendment; it supplies no implementation or H acceptance.
+
+| Finding reference | Disposition | Work owner | Evidence or completion obligation |
+| --- | --- | --- | --- |
+| Retirement review RC07 | scheduled | T01 / G03 | Before final crate/family/boundary removal, amend D12, workspace and §21 owners; actual consumers must migrate or explicitly retire. |
+| Retirement review RC08 | scheduled | F02/F03/G03 | Move generator, fixture, environment and governance owners before removing their Python mechanisms; preserve real input/admission and scientific identity. |
+| Retirement review RC09 | scheduled | G01/G03; H scenario owner | Transfer specific old-driver scientific cases/inputs/expected outcomes and observation/custody requirements before deletion; keep existing results and H unqualified. |

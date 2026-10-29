@@ -303,3 +303,66 @@ fence needed by B04; F must establish selected native-cache modes and actual fix
 Those owners retain their existing package tests and scope-end integration obligations. Review
 acceptance neither changes ADR status nor supplies those results, and it confers no whole-product,
 cross-platform or numerical qualification.
+
+
+## 13. Remaining native development and product retirement — 2026-10-29
+
+### Subject and decision
+
+**Accept as a Proposed target**, with inspected responsibility boundaries **Interface-checked**.
+This independent native design-reviewer extension assesses ADR-0233's appended target at
+`da23cbf57`. It continues this combined-focus T01 engagement, rather than restarting a
+new diagnostic audit. Concurrent implementation is outside the assessment.
+
+The subject is final `pse-py` removal after real consumers migrate or explicitly retire,
+with Python-only packaging, generation and operating policy. Isolated scientific oracle
+drivers and third-party tools remain eligible. Native conformance, paired thermodynamic
+campaigns, scientific adoption, retained results and calculation observation remain.
+Obsolete measurement drivers may retire while their requirements and original results stay H-owned.
+
+### Architectural assessment
+
+| Foundation | Verdict | Reason |
+| --- | --- | --- |
+| AP-01 | satisfied | Science, canonical state, physical custody and heavy developer composition keep distinct owners. |
+| AP-02 | satisfied | Retained contracts move before deletion; peripheral interface parity and dormant compatibility facades are unselected. |
+| AP-03 | satisfied | Developer workflows compose existing native operations rather than duplicate scientific policy. |
+| AP-04 | satisfied | Rust/domain declarations and independent oracle interpretation retain their separate authority. |
+| AP-05 | satisfied | Migration, explicit loss, stop/join, output custody and qualification boundaries remain distinct. |
+| AP-06 | satisfied | Cold host construction remains independent of schema/math/database dependencies. |
+| AP-07 | satisfied | Interpreter crossings/projections/currency machinery retire without a universal registry, scheduler or publication protocol. |
+
+At target-design evidence level G1–G9 are satisfied. Scientific gates remain preserved
+constraints, not new tested results: no formulation, tolerance, solver or numerical
+interpretation change is selected. No runtime science, teardown, migration or speed claim follows.
+No blocking finding, SHOULD deviation or MUST gap is identified; this is Accept, not a waiver.
+
+### Material implementation conditions
+
+1. Move actual retained callers and their receiving assertions before deleting a boundary,
+   or record the selected loss with its existing owner. API availability alone is insufficient.
+2. Delete Python-only emission, not retained Rust/Arrow/canonical/file/wire meaning;
+   regenerate through the existing declarations and generator.
+3. Retain native joins/unwind containment, scientific qualification, canonical effect identity,
+   dynamic write fences and escaped-buffer allocation custody.
+4. Before deleting a measurement driver's sole scenario expression, transfer its case/mode/input,
+   expected scientific outcome, observation-loss and custody requirements to H. Preserve original
+   results. This requires neither new H campaigns nor campaign execution now.
+5. Oracle processes cannot import the candidate product; absent/failed references stay failures.
+
+### Rule and architecture applications before dependent removal
+
+These extend the existing reviewed RC dispositions; Plan58 remains their work owner.
+
+| ID | Owner | Required amendment |
+| --- | --- | --- |
+| RC07 | D12; blueprint §3.1–§3.3 and §21.1/§21.5/§21.6/§21.7 | Remove mandatory Python boundary/crate/family and extension delivery requirements with actual consumers; retain native numerical, identity and Arrow contracts. |
+| RC08 | §4.2, §23, §24.1–§24.2 and generator/governance/environment owners | Retire Python-only emissions, installed-extension/stub checks and wrapper fixture/controller requirements with their callers. Retain real external admission, force-validation, independent references and historical qualification limits. |
+| RC09 | G01/G03 and existing H scenario/evidence owner | Record selected old-driver retirement and preserve specific scientific requirements/results without H qualification claims. |
+
+Amend frontend-only clauses in §5.3/§20.6 where their mechanisms retire; do not weaken
+scientific hashing, producer/reuse compatibility or canonical history. Cargo metadata,
+packaging, generators, recipes, agent instructions and environment/validation/interface guides
+move through this existing decision route with the architecture revision row. Accepted ADR
+rationale is immutable. Formal ADR acceptance, implementation acceptance and full H qualification
+remain separate. The next boundary is actual integrated migration/deletion with targeted B–G evidence.
