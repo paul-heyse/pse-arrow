@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Real published-frontdoor composition without a Python environment.
+#![cfg(test)]
 use std::{
     fs,
     os::unix::{
@@ -182,10 +183,19 @@ fn native_launch_without_preparation_never_builds_or_runs_command() {
 fn retained_provider_explanations_are_source_free_and_private() {
     let fixture = fixture();
     let root = fixture.path();
-    for capabilities in ["", "compiler", "solver", "isolation", "uno", "petsc", "compiler,solver,klu"] {
+    for capabilities in [
+        "",
+        "compiler",
+        "solver",
+        "isolation",
+        "uno",
+        "petsc",
+        "compiler,solver,klu",
+    ] {
         let result = frontdoor(root)
             .args(["--explain", "--json", &format!("--native={capabilities}")])
-            .output().unwrap();
+            .output()
+            .unwrap();
         assert!(result.status.success(), "{capabilities}: {result:?}");
         let document: serde_json::Value = serde_json::from_slice(&result.stdout).unwrap();
         assert_eq!(document["native_profile"], capabilities);

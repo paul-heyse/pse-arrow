@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Native activation crosses the shell boundary as one private data transfer.
+#![cfg(test)]
 use pse_host::environment::{CacheMode, activation_script};
 use std::{
     ffi::OsString,

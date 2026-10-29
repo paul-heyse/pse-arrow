@@ -37,7 +37,10 @@ fn unified_group(contents: &str) -> Result<String, &'static str> {
     if groups.next().is_some()
         || !group.starts_with('/')
         || std::path::Path::new(group).components().any(|part| {
-            !matches!(part, std::path::Component::RootDir | std::path::Component::Normal(_))
+            !matches!(
+                part,
+                std::path::Component::RootDir | std::path::Component::Normal(_)
+            )
         })
     {
         return Err("observer cgroup-v2 membership ambiguous or invalid");
@@ -76,17 +79,30 @@ impl ObserverFacts {
                 None
             }
         };
-        Self { identity, control_group, unavailable }
+        Self {
+            identity,
+            control_group,
+            unavailable,
+        }
     }
 }
 
 impl ActivityObservation {
-    fn assemble(requested_unit: Option<&str>, observer: ObserverFacts, result: Result<UnitObservation, HostError>) -> Self {
+    fn assemble(
+        requested_unit: Option<&str>,
+        observer: ObserverFacts,
+        result: Result<UnitObservation, HostError>,
+    ) -> Self {
         let (manager, manager_unavailable) = match result {
             Ok(observation) => (Some(observation), None),
             Err(error) => (None, Some(error.to_string())),
         };
-        Self { requested_unit: requested_unit.map(str::to_owned), manager, manager_unavailable, observer }
+        Self {
+            requested_unit: requested_unit.map(str::to_owned),
+            manager,
+            manager_unavailable,
+            observer,
+        }
     }
 
     /// Read without environment activation, admission, source scans or repair effects.
@@ -98,7 +114,8 @@ impl ActivityObservation {
                 Some(unit) => manager.borrow(unit).observe().await,
                 None => manager.current_unit().await,
             }
-        }.await;
+        }
+        .await;
         Self::assemble(requested_unit, observer, result)
     }
 
@@ -114,19 +131,37 @@ mod tests {
 
     #[test]
     fn unavailable_manager_keeps_observer_facts_separate_from_selected_unit() {
-        let report = ActivityObservation::assemble(Some("selected.service"), ObserverFacts {
-            identity: None, control_group: Some("/observer.scope".into()), unavailable: vec![],
-        }, Err(HostError::Ownership("bus unavailable".into())));
+        let report = ActivityObservation::assemble(
+            Some("selected.service"),
+            ObserverFacts {
+                identity: None,
+                control_group: Some("/observer.scope".into()),
+                unavailable: vec![],
+            },
+            Err(HostError::Ownership("bus unavailable".into())),
+        );
         assert!(!report.complete());
         assert!(report.manager.is_none());
         assert_eq!(report.requested_unit.as_deref(), Some("selected.service"));
-        assert_eq!(report.observer.control_group.as_deref(), Some("/observer.scope"));
-        assert!(report.manager_unavailable.as_deref().unwrap().contains("bus unavailable"));
+        assert_eq!(
+            report.observer.control_group.as_deref(),
+            Some("/observer.scope")
+        );
+        assert!(
+            report
+                .manager_unavailable
+                .as_deref()
+                .unwrap()
+                .contains("bus unavailable")
+        );
     }
 
     #[test]
     fn unified_group_rejects_ambiguous_missing_and_relative_facts() {
-        assert_eq!(unified_group("0::/user.slice/a.scope\n").unwrap(), "/user.slice/a.scope");
+        assert_eq!(
+            unified_group("0::/user.slice/a.scope\n").unwrap(),
+            "/user.slice/a.scope"
+        );
         for invalid in ["1:cpu:/a\n", "0::relative", "0::/a\n0::/b", "0::/a/../b"] {
             assert!(unified_group(invalid).is_err(), "{invalid:?}");
         }

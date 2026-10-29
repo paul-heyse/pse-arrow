@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Black-box seed publication checks use private checkouts, never installed host selection.
+#![cfg(test)]
 use std::{
     fs,
     os::unix::{fs::PermissionsExt, process::ExitStatusExt},

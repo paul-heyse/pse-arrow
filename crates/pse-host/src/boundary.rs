@@ -30,11 +30,24 @@ struct Options {
 const DEFAULT_NATIVE_CAPABILITIES: &str = "solver,klu,isolation,uno,petsc";
 fn native_request(options: &Options, values: &Environment) -> Result<Option<String>, HostError> {
     let requested = if options.native_default {
-        Some(values.get(OsStr::new("PSE_NATIVE_CAPABILITIES"))
-            .map(|value| value.to_str().ok_or_else(|| invalid("PSE_NATIVE_CAPABILITIES must be UTF-8")))
-            .transpose()?.unwrap_or(DEFAULT_NATIVE_CAPABILITIES).to_owned())
-    } else { options.native.clone() };
-    if let Some(value) = &requested { crate::native::validate_capabilities(value)?; }
+        Some(
+            values
+                .get(OsStr::new("PSE_NATIVE_CAPABILITIES"))
+                .map(|value| {
+                    value
+                        .to_str()
+                        .ok_or_else(|| invalid("PSE_NATIVE_CAPABILITIES must be UTF-8"))
+                })
+                .transpose()?
+                .unwrap_or(DEFAULT_NATIVE_CAPABILITIES)
+                .to_owned(),
+        )
+    } else {
+        options.native.clone()
+    };
+    if let Some(value) = &requested {
+        crate::native::validate_capabilities(value)?;
+    }
     Ok(requested)
 }
 fn invalid(message: impl Into<String>) -> HostError {
@@ -73,7 +86,11 @@ fn parse(arguments: &[OsString]) -> Result<Options, HostError> {
                     .next()
                     .ok_or_else(|| invalid("resource class requires a value"))?
                     .clone();
-                crate::admission::validate_class(value.to_str().ok_or_else(||invalid("resource class must be UTF-8"))?)?;
+                crate::admission::validate_class(
+                    value
+                        .to_str()
+                        .ok_or_else(|| invalid("resource class must be UTF-8"))?,
+                )?;
                 if argument == "--resource-class" {
                     result.class = Some(value);
                 } else {
@@ -92,7 +109,10 @@ fn parse(arguments: &[OsString]) -> Result<Options, HostError> {
                 };
                 result.environment.extend([argument.clone(), value.clone()]);
             }
-            Some("--native") => { result.native = Some(DEFAULT_NATIVE_CAPABILITIES.into()); result.native_default = true; },
+            Some("--native") => {
+                result.native = Some(DEFAULT_NATIVE_CAPABILITIES.into());
+                result.native_default = true;
+            }
             Some("--store" | "--bind-allocation") => {
                 return Err(unsupported(argument.to_str().unwrap_or("selection")));
             }
@@ -184,9 +204,28 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
     .values;
     known_selections(&options, &selected)?;
     let root = root()?;
-    let selection = crate::admission::Selection::load(&root, &selected,
-        options.class.as_ref().map(|value| value.to_str().ok_or_else(||invalid("resource class must be UTF-8"))).transpose()?,
-        options.recipe_class.as_ref().map(|value| value.to_str().ok_or_else(||invalid("recipe class must be UTF-8"))).transpose()?)?;
+    let selection = crate::admission::Selection::load(
+        &root,
+        &selected,
+        options
+            .class
+            .as_ref()
+            .map(|value| {
+                value
+                    .to_str()
+                    .ok_or_else(|| invalid("resource class must be UTF-8"))
+            })
+            .transpose()?,
+        options
+            .recipe_class
+            .as_ref()
+            .map(|value| {
+                value
+                    .to_str()
+                    .ok_or_else(|| invalid("recipe class must be UTF-8"))
+            })
+            .transpose()?,
+    )?;
     let coordinator = crate::admission::Coordinator::open(&root, &selected)?;
     if let Some(capabilities) = native_request(&options, &selected)? {
         selected = crate::native::select_capabilities(&root, &selected, &capabilities)?;
@@ -194,14 +233,18 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
-        .block_on(foreground::run_with_admission(ForegroundRequest {
-            command: options.command,
-            environment: selected,
-            cwd: std::env::current_dir()?,
-            startup_deadline: Instant::now() + Duration::from_secs(30),
-            drain_timeout: Duration::from_secs(30),
-            require_enclosing: options.no_scope,
-        }, coordinator, selection))
+        .block_on(foreground::run_with_admission(
+            ForegroundRequest {
+                command: options.command,
+                environment: selected,
+                cwd: std::env::current_dir()?,
+                startup_deadline: Instant::now() + Duration::from_secs(30),
+                drain_timeout: Duration::from_secs(30),
+                require_enclosing: options.no_scope,
+            },
+            coordinator,
+            selection,
+        ))
 }
 
 #[cfg(test)]
@@ -218,14 +261,47 @@ mod tests {
     #[test]
     fn native_default_preserves_full_profile_caller_override_and_explicit_empty() {
         let defaults = parse(&args(&["--native", "--", "tool"])).unwrap();
-        assert_eq!(native_request(&defaults, &Environment::new()).unwrap().as_deref(), Some(DEFAULT_NATIVE_CAPABILITIES));
+        assert_eq!(
+            native_request(&defaults, &Environment::new())
+                .unwrap()
+                .as_deref(),
+            Some(DEFAULT_NATIVE_CAPABILITIES)
+        );
         let caller = Environment::from([("PSE_NATIVE_CAPABILITIES".into(), "compiler,klu".into())]);
-        assert_eq!(native_request(&defaults, &caller).unwrap().as_deref(), Some("compiler,klu"));
+        assert_eq!(
+            native_request(&defaults, &caller).unwrap().as_deref(),
+            Some("compiler,klu")
+        );
         let empty = parse(&args(&["--native=", "--", "tool"])).unwrap();
-        assert_eq!(native_request(&empty, &caller).unwrap().as_deref(), Some(""));
-        assert!(native_request(&defaults, &Environment::from([("PSE_NATIVE_CAPABILITIES".into(), "unknown".into())])).is_err());
-        assert_eq!(native_request(&parse(&args(&["--native", "--native=compiler,klu"])).unwrap(), &Environment::new()).unwrap().as_deref(), Some("compiler,klu"));
-        assert_eq!(native_request(&parse(&args(&["--native=compiler,klu", "--native"])).unwrap(), &Environment::new()).unwrap().as_deref(), Some(DEFAULT_NATIVE_CAPABILITIES));
+        assert_eq!(
+            native_request(&empty, &caller).unwrap().as_deref(),
+            Some("")
+        );
+        assert!(
+            native_request(
+                &defaults,
+                &Environment::from([("PSE_NATIVE_CAPABILITIES".into(), "unknown".into())])
+            )
+            .is_err()
+        );
+        assert_eq!(
+            native_request(
+                &parse(&args(&["--native", "--native=compiler,klu"])).unwrap(),
+                &Environment::new()
+            )
+            .unwrap()
+            .as_deref(),
+            Some("compiler,klu")
+        );
+        assert_eq!(
+            native_request(
+                &parse(&args(&["--native=compiler,klu", "--native"])).unwrap(),
+                &Environment::new()
+            )
+            .unwrap()
+            .as_deref(),
+            Some(DEFAULT_NATIVE_CAPABILITIES)
+        );
     }
     #[test]
     fn boundary_refuses_unimplemented_modes_before_execution() {

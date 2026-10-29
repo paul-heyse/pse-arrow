@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Native preparation entry-point refusal and kernel lifetime fixtures.
+#![cfg(test)]
 use pse_host::{environment::Environment, native};
 use std::{
     ffi::OsString,

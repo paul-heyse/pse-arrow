@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Native process boundary checks isolate the adapter from developer environment state.
+#![cfg(test)]
 use serde_json::json;
 use std::{fs, os::unix::fs::PermissionsExt, path::Path, process::Command};
 fn executable(path: &Path, contents: &str) {

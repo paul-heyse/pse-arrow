@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Foreground process ownership through private native scopes and an exec gate.
+use crate::admission::{Coordinator, Permit, Selection};
 use crate::{HostError, HostManager, LaunchIntent, OwnedUnit, environment::Environment};
 use command_fds::{CommandFdExt, FdMapping};
-use crate::admission::{Coordinator, Permit, Selection};
 use std::{
     ffi::OsString,
     io::{Read, Write},
@@ -191,6 +191,24 @@ async fn reap(child: &mut Child, deadline: Instant) -> Result<(), HostError> {
     }
 }
 
+async fn settle_unit(
+    manager: &HostManager,
+    intent: Option<&LaunchIntent>,
+    unit: &mut Option<OwnedUnit>,
+    deadline: Instant,
+) -> Result<(), HostError> {
+    let Some(intent) = intent else {
+        return Ok(());
+    };
+    if unit.is_none() {
+        *unit = manager.reconcile_if_present(intent, deadline).await?;
+    }
+    if let Some(unit) = unit {
+        unit.stop_and_drain(deadline).await?;
+    }
+    Ok(())
+}
+
 /// Execute in authenticated enclosing containment or establish caller-owned
 /// scopes. The manager, rather than a resident helper, enforces caller death.
 pub async fn run(request: ForegroundRequest) -> Result<i32, HostError> {
@@ -199,11 +217,19 @@ pub async fn run(request: ForegroundRequest) -> Result<i32, HostError> {
 }
 
 /// Run with an explicitly resolved host policy; construction does not grant admission.
-pub async fn run_with_admission(request: ForegroundRequest, coordinator: Coordinator, selection: Selection) -> Result<i32, HostError> {
+pub async fn run_with_admission(
+    request: ForegroundRequest,
+    coordinator: Coordinator,
+    selection: Selection,
+) -> Result<i32, HostError> {
     run_owned(request, coordinator, Some(selection)).await
 }
 
-async fn run_owned(mut request: ForegroundRequest, coordinator: Coordinator, selection: Option<Selection>) -> Result<i32, HostError> {
+async fn run_owned(
+    mut request: ForegroundRequest,
+    coordinator: Coordinator,
+    selection: Option<Selection>,
+) -> Result<i32, HostError> {
     if request.command.is_empty() {
         return Err(HostError::Ownership("empty foreground command".into()));
     }
@@ -225,15 +251,37 @@ async fn run_owned(mut request: ForegroundRequest, coordinator: Coordinator, sel
     .await
     .map_err(|_| HostError::Deadline("enclosing workload authentication".into()))??;
     if native {
-        if let Some(requested) = selection.as_ref().and_then(Selection::requested_ordinary_target) {
-            let (actual, _, _) = tokio::time::timeout_at(request.startup_deadline.into(), manager.foreground_placement(&current))
-                .await.map_err(|_| HostError::Deadline("nested placement authentication".into()))??;
+        if let Some(requested) = selection
+            .as_ref()
+            .and_then(Selection::requested_ordinary_target)
+        {
+            let actual = tokio::time::timeout_at(
+                request.startup_deadline.into(),
+                manager.ordinary_target(&current),
+            )
+            .await
+            .map_err(|_| HostError::Deadline("nested placement authentication".into()))??;
             if requested != actual {
-                return Err(HostError::Ownership("nested ordinary placement cannot leave authenticated enclosing containment".into()));
+                return Err(HostError::Ownership(
+                    "nested ordinary placement cannot leave authenticated enclosing containment"
+                        .into(),
+                ));
             }
         }
-        let inherited = coordinator.inherit(&request.environment, &manager, selection.as_ref(), &current, request.startup_deadline).await?;
-        if inherited.is_none() && selection.as_ref().is_some_and(|selection| !selection.profile().ordinary()) {
+        let inherited = coordinator
+            .inherit(
+                &request.environment,
+                &manager,
+                selection.as_ref(),
+                &current,
+                request.startup_deadline,
+            )
+            .await?;
+        if inherited.is_none()
+            && selection
+                .as_ref()
+                .is_some_and(|selection| !selection.profile().ordinary())
+        {
             return Err(HostError::Ownership("nested finite selection requires an authenticated existing allocation; start it from an application scope".into()));
         }
         return exec_result(
@@ -256,13 +304,33 @@ async fn run_owned(mut request: ForegroundRequest, coordinator: Coordinator, sel
     )
     .await
     .map_err(|_| HostError::Deadline("foreground slice authentication".into()))??;
-    let ordinary_placement = match selection.as_ref().and_then(Selection::requested_ordinary_target) {
-        Some(requested) => Some(manager.ordinary_placement(&current, requested, request.startup_deadline).await?),
+    let ordinary_placement = match selection
+        .as_ref()
+        .and_then(Selection::requested_ordinary_target)
+    {
+        Some(requested) => Some(
+            manager
+                .ordinary_placement(&current, requested, request.startup_deadline)
+                .await?,
+        ),
         None => None,
     };
     preflight(&current.control_group, default_tasks_max)?;
     let owner_intent = LaunchIntent::fresh_scope()?;
     let workload_intent = LaunchIntent::fresh_scope()?;
+    let operation_intent = if selection
+        .as_ref()
+        .is_none_or(|selection| selection.profile().ordinary())
+    {
+        Some(LaunchIntent::fresh_operation(
+            ordinary_placement
+                .as_ref()
+                .map_or(slice.as_str(), |placement| placement.slice()),
+            &owner_intent,
+        )?)
+    } else {
+        None
+    };
     if let Some(selection) = &selection {
         selection.apply_pending_environment(&mut request.environment, &workload_intent);
     }
@@ -290,6 +358,7 @@ async fn run_owned(mut request: ForegroundRequest, coordinator: Coordinator, sel
     let child_pid = child.id();
     let mut owner: Option<OwnedUnit> = None;
     let mut workload: Option<OwnedUnit> = None;
+    let mut operation_group: Option<OwnedUnit> = None;
     let mut permit: Option<Permit> = None;
     let mut cancellation = None;
     let operation = async {
@@ -303,10 +372,17 @@ async fn run_owned(mut request: ForegroundRequest, coordinator: Coordinator, sel
             owner = Some(manager.start_scope(&owner_intent, caller_fd, &current.unit, &slice, request.startup_deadline, request.drain_timeout.saturating_sub(Duration::from_secs(1))).await?);
             owner.as_ref().ok_or_else(|| HostError::Ownership("owner missing after activation".into()))?.assert_population(&[std::process::id()]).await?;
             if let Some(permit) = &permit { permit.bind(owner.as_ref().ok_or_else(||HostError::Ownership("owner missing".into()))?, request.startup_deadline).await?; }
+            if let Some(intent) = &operation_intent {
+                operation_group = Some(manager.start_operation_slice(intent, owner.as_ref().ok_or_else(|| HostError::Ownership("operation controller missing".into()))?, request.startup_deadline).await?);
+                let observed = operation_group.as_ref().ok_or_else(|| HostError::Ownership("operation group missing after activation".into()))?.observe().await?;
+                let target_group = ordinary_placement.as_ref().map_or(slice_group.as_str(), |placement| placement.control_group());
+                if Path::new(&observed.control_group).parent() != Some(Path::new(target_group)) {
+                    return Err(HostError::Ownership("ordinary operation escaped original selected target".into()));
+                }
+            }
             let workload_slice = permit.as_ref().and_then(Permit::allocation_slice)
-                .or_else(|| ordinary_placement.as_ref().map(|placement| placement.slice())).unwrap_or(&slice);
-            let workload_group = if let Some(placement) = &ordinary_placement { placement.control_group().to_owned() }
-                else if workload_slice == slice { slice_group.clone() } else { manager.observe(workload_slice).await?.control_group };
+                .or_else(|| operation_intent.as_ref().map(LaunchIntent::unit)).unwrap_or(&slice);
+            let workload_group = if workload_slice == slice { slice_group.clone() } else { manager.observe(workload_slice).await?.control_group };
             let controls = match &permit { Some(permit) => permit.profile().controls()?, None => crate::ResourceControls::default() };
             workload = Some(manager.start_scope_controlled(&workload_intent, workload_fd, owner_intent.unit(), workload_slice, request.startup_deadline, request.drain_timeout.saturating_sub(Duration::from_secs(1)), &controls).await?);
             workload.as_ref().ok_or_else(|| HostError::Ownership("workload missing after activation".into()))?.assert_population(&[child_pid]).await?;
@@ -349,39 +425,28 @@ async fn run_owned(mut request: ForegroundRequest, coordinator: Coordinator, sel
     let drain_deadline = Instant::now() + request.drain_timeout;
     // Reconcile every possibly submitted intent, including interrupted replies.
     // Authoritative absence is distinct from a failed/unknown observation.
-    let workload_recovery = if workload.is_none() {
-        match manager
-            .reconcile_if_present(&workload_intent, drain_deadline)
-            .await
-        {
-            Ok(unit) => {
-                workload = unit;
-                Ok(())
+    let (workload_drained, operation_drained, owner_recovery) = tokio::join!(
+        settle_unit(
+            &manager,
+            Some(&workload_intent),
+            &mut workload,
+            drain_deadline
+        ),
+        settle_unit(
+            &manager,
+            operation_intent.as_ref(),
+            &mut operation_group,
+            drain_deadline
+        ),
+        async {
+            if owner.is_none() {
+                owner = manager
+                    .reconcile_if_present(&owner_intent, drain_deadline)
+                    .await?;
             }
-            Err(error) => Err(error),
-        }
-    } else {
-        Ok(())
-    };
-    let owner_recovery = if owner.is_none() {
-        match manager
-            .reconcile_if_present(&owner_intent, drain_deadline)
-            .await
-        {
-            Ok(unit) => {
-                owner = unit;
-                Ok(())
-            }
-            Err(error) => Err(error),
-        }
-    } else {
-        Ok(())
-    };
-    let drained = if let Some(unit) = &mut workload {
-        unit.stop_and_drain(drain_deadline).await.map(|_| ())
-    } else {
-        Ok(())
-    };
+            Ok::<(), HostError>(())
+        },
+    );
     // Settle independent resources even when a previous settlement failed.
     let killed = match child.try_wait() {
         Ok(None) => child.kill().map_err(HostError::from),
@@ -392,32 +457,38 @@ async fn run_owned(mut request: ForegroundRequest, coordinator: Coordinator, sel
     let finite_release = if let Some(permit) = &mut permit {
         match permit.release(&manager, drain_deadline).await {
             Ok(true) => Ok(()),
-            Ok(false) => Err(HostError::Ownership("finite charge retained until original physical drain".into())),
+            Ok(false) => Err(HostError::Ownership(
+                "finite charge retained until original physical drain".into(),
+            )),
             Err(error) => Err(error),
         }
-    } else { Ok(()) };
+    } else {
+        Ok(())
+    };
     let released = if let Some(unit) = &mut owner {
         unit.release_reference(drain_deadline).await
     } else {
         Ok(())
     };
-    let cleanup = [
-        workload_recovery,
+    let mut cleanup = Ok(());
+    // Every resource was attempted above; retain all of its settlement failures.
+    for next in [
+        workload_drained,
+        operation_drained,
         owner_recovery,
-        drained,
         killed,
         reaped,
         finite_release,
         released,
-    ]
-    .into_iter()
-    .fold(Ok(()), |all, next| match (all, next) {
-        (Ok(()), result) | (result, Ok(())) => result,
-        (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
-            operation: Box::new(operation),
-            cleanup: Box::new(cleanup),
-        }),
-    });
+    ] {
+        cleanup = match (cleanup, next) {
+            (Ok(()), result) | (result, Ok(())) => result,
+            (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
+                operation: Box::new(operation),
+                cleanup: Box::new(cleanup),
+            }),
+        };
+    }
     settle_result(operation, cleanup)
 }
 

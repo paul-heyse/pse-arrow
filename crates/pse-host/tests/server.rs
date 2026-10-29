@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Public native server selection is read-only and does not depend on Python or source.
+#![cfg(test)]
 use pse_host::{environment::Environment, server};
 use std::{ffi::OsString, fs};
 
@@ -24,16 +25,37 @@ fn server_corrupt_selection_never_searches_or_builds_a_fallback() {
     let mut environment = Environment::new();
     environment.insert("PSE_SURREAL_TOOLS".into(), fixture.path().into());
     assert!(server::select(&environment).is_err());
-    assert_eq!(fs::read(root.join("current.json")).unwrap(), b"not a selection");
+    assert_eq!(
+        fs::read(root.join("current.json")).unwrap(),
+        b"not a selection"
+    );
     assert!(!root.join("builds").exists());
 }
 
 #[test]
 fn server_cli_rejects_implicit_build_and_service_arguments_before_effects() {
-    for command in ["start", "setup", "restart", "build-server", "prepare --force"] {
+    for command in [
+        "start",
+        "setup",
+        "restart",
+        "build-server",
+        "prepare --force",
+    ] {
         assert!(server::run_cli(&[OsString::from(command)]).is_err());
     }
-    for arguments in [vec!["prepare", "--from-release"],vec!["select", "--from-release", "/unused"],vec!["prepare", "--from-release", "/unused", "--force"]] {
-        assert!(server::run_cli(&arguments.into_iter().map(OsString::from).collect::<Vec<_>>()).is_err());
+    for arguments in [
+        vec!["prepare", "--from-release"],
+        vec!["select", "--from-release", "/unused"],
+        vec!["prepare", "--from-release", "/unused", "--force"],
+    ] {
+        assert!(
+            server::run_cli(
+                &arguments
+                    .into_iter()
+                    .map(OsString::from)
+                    .collect::<Vec<_>>()
+            )
+            .is_err()
+        );
     }
 }

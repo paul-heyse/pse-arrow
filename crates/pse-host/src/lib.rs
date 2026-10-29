@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Independent native host capabilities. A manager reply is not physical release.
 
-pub mod boundary;
 pub mod activity;
 pub mod admission;
+pub mod boundary;
 pub mod correctness;
 pub mod environment;
 pub mod foreground;
@@ -12,7 +12,8 @@ mod manager;
 pub mod native;
 pub mod server;
 pub use manager::{
-    BorrowedUnit, HostManager, LaunchIntent, OrdinaryPlacement, OwnedUnit, ResourceControls, ServiceSpec, UnitObservation,
+    BorrowedUnit, HostManager, LaunchIntent, OrdinaryPlacement, OwnedUnit, ResourceControls,
+    ServiceSpec, UnitObservation,
 };
 
 /// A host boundary failure, never a scientific outcome.

@@ -12,6 +12,9 @@ homepage.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+[lib]
+doctest = false
+
 [lints]
 workspace = true
 

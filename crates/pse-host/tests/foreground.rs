@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Targeted actual-user-manager foreground protocol journeys.
+#![cfg(test)]
 use std::{
     ffi::OsString,
     fs,
@@ -82,17 +83,16 @@ impl std::ops::DerefMut for Guard {
 impl Drop for Guard {
     fn drop(&mut self) {
         let _ = self.kill();
-        if let Some(group) = &self.group {
-            if !empty(group) {
-                if let Some(name) = Path::new(group).file_name() {
-                    let _ = Command::new("/usr/bin/systemctl")
-                        .args(["--user", "kill", "--signal=KILL"])
-                        .arg(name)
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null())
-                        .status();
-                }
-            }
+        if let Some(group) = &self.group
+            && !empty(group)
+            && let Some(name) = Path::new(group).file_name()
+        {
+            let _ = Command::new("/usr/bin/systemctl")
+                .args(["--user", "kill", "--signal=KILL"])
+                .arg(name)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
         }
         let _ = Command::new("/usr/bin/systemctl")
             .args(["--user", "stop", "--no-block", &self.prior])
@@ -218,6 +218,257 @@ fn foreground_controller_sigkill_drains_escaped_descendants() {
     wait_empty(owner);
     wait_empty(&group);
 }
+
+// This helper is entered in a separate test process under the real native
+// boundary. Its dispatch flag supplies data only: start_service_bound verifies
+// actual manager/kernel containment before granting service launch authority.
+#[test]
+#[allow(
+    clippy::exit,
+    reason = "The separate owned-process fixture must preserve a specific subprocess exit status"
+)]
+fn ordinary_bound_service_fixture() {
+    let Some(directory) = std::env::var_os("PSE_FOREST_FIXTURE_DIRECTORY") else {
+        return;
+    };
+    let directory = std::path::PathBuf::from(directory);
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        let manager = pse_host::HostManager::connect_user(None).await.unwrap();
+        let current = manager.current_unit().await.unwrap();
+        if std::env::var_os("PSE_FOREST_FIXTURE_LITERAL").is_some() {
+            literal_bound_service_fixture(&manager, &current, &directory).await;
+            std::process::exit(7);
+        }
+        let intent = pse_host::LaunchIntent::fresh().unwrap();
+        let spec = pse_host::ServiceSpec {
+            intent,
+            executable: "/bin/sh".into(),
+            arguments: vec!["-c".into(), r#"
+/usr/bin/setsid /bin/sh -c '
+trap '\''printf "term\n" > "$PSE_FOREST_TERM"; /bin/sleep 2; printf "drained\n" > "$PSE_FOREST_DRAINED"; exit 0'\'' TERM
+group=$(/bin/sed -n "s/^0:://p" /proc/self/cgroup)
+printf "%s\n%s\nready\n" "$group" "$$" > "$PSE_FOREST_DESCENDANT"
+while :; do /bin/sleep 100; done
+' &
+wait
+"#.into()],
+            environment: vec![
+                format!("PSE_FOREST_DESCENDANT={}", directory.join("descendant").display()),
+                format!("PSE_FOREST_TERM={}", directory.join("term").display()),
+                format!("PSE_FOREST_DRAINED={}", directory.join("drained").display()),
+            ],
+        };
+        let service = manager.start_service_bound(&spec, &manager.borrow(&current.unit), &pse_host::ResourceControls::default(), Instant::now() + Duration::from_secs(15)).await.unwrap();
+        let deadline = Instant::now() + Duration::from_secs(15);
+        loop {
+            if fs::read_to_string(directory.join("descendant")).is_ok_and(|text| text.ends_with("ready\n")) { break; }
+            assert!(Instant::now() < deadline, "bound service descendant did not become ready");
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        let observed = service.observe().await.unwrap();
+        fs::write(directory.join("ready-pending"), format!("{}\n{}\n{}\n", current.control_group, observed.control_group, service.intent().unit())).unwrap();
+        fs::rename(directory.join("ready-pending"), directory.join("ready")).unwrap();
+        while !directory.join("release").exists() { tokio::time::sleep(Duration::from_millis(5)).await; }
+        // The original performing service capability remains live until process
+        // exit. The enclosing foreground owner must settle the entire hierarchy.
+        std::process::exit(7);
+    });
+}
+
+async fn literal_bound_service_fixture(
+    manager: &pse_host::HostManager,
+    current: &pse_host::UnitObservation,
+    directory: &Path,
+) {
+    let executable = directory.join("sh-$HOME-%n");
+    std::os::unix::fs::symlink("/bin/sh", &executable).unwrap();
+    let arguments = [
+        "$PSE_LITERAL_VALUE",
+        "${PSE_LITERAL_VALUE}",
+        "$$",
+        "$",
+        "%n",
+        "%%",
+        "%",
+        "",
+        "space and\t tab",
+        "line\nbreak",
+        "quote'\"\\",
+        "unicode-λ",
+    ];
+    let environment = "value $HOME ${OTHER} $$ %n %% % literal";
+    let output = directory.join("literal-argv");
+    let mut argv = vec![
+        "-c".to_owned(),
+        r#"printf '%s\000' "$@" "$PSE_LITERAL_VALUE" > "$PSE_LITERAL_OUTPUT"; exec /bin/sleep 100"#
+            .to_owned(),
+        "fixture".to_owned(),
+    ];
+    argv.extend(arguments.iter().map(|value| (*value).to_owned()));
+    let spec = pse_host::ServiceSpec {
+        intent: pse_host::LaunchIntent::fresh().unwrap(),
+        executable,
+        arguments: argv,
+        environment: vec![
+            format!("PSE_LITERAL_VALUE={environment}"),
+            format!("PSE_LITERAL_OUTPUT={}", output.display()),
+        ],
+    };
+    let deadline = Instant::now() + Duration::from_secs(15);
+    let mut service = manager
+        .start_service_bound(
+            &spec,
+            &manager.borrow(&current.unit),
+            &pse_host::ResourceControls::default(),
+            deadline,
+        )
+        .await
+        .unwrap();
+    let expected = arguments
+        .into_iter()
+        .chain(std::iter::once(environment))
+        .flat_map(|value| value.as_bytes().iter().copied().chain(std::iter::once(0)))
+        .collect::<Vec<_>>();
+    let result = async {
+        while fs::read(&output).is_ok_and(|bytes| bytes.len() < expected.len()) || !output.exists()
+        {
+            assert!(
+                Instant::now() < deadline,
+                "literal service argument observation incomplete"
+            );
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        fs::read(&output)
+    }
+    .await;
+    let cleanup = service.stop_and_drain(deadline).await;
+    assert!(
+        cleanup.is_ok(),
+        "literal service original cleanup failed: {cleanup:?}"
+    );
+    assert_eq!(
+        result.unwrap(),
+        expected,
+        "native service must preserve literal argument and environment bytes"
+    );
+}
+
+#[test]
+fn foreground_bound_service_preserves_literal_arguments_environment_and_executable_path() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut command = host();
+    command
+        .env("PSE_FOREST_FIXTURE_DIRECTORY", temp.path())
+        .env("PSE_FOREST_FIXTURE_LITERAL", "1")
+        .args(["run"])
+        .arg(std::env::current_exe().unwrap())
+        .args(["--exact", "ordinary_bound_service_fixture", "--nocapture"]);
+    let mut child = Guard::top_level(&mut command);
+    let result = child.wait().unwrap();
+    let mut errors = String::new();
+    child
+        .stderr
+        .take()
+        .unwrap()
+        .read_to_string(&mut errors)
+        .unwrap();
+    assert_eq!(result.code(), Some(7), "{errors}");
+}
+
+fn bound_service_forest(signal: Option<rustix::process::Signal>) {
+    let temp = tempfile::tempdir().unwrap();
+    let mut command = host();
+    command
+        .env("PSE_FOREST_FIXTURE_DIRECTORY", temp.path())
+        .args(["run"])
+        .arg(std::env::current_exe().unwrap())
+        .args(["--exact", "ordinary_bound_service_fixture", "--nocapture"]);
+    let mut child = Guard::top_level(&mut command);
+    wait_file(&temp.path().join("ready"));
+    let ready = fs::read_to_string(temp.path().join("ready")).unwrap();
+    let rows = ready.lines().collect::<Vec<_>>();
+    assert_eq!(rows.len(), 3, "{ready}");
+    let operation = Path::new(rows[0]).parent().unwrap();
+    assert!(
+        operation
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .contains("-operation_")
+    );
+    assert_eq!(
+        Path::new(rows[1]).parent(),
+        Some(operation),
+        "bound service must share the private operation hierarchy"
+    );
+    let descendant = fs::read_to_string(temp.path().join("descendant")).unwrap();
+    let descendant = descendant.lines().collect::<Vec<_>>();
+    assert_eq!(descendant[0], rows[1]);
+    assert!(
+        Path::new(&format!("/proc/{}", descendant[1])).exists(),
+        "original descendant PID absent: {descendant:?}; {ready}"
+    );
+    record_fresh_group(&mut child, rows[0]);
+    if let Some(signal) = signal {
+        rustix::process::kill_process(
+            rustix::process::Pid::from_raw(child.id() as i32).unwrap(),
+            signal,
+        )
+        .unwrap();
+    } else {
+        fs::write(temp.path().join("release"), b"exit\n").unwrap();
+    }
+    let status = child.wait().unwrap();
+    let mut errors = String::new();
+    child
+        .stderr
+        .take()
+        .unwrap()
+        .read_to_string(&mut errors)
+        .unwrap();
+    assert_eq!(
+        status.code(),
+        Some(match signal {
+            None => 7,
+            Some(rustix::process::Signal::TERM) => 143,
+            Some(_) => 137,
+        }),
+        "{errors}"
+    );
+    if signal != Some(rustix::process::Signal::KILL) {
+        assert!(
+            empty(operation.to_str().unwrap()),
+            "boundary returned before its original operation forest drained"
+        );
+        assert!(
+            temp.path().join("drained").exists(),
+            "delayed descendant settlement must precede the original boundary result"
+        );
+    }
+    // Independent kernel observation includes every descendant, beyond the
+    // workload scope and beyond dependency StopUnit acknowledgement.
+    wait_empty(operation.to_str().unwrap());
+    wait_empty(rows[0]);
+    wait_empty(rows[1]);
+    assert!(temp.path().join("term").exists());
+    assert!(temp.path().join("drained").exists());
+}
+
+#[test]
+fn foreground_ordinary_bound_service_forest_drains_before_normal_result() {
+    bound_service_forest(None);
+}
+
+#[test]
+fn foreground_ordinary_bound_service_forest_drains_on_controller_death() {
+    bound_service_forest(Some(rustix::process::Signal::TERM));
+    bound_service_forest(Some(rustix::process::Signal::KILL));
+}
 #[test]
 fn foreground_startup_caller_death_cannot_release_command() {
     let temp = tempfile::tempdir().unwrap();
@@ -293,39 +544,75 @@ exit 7
     let mut child = Guard::top_level(&mut command);
     let status = child.wait().unwrap();
     let mut errors = String::new();
-    child.stderr.take().unwrap().read_to_string(&mut errors).unwrap();
+    child
+        .stderr
+        .take()
+        .unwrap()
+        .read_to_string(&mut errors)
+        .unwrap();
     assert_eq!(status.code(), Some(7), "{errors}");
     let document = fs::read_to_string(observation).unwrap();
     let lines = document.lines().collect::<Vec<_>>();
     assert_eq!(lines.len(), 5, "{document}");
     assert_eq!(lines[1], (2_u64 << 30).to_string());
-    assert_eq!(lines[0], lines[3], "nested command must reuse original containment");
-    assert_eq!(lines[2], lines[4], "nested command must reuse original charge");
+    assert_eq!(
+        lines[0], lines[3],
+        "nested command must reuse original containment"
+    );
+    assert_eq!(
+        lines[2], lines[4],
+        "nested command must reuse original charge"
+    );
     let group = lines[0].strip_prefix("0::").unwrap();
     assert!(group.contains("pse.slice/pse-"), "{group}");
     record_fresh_group(&mut child, group);
     wait_empty(group);
-    let journal = Path::new(&std::env::var_os("XDG_RUNTIME_DIR").unwrap()).join("pse-host-admission/finite.json");
+    let journal = Path::new(&std::env::var_os("XDG_RUNTIME_DIR").unwrap())
+        .join("pse-host-admission/finite.json");
     let state: serde_json::Value = serde_json::from_slice(&fs::read(journal).unwrap()).unwrap();
-    assert!(state["finite"].get(lines[2]).is_none(), "original finite charge remains after successful boundary release");
+    assert!(
+        state["finite"].get(lines[2]).is_none(),
+        "original finite charge remains after successful boundary release"
+    );
 }
 
 #[test]
 fn foreground_ordinary_explicit_target_preserves_owner_and_refuses_nested_escape() {
-    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
-    let manager = runtime.block_on(pse_host::HostManager::connect_user(None)).unwrap();
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let manager = runtime
+        .block_on(pse_host::HostManager::connect_user(None))
+        .unwrap();
     let intent = pse_host::LaunchIntent::fresh_allocation("app.slice").unwrap();
-    let mut target = runtime.block_on(manager.start_slice(&intent, &pse_host::ResourceControls::default(), Instant::now() + Duration::from_secs(15))).unwrap();
+    let mut target = runtime
+        .block_on(manager.start_slice(
+            &intent,
+            &pse_host::ResourceControls::default(),
+            Instant::now() + Duration::from_secs(15),
+        ))
+        .unwrap();
     let original = runtime.block_on(target.observe()).unwrap();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let temp = tempfile::tempdir().unwrap();
         let observation = temp.path().join("placement");
         let escaped = temp.path().join("must-not-execute");
         let mut command = host();
-        command.current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
-            .env("PSE_BUILD_MODE", "unbounded").env_remove("PSE_HOST_ALLOCATION")
-            .env_remove("PSE_MEMORY_MAX").env("PSE_SLICE", intent.unit())
-            .args(["boundary", "--resource-class", "build", "--", "/bin/sh", "-ec", r#"
+        command
+            .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
+            .env("PSE_BUILD_MODE", "unbounded")
+            .env_remove("PSE_HOST_ALLOCATION")
+            .env_remove("PSE_MEMORY_MAX")
+            .env("PSE_SLICE", intent.unit())
+            .args([
+                "boundary",
+                "--resource-class",
+                "build",
+                "--",
+                "/bin/sh",
+                "-ec",
+                r#"
 cat /proc/self/cgroup > "$1"
 cat "/proc/$PPID/cgroup" >> "$1"
 "$2" boundary --resource-class build -- /bin/cat /proc/self/cgroup >> "$1"
@@ -337,27 +624,62 @@ test "$status" -eq 125
 test -z "${PSE_HOST_ALLOCATION-}"
 group=$(sed -n 's/^0:://p' /proc/self/cgroup)
 cat "/sys/fs/cgroup$group/memory.max" >> "$1"
-"#, "fixture"]).arg(&observation).arg(env!("CARGO_BIN_EXE_pse-host")).arg(&escaped);
+"#,
+                "fixture",
+            ])
+            .arg(&observation)
+            .arg(env!("CARGO_BIN_EXE_pse-host"))
+            .arg(&escaped);
         let mut child = Guard::top_level(&mut command);
         let status = child.wait().unwrap();
         let mut errors = String::new();
-        child.stderr.take().unwrap().read_to_string(&mut errors).unwrap();
+        child
+            .stderr
+            .take()
+            .unwrap()
+            .read_to_string(&mut errors)
+            .unwrap();
         assert!(status.success(), "{errors}");
         assert!(!escaped.exists());
         let document = fs::read_to_string(observation).unwrap();
         let rows = document.lines().collect::<Vec<_>>();
         assert_eq!(rows.len(), 4, "{document}");
-        assert_eq!(rows[0], rows[2], "nested work must retain actual target containment");
+        assert_eq!(
+            rows[0], rows[2],
+            "nested work must retain actual target containment"
+        );
         let group = rows[0].strip_prefix("0::").unwrap();
-        assert_eq!(Path::new(group).parent(), Some(Path::new(&original.control_group)));
-        assert!(!rows[1].contains(intent.unit()), "controller must retain its prior parent");
-        assert_eq!(rows[3], "max", "ordinary work must not acquire a new leaf cap");
+        let operation = Path::new(group).parent().unwrap();
+        assert_eq!(operation.parent(), Some(Path::new(&original.control_group)));
+        assert!(
+            operation
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .contains("-operation_")
+        );
+        assert!(
+            !rows[1].contains(intent.unit()),
+            "controller must retain its prior parent"
+        );
+        assert_eq!(
+            rows[3], "max",
+            "ordinary work must not acquire a new leaf cap"
+        );
         record_fresh_group(&mut child, group);
         wait_empty(group);
+        wait_empty(operation.to_str().unwrap());
     }));
     let cleanup = runtime.block_on(target.stop_and_drain(Instant::now() + Duration::from_secs(15)));
-    assert!(cleanup.is_ok(), "original target cleanup failed after body success={}: {cleanup:?}", result.is_ok());
-    if let Err(panic) = result { std::panic::resume_unwind(panic); }
+    assert!(
+        cleanup.is_ok(),
+        "original target cleanup failed after body success={}: {cleanup:?}",
+        result.is_ok()
+    );
+    if let Err(panic) = result {
+        std::panic::resume_unwind(panic);
+    }
 }
 
 #[test]
@@ -379,7 +701,9 @@ fn foreground_finite_controller_death_drains_original_work_and_reclaims_only_aft
         let deadline = Instant::now() + Duration::from_secs(15);
         let document = loop {
             let document = fs::read_to_string(&ready).unwrap();
-            if document.lines().count() == 2 { break document; }
+            if document.lines().count() == 2 {
+                break document;
+            }
             assert!(Instant::now() < deadline, "finite observation incomplete");
             thread::sleep(Duration::from_millis(5));
         };
@@ -387,29 +711,54 @@ fn foreground_finite_controller_death_drains_original_work_and_reclaims_only_aft
         let group = rows[1].strip_prefix("0::").unwrap();
         record_fresh_group(&mut child, group);
         rustix::process::kill_process(
-            rustix::process::Pid::from_raw(child.id() as i32).unwrap(), signal,
-        ).unwrap();
+            rustix::process::Pid::from_raw(child.id() as i32).unwrap(),
+            signal,
+        )
+        .unwrap();
         let status = child.wait().unwrap();
         let mut errors = String::new();
-        child.stderr.take().unwrap().read_to_string(&mut errors).unwrap();
-        assert_eq!(status.code(), Some(if signal == rustix::process::Signal::TERM { 143 } else { 137 }), "{errors}");
+        child
+            .stderr
+            .take()
+            .unwrap()
+            .read_to_string(&mut errors)
+            .unwrap();
+        assert_eq!(
+            status.code(),
+            Some(if signal == rustix::process::Signal::TERM {
+                143
+            } else {
+                137
+            }),
+            "{errors}"
+        );
         wait_empty(group);
 
         // SIGKILL cannot execute local release. A new real admission must reconcile
         // the original bound unit/cgroup before reclaiming that dead owner's row.
         let mut next = host();
         next.current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."))
-            .env("PSE_BUILD_MODE", "unbounded").env_remove("PSE_HOST_ALLOCATION")
-            .env_remove("PSE_MEMORY_MAX").env("PSE_SLICE", "pse.slice")
+            .env("PSE_BUILD_MODE", "unbounded")
+            .env_remove("PSE_HOST_ALLOCATION")
+            .env_remove("PSE_MEMORY_MAX")
+            .env("PSE_SLICE", "pse.slice")
             .args(["boundary", "--resource-class", "light", "--", "/bin/true"]);
         let mut next = Guard::top_level(&mut next);
         let status = next.wait().unwrap();
         let mut errors = String::new();
-        next.stderr.take().unwrap().read_to_string(&mut errors).unwrap();
+        next.stderr
+            .take()
+            .unwrap()
+            .read_to_string(&mut errors)
+            .unwrap();
         assert!(status.success(), "{errors}");
-        let journal = Path::new(&std::env::var_os("XDG_RUNTIME_DIR").unwrap()).join("pse-host-admission/finite.json");
+        let journal = Path::new(&std::env::var_os("XDG_RUNTIME_DIR").unwrap())
+            .join("pse-host-admission/finite.json");
         let state: serde_json::Value = serde_json::from_slice(&fs::read(journal).unwrap()).unwrap();
-        assert!(state["finite"].get(rows[0]).is_none(), "drained original finite owner was not reclaimed");
+        assert!(
+            state["finite"].get(rows[0]).is_none(),
+            "drained original finite owner was not reclaimed"
+        );
     }
 }
 

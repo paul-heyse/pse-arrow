@@ -179,12 +179,12 @@ fn profile_root(env: &Environment) -> Result<PathBuf, HostError> {
     Ok(root.join("rust-v1/kinsol"))
 }
 fn private_directory(path: &Path) -> Result<(), HostError> {
-    if let Ok(metadata) = fs::symlink_metadata(path) {
-        if metadata.file_type().is_symlink() || !metadata.is_dir() {
-            return Err(invalid(
-                "native cache directory must not be a symlink or file",
-            ));
-        }
+    if let Ok(metadata) = fs::symlink_metadata(path)
+        && (metadata.file_type().is_symlink() || !metadata.is_dir())
+    {
+        return Err(invalid(
+            "native cache directory must not be a symlink or file",
+        ));
     }
     if let Some(parent) = path.parent() {
         if !parent.exists() {
@@ -337,10 +337,9 @@ fn inputs(env: &Environment) -> Result<BTreeMap<String, Option<String>>, HostErr
         .map(|key| Ok(((*key).to_owned(), text(env, key)?.map(str::to_owned))))
         .collect()
 }
-fn compiler(
-    root: &Path,
-    env: &Environment,
-) -> Result<(BTreeMap<String, Tool>, BTreeMap<String, String>), HostError> {
+type CompilerSelection = (BTreeMap<String, Tool>, BTreeMap<String, String>);
+
+fn compiler(root: &Path, env: &Environment) -> Result<CompilerSelection, HostError> {
     let mut tools = BTreeMap::new();
     let mut selected = BTreeMap::new();
     for (key, default) in [
@@ -402,14 +401,20 @@ fn compiler(
     );
     let arguments = text(env, "BINDGEN_EXTRA_CLANG_ARGS")?.unwrap_or("");
     let resource_option = format!("-resource-dir={}", resource.display());
-    if arguments.split_whitespace().any(|argument| argument.contains("resource-dir") && argument != resource_option) {
+    if arguments
+        .split_whitespace()
+        .any(|argument| argument.contains("resource-dir") && argument != resource_option)
+    {
         return Err(invalid(
             "select CLANG_PATH rather than overriding Clang resource-dir",
         ));
     }
     selected.insert(
         "BINDGEN_EXTRA_CLANG_ARGS".into(),
-        if arguments.split_whitespace().any(|argument| argument == resource_option) {
+        if arguments
+            .split_whitespace()
+            .any(|argument| argument == resource_option)
+        {
             arguments.to_owned()
         } else {
             format!("{arguments} {resource_option}").trim().to_owned()
@@ -448,21 +453,20 @@ fn compiler(
             .ok_or_else(|| invalid("libclang path must be UTF-8"))?
             .to_owned(),
     );
-    for key in ["CMAKE_TOOLCHAIN_FILE"] {
-        if let Some(path) = env.get(OsStr::new(key)) {
-            let path = PathBuf::from(path);
-            if !path.is_absolute() {
-                return Err(invalid("CMAKE_TOOLCHAIN_FILE must be absolute"));
-            }
-            tools.insert(
-                key.into(),
-                Tool {
-                    sha256: digest(&path)?,
-                    path,
-                    version: String::new(),
-                },
-            );
+    let key = "CMAKE_TOOLCHAIN_FILE";
+    if let Some(path) = env.get(OsStr::new(key)) {
+        let path = PathBuf::from(path);
+        if !path.is_absolute() {
+            return Err(invalid("CMAKE_TOOLCHAIN_FILE must be absolute"));
         }
+        tools.insert(
+            key.into(),
+            Tool {
+                sha256: digest(&path)?,
+                path,
+                version: String::new(),
+            },
+        );
     }
     Ok((tools, selected))
 }
@@ -825,7 +829,9 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
             "expected native prepare --capabilities compiler[,solver,klu,isolation,uno,petsc]",
         ));
     }
-    let capabilities = arguments[2].to_str().ok_or_else(|| invalid("capabilities must be UTF-8"))?;
+    let capabilities = arguments[2]
+        .to_str()
+        .ok_or_else(|| invalid("capabilities must be UTF-8"))?;
     providers::capabilities(capabilities)?;
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -848,7 +854,11 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
     }
     let prepared = prepare_capabilities(&root, &std::env::vars_os().collect(), capabilities)?;
     for (capability, prefix) in prepared {
-        writeln!(std::io::stdout(), "prepared {capability}: {}", prefix.display())?;
+        writeln!(
+            std::io::stdout(),
+            "prepared {capability}: {}",
+            prefix.display()
+        )?;
     }
     Ok(0)
 }

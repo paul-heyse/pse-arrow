@@ -183,16 +183,15 @@ impl EnvironmentSettings {
             return Err(failure("PSE_SCCACHE_BINARY cannot be empty"));
         }
         let selected = explicit.map(PathBuf::from).unwrap_or(installed);
-        if let Some(wrapper) = get(inputs, "RUSTC_WRAPPER") {
-            if explicit.is_some()
-                && !wrapper.is_empty()
-                && Path::new(wrapper) != selected
-                && Path::new(wrapper) != root.join("scripts/sccache")
-            {
-                return Err(failure(
-                    "PSE_SCCACHE_BINARY conflicts with the explicit RUSTC_WRAPPER selection",
-                ));
-            }
+        if let Some(wrapper) = get(inputs, "RUSTC_WRAPPER")
+            && explicit.is_some()
+            && !wrapper.is_empty()
+            && Path::new(wrapper) != selected
+            && Path::new(wrapper) != root.join("scripts/sccache")
+        {
+            return Err(failure(
+                "PSE_SCCACHE_BINARY conflicts with the explicit RUSTC_WRAPPER selection",
+            ));
         }
         let cache_wanted = explicit.is_some()
             || get(inputs, "RUSTC_WRAPPER").is_none_or(|wrapper| {
@@ -246,10 +245,10 @@ impl EnvironmentSettings {
                     .is_file()
                     .then(|| PathBuf::from("/opt/llvm-current"))
             });
-        if let Some(prefix) = &llvm {
-            if !prefix.join("bin/clang").is_file() || !prefix.join("lib/libclang.so").is_file() {
-                return Err(failure("selected LLVM prefix lacks clang or libclang"));
-            }
+        if let Some(prefix) = &llvm
+            && (!prefix.join("bin/clang").is_file() || !prefix.join("lib/libclang.so").is_file())
+        {
+            return Err(failure("selected LLVM prefix lacks clang or libclang"));
         }
         let frame = field(&build, &["cache_max_frame_length"])?
             .as_integer()
