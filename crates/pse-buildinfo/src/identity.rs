@@ -2365,10 +2365,7 @@ mod foundation_unit {
             b"different build output",
         )
         .unwrap();
-        assert_eq!(
-            changed,
-            super::digest(super::source_files(root).unwrap())
-        );
+        assert_eq!(changed, super::digest(super::source_files(root).unwrap()));
     }
 
     #[test]

@@ -756,11 +756,18 @@ impl NativeCanonicalService {
     /// The descriptor grants no shutdown or disposal authority.
     /// # Errors
     /// The owner is closing, not ready, or its original private state has changed.
-    pub fn fixture_selection(&self) -> Result<crate::native_fixture::FixtureSelection, NativeServiceError> {
-        if self.closing { return Err(NativeServiceError::Refused("fixture owner is closing")); }
+    pub fn fixture_selection(
+        &self,
+    ) -> Result<crate::native_fixture::FixtureSelection, NativeServiceError> {
+        if self.closing {
+            return Err(NativeServiceError::Refused("fixture owner is closing"));
+        }
         self.ready()?;
         self.state.verify()?;
-        Ok(crate::native_fixture::FixtureSelection::issue(&self.state.path, &self.state.nonce)?)
+        Ok(crate::native_fixture::FixtureSelection::issue(
+            &self.state.path,
+            &self.state.nonce,
+        )?)
     }
     /// Original manager intent; a unit name alone grants no stop authority.
     pub fn intent(&self) -> &LaunchIntent {

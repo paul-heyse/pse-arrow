@@ -265,41 +265,64 @@ impl HostManager {
     pub(crate) async fn reload_installed_units(&self) -> Result<(), HostError> {
         self.validate_view()?;
         tokio::time::timeout(Duration::from_secs(10), self.manager().await?.reload())
-            .await.map_err(|_| HostError::Deadline("installed-unit reload".into()))??;
+            .await
+            .map_err(|_| HostError::Deadline("installed-unit reload".into()))??;
         Ok(())
     }
     /// Authenticate the immutable installed fragment, parsed launch and live process.
     /// `load` is reserved for explicit activation after unit publication.
-    pub(crate) async fn inspect_installed_service(&self, spec: &InstalledServiceSpec, load: bool) -> Result<Option<InstalledServiceState>, HostError> {
-        if !load { return self.inspect_loaded_installed_service(spec).await; }
+    pub(crate) async fn inspect_installed_service(
+        &self,
+        spec: &InstalledServiceSpec,
+        load: bool,
+    ) -> Result<Option<InstalledServiceState>, HostError> {
+        if !load {
+            return self.inspect_loaded_installed_service(spec).await;
+        }
         self.validate_view()?;
         let manager = self.manager().await?;
         // RefUnit atomically loads and pins an installed unit. LoadUnit followed by
         // GetUnit races GC for an inactive unit. This temporary metadata reference
         // grants no ownership: fragment/nonce/launch/process authentication below
         // remains mandatory, and no transient OwnedUnit can be constructed from it.
-        let pinned = tokio::time::timeout(Duration::from_secs(10), manager.ref_unit(spec.name.clone())).await;
+        let pinned =
+            tokio::time::timeout(Duration::from_secs(10), manager.ref_unit(spec.name.clone()))
+                .await;
         let outcome = match pinned {
             Ok(Ok(())) => self.inspect_loaded_installed_service(spec).await,
             Ok(Err(error)) => Err(error.into()),
-            Err(_) => Err(HostError::Deadline("installed-unit metadata pin acknowledgement unknown".into())),
+            Err(_) => Err(HostError::Deadline(
+                "installed-unit metadata pin acknowledgement unknown".into(),
+            )),
         };
         // Attempt release even after a lost pin acknowledgement. The same sender
         // connection carries both requests, and dropping it also releases the pin.
-        let cleanup = tokio::time::timeout(Duration::from_secs(10), manager.unref_unit(spec.name.clone())).await;
+        let cleanup = tokio::time::timeout(
+            Duration::from_secs(10),
+            manager.unref_unit(spec.name.clone()),
+        )
+        .await;
         let cleanup = match cleanup {
             Ok(Ok(())) => Ok(()),
             Ok(Err(error)) => Err(HostError::from(error)),
-            Err(_) => Err(HostError::Deadline("installed-unit metadata pin release".into())),
+            Err(_) => Err(HostError::Deadline(
+                "installed-unit metadata pin release".into(),
+            )),
         };
         match (outcome, cleanup) {
             (Ok(value), Ok(())) => Ok(value),
             (Err(operation), Ok(())) => Err(operation),
             (Ok(_), Err(cleanup)) => Err(cleanup),
-            (Err(operation), Err(cleanup)) => Err(HostError::Settlement { operation: Box::new(operation), cleanup: Box::new(cleanup) }),
+            (Err(operation), Err(cleanup)) => Err(HostError::Settlement {
+                operation: Box::new(operation),
+                cleanup: Box::new(cleanup),
+            }),
         }
     }
-    async fn inspect_loaded_installed_service(&self, spec: &InstalledServiceSpec) -> Result<Option<InstalledServiceState>, HostError> {
+    async fn inspect_loaded_installed_service(
+        &self,
+        spec: &InstalledServiceSpec,
+    ) -> Result<Option<InstalledServiceState>, HostError> {
         tokio::time::timeout(Duration::from_secs(10), async {
             self.validate_view()?;
             crate::diagnostic_tools::no_symlinks(&spec.executable)?;
@@ -358,35 +381,105 @@ impl HostManager {
         }).await.map_err(|_| HostError::Deadline("installed-service authentication".into()))?
     }
     /// Explicit installed-unit activation; never creates or adopts a transient unit.
-    pub(crate) async fn start_installed_service(&self, spec: &InstalledServiceSpec) -> Result<(), HostError> {
-        let previous = self.inspect_installed_service(spec, true).await?.ok_or_else(|| HostError::Ownership("installed telemetry unit missing".into()))?;
-        if previous.observation.active_state == "active" && previous.process.is_some() { return Ok(()); }
+    pub(crate) async fn start_installed_service(
+        &self,
+        spec: &InstalledServiceSpec,
+    ) -> Result<(), HostError> {
+        let previous = self
+            .inspect_installed_service(spec, true)
+            .await?
+            .ok_or_else(|| HostError::Ownership("installed telemetry unit missing".into()))?;
+        if previous.observation.active_state == "active" && previous.process.is_some() {
+            return Ok(());
+        }
         tokio::time::timeout(Duration::from_secs(45), async {
-            self.manager().await?.start_unit(spec.name.clone(), "fail".into()).await?;
+            self.manager()
+                .await?
+                .start_unit(spec.name.clone(), "fail".into())
+                .await?;
             loop {
-                let current = self.inspect_installed_service(spec, false).await?.ok_or_else(|| HostError::Ownership("started telemetry unit disappeared".into()))?;
-                if current.observation.active_state == "active" && current.process.is_some() { return Ok(()); }
-                if current.observation.active_state == "failed" { return Err(HostError::Ownership("telemetry service failed; inspect its user journal".into())); }
+                let current = self
+                    .inspect_installed_service(spec, false)
+                    .await?
+                    .ok_or_else(|| {
+                        HostError::Ownership("started telemetry unit disappeared".into())
+                    })?;
+                if current.observation.active_state == "active" && current.process.is_some() {
+                    return Ok(());
+                }
+                if current.observation.active_state == "failed" {
+                    return Err(HostError::Ownership(
+                        "telemetry service failed; inspect its user journal".into(),
+                    ));
+                }
                 tokio::time::sleep(Duration::from_millis(50)).await;
             }
-        }).await.map_err(|_| HostError::Deadline(format!("telemetry start acknowledgement unknown for {}; inspect before retry", spec.name)))?
+        })
+        .await
+        .map_err(|_| {
+            HostError::Deadline(format!(
+                "telemetry start acknowledgement unknown for {}; inspect before retry",
+                spec.name
+            ))
+        })?
     }
     /// Recheck the captured incarnation immediately before stopping and retain its opened
     /// original cgroup until physical drain. External reconfiguration remains unsupported.
-    pub(crate) async fn stop_installed_service(&self, spec: &InstalledServiceSpec, expected: &InstalledServiceState) -> Result<(), HostError> {
-        let current = self.inspect_installed_service(spec, false).await?.ok_or_else(|| HostError::Ownership("installed telemetry unit disappeared before stop".into()))?;
-        if current != *expected { return Err(HostError::Ownership("telemetry incarnation changed before stop".into())); }
-        let group = Group::open(&current.observation.control_group, current.observation.main_pid == 0)?;
-        if current.observation.main_pid == 0 && current.observation.active_state == "inactive" && group.empty()? { return Ok(()); }
+    pub(crate) async fn stop_installed_service(
+        &self,
+        spec: &InstalledServiceSpec,
+        expected: &InstalledServiceState,
+    ) -> Result<(), HostError> {
+        let current = self
+            .inspect_installed_service(spec, false)
+            .await?
+            .ok_or_else(|| {
+                HostError::Ownership("installed telemetry unit disappeared before stop".into())
+            })?;
+        if current != *expected {
+            return Err(HostError::Ownership(
+                "telemetry incarnation changed before stop".into(),
+            ));
+        }
+        let group = Group::open(
+            &current.observation.control_group,
+            current.observation.main_pid == 0,
+        )?;
+        if current.observation.main_pid == 0
+            && current.observation.active_state == "inactive"
+            && group.empty()?
+        {
+            return Ok(());
+        }
         tokio::time::timeout(Duration::from_secs(45), async {
-            self.manager().await?.stop_unit(spec.name.clone(), "fail".into()).await?;
+            self.manager()
+                .await?
+                .stop_unit(spec.name.clone(), "fail".into())
+                .await?;
             loop {
                 let after = self.inspect_installed_service(spec, false).await?;
-                if after.as_ref().is_none_or(|after| after.observation.main_pid == 0 && matches!(after.observation.active_state.as_str(), "inactive" | "failed")) && group.empty()? { return Ok(()); }
-                if after.as_ref().is_some_and(|after| after.process.is_some() && after.process != current.process) { return Err(HostError::Ownership("telemetry restarted during stop".into())); }
+                if after.as_ref().is_none_or(|after| {
+                    after.observation.main_pid == 0
+                        && matches!(
+                            after.observation.active_state.as_str(),
+                            "inactive" | "failed"
+                        )
+                }) && group.empty()?
+                {
+                    return Ok(());
+                }
+                if after.as_ref().is_some_and(|after| {
+                    after.process.is_some() && after.process != current.process
+                }) {
+                    return Err(HostError::Ownership(
+                        "telemetry restarted during stop".into(),
+                    ));
+                }
                 tokio::time::sleep(Duration::from_millis(50)).await;
             }
-        }).await.map_err(|_| HostError::Deadline(format!("telemetry {} physical drain", spec.name)))?
+        })
+        .await
+        .map_err(|_| HostError::Deadline(format!("telemetry {} physical drain", spec.name)))?
     }
     /// Connect only to a user/session bus, or its explicitly selected address.
     pub async fn connect_user(address: Option<&str>) -> Result<Self, HostError> {
@@ -2765,15 +2858,24 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn installed_private_service_authenticates_original_launch_and_drains_kernel_group() {
-        use std::{io::Write as _, os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _}};
+        use std::{
+            io::Write as _,
+            os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _},
+        };
         let manager = HostManager::connect_user(None).await.unwrap();
         let scratch = tempfile::tempdir().unwrap();
         let nonce = uuid::Uuid::new_v4().simple().to_string();
         let name = format!("pse-host-installed-control-{nonce}.service");
         let description = format!("PSE installed private control {nonce}");
-        let directory = PathBuf::from(format!("/run/user/{}/systemd/user", rustix::process::geteuid().as_raw()));
+        let directory = PathBuf::from(format!(
+            "/run/user/{}/systemd/user",
+            rustix::process::geteuid().as_raw()
+        ));
         let configured = manager.manager().await.unwrap().unit_path().await.unwrap();
-        assert!(configured.iter().any(|path| Path::new(path) == directory), "test requires this user's actual runtime unit directory");
+        assert!(
+            configured.iter().any(|path| Path::new(path) == directory),
+            "test requires this user's actual runtime unit directory"
+        );
         crate::diagnostic_tools::no_symlinks(&directory).unwrap();
         std::fs::create_dir_all(&directory).unwrap();
         let fragment = directory.join(&name);
@@ -2781,56 +2883,133 @@ mod tests {
         let executable_info = std::fs::metadata(&executable).unwrap();
         let environment_file = scratch.path().join("service.env");
         std::fs::write(&environment_file, "PSE_INSTALLED_CONTROL=private\n").unwrap();
-        std::fs::set_permissions(&environment_file, std::fs::Permissions::from_mode(0o600)).unwrap();
-        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&fragment).unwrap();
+        std::fs::set_permissions(&environment_file, std::fs::Permissions::from_mode(0o600))
+            .unwrap();
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&fragment)
+            .unwrap();
         write!(file, "[Unit]\nDescription={description}\n[Service]\nType=simple\nWorkingDirectory={}\nEnvironmentFile={}\nExecStart={} 120\nKillMode=control-group\nTimeoutStopSec=5s\nRestart=no\n", scratch.path().display(), environment_file.display(), executable.display()).unwrap();
         file.sync_all().unwrap();
-        let mut spec = InstalledServiceSpec { name:name.clone(), description:description.clone(), fragment:fragment.clone(), fragment_sha256:crate::diagnostic_tools::digest(&fragment).unwrap(), executable:executable.clone(), executable_identity:(executable_info.dev(), executable_info.ino()), arguments:vec![executable.to_str().unwrap().into(), "120".into()], environment_file, working_directory:scratch.path().into() };
+        let mut spec = InstalledServiceSpec {
+            name: name.clone(),
+            description: description.clone(),
+            fragment: fragment.clone(),
+            fragment_sha256: crate::diagnostic_tools::digest(&fragment).unwrap(),
+            executable: executable.clone(),
+            executable_identity: (executable_info.dev(), executable_info.ino()),
+            arguments: vec![executable.to_str().unwrap().into(), "120".into()],
+            environment_file,
+            working_directory: scratch.path().into(),
+        };
         // Do not assert after activation until the independent cleanup has settled.
-        let outcome:Result<(),HostError> = async {
+        let outcome: Result<(), HostError> = async {
             manager.reload_installed_units().await?;
-            let before = manager.inspect_installed_service(&spec, true).await?.ok_or_else(|| HostError::Ownership("private installed control absent".into()))?;
-            if before.process.is_some() { return Err(HostError::Ownership("fresh control unexpectedly active".into())); }
+            let before = manager
+                .inspect_installed_service(&spec, true)
+                .await?
+                .ok_or_else(|| HostError::Ownership("private installed control absent".into()))?;
+            if before.process.is_some() {
+                return Err(HostError::Ownership(
+                    "fresh control unexpectedly active".into(),
+                ));
+            }
             spec.fragment = scratch.path().join("foreign.service");
-            if manager.start_installed_service(&spec).await.is_ok() { return Err(HostError::Ownership("wrong installed fragment acquired activation".into())); }
+            if manager.start_installed_service(&spec).await.is_ok() {
+                return Err(HostError::Ownership(
+                    "wrong installed fragment acquired activation".into(),
+                ));
+            }
             spec.fragment = fragment.clone();
             spec.description = format!("wrong {description}");
-            if manager.start_installed_service(&spec).await.is_ok() { return Err(HostError::Ownership("wrong owner description acquired activation".into())); }
+            if manager.start_installed_service(&spec).await.is_ok() {
+                return Err(HostError::Ownership(
+                    "wrong owner description acquired activation".into(),
+                ));
+            }
             spec.description = description.clone();
             spec.arguments = vec![executable.to_str().unwrap().into(), "119".into()];
-            if manager.start_installed_service(&spec).await.is_ok() { return Err(HostError::Ownership("wrong parsed ExecStart acquired activation".into())); }
+            if manager.start_installed_service(&spec).await.is_ok() {
+                return Err(HostError::Ownership(
+                    "wrong parsed ExecStart acquired activation".into(),
+                ));
+            }
             spec.arguments = vec![executable.to_str().unwrap().into(), "120".into()];
             spec.executable_identity.1 ^= 1;
-            if manager.start_installed_service(&spec).await.is_ok() { return Err(HostError::Ownership("wrong executable identity acquired activation".into())); }
+            if manager.start_installed_service(&spec).await.is_ok() {
+                return Err(HostError::Ownership(
+                    "wrong executable identity acquired activation".into(),
+                ));
+            }
             spec.executable_identity = (executable_info.dev(), executable_info.ino());
             manager.start_installed_service(&spec).await?;
-            let running = manager.inspect_installed_service(&spec, false).await?.ok_or_else(|| HostError::Ownership("started control absent".into()))?;
-            if running.process.is_none() || running.observation.active_state != "active" { return Err(HostError::Ownership("control did not establish a live original process".into())); }
-            let client = manager.connection.unique_name().ok_or_else(|| HostError::Ownership("control client identity absent".into()))?;
-            if manager.unit(&name).await?.refs().await?.iter().any(|name| name == client.as_str()) {
-                return Err(HostError::Ownership("installed authentication retained a metadata pin".into()));
+            let running = manager
+                .inspect_installed_service(&spec, false)
+                .await?
+                .ok_or_else(|| HostError::Ownership("started control absent".into()))?;
+            if running.process.is_none() || running.observation.active_state != "active" {
+                return Err(HostError::Ownership(
+                    "control did not establish a live original process".into(),
+                ));
+            }
+            let client = manager
+                .connection
+                .unique_name()
+                .ok_or_else(|| HostError::Ownership("control client identity absent".into()))?;
+            if manager
+                .unit(&name)
+                .await?
+                .refs()
+                .await?
+                .iter()
+                .any(|name| name == client.as_str())
+            {
+                return Err(HostError::Ownership(
+                    "installed authentication retained a metadata pin".into(),
+                ));
             }
             let original_group = Group::open(&running.observation.control_group, false)?;
-            if original_group.empty()? { return Err(HostError::Ownership("live control group unexpectedly empty".into())); }
+            if original_group.empty()? {
+                return Err(HostError::Ownership(
+                    "live control group unexpectedly empty".into(),
+                ));
+            }
             let mut stale = running.clone();
             stale.observation.invocation[0] ^= 1;
-            if manager.stop_installed_service(&spec, &stale).await.is_ok() { return Err(HostError::Ownership("stale invocation acquired stop authority".into())); }
+            if manager.stop_installed_service(&spec, &stale).await.is_ok() {
+                return Err(HostError::Ownership(
+                    "stale invocation acquired stop authority".into(),
+                ));
+            }
             manager.stop_installed_service(&spec, &running).await?;
-            if !original_group.empty()? { return Err(HostError::Ownership("original kernel population remained after installed stop".into())); }
+            if !original_group.empty()? {
+                return Err(HostError::Ownership(
+                    "original kernel population remained after installed stop".into(),
+                ));
+            }
             Ok(())
-        }.await;
+        }
+        .await;
         // Restore the actual declaration even if a negative control failed midway.
         spec.description = description;
         spec.fragment = fragment.clone();
         spec.arguments = vec![executable.to_str().unwrap().into(), "120".into()];
         spec.executable_identity = (executable_info.dev(), executable_info.ino());
-        let cleanup:Result<(),HostError> = async {
-            if let Some(current) = manager.inspect_installed_service(&spec, false).await? { manager.stop_installed_service(&spec, &current).await?; }
+        let cleanup: Result<(), HostError> = async {
+            if let Some(current) = manager.inspect_installed_service(&spec, false).await? {
+                manager.stop_installed_service(&spec, &current).await?;
+            }
             std::fs::remove_file(&fragment)?;
             manager.reload_installed_units().await?;
             Ok(())
-        }.await;
-        assert!(outcome.is_ok() && cleanup.is_ok(), "installed control outcome={outcome:?}; independent cleanup={cleanup:?}");
+        }
+        .await;
+        assert!(
+            outcome.is_ok() && cleanup.is_ok(),
+            "installed control outcome={outcome:?}; independent cleanup={cleanup:?}"
+        );
     }
     #[test]
     fn ordinary_operation_retains_exact_target_with_existing_allocation_or_operation_names() {

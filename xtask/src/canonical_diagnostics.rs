@@ -35,6 +35,7 @@ pub(crate) fn inspect(
             async {
                 let store = CanonicalStore::connect(&options).await?;
                 let result = async {
+                    store.open().await?;
                     let mut result = store
                         .inspect_study_candidates(study, after, experiment)
                         .await?;
@@ -84,6 +85,7 @@ pub(crate) fn graph(
     let result = executor.block_on(async {
         let store = CanonicalStore::connect(&options).await?;
         let result = async {
+            store.open().await?;
             let neighborhood = store.graph_explanation(&request).await?;
             let plan = if explain || experiment {
                 Some(

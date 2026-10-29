@@ -1144,29 +1144,43 @@ fn capture_standalone_trace_processor_reads_numerical_events_with_clock_alignmen
         interval: None,
         timeout_seconds: 10.0,
         output_bytes: 65536,
-    }).unwrap();
+    })
+    .unwrap();
     let sql = results.join("query.sql");
     std::fs::write(&sql, specification.sql).unwrap();
     let rows_path = results.join("rows.csv");
     let errors_path = results.join("stderr.txt");
     let mut command = std::process::Command::new(binary);
-    command.arg("query").arg("-f").arg(sql).arg(&output.path)
+    command
+        .arg("query")
+        .arg("-f")
+        .arg(sql)
+        .arg(&output.path)
         .stdin(std::process::Stdio::null())
         .stdout(std::fs::File::create(&rows_path).unwrap())
         .stderr(std::fs::File::create(&errors_path).unwrap());
     let mut child = spawn_owned_command(&mut command).unwrap();
     let deadline = Instant::now() + Duration::from_secs(10);
     let status = loop {
-        if let Some(status) = child.try_wait().unwrap() { break status; }
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
         if Instant::now() >= deadline
             || std::fs::metadata(&rows_path).unwrap().len()
-                + std::fs::metadata(&errors_path).unwrap().len() > 65536 {
+                + std::fs::metadata(&errors_path).unwrap().len()
+                > 65536
+        {
             child.cancel().unwrap();
             panic!("optional tool exceeded this test's clock/output extent");
         }
         std::thread::sleep(Duration::from_millis(10));
     };
-    assert_eq!(status, 0, "{}", std::fs::read_to_string(&errors_path).unwrap());
+    assert_eq!(
+        status,
+        0,
+        "{}",
+        std::fs::read_to_string(&errors_path).unwrap()
+    );
     let rows = std::fs::read_to_string(results.join("rows.csv")).unwrap();
     assert!(
         rows.contains("trace_consumer_control.v1")

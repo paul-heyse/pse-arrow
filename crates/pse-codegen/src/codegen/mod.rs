@@ -249,9 +249,7 @@ mod tests {
         );
         assert_eq!(
             Language::Surreal.roots(),
-            vec![
-                PathBuf::from("crates/pse-operations/src/generated")
-            ]
+            vec![PathBuf::from("crates/pse-operations/src/generated")]
         );
     }
 }

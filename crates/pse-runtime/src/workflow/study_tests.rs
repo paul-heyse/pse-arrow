@@ -3666,9 +3666,9 @@ impl ManagedStudyFixture {
             process_headroom_bytes: 8 << 30,
             observer_memory_bytes: 4 << 30,
         };
-        let allocation = NativeAllocation::materialize(
-            160 << 30, 16 << 30, 1, 136 << 30, Some(profile),
-        ).unwrap();
+        let allocation =
+            NativeAllocation::materialize(160 << 30, 16 << 30, 1, 136 << 30, Some(profile))
+                .unwrap();
         assert!(
             runtime.shared.budget().memory_limit_bytes.get() <= profile.observer_memory_bytes
                 && profile.observer_memory_bytes <= 4 << 30

@@ -364,48 +364,105 @@ enum Target {
 }
 
 #[cfg(feature = "package-fixtures")]
-fn conformance_command(manifest: &Path, selected_run: Option<&str>, fixtures: Vec<String>, report_dir: Option<&Path>) -> Result<()> {
+fn conformance_command(
+    manifest: &Path,
+    selected_run: Option<&str>,
+    fixtures: Vec<String>,
+    report_dir: Option<&Path>,
+) -> Result<()> {
     use pse_model::generated::{enums::ConformanceExecution, identities::DeclarationId};
-    use std::{panic::{AssertUnwindSafe, catch_unwind}, sync::Arc};
+    use std::{
+        panic::{AssertUnwindSafe, catch_unwind},
+        sync::Arc,
+    };
     use xtask::development::conformance::{Campaign, budget};
-    let fixtures = if fixtures.is_empty() { None } else {
-        Some(fixtures.iter().map(|text| Ok(DeclarationId::from_id(pse_ids::SemanticId::parse_hex(text)?))).collect::<Result<Vec<_>>>()?)
+    let fixtures = if fixtures.is_empty() {
+        None
+    } else {
+        Some(
+            fixtures
+                .iter()
+                .map(|text| {
+                    Ok(DeclarationId::from_id(pse_ids::SemanticId::parse_hex(
+                        text,
+                    )?))
+                })
+                .collect::<Result<Vec<_>>>()?,
+        )
     };
     let campaign = Campaign::load(manifest, selected_run, fixtures)?;
-    if let Some(directory) = report_dir { std::fs::create_dir_all(directory)?; }
-    let executor = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+    if let Some(directory) = report_dir {
+        std::fs::create_dir_all(directory)?;
+    }
+    let executor = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
     let cancel = pse_runtime::CancelSource::new();
     let mut passed = true;
     for run in campaign.runs() {
         let spill = tempfile::tempdir()?;
         let report = match run.execution {
-            ConformanceExecution::Pure => executor.block_on(campaign.run_pure(run, spill.path(), &cancel))?,
+            ConformanceExecution::Pure => {
+                executor.block_on(campaign.run_pure(run, spill.path(), &cancel))?
+            }
             ConformanceExecution::Native => {
                 let _entered = executor.enter();
-                let shared = pse_runtime::SharedRuntime::build(budget(campaign.settings(), spill.path())?)?;
-                let factory = Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
-                let runtime = pse_runtime::workflow::Runtime::from_shared_local(shared.clone(), factory.bind_model(pse_schema::shared_registry()?)?)?;
-                let result = catch_unwind(AssertUnwindSafe(|| executor.block_on(campaign.run_native(run, &runtime, &cancel))));
+                let shared =
+                    pse_runtime::SharedRuntime::build(budget(campaign.settings(), spill.path())?)?;
+                let factory =
+                    Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
+                let runtime = pse_runtime::workflow::Runtime::from_shared_local(
+                    shared.clone(),
+                    factory.bind_model(pse_schema::shared_registry()?)?,
+                )?;
+                let result = catch_unwind(AssertUnwindSafe(|| {
+                    executor.block_on(campaign.run_native(run, &runtime, &cancel))
+                }));
                 runtime.close();
                 runtime.clear_program_cache();
                 let cleanup = executor.block_on(shared.math().shutdown_native_lanes());
                 match (result, cleanup) {
                     (Ok(result), Ok(())) => result?,
-                    (Ok(Err(error)), Err(cleanup)) => return Err(error.context(format!("native conformance cleanup also failed: {cleanup}"))),
+                    (Ok(Err(error)), Err(cleanup)) => {
+                        return Err(error.context(format!(
+                            "native conformance cleanup also failed: {cleanup}"
+                        )));
+                    }
                     (Ok(Ok(_)), Err(cleanup)) => return Err(cleanup.into()),
                     (Err(panic), Ok(())) => std::panic::resume_unwind(panic),
-                    (Err(panic), Err(cleanup)) => std::panic::resume_unwind(Box::new((panic, cleanup))),
+                    (Err(panic), Err(cleanup)) => {
+                        std::panic::resume_unwind(Box::new((panic, cleanup)))
+                    }
                 }
             }
         };
-        if let Some(directory) = report_dir { report.export(&directory.join(format!("{}.arrow", report.name)))?; }
+        if let Some(directory) = report_dir {
+            report.export(&directory.join(format!("{}.arrow", report.name)))?;
+        }
         let mut statuses = BTreeMap::<String, usize>::new();
-        for status in report.report.fixture_statuses.values() { *statuses.entry(format!("{status:?}")).or_default() += 1; }
-        let coverage = match &report.report.selection { pse_runtime::workflow::ModelingFixtureSelection::Package => "package", pse_runtime::workflow::ModelingFixtureSelection::Selected(_) => "selected" };
-        println!("{}: passed={} complete={} coverage={} checks={} fixtures={} {:?}", report.name, report.report.passed(), report.report.complete, coverage, report.report.checks.len(), report.report.fixture_statuses.len(), statuses);
+        for status in report.report.fixture_statuses.values() {
+            *statuses.entry(format!("{status:?}")).or_default() += 1;
+        }
+        let coverage = match &report.report.selection {
+            pse_runtime::workflow::ModelingFixtureSelection::Package => "package",
+            pse_runtime::workflow::ModelingFixtureSelection::Selected(_) => "selected",
+        };
+        println!(
+            "{}: passed={} complete={} coverage={} checks={} fixtures={} {:?}",
+            report.name,
+            report.report.passed(),
+            report.report.complete,
+            coverage,
+            report.report.checks.len(),
+            report.report.fixture_statuses.len(),
+            statuses
+        );
         passed &= report.passed_completely();
     }
-    ensure!(passed, "conformance campaign contains failed or incomplete runs");
+    ensure!(
+        passed,
+        "conformance campaign contains failed or incomplete runs"
+    );
     Ok(())
 }
 
@@ -420,40 +477,52 @@ fn main() -> Result<()> {
     match cli.command {
         Cmd::Register { command } => {
             std::process::exit(xtask::documentation::register::execute(&root, command)?);
-        },
+        }
         Cmd::SolverImages { command } => {
-            std::process::exit(xtask::development::repository_tools::solver_images(&root, command)?);
-        },
+            std::process::exit(xtask::development::repository_tools::solver_images(
+                &root, command,
+            )?);
+        }
         Cmd::ReuseLint => {
             let status = xtask::development::repository_tools::reuse_lint(&root)?;
             std::process::exit(status.code().unwrap_or(1));
-        },
+        }
         #[cfg(feature = "evidence-tools")]
         Cmd::WorkspaceSources { selection } => {
             use std::io::Read as _;
             let mut bytes = Vec::new();
-            std::fs::File::open(selection)?.take(262145).read_to_end(&mut bytes)?;
+            std::fs::File::open(selection)?
+                .take(262145)
+                .read_to_end(&mut bytes)?;
             anyhow::ensure!(bytes.len() <= 262144, "source selection exceeds 256 KiB");
             let selection = serde_json::from_slice(&bytes)?;
             let cut = xtask::development::workspace_sources::bounded_source_cut(&root, &selection)?;
             let built = xtask::development::workspace_sources::build_corpus(&cut)?;
             println!("{}", serde_json::to_string_pretty(&built)?);
             Ok(())
-        },
-        Cmd::Affected { base, features, run, extra } => {
-            let options = xtask::development::affected::Options { base, features, extra, ..Default::default() };
+        }
+        Cmd::Affected {
+            base,
+            features,
+            run,
+            extra,
+        } => {
+            let options = xtask::development::affected::Options {
+                base,
+                features,
+                extra,
+                ..Default::default()
+            };
             let preview = xtask::development::affected::preview(&root, &options)?;
             println!("{}", serde_json::to_string_pretty(&preview)?);
-            if run {
-                if let Some(status) = xtask::development::affected::run(&root, &preview)? {
-                    std::process::exit(status.code().unwrap_or(1));
-                }
+            if run && let Some(status) = xtask::development::affected::run(&root, &preview)? {
+                std::process::exit(status.code().unwrap_or(1));
             }
             Ok(())
-        },
+        }
         Cmd::Audit { gate, output } => {
             std::process::exit(xtask::development::audit::run(&root, gate, &output)?);
-        },
+        }
         Cmd::AgentConfig { check } => {
             let problems = xtask::development::configuration::synchronize(&root, check)?;
             ensure!(problems.is_empty(), "{}", problems.join("\n"));
@@ -461,23 +530,38 @@ fn main() -> Result<()> {
         }
         Cmd::AgentConfigCheck => {
             let report = xtask::development::configuration::check(&root)?;
-            for problem in &report.problems { eprintln!("{problem}"); }
-            ensure!(report.problems.is_empty(), "agent configuration has {} problem(s)", report.problems.len());
-            println!("agent configuration: {} files, {} paths, {} recipes", report.files, report.path_references, report.recipe_references);
+            for problem in &report.problems {
+                eprintln!("{problem}");
+            }
+            ensure!(
+                report.problems.is_empty(),
+                "agent configuration has {} problem(s)",
+                report.problems.len()
+            );
+            println!(
+                "agent configuration: {} files, {} paths, {} recipes",
+                report.files, report.path_references, report.recipe_references
+            );
             Ok(())
         }
         Cmd::Skills { check } => {
-            let status = xtask::development::configuration::library_skills_command(&root, check)?.status()?;
-            if !status.success() { std::process::exit(status.code().unwrap_or(125)); }
+            let status = xtask::development::configuration::library_skills_command(&root, check)?
+                .status()?;
+            if !status.success() {
+                std::process::exit(status.code().unwrap_or(125));
+            }
             Ok(())
         }
         Cmd::Adr { command } => xtask::documentation::adr::execute(&root, command),
         Cmd::Lifecycle { query } => xtask::documentation::lifecycle::execute(&root, query),
         Cmd::Docs { command } => xtask::documentation::site::execute(&root, command),
         #[cfg(feature = "package-fixtures")]
-        Cmd::Conformance { manifest, run, fixtures, report_dir } => {
-            conformance_command(&manifest, run.as_deref(), fixtures, report_dir.as_deref())
-        }
+        Cmd::Conformance {
+            manifest,
+            run,
+            fixtures,
+            report_dir,
+        } => conformance_command(&manifest, run.as_deref(), fixtures, report_dir.as_deref()),
         #[cfg(feature = "physical-admission")]
         Cmd::ScientificInputs { catalog, output } => {
             scientific_inputs::run(&root, &catalog, &output)

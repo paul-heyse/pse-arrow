@@ -2536,11 +2536,17 @@ mod portable_frame_tests {
                 .is_none()
         );
         assert!(
-            mint(&value, &artifact, ExpectedProducerTarget {
-                package: "another-native-owner", target: "another-native-root", kind: "bin",
-            })
-                .unwrap()
-                .is_none()
+            mint(
+                &value,
+                &artifact,
+                ExpectedProducerTarget {
+                    package: "another-native-owner",
+                    target: "another-native-root",
+                    kind: "bin",
+                }
+            )
+            .unwrap()
+            .is_none()
         );
         for changed in [
             {
@@ -2623,29 +2629,53 @@ mod canonical_deployment_tests {
         reason = "actual controlled deployment captures qualified against independently observed role artifacts"
     )]
     fn canonical_deployment_actual_worker_receipt_enforces_selected_role() {
-        let bytes = std::fs::read(std::env::var_os("PSE_WORKER_PRODUCER_RECEIPT")
-            .expect("actual worker producer capture")).unwrap();
+        let bytes = std::fs::read(
+            std::env::var_os("PSE_WORKER_PRODUCER_RECEIPT")
+                .expect("actual worker producer capture"),
+        )
+        .unwrap();
         let receipt: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(receipt["persistent_reuse_eligible"], true);
         assert!(receipt["reasons"].as_array().unwrap().is_empty());
         // Artifact observations remain independent of the receipt's own claims.
         let observations: serde_json::Value = serde_json::from_slice(
-            &std::fs::read(std::env::var_os("PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS")
-                .expect("independent native worker artifact observation")).unwrap(),
-        ).unwrap();
+            &std::fs::read(
+                std::env::var_os("PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS")
+                    .expect("independent native worker artifact observation"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
         let artifact = observations["worker"]["sha256"].as_str().unwrap();
         // SAFETY: the qualification runner supplies the actual controlled capture
         // and independently verifies its native executable at the composition root.
-        let qualified = unsafe { QualifiedProducer::from_deployment_receipt(
-            &bytes, artifact, ExpectedProducerTarget::WORKER,
-        ) }.unwrap().expect("actual native worker capture qualifies");
+        let qualified = unsafe {
+            QualifiedProducer::from_deployment_receipt(
+                &bytes,
+                artifact,
+                ExpectedProducerTarget::WORKER,
+            )
+        }
+        .unwrap()
+        .expect("actual native worker capture qualifies");
         assert_eq!(qualified.identity().to_hex(), receipt["identity"]);
-        // SAFETY: the same independent observations cannot qualify a different root.
-        assert!(unsafe { QualifiedProducer::from_deployment_receipt(&bytes, artifact,
-            ExpectedProducerTarget { package: "another-native-owner", target: "another-native-root", kind: "bin" },
-        ) }.unwrap().is_none());
+        assert!(
+            // SAFETY: the same independent observations cannot qualify a different root.
+            unsafe {
+                QualifiedProducer::from_deployment_receipt(
+                    &bytes,
+                    artifact,
+                    ExpectedProducerTarget {
+                        package: "another-native-owner",
+                        target: "another-native-root",
+                        kind: "bin",
+                    },
+                )
+            }
+            .unwrap()
+            .is_none()
+        );
     }
-
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]

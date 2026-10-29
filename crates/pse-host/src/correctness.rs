@@ -11,7 +11,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     ffi::{OsStr, OsString},
     io::{self, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, ExitStatus},
 };
 
@@ -19,6 +19,8 @@ const REAL_CARGO: &str = "PSE_CORRECTNESS_REAL_CARGO";
 const ADAPTER: &str = "PSE_CORRECTNESS_ADAPTER";
 const FIXTURE_METADATA_CAPTURE: &str = "PSE_FIXTURE_CARGO_METADATA_CAPTURE";
 const CARGO_HACK_ADAPTER: &str = "CARGO_HACK_CARGO_SRC";
+const DIAGNOSTIC_TARGET: &str = "x86_64-unknown-linux-gnu";
+const DIAGNOSTIC_CFG: &str = "target.'cfg(all())'.rustflags=[\"--cfg\",\"tokio_unstable\"]";
 
 /// Failure to establish the selected correctness closure, distinct from a Cargo exit.
 #[derive(Debug, thiserror::Error)]
@@ -53,6 +55,8 @@ struct Package {
 #[derive(Debug, Deserialize)]
 struct Metadata {
     packages: Vec<Package>,
+    #[serde(default)]
+    workspace_root: Option<PathBuf>,
 }
 #[derive(Debug, Deserialize)]
 struct Dependency {
@@ -266,77 +270,257 @@ fn metadata_arguments(arguments: &[OsString]) -> Result<Vec<OsString>, Correctne
 }
 struct CheckControls {
     manifest: Option<PathBuf>,
+    targets: Vec<String>,
     features: Vec<(usize, &'static str, Vec<String>)>,
     profile: Option<String>,
     release: bool,
     all_features: bool,
     end: usize,
 }
-fn check_controls(arguments:&[OsString])->Result<Option<CheckControls>,CorrectnessError>{
-    let position=mode_position(arguments)?;
-    if arguments[position]!="check"&&arguments[position]!="clippy"{return Ok(None);}
-    let end=arguments.iter().position(|arg|arg=="--").unwrap_or(arguments.len());
-    let mut controls=CheckControls{manifest:None,features:vec![],profile:None,release:false,all_features:false,end};
-    let mut index=position+1;
-    while index<end {
-        let argument=arguments[index].to_str().ok_or_else(||invalid("Cargo check controls must be UTF-8"))?;
-        let mut feature=None;
+fn check_controls(arguments: &[OsString]) -> Result<Option<CheckControls>, CorrectnessError> {
+    let position = mode_position(arguments)?;
+    if arguments[position] != "check" && arguments[position] != "clippy" {
+        return Ok(None);
+    }
+    let end = arguments
+        .iter()
+        .position(|arg| arg == "--")
+        .unwrap_or(arguments.len());
+    let mut controls = CheckControls {
+        manifest: None,
+        targets: Vec::new(),
+        features: vec![],
+        profile: None,
+        release: false,
+        all_features: false,
+        end,
+    };
+    let mut index = position + 1;
+    while index < end {
+        let argument = arguments[index]
+            .to_str()
+            .ok_or_else(|| invalid("Cargo check controls must be UTF-8"))?;
+        let mut feature = None;
         match argument {
-            "--manifest-path"|"--features"|"-F"|"--profile"=>{
-                index+=1;
-                if index>=end{return Err(invalid(format!("{argument} requires a value")));}
-                match argument {
-                    "--manifest-path"=>controls.manifest=Some(PathBuf::from(&arguments[index])),
-                    "--profile"=>controls.profile=Some(arguments[index].to_str().ok_or_else(||invalid("Cargo profile must be UTF-8"))?.into()),
-                    _=>feature=Some(("",arguments[index].to_str().ok_or_else(||invalid("Cargo features must be UTF-8"))?)),
+            "--manifest-path" | "--target" | "--features" | "-F" | "--profile" => {
+                index += 1;
+                if index >= end {
+                    return Err(invalid(format!("{argument} requires a value")));
                 }
-            },
-            "--release"|"-r"=>controls.release=true,
-            "--all-features"=>controls.all_features=true,
-            _=>{
-                if let Some(value)=argument.strip_prefix("--manifest-path="){controls.manifest=Some(value.into());}
-                else if let Some(value)=argument.strip_prefix("--profile="){controls.profile=Some(value.into());}
-                else if let Some(value)=argument.strip_prefix("--features="){feature=Some(("--features=",value));}
-                else if let Some(value)=argument.strip_prefix("-F"){if !value.is_empty(){feature=Some(("-F",value));}}
-            },
+                match argument {
+                    "--manifest-path" => controls.manifest = Some(PathBuf::from(&arguments[index])),
+                    "--target" => controls.targets.push(
+                        arguments[index]
+                            .to_str()
+                            .ok_or_else(|| invalid("Cargo target must be UTF-8"))?
+                            .into(),
+                    ),
+                    "--profile" => {
+                        controls.profile = Some(
+                            arguments[index]
+                                .to_str()
+                                .ok_or_else(|| invalid("Cargo profile must be UTF-8"))?
+                                .into(),
+                        )
+                    }
+                    _ => {
+                        feature = Some((
+                            "",
+                            arguments[index]
+                                .to_str()
+                                .ok_or_else(|| invalid("Cargo features must be UTF-8"))?,
+                        ))
+                    }
+                }
+            }
+            "--release" | "-r" => controls.release = true,
+            "--all-features" => controls.all_features = true,
+            _ => {
+                if let Some(value) = argument.strip_prefix("--manifest-path=") {
+                    controls.manifest = Some(value.into());
+                } else if let Some(value) = argument.strip_prefix("--target=") {
+                    controls.targets.push(value.into());
+                } else if let Some(value) = argument.strip_prefix("--profile=") {
+                    controls.profile = Some(value.into());
+                } else if let Some(value) = argument.strip_prefix("--features=") {
+                    feature = Some(("--features=", value));
+                } else if let Some(value) = argument.strip_prefix("-F")
+                    && !value.is_empty()
+                {
+                    feature = Some(("-F", value));
+                }
+            }
         }
-        if let Some((prefix,features))=feature{controls.features.push((index,prefix,features.split(|character:char|character==','||character.is_whitespace()).filter(|value|!value.is_empty()).map(str::to_owned).collect()));}
-        index+=1;
+        if let Some((prefix, features)) = feature {
+            controls.features.push((
+                index,
+                prefix,
+                features
+                    .split(|character: char| character == ',' || character.is_whitespace())
+                    .filter(|value| !value.is_empty())
+                    .map(str::to_owned)
+                    .collect(),
+            ));
+        }
+        index += 1;
     }
     Ok(Some(controls))
 }
 // cargo-hack's per-package callback uses --manifest-path with bare features.
 // Reuse this invocation's real Cargo metadata, rather than rereading manifests
 // or obtaining a second resolution from a parallel selection owner.
-fn qualify_selected_check_features(arguments:&[OsString],packages:&BTreeMap<String,Package>)->Result<Vec<OsString>,CorrectnessError>{
-    let Some(controls)=check_controls(arguments)? else{return Ok(arguments.to_vec());};
-    if !controls.features.iter().flat_map(|(_,_,features)|features).any(|feature|!feature.contains('/')){return Ok(arguments.to_vec());}
-    let Some(manifest)=controls.manifest else{return Ok(arguments.to_vec());};
-    let manifest=manifest.canonicalize()?;
-    let mut selected=packages.values().filter(|package|package.manifest_path.as_ref().is_some_and(|path|path.canonicalize().is_ok_and(|path|path==manifest)));
-    let package=selected.next().ok_or_else(||invalid("selected check manifest is absent from Cargo metadata"))?;
-    if selected.next().is_some(){return Err(invalid("selected check manifest resolves to multiple Cargo packages"));}
-    let mut qualified=arguments.to_vec();
-    for (index,prefix,features) in controls.features{
-        if features.iter().any(|feature|!feature.contains('/')){
-            qualified[index]=format!("{prefix}{}",features.into_iter().map(|feature|if feature.contains('/'){feature}else{format!("{}/{feature}",package.name)}).collect::<Vec<_>>().join(",")).into();
+fn qualify_selected_check_features(
+    arguments: &[OsString],
+    packages: &BTreeMap<String, Package>,
+) -> Result<Vec<OsString>, CorrectnessError> {
+    let Some(controls) = check_controls(arguments)? else {
+        return Ok(arguments.to_vec());
+    };
+    if !controls
+        .features
+        .iter()
+        .flat_map(|(_, _, features)| features)
+        .any(|feature| !feature.contains('/'))
+    {
+        return Ok(arguments.to_vec());
+    }
+    let Some(manifest) = controls.manifest else {
+        return Ok(arguments.to_vec());
+    };
+    let manifest = manifest.canonicalize()?;
+    let mut selected = packages.values().filter(|package| {
+        package
+            .manifest_path
+            .as_ref()
+            .is_some_and(|path| path.canonicalize().is_ok_and(|path| path == manifest))
+    });
+    let package = selected
+        .next()
+        .ok_or_else(|| invalid("selected check manifest is absent from Cargo metadata"))?;
+    if selected.next().is_some() {
+        return Err(invalid(
+            "selected check manifest resolves to multiple Cargo packages",
+        ));
+    }
+    let mut qualified = arguments.to_vec();
+    for (index, prefix, features) in controls.features {
+        if features.iter().any(|feature| !feature.contains('/')) {
+            qualified[index] = format!(
+                "{prefix}{}",
+                features
+                    .into_iter()
+                    .map(|feature| if feature.contains('/') {
+                        feature
+                    } else {
+                        format!("{}/{feature}", package.name)
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",")
+            )
+            .into();
         }
     }
     Ok(qualified)
 }
-fn diagnostic_check_arguments(arguments:&[OsString])->Result<Vec<OsString>,CorrectnessError>{
-    diagnostic_scope_arguments(arguments,false)
+fn diagnostic_check_arguments(arguments: &[OsString]) -> Result<Vec<OsString>, CorrectnessError> {
+    diagnostic_scope_arguments(arguments, false)
 }
-fn diagnostic_scope_arguments(arguments:&[OsString],resolved_taskdump:bool)->Result<Vec<OsString>,CorrectnessError>{
-    let Some(controls)=check_controls(arguments)? else{return Ok(arguments.to_vec());};
-    if !resolved_taskdump&&!controls.features.iter().flat_map(|(_,_,features)|features).any(|feature|feature.rsplit('/').next()==Some("diagnostic-taskdump")){return Ok(arguments.to_vec());}
-    if controls.release||controls.profile.as_deref().is_some_and(|profile|profile!="diagnostic-taskdump"){
-        return Err(invalid("diagnostic-taskdump checks require the isolated diagnostic-taskdump profile"));
+// This checkout already selects native Linux tuple rustflags (including mold),
+// so Cargo joins the cfg flags without displacing build.rustflags fallback.
+// This is not a universal target/config flag resolver. Profile rustflags alone
+// reach compilation but not Cargo's rustc --print=cfg dependency queries.
+fn diagnostic_scope_arguments(
+    arguments: &[OsString],
+    resolved_taskdump: bool,
+) -> Result<Vec<OsString>, CorrectnessError> {
+    let Some(controls) = check_controls(arguments)? else {
+        return Ok(arguments.to_vec());
+    };
+    if !resolved_taskdump
+        && !controls
+            .features
+            .iter()
+            .flat_map(|(_, _, features)| features)
+            .any(|feature| feature.rsplit('/').next() == Some("diagnostic-taskdump"))
+    {
+        return Ok(arguments.to_vec());
     }
-    let mut additions=vec![];
-    for setting in ["unstable.profile-rustflags=true","profile.diagnostic-taskdump.rustflags=[\"--cfg\",\"tokio_unstable\"]"]{if !arguments[..controls.end].iter().any(|argument|argument==setting){additions.extend([OsString::from("--config"),OsString::from(setting)]);}}
-    if controls.profile.is_none(){additions.extend(["--profile".into(),"diagnostic-taskdump".into()]);}
-    let mut selected=arguments.to_vec();selected.splice(controls.end..controls.end,additions);Ok(selected)
+    if std::env::consts::OS != "linux"
+        || std::env::consts::ARCH != "x86_64"
+        || controls
+            .targets
+            .iter()
+            .any(|target| target != DIAGNOSTIC_TARGET)
+    {
+        return Err(invalid(
+            "diagnostic-taskdump supports only native x86_64-unknown-linux-gnu selected Cargo targets",
+        ));
+    }
+    if controls.release
+        || controls
+            .profile
+            .as_deref()
+            .is_some_and(|profile| profile != "diagnostic-taskdump")
+    {
+        return Err(invalid(
+            "diagnostic-taskdump checks require the isolated diagnostic-taskdump profile",
+        ));
+    }
+    let mut additions = vec![];
+    if !arguments[..controls.end]
+        .iter()
+        .any(|argument| argument == DIAGNOSTIC_CFG)
+    {
+        additions.extend([OsString::from("--config"), OsString::from(DIAGNOSTIC_CFG)]);
+    }
+    if controls.profile.is_none() {
+        additions.extend(["--profile".into(), "diagnostic-taskdump".into()]);
+    }
+    let mut selected = arguments.to_vec();
+    selected.splice(controls.end..controls.end, additions);
+    Ok(selected)
+}
+fn diagnostic_cfg_selected(arguments: &[OsString]) -> bool {
+    arguments
+        .iter()
+        .take_while(|argument| *argument != "--")
+        .any(|argument| argument == DIAGNOSTIC_CFG)
+}
+fn diagnostic_graph(arguments: &[OsString], graph: &Graph) -> Result<(), CorrectnessError> {
+    if diagnostic_cfg_selected(arguments) {
+        for root in &graph.roots {
+            let unit = graph
+                .units
+                .get(*root)
+                .ok_or_else(|| invalid("Cargo root index is out of bounds"))?;
+            if unit
+                .platform
+                .as_deref()
+                .is_some_and(|target| target != DIAGNOSTIC_TARGET)
+            {
+                return Err(invalid(
+                    "diagnostic-taskdump supports only native x86_64-unknown-linux-gnu selected Cargo targets",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+fn diagnostic_workspace(
+    arguments: &[OsString],
+    workspace: Option<&Path>,
+) -> Result<(), CorrectnessError> {
+    if diagnostic_cfg_selected(arguments) {
+        let workspace = workspace.ok_or_else(|| invalid(
+            "diagnostic-taskdump requires Cargo metadata.workspace_root for its executable checkout"
+        ))?.canonicalize()?;
+        if workspace != executable_checkout_root()? {
+            return Err(invalid(
+                "diagnostic-taskdump supports only its executable's checkout workspace; foreign workspace cannot preserve native target flag composition",
+            ));
+        }
+    }
+    Ok(())
 }
 /// Resolve with injected Cargo capture for focused controls; native execution uses real Cargo.
 pub fn resolve_with<F>(
@@ -346,26 +530,46 @@ pub fn resolve_with<F>(
 where
     F: FnMut(&[OsString]) -> Result<Vec<u8>, CorrectnessError>,
 {
-    let arguments=diagnostic_check_arguments(arguments)?;
+    let arguments = diagnostic_check_arguments(arguments)?;
     let metadata: Metadata = serde_json::from_slice(&capture(&metadata_arguments(&arguments)?)?)?;
+    let workspace = metadata.workspace_root;
+    diagnostic_workspace(&arguments, workspace.as_deref())?;
     let mut packages = BTreeMap::new();
     for package in metadata.packages {
         if packages.insert(package.id.clone(), package).is_some() {
             return Err(invalid("Cargo metadata repeats a package identity"));
         }
     }
-    let mut arguments=qualify_selected_check_features(&arguments,&packages)?;
+    let mut arguments = qualify_selected_check_features(&arguments, &packages)?;
     let mut original: Graph = serde_json::from_slice(&capture(&graph_arguments(&arguments)?)?)?;
+    diagnostic_graph(&arguments, &original)?;
     // All-feature check/Clippy callbacks need the same isolation even when
     // cargo-hack (or the caller) does not spell the diagnostic feature. The
     // actual reached units decide, including target and host dependency units.
-    if check_controls(&arguments)?.is_some_and(|controls|controls.all_features)
-        && original.reached(&packages,&original.roots)?.iter().any(|index|original.units[*index].features.iter().any(|feature|feature=="diagnostic-taskdump")){
-        let diagnostic=diagnostic_scope_arguments(&arguments,true)?;
-        if diagnostic!=arguments{
-            let graph:Graph=serde_json::from_slice(&capture(&graph_arguments(&diagnostic)?)?)?;
-            if original.root_identity()?!=graph.root_identity()?{return Err(invalid("diagnostic isolation changed selected Cargo package/target roots"));}
-            arguments=diagnostic;original=graph;
+    if check_controls(&arguments)?.is_some_and(|controls| controls.all_features)
+        && original
+            .reached(&packages, &original.roots)?
+            .iter()
+            .any(|index| {
+                original.units[*index]
+                    .features
+                    .iter()
+                    .any(|feature| feature == "diagnostic-taskdump")
+            })
+    {
+        let diagnostic = diagnostic_scope_arguments(&arguments, true)?;
+        diagnostic_workspace(&diagnostic, workspace.as_deref())?;
+        diagnostic_graph(&diagnostic, &original)?;
+        if diagnostic != arguments {
+            let graph: Graph = serde_json::from_slice(&capture(&graph_arguments(&diagnostic)?)?)?;
+            diagnostic_graph(&diagnostic, &graph)?;
+            if original.root_identity()? != graph.root_identity()? {
+                return Err(invalid(
+                    "diagnostic isolation changed selected Cargo package/target roots",
+                ));
+            }
+            arguments = diagnostic;
+            original = graph;
         }
     }
     let mut additions = BTreeSet::new();
@@ -444,12 +648,42 @@ where
     })
 }
 fn native_command(cargo: &OsStr, arguments: &[OsString]) -> Command {
+    native_command_with_rustflags(
+        cargo,
+        arguments,
+        std::env::var_os("CARGO_ENCODED_RUSTFLAGS"),
+        std::env::var_os("RUSTFLAGS"),
+    )
+}
+fn native_command_with_rustflags(
+    cargo: &OsStr,
+    arguments: &[OsString],
+    encoded: Option<OsString>,
+    rustflags: Option<OsString>,
+) -> Command {
     let mut command = Command::new(cargo);
     command
         .args(arguments)
         .env("CARGO", cargo)
         .env_remove(ADAPTER)
         .env_remove(CARGO_HACK_ADAPTER);
+    if diagnostic_cfg_selected(arguments) {
+        // Cargo gives these channels precedence over target configuration, even
+        // when explicitly empty. Extend only the active child's literal bytes;
+        // do not split/re-encode flags, change the inactive channel, or mutate
+        // the process environment. The same constructor serves every query and
+        // the final compiler invocation. Explicit --target leaves host flags to Cargo.
+        if let Some(mut flags) = encoded {
+            if !flags.is_empty() {
+                flags.push("\x1f");
+            }
+            flags.push("--cfg\x1ftokio_unstable");
+            command.env("CARGO_ENCODED_RUSTFLAGS", flags);
+        } else if let Some(mut flags) = rustflags {
+            flags.push(" --cfg tokio_unstable");
+            command.env("RUSTFLAGS", flags);
+        }
+    }
     command
 }
 fn capture(cargo: &OsStr, arguments: &[OsString]) -> Result<Vec<u8>, CorrectnessError> {
@@ -507,11 +741,18 @@ fn execute_metadata(
         .output()?;
     // The same original bytes feed both consumers, including unsuccessful Cargo
     // output. Neither a capture failure nor a pipe failure skips the other write.
-    let captured = capture.write_all(&output.stdout).and_then(|()| capture.sync_all());
-    let sent = forwarded.write_all(&output.stdout).and_then(|()| forwarded.flush());
+    let captured = capture
+        .write_all(&output.stdout)
+        .and_then(|()| capture.sync_all());
+    let sent = forwarded
+        .write_all(&output.stdout)
+        .and_then(|()| forwarded.flush());
     match (captured, sent) {
         (Ok(()), Ok(())) => Ok(exit_status(output.status)),
-        (Err(capture), Err(forward)) => Err(invalid(format!("Cargo metadata exited {}; private capture failed: {capture}; stdout forwarding also failed: {forward}", output.status))),
+        (Err(capture), Err(forward)) => Err(invalid(format!(
+            "Cargo metadata exited {}; private capture failed: {capture}; stdout forwarding also failed: {forward}",
+            output.status
+        ))),
         (Err(error), Ok(())) | (Ok(()), Err(error)) => Err(error.into()),
     }
 }
@@ -549,13 +790,16 @@ fn reject_reuse(arguments: &[OsString]) -> Result<(), CorrectnessError> {
     }
     Ok(())
 }
-fn require_nextest_workspace(cargo: &OsStr) -> Result<(), CorrectnessError> {
+fn executable_checkout_root() -> Result<PathBuf, CorrectnessError> {
     let executable = std::env::current_exe()?;
-    let root = executable
+    Ok(executable
         .ancestors()
         .find(|path| path.join(".config/diagnostic-tools.toml").is_file())
         .ok_or_else(|| invalid("native executable is outside the supported checkout"))?
-        .canonicalize()?;
+        .canonicalize()?)
+}
+fn require_nextest_workspace(cargo: &OsStr) -> Result<(), CorrectnessError> {
+    let root = executable_checkout_root()?;
     let output = capture(
         cargo,
         &[
@@ -595,19 +839,31 @@ pub fn restore_test_environment() -> Result<i32, CorrectnessError> {
     writeln!(output, "CARGO={cargo}\n{ADAPTER}=0")?;
     Ok(0)
 }
-fn execute_adapter(cargo:&OsStr,arguments:&[OsString],metadata_capture:Option<&OsStr>)->Result<i32,CorrectnessError>{
+fn execute_adapter(
+    cargo: &OsStr,
+    arguments: &[OsString],
+    metadata_capture: Option<&OsStr>,
+) -> Result<i32, CorrectnessError> {
     // cargo-hack 0.6.45 requests -vV before metadata and per-manifest checks.
     // Discovery can be forwarded; the marker never authorizes compiler work.
-    if arguments==[OsString::from("--version")]
-        || arguments==[OsString::from("-V")]
-        || arguments==[OsString::from("-vV")]{return execute(cargo,arguments);}
-    let position=mode_position(arguments)?;
-    if arguments[position]=="metadata"{
-        if let Some(destination)=metadata_capture{return execute_metadata(cargo,arguments,destination,&mut io::stdout().lock());}
-        return execute(cargo,arguments);
+    if arguments == [OsString::from("--version")]
+        || arguments == [OsString::from("-V")]
+        || arguments == [OsString::from("-vV")]
+    {
+        return execute(cargo, arguments);
     }
-    if arguments[position]=="locate-project"{return execute(cargo,arguments);}
-    let resolution=resolve_with(arguments,|args|capture(cargo,args))?;execute(cargo,&resolution.arguments)
+    let position = mode_position(arguments)?;
+    if arguments[position] == "metadata" {
+        if let Some(destination) = metadata_capture {
+            return execute_metadata(cargo, arguments, destination, &mut io::stdout().lock());
+        }
+        return execute(cargo, arguments);
+    }
+    if arguments[position] == "locate-project" {
+        return execute(cargo, arguments);
+    }
+    let resolution = resolve_with(arguments, |args| capture(cargo, args))?;
+    execute(cargo, &resolution.arguments)
 }
 /// Native external Cargo command and invocation-local nextest build adapter.
 pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
@@ -624,11 +880,9 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
     {
         return restore_test_environment();
     }
-    let cargo_adapter=std::env::var_os(ADAPTER).is_some_and(|value|value=="1")
-        || std::env::var_os(CARGO_HACK_ADAPTER).is_some_and(|value|!value.is_empty());
-    if arguments.as_slice() == [OsString::from("--version")]
-        && !cargo_adapter
-    {
+    let cargo_adapter = std::env::var_os(ADAPTER).is_some_and(|value| value == "1")
+        || std::env::var_os(CARGO_HACK_ADAPTER).is_some_and(|value| !value.is_empty());
+    if arguments.as_slice() == [OsString::from("--version")] && !cargo_adapter {
         writeln!(
             io::stdout(),
             "cargo-pse-correctness {} protocol 1",
@@ -638,7 +892,11 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
     }
     let cargo = real_cargo()?;
     if cargo_adapter {
-        return execute_adapter(&cargo,&arguments,std::env::var_os(FIXTURE_METADATA_CAPTURE).as_deref());
+        return execute_adapter(
+            &cargo,
+            &arguments,
+            std::env::var_os(FIXTURE_METADATA_CAPTURE).as_deref(),
+        );
     }
     if arguments
         .first()
@@ -683,44 +941,80 @@ mod tests {
     use super::*;
     use serde_json::{Value, json};
     #[test]
-    fn fixture_metadata_capture_forwards_exact_original_bytes_and_exit() -> Result<(), CorrectnessError> {
+    fn fixture_metadata_capture_forwards_exact_original_bytes_and_exit()
+    -> Result<(), CorrectnessError> {
         use std::os::unix::fs::PermissionsExt as _;
         let private = tempfile::tempdir()?;
         let destination = private.path().join("cargo-metadata.json");
         let mut forwarded = Vec::new();
-        let code = execute_metadata(OsStr::new("/bin/sh"), &args(&["-c", "printf 'original metadata\\n'; exit 7"]), destination.as_os_str(), &mut forwarded)?;
+        let code = execute_metadata(
+            OsStr::new("/bin/sh"),
+            &args(&["-c", "printf 'original metadata\\n'; exit 7"]),
+            destination.as_os_str(),
+            &mut forwarded,
+        )?;
         assert_eq!(code, 7, "a private capture does not promote Cargo success");
         assert_eq!(forwarded, b"original metadata\n");
         assert_eq!(std::fs::read(&destination)?, forwarded);
-        assert_eq!(std::fs::metadata(&destination)?.permissions().mode() & 0o777, 0o600);
+        assert_eq!(
+            std::fs::metadata(&destination)?.permissions().mode() & 0o777,
+            0o600
+        );
         Ok(())
     }
     #[test]
-    fn fixture_metadata_capture_refuses_existing_file_or_symlink_before_query() -> Result<(), CorrectnessError> {
+    fn fixture_metadata_capture_refuses_existing_file_or_symlink_before_query()
+    -> Result<(), CorrectnessError> {
         let private = tempfile::tempdir()?;
         let destination = private.path().join("cargo-metadata.json");
         std::fs::write(&destination, b"original private capture")?;
         let mut forwarded = Vec::new();
-        assert!(execute_metadata(OsStr::new("/bin/sh"), &args(&["-c", "printf must-not-run"]), destination.as_os_str(), &mut forwarded).is_err());
+        assert!(
+            execute_metadata(
+                OsStr::new("/bin/sh"),
+                &args(&["-c", "printf must-not-run"]),
+                destination.as_os_str(),
+                &mut forwarded
+            )
+            .is_err()
+        );
         assert!(forwarded.is_empty());
         assert_eq!(std::fs::read(&destination)?, b"original private capture");
         let link = private.path().join("link.json");
         std::os::unix::fs::symlink(&destination, &link)?;
-        assert!(execute_metadata(OsStr::new("/bin/sh"), &args(&["-c", "printf must-not-run"]), link.as_os_str(), &mut forwarded).is_err());
+        assert!(
+            execute_metadata(
+                OsStr::new("/bin/sh"),
+                &args(&["-c", "printf must-not-run"]),
+                link.as_os_str(),
+                &mut forwarded
+            )
+            .is_err()
+        );
         assert_eq!(std::fs::read(&destination)?, b"original private capture");
         assert!(std::fs::symlink_metadata(link)?.is_symlink());
         Ok(())
     }
     #[test]
-    fn fixture_metadata_capture_survives_forwarding_failure_without_claiming_success() -> Result<(), CorrectnessError> {
+    fn fixture_metadata_capture_survives_forwarding_failure_without_claiming_success()
+    -> Result<(), CorrectnessError> {
         struct Refused;
         impl Write for Refused {
-            fn write(&mut self, _: &[u8]) -> io::Result<usize> { Err(io::Error::other("fixture closed output")) }
-            fn flush(&mut self) -> io::Result<()> { Ok(()) }
+            fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+                Err(io::Error::other("fixture closed output"))
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
         }
         let private = tempfile::tempdir()?;
         let destination = private.path().join("cargo-metadata.json");
-        let result = execute_metadata(OsStr::new("/bin/sh"), &args(&["-c", "printf exact-original"]), destination.as_os_str(), &mut Refused);
+        let result = execute_metadata(
+            OsStr::new("/bin/sh"),
+            &args(&["-c", "printf exact-original"]),
+            destination.as_os_str(),
+            &mut Refused,
+        );
         assert!(result.is_err());
         assert_eq!(std::fs::read(destination)?, b"exact-original");
         Ok(())
@@ -766,73 +1060,538 @@ mod tests {
         json!({"packages":[package("root","root",json!({"force-validate":[]})),package("arrow-array","arrow-array",json!({"force_validate":[]}))]})
     }
     #[test]
-    fn cargo_hack_discovery_preserves_literal_requests_and_native_failure_without_compiler_bypass(){
+    fn cargo_hack_discovery_preserves_literal_requests_and_native_failure_without_compiler_bypass()
+    {
         use std::os::unix::fs::PermissionsExt as _;
-        let directory=tempfile::tempdir().unwrap();let cargo=directory.path().join("fake-cargo");std::fs::write(&cargo,b"#!/bin/sh\nprintf '%s\\0' \"$@\" >> \"${0}.calls\"\ncase \"$1\" in\n-vV) exit 13;;\nmetadata) exit 17;;\nlocate-project) exit 19;;\n*) exit 77;;\nesac\n").unwrap();std::fs::set_permissions(&cargo,std::fs::Permissions::from_mode(0o700)).unwrap();
-        assert_eq!(execute_adapter(cargo.as_os_str(),&args(&["-vV"]),None).unwrap(),13);assert_eq!(execute_adapter(cargo.as_os_str(),&args(&["metadata","--format-version","1"]),None).unwrap(),17);assert_eq!(execute_adapter(cargo.as_os_str(),&args(&["locate-project"]),None).unwrap(),19);
-        assert_eq!(std::fs::read(directory.path().join("fake-cargo.calls")).unwrap(),b"-vV\0metadata\0--format-version\x001\0locate-project\0");
-        assert!(execute_adapter(cargo.as_os_str(),&args(&["check","--no-default-features"]),None).is_err(),"compiler callbacks must still establish Cargo graph coverage");
+        let directory = tempfile::tempdir().unwrap();
+        let cargo = directory.path().join("fake-cargo");
+        std::fs::write(&cargo,b"#!/bin/sh\nprintf '%s\\0' \"$@\" >> \"${0}.calls\"\ncase \"$1\" in\n-vV) exit 13;;\nmetadata) exit 17;;\nlocate-project) exit 19;;\n*) exit 77;;\nesac\n").unwrap();
+        std::fs::set_permissions(&cargo, std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert_eq!(
+            execute_adapter(cargo.as_os_str(), &args(&["-vV"]), None).unwrap(),
+            13
+        );
+        assert_eq!(
+            execute_adapter(
+                cargo.as_os_str(),
+                &args(&["metadata", "--format-version", "1"]),
+                None
+            )
+            .unwrap(),
+            17
+        );
+        assert_eq!(
+            execute_adapter(cargo.as_os_str(), &args(&["locate-project"]), None).unwrap(),
+            19
+        );
+        assert_eq!(
+            std::fs::read(directory.path().join("fake-cargo.calls")).unwrap(),
+            b"-vV\0metadata\0--format-version\x001\0locate-project\0"
+        );
+        assert!(
+            execute_adapter(
+                cargo.as_os_str(),
+                &args(&["check", "--no-default-features"]),
+                None
+            )
+            .is_err(),
+            "compiler callbacks must still establish Cargo graph coverage"
+        );
     }
     #[test]
     fn cargo_hack_selected_manifest_features_keep_target_host_graph_and_literal_controls() {
-        let directory=tempfile::tempdir().unwrap();let manifest=directory.path().join("selected manifest; literal.toml");std::fs::write(&manifest,"Cargo metadata is the package-name owner").unwrap();
-        let mut metadata=arrow_metadata();metadata["packages"][0]["name"]=json!("selected-package");metadata["packages"][0]["manifest_path"]=json!(manifest);
-        let before=graph(vec![unit("root",&[],&[1,2],Some("custom-target"),"check"),unit("arrow-array",&[],&[],Some("custom-target"),"build"),unit("arrow-array",&[],&[],None,"build")]);
-        let after=graph(vec![unit("root",&["force-validate"],&[1,2],Some("custom-target"),"check"),unit("arrow-array",&["force_validate"],&[],Some("custom-target"),"build"),unit("arrow-array",&["force_validate"],&[],None,"build")]);
-        for (features,qualified) in [
-            (args(&["--features","native,default pse-relations/force-validate"]),args(&["--features","selected-package/native,selected-package/default,pse-relations/force-validate"])),
-            (args(&["--features=native"]),args(&["--features=selected-package/native"])),
-            (args(&["-F","native"]),args(&["-F","selected-package/native"])),
-            (args(&["-Fnative"]),args(&["-Fselected-package/native"])),
-        ]{
-            let mut original=args(&["check","--locked","--no-default-features","--tests","--target","custom-target","--config","target.custom-target.rustflags=['--cfg=original']","--manifest-path"]);original.push(manifest.clone().into_os_string());original.extend(features);
-            let (resolution,calls)=resolve(&original,vec![metadata.clone(),before.clone(),after.clone()]).unwrap();
-            let mut expected=original[..10].to_vec();expected.extend(qualified);let qualified_before=expected.clone();expected.extend(args(&["--features","selected-package/force-validate"]));
-            assert_eq!(resolution.arguments,expected);assert_eq!(resolution.packages,["selected-package"]);assert_eq!(calls.len(),3,"one invocation-local metadata capture and the original/validated unit graphs");assert_eq!(calls[1],graph_arguments(&qualified_before).unwrap());assert_eq!(calls[2],graph_arguments(&resolution.arguments).unwrap());
+        let directory = tempfile::tempdir().unwrap();
+        let manifest = directory.path().join("selected manifest; literal.toml");
+        std::fs::write(&manifest, "Cargo metadata is the package-name owner").unwrap();
+        let mut metadata = arrow_metadata();
+        metadata["packages"][0]["name"] = json!("selected-package");
+        metadata["packages"][0]["manifest_path"] = json!(manifest);
+        let before = graph(vec![
+            unit("root", &[], &[1, 2], Some("custom-target"), "check"),
+            unit("arrow-array", &[], &[], Some("custom-target"), "build"),
+            unit("arrow-array", &[], &[], None, "build"),
+        ]);
+        let after = graph(vec![
+            unit(
+                "root",
+                &["force-validate"],
+                &[1, 2],
+                Some("custom-target"),
+                "check",
+            ),
+            unit(
+                "arrow-array",
+                &["force_validate"],
+                &[],
+                Some("custom-target"),
+                "build",
+            ),
+            unit("arrow-array", &["force_validate"], &[], None, "build"),
+        ]);
+        for (features, qualified) in [
+            (
+                args(&["--features", "native,default pse-relations/force-validate"]),
+                args(&[
+                    "--features",
+                    "selected-package/native,selected-package/default,pse-relations/force-validate",
+                ]),
+            ),
+            (
+                args(&["--features=native"]),
+                args(&["--features=selected-package/native"]),
+            ),
+            (
+                args(&["-F", "native"]),
+                args(&["-F", "selected-package/native"]),
+            ),
+            (args(&["-Fnative"]), args(&["-Fselected-package/native"])),
+        ] {
+            let mut original = args(&[
+                "check",
+                "--locked",
+                "--no-default-features",
+                "--tests",
+                "--target",
+                "custom-target",
+                "--config",
+                "target.custom-target.rustflags=['--cfg=original']",
+                "--manifest-path",
+            ]);
+            original.push(manifest.clone().into_os_string());
+            original.extend(features);
+            let (resolution, calls) = resolve(
+                &original,
+                vec![metadata.clone(), before.clone(), after.clone()],
+            )
+            .unwrap();
+            let mut expected = original[..10].to_vec();
+            expected.extend(qualified);
+            let qualified_before = expected.clone();
+            expected.extend(args(&["--features", "selected-package/force-validate"]));
+            assert_eq!(resolution.arguments, expected);
+            assert_eq!(resolution.packages, ["selected-package"]);
+            assert_eq!(
+                calls.len(),
+                3,
+                "one invocation-local metadata capture and the original/validated unit graphs"
+            );
+            assert_eq!(calls[1], graph_arguments(&qualified_before).unwrap());
+            assert_eq!(calls[2], graph_arguments(&resolution.arguments).unwrap());
         }
     }
     #[test]
-    fn cargo_hack_no_default_scope_does_not_add_unrelated_features_or_targets(){
-        let original=args(&["check","--manifest-path=literal-selection/Cargo.toml","--locked","--no-default-features","--lib","--target=target"]);
-        let (resolution,calls)=resolve(&original,vec![json!({"packages":[package("pure","pure",json!({}))]}),graph(vec![unit("pure",&[],&[],Some("target"),"check")])]).unwrap();assert_eq!(resolution.arguments,original);assert_eq!(calls.len(),2);assert_eq!(calls[1],graph_arguments(&original).unwrap());
+    fn cargo_hack_no_default_scope_does_not_add_unrelated_features_or_targets() {
+        let original = args(&[
+            "check",
+            "--manifest-path=literal-selection/Cargo.toml",
+            "--locked",
+            "--no-default-features",
+            "--lib",
+            "--target=target",
+        ]);
+        let (resolution, calls) = resolve(
+            &original,
+            vec![
+                json!({"packages":[package("pure","pure",json!({}))]}),
+                graph(vec![unit("pure", &[], &[], Some("target"), "check")]),
+            ],
+        )
+        .unwrap();
+        assert_eq!(resolution.arguments, original);
+        assert_eq!(calls.len(), 2);
+        assert_eq!(calls[1], graph_arguments(&original).unwrap());
     }
     #[test]
-    fn cargo_hack_bare_features_require_the_actual_selected_metadata_package(){
-        let directory=tempfile::tempdir().unwrap();let manifest=directory.path().join("Cargo.toml");std::fs::write(&manifest,"selected manifest").unwrap();let original=vec!["check".into(),"--manifest-path".into(),manifest.into_os_string(),"-Fbare".into()];let error=resolve(&original,vec![arrow_metadata()]).unwrap_err();assert!(error.to_string().contains("absent from Cargo metadata"));
+    fn cargo_hack_bare_features_require_the_actual_selected_metadata_package() {
+        let directory = tempfile::tempdir().unwrap();
+        let manifest = directory.path().join("Cargo.toml");
+        std::fs::write(&manifest, "selected manifest").unwrap();
+        let original = vec![
+            "check".into(),
+            "--manifest-path".into(),
+            manifest.into_os_string(),
+            "-Fbare".into(),
+        ];
+        let error = resolve(&original, vec![arrow_metadata()]).unwrap_err();
+        assert!(error.to_string().contains("absent from Cargo metadata"));
     }
     #[test]
-    fn cargo_hack_taskdump_uses_same_cargo_owned_profile_flags_for_graph_and_execution(){
-        let original=args(&["check","--features=selected/diagnostic-taskdump","--target","custom-target","--config","target.custom-target.rustflags=['--cfg=original']","--profile=diagnostic-taskdump"]);
-        let (resolution,calls)=resolve(&original,vec![json!({"packages":[package("pure","pure",json!({}))]}),graph(vec![unit("pure",&[],&[],Some("custom-target"),"check")])]).unwrap();
-        assert_eq!(&resolution.arguments[..original.len()],original.as_slice());
-        for call in calls.iter().chain(std::iter::once(&resolution.arguments)){
-            assert!(call.iter().any(|value|value=="target.custom-target.rustflags=['--cfg=original']"));assert!(call.iter().any(|value|value=="unstable.profile-rustflags=true"));assert!(call.iter().any(|value|value=="profile.diagnostic-taskdump.rustflags=[\"--cfg\",\"tokio_unstable\"]"));
+    fn cargo_hack_taskdump_uses_same_cargo_cfg_for_dependency_queries_and_execution() {
+        let original = args(&[
+            "check",
+            "--features=selected/diagnostic-taskdump",
+            "--target",
+            "x86_64-unknown-linux-gnu",
+            "--config",
+            "target.x86_64-unknown-linux-gnu.rustflags=['--cfg=original']",
+            "--profile=diagnostic-taskdump",
+        ]);
+        let (resolution, calls) = resolve(
+            &original,
+            vec![
+                json!({"workspace_root":executable_checkout_root().unwrap(),"packages":[package("pure","pure",json!({}))]}),
+                graph(vec![unit(
+                    "pure",
+                    &[],
+                    &[],
+                    Some("x86_64-unknown-linux-gnu"),
+                    "check",
+                )]),
+            ],
+        )
+        .unwrap();
+        assert_eq!(&resolution.arguments[..original.len()], original.as_slice());
+        for call in calls.iter().chain(std::iter::once(&resolution.arguments)) {
+            assert!(call.iter().any(
+                |value| value == "target.x86_64-unknown-linux-gnu.rustflags=['--cfg=original']"
+            ));
+            assert!(call.iter().any(|value| value == DIAGNOSTIC_CFG));
+            assert!(!call.iter().any(|value| {
+                value.to_string_lossy().contains("profile-rustflags")
+                    || value
+                        .to_string_lossy()
+                        .contains("profile.diagnostic-taskdump.rustflags")
+            }));
         }
-        let command=native_command(OsStr::new("cargo"),&resolution.arguments);assert!(!command.get_envs().any(|(key,_)|key=="RUSTFLAGS"||key=="CARGO_ENCODED_RUSTFLAGS"),"Cargo retains ownership of inherited flags and target configuration");
+        let command =
+            native_command_with_rustflags(OsStr::new("cargo"), &resolution.arguments, None, None);
+        assert!(
+            !command
+                .get_envs()
+                .any(|(key, _)| key == "RUSTFLAGS" || key == "CARGO_ENCODED_RUSTFLAGS"),
+            "Cargo retains ownership of inherited flags and target configuration"
+        );
     }
     #[test]
-    fn cargo_hack_taskdump_profile_conflicts_refuse_and_other_commands_stay_literal(){
-        for suffix in [args(&["--release"]),args(&["-r"]),args(&["--profile","dev"]),args(&["--profile=release"]) ]{let mut selected=args(&["check","-Fdiagnostic-taskdump"]);selected.extend(suffix);assert!(diagnostic_check_arguments(&selected).unwrap_err().to_string().contains("isolated diagnostic-taskdump profile"));}
-        for original in [args(&["check","--features=other/diagnostic-taskdump-extra"]),args(&["check","--","-Fdiagnostic-taskdump"]),args(&["build","-Fdiagnostic-taskdump"])]{assert_eq!(diagnostic_check_arguments(&original).unwrap(),original);}
-        let selected=diagnostic_check_arguments(&args(&["check","-Fdiagnostic-taskdump"])).unwrap();assert!(selected.windows(2).any(|pair|pair==args(&["--profile","diagnostic-taskdump"])));
+    fn diagnostic_environment_preserves_literal_flags_and_highest_active_channel() {
+        let selected =
+            diagnostic_check_arguments(&args(&["check", "-Fdiagnostic-taskdump"])).unwrap();
+        for (encoded, raw, key, expected) in [
+            (
+                Some("-C\x1flink-arg=literal space\x1f--cfg=original"),
+                Some("  --cfg other  "),
+                "CARGO_ENCODED_RUSTFLAGS",
+                "-C\x1flink-arg=literal space\x1f--cfg=original\x1f--cfg\x1ftokio_unstable",
+            ),
+            (
+                Some(""),
+                Some("--cfg ignored"),
+                "CARGO_ENCODED_RUSTFLAGS",
+                "--cfg\x1ftokio_unstable",
+            ),
+            (
+                None,
+                Some("  --cfg original -Clink-arg=literal  "),
+                "RUSTFLAGS",
+                "  --cfg original -Clink-arg=literal   --cfg tokio_unstable",
+            ),
+            (None, Some(""), "RUSTFLAGS", " --cfg tokio_unstable"),
+        ] {
+            // Cargo metadata, the validated unit graph and compilation share
+            // exactly the same child-local extension, without parsing flags.
+            for arguments in [
+                metadata_arguments(&selected).unwrap(),
+                graph_arguments(&selected).unwrap(),
+                selected.clone(),
+            ] {
+                let command = native_command_with_rustflags(
+                    OsStr::new("cargo"),
+                    &arguments,
+                    encoded.map(Into::into),
+                    raw.map(Into::into),
+                );
+                let changed: Vec<_> = command
+                    .get_envs()
+                    .filter(|(name, _)| *name == "RUSTFLAGS" || *name == "CARGO_ENCODED_RUSTFLAGS")
+                    .collect();
+                assert_eq!(changed, [(OsStr::new(key), Some(OsStr::new(expected)))]);
+                assert_eq!(
+                    command.get_args().collect::<Vec<_>>(),
+                    arguments
+                        .iter()
+                        .map(OsString::as_os_str)
+                        .collect::<Vec<_>>()
+                );
+            }
+        }
+        let command = native_command_with_rustflags(OsStr::new("cargo"), &selected, None, None);
+        assert!(
+            !command
+                .get_envs()
+                .any(|(name, _)| name == "RUSTFLAGS" || name == "CARGO_ENCODED_RUSTFLAGS"),
+            "without an environment channel Cargo joins the checkout's existing tuple/linker flags and cfg table"
+        );
+        let ordinary = args(&["check", "--", DIAGNOSTIC_CFG]);
+        let command = native_command_with_rustflags(
+            OsStr::new("cargo"),
+            &ordinary,
+            Some("original encoded".into()),
+            Some("original raw".into()),
+        );
+        assert!(
+            !command
+                .get_envs()
+                .any(|(name, _)| name == "RUSTFLAGS" || name == "CARGO_ENCODED_RUSTFLAGS")
+        );
+        assert_eq!(
+            diagnostic_check_arguments(&selected).unwrap(),
+            selected,
+            "repeated scope selection must not duplicate the Cargo cfg table or profile"
+        );
     }
     #[test]
-    fn cargo_hack_all_feature_check_and_clippy_isolate_only_actual_reached_taskdump(){
-        let metadata=json!({"packages":[package("root","root",json!({"diagnostic-taskdump":[]})),package("other","other",json!({"diagnostic-taskdump":[]}))]});
-        let original_graph=graph(vec![unit("root",&["diagnostic-taskdump"],&[],Some("custom-target"),"check")]);
-        for mode in ["check","clippy"]{
-            let mut original=args(&[mode,"--workspace","--all-features","--all-targets","--target","custom-target","--config","target.custom-target.rustflags=['--cfg=original']"]);if mode=="clippy"{original.push("--no-deps".into());}
-            let (resolution,calls)=resolve(&original,vec![metadata.clone(),original_graph.clone(),original_graph.clone()]).unwrap();
-            assert_eq!(&resolution.arguments[..original.len()],original.as_slice());assert!(resolution.arguments.windows(2).any(|pair|pair==args(&["--profile","diagnostic-taskdump"])));assert!(resolution.arguments.iter().any(|value|value=="profile.diagnostic-taskdump.rustflags=[\"--cfg\",\"tokio_unstable\"]"));assert_eq!(calls.len(),3);assert_eq!(calls.iter().filter(|call|call.first().is_some_and(|value|value=="metadata")).count(),1);assert_eq!(calls[2],graph_arguments(&resolution.arguments).unwrap());
-            if mode=="clippy"{assert!(resolution.arguments.iter().any(|value|value=="--no-deps"));assert!(!calls[2].iter().any(|value|value=="--no-deps"));}
-            let pure=graph(vec![unit("root",&[],&[],Some("custom-target"),"check")]);let (unrelated,calls)=resolve(&original,vec![metadata.clone(),pure]).unwrap();assert_eq!(unrelated.arguments,original,"an unrelated metadata feature does not select diagnostic isolation");assert_eq!(calls.len(),2);
+    fn diagnostic_foreign_targets_refuse_before_compilation() {
+        for target in [
+            args(&["--target", "aarch64-unknown-linux-gnu"]),
+            args(&["--target=x86_64-unknown-linux-musl"]),
+        ] {
+            let mut arguments = args(&["check", "-Fdiagnostic-taskdump"]);
+            arguments.extend(target);
+            assert!(
+                diagnostic_check_arguments(&arguments)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("only native x86_64-unknown-linux-gnu")
+            );
+        }
+        // Cargo's unit graph also exposes implicit build.target/environment
+        // selection, without this owner reading a second configuration file.
+        let metadata = json!({"workspace_root":executable_checkout_root().unwrap(),"packages":[package("root","root",json!({"diagnostic-taskdump":[]}))]});
+        let foreign = graph(vec![unit(
+            "root",
+            &["diagnostic-taskdump"],
+            &[],
+            Some("foreign-target"),
+            "check",
+        )]);
+        let error =
+            resolve(&args(&["check", "--all-features"]), vec![metadata, foreign]).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("only native x86_64-unknown-linux-gnu")
+        );
+    }
+    #[test]
+    fn diagnostic_marker_in_literal_application_tail_does_not_restrict_ordinary_run() {
+        let foreign = tempfile::tempdir().unwrap();
+        let metadata =
+            json!({"workspace_root":foreign.path(), "packages":[package("root","root",json!({}))]});
+        let arguments = args(&["run", "--bin", "root", "--", DIAGNOSTIC_CFG]);
+        let (resolution, calls) = resolve(
+            &arguments,
+            vec![
+                metadata,
+                graph(vec![unit(
+                    "root",
+                    &[],
+                    &[],
+                    Some("foreign-target"),
+                    "build",
+                )]),
+            ],
+        )
+        .unwrap();
+        assert_eq!(resolution.arguments, arguments);
+        assert_eq!(calls.len(), 2);
+    }
+    #[test]
+    fn diagnostic_checkout_identity_uses_original_metadata_and_refuses_before_compilation() {
+        let foreign = tempfile::tempdir().unwrap();
+        for workspace in [None, Some(foreign.path())] {
+            let mut metadata =
+                json!({"packages":[package("root","root",json!({"diagnostic-taskdump":[]}))]});
+            if let Some(workspace) = workspace {
+                metadata["workspace_root"] = json!(workspace);
+            }
+            for resolved in [false, true] {
+                let arguments = if resolved {
+                    args(&["check", "--all-features"])
+                } else {
+                    args(&["check", "-Fdiagnostic-taskdump"])
+                };
+                let mut calls = Vec::new();
+                let error = resolve_with(&arguments, |call| {
+                    calls.push(call.to_vec());
+                    assert!(calls.len() <= if resolved { 2 } else { 1 },
+                        "foreign/missing workspace must refuse before the diagnostic compiler graph or execution");
+                    let response = if calls.len() == 1 {
+                        metadata.clone()
+                    } else {
+                        graph(vec![unit("root", &["diagnostic-taskdump"], &[], None, "check")])
+                    };
+                    Ok(serde_json::to_vec(&response).unwrap())
+                }).unwrap_err();
+                assert_eq!(calls.len(), if resolved { 2 } else { 1 });
+                assert_eq!(
+                    calls.iter().filter(|call| call[0] == "metadata").count(),
+                    1,
+                    "checkout admission consumes the existing complete metadata capture"
+                );
+                assert!(error.to_string().contains(if workspace.is_some() {
+                    "only its executable's checkout workspace"
+                } else {
+                    "metadata.workspace_root"
+                }));
+            }
+            let ordinary = args(&["check"]);
+            let (resolution, calls) = resolve(
+                &ordinary,
+                vec![metadata, graph(vec![unit("root", &[], &[], None, "check")])],
+            )
+            .unwrap();
+            assert_eq!(
+                resolution.arguments, ordinary,
+                "ordinary correctness does not impose the diagnostic checkout restriction"
+            );
+            assert_eq!(calls.len(), 2);
         }
     }
     #[test]
-    fn cargo_hack_resolved_taskdump_refuses_conflicting_profile_or_changed_target_roots(){
-        let metadata=json!({"packages":[package("root","root",json!({"diagnostic-taskdump":[]}))]});let before=graph(vec![unit("root",&["diagnostic-taskdump"],&[],None,"check")]);
-        for mode in ["check","clippy"]{let error=resolve(&args(&[mode,"--all-features","--profile=dev"]),vec![metadata.clone(),before.clone()]).unwrap_err();assert!(error.to_string().contains("isolated diagnostic-taskdump profile"));}
-        let mut changed=before.clone();changed["units"][0]["target"]["name"]=json!("different-target");let error=resolve(&args(&["check","--all-features"]),vec![metadata,before,changed]).unwrap_err();assert!(error.to_string().contains("isolation changed selected Cargo package/target roots"));
+    fn cargo_hack_taskdump_profile_conflicts_refuse_and_other_commands_stay_literal() {
+        for suffix in [
+            args(&["--release"]),
+            args(&["-r"]),
+            args(&["--profile", "dev"]),
+            args(&["--profile=release"]),
+        ] {
+            let mut selected = args(&["check", "-Fdiagnostic-taskdump"]);
+            selected.extend(suffix);
+            assert!(
+                diagnostic_check_arguments(&selected)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("isolated diagnostic-taskdump profile")
+            );
+        }
+        for original in [
+            args(&["check", "--features=other/diagnostic-taskdump-extra"]),
+            args(&["check", "--", "-Fdiagnostic-taskdump"]),
+            args(&["build", "-Fdiagnostic-taskdump"]),
+        ] {
+            assert_eq!(diagnostic_check_arguments(&original).unwrap(), original);
+        }
+        let selected =
+            diagnostic_check_arguments(&args(&["check", "-Fdiagnostic-taskdump"])).unwrap();
+        assert!(
+            selected
+                .windows(2)
+                .any(|pair| pair == args(&["--profile", "diagnostic-taskdump"]))
+        );
+    }
+    #[test]
+    fn cargo_hack_all_feature_check_and_clippy_isolate_only_actual_reached_taskdump() {
+        let metadata = json!({"workspace_root":executable_checkout_root().unwrap(),"packages":[package("root","root",json!({"diagnostic-taskdump":[]})),package("other","other",json!({"diagnostic-taskdump":[]}))]});
+        let original_graph = graph(vec![unit(
+            "root",
+            &["diagnostic-taskdump"],
+            &[],
+            Some("x86_64-unknown-linux-gnu"),
+            "check",
+        )]);
+        for mode in ["check", "clippy"] {
+            let mut original = args(&[
+                mode,
+                "--workspace",
+                "--all-features",
+                "--all-targets",
+                "--target",
+                "x86_64-unknown-linux-gnu",
+                "--config",
+                "target.x86_64-unknown-linux-gnu.rustflags=['--cfg=original']",
+            ]);
+            if mode == "clippy" {
+                original.push("--no-deps".into());
+            }
+            let (resolution, calls) = resolve(
+                &original,
+                vec![
+                    metadata.clone(),
+                    original_graph.clone(),
+                    original_graph.clone(),
+                ],
+            )
+            .unwrap();
+            assert_eq!(&resolution.arguments[..original.len()], original.as_slice());
+            assert!(
+                resolution
+                    .arguments
+                    .windows(2)
+                    .any(|pair| pair == args(&["--profile", "diagnostic-taskdump"]))
+            );
+            assert!(
+                resolution
+                    .arguments
+                    .iter()
+                    .any(|value| value == DIAGNOSTIC_CFG)
+            );
+            assert_eq!(calls.len(), 3);
+            assert_eq!(
+                calls
+                    .iter()
+                    .filter(|call| call.first().is_some_and(|value| value == "metadata"))
+                    .count(),
+                1
+            );
+            assert_eq!(calls[2], graph_arguments(&resolution.arguments).unwrap());
+            if mode == "clippy" {
+                assert!(
+                    resolution
+                        .arguments
+                        .iter()
+                        .any(|value| value == "--no-deps")
+                );
+                assert!(!calls[2].iter().any(|value| value == "--no-deps"));
+            }
+            let pure = graph(vec![unit(
+                "root",
+                &[],
+                &[],
+                Some("x86_64-unknown-linux-gnu"),
+                "check",
+            )]);
+            let (unrelated, calls) = resolve(&original, vec![metadata.clone(), pure]).unwrap();
+            assert_eq!(
+                unrelated.arguments, original,
+                "an unrelated metadata feature does not select diagnostic isolation"
+            );
+            assert_eq!(calls.len(), 2);
+        }
+    }
+    #[test]
+    fn cargo_hack_resolved_taskdump_refuses_conflicting_profile_or_changed_target_roots() {
+        let metadata = json!({"workspace_root":executable_checkout_root().unwrap(),"packages":[package("root","root",json!({"diagnostic-taskdump":[]}))]});
+        let before = graph(vec![unit(
+            "root",
+            &["diagnostic-taskdump"],
+            &[],
+            None,
+            "check",
+        )]);
+        for mode in ["check", "clippy"] {
+            let error = resolve(
+                &args(&[mode, "--all-features", "--profile=dev"]),
+                vec![metadata.clone(), before.clone()],
+            )
+            .unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("isolated diagnostic-taskdump profile")
+            );
+        }
+        let mut changed = before.clone();
+        changed["units"][0]["target"]["name"] = json!("different-target");
+        let error = resolve(
+            &args(&["check", "--all-features"]),
+            vec![metadata, before, changed],
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("isolation changed selected Cargo package/target roots")
+        );
     }
     #[test]
     fn correctness_pure_scope_is_unchanged() {

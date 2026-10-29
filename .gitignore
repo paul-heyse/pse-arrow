@@ -20,8 +20,6 @@ tooling/dfarrow-apiex/verify/target/
 __pycache__/
 *.py[cod]
 *.egg-info/
-python/pse/_native*.so
-python/pse/_native*.pyd
 *.so
 *.pyd
 *.dylib

@@ -3,6 +3,10 @@
 
 //! Responsibility-owned development storage and its generation contributions.
 #![recursion_limit = "512"]
+#![allow(
+    clippy::disallowed_types,
+    reason = "xtask's developer-only library preserves heterogeneous external tool errors, matching its command boundary"
+)]
 pub mod development;
 /// Native Markdown and authored document metadata readers.
 pub mod documentation;

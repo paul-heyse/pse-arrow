@@ -3338,7 +3338,43 @@ mod canonical_studies_server_unit {
             "{inspected}"
         );
         let module = store.inspect_study_module().await.unwrap();
-        assert!(module["scope"].as_str().unwrap().contains("no execution"));
+        // Preparation/claim probes evaluate the stateless policy; the enclosing
+        // canonical transaction remains the sole owner of scientific effects.
+        // Installed catalogue values keep the SDK's exact tagged value codec.
+        use surrealdb_types::{SurrealValue, Value};
+        let installed: Value = serde_json::from_value(module["installed"].clone()).unwrap();
+        let buckets = Vec::<Value>::from_value(installed.get("buckets").clone()).unwrap();
+        let modules = Vec::<Value>::from_value(installed.get("modules").clone()).unwrap();
+        assert_eq!(buckets.len(), 1);
+        assert_eq!(modules.len(), 1);
+        let bucket = format!(
+            "pse_study_{}",
+            module["selected"]["sha256"].as_str().unwrap()
+        );
+        assert_eq!(buckets[0].get("name"), &Value::String(bucket.clone()));
+        assert_eq!(buckets[0].get("readonly"), &Value::Bool(true));
+        assert_eq!(modules[0].get("name"), &Value::String("pse".into()));
+        let executable = modules[0].get("executable");
+        assert_eq!(executable.get("type"), &Value::String("surrealism".into()));
+        assert_eq!(executable.get("bucket"), &Value::String(bucket));
+        assert_eq!(executable.get("key"), &Value::String("/study.surli".into()));
+        let exports = Vec::<Value>::from_value(modules[0].get("exports").clone()).unwrap();
+        assert_eq!(exports.len(), 1);
+        assert_eq!(
+            exports[0].get("name"),
+            &Value::String("study::readiness".into())
+        );
+        assert_eq!(exports[0].get("writeable"), &Value::Bool(false));
+        assert_eq!(module["selected"]["limits"]["max_kv_entries"], 0);
+        assert_eq!(module["selected"]["limits"]["max_kv_value_bytes"], 0);
+        assert_eq!(
+            store
+                .study_candidates("query-inspection", Some(15))
+                .await
+                .unwrap(),
+            candidates,
+            "synthetic policy inspection must not prepare, claim or start canonical work"
+        );
         if operator {
             crate::canonical_explanations::qualify_operator(
                 &store,

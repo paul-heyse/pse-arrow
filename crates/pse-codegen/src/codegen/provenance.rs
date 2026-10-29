@@ -203,7 +203,10 @@ mod tests {
                         == "crates/pse-model/src/generated/authored/fit_cases.rs"
                     && record.generator_symbol == "split")
         );
-        assert!(rust.relationships.iter().all(|record|rust.files.contains_key(std::path::Path::new(&record.output_path))));
+        assert!(rust.relationships.iter().all(|record| {
+            rust.files
+                .contains_key(std::path::Path::new(&record.output_path))
+        }));
         assert_eq!(registry.fingerprint(), identity);
     }
 

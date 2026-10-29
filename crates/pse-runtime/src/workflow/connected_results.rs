@@ -2424,83 +2424,182 @@ mod canonical_connected_results_server_unit {
     use super::*;
     use crate::workflow::PackScientificState;
     use datafusion::arrow::array::{Array, Float64Array};
+    use futures_util::{FutureExt, future::BoxFuture};
     use pse_operations::canonical_execution::{
         RunRequest, TerminalClass, result_batch_key, result_payload_digest, result_set_key,
     };
+    use pse_operations::{
+        canonical::CanonicalStore,
+        native_service::{NativeCanonicalService, NativeModuleSource, NativeServiceSpec},
+    };
     use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
-    use futures_util::{FutureExt, future::BoxFuture};
-    use pse_operations::{canonical::CanonicalStore, native_service::{NativeCanonicalService, NativeModuleSource, NativeServiceSpec}};
-    use std::{ops::Deref, panic::AssertUnwindSafe, path::PathBuf, time::{Duration, Instant}};
+    use std::{
+        ops::Deref,
+        panic::AssertUnwindSafe,
+        path::PathBuf,
+        time::{Duration, Instant},
+    };
 
     /// Closing a logical read caller never claims that its SDK/releases drained.
     /// The enclosing private service explicitly joins them after the body exits.
     struct ReadOwner(RetainedDataServices);
     impl Deref for ReadOwner {
         type Target = RetainedDataServices;
-        fn deref(&self) -> &Self::Target { &self.0 }
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
     }
     impl Drop for ReadOwner {
-        fn drop(&mut self) { self.0.close(); }
+        fn drop(&mut self) {
+            self.0.close();
+        }
     }
+    #[allow(
+        clippy::unwrap_used,
+        reason = "test-only read-owner construction fails the selected control on invalid fixture capabilities"
+    )]
     fn read_owner(store: &CanonicalStore) -> ReadOwner {
         let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(512 << 20));
         let native = datafusion::prelude::SessionContext::new();
-        let factory = Arc::new(pse_engine::session::EngineFactory::from_builder(
-            native.runtime_env(), pool, "native-connected-results-control",
-            datafusion::execution::session_state::SessionStateBuilder::from(native.state()),
-        ).with_observation(pse_engine::session::assurance::ObservationPolicy::Contract));
-        ReadOwner(RetainedDataServices::new(store.clone(), factory.bind_model(pse_schema::shared_registry().unwrap()).unwrap()).unwrap())
+        let factory = Arc::new(
+            pse_engine::session::EngineFactory::from_builder(
+                native.runtime_env(),
+                pool,
+                "native-connected-results-control",
+                datafusion::execution::session_state::SessionStateBuilder::from(native.state()),
+            )
+            .with_observation(pse_engine::session::assurance::ObservationPolicy::Contract),
+        );
+        ReadOwner(
+            RetainedDataServices::new(
+                store.clone(),
+                factory
+                    .bind_model(pse_schema::shared_registry().unwrap())
+                    .unwrap(),
+            )
+            .unwrap(),
+        )
     }
+    #[allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        reason = "test-only fixture requires explicit prepared inputs and fails rather than skipping missing prerequisites"
+    )]
     fn private_service() -> NativeCanonicalService {
         let environment = std::env::vars_os().collect();
-        let helper = PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER").expect("explicit already-built native-service helper"));
+        let helper = PathBuf::from(
+            std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
+                .expect("explicit already-built native-service helper"),
+        );
         assert!(helper.is_absolute() && helper.is_file());
-        let receipt = PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT").expect("explicit prepared private module receipt"));
+        let receipt = PathBuf::from(
+            std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT")
+                .expect("explicit prepared private module receipt"),
+        );
         NativeCanonicalService::new(NativeServiceSpec {
-            server: pse_host::server::select(&environment).unwrap(), helper,
-            module_source: NativeModuleSource::Prepared(pse_host::study_module::select(&receipt, pse_host::study_module::Variant::Production).unwrap()),
+            server: pse_host::server::select(&environment).unwrap(),
+            helper,
+            module_source: NativeModuleSource::Prepared(
+                pse_host::study_module::select(
+                    &receipt,
+                    pse_host::study_module::Variant::Production,
+                )
+                .unwrap(),
+            ),
             state_parent: std::env::temp_dir(),
-        }).unwrap()
+        })
+        .unwrap()
     }
     type Case = for<'a> fn(&'a CanonicalStore, Option<&'a Runtime>) -> BoxFuture<'a, ()>;
+    #[allow(
+        clippy::unwrap_used,
+        reason = "test-only settlement attempts each independent cleanup before propagating the case or cleanup failure"
+    )]
     async fn private_fixture(compiler: bool, body: Case) {
         let mut service = private_service();
-        let outcome = AssertUnwindSafe(service.run(Instant::now() + Duration::from_secs(600), |service| {
-            Box::pin(async move {
-                service.launch(Instant::now() + Duration::from_secs(90)).await?;
-                let store = service.ready()?.store().clone();
-                // Only the explicit compiler-pressure control needs scientific
-                // construction. Read-only controls retain their data capabilities.
-                let science = compiler.then(|| {
-                    let local = super::super::tests::runtime_on(256 << 20, crate::math::MathPolicy {
-                        workspace_bytes: 64 << 20, worker_bytes: 64 << 20,
-                        artifact_bytes: 16 << 20, foreign_bytes: 8 << 20,
-                        inner_session_bytes: 0, ..Default::default()
+        let outcome = AssertUnwindSafe(service.run(
+            Instant::now() + Duration::from_secs(600),
+            |service| {
+                Box::pin(async move {
+                    service
+                        .launch(Instant::now() + Duration::from_secs(90))
+                        .await?;
+                    let store = service.ready()?.store().clone();
+                    // Only the explicit compiler-pressure control needs scientific
+                    // construction. Read-only controls retain their data capabilities.
+                    let science = compiler.then(|| {
+                        let local = super::super::tests::runtime_on(
+                            256 << 20,
+                            crate::math::MathPolicy {
+                                workspace_bytes: 64 << 20,
+                                worker_bytes: 64 << 20,
+                                artifact_bytes: 16 << 20,
+                                foreign_bytes: 8 << 20,
+                                inner_session_bytes: 0,
+                                ..Default::default()
+                            },
+                        );
+                        Runtime::from_shared(
+                            local.shared.clone(),
+                            local.model.clone(),
+                            super::super::CanonicalDeployment::new(
+                                store.clone(),
+                                super::super::OuterAttestation {
+                                    source: None,
+                                    build: pse_ids::ContentHash::from_bytes([1; 32]),
+                                },
+                                None,
+                            ),
+                        )
+                        .unwrap()
                     });
-                    Runtime::from_shared(local.shared.clone(), local.model.clone(), super::super::CanonicalDeployment::new(
-                        store.clone(), super::super::OuterAttestation { source: None, build: pse_ids::ContentHash::from_bytes([1; 32]) }, None,
-                    )).unwrap()
-                });
-                let outcome = AssertUnwindSafe(body(&store, science.as_ref())).catch_unwind().await;
-                let math_cleanup = if let Some(runtime) = &science {
-                    runtime.close();
-                    runtime.clear_program_cache();
-                    runtime.shared.math().shutdown_native_lanes().await
-                } else { Ok(()) };
-                let releases = pse_operations::testing::drain_result_releases(&store).await;
-                if let Err(error) = &math_cleanup { eprintln!("native connected-results lane cleanup failed: {error}; state={}", service.state().display()); }
-                if let Err(error) = &releases { eprintln!("native connected-results read cleanup failed: {error}; state={}", service.state().display()); }
-                if let Err(panic) = outcome { std::panic::resume_unwind(panic); }
-                math_cleanup.unwrap();
-                releases?;
-                Ok(())
-            })
-        })).catch_unwind().await;
+                    let outcome = AssertUnwindSafe(body(&store, science.as_ref()))
+                        .catch_unwind()
+                        .await;
+                    let math_cleanup = if let Some(runtime) = &science {
+                        runtime.close();
+                        runtime.clear_program_cache();
+                        runtime.shared.math().shutdown_native_lanes().await
+                    } else {
+                        Ok(())
+                    };
+                    let releases = pse_operations::testing::drain_result_releases(&store).await;
+                    if let Err(error) = &math_cleanup {
+                        eprintln!(
+                            "native connected-results lane cleanup failed: {error}; state={}",
+                            service.state().display()
+                        );
+                    }
+                    if let Err(error) = &releases {
+                        eprintln!(
+                            "native connected-results read cleanup failed: {error}; state={}",
+                            service.state().display()
+                        );
+                    }
+                    if let Err(panic) = outcome {
+                        std::panic::resume_unwind(panic);
+                    }
+                    math_cleanup.unwrap();
+                    releases?;
+                    Ok(())
+                })
+            },
+        ))
+        .catch_unwind()
+        .await;
         let disposal = service.dispose();
-        if let Err(error) = &disposal { eprintln!("native connected-results private cleanup failed: {error}; state={}", service.state().display()); }
+        if let Err(error) = &disposal {
+            eprintln!(
+                "native connected-results private cleanup failed: {error}; state={}",
+                service.state().display()
+            );
+        }
         match outcome {
             Err(panic) => std::panic::resume_unwind(panic),
-            Ok(result) => { result.unwrap(); disposal.unwrap(); }
+            Ok(result) => {
+                result.unwrap();
+                disposal.unwrap();
+            }
         }
     }
     #[tokio::test]
@@ -2964,848 +3063,863 @@ mod canonical_connected_results_server_unit {
 
     #[tokio::test]
     async fn canonical_decoded_arrow_survives_reader_drop_and_result_reclamation() {
-        private_fixture(false, |store, _science| Box::pin(async move {
-        let runtime = read_owner(store);
-        let store = runtime.canonical_store().unwrap().clone();
-        let pool = runtime.pool();
-        let source = store
-            .edit("decoded-owner", None, "source", &[])
-            .await
-            .unwrap();
-        store
-            .begin_run(&RunRequest {
-                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
-                admission_study: None,
-                admission_point: None,
-                key: "decoded-owner".into(),
-                revision: source,
-                sources: vec![],
-                request: vec![1],
-                source_selection: vec![2],
-                attestation: vec![3],
-            })
-            .await
-            .unwrap();
-        let fence = store
-            .claim_run("decoded-owner", "claim", "worker", Duration::from_secs(60))
-            .await
-            .unwrap();
-        let run_id = pse_operations::mint_id();
-        let expected = [Some(-0.0), None, Some(273.15)]
-            .into_iter()
-            .enumerate()
-            .map(|(step, real)| solve_metrics::Row {
-                run_id,
-                step: step as i64,
-                namespace: "original".into(),
-                name: "temperature".into(),
-                kind: if real.is_some() {
-                    NativeMetricKind::Real
-                } else {
-                    NativeMetricKind::Unavailable
-                },
-                real,
-                integer: None,
-                boolean: None,
-                text: None,
-                unavailable: if real.is_none() {
-                    Some(pse_model::generated::enums::EvidenceUnavailableReason::Nonfinite)
-                } else {
-                    None
-                },
-            })
-            .collect::<Vec<_>>();
-        let validation = runtime.validation_context();
-        let mut builder =
-            solve_metrics::Builder::with_registry(runtime.registry(), expected.len(), &validation)
+        private_fixture(false, |store, _science| {
+            Box::pin(async move {
+                let runtime = read_owner(store);
+                let store = runtime.canonical_store().unwrap().clone();
+                let pool = runtime.pool();
+                let source = store
+                    .edit("decoded-owner", None, "source", &[])
+                    .await
+                    .unwrap();
+                store
+                    .begin_run(&RunRequest {
+                        purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                        admission_study: None,
+                        admission_point: None,
+                        key: "decoded-owner".into(),
+                        revision: source,
+                        sources: vec![],
+                        request: vec![1],
+                        source_selection: vec![2],
+                        attestation: vec![3],
+                    })
+                    .await
+                    .unwrap();
+                let fence = store
+                    .claim_run("decoded-owner", "claim", "worker", Duration::from_secs(60))
+                    .await
+                    .unwrap();
+                let run_id = pse_operations::mint_id();
+                let expected = [Some(-0.0), None, Some(273.15)]
+                    .into_iter()
+                    .enumerate()
+                    .map(|(step, real)| solve_metrics::Row {
+                        run_id,
+                        step: step as i64,
+                        namespace: "original".into(),
+                        name: "temperature".into(),
+                        kind: if real.is_some() {
+                            NativeMetricKind::Real
+                        } else {
+                            NativeMetricKind::Unavailable
+                        },
+                        real,
+                        integer: None,
+                        boolean: None,
+                        text: None,
+                        unavailable: if real.is_none() {
+                            Some(pse_model::generated::enums::EvidenceUnavailableReason::Nonfinite)
+                        } else {
+                            None
+                        },
+                    })
+                    .collect::<Vec<_>>();
+                let validation = runtime.validation_context();
+                let mut builder = solve_metrics::Builder::with_registry(
+                    runtime.registry(),
+                    expected.len(),
+                    &validation,
+                )
                 .unwrap();
-        for row in &expected {
-            builder.push(row.clone()).unwrap();
-        }
-        let original = builder.finish().unwrap();
-        super::super::result_projection::store_result_table(
-            &store,
-            &fence,
-            solve_metrics::RELATION_ID,
-            crate::workflow::ResultCursor::from_checked(original.clone()),
-            &pool,
-            &PublicationAcks::new(&pool),
-        )
-        .await
-        .unwrap();
-        drop(original);
-        let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
-        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
-        // SAFETY: independently authored observations assert partial availability only.
-        unsafe {
-            store.seal_attempt(
-                &manifest,
-                "seal",
-                TerminalClass::Partial,
-                &[1],
-                pse_operations::canonical_execution::SeedEligibility::Unavailable,
-            )
-        }
-        .await
-        .unwrap();
-        let baseline = pool.reserved();
-        let mut reader = runtime
-            .results(
-                "decoded-owner",
-                fence.attempt(),
-                "runtime.solve_metrics",
-                0,
-                3,
-                CancellationToken::new(),
-            )
-            .await
-            .unwrap();
-        let query_reader = runtime
-            .results(
-                "decoded-owner",
-                fence.attempt(),
-                "runtime.solve_metrics",
-                0,
-                3,
-                CancellationToken::new(),
-            )
-            .await
-            .unwrap();
-        let snapshot = query_reader.snapshot();
-        drop(query_reader);
-        let state = snapshot.session_state();
-        assert!(
-            state.scalar_functions().contains_key("pse_checked_value"),
-            "query retains registry-bound native functions"
-        );
-        let context = datafusion::execution::context::SessionContext::new_with_state(state);
-        // Model state intentionally creates no default catalog/schema. Bind
-        // this provider directly without mutating the model's shared catalogs.
-        let dataframe = context
-            .read_table(snapshot.table_provider())
-            .unwrap()
-            .filter(datafusion::prelude::col("real").gt(datafusion::prelude::lit(0.0)))
-            .unwrap()
-            .select_columns(&["real", "step"])
-            .unwrap()
-            .sort(vec![datafusion::prelude::col("step").sort(true, false)])
-            .unwrap()
-            .limit(0, Some(1))
-            .unwrap();
-        let plan = dataframe.create_physical_plan().await.unwrap();
-        drop(dataframe); // The unexecuted physical plan now owns this query's snapshot.
-        let task = context.task_ctx();
-        drop(snapshot);
-        drop(context);
-        let cleanup = store.independent_caller().unwrap();
-        runtime.close();
-        let batch = reader.next_batch().await.unwrap().unwrap();
-        {
-            let view = solve_metrics::View::try_from_batch_with_registry(
-                runtime.registry(),
-                &batch,
-                &validation,
-            )
-            .unwrap();
-            assert_eq!(
-                (0..view.len())
-                    .map(|index| view.row(index).unwrap())
-                    .collect::<Vec<_>>(),
-                expected
-            );
-        }
-        let escaped = batch.column_by_name("real").unwrap().clone();
-        assert!(cleanup.forget_run_results("decoded-owner").await.is_err());
-        drop(reader);
-        assert!(
-            cleanup.forget_run_results("decoded-owner").await.is_err(),
-            "unexecuted native plan retains future unread files"
-        );
-        let queried = datafusion::physical_plan::collect(plan.clone(), task)
-            .await
-            .unwrap();
-        assert_eq!(
-            queried.iter().map(|batch| batch.num_rows()).sum::<usize>(),
-            1
-        );
-        let values = queried[0]
-            .column(0)
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-        assert_eq!(values.value(0).to_bits(), 273.15f64.to_bits());
-        drop(queried);
-        drop(plan);
-        drop(batch);
-        assert!(pool.reserved() > baseline);
-        // Fully decoded buffers require no storage access. The reader's final
-        // protection release can settle while these accounted arrays remain live.
-        let mut retired = None;
-        for _ in 0..32 {
-            if let Ok(page) = cleanup.forget_run_results("decoded-owner").await {
-                retired = Some(page);
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-        let retired = retired.expect("final protected-reader release settles");
-        let mut reclaimed = retired.batches;
-        let mut complete = retired.complete;
-        for _ in 0..8 {
-            if complete {
-                break;
-            }
-            let page = cleanup.reclaim_result_page("decoded-owner").await.unwrap();
-            reclaimed += page.batches;
-            if page.complete {
-                complete = true;
-                break;
-            }
-        }
-        assert!(complete);
-        assert_eq!(reclaimed, 1);
-        assert!(
-            runtime
-                .results(
-                    "decoded-owner",
-                    fence.attempt(),
-                    "runtime.solve_metrics",
-                    0,
-                    3,
-                    CancellationToken::new()
+                for row in &expected {
+                    builder.push(row.clone()).unwrap();
+                }
+                let original = builder.finish().unwrap();
+                super::super::result_projection::store_result_table(
+                    &store,
+                    &fence,
+                    solve_metrics::RELATION_ID,
+                    crate::workflow::ResultCursor::from_checked(original.clone()),
+                    &pool,
+                    &PublicationAcks::new(&pool),
                 )
                 .await
-                .is_err()
-        );
-        pse_operations::testing::drain_result_releases(&store)
-            .await
-            .unwrap();
-        drop(cleanup);
-        drop(store);
-        drop(runtime);
-        let values = escaped.as_any().downcast_ref::<Float64Array>().unwrap();
-        assert_eq!(values.value(0).to_bits(), (-0.0f64).to_bits());
-        assert!(values.is_null(1));
-        assert_eq!(values.value(2), 273.15);
-        assert!(pool.reserved() > baseline);
-        drop(escaped);
-        assert_eq!(pool.reserved(), baseline);
-        })).await;
+                .unwrap();
+                drop(original);
+                let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
+                let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+                // SAFETY: independently authored observations assert partial availability only.
+                unsafe {
+                    store.seal_attempt(
+                        &manifest,
+                        "seal",
+                        TerminalClass::Partial,
+                        &[1],
+                        pse_operations::canonical_execution::SeedEligibility::Unavailable,
+                    )
+                }
+                .await
+                .unwrap();
+                let baseline = pool.reserved();
+                let mut reader = runtime
+                    .results(
+                        "decoded-owner",
+                        fence.attempt(),
+                        "runtime.solve_metrics",
+                        0,
+                        3,
+                        CancellationToken::new(),
+                    )
+                    .await
+                    .unwrap();
+                let query_reader = runtime
+                    .results(
+                        "decoded-owner",
+                        fence.attempt(),
+                        "runtime.solve_metrics",
+                        0,
+                        3,
+                        CancellationToken::new(),
+                    )
+                    .await
+                    .unwrap();
+                let snapshot = query_reader.snapshot();
+                drop(query_reader);
+                let state = snapshot.session_state();
+                assert!(
+                    state.scalar_functions().contains_key("pse_checked_value"),
+                    "query retains registry-bound native functions"
+                );
+                let context = datafusion::execution::context::SessionContext::new_with_state(state);
+                // Model state intentionally creates no default catalog/schema. Bind
+                // this provider directly without mutating the model's shared catalogs.
+                let dataframe = context
+                    .read_table(snapshot.table_provider())
+                    .unwrap()
+                    .filter(datafusion::prelude::col("real").gt(datafusion::prelude::lit(0.0)))
+                    .unwrap()
+                    .select_columns(&["real", "step"])
+                    .unwrap()
+                    .sort(vec![datafusion::prelude::col("step").sort(true, false)])
+                    .unwrap()
+                    .limit(0, Some(1))
+                    .unwrap();
+                let plan = dataframe.create_physical_plan().await.unwrap();
+                drop(dataframe); // The unexecuted physical plan now owns this query's snapshot.
+                let task = context.task_ctx();
+                drop(snapshot);
+                drop(context);
+                let cleanup = store.independent_caller().unwrap();
+                runtime.close();
+                let batch = reader.next_batch().await.unwrap().unwrap();
+                {
+                    let view = solve_metrics::View::try_from_batch_with_registry(
+                        runtime.registry(),
+                        &batch,
+                        &validation,
+                    )
+                    .unwrap();
+                    assert_eq!(
+                        (0..view.len())
+                            .map(|index| view.row(index).unwrap())
+                            .collect::<Vec<_>>(),
+                        expected
+                    );
+                }
+                let escaped = batch.column_by_name("real").unwrap().clone();
+                assert!(cleanup.forget_run_results("decoded-owner").await.is_err());
+                drop(reader);
+                assert!(
+                    cleanup.forget_run_results("decoded-owner").await.is_err(),
+                    "unexecuted native plan retains future unread files"
+                );
+                let queried = datafusion::physical_plan::collect(plan.clone(), task)
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    queried.iter().map(|batch| batch.num_rows()).sum::<usize>(),
+                    1
+                );
+                let values = queried[0]
+                    .column(0)
+                    .as_any()
+                    .downcast_ref::<Float64Array>()
+                    .unwrap();
+                assert_eq!(values.value(0).to_bits(), 273.15f64.to_bits());
+                drop(queried);
+                drop(plan);
+                drop(batch);
+                assert!(pool.reserved() > baseline);
+                // Fully decoded buffers require no storage access. The reader's final
+                // protection release can settle while these accounted arrays remain live.
+                let mut retired = None;
+                for _ in 0..32 {
+                    if let Ok(page) = cleanup.forget_run_results("decoded-owner").await {
+                        retired = Some(page);
+                        break;
+                    }
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+                let retired = retired.expect("final protected-reader release settles");
+                let mut reclaimed = retired.batches;
+                let mut complete = retired.complete;
+                for _ in 0..8 {
+                    if complete {
+                        break;
+                    }
+                    let page = cleanup.reclaim_result_page("decoded-owner").await.unwrap();
+                    reclaimed += page.batches;
+                    if page.complete {
+                        complete = true;
+                        break;
+                    }
+                }
+                assert!(complete);
+                assert_eq!(reclaimed, 1);
+                assert!(
+                    runtime
+                        .results(
+                            "decoded-owner",
+                            fence.attempt(),
+                            "runtime.solve_metrics",
+                            0,
+                            3,
+                            CancellationToken::new()
+                        )
+                        .await
+                        .is_err()
+                );
+                pse_operations::testing::drain_result_releases(&store)
+                    .await
+                    .unwrap();
+                drop(cleanup);
+                drop(store);
+                drop(runtime);
+                let values = escaped.as_any().downcast_ref::<Float64Array>().unwrap();
+                assert_eq!(values.value(0).to_bits(), (-0.0f64).to_bits());
+                assert!(values.is_null(1));
+                assert_eq!(values.value(2), 273.15);
+                assert!(pool.reserved() > baseline);
+                drop(escaped);
+                assert_eq!(pool.reserved(), baseline);
+            })
+        })
+        .await;
     }
 
     #[tokio::test]
     async fn canonical_output_indexes_read_original_rows_and_skip_unrelated_blocks() {
-        private_fixture(false, |store, _science| Box::pin(async move {
-        use pse_relations::generated::runtime::{fit_parameters, simulation_samples};
-        let runtime = read_owner(store);
-        let store = runtime.canonical_store().unwrap();
-        let source = store.edit("projection", None, "source", &[]).await.unwrap();
-        store
-            .begin_run(&RunRequest {
-                purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
-                admission_study: None,
-                admission_point: None,
-                key: "projection".into(),
-                revision: source,
-                sources: vec![],
-                request: vec![1],
-                source_selection: vec![2],
-                attestation: vec![3],
-            })
-            .await
-            .unwrap();
-        let fence = store
-            .claim_run("projection", "claim", "worker", Duration::from_secs(60))
-            .await
-            .unwrap();
-        let validation = runtime.validation_context();
-        let first: pse_ids::SemanticId = pse_operations::mint_id();
-        let second: pse_ids::SemanticId = pse_operations::mint_id();
-        let absent: pse_ids::SemanticId = pse_operations::mint_id();
-        let paged: pse_ids::SemanticId = pse_operations::mint_id();
-        let unit: pse_ids::SemanticId = pse_operations::mint_id();
-        let run_id = pse_operations::mint_id();
-        let mut parameters =
-            fit_parameters::Builder::with_registry(runtime.registry(), 800, &validation).unwrap();
-        for index in 0..800 {
-            parameters
-                .push(fit_parameters::Row {
-                    // Distinct full keys deliberately exercise metadata paging
-                    // for one derived owner selector in this storage fixture.
-                    run_id: if index >= 100 {
-                        pse_operations::mint_id()
-                    } else {
-                        run_id
-                    },
-                    parameter_id: if index == 0 {
-                        first
-                    } else if index == 41 {
-                        second
-                    } else if index == 42 {
-                        absent
-                    } else if index >= 100 {
-                        paged
-                    } else {
-                        pse_operations::mint_id()
-                    },
-                    fixed: false,
-                    value: if index == 42 {
-                        None
-                    } else if index == 41 {
-                        Some(-0.0)
-                    } else {
-                        Some(index as f64)
-                    },
-                    unit_id: unit,
-                    scale: 1.0,
-                    at_bound: None,
-                })
-                .unwrap();
-        }
-        let parameters = parameters.finish().unwrap();
-        super::super::result_projection::store_result_table(
-            store,
-            &fence,
-            fit_parameters::RELATION_ID,
-            crate::workflow::ResultCursor::from_checked(parameters.clone()),
-            &runtime.pool(),
-            &PublicationAcks::new(&runtime.pool()),
-        )
-        .await
-        .unwrap();
-        let mut samples =
-            simulation_samples::Builder::with_registry(runtime.registry(), 200, &validation)
-                .unwrap();
-        let mut outputs = [first, second];
-        outputs.sort_unstable();
-        for symbol in outputs {
-            for sample in 0..100 {
-                samples
-                    .push(simulation_samples::Row {
-                        run_id,
-                        sample,
-                        time: sample as f64,
-                        symbol_id: symbol,
-                        quantity_id: unit,
-                        unit_id: unit,
-                        value: if sample == 0 { -0.0 } else { sample as f64 },
+        private_fixture(false, |store, _science| {
+            Box::pin(async move {
+                use pse_relations::generated::runtime::{fit_parameters, simulation_samples};
+                let runtime = read_owner(store);
+                let store = runtime.canonical_store().unwrap();
+                let source = store.edit("projection", None, "source", &[]).await.unwrap();
+                store
+                    .begin_run(&RunRequest {
+                        purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
+                        admission_study: None,
+                        admission_point: None,
+                        key: "projection".into(),
+                        revision: source,
+                        sources: vec![],
+                        request: vec![1],
+                        source_selection: vec![2],
+                        attestation: vec![3],
                     })
+                    .await
                     .unwrap();
-            }
-        }
-        let samples = samples.finish().unwrap();
-        super::super::result_projection::store_result_table(
-            store,
-            &fence,
-            simulation_samples::RELATION_ID,
-            crate::workflow::ResultCursor::from_checked(samples.clone()),
-            &runtime.pool(),
-            &PublicationAcks::new(&runtime.pool()),
-        )
-        .await
-        .unwrap();
-        let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
-        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
-        // SAFETY: fixture observations deliberately assert partial availability, not usable success.
-        unsafe {
-            store.seal_attempt(
-                &manifest,
-                "seal",
-                TerminalClass::Partial,
-                &[1],
-                pse_operations::canonical_execution::SeedEligibility::Unavailable,
-            )
-        }
-        .await
-        .unwrap();
-        let read = store
-            .read_results("projection", fence.attempt())
-            .await
-            .unwrap();
-        let mut missing = runtime
-            .output_results(
-                "projection",
-                fence.attempt(),
-                "runtime.fit_parameters",
-                absent,
-                "value",
-                "0",
-                0,
-                u64::MAX,
-                None,
-                None,
-                Some(true),
-                CancellationToken::new(),
-            )
-            .await
-            .unwrap();
-        let batch = missing.next_batch().await.unwrap().unwrap();
-        assert_eq!(batch.num_rows(), 1);
-        assert!(batch.column_by_name("value").unwrap().is_null(0));
-        assert!(missing.next_batch().await.unwrap().is_none());
-        let mut zero = runtime
-            .output_results(
-                "projection",
-                fence.attempt(),
-                "runtime.fit_parameters",
-                second,
-                "value",
-                "0",
-                0,
-                u64::MAX,
-                Some(0.0),
-                Some(0.0),
-                None,
-                CancellationToken::new(),
-            )
-            .await
-            .unwrap();
-        assert!(
-            zero.reader.snapshot.is_none(),
-            "selected construction never captures full inventory"
-        );
-        let zero_before = zero
-            .selected_snapshot(CancellationToken::new())
-            .await
-            .unwrap();
-        assert_eq!(zero_before.row_count(), 1);
-        let batch = zero.next_batch().await.unwrap().unwrap();
-        assert_eq!(
-            batch
-                .column_by_name("value")
-                .unwrap()
-                .as_any()
-                .downcast_ref::<Float64Array>()
-                .unwrap()
-                .value(0)
-                .to_bits(),
-            (-0.0f64).to_bits()
-        );
-        let zero_partial = zero
-            .selected_snapshot(CancellationToken::new())
-            .await
-            .unwrap();
-        assert_eq!(zero_partial.row_count(), 1);
-        assert!(zero.next_batch().await.unwrap().is_none());
-        let zero_after = zero
-            .selected_snapshot(CancellationToken::new())
-            .await
-            .unwrap();
-        assert_eq!(
-            zero_after.row_count(),
-            1,
-            "snapshot is the original universe, never the unread tail"
-        );
-        let context = datafusion::execution::context::SessionContext::new_with_state(
-            zero_after.session_state(),
-        );
-        let outside = context
-            .read_table(zero_after.table_provider())
-            .unwrap()
-            .filter(datafusion::prelude::col("value").gt(datafusion::prelude::lit(0.0)))
-            .unwrap()
-            .select_columns(&["value"])
-            .unwrap()
-            .limit(0, Some(1))
-            .unwrap()
-            .collect()
-            .await
-            .unwrap();
-        assert_eq!(
-            outside.iter().map(|batch| batch.num_rows()).sum::<usize>(),
-            0
-        );
-        let zero_rows = context
-            .read_table(zero_after.table_provider())
-            .unwrap()
-            .filter(datafusion::prelude::col("value").eq(datafusion::prelude::lit(0.0)))
-            .unwrap()
-            .select_columns(&["value"])
-            .unwrap()
-            .limit(0, Some(1))
-            .unwrap()
-            .collect()
-            .await
-            .unwrap();
-        assert_eq!(
-            zero_rows
-                .iter()
-                .map(|batch| batch.num_rows())
-                .sum::<usize>(),
-            1
-        );
-        let values = zero_rows
-            .iter()
-            .find(|b| b.num_rows() > 0)
-            .unwrap()
-            .column(0)
-            .as_any()
-            .downcast_ref::<Float64Array>()
-            .unwrap();
-        assert_eq!(values.value(0).to_bits(), (-0.0f64).to_bits());
-        drop((
-            zero_before,
-            zero_partial,
-            zero_after,
-            context,
-            outside,
-            zero_rows,
-        ));
-        let mut late = runtime
-            .output_results(
-                "projection",
-                fence.attempt(),
-                "runtime.fit_parameters",
-                paged,
-                "value",
-                "0",
-                0,
-                u64::MAX,
-                Some(798.0),
-                None,
-                None,
-                CancellationToken::new(),
-            )
-            .await
-            .unwrap();
-        let mut selected_values = Vec::new();
-        while let Some(batch) = late.next_batch().await.unwrap() {
-            let values = batch
-                .column_by_name("value")
-                .unwrap()
-                .as_any()
-                .downcast_ref::<Float64Array>()
+                let fence = store
+                    .claim_run("projection", "claim", "worker", Duration::from_secs(60))
+                    .await
+                    .unwrap();
+                let validation = runtime.validation_context();
+                let first: pse_ids::SemanticId = pse_operations::mint_id();
+                let second: pse_ids::SemanticId = pse_operations::mint_id();
+                let absent: pse_ids::SemanticId = pse_operations::mint_id();
+                let paged: pse_ids::SemanticId = pse_operations::mint_id();
+                let unit: pse_ids::SemanticId = pse_operations::mint_id();
+                let run_id = pse_operations::mint_id();
+                let mut parameters =
+                    fit_parameters::Builder::with_registry(runtime.registry(), 800, &validation)
+                        .unwrap();
+                for index in 0..800 {
+                    parameters
+                        .push(fit_parameters::Row {
+                            // Distinct full keys deliberately exercise metadata paging
+                            // for one derived owner selector in this storage fixture.
+                            run_id: if index >= 100 {
+                                pse_operations::mint_id()
+                            } else {
+                                run_id
+                            },
+                            parameter_id: if index == 0 {
+                                first
+                            } else if index == 41 {
+                                second
+                            } else if index == 42 {
+                                absent
+                            } else if index >= 100 {
+                                paged
+                            } else {
+                                pse_operations::mint_id()
+                            },
+                            fixed: false,
+                            value: if index == 42 {
+                                None
+                            } else if index == 41 {
+                                Some(-0.0)
+                            } else {
+                                Some(index as f64)
+                            },
+                            unit_id: unit,
+                            scale: 1.0,
+                            at_bound: None,
+                        })
+                        .unwrap();
+                }
+                let parameters = parameters.finish().unwrap();
+                super::super::result_projection::store_result_table(
+                    store,
+                    &fence,
+                    fit_parameters::RELATION_ID,
+                    crate::workflow::ResultCursor::from_checked(parameters.clone()),
+                    &runtime.pool(),
+                    &PublicationAcks::new(&runtime.pool()),
+                )
+                .await
                 .unwrap();
-            selected_values.extend(values.values().iter().copied());
-        }
-        assert_eq!(
-            selected_values,
-            vec![798.0, 799.0],
-            "cursor advances across metadata pages whose decoded predicate selects no rows"
-        );
-        let mut none = runtime
-            .output_results(
-                "projection",
-                fence.attempt(),
-                "runtime.fit_parameters",
-                paged,
-                "value",
-                "0",
-                0,
-                u64::MAX,
-                Some(900.0),
-                None,
-                None,
-                CancellationToken::new(),
-            )
-            .await
-            .unwrap();
-        assert!(none.next_batch().await.unwrap().is_none());
-        let empty = none
-            .selected_snapshot(CancellationToken::new())
-            .await
-            .unwrap();
-        assert_eq!(empty.row_count(), 0);
-        assert_eq!(empty.schema(), none.schema());
-        drop(empty);
-        assert!(
-            runtime
-                .output_results(
-                    "projection",
+                let mut samples = simulation_samples::Builder::with_registry(
+                    runtime.registry(),
+                    200,
+                    &validation,
+                )
+                .unwrap();
+                let mut outputs = [first, second];
+                outputs.sort_unstable();
+                for symbol in outputs {
+                    for sample in 0..100 {
+                        samples
+                            .push(simulation_samples::Row {
+                                run_id,
+                                sample,
+                                time: sample as f64,
+                                symbol_id: symbol,
+                                quantity_id: unit,
+                                unit_id: unit,
+                                value: if sample == 0 { -0.0 } else { sample as f64 },
+                            })
+                            .unwrap();
+                    }
+                }
+                let samples = samples.finish().unwrap();
+                super::super::result_projection::store_result_table(
+                    store,
+                    &fence,
+                    simulation_samples::RELATION_ID,
+                    crate::workflow::ResultCursor::from_checked(samples.clone()),
+                    &runtime.pool(),
+                    &PublicationAcks::new(&runtime.pool()),
+                )
+                .await
+                .unwrap();
+                let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
+                let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+                // SAFETY: fixture observations deliberately assert partial availability, not usable success.
+                unsafe {
+                    store.seal_attempt(
+                        &manifest,
+                        "seal",
+                        TerminalClass::Partial,
+                        &[1],
+                        pse_operations::canonical_execution::SeedEligibility::Unavailable,
+                    )
+                }
+                .await
+                .unwrap();
+                let read = store
+                    .read_results("projection", fence.attempt())
+                    .await
+                    .unwrap();
+                let mut missing = runtime
+                    .output_results(
+                        "projection",
+                        fence.attempt(),
+                        "runtime.fit_parameters",
+                        absent,
+                        "value",
+                        "0",
+                        0,
+                        u64::MAX,
+                        None,
+                        None,
+                        Some(true),
+                        CancellationToken::new(),
+                    )
+                    .await
+                    .unwrap();
+                let batch = missing.next_batch().await.unwrap().unwrap();
+                assert_eq!(batch.num_rows(), 1);
+                assert!(batch.column_by_name("value").unwrap().is_null(0));
+                assert!(missing.next_batch().await.unwrap().is_none());
+                let mut zero = runtime
+                    .output_results(
+                        "projection",
+                        fence.attempt(),
+                        "runtime.fit_parameters",
+                        second,
+                        "value",
+                        "0",
+                        0,
+                        u64::MAX,
+                        Some(0.0),
+                        Some(0.0),
+                        None,
+                        CancellationToken::new(),
+                    )
+                    .await
+                    .unwrap();
+                assert!(
+                    zero.reader.snapshot.is_none(),
+                    "selected construction never captures full inventory"
+                );
+                let zero_before = zero
+                    .selected_snapshot(CancellationToken::new())
+                    .await
+                    .unwrap();
+                assert_eq!(zero_before.row_count(), 1);
+                let batch = zero.next_batch().await.unwrap().unwrap();
+                assert_eq!(
+                    batch
+                        .column_by_name("value")
+                        .unwrap()
+                        .as_any()
+                        .downcast_ref::<Float64Array>()
+                        .unwrap()
+                        .value(0)
+                        .to_bits(),
+                    (-0.0f64).to_bits()
+                );
+                let zero_partial = zero
+                    .selected_snapshot(CancellationToken::new())
+                    .await
+                    .unwrap();
+                assert_eq!(zero_partial.row_count(), 1);
+                assert!(zero.next_batch().await.unwrap().is_none());
+                let zero_after = zero
+                    .selected_snapshot(CancellationToken::new())
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    zero_after.row_count(),
+                    1,
+                    "snapshot is the original universe, never the unread tail"
+                );
+                let context = datafusion::execution::context::SessionContext::new_with_state(
+                    zero_after.session_state(),
+                );
+                let outside = context
+                    .read_table(zero_after.table_provider())
+                    .unwrap()
+                    .filter(datafusion::prelude::col("value").gt(datafusion::prelude::lit(0.0)))
+                    .unwrap()
+                    .select_columns(&["value"])
+                    .unwrap()
+                    .limit(0, Some(1))
+                    .unwrap()
+                    .collect()
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    outside.iter().map(|batch| batch.num_rows()).sum::<usize>(),
+                    0
+                );
+                let zero_rows = context
+                    .read_table(zero_after.table_provider())
+                    .unwrap()
+                    .filter(datafusion::prelude::col("value").eq(datafusion::prelude::lit(0.0)))
+                    .unwrap()
+                    .select_columns(&["value"])
+                    .unwrap()
+                    .limit(0, Some(1))
+                    .unwrap()
+                    .collect()
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    zero_rows
+                        .iter()
+                        .map(|batch| batch.num_rows())
+                        .sum::<usize>(),
+                    1
+                );
+                let values = zero_rows
+                    .iter()
+                    .find(|b| b.num_rows() > 0)
+                    .unwrap()
+                    .column(0)
+                    .as_any()
+                    .downcast_ref::<Float64Array>()
+                    .unwrap();
+                assert_eq!(values.value(0).to_bits(), (-0.0f64).to_bits());
+                drop((
+                    zero_before,
+                    zero_partial,
+                    zero_after,
+                    context,
+                    outside,
+                    zero_rows,
+                ));
+                let mut late = runtime
+                    .output_results(
+                        "projection",
+                        fence.attempt(),
+                        "runtime.fit_parameters",
+                        paged,
+                        "value",
+                        "0",
+                        0,
+                        u64::MAX,
+                        Some(798.0),
+                        None,
+                        None,
+                        CancellationToken::new(),
+                    )
+                    .await
+                    .unwrap();
+                let mut selected_values = Vec::new();
+                while let Some(batch) = late.next_batch().await.unwrap() {
+                    let values = batch
+                        .column_by_name("value")
+                        .unwrap()
+                        .as_any()
+                        .downcast_ref::<Float64Array>()
+                        .unwrap();
+                    selected_values.extend(values.values().iter().copied());
+                }
+                assert_eq!(
+                    selected_values,
+                    vec![798.0, 799.0],
+                    "cursor advances across metadata pages whose decoded predicate selects no rows"
+                );
+                let mut none = runtime
+                    .output_results(
+                        "projection",
+                        fence.attempt(),
+                        "runtime.fit_parameters",
+                        paged,
+                        "value",
+                        "0",
+                        0,
+                        u64::MAX,
+                        Some(900.0),
+                        None,
+                        None,
+                        CancellationToken::new(),
+                    )
+                    .await
+                    .unwrap();
+                assert!(none.next_batch().await.unwrap().is_none());
+                let empty = none
+                    .selected_snapshot(CancellationToken::new())
+                    .await
+                    .unwrap();
+                assert_eq!(empty.row_count(), 0);
+                assert_eq!(empty.schema(), none.schema());
+                drop(empty);
+                assert!(
+                    runtime
+                        .output_results(
+                            "projection",
+                            fence.attempt(),
+                            "runtime.fit_parameters",
+                            paged,
+                            "fixed",
+                            "0",
+                            0,
+                            u64::MAX,
+                            None,
+                            None,
+                            None,
+                            CancellationToken::new(),
+                        )
+                        .await
+                        .is_err()
+                );
+                let trajectory_set = result_set_key(
                     fence.attempt(),
-                    "runtime.fit_parameters",
-                    paged,
-                    "fixed",
-                    "0",
-                    0,
-                    u64::MAX,
-                    None,
-                    None,
-                    None,
+                    &simulation_samples::RELATION_ID.to_string(),
+                );
+                let page = store
+                    .result_output_page(
+                        &read,
+                        &trajectory_set,
+                        &format!("{}:{second}:value", simulation_samples::RELATION_ID),
+                        "0",
+                        0,
+                        u64::MAX,
+                        None,
+                        Some(20.0),
+                        Some(22.0),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(page.outputs.len(), 1);
+                assert_eq!(page.blocks.len(), 1);
+                assert_eq!(
+                    read.sets()
+                        .iter()
+                        .find(|descriptor| descriptor.key == trajectory_set)
+                        .unwrap()
+                        .batch_count,
+                    1,
+                    "two exact symbol ranges share one original IPC payload"
+                );
+                let mut trajectory = runtime
+                    .output_results(
+                        "projection",
+                        fence.attempt(),
+                        "runtime.simulation_samples",
+                        second,
+                        "value",
+                        "0",
+                        0,
+                        u64::MAX,
+                        Some(20.0),
+                        Some(22.0),
+                        None,
+                        CancellationToken::new(),
+                    )
+                    .await
+                    .unwrap();
+                let selected_trajectory = trajectory
+                    .selected_snapshot(CancellationToken::new())
+                    .await
+                    .unwrap();
+                assert_eq!(selected_trajectory.row_count(), 3);
+                let context = datafusion::execution::context::SessionContext::new_with_state(
+                    selected_trajectory.session_state(),
+                );
+                let outside = context
+                    .read_table(selected_trajectory.table_provider())
+                    .unwrap()
+                    .filter(datafusion::prelude::col("time").lt(datafusion::prelude::lit(20.0)))
+                    .unwrap()
+                    .select_columns(&["time"])
+                    .unwrap()
+                    .limit(0, Some(1))
+                    .unwrap()
+                    .collect()
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    outside.iter().map(|batch| batch.num_rows()).sum::<usize>(),
+                    0
+                );
+                drop((selected_trajectory, context, outside));
+                let batch = trajectory.next_batch().await.unwrap().unwrap();
+                assert_eq!(batch.num_rows(), 3);
+                let view = simulation_samples::View::try_from_batch_with_registry(
+                    runtime.registry(),
+                    &batch,
+                    &validation,
+                )
+                .unwrap();
+                for index in 0..3 {
+                    let row = view.row(index).unwrap();
+                    assert_eq!(row.symbol_id, second);
+                    assert_eq!(row.unit_id, unit);
+                    assert_eq!(row.sample, 20 + index as i64);
+                    assert_eq!(row.time, (20 + index) as f64);
+                }
+                assert!(trajectory.next_batch().await.unwrap().is_none());
+                // A selected field/time predicate reaches the same portable exporter,
+                // retaining only its original matching rows and full typed schema.
+                let selected_reader = runtime
+                    .output_results(
+                        "projection",
+                        fence.attempt(),
+                        "runtime.simulation_samples",
+                        second,
+                        "value",
+                        "0",
+                        0,
+                        u64::MAX,
+                        Some(20.0),
+                        Some(22.0),
+                        None,
+                        CancellationToken::new(),
+                    )
+                    .await
+                    .unwrap();
+                let selected_borrower = Arc::downgrade(&selected_reader.reader.read);
+                let selected_coordinates = selected_reader
+                    .pack_selection(PackScientificState::Partial)
+                    .unwrap();
+                assert_eq!(selected_coordinates.field.as_deref(), Some("value"));
+                assert_eq!(
+                    selected_coordinates
+                        .predicate
+                        .as_ref()
+                        .unwrap()
+                        .minimum_bits,
+                    Some(20.0_f64.to_bits())
+                );
+                let mut pack_selection = crate::tooling::review_pack::PackSelection::default();
+                pack_selection
+                    .members
+                    .push(crate::tooling::review_pack::PackMemberSelection {
+                        id: "selected".into(),
+                        role: crate::tooling::review_pack::PackMemberRole::Result,
+                        required: true,
+                        format: crate::tooling::review_pack::PackFormat::ArrowIpcStream,
+                        document_version: None,
+                        source: None,
+                        references: vec![],
+                        result: Some(selected_coordinates),
+                        diagnostic_table: None,
+                        capture_scope: None,
+                    });
+                let pack_directory = tempfile::tempdir().unwrap();
+                let pack_path = pack_directory.path().join("selected-pack");
+                let mut pack = crate::tooling::review_pack::PackSession::create(
+                    &pack_path,
+                    pack_selection,
+                    CancellationToken::new(),
+                )
+                .unwrap();
+                let evidence = crate::tooling::frozen_inspection::FrozenEvidenceSet::default();
+                let analysis_pool: Arc<dyn MemoryPool> =
+                    Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20));
+                let analysis = crate::tooling::review_analysis::analyze(
+                    &evidence,
+                    &crate::tooling::review_analysis::AnalysisRequest::new(
+                        pse_diagnostics::observation::OperationId {
+                            process_instance: [1, 2],
+                            sequence: 3,
+                        },
+                    ),
+                    &analysis_pool,
+                    &CancellationToken::new(),
+                )
+                .unwrap();
+                // The public composition shares one result-owner path for multiple selected fields.
+                let composed_path = pack_directory.path().join("composed-pack");
+                let make_selection = |member: &str, minimum: f64, maximum: f64| {
+                    super::super::ReviewScientificSelection {
+                        member: member.into(),
+                        run: "projection".into(),
+                        attempt: fence.attempt().into(),
+                        relation: "runtime.simulation_samples".into(),
+                        row_start: 0,
+                        row_end: u64::MAX,
+                        output: Some(super::super::ReviewOutputSelection {
+                            owner: second,
+                            field: "value".into(),
+                            partition: "0".into(),
+                            minimum_bits: Some(minimum.to_bits()),
+                            maximum_bits: Some(maximum.to_bits()),
+                            missing: None,
+                        }),
+                    }
+                };
+                let request = crate::tooling::review_pack::PackExportRequest {
+                    scientific_results: vec![
+                        make_selection("early", 20.0, 21.0),
+                        make_selection("late", 22.0, 22.0),
+                    ],
+                    ..Default::default()
+                };
+                let composed = crate::tooling::review_export::export_review_pack(
+                    &runtime.0,
+                    &composed_path,
+                    &evidence,
+                    &analysis,
+                    request,
                     CancellationToken::new(),
                 )
                 .await
-                .is_err()
-        );
-        let trajectory_set = result_set_key(
-            fence.attempt(),
-            &simulation_samples::RELATION_ID.to_string(),
-        );
-        let page = store
-            .result_output_page(
-                &read,
-                &trajectory_set,
-                &format!("{}:{second}:value", simulation_samples::RELATION_ID),
-                "0",
-                0,
-                u64::MAX,
-                None,
-                Some(20.0),
-                Some(22.0),
-            )
-            .await
-            .unwrap();
-        assert_eq!(page.outputs.len(), 1);
-        assert_eq!(page.blocks.len(), 1);
-        assert_eq!(
-            read.sets()
-                .iter()
-                .find(|descriptor| descriptor.key == trajectory_set)
-                .unwrap()
-                .batch_count,
-            1,
-            "two exact symbol ranges share one original IPC payload"
-        );
-        let mut trajectory = runtime
-            .output_results(
-                "projection",
-                fence.attempt(),
-                "runtime.simulation_samples",
-                second,
-                "value",
-                "0",
-                0,
-                u64::MAX,
-                Some(20.0),
-                Some(22.0),
-                None,
-                CancellationToken::new(),
-            )
-            .await
-            .unwrap();
-        let selected_trajectory = trajectory
-            .selected_snapshot(CancellationToken::new())
-            .await
-            .unwrap();
-        assert_eq!(selected_trajectory.row_count(), 3);
-        let context = datafusion::execution::context::SessionContext::new_with_state(
-            selected_trajectory.session_state(),
-        );
-        let outside = context
-            .read_table(selected_trajectory.table_provider())
-            .unwrap()
-            .filter(datafusion::prelude::col("time").lt(datafusion::prelude::lit(20.0)))
-            .unwrap()
-            .select_columns(&["time"])
-            .unwrap()
-            .limit(0, Some(1))
-            .unwrap()
-            .collect()
-            .await
-            .unwrap();
-        assert_eq!(
-            outside.iter().map(|batch| batch.num_rows()).sum::<usize>(),
-            0
-        );
-        drop((selected_trajectory, context, outside));
-        let batch = trajectory.next_batch().await.unwrap().unwrap();
-        assert_eq!(batch.num_rows(), 3);
-        let view = simulation_samples::View::try_from_batch_with_registry(
-            runtime.registry(),
-            &batch,
-            &validation,
-        )
-        .unwrap();
-        for index in 0..3 {
-            let row = view.row(index).unwrap();
-            assert_eq!(row.symbol_id, second);
-            assert_eq!(row.unit_id, unit);
-            assert_eq!(row.sample, 20 + index as i64);
-            assert_eq!(row.time, (20 + index) as f64);
-        }
-        assert!(trajectory.next_batch().await.unwrap().is_none());
-        // A selected field/time predicate reaches the same portable exporter,
-        // retaining only its original matching rows and full typed schema.
-        let selected_reader = runtime
-            .output_results(
-                "projection",
-                fence.attempt(),
-                "runtime.simulation_samples",
-                second,
-                "value",
-                "0",
-                0,
-                u64::MAX,
-                Some(20.0),
-                Some(22.0),
-                None,
-                CancellationToken::new(),
-            )
-            .await
-            .unwrap();
-        let selected_borrower = Arc::downgrade(&selected_reader.reader.read);
-        let selected_coordinates = selected_reader
-            .pack_selection(PackScientificState::Partial)
-            .unwrap();
-        assert_eq!(selected_coordinates.field.as_deref(), Some("value"));
-        assert_eq!(
-            selected_coordinates
-                .predicate
-                .as_ref()
-                .unwrap()
-                .minimum_bits,
-            Some(20.0_f64.to_bits())
-        );
-        let mut pack_selection = crate::tooling::review_pack::PackSelection::default();
-        pack_selection
-            .members
-            .push(crate::tooling::review_pack::PackMemberSelection {
-                id: "selected".into(),
-                role: crate::tooling::review_pack::PackMemberRole::Result,
-                required: true,
-                format: crate::tooling::review_pack::PackFormat::ArrowIpcStream,
-                document_version: None,
-                source: None,
-                references: vec![],
-                result: Some(selected_coordinates),
-                diagnostic_table: None,
-                capture_scope: None,
-            });
-        let pack_directory = tempfile::tempdir().unwrap();
-        let pack_path = pack_directory.path().join("selected-pack");
-        let mut pack = crate::tooling::review_pack::PackSession::create(
-            &pack_path,
-            pack_selection,
-            CancellationToken::new(),
-        )
-        .unwrap();
-        let evidence = crate::tooling::frozen_inspection::FrozenEvidenceSet::default();
-        let analysis_pool: Arc<dyn MemoryPool> =
-            Arc::new(pse_columnar::GreedyMemoryPool::new(128 << 20));
-        let analysis = crate::tooling::review_analysis::analyze(
-            &evidence,
-            &crate::tooling::review_analysis::AnalysisRequest::new(
-                pse_diagnostics::observation::OperationId {
-                    process_instance: [1, 2],
-                    sequence: 3,
-                },
-            ),
-            &analysis_pool,
-            &CancellationToken::new(),
-        )
-        .unwrap();
-        // The public composition shares one result-owner path for multiple selected fields.
-        let composed_path = pack_directory.path().join("composed-pack");
-        let make_selection =
-            |member: &str, minimum: f64, maximum: f64| super::super::ReviewScientificSelection {
-                member: member.into(),
-                run: "projection".into(),
-                attempt: fence.attempt().into(),
-                relation: "runtime.simulation_samples".into(),
-                row_start: 0,
-                row_end: u64::MAX,
-                output: Some(super::super::ReviewOutputSelection {
-                    owner: second,
-                    field: "value".into(),
-                    partition: "0".into(),
-                    minimum_bits: Some(minimum.to_bits()),
-                    maximum_bits: Some(maximum.to_bits()),
-                    missing: None,
-                }),
-            };
-        let request = crate::tooling::review_pack::PackExportRequest {
-            scientific_results: vec![
-                make_selection("early", 20.0, 21.0),
-                make_selection("late", 22.0, 22.0),
-            ],
-            ..Default::default()
-        };
-        let composed = crate::tooling::review_export::export_review_pack(
-            &runtime.0,
-            &composed_path,
-            &evidence,
-            &analysis,
-            request,
-            CancellationToken::new(),
-        )
-        .await
-        .unwrap();
-        assert_eq!(
-            composed.publication,
-            crate::tooling::review_pack::PackPublication::Sealed
-        );
-        let portable =
-            crate::tooling::review_pack::PackReader::open(&composed_path, 8 << 20).unwrap();
-        for (member, expected) in [("early", 2), ("late", 1)] {
-            let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
-                portable.open_member(member).unwrap(),
-                None,
-            )
-            .unwrap();
-            assert_eq!(
-                stream.map(|batch| batch.unwrap().num_rows()).sum::<usize>(),
-                expected
-            );
-            let declared = composed
-                .members
-                .iter()
-                .find(|item| item.selection.id == member)
-                .unwrap()
-                .selection
-                .result
-                .as_ref()
                 .unwrap();
-            assert_eq!(declared.attempt, fence.attempt());
-            assert_eq!(declared.usability, PackScientificState::Unknown);
-        }
-        pack.add_frozen(&evidence).unwrap();
-        pack.add_analysis(&analysis).unwrap();
-        pack.export_selected_result("selected", selected_reader)
-            .await
-            .unwrap();
-        assert!(selected_borrower.upgrade().is_none());
-        // Other original fixture selections remain independent live borrowers.
-        assert!(read.sets().iter().any(|set| set.row_count > 0));
-        pack.seal().unwrap();
-        let portable = crate::tooling::review_pack::PackReader::open(&pack_path, 1 << 20).unwrap();
-        let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
-            portable.open_member("selected").unwrap(),
-            None,
-        )
-        .unwrap();
-        let mut times = Vec::new();
-        for batch in stream {
-            let batch = batch.unwrap();
-            let time = batch
-                .column_by_name("time")
-                .unwrap()
-                .as_any()
-                .downcast_ref::<Float64Array>()
+                assert_eq!(
+                    composed.publication,
+                    crate::tooling::review_pack::PackPublication::Sealed
+                );
+                let portable =
+                    crate::tooling::review_pack::PackReader::open(&composed_path, 8 << 20).unwrap();
+                for (member, expected) in [("early", 2), ("late", 1)] {
+                    let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
+                        portable.open_member(member).unwrap(),
+                        None,
+                    )
+                    .unwrap();
+                    assert_eq!(
+                        stream.map(|batch| batch.unwrap().num_rows()).sum::<usize>(),
+                        expected
+                    );
+                    let declared = composed
+                        .members
+                        .iter()
+                        .find(|item| item.selection.id == member)
+                        .unwrap()
+                        .selection
+                        .result
+                        .as_ref()
+                        .unwrap();
+                    assert_eq!(declared.attempt, fence.attempt());
+                    assert_eq!(declared.usability, PackScientificState::Unknown);
+                }
+                pack.add_frozen(&evidence).unwrap();
+                pack.add_analysis(&analysis).unwrap();
+                pack.export_selected_result("selected", selected_reader)
+                    .await
+                    .unwrap();
+                assert!(selected_borrower.upgrade().is_none());
+                // Other original fixture selections remain independent live borrowers.
+                assert!(read.sets().iter().any(|set| set.row_count > 0));
+                pack.seal().unwrap();
+                let portable =
+                    crate::tooling::review_pack::PackReader::open(&pack_path, 1 << 20).unwrap();
+                let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
+                    portable.open_member("selected").unwrap(),
+                    None,
+                )
                 .unwrap();
-            for i in 0..batch.num_rows() {
-                times.push(time.value(i));
-            }
-            // Portable streams retain canonical transport metadata in addition
-            // to the original relation fields. Inspect those fields directly.
-            assert_eq!(
-                batch
-                    .schema()
-                    .metadata()
-                    .get("pse.canonical.field")
-                    .map(String::as_str),
-                Some("value")
-            );
-            let symbols = batch
-                .column_by_name("symbol_id")
-                .unwrap()
-                .as_any()
-                .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
-                .unwrap();
-            for i in 0..batch.num_rows() {
-                assert_eq!(symbols.value(i), second.as_bytes());
-            }
-        }
-        assert_eq!(times, vec![20.0, 21.0, 22.0]);
-        drop(trajectory);
-        drop(zero);
-        drop(missing);
-        drop(late);
-        drop(none);
-        drop(read);
-        pse_operations::testing::drain_result_releases(store)
-            .await
-            .unwrap();
-        })).await;
+                let mut times = Vec::new();
+                for batch in stream {
+                    let batch = batch.unwrap();
+                    let time = batch
+                        .column_by_name("time")
+                        .unwrap()
+                        .as_any()
+                        .downcast_ref::<Float64Array>()
+                        .unwrap();
+                    for i in 0..batch.num_rows() {
+                        times.push(time.value(i));
+                    }
+                    // Portable streams retain canonical transport metadata in addition
+                    // to the original relation fields. Inspect those fields directly.
+                    assert_eq!(
+                        batch
+                            .schema()
+                            .metadata()
+                            .get("pse.canonical.field")
+                            .map(String::as_str),
+                        Some("value")
+                    );
+                    let symbols = batch
+                        .column_by_name("symbol_id")
+                        .unwrap()
+                        .as_any()
+                        .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
+                        .unwrap();
+                    for i in 0..batch.num_rows() {
+                        assert_eq!(symbols.value(i), second.as_bytes());
+                    }
+                }
+                assert_eq!(times, vec![20.0, 21.0, 22.0]);
+                drop(trajectory);
+                drop(zero);
+                drop(missing);
+                drop(late);
+                drop(none);
+                drop(read);
+                pse_operations::testing::drain_result_releases(store)
+                    .await
+                    .unwrap();
+            })
+        })
+        .await;
     }
 
     #[tokio::test]
@@ -4465,7 +4579,6 @@ mod canonical_connected_results_server_unit {
             .unwrap();
         })).await;
     }
-
 }
 
 #[cfg(test)]

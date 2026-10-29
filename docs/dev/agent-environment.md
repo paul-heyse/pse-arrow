@@ -157,6 +157,12 @@ The pinned cargo-hack owns powerset enumeration, ordering and keep-going. Existi
 `CARGO_HACK_CARGO_SRC`; it qualifies bare package features from Cargo metadata and preserves
 actual target/host graph validation. Diagnostic taskdump builds select their explicit isolated
 profile and `tokio_unstable` configuration; ordinary builds retain their original flags.
+The diagnostic check is limited to this native Linux x86_64 checkout and target. Cargo's
+matching target flags carry the cfg into dependency resolution as well as compilation;
+profile-only flags cannot do that. A present encoded/raw global flag channel is extended
+literally at its existing precedence, including an explicitly empty value. Foreign workspace
+or target selections refuse before diagnostic compilation. This does not reconstruct arbitrary
+external build-only flag configurations.
 
 ## Builds in one checkout
 

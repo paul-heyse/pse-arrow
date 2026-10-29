@@ -6337,7 +6337,6 @@ dependencies = [
  "arrow-ipc",
  "arrow-schema",
  "hex",
- "petgraph",
  "prettyplease 0.3.0",
  "proc-macro2",
  "pse-columnar",

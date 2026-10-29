@@ -5,8 +5,8 @@
 pub mod adr;
 pub mod headings;
 pub mod lifecycle;
-pub mod site;
 pub mod metadata;
-pub mod register;
 #[cfg(test)]
 mod metadata_tests;
+pub mod register;
+pub mod site;

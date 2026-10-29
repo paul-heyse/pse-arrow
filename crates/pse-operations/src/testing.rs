@@ -113,7 +113,9 @@ pub(crate) struct SettlementDeadline {
     pub(crate) local: tokio::time::Instant,
 }
 impl SettlementDeadline {
-    fn new(local: tokio::time::Instant) -> Self { Self { local } }
+    fn new(local: tokio::time::Instant) -> Self {
+        Self { local }
+    }
 }
 
 /// Collect every independent result. A failed or stalled sibling never cancels
@@ -263,14 +265,34 @@ impl FixtureLifetime {
         deadline: SettlementDeadline,
     ) -> Result<(), crate::canonical::CanonicalError> {
         let (current, peers) = tokio::join!(
-            async { match current { Some(store) => crate::canonical::transport::within_clock(deadline.local, store.drain_fixture_connection()).await, None => Ok(()) } },
+            async {
+                match current {
+                    Some(store) => {
+                        crate::canonical::transport::within_clock(
+                            deadline.local,
+                            store.drain_fixture_connection(),
+                        )
+                        .await
+                    }
+                    None => Ok(()),
+                }
+            },
             self.drain_connections(deadline),
         );
         let mut errors = Vec::new();
-        if let Err(error) = current { errors.push(format!("current fixture: {error}")); }
-        if let Err(error) = peers { errors.push(format!("retained fixture owners: {error}")); }
-        if !errors.is_empty() { return Err(crate::canonical::CanonicalError::Configuration(errors.join("; "))); }
-        self.drained.store(true, std::sync::atomic::Ordering::Release);
+        if let Err(error) = current {
+            errors.push(format!("current fixture: {error}"));
+        }
+        if let Err(error) = peers {
+            errors.push(format!("retained fixture owners: {error}"));
+        }
+        if !errors.is_empty() {
+            return Err(crate::canonical::CanonicalError::Configuration(
+                errors.join("; "),
+            ));
+        }
+        self.drained
+            .store(true, std::sync::atomic::Ordering::Release);
         Ok(())
     }
     pub(crate) fn retain_peer(
@@ -351,19 +373,48 @@ pub fn canonical_fixture_with_options(
     selection.validate_options(options)?;
     if std::env::var_os("PSE_TEST_EXECUTION_PROFILE").is_some() {
         return Err(crate::canonical::CanonicalError::Configuration(
-            "ambient execution profiles are retired; construct an explicit native worker owner".into(),
+            "ambient execution profiles are retired; construct an explicit native worker owner"
+                .into(),
         ));
     }
     static EXECUTOR: OnceLock<Result<tokio::runtime::Runtime, std::io::Error>> = OnceLock::new();
-    let executor = EXECUTOR.get_or_init(|| tokio::runtime::Builder::new_multi_thread().enable_all().build())
-        .as_ref().map_err(|error| crate::canonical::CanonicalError::Configuration(format!("fixture executor: {error}")))?;
-    let mut selected = crate::canonical::CanonicalOptions::from_state_for_database(options.state_path(), Some(&options.database))?;
+    let executor = EXECUTOR
+        .get_or_init(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+        })
+        .as_ref()
+        .map_err(|error| {
+            crate::canonical::CanonicalError::Configuration(format!("fixture executor: {error}"))
+        })?;
+    let mut selected = crate::canonical::CanonicalOptions::from_state_for_database(
+        options.state_path(),
+        Some(&options.database),
+    )?;
     selected.endpoint = options.endpoint.clone();
-    let store = std::thread::scope(|scope| scope.spawn(||executor.block_on(crate::canonical::CanonicalStore::connect(&selected))).join()
-        .map_err(|_|crate::canonical::CanonicalError::Configuration("canonical fixture executor panicked".into()))?)?.own_fixture(executor);
+    let store = std::thread::scope(|scope| {
+        scope
+            .spawn(|| executor.block_on(crate::canonical::CanonicalStore::connect(&selected)))
+            .join()
+            .map_err(|_| {
+                crate::canonical::CanonicalError::Configuration(
+                    "canonical fixture executor panicked".into(),
+                )
+            })?
+    })?
+    .own_fixture(executor);
     if initialize {
-        std::thread::scope(|scope|scope.spawn(||executor.block_on(store.create())).join()
-            .map_err(|_|crate::canonical::CanonicalError::Configuration("canonical fixture initialization executor panicked".into()))?)?;
+        std::thread::scope(|scope| {
+            scope
+                .spawn(|| executor.block_on(store.create()))
+                .join()
+                .map_err(|_| {
+                    crate::canonical::CanonicalError::Configuration(
+                        "canonical fixture initialization executor panicked".into(),
+                    )
+                })?
+        })?;
     }
     Ok(store)
 }
@@ -374,11 +425,17 @@ pub fn canonical_fixture_peer(
     options: &crate::canonical::CanonicalOptions,
 ) -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
     let borrowed_owner = owner.independent_caller()?;
-    let lifetime = borrowed_owner.fixture_lifetime.as_ref().ok_or_else(||crate::canonical::CanonicalError::Configuration("fixture peer requires an owned logical fixture".into()))?;
-    if owner.database()!=options.database || owner.deployment_state()!=options.state_path() {
-        return Err(crate::canonical::CanonicalError::Configuration("fixture peer identity differs from original logical owner".into()));
+    let lifetime = borrowed_owner.fixture_lifetime.as_ref().ok_or_else(|| {
+        crate::canonical::CanonicalError::Configuration(
+            "fixture peer requires an owned logical fixture".into(),
+        )
+    })?;
+    if owner.database() != options.database || owner.deployment_state() != options.state_path() {
+        return Err(crate::canonical::CanonicalError::Configuration(
+            "fixture peer identity differs from original logical owner".into(),
+        ));
     }
-    let peer=lifetime.execute(crate::canonical::CanonicalStore::connect(options))?;
+    let peer = lifetime.execute(crate::canonical::CanonicalStore::connect(options))?;
     lifetime.execute(peer.open())?;
     lifetime.retain_peer(peer.clone())?;
     peer.borrow_fixture(&borrowed_owner)
@@ -606,8 +663,6 @@ mod setup_observation_unit {
             .await
             .unwrap();
     }
-
-
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]
@@ -685,5 +740,4 @@ mod canonical_server_unit {
         assert!(database_exists(&fixture, &external.database).await);
         fixture.remove_isolated_fixture().await.unwrap();
     }
-
 }

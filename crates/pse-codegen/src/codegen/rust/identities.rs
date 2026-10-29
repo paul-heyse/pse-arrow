@@ -239,7 +239,6 @@ mod tests {
         ] {
             assert!(text(&rust, &format!("{root}/mod.rs")).contains("pub mod identities;"));
         }
-
     }
 
     /// A value nested in a column carries an identity without owning it; the nested
@@ -283,7 +282,6 @@ mod tests {
             model.contains("pub r#label_id: Option<pse_ids::SemanticId>"),
             "{model}"
         );
-
     }
 
     #[test]
@@ -300,7 +298,6 @@ mod tests {
         );
         let model = text(&rust, "crates/pse-model/src/generated/authored/widgets.rs");
         assert!(model.contains("pub r#seen_at: i64"), "{model}");
-
     }
     fn physical_identity_fixture(
         source: Option<&'static str>,

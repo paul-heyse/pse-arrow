@@ -2544,10 +2544,7 @@ impl CanonicalStore {
     }
     /// Retain the logical fixture lifetime for all physical client borrowers.
     #[cfg(any(test, feature = "test-support"))]
-    pub(crate) fn own_fixture(
-        mut self,
-        executor: &'static tokio::runtime::Runtime,
-    ) -> Self {
+    pub(crate) fn own_fixture(mut self, executor: &'static tokio::runtime::Runtime) -> Self {
         // The cleanup handle has no lifetime owner, so there is no reference cycle.
         let detached = self.clone();
         self.fixture_lifetime = Some(Arc::new(crate::testing::FixtureLifetime::new(

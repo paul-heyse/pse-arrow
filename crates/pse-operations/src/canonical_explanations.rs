@@ -691,7 +691,10 @@ pub(crate) async fn qualify_operator(
     kind: &str,
     input: &serde_json::Value,
 ) {
-    use std::{os::unix::fs::PermissionsExt, sync::atomic::{AtomicUsize, Ordering}};
+    use std::{
+        os::unix::fs::PermissionsExt,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
     use tokio::io::AsyncReadExt;
 
     // This is the original optional operator fixture's capture bound, not a new
@@ -705,17 +708,24 @@ pub(crate) async fn qualify_operator(
         let mut block = [0_u8; 64 << 10];
         loop {
             let count = stream.read(&mut block).await?;
-            if count == 0 { return Ok(()); }
+            if count == 0 {
+                return Ok(());
+            }
             let used = total.fetch_add(count, Ordering::Relaxed);
             let retained = count.min(OUTPUT_BYTES.saturating_sub(used));
             output.extend_from_slice(&block[..retained]);
             if retained != count {
-                return Err(std::io::Error::other("actual operator aggregate output exceeds 1 MiB"));
+                return Err(std::io::Error::other(
+                    "actual operator aggregate output exceeds 1 MiB",
+                ));
             }
         }
     }
 
-    assert!(["graph", "query"].contains(&kind), "unknown operator fixture kind {kind}");
+    assert!(
+        ["graph", "query"].contains(&kind),
+        "unknown operator fixture kind {kind}"
+    );
     let directory = operator_evidence_directory();
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -729,32 +739,44 @@ pub(crate) async fn qualify_operator(
     std::fs::write(&request, serde_json::to_vec(input).unwrap()).unwrap();
     let executable = std::path::PathBuf::from(std::env::var_os("PSE_CANONICAL_TOOLS").unwrap());
     assert!(
-        executable.is_absolute() && executable.is_file()
+        executable.is_absolute()
+            && executable.is_file()
             && executable.metadata().unwrap().permissions().mode() & 0o111 != 0,
         "actual operator requires its explicitly selected absolute executable"
     );
     let mut command = tokio::process::Command::new(root.join("scripts/pse-env"));
-    command.current_dir(root).args(["--native=", "--"]).arg(&executable)
+    command
+        .current_dir(root)
+        .args(["--native=", "--"])
+        .arg(&executable)
         .arg(format!("canonical-{kind}-inspect"))
-        .arg("--state").arg(store.deployment_state())
+        .arg("--state")
+        .arg(store.deployment_state())
         .args(["--database", store.database(), "--experiment"]);
-    if kind == "graph" { command.arg("--request").arg(&request); }
-    else {
-        command.arg("--study").arg(input["study"].as_str().unwrap())
-            .arg("--after").arg(input["after"].as_u64().unwrap().to_string());
+    if kind == "graph" {
+        command.arg("--request").arg(&request);
+    } else {
+        command
+            .arg("--study")
+            .arg(input["study"].as_str().unwrap())
+            .arg("--after")
+            .arg(input["after"].as_u64().unwrap().to_string());
     }
     let started = tokio::time::Instant::now();
     let execution_end = started + std::time::Duration::from_secs(30);
     let settlement_end = started + std::time::Duration::from_secs(45);
-    let spawned = command.kill_on_drop(true)
+    let spawned = command
+        .kill_on_drop(true)
         .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped()).spawn();
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn();
     let mut child = match spawned {
         Ok(child) => child,
         Err(error) => {
             std::fs::write(&evidence, serde_json::to_vec(&serde_json::json!({"outcome":"operational_failure","exit_code":null,"error":error.to_string(),"stdout":"","stderr":""})).unwrap()).unwrap();
             panic!("actual operator launch failed; evidence {evidence:?}: {error}");
-        },
+        }
     };
     let stdout = child.stdout.take().unwrap();
     let stderr = child.stderr.take().unwrap();
@@ -767,7 +789,8 @@ pub(crate) async fn qualify_operator(
             read_output(stderr, &mut errors, &total),
             child.wait(),
         )
-    }).await;
+    })
+    .await;
     let status = match observed {
         Ok(Ok(((), (), status))) => Ok(status),
         Ok(Err(error)) => Err(error.to_string()),
@@ -781,18 +804,29 @@ pub(crate) async fn qualify_operator(
             // Give the existing native supervisor its original drain allowance.
             // A live unreaped Child retains the PID identity; never signal a
             // reported/reaped child or an unrelated process discovered by name.
-            if let Some(pid) = child.id().and_then(|pid| i32::try_from(pid).ok()).and_then(rustix::process::Pid::from_raw)
-                && let Err(failure) = rustix::process::kill_process(pid, rustix::process::Signal::TERM) {
+            if let Some(pid) = child
+                .id()
+                .and_then(|pid| i32::try_from(pid).ok())
+                .and_then(rustix::process::Pid::from_raw)
+                && let Err(failure) =
+                    rustix::process::kill_process(pid, rustix::process::Signal::TERM)
+            {
                 settlement.push(failure.to_string());
             }
             let waited = match tokio::time::timeout_at(settlement_end, child.wait()).await {
                 Ok(Ok(status)) => Some(status),
-                Ok(Err(failure)) => { settlement.push(failure.to_string()); None },
-                Err(_) => { settlement.push("original operator child has not settled; enclosing native owner retains physical-drain authority".into()); None },
+                Ok(Err(failure)) => {
+                    settlement.push(failure.to_string());
+                    None
+                }
+                Err(_) => {
+                    settlement.push("original operator child has not settled; enclosing native owner retains physical-drain authority".into());
+                    None
+                }
             };
             std::fs::write(&evidence, serde_json::to_vec(&serde_json::json!({"outcome":"operational_failure","error":error,"exit_code":waited.and_then(|status|status.code()),"stdout":String::from_utf8_lossy(&output),"stderr":String::from_utf8_lossy(&errors),"settlement_failures":settlement,"scientific_join":"not_established_by_killed_operator"})).unwrap()).unwrap();
             panic!("actual operator execution/capture failed; evidence {evidence:?}");
-        },
+        }
     };
     if !status.success() {
         use std::os::unix::process::ExitStatusExt;
@@ -802,8 +836,9 @@ pub(crate) async fn qualify_operator(
     // Retain actual CLI bytes before interpreting assertions; an assertion failure
     // is distinct from an operational failure and leaves its original result readable.
     std::fs::write(&evidence, &output).unwrap();
-    let result: serde_json::Value = serde_json::from_slice(&output)
-        .unwrap_or_else(|error| panic!("actual operator returned invalid JSON; evidence {evidence:?}: {error}"));
+    let result: serde_json::Value = serde_json::from_slice(&output).unwrap_or_else(|error| {
+        panic!("actual operator returned invalid JSON; evidence {evidence:?}: {error}")
+    });
     if kind == "graph" {
         let graph = &result["neighborhood"];
         assert_eq!(graph["version"], 1);
@@ -817,19 +852,39 @@ pub(crate) async fn qualify_operator(
     } else {
         assert_eq!(result["database"], store.database());
         assert_eq!(result["query"]["readiness_index"], "study_ready_candidates");
-        assert!(serde_json::to_string(&result["observations"]["readiness_static"]).unwrap().contains("study_ready_candidates"));
-        let samples: Vec<_> = result["statistics"]["metrics"].as_array().unwrap().iter()
-            .filter(|metric| metric["name"] == "canonical.query.latest_sample").collect();
+        assert!(
+            serde_json::to_string(&result["observations"]["readiness_static"])
+                .unwrap()
+                .contains("study_ready_candidates")
+        );
+        let samples: Vec<_> = result["statistics"]["metrics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|metric| metric["name"] == "canonical.query.latest_sample")
+            .collect();
         assert_eq!(samples.len(), 1);
         let latest = &samples[0]["latest"];
         assert_eq!(latest["kind"], "Text");
-        let sample: serde_json::Value = serde_json::from_str(latest["value"].as_str().unwrap()).unwrap();
+        let sample: serde_json::Value =
+            serde_json::from_str(latest["value"].as_str().unwrap()).unwrap();
         let sample = sample["s"].as_object().unwrap();
-        assert_eq!(sample.keys().map(String::as_str).collect::<std::collections::BTreeSet<_>>(), std::collections::BTreeSet::from(["q", "s", "ns", "ok"]));
+        assert_eq!(
+            sample
+                .keys()
+                .map(String::as_str)
+                .collect::<std::collections::BTreeSet<_>>(),
+            std::collections::BTreeSet::from(["q", "s", "ns", "ok"])
+        );
         assert!(sample["q"].as_u64().unwrap() > 0);
-        assert_eq!(sample["s"], 1);
+        // Pure module admission may issue additional statements; the wire
+        // contract preserves the server's exact nonnegative statement index.
+        assert!(sample["s"].as_u64().is_some());
         assert_eq!(sample["ok"], true);
-        assert!(sample["ns"].as_u64().is_some(), "server timing must be an exact nonnegative integer");
+        assert!(
+            sample["ns"].as_u64().is_some(),
+            "server timing must be an exact nonnegative integer"
+        );
     }
 }
 

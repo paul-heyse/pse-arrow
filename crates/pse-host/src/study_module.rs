@@ -111,7 +111,6 @@ impl Variant {
         }
         exports
     }
-
 }
 
 pub use pse_buildinfo::study_module::{ModuleLimits, StudyModuleRecord};
@@ -355,22 +354,29 @@ fn validate_long_hold_packaging(
     inputs: &serde_json::Map<String, Value>,
     sources: &serde_json::Map<String, Value>,
 ) -> Result<(), HostError> {
-    let packaging = inputs.get("packaging")
+    let packaging = inputs
+        .get("packaging")
         .ok_or_else(|| invalid("long-hold provenance absent"))?;
     let manifest = sources.get(&format!("{CRATE}/surrealism-qualification-long-hold.toml"));
     let native = packaging["variant"] == "qualification-long-hold-cli-v1";
     let constructor_valid = if native {
-        packaging.as_object().is_some_and(|fields| fields.len() == 4)
+        packaging
+            .as_object()
+            .is_some_and(|fields| fields.len() == 4)
             && packaging["builder_sha256"] == inputs["builder_sha256"]
             && packaging["staging"] == "copied-workspace-alternate-manifest-v1"
             && inputs["preparation"]["kind"] == "rust-cli-staged-v1"
     } else {
-        packaging.as_object().is_some_and(|fields| fields.len() == 3)
+        packaging
+            .as_object()
+            .is_some_and(|fields| fields.len() == 3)
             && packaging["variant"] == "qualification-long-hold-v1"
             && packaging["packer_sha256"].as_str().is_some_and(hexadecimal)
     };
     if !constructor_valid
-        || !packaging["manifest_sha256"].as_str().is_some_and(hexadecimal)
+        || !packaging["manifest_sha256"]
+            .as_str()
+            .is_some_and(hexadecimal)
         || Some(&packaging["manifest_sha256"]) != manifest
     {
         return Err(invalid("long-hold packaging identity differs"));
@@ -770,7 +776,9 @@ fn declared_path_sources(
         return Ok(());
     }
     exact_path(manifest)?;
-    let directory = manifest.parent().ok_or_else(|| invalid("declared manifest parent absent"))?;
+    let directory = manifest
+        .parent()
+        .ok_or_else(|| invalid("declared manifest parent absent"))?;
     if !directory.starts_with(root) {
         return Err(invalid("declared path dependency escaped workspace"));
     }
@@ -780,7 +788,8 @@ fn declared_path_sources(
     if directory != root {
         visit(directory, root, sources)?;
     }
-    let declaration: toml::Value = toml::from_str(&fs::read_to_string(manifest)?).map_err(invalid)?;
+    let declaration: toml::Value =
+        toml::from_str(&fs::read_to_string(manifest)?).map_err(invalid)?;
     let mut paths = Vec::new();
     dependency_paths(&declaration, false, &mut paths);
     for relative in paths {
@@ -790,10 +799,14 @@ fn declared_path_sources(
                 Component::Normal(name) => {
                     dependency.push(name);
                     if fs::symlink_metadata(&dependency)?.file_type().is_symlink() {
-                        return Err(invalid("declared dependency paths must not traverse symlinks"));
+                        return Err(invalid(
+                            "declared dependency paths must not traverse symlinks",
+                        ));
                     }
                 }
-                Component::ParentDir if dependency != root => { dependency.pop(); }
+                Component::ParentDir if dependency != root => {
+                    dependency.pop();
+                }
                 Component::CurDir => {}
                 _ => return Err(invalid("declared path dependency escaped workspace")),
             }
@@ -813,8 +826,15 @@ fn dependency_paths(value: &toml::Value, in_dependencies: bool, paths: &mut Vec<
                     paths.push(path.to_owned());
                 }
             } else {
-                let selected = in_dependencies || matches!(name.as_str(),
-                    "dependencies" | "dev-dependencies" | "build-dependencies" | "patch" | "replace");
+                let selected = in_dependencies
+                    || matches!(
+                        name.as_str(),
+                        "dependencies"
+                            | "dev-dependencies"
+                            | "build-dependencies"
+                            | "patch"
+                            | "replace"
+                    );
                 dependency_paths(value, selected, paths);
             }
         }
@@ -858,10 +878,14 @@ fn inputs(
     }
     if variant == Variant::LongHold {
         let alternate: toml::Value = toml::from_str(&fs::read_to_string(
-            root.join(CRATE).join("surrealism-qualification-long-hold.toml"),
-        )?).map_err(invalid)?;
+            root.join(CRATE)
+                .join("surrealism-qualification-long-hold.toml"),
+        )?)
+        .map_err(invalid)?;
         if serde_json::to_value(alternate).map_err(invalid)? != declaration(variant)?.0 {
-            return Err(invalid("alternate module declaration is stale; explicitly rebuild host tools"));
+            return Err(invalid(
+                "alternate module declaration is stale; explicitly rebuild host tools",
+            ));
         }
     }
     let cargo = resolve("cargo", env)?;
@@ -904,14 +928,24 @@ fn inputs(
         // Even inactive optional dependencies and unused patches must remain
         // discoverable in the unchanged Cargo workspace declaration.
         let mut staged_packages = BTreeSet::new();
-        declared_path_sources(root, &root.join("Cargo.toml"), &mut staged_packages, &mut sources)?;
+        declared_path_sources(
+            root,
+            &root.join("Cargo.toml"),
+            &mut staged_packages,
+            &mut sources,
+        )?;
         // Cargo metadata discovers all member manifests and declared targets even
         // when only the module is built. Preserve their real workspace structure.
-        for package in metadata["packages"].as_array()
-            .ok_or_else(|| invalid("workspace packages absent"))? {
+        for package in metadata["packages"]
+            .as_array()
+            .ok_or_else(|| invalid("workspace packages absent"))?
+        {
             if package["source"].is_null() {
-                let manifest = Path::new(package["manifest_path"].as_str()
-                    .ok_or_else(|| invalid("workspace manifest absent"))?);
+                let manifest = Path::new(
+                    package["manifest_path"]
+                        .as_str()
+                        .ok_or_else(|| invalid("workspace manifest absent"))?,
+                );
                 exact_path(manifest)?;
                 if !manifest.starts_with(root) {
                     return Err(invalid("workspace package escaped copied source root"));
@@ -979,7 +1013,13 @@ fn inputs(
             if let Some(hash) = &identity
                 && let Ok(relative) = path.strip_prefix(root)
             {
-                sources.insert(relative.to_str().ok_or_else(|| invalid("configuration path must be UTF-8"))?.into(), hash.clone());
+                sources.insert(
+                    relative
+                        .to_str()
+                        .ok_or_else(|| invalid("configuration path must be UTF-8"))?
+                        .into(),
+                    hash.clone(),
+                );
             }
             configuration.insert(path, identity);
         }
@@ -1012,7 +1052,9 @@ fn inputs(
         ),
     ]);
     if variant == Variant::LongHold {
-        captured.get_mut("preparation").ok_or_else(|| invalid("preparation absent"))?["kind"] = json!("rust-cli-staged-v1");
+        captured
+            .get_mut("preparation")
+            .ok_or_else(|| invalid("preparation absent"))?["kind"] = json!("rust-cli-staged-v1");
         captured.insert("packaging".into(), json!({
             "variant":"qualification-long-hold-cli-v1",
             "builder_sha256":captured["builder_sha256"],
@@ -1076,7 +1118,8 @@ fn validate_staged_configuration(
     configuration: &Value,
     env: &Environment,
 ) -> Result<(), HostError> {
-    let original = configuration.as_object()
+    let original = configuration
+        .as_object()
         .ok_or_else(|| invalid("captured Cargo configuration absent"))?;
     let mut seen = BTreeSet::new();
     for directory in cargo_configuration_directories(stage, env) {
@@ -1089,15 +1132,24 @@ fn validate_staged_configuration(
                 Ok(relative) => root.join(relative),
                 Err(_) => path.clone(),
             };
-            let source = source.to_str().ok_or_else(|| invalid("configuration path must be UTF-8"))?;
+            let source = source
+                .to_str()
+                .ok_or_else(|| invalid("configuration path must be UTF-8"))?;
             if original.get(source).and_then(Value::as_str) != Some(digest(&path)?.as_str()) {
-                return Err(invalid("staged Cargo configuration differs from captured inputs"));
+                return Err(invalid(
+                    "staged Cargo configuration differs from captured inputs",
+                ));
             }
             seen.insert(source.to_owned());
         }
     }
-    if original.iter().any(|(path, hash)| !hash.is_null() && !seen.contains(path)) {
-        return Err(invalid("captured Cargo configuration is unavailable in staged workspace"));
+    if original
+        .iter()
+        .any(|(path, hash)| !hash.is_null() && !seen.contains(path))
+    {
+        return Err(invalid(
+            "captured Cargo configuration is unavailable in staged workspace",
+        ));
     }
     Ok(())
 }
@@ -1109,11 +1161,16 @@ fn stage_long_hold_workspace(
     configuration: &Value,
     env: &Environment,
 ) -> Result<(), HostError> {
-    let sources = sources.as_object().ok_or_else(|| invalid("staging sources absent"))?;
+    let sources = sources
+        .as_object()
+        .ok_or_else(|| invalid("staging sources absent"))?;
     private_directory(stage)?;
     for (relative, expected) in sources {
         let relative = Path::new(relative);
-        if relative.components().any(|part| !matches!(part, Component::Normal(_))) {
+        if relative
+            .components()
+            .any(|part| !matches!(part, Component::Normal(_)))
+        {
             return Err(invalid("staging source path escapes workspace"));
         }
         let original = root.join(relative);
@@ -1122,14 +1179,20 @@ fn stage_long_hold_workspace(
             return Err(invalid("staging inputs must be regular source files"));
         }
         let destination = stage.join(relative);
-        fs::create_dir_all(destination.parent().ok_or_else(|| invalid("staging parent absent"))?)?;
+        fs::create_dir_all(
+            destination
+                .parent()
+                .ok_or_else(|| invalid("staging parent absent"))?,
+        )?;
         fs::copy(&original, &destination)?;
         if Some(digest(&destination)?.as_str()) != expected.as_str() {
             return Err(invalid("source changed while copying module workspace"));
         }
     }
     validate_staged_configuration(root, stage, configuration, env)?;
-    let alternate = stage.join(CRATE).join("surrealism-qualification-long-hold.toml");
+    let alternate = stage
+        .join(CRATE)
+        .join("surrealism-qualification-long-hold.toml");
     let production = stage.join(CRATE).join("surrealism.toml");
     // Replace the private inode rather than writing through readonly input modes.
     fs::remove_file(&production)?;
@@ -1183,7 +1246,13 @@ fn prepare_inner(
     arguments.push(artifact.clone().into_os_string());
     let workspace = pending.path().join("workspace");
     let build_root = if variant == Variant::LongHold {
-        stage_long_hold_workspace(root, &workspace, &before["sources"], &before["preparation"]["configuration"], &env)?;
+        stage_long_hold_workspace(
+            root,
+            &workspace,
+            &before["sources"],
+            &before["preparation"]["configuration"],
+            &env,
+        )?;
         &workspace
     } else {
         root
@@ -1319,7 +1388,7 @@ pub fn run_cli(arguments: &[OsString]) -> Result<i32, HostError> {
             variant,
         )?,
         "prepare" if selected_record.is_none() => {
-                    let mut root = std::env::current_dir()?;
+            let mut root = std::env::current_dir()?;
             while !root.join(".config/diagnostic-tools.toml").is_file() {
                 if !root.pop() {
                     return Err(invalid(
@@ -1594,18 +1663,25 @@ mod tests {
             let pending = tempfile::tempdir_in(scratch.path()).unwrap();
             let mut receipt = fixture_receipt(scratch.path(), pending.path(), Variant::LongHold);
             if native {
-                receipt.0.inputs.insert("preparation".into(), json!({"kind":"rust-cli-staged-v1"}));
+                receipt
+                    .0
+                    .inputs
+                    .insert("preparation".into(), json!({"kind":"rust-cli-staged-v1"}));
                 receipt.0.inputs.insert("packaging".into(), json!({
                     "variant":"qualification-long-hold-cli-v1", "builder_sha256":"1".repeat(64),
                     "manifest_sha256":"2".repeat(64), "staging":"copied-workspace-alternate-manifest-v1"
                 }));
-                receipt.0.artifact = scratch.path().join(input_identity(&receipt.inputs).unwrap()).join("study.surli");
+                receipt.0.artifact = scratch
+                    .path()
+                    .join(input_identity(&receipt.inputs).unwrap())
+                    .join("study.surli");
             }
             publish(scratch.path(), pending.path(), &receipt, Variant::LongHold).unwrap();
             select(&receipt.record(), Variant::LongHold).unwrap();
             assert!(select(&receipt.record(), Variant::Qualification).is_err());
             let mut forged = receipt.clone();
-            forged.0.inputs.get_mut("packaging").unwrap()["manifest_sha256"] = json!("f".repeat(64));
+            forged.0.inputs.get_mut("packaging").unwrap()["manifest_sha256"] =
+                json!("f".repeat(64));
             assert!(validate_receipt(&forged, Variant::LongHold).is_err());
         }
     }
@@ -1616,9 +1692,15 @@ mod tests {
         let root = scratch.path().join("source");
         fs::create_dir_all(root.join(CRATE)).unwrap();
         let original = include_str!("../../pse-study-module/surrealism.toml");
-        let alternate = include_str!("../../pse-study-module/surrealism-qualification-long-hold.toml");
+        let alternate =
+            include_str!("../../pse-study-module/surrealism-qualification-long-hold.toml");
         fs::write(root.join(CRATE).join("surrealism.toml"), original).unwrap();
-        fs::write(root.join(CRATE).join("surrealism-qualification-long-hold.toml"), alternate).unwrap();
+        fs::write(
+            root.join(CRATE)
+                .join("surrealism-qualification-long-hold.toml"),
+            alternate,
+        )
+        .unwrap();
         fs::write(root.join("Cargo.toml"), "workspace discovery marker").unwrap();
         fs::create_dir_all(root.join("crates/other/src")).unwrap();
         fs::write(root.join("crates/other/Cargo.toml"), "member target marker").unwrap();
@@ -1626,45 +1708,126 @@ mod tests {
         let mut sources = BTreeMap::new();
         visit(&root, &root, &mut sources).unwrap();
         let stage = scratch.path().join("stage");
-        stage_long_hold_workspace(&root, &stage, &json!(sources), &json!({}), &Environment::new()).unwrap();
-        assert_eq!(fs::read_to_string(root.join(CRATE).join("surrealism.toml")).unwrap(), original);
-        assert_eq!(fs::read_to_string(stage.join(CRATE).join("surrealism.toml")).unwrap(), alternate);
-        assert_eq!(fs::read_to_string(stage.join("crates/other/src/lib.rs")).unwrap(), "member source marker");
+        stage_long_hold_workspace(
+            &root,
+            &stage,
+            &json!(sources),
+            &json!({}),
+            &Environment::new(),
+        )
+        .unwrap();
+        assert_eq!(
+            fs::read_to_string(root.join(CRATE).join("surrealism.toml")).unwrap(),
+            original
+        );
+        assert_eq!(
+            fs::read_to_string(stage.join(CRATE).join("surrealism.toml")).unwrap(),
+            alternate
+        );
+        assert_eq!(
+            fs::read_to_string(stage.join("crates/other/src/lib.rs")).unwrap(),
+            "member source marker"
+        );
         fs::write(stage.join("crates/other/src/lib.rs"), "private change").unwrap();
-        assert_eq!(fs::read_to_string(root.join("crates/other/src/lib.rs")).unwrap(), "member source marker");
+        assert_eq!(
+            fs::read_to_string(root.join("crates/other/src/lib.rs")).unwrap(),
+            "member source marker"
+        );
         fs::write(root.join("crates/other/src/lib.rs"), "changed original").unwrap();
-        assert!(stage_long_hold_workspace(&root, &scratch.path().join("rejected"), &json!(sources), &json!({}), &Environment::new()).is_err());
+        assert!(
+            stage_long_hold_workspace(
+                &root,
+                &scratch.path().join("rejected"),
+                &json!(sources),
+                &json!({}),
+                &Environment::new()
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn study_module_snapshot_includes_unselected_declared_path_dependencies() {
         let scratch = tempfile::tempdir().unwrap();
         let root = scratch.path().join("source");
-        for directory in [CRATE, "vendor/optional/src", "vendor/nested/src", "vendor/patched/src"] {
+        for directory in [
+            CRATE,
+            "vendor/optional/src",
+            "vendor/nested/src",
+            "vendor/patched/src",
+        ] {
             fs::create_dir_all(root.join(directory)).unwrap();
         }
         fs::write(root.join("Cargo.toml"), "[workspace]\nmembers=[]\n[workspace.dependencies]\noptional={path='vendor/optional',optional=true}\n[patch.crates-io]\npatched={path='vendor/patched'}\n").unwrap();
         fs::write(root.join("vendor/optional/Cargo.toml"), "[package]\nname='optional'\nversion='0.1.0'\n[target.'cfg(unix)'.build-dependencies]\nnested={path='../nested'}\n").unwrap();
         for name in ["nested", "patched"] {
-            fs::write(root.join(format!("vendor/{name}/Cargo.toml")), format!("[package]\nname='{name}'\nversion='0.1.0'\n")).unwrap();
+            fs::write(
+                root.join(format!("vendor/{name}/Cargo.toml")),
+                format!("[package]\nname='{name}'\nversion='0.1.0'\n"),
+            )
+            .unwrap();
         }
         for name in ["optional", "nested", "patched"] {
-            fs::write(root.join(format!("vendor/{name}/src/lib.rs")), "// retained target source").unwrap();
+            fs::write(
+                root.join(format!("vendor/{name}/src/lib.rs")),
+                "// retained target source",
+            )
+            .unwrap();
         }
-        fs::write(root.join(CRATE).join("surrealism.toml"), include_str!("../../pse-study-module/surrealism.toml")).unwrap();
-        fs::write(root.join(CRATE).join("surrealism-qualification-long-hold.toml"), include_str!("../../pse-study-module/surrealism-qualification-long-hold.toml")).unwrap();
+        fs::write(
+            root.join(CRATE).join("surrealism.toml"),
+            include_str!("../../pse-study-module/surrealism.toml"),
+        )
+        .unwrap();
+        fs::write(
+            root.join(CRATE)
+                .join("surrealism-qualification-long-hold.toml"),
+            include_str!("../../pse-study-module/surrealism-qualification-long-hold.toml"),
+        )
+        .unwrap();
         let mut sources = BTreeMap::new();
         visit(&root.join(CRATE), &root, &mut sources).unwrap();
-        sources.insert("Cargo.toml".into(), digest(&root.join("Cargo.toml")).unwrap());
-        declared_path_sources(&root, &root.join("Cargo.toml"), &mut BTreeSet::new(), &mut sources).unwrap();
+        sources.insert(
+            "Cargo.toml".into(),
+            digest(&root.join("Cargo.toml")).unwrap(),
+        );
+        declared_path_sources(
+            &root,
+            &root.join("Cargo.toml"),
+            &mut BTreeSet::new(),
+            &mut sources,
+        )
+        .unwrap();
         let stage = scratch.path().join("stage");
-        stage_long_hold_workspace(&root, &stage, &json!(sources), &json!({}), &Environment::new()).unwrap();
+        stage_long_hold_workspace(
+            &root,
+            &stage,
+            &json!(sources),
+            &json!({}),
+            &Environment::new(),
+        )
+        .unwrap();
         for name in ["optional", "nested", "patched"] {
-            assert_eq!(fs::read(stage.join(format!("vendor/{name}/Cargo.toml"))).unwrap(), fs::read(root.join(format!("vendor/{name}/Cargo.toml"))).unwrap());
+            assert_eq!(
+                fs::read(stage.join(format!("vendor/{name}/Cargo.toml"))).unwrap(),
+                fs::read(root.join(format!("vendor/{name}/Cargo.toml"))).unwrap()
+            );
             assert!(stage.join(format!("vendor/{name}/src/lib.rs")).is_file());
         }
-        fs::write(root.join("vendor/optional/Cargo.toml"), "[dependencies]\nescape={path='../../../outside'}\n").unwrap();
-        assert!(declared_path_sources(&root, &root.join("Cargo.toml"), &mut BTreeSet::new(), &mut BTreeMap::new()).is_err());
+        fs::write(
+            root.join("vendor/optional/Cargo.toml"),
+            "[dependencies]\nescape={path='../../../outside'}\n",
+        )
+        .unwrap();
+        assert!(
+            declared_path_sources(
+                &root,
+                &root.join("Cargo.toml"),
+                &mut BTreeSet::new(),
+                &mut BTreeMap::new()
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -1678,17 +1841,28 @@ mod tests {
         let contents = "[build]\njobs=32\n";
         fs::write(root.join(relative), contents).unwrap();
         fs::write(stage.join(relative), contents).unwrap();
-        let original = json!({(root.join(relative).to_str().unwrap()):digest(&root.join(relative)).unwrap()});
+        let original =
+            json!({(root.join(relative).to_str().unwrap()):digest(&root.join(relative)).unwrap()});
         validate_staged_configuration(&root, &stage, &original, &Environment::new()).unwrap();
         fs::write(stage.join(relative), "[build]\njobs=1\n").unwrap();
-        assert!(validate_staged_configuration(&root, &stage, &original, &Environment::new()).is_err());
+        assert!(
+            validate_staged_configuration(&root, &stage, &original, &Environment::new()).is_err()
+        );
         fs::write(stage.join(relative), contents).unwrap();
         fs::create_dir_all(scratch.path().join("cache/.cargo")).unwrap();
-        fs::write(scratch.path().join("cache/.cargo/config.toml"), "[build]\njobs=2\n").unwrap();
-        assert!(validate_staged_configuration(&root, &stage, &original, &Environment::new()).is_err());
+        fs::write(
+            scratch.path().join("cache/.cargo/config.toml"),
+            "[build]\njobs=2\n",
+        )
+        .unwrap();
+        assert!(
+            validate_staged_configuration(&root, &stage, &original, &Environment::new()).is_err()
+        );
         fs::remove_file(scratch.path().join("cache/.cargo/config.toml")).unwrap();
         fs::remove_file(stage.join(relative)).unwrap();
-        assert!(validate_staged_configuration(&root, &stage, &original, &Environment::new()).is_err());
+        assert!(
+            validate_staged_configuration(&root, &stage, &original, &Environment::new()).is_err()
+        );
     }
 
     #[test]

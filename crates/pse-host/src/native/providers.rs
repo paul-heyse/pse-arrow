@@ -1564,10 +1564,16 @@ mod tests {
         );
         let mut original = env.clone();
         original.insert("IPOPT_DIR".into(), source.into_os_string());
-        assert_eq!(select_capabilities(directory.path(), &original, "solver").unwrap(), selected);
+        assert_eq!(
+            select_capabilities(directory.path(), &original, "solver").unwrap(),
+            selected
+        );
         for key in ["IPOPT_DIR", "SCIPOPTDIR"] {
             let mut conflict = env.clone();
-            conflict.insert(key.into(), directory.path().join("different").into_os_string());
+            conflict.insert(
+                key.into(),
+                directory.path().join("different").into_os_string(),
+            );
             assert!(select_capabilities(directory.path(), &conflict, "solver").is_err());
         }
     }
@@ -1626,12 +1632,21 @@ mod tests {
             "{flags}"
         );
         assert!(!flags.contains(source.to_str().unwrap()), "{flags}");
-        assert_eq!(apply_provider(directory.path(), &selected, "isolation").unwrap(), selected);
+        assert_eq!(
+            apply_provider(directory.path(), &selected, "isolation").unwrap(),
+            selected
+        );
         let mut original = env.clone();
         original.insert("PSE_ROOT_ISOLATION_DIR".into(), source.into_os_string());
-        assert_eq!(apply_provider(directory.path(), &original, "isolation").unwrap(), selected);
+        assert_eq!(
+            apply_provider(directory.path(), &original, "isolation").unwrap(),
+            selected
+        );
         let mut conflict = env.clone();
-        conflict.insert("PSE_ROOT_ISOLATION_DIR".into(), directory.path().join("different").into_os_string());
+        conflict.insert(
+            "PSE_ROOT_ISOLATION_DIR".into(),
+            directory.path().join("different").into_os_string(),
+        );
         assert!(apply_provider(directory.path(), &conflict, "isolation").is_err());
         let mut changed = env.clone();
         changed.insert("CFLAGS".into(), "-changed".into());
@@ -1768,25 +1783,39 @@ fi
                 fs::create_dir_all(path.parent().unwrap()).unwrap();
                 fs::write(path, b"qualified interface").unwrap();
             }
-            let qualification = serde_json::json!({"identity":{"pin":pin(directory.path(), kind).unwrap()}});
+            let qualification =
+                serde_json::json!({"identity":{"pin":pin(directory.path(), kind).unwrap()}});
             fs::write(source.join(".complete.json"), json(&qualification).unwrap()).unwrap();
             let key = provider_variables(kind)[0];
             env.insert(key.into(), source.clone().into_os_string());
             let prefix = prepare_external(directory.path(), &env, kind).unwrap();
             // A mismatched pinned source cannot replace this completed snapshot.
-            fs::write(source.join(".complete.json"), br#"{"identity":{"pin":null}}"#).unwrap();
+            fs::write(
+                source.join(".complete.json"),
+                br#"{"identity":{"pin":null}}"#,
+            )
+            .unwrap();
             assert!(prepare_external(directory.path(), &env, kind).is_err());
             assert_eq!(selected(&env, kind).unwrap().0, prefix);
             fs::remove_dir_all(&source).unwrap();
             env.remove(OsStr::new(key));
             let selected = apply_provider(directory.path(), &env, kind).unwrap();
             assert_eq!(selected[OsStr::new(key)], prefix.as_os_str());
-            assert_eq!(apply_provider(directory.path(), &selected, kind).unwrap(), selected);
+            assert_eq!(
+                apply_provider(directory.path(), &selected, kind).unwrap(),
+                selected
+            );
             let mut original = env.clone();
             original.insert(key.into(), source.into_os_string());
-            assert_eq!(apply_provider(directory.path(), &original, kind).unwrap(), selected);
+            assert_eq!(
+                apply_provider(directory.path(), &original, kind).unwrap(),
+                selected
+            );
             let mut conflict = env.clone();
-            conflict.insert(key.into(), directory.path().join("different").into_os_string());
+            conflict.insert(
+                key.into(),
+                directory.path().join("different").into_os_string(),
+            );
             assert!(apply_provider(directory.path(), &conflict, kind).is_err());
             let mut changed = env.clone();
             changed.insert("CFLAGS".into(), "-changed".into());
@@ -1849,7 +1878,10 @@ fi
         missing_dependency.remove(OsStr::new("IPOPT_DIR"));
         assert!(apply_provider(directory.path(), &missing_dependency, "uno").is_err());
         let mut changed_dependency = selected;
-        changed_dependency.insert("IPOPT_DIR".into(), directory.path().join("different-solver").into_os_string());
+        changed_dependency.insert(
+            "IPOPT_DIR".into(),
+            directory.path().join("different-solver").into_os_string(),
+        );
         assert!(apply_provider(directory.path(), &changed_dependency, "uno").is_err());
     }
     #[test]
@@ -1907,7 +1939,10 @@ esac
         missing_dependency.remove(OsStr::new("IPOPT_DIR"));
         assert!(apply_provider(directory.path(), &missing_dependency, "petsc").is_err());
         let mut changed_dependency = selected;
-        changed_dependency.insert("IPOPT_DIR".into(), directory.path().join("different-solver").into_os_string());
+        changed_dependency.insert(
+            "IPOPT_DIR".into(),
+            directory.path().join("different-solver").into_os_string(),
+        );
         assert!(apply_provider(directory.path(), &changed_dependency, "petsc").is_err());
     }
 }

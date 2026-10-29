@@ -6,17 +6,17 @@ pub mod affected;
 pub mod audit;
 pub mod catalog;
 pub mod configuration;
-pub mod repository_tools;
 #[cfg(feature = "package-fixtures")]
 pub mod conformance;
-#[cfg(feature = "package-fixtures")]
-pub mod thermodynamic_campaign;
 #[cfg(feature = "evidence-tools")]
 pub mod evidence;
 #[cfg(feature = "evidence-tools")]
 pub mod evidence_query;
 #[cfg(feature = "evidence-tools")]
 pub mod knowledge;
+pub mod repository_tools;
+#[cfg(feature = "package-fixtures")]
+pub mod thermodynamic_campaign;
 #[cfg(feature = "evidence-tools")]
 pub mod workspace_sources;
 

@@ -203,7 +203,6 @@ fn entirely_payload_free_alternatives_do_not_generate_a_borrow_lifetime() {
     assert!(rust.contains("pub enum AuthoredNativeFieldsFieldValueSelected {"));
     assert!(!rust.contains("AuthoredNativeFieldsFieldValueSelected<'a>"));
     syn::parse_file(rust).unwrap();
-
 }
 
 #[test]
@@ -579,7 +578,12 @@ fn native_binary_and_dictionary_do_not_acquire_undeclared_domain_meaning() {
             &arrow::bind_type(&reg, &data_type, "value").unwrap()
         );
         assert!(!field.metadata().contains_key(arrow::KEY_EXTENSION_NAME));
-        assert!(generate(&reg, Language::Rust).unwrap_err().to_string().contains("explicit declaration"));
+        assert!(
+            generate(&reg, Language::Rust)
+                .unwrap_err()
+                .to_string()
+                .contains("explicit declaration")
+        );
         // The authoring schema is the documents target's (B5.2), not Markdown's.
         assert!(
             pse_codegen::codegen::jsonschema::generate(&reg)

@@ -20,7 +20,6 @@ doctest = false
 workspace = true
 
 [dependencies]
-petgraph.workspace = true
 pse-columnar.workspace = true
 pse-schema.workspace = true
 pse-ids.workspace = true

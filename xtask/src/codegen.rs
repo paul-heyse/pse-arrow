@@ -319,7 +319,10 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
         source_identity: None,
         generator_path: "crates/pse-codegen/src/codegen/documents.rs".into(),
         generator_symbol: "generate_private".into(),
-        output_path: format!("{}/telemetry-settings.schema.json", documents::PRIVATE_SCHEMA_ROOT),
+        output_path: format!(
+            "{}/telemetry-settings.schema.json",
+            documents::PRIVATE_SCHEMA_ROOT
+        ),
         direction: Some("input".into()),
         contract_sections: Vec::new(),
         basis: "declared".into(),
@@ -386,10 +389,9 @@ fn validate_tree(tree: &GeneratedTree) -> Result<()> {
     }
     for path in tree.files.keys() {
         if !normal_relative(path)
-            || !tree
-                .roots
-                .iter()
-                .any(|root| path == root || (!tree.files.contains_key(root) && path.starts_with(root)))
+            || !tree.roots.iter().any(|root| {
+                path == root || (!tree.files.contains_key(root) && path.starts_with(root))
+            })
         {
             bail!(
                 "generated file lies outside the declared roots: {}",
@@ -561,61 +563,108 @@ mod tests {
     #[cfg(feature = "product-schemas")]
     #[test]
     fn runtime_catalogue_sidecar_retains_every_private_source_relationship() {
-        let registry=pse_schema::catalog::assemble().unwrap();
-        let expected=documents::generate_private_catalogue(&private_documents::documents()).unwrap();
+        let registry = pse_schema::catalog::assemble().unwrap();
+        let expected =
+            documents::generate_private_catalogue(&private_documents::documents()).unwrap();
         assert!(!expected.relationships.is_empty());
-        let tree=document_schemas(&registry).unwrap();
-        let sidecar=provenance::sidecar("runtime-catalogue",&tree.relationships).unwrap();
-        let path=PathBuf::from(provenance::ROOT).join("runtime-catalogue/relationships.json");
-        let sidecar:serde_json::Value=serde_json::from_slice(&sidecar.files[&path]).unwrap();
-        let rows=sidecar["relationships"].as_array().unwrap();
+        let tree = document_schemas(&registry).unwrap();
+        let sidecar = provenance::sidecar("runtime-catalogue", &tree.relationships).unwrap();
+        let path = PathBuf::from(provenance::ROOT).join("runtime-catalogue/relationships.json");
+        let sidecar: serde_json::Value = serde_json::from_slice(&sidecar.files[&path]).unwrap();
+        let rows = sidecar["relationships"].as_array().unwrap();
         for relationship in expected.relationships {
-            assert!(tree.files.contains_key(Path::new(&relationship.output_path)));
-            let expected=serde_json::to_value(&relationship).unwrap();
-            assert!(rows.contains(&expected),"private catalogue contributor missing: {expected}");
+            assert!(
+                tree.files
+                    .contains_key(Path::new(&relationship.output_path))
+            );
+            let expected = serde_json::to_value(&relationship).unwrap();
+            assert!(
+                rows.contains(&expected),
+                "private catalogue contributor missing: {expected}"
+            );
         }
     }
 
     #[cfg(feature = "product-schemas")]
     #[test]
     fn partial_schema_publication_preserves_foreign_outputs() {
-        let checkout=tempfile::tempdir().unwrap();
-        let scratch=tempfile::tempdir().unwrap();
-        let registry=pse_schema::catalog::assemble().unwrap();
-        let tree=document_schemas(&registry).unwrap();
-        assert!(!tree.roots.contains(&PathBuf::from(documents::PRIVATE_SCHEMA_ROOT)));
-        for path in ["scripts/generated/foreign.json", "scripts/generated/foreign_schema/record.json"] {
-            let path=checkout.path().join(path);
+        let checkout = tempfile::tempdir().unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        let registry = pse_schema::catalog::assemble().unwrap();
+        let tree = document_schemas(&registry).unwrap();
+        assert!(
+            !tree
+                .roots
+                .contains(&PathBuf::from(documents::PRIVATE_SCHEMA_ROOT))
+        );
+        for path in [
+            "scripts/generated/foreign.json",
+            "scripts/generated/foreign_schema/record.json",
+        ] {
+            let path = checkout.path().join(path);
             fs::create_dir_all(path.parent().unwrap()).unwrap();
-            fs::write(path,b"original foreign bytes").unwrap();
+            fs::write(path, b"original foreign bytes").unwrap();
         }
-        write_tree(checkout.path(),&tree).unwrap();
-        write_tree(scratch.path(),&tree).unwrap();
-        let metric=checkout.path().join("scripts/generated/native_metric_declarations.json");
-        fs::write(&metric,b"stale owned metadata").unwrap();
-        let error=compare_tree(checkout.path(),scratch.path(),&tree).unwrap_err().to_string();
-        assert!(error.contains("native_metric_declarations.json: bytes differ"),"{error}");
-        assert_eq!(fs::read(&metric).unwrap(),b"stale owned metadata");
-        write_tree(checkout.path(),&tree).unwrap();
-        compare_tree(checkout.path(),scratch.path(),&tree).unwrap();
-        for path in ["scripts/generated/foreign.json", "scripts/generated/foreign_schema/record.json"] {
-            assert_eq!(fs::read(checkout.path().join(path)).unwrap(),b"original foreign bytes");
+        write_tree(checkout.path(), &tree).unwrap();
+        write_tree(scratch.path(), &tree).unwrap();
+        let metric = checkout
+            .path()
+            .join("scripts/generated/native_metric_declarations.json");
+        fs::write(&metric, b"stale owned metadata").unwrap();
+        let error = compare_tree(checkout.path(), scratch.path(), &tree)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("native_metric_declarations.json: bytes differ"),
+            "{error}"
+        );
+        assert_eq!(fs::read(&metric).unwrap(), b"stale owned metadata");
+        write_tree(checkout.path(), &tree).unwrap();
+        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
+        for path in [
+            "scripts/generated/foreign.json",
+            "scripts/generated/foreign_schema/record.json",
+        ] {
+            assert_eq!(
+                fs::read(checkout.path().join(path)).unwrap(),
+                b"original foreign bytes"
+            );
         }
-        assert_eq!(fs::read(metric).unwrap(),tree.files[Path::new("scripts/generated/native_metric_declarations.json")]);
-        assert!(checkout.path().join("scripts/generated/deployment_schema/deployment-request.schema.json").is_file());
-        assert!(checkout.path().join("scripts/generated/evidence_schema/catalogue.json").is_file());
+        assert_eq!(
+            fs::read(metric).unwrap(),
+            tree.files[Path::new("scripts/generated/native_metric_declarations.json")]
+        );
+        assert!(
+            checkout
+                .path()
+                .join("scripts/generated/deployment_schema/deployment-request.schema.json")
+                .is_file()
+        );
+        assert!(
+            checkout
+                .path()
+                .join("scripts/generated/evidence_schema/catalogue.json")
+                .is_file()
+        );
     }
 
     #[test]
     fn exact_file_roots_publish_only_their_declared_file() {
-        let checkout=tempfile::tempdir().unwrap();
-        let path=PathBuf::from("generated/one.json");
-        let mut tree=GeneratedTree::empty(vec![path.clone()]);
-        tree.files.insert(path.clone(),b"exact native bytes".to_vec());
-        write_tree(checkout.path(),&tree).unwrap();
-        assert_eq!(inventory(checkout.path(),&tree).unwrap(),BTreeSet::from([path.clone()]));
-        tree.files.insert(path.join("escaped.json"),Vec::new());
-        assert!(validate_tree(&tree).is_err(),"an exact file owner does not own a nested directory");
+        let checkout = tempfile::tempdir().unwrap();
+        let path = PathBuf::from("generated/one.json");
+        let mut tree = GeneratedTree::empty(vec![path.clone()]);
+        tree.files
+            .insert(path.clone(), b"exact native bytes".to_vec());
+        write_tree(checkout.path(), &tree).unwrap();
+        assert_eq!(
+            inventory(checkout.path(), &tree).unwrap(),
+            BTreeSet::from([path.clone()])
+        );
+        tree.files.insert(path.join("escaped.json"), Vec::new());
+        assert!(
+            validate_tree(&tree).is_err(),
+            "an exact file owner does not own a nested directory"
+        );
     }
 
     #[test]
@@ -758,17 +807,28 @@ mod tests {
     /// Markdown publication preserves the independently owned native schema tree.
     #[test]
     fn nested_document_roots_belong_to_their_own_target() {
-        let checkout=tempfile::tempdir().unwrap();
-        let nested="docs/generated/schema/solve-settings.input.schema.json";
-        let path=checkout.path().join(nested);
+        let checkout = tempfile::tempdir().unwrap();
+        let nested = "docs/generated/schema/solve-settings.input.schema.json";
+        let path = checkout.path().join(nested);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(&path,b"owned elsewhere").unwrap();
-        let mut docs=GeneratedTree::empty(Language::Markdown.roots());
-        docs.files.insert(PathBuf::from("docs/generated/enums.md"),b"# e\n".to_vec());
-        write_tree(checkout.path(),&docs).unwrap();
+        fs::write(&path, b"owned elsewhere").unwrap();
+        let mut docs = GeneratedTree::empty(Language::Markdown.roots());
+        docs.files
+            .insert(PathBuf::from("docs/generated/enums.md"), b"# e\n".to_vec());
+        write_tree(checkout.path(), &docs).unwrap();
         assert!(path.exists());
-        assert!(inventory(checkout.path(),&docs).unwrap().iter().all(|path|docs.files.contains_key(path)));
-        assert_eq!(inventory(checkout.path(),&GeneratedTree::empty(documents::roots())).unwrap().len(),1);
+        assert!(
+            inventory(checkout.path(), &docs)
+                .unwrap()
+                .iter()
+                .all(|path| docs.files.contains_key(path))
+        );
+        assert_eq!(
+            inventory(checkout.path(), &GeneratedTree::empty(documents::roots()))
+                .unwrap()
+                .len(),
+            1
+        );
     }
 
     #[test]
